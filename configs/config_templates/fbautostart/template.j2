@@ -1,0 +1,35 @@
+{# ============================================================================= #}
+{# fbautostart Configuration Template                                              #}
+{# Self-documented: every directive includes its source description.               #}
+{# This file controls how fbautostart (Fluxbox autostart helper) discovers and      #}
+{# launches desktop entries according to XDG Base Directory Specification.          #}
+{# ============================================================================= #}
+
+{# XDG_CONFIG_HOME: User-specific XDG config directory for autostart entries.     #}
+{# Defines where per-user autostart .desktop files are stored.                      #}
+{# Default: ~/.config                                                           #}
+XDG_CONFIG_HOME={{ xdg_config_home | default('~/.config') }}
+
+{# XDG_CONFIG_DIRS: System-wide XDG config directories (colon-separated).         #}
+{# Lists directories searched for system-wide autostart .desktop files.             #}
+{# Rendered as a colon-separated string (e.g., /etc/xdg:/usr/share/flatpak/xdg).   #}
+{# Default: /etc/xdg                                                            #}
+XDG_CONFIG_DIRS={{ xdg_config_dirs | default(['/etc/xdg']) | join(':') }}
+
+{# FBXDG_DE: Development environment identifier (case-sensitive).                 #}
+{# Must match the desktop environment name in .desktop files (e.g., FLUXBOX).       #}
+{# Used to filter which autostart applications are relevant for this session.       #}
+{# Default: FLUXBOX                                                             #}
+FBXDG_DE={{ fbxdg_de | default('FLUXBOX') }}
+
+{# FBXDG_EXEC: Execute applications (true/false).                                 #}
+{# When true, fbautostart launches the applications defined in .desktop files.     #}
+{# When false, it only logs intentions (dry-run/debug mode).                      #}
+{# Default: true                                                                #}
+FBXDG_EXEC={{ fbxdg_exec | default(true) | lower }}
+
+{# HOME: User home directory; used for ~ expansion.                               #}
+{# Derives from username if not explicitly set. Used to resolve relative paths      #}
+{# in autostart entry definitions.                                                  #}
+{# Default: /home/user                                                          #}
+HOME={{ home | default('/home/' ~ (username | default('user'))) }}

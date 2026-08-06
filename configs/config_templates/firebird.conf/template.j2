@@ -1,265 +1,225 @@
-# Path to the Firebird root directory
-# (where binaries, libraries, and default databases reside)
-RootDirectory = {{ firebird_root_dir }}
+# ==============================================================================
+# Firebird Database Server Configuration
+# ==============================================================================
+# This template configures the Firebird server (fbserver/firebird).
+# It is self-documenting: every directive is preceded by its schema description.
+# ==============================================================================
 
-# TCP/IP port for remote connections (default: 3050)
-# Set to 0 to disable TCP/IP listening
-TcpIpPort = {{ tcpip_port }}
-
-# Maximum number of concurrent connections (0 = unlimited by this setting; limited by OS/license)
-# Increasing beyond license limit is not permitted
-MaxConnections = {{ max_connections }}
-
-# Size of the page cache (in 8 KB pages); larger values improve performance but use more RAM
-# Typical range: 1024 (8 MB) to 65536 (512 MB)
-# Default: 2048 (16 MB) on Linux
-CachedPages = {{ cached_pages }}
+# Root directory where Firebird binaries, libraries, and default data are installed.
+RootDirectory = {{ firebird_root_dir | default('/usr/firebird') }}
 
-# Path to the security database (gsec) — do not change unless migrating
-# Usually located in the Firebird root
-SecurityDatabase = {{ security_database }}
+# TCP port for remote connections. Set to 0 to disable TCP/IP.
+TcpIpPort = {{ tcpip_port | default(3050) }}
 
-# Enable or disable remote connections (true = allow remote TCP/IP; false = local only)
-# Note: RemoteAccess must be true for external clients to connect
-RemoteAccess = {{ remote_access }}
+# Maximum concurrent connections allowed. Must not exceed your license limit.
+MaxConnections = {{ max_connections | default(200) }}
 
-# Default database directory for CREATE DATABASE without explicit path
-# Must be an absolute path; default is often /var/lib/firebird/data
-# Users may override per-DB in CREATE statements
-DefaultDatabasePath = {{ default_database_path }}
-
-# Timeout (in seconds) for idle connections before they are dropped by the server
-# Set to 0 for no timeout (not recommended for production)
-ConnectionTimeout = {{ connection_timeout }}
-
-# Number of worker threads for asynchronous I/O operations (e.g., shadow creation)
-# Increase for high I/O workloads; default often 2
-ThreadPoolSize = {{ thread_pool_size }}
-
-# Path to the lock manager lock file directory (for internal locking)
-# Typically left as-is unless using clustered storage or special layout
-LockFilePrefix = {{ lock_file_prefix }}
-
-# Path to the log file directory
-# Leave blank to disable logging
-LogPath = {{ log_path }}
+# Page cache size (in 8 KB pages). Increase for better performance on large databases.
+CachedPages = {{ cached_pages | default(2048) }}
 
-# Maximum size (in MB) of each log file before rotation; 0 = no limit
-# Actual logs use timestamps in filenames
-LogMaxSize = {{ log_max_size }}
+# Path to the Firebird security database (gsec user database).
+SecurityDatabase = {{ security_database | default('/etc/firebird/3.0/security2.fdb') }}
 
-# Enable detailed query logging (debug-level tracing; not for production unless needed)
-# Set to 'none' (default), 'time', 'plan', 'stats', or 'all'
-QueryLogging = {{ query_logging }}
+# Allow remote clients to connect over TCP/IP. Set false for local-only use.
+RemoteAccess = {{ remote_access | default(True) }}
 
-# Default user authentication method(s): Legacy_Auth, Srp, or both
-# Legacy_Auth required for older clients (pre-4.0); SRP is modern and secure
-# Order matters: client/server negotiate first mutually supported method
-AuthServer = {{ auth_server | join(', ') }}
+# Default directory used when CREATE DATABASE is given a relative path.
+DefaultDatabasePath = {{ default_database_path | default('/var/lib/firebird/data') }}
 
-# Client authentication plugins to offer; similar semantics to AuthServer
-AuthClient = {{ auth_client | join(', ') }}
+# Idle connection timeout in seconds. Set to 0 for no timeout (not recommended).
+ConnectionTimeout = {{ connection_timeout | default(300) }}
 
-# Enable or disable automatic user creation (via GBAK or CREATE USER)
-AllowUserCreation = {{ allow_user_creation }}
+# Number of worker threads for background tasks like shadow creation.
+ThreadPoolSize = {{ thread_pool_size | default(2) }}
 
-# Enable or disable shadow creation (critical for backups); disable only for security or space constraints
-AllowShadowCreation = {{ allow_shadow_creation }}
+# Path prefix for lock files used by the lock manager.
+LockFilePrefix = {{ lock_file_prefix | default('/tmp/firebird.lock') }}
 
-# Enable or disable database encryption (requires Enterprise or Plus edition)
-# Set to 'none' (default), 'aes128', or 'aes256'
-DatabaseEncryption = {{ database_encryption }}
+# Directory for server log files. Leave blank to disable logging.
+LogPath = {{ log_path | default('/var/log/firebird') }}
 
-# Maximum number of concurrent garbage collection threads per database
-# Higher values help with large transaction logs and long-running transactions
-GcMaxThreads = {{ gc_max_threads }}
+# Maximum log file size in MB before rotation. 0 = no rotation.
+LogMaxSize = {{ log_max_size | default(100) }}
 
-# Path to the temporary files directory
-# Should be on fast storage (e.g., SSD) and have plenty of space
-TempDirectory = {{ temp_directory }}
+# Level of query logging: 'none', 'time', 'plan', 'stats', or 'all'.
+QueryLogging = {{ query_logging | default('none') }}
 
-# Enable or disable SQL Dialect 1 legacy mode (Firebird 1.x compatibility)
-# Dialect 3 is default and recommended for new systems
-# Set to 1 (legacy), 2 (intermediate), or 3 (modern; default)
-SQLDialect = {{ sql_dialect }}
+# Authentication methods the server offers to clients, ordered by preference.
+AuthServer = {{ auth_server | default(['Srp', 'Legacy_Auth']) | join(', ') }}
 
-# Enable or disable automatic database cleanup (removing unused segments, etc.)
-AutoCleanup = {{ auto_cleanup }}
+# Authentication methods the server will accept from clients.
+AuthClient = {{ auth_client | default(['Srp', 'Legacy_Auth']) | join(', ') }}
 
-# Timeout (in seconds) for lock acquisition before raising an error
-# Very low values may cause false conflicts; high values may increase lock contention
-LockTimeout = {{ lock_timeout }}
+# Allow database users to be created via SQL (e.g., CREATE USER).
+AllowUserCreation = {{ allow_user_creation | default(False) }}
 
-# Enable or disable shared memory communication (recommended unless over NFS)
-UseSharedMemory = {{ use_shared_memory }}
+# Enable automatic creation of shadow files for database durability.
+AllowShadowCreation = {{ allow_shadow_creation | default(True) }}
 
-# Maximum number of database pages to read ahead in a single I/O
-# Larger values help sequential scans; typical: 16–64
-ReadAheadPages = {{ read_ahead_pages }}
+# Database encryption algorithm: 'none' (disabled), 'aes128', or 'aes256'.
+DatabaseEncryption = {{ database_encryption | default('none') }}
 
-# Enable or disable DNS reverse lookup for remote host names in logs
-# Disable if DNS is slow or unreliable
-ReverseDnsLookup = {{ reverse_dns_lookup }}
+# Maximum garbage collection threads per database (for high-concurrency workloads).
+GcMaxThreads = {{ gc_max_threads | default(1) }}
 
-# Comma-separated list of addresses the server binds to (empty = all interfaces)
-# For IPv6, wrap addresses in brackets: [::1], [fe80::1]
-# Example: 127.0.0.1, ::1, 192.168.1.10
-ListenAddresses = {{ listen_addresses | join(', ') }}
+# Directory for temporary files (e.g., sort spills, blob staging).
+TempDirectory = {{ temp_directory | default('/tmp/firebird') }}
 
-# Default transaction isolation mode: SNAPSHOT (recommended), SNAPSHOT WITH NO WAIT, or READ COMMITTED
-# Affects locking and consistency semantics
-DefaultIsolation = {{ default_isolation }}
+# SQL dialect: 1 (Firebird 1.x), 2 (intermediate), or 3 (modern; recommended).
+SQLDialect = {{ sql_dialect | default(3) }}
 
-# Default transaction access mode: READ WRITE (default) or READ ONLY
-# Overridable per-transaction in SQL
-DefaultTransactionAccessMode = {{ default_transaction_access_mode }}
+# Enable automatic cleanup of unused database segments.
+AutoCleanup = {{ auto_cleanup | default(True) }}
 
-# Maximum number of concurrent transactions per database (per-database limit)
-# Should be ≥ MaxConnections but ≤ OS limits (e.g., 256 or 1024)
-MaxTransactionCount = {{ max_transaction_count }}
+# Seconds to wait for a lock before raising an error.
+LockTimeout = {{ lock_timeout | default(30) }}
 
-# Path to the alias configuration file
-# Usually /etc/firebird/aliases.conf; do not change unless required
-AliasesFile = {{ aliases_file }}
+# Enable shared memory for local connections (faster; disable for NFS-only setups).
+UseSharedMemory = {{ use_shared_memory | default(True) }}
 
-# Enable or disable use of firebird.conf overrides via environment variable FIREBIRD_CONF
-# Useful for testing or multi-instance setups
-AllowConfigOverrides = {{ allow_config_overrides }}
+# Number of pages to read ahead per I/O for sequential scans.
+ReadAheadPages = {{ read_ahead_pages | default(32) }}
 
-# Enable or disable database-level trace (requires Firebird 4.0+)
-# Sets up tracing on a per-DB basis when enabled globally
-DatabaseTrace = {{ database_trace }}
+# Enable DNS reverse lookups to log hostnames instead of IPs in connection logs.
+ReverseDnsLookup = {{ reverse_dns_lookup | default(False) }}
 
-# Number of worker threads for I/O completions (IOCP-style); Linux uses POSIX AIO, so often 1
-IOWorkerThreads = {{ io_worker_threads }}
+# IP addresses to bind to (empty = all). Use IPv6 in brackets if needed.
+# Firebird expects a comma-separated string here.
+ListenAddresses = {{ (listen_addresses | default([])) | join(', ') }}
 
-# Timeout (in seconds) before idle background workers terminate
-# Reduce to save resources; increase for long idle gaps (e.g., nightly jobs)
-WorkerTimeout = {{ worker_timeout }}
+# Default transaction isolation: 'SNAPSHOT' (recommended), 'SNAPSHOT NO WAIT', or 'READ COMMITTED'.
+DefaultIsolation = {{ default_isolation | default('SNAPSHOT') }}
 
-# Enable or disable remote service queries via gstat/gfix/gpiv
-RemoteGstatEnabled = {{ remote_gstat_enabled }}
+# Default transaction access: 'READ WRITE' or 'READ ONLY'.
+DefaultTransactionAccessMode = {{ default_transaction_access_mode | default('READ WRITE') }}
 
-# Enable or disable remote service queries via isql or other tools
-RemoteSqlEnabled = {{ remote_sql_enabled }}
+# Maximum concurrent transactions per database.
+MaxTransactionCount = {{ max_transaction_count | default(256) }}
 
-# Path to the external functions library directory (e.g., UDFs)
-ExternalFunctionPath = {{ external_function_path }}
+# Path to the aliases configuration file.
+AliasesFile = {{ aliases_file | default('/etc/firebird/aliases.conf') }}
 
-# Path to the external table directory
-# Used for reading external data via EXTERNAL TABLE
-ExternalTablePath = {{ external_table_path }}
+# Allow environment variable FIREBIRD_CONF to override firebird.conf path.
+AllowConfigOverrides = {{ allow_config_overrides | default(True) }}
 
-# Maximum length (in bytes) for message buffer (used in messaging/notifications)
-MessageLength = {{ message_length }}
+# Enable database-level tracing (requires Firebird 4.0+ and plugin).
+DatabaseTrace = {{ database_trace | default(False) }}
 
-# Enable or disable full-text search (requires plugin: ib_util.dll / libib_util.so)
-# Only enabled if plugin is compiled and available
-FullTextSearchEnabled = {{ full_text_search_enabled }}
+# Number of I/O worker threads (Linux uses POSIX AIO; usually 1 is sufficient).
+IOWorkerThreads = {{ io_worker_threads | default(1) }}
 
-# List of enabled plugins (e.g., Srp, Legacy_Auth, EditDistance)
-# Format: PluginName=LibraryName (e.g., Srp=fb_srp)
-# Multiple lines allowed
-{% for plugin in plugins %}# {{ plugin.description }}
-{% if plugin.enabled %}{{ plugin.name }} = {{ plugin.library }}{% endif %}
-{% endfor %}
+# Idle worker thread timeout in seconds.
+WorkerTimeout = {{ worker_timeout | default(300) }}
 
-# Default password for SYSDBA user (if AutoCreateUser is true); leave blank for interactive
-# Not used if user already exists; for initial setup only
-# ⚠️ Security: Do NOT use in production unless temporary/secure vault is used
-SysdbaPassword = {{ sysdba_password }}
+# Enable remote gstat queries (for monitoring tools).
+RemoteGstatEnabled = {{ remote_gstat_enabled | default(False) }}
 
-# Enable or disable detailed logging of connection attempts and auth
-# Set to 'none', 'auth', or 'all'
-ConnectionLog = {{ connection_log }}
+# Enable remote service queries via isql and similar tools.
+RemoteSqlEnabled = {{ remote_sql_enabled | default(False) }}
 
-# Enable or disable database encryption key caching (for performance vs. security tradeoff)
-# Only applicable if DatabaseEncryption is set
-CacheEncryptionKey = {{ cache_encryption_key }}
+# Directory for external functions (UDFs).
+ExternalFunctionPath = {{ external_function_path | default('/usr/firebird/UDF') }}
 
-# Maximum number of prepared statements per connection (per-connection limit)
-# Very large values may consume memory; typical: 100–1000
-MaxPreparedStatements = {{ max_prepared_statements }}
+# Directory for external tables.
+ExternalTablePath = {{ external_table_path | default('/var/lib/firebird/external') }}
 
-# Enable or disable SQL plan logging (for query tuning)
-# Only effective when QueryLogging includes 'plan' or 'all'
-PlanLogging = {{ plan_logging }}
+# Maximum message buffer size in bytes (for event notification).
+MessageLength = {{ message_length | default(8192) }}
 
-# Enable or disable automatic reconnection for client drivers (e.g., JayBird)
-# Mostly relevant for middle-tier connections
-AutoReconnectEnabled = {{ auto_reconnect_enabled }}
+# Enable full-text search support (requires plugin).
+FullTextSearchEnabled = {{ full_text_search_enabled | default(False) }}
 
-# Timeout (in seconds) for reconnection attempts
-ReconnectTimeout = {{ reconnect_timeout }}
+# List of plugins to load. Each has name, library, enabled flag, and optional description.
+# Format: PluginName = LibraryName
+{# plugins is a list of objects. Iterate directly. #}
+{% for plugin in (plugins | default([])) %}
+{%- if plugin.enabled | default(False) %}
+{{ plugin.name | default('') }} = {{ plugin.library | default('') }}
+{# {{ plugin.description | default('') }} #}
+{%- endif %}
+{%- endfor %}
 
-# Maximum number of retries before giving up
-ReconnectMaxRetries = {{ reconnect_max_retries }}
+# Initial SYSDBA password (for first-time setup only). Leave blank to prompt interactively. Not for production.
+SysdbaPassword = {{ sysdba_password | default('') }}
 
-# Enable or disable use of SSL/TLS for remote connections (Firebird 4.0+)
-# Requires proper certificate configuration in firebird.conf or OS truststore
-SslEnabled = {{ ssl_enabled }}
+# Connection logging level: 'none', 'auth', or 'all'.
+ConnectionLog = {{ connection_log | default('none') }}
 
-# Path to SSL certificate file (PEM format)
-SslCertFile = {{ ssl_cert_file }}
+# Cache encryption key in memory (only if database encryption is enabled).
+CacheEncryptionKey = {{ cache_encryption_key | default(False) }}
 
-# Path to SSL private key file
-SslKeyFile = {{ ssl_key_file }}
+# Max prepared statements per connection.
+MaxPreparedStatements = {{ max_prepared_statements | default(100) }}
 
-# Path to CA certificate bundle for verifying client/server certs
-SslCaFile = {{ ssl_ca_file }}
+# Log query execution plans (requires QueryLogging = 'plan' or 'all').
+PlanLogging = {{ plan_logging | default(False) }}
 
-# List of allowed TLS versions: 'TLSv1.2', 'TLSv1.3' (Firebird 4.0+)
-{% for version in ssl_versions %}# {{ version }}
-{% endfor %}
-SslVersions = {{ ssl_versions | join(', ') }}
+# Enable client-side automatic reconnection (driver-specific feature).
+AutoReconnectEnabled = {{ auto_reconnect_enabled | default(False) }}
 
-# Enable or disable certificate revocation checking (CRL/OCSP)
-# Requires network access and CRL distribution points configured
-SslVerifyCerts = {{ ssl_verify_certs }}
+# Reconnection attempt timeout in seconds.
+ReconnectTimeout = {{ reconnect_timeout | default(10) }}
 
-# Enable or disable FIPS mode (for government/compliance use)
-FipsEnabled = {{ fips_enabled }}
+# Maximum reconnection attempts before failing.
+ReconnectMaxRetries = {{ reconnect_max_retries | default(3) }}
 
-# Path to the default role mapping file (for external auth)
-RoleMappingFile = {{ role_mapping_file }}
+# Enable SSL/TLS for remote connections (Firebird 4.0+).
+SslEnabled = {{ ssl_enabled | default(False) }}
 
-# Maximum number of rows returned per batch in server-side cursors
-# Affects fetch latency vs. memory usage
-MaxFetchBufferSize = {{ max_fetch_buffer_size }}
+# Path to SSL certificate (PEM format).
+SslCertFile = {{ ssl_cert_file | default('/etc/firebird/ssl/server.crt') }}
 
-# Enable or disable database-level statistics collection (for monitoring tools)
-StatsEnabled = {{ stats_enabled }}
+# Path to SSL private key (PEM format).
+SslKeyFile = {{ ssl_key_file | default('/etc/firebird/ssl/server.key') }}
 
-# Path to the stats log file (if enabled)
-StatsLogPath = {{ stats_log_path }}
+# Path to CA certificate bundle for client/server verification.
+SslCaFile = {{ ssl_ca_file | default('/etc/firebird/ssl/ca.crt') }}
 
-# Enable or disable automatic backup (shadow-based, not gfix -shadow)
-# Shadow files are created automatically; this toggles creation of shadow DBs
-ShadowAutoCreate = {{ shadow_auto_create }}
+# Allowed TLS protocol versions.
+# Firebird expects a comma-separated string: TLSv1.2,TLSv1.3
+SslVersions = {{ (ssl_versions | default(['TLSv1.2', 'TLSv1.3'])) | join(', ') }}
 
-# Maximum number of shadow files per database
-ShadowMaxCount = {{ shadow_max_count }}
+# Enable certificate revocation checking (CRL/OCSP).
+SslVerifyCerts = {{ ssl_verify_certs | default(False) }}
 
-# Path to the shadow file directory
-ShadowDirectory = {{ shadow_directory }}
+# Enable FIPS-compliant cryptographic operations.
+FipsEnabled = {{ fips_enabled | default(False) }}
 
-# Enable or disable database-level backup logging
-BackupLogging = {{ backup_logging }}
+# Path to external authentication role mapping file.
+RoleMappingFile = {{ role_mapping_file | default('/etc/firebird/role_mapping.conf') }}
 
-# Enable or disable automatic garbage collection during idle periods
-IdleGcEnabled = {{ idle_gc_enabled }}
+# Rows fetched per server-side cursor batch.
+MaxFetchBufferSize = {{ max_fetch_buffer_size | default(1000) }}
 
-# Idle GC interval (in seconds); 0 = disable periodic GC
-IdleGcInterval = {{ idle_gc_interval }}
+# Enable database statistics collection for monitoring.
+StatsEnabled = {{ stats_enabled | default(False) }}
 
-# Enable or disable use of large OS page support (HugeTLB on Linux)
-# Requires root-level sysctl config; improves performance on large caches
-UseHugePages = {{ use_huge_pages }}
+# Path for statistics log (if enabled).
+StatsLogPath = {{ stats_log_path | default('/var/log/firebird/stats.log') }}
 
-# Size (in MB) of huge pages to request (0 = let kernel decide)
-HugePageSize = {{ huge_page_size }}
+# Automatically create shadow files on database creation.
+ShadowAutoCreate = {{ shadow_auto_create | default(True) }}
 
-# Path to the Firebird configuration reload trigger file
-# Touching this file causes firebird.conf to be reloaded without restart
-# Empty = disable
-ConfigReloadFile = {{ config_reload_file }}
+# Maximum number of shadow files per database.
+ShadowMaxCount = {{ shadow_max_count | default(10) }}
+
+# Directory for shadow database files.
+ShadowDirectory = {{ shadow_directory | default('/var/lib/firebird/shadows') }}
+
+# Log backup operations (gfix -backup, gbak).
+BackupLogging = {{ backup_logging | default(True) }}
+
+# Run garbage collection during idle periods.
+IdleGcEnabled = {{ idle_gc_enabled | default(False) }}
+
+# Interval (seconds) between idle GC runs (0 = disabled).
+IdleGcInterval = {{ idle_gc_interval | default(300) }}
+
+# Use Linux HugeTLB for large caches (requires system config).
+UseHugePages = {{ use_huge_pages | default(False) }}
+
+# Huge page size in MB (0 = kernel default).
+HugePageSize = {{ huge_page_size | default(0) }}
+
+# Touch this file to reload firebird.conf without restart. Empty to disable.
+ConfigReloadFile = {{ config_reload_file | default('/var/run/firebird/reload.conf') }}

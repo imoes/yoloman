@@ -1,0 +1,125 @@
+# init-po.awk: inicializa o cabeçalho de arquivos .po.
+# Copyright (C) 2008 Adriano Rafael Gomes
+# Copyright (C) 2018 Debian Brazilian Localization Team <contato@debianbrasil.org.br>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+BEGIN {
+  # Início da configuração
+  # Full name of the initial author / translator
+  NOME="{{ name | default('your-name') }}"
+  # Email address of the initial author / translator
+  EMAIL="{{ email | default('your-email') }}"
+  # Name of the translation team/language team
+  TEAM_NAME="{{ team_name | default('Brazilian Portuguese') }}"
+  # Email address for the translation team
+  TEAM_EMAIL="{{ team_email | default('debian-l10n-portuguese@lists.debian.org') }}"
+  # Language code for the translation (e.g., pt_BR)
+  LANGUAGE_NAME="{{ language_name | default('pt_BR') }}"
+  # Fim da configuração
+
+  # ANO=strftime("%Y")
+  # Year used in copyright and timestamp placeholders
+  ANO="{{ year | default('2025') }}"
+
+  # informe como parâmetro o nome do arquivo .pot de entrada
+  if (ARGC != 2) {
+    print "Inform the file .pot name." > "/dev/stderr"
+    exit
+  }
+
+  # pegar somente o nome do arquivo sem o diretório
+  # (caso o diretório seja informado)
+  n=split(ARGV[1], parte, "/")
+  BASENAME=parte[n]
+
+
+  # o nome do arquivo deve estar no formato
+  # nome-do-pacote_versao_templates.pot
+  if (split(BASENAME, parte, "_") != 3) {
+    print "I could not extract the package name and version from the " \
+      ".pot file name. You must manually edit this information." \
+      > "/dev/stderr"
+    PACOTE="PACKAGE"
+    VERSAO="VERSION"
+  } else {
+    PACOTE=parte[1]
+    VERSAO=parte[2]
+  }
+}
+
+/# SOME DESCRIPTIVE TITLE./ {
+  $0="# Debconf translations for " PACOTE "."
+}
+
+/# Copyright \(C\) YEAR THE PACKAGE'S COPYRIGHT HOLDER/ {
+  sub("YEAR", ANO)
+  sub("PACKAGE", PACOTE)
+}
+
+/# This file is distributed under the same license as the PACKAGE package./ {
+  sub("PACKAGE", PACOTE)
+}
+
+/# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR./ {
+  sub("FIRST AUTHOR", NOME)
+  sub("EMAIL@ADDRESS", EMAIL)
+  sub("YEAR", ANO)
+}
+
+# remove a tag fuzzy do cabeçalho
+/#, fuzzy/ {
+  if (!FUZZY_COUNT) {
+    FUZZY_COUNT=1
+    next
+  }
+}
+
+# /msgstr ""/ {
+#   if (!MSGSTR_COUNT) {
+#     MSGSTR_COUNT=1
+#     sub("\"\"", "\"pt_BR utf-8\\n\"")
+#   }
+# }
+
+/Project-Id-Version: PACKAGE VERSION/ {
+  sub("PACKAGE", PACOTE)
+  sub("VERSION", VERSAO)
+}
+
+# /PO-Revision-Date:/ {
+#   $0="\"PO-Revision-Date: " strftime("%F %R%z") "\\n\""
+# }
+
+/Last-Translator: FULL NAME <EMAIL@ADDRESS>/ {
+  sub("FULL NAME", NOME)
+  sub("EMAIL@ADDRESS", EMAIL)
+}
+
+/Language-Team: LANGUAGE <LL@li.org>/ {
+  sub("LANGUAGE", TEAM_NAME)
+  sub("LL@li.org", TEAM_EMAIL)
+}
+
+/Language: \\n/ {
+  sub(" ", " " LANGUAGE_NAME)
+}
+
+/Content-Type: text\/plain; charset=CHARSET/ {
+  sub("CHARSET", "UTF-8")
+}
+
+{
+  print $0
+}

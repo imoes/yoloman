@@ -1,0 +1,29 @@
+# Debian Edu Router Plugin: Content Filter squid-base_d-e-r.conf
+#
+# This file is a custom version of the Squid base config file.
+#
+# This file gets included by network-specific service config files found at
+# /etc/debian-edu-router/squid.d/??_d-e-r-p.c-f_*.conf
+
+# logfile_rotate: Number of rotated log files to keep (0 means logrotate manages rotation).
+logfile_rotate {{ logfile_rotate | default(0) }}
+
+acl SSL_ports port 443
+http_access deny CONNECT !SSL_ports
+
+# http, ftp, https, gopher, wais, unregistered ports, http-mgmt, gss-http, filemaker, multiling http
+acl Safe_ports port 80 21 443 70 210 1025-65535 280 488 591 777
+http_access deny !Safe_ports
+
+# Only allow access via localhost.
+http_access allow localhost manager
+http_access deny manager
+
+include /etc/squid/conf.d/*.conf
+
+coredump_dir /var/spool/squid
+
+refresh_pattern ^ftp:             1440 20%  10080
+refresh_pattern ^gopher:          1440 0%   1440
+refresh_pattern -i (/cgi-bin/|\?) 0    0%   0
+refresh_pattern .                 0    20%  4320

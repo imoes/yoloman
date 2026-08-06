@@ -1,0 +1,65 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          {{ service_name | default('das_watchdog') }}
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ short_description | default('Watchdog') }}
+### END INIT INFO
+#
+#Written by Miquel van Smoorenburg <miquels at cistron.nl>.
+#Modified for Debian GNU/Linux
+#by Ian Murdock <imurdock at gnu.ai.mit.edu>.
+#               Modified for das_watchdog by <sk>
+
+# Stefan kerstens comments:
+# i've attached a simple /etc/init.d script; on debian you can
+# do:
+# cp das_watchdog.rc /etc/init.d/das_watchdog
+# update-rc.d das_watchdog defaults
+# invoke-rc.d das_watchdog start
+
+
+# Path to executables
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Path to the daemon binary
+DAEMON=/usr/sbin/{{ daemon_name | default('das_watchdog') }}
+
+# Daemon name used by status and messages
+NAME={{ daemon_name | default('das_watchdog') }}
+
+# Human-readable description used in log messages
+DESC="{{ short_description | default('Watchdog') }}"
+
+# Verify that the daemon binary exists and is executable
+test -x $DAEMON || exit 0
+
+set -e
+
+case "$1" in
+    start)
+	echo -n "Starting $DESC: $NAME"
+	start-stop-daemon --start --quiet --background --exec $DAEMON
+	echo "."
+	;;
+  stop)
+	echo -n "Stopping $DESC: $NAME"
+	start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+	echo "."
+	;;
+    restart|reload|force-reload)
+	echo -n "Restarting $DESC: $NAME... "
+	start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+	start-stop-daemon --start --quiet --background --exec $DAEMON
+	echo "done."
+        ;;
+    *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,95 @@
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+# Note: This script sources /lib/init/init-d-script to get standard LSB helper functions.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          {{ service_name | default('courier-authdaemon') }}
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Courier authentication services
+# Description:       Starts and stops the Courier authentication daemon (courier-authdaemon).
+### END INIT INFO
+
+# Author: Ondřej Surý <ondrej@debian.org>
+
+# Path to the authdaemond daemon executable.
+# See: https://www.courier-mta.org/
+# service_name: Service name provided by this init script.
+DAEMON="{{ daemon_path | default('/usr/sbin/authdaemond') }}"
+
+# Human-readable description of the service.
+# service_description: Human-readable description of the service.
+DESC="{{ service_description | default('Courier authentication services') }}"
+
+# Path to the PID file for the daemon.
+# pidfile_path: Path to the PID file for the daemon.
+PIDFILE="{{ pidfile_path | default('/run/courier/authdaemon/pid') }}"
+
+# Function to prepare the environment using systemd-tmpfiles (or tmpfiles.d).
+# This ensures that required directories (e.g. for authdaemon) exist with correct permissions.
+# tmpfiles_name: Name of the tmpfiles.d configuration (used to derive /usr/lib/tmpfiles.d/<name>.conf).
+do_start_prepare() {
+    # Uses the tmpfiles_name to locate /usr/lib/tmpfiles.d/<tmpfiles_name>.conf
+    do_tmpfiles {{ tmpfiles_name | default('courier-authdaemon') }}
+}
+
+# Helper function to process tmpfiles.d configuration entries.
+# It iterates over lines in the tmpfiles config and creates directories as specified.
+do_tmpfiles() {
+    local type path mode user group
+
+    TMPFILES=/usr/lib/tmpfiles.d/$1.conf
+
+    if [ -r "$TMPFILES" ]; then
+	while read type path mode user group age argument; do
+	    # Only handle directory creation entries ('d')
+	    if [ "$type" = "d" ]; then
+		mkdir -p "$path"
+		chmod "$mode" "$path"
+		chown "$user:$group" "$path"
+		# Restore SELinux contexts if available
+		[ -x /sbin/restorecon ] && /sbin/restorecon $path
+	    fi
+	done < "$TMPFILES"
+    fi
+}
+
+# Override the standard do_start behavior.
+do_start_cmd_override() {
+    # Check if the daemon is already running using pidofproc.
+    # If it is, return success (0) to avoid errors on subsequent start calls.
+    if pidofproc ${PIDFILE:+-p ${PIDFILE}} "$DAEMON" >/dev/null; then
+        # A subsequent call to start the service must not return an error,
+        # if it is already running.
+        return 0
+    fi
+
+    # Start the daemon
+    $DAEMON start
+}
+
+# Override the standard do_stop behavior.
+do_stop_cmd_override() {
+    # Check if the daemon is NOT running.
+    # If it is not, return success (0) to avoid errors on subsequent stop calls.
+    if ! pidofproc ${PIDFILE:+-p ${PIDFILE}} "$DAEMON" >/dev/null; then
+        # If the service is not currently running, a call to stop should
+        # indicate success.
+        return 0
+    fi
+
+    # Stop the daemon
+    $DAEMON stop
+}
+
+# Override the standard do_status behavior.
+do_status_override() {
+    # Check the status of the courier-authlib authdaemond process.
+    # Note: The actual binary might be at /usr/lib/courier/courier-authlib/authdaemond
+    # even if DAEMON points to /usr/sbin/authdaemond.
+    status_of_proc "/usr/lib/courier/courier-authlib/authdaemond" "$NAME" && return 0 || return $?
+}

@@ -1,135 +1,321 @@
 <?xml version="1.0"?>
-<!-- Cluster configuration for Pacemaker/Cluster Glue -->
-<cluster name="{{ cluster_name }}" config_version="{{ config_version }}">
-  {% if cman is defined %}
-  <!-- CMAN (Cluster Manager) settings -->
-  <cman {{ 'keyfile="/etc/cluster/cluster.conf.key"' if cman.keyfile else '' }} {{ 'expected_votes="{{ cman.expected_votes }}"' if cman.expected_votes is defined else '' }} {{ 'two_node="1"' if cman.two_node else '' }}>
-    {% if cman.transport is defined %}
-    <!-- Transport layer settings -->
-    <totem transport="{{ cman.transport }}" {{ 'secauth="{{ cman.secauth }}"' if cman.secauth is defined else '' }} {{ 'version="{{ cman.totem_version }}"' if cman.totem_version is defined else '' }}
-           {{ 'token="{{ cman.token }}"' if cman.token is defined else '' }}
-           {{ 'consensus_timeout="{{ cman.consensus_timeout }}"' if cman.consensus_timeout is defined else '' }}
-           {{ 'join="{{ cman.join }}"' if cman.join is defined else '' }}
-           {{ 'token_retransmit="{{ cman.token_retransmit }}"' if cman.token_retransmit is defined else '' }}
-           {{ 'token_retransmits_before_loss="{{ cman.token_retransmits_before_loss }}"' if cman.token_retransmits_before_loss is defined else '' }}
-           {{ 'join_retransmit="{{ cman.join_retransmit }}"' if cman.join_retransmit is defined else '' }}
-           {{ 'max_messages="{{ cman.max_messages }}"' if cman.max_messages is defined else '' }}
-           {{ 'max_network_delay="{{ cman.max_network_delay }}"' if cman.max_network_delay is defined else '' }}
-           {{ 'miss_count="{{ cman.miss_count }}"' if cman.miss_count is defined else '' }}
-           {{ 'rrp_mode="{{ cman.rrp_mode }}"' if cman.rrp_mode is defined else '' }}
-           {{ 'rrp_problem_timeout="{{ cman.rrp_problem_timeout }}"' if cman.rrp_problem_timeout is defined else '' }}
-           {{ 'rrp_active="{{ cman.rrp_active }}"' if cman.rrp_active is defined else '' }}
-           {{ 'rrp_transport="{{ cman.rrp_transport }}"' if cman.rrp_transport is defined else '' }}>
-    {% else %}
-    <totem {{ 'secauth="{{ cman.secauth }}"' if cman.secauth is defined else '' }} {{ 'version="{{ cman.totem_version }}"' if cman.totem_version is defined else '' }}
-           {{ 'token="{{ cman.token }}"' if cman.token is defined else '' }}
-           {{ 'consensus_timeout="{{ cman.consensus_timeout }}"' if cman.consensus_timeout is defined else '' }}
-           {{ 'join="{{ cman.join }}"' if cman.join is defined else '' }}
-           {{ 'token_retransmit="{{ cman.token_retransmit }}"' if cman.token_retransmit is defined else '' }}
-           {{ 'token_retransmits_before_loss="{{ cman.token_retransmits_before_loss }}"' if cman.token_retransmits_before_loss is defined else '' }}
-           {{ 'join_retransmit="{{ cman.join_retransmit }}"' if cman.join_retransmit is defined else '' }}
-           {{ 'max_messages="{{ cman.max_messages }}"' if cman.max_messages is defined else '' }}
-           {{ 'max_network_delay="{{ cman.max_network_delay }}"' if cman.max_network_delay is defined else '' }}
-           {{ 'miss_count="{{ cman.miss_count }}"' if cman.miss_count is defined else '' }}
-           {{ 'rrp_mode="{{ cman.rrp_mode }}"' if cman.rrp_mode is defined else '' }}
-           {{ 'rrp_problem_timeout="{{ cman.rrp_problem_timeout }}"' if cman.rrp_problem_timeout is defined else '' }}
-           {{ 'rrp_active="{{ cman.rrp_active }}"' if cman.rrp_active is defined else '' }}
-           {{ 'rrp_transport="{{ cman.rrp_transport }}"' if cman.rrp_transport is defined else '' }}>
+<!--
+  Pacemaker / Cluster Glue cluster configuration.
+  Managed by Ansible. Edit via variables, not directly.
+  This template generates a valid Red Hat Cluster Suite / Pacemaker cluster.conf XML.
+-->
+<cluster name="{{ cluster_name | default('my-cluster') }}" config_version="{{ config_version | default(1) }}">
+  <!--
+    CMAN (Cluster Manager) settings.
+    Controls cluster messaging, membership, and quorum logic.
+    Provides inter-node communication and membership verification.
+  -->
+  {% if (cman | default({})) is mapping %}
+  {% set cman_conf = cman | default({}) %}
+  <!-- CMAN Configuration Block -->
+  <cman>
+    <!--
+      Keyfile path for encrypted cluster communication.
+      Only set if explicitly provided in cman configuration.
+    -->
+    {% if (cman_conf.keyfile is defined) and (cman_conf.keyfile) %}
+    keyfile="{{ cman_conf.keyfile }}"
     {% endif %}
-      {% for node in nodes %}
-      <!-- Node definition: {{ node.name }} -->
-      <node name="{{ node.name }}" nodeid="{{ node.id }}">
-        <fencedevices>
-          {% for dev in node.fencedevices %}
-          <!-- Fencing device: {{ dev.name }} -->
-          <fencedevice name="{{ dev.name }}" agent="{{ dev.agent }}"
-                     {% if dev.options %}
-                     {% for key, val in dev.options.items() %}
-                     {{ key }}="{{ val }}"
-                     {% endfor %}
-                     {% endif %}
-          />
-          {% endfor %}
-        </fencedevices>
-        <fence>
-          {% for method in node.fence_methods %}
-          <!-- Fence method: {{ method.name }} -->
-          <method name="{{ method.name }}">
-            {% for device in method.devices %}
-            <!-- Fence device reference: {{ device }} -->
-            <device name="{{ device }}"/>
-            {% endfor %}
-          </method>
-          {% endfor %}
-        </fence>
-      </node>
-      {% endfor %}
+    <!--
+      Expected votes for quorum calculations.
+      Usually matches the number of nodes.
+    -->
+    {% if (cman_conf.expected_votes is defined) and (cman_conf.expected_votes) %}
+    expected_votes="{{ cman_conf.expected_votes }}"
+    {% endif %}
+    <!--
+      Two-node cluster mode flag.
+      Enables specific quorum logic for 2-node setups.
+    -->
+    {% if (cman_conf.two_node is defined) and (cman_conf.two_node) %}
+    two_node="1"
+    {% endif %}
+    >
+    {% if (cman_conf.transport is defined) %}
+    <!--
+      Totem protocol configuration.
+      Defines transport layer, security, and token timing.
+    -->
+    <totem transport="{{ cman_conf.transport }}">
+      {% if (cman_conf.secauth is defined) %}
+      <!-- Enable/Disable authentication in totem messages -->
+      secauth="{{ cman_conf.secauth }}"
+      {% endif %}
+      {% if (cman_conf.totem_version is defined) %}
+      <!-- Totem protocol version -->
+      version="{{ cman_conf.totem_version }}"
+      {% endif %}
+      {% if (cman_conf.token is defined) %}
+      <!-- Token timeout (ms) -->
+      token="{{ cman_conf.token }}"
+      {% endif %}
+      {% if (cman_conf.consensus_timeout is defined) %}
+      <!-- Consensus timeout (ms) -->
+      consensus_timeout="{{ cman_conf.consensus_timeout }}"
+      {% endif %}
+      {% if (cman_conf.join is defined) %}
+      <!-- Join timeout (ms) -->
+      join="{{ cman_conf.join }}"
+      {% endif %}
+      {% if (cman_conf.token_retransmit is defined) %}
+      <!-- Token retransmit timeout (ms) -->
+      token_retransmit="{{ cman_conf.token_retransmit }}"
+      {% endif %}
+      {% if (cman_conf.token_retransmits_before_loss is defined) %}
+      <!-- Retransmits before token loss -->
+      token_retransmits_before_loss="{{ cman_conf.token_retransmits_before_loss }}"
+      {% endif %}
+      {% if (cman_conf.join_retransmit is defined) %}
+      <!-- Join retransmit timeout (ms) -->
+      join_retransmit="{{ cman_conf.join_retransmit }}"
+      {% endif %}
+      {% if (cman_conf.max_messages is defined) %}
+      <!-- Max messages size (bytes) -->
+      max_messages="{{ cman_conf.max_messages }}"
+      {% endif %}
+      {% if (cman_conf.max_network_delay is defined) %}
+      <!-- Max network delay (ms) -->
+      max_network_delay="{{ cman_conf.max_network_delay }}"
+      {% endif %}
+      {% if (cman_conf.miss_count is defined) %}
+      <!-- Miss count threshold -->
+      miss_count="{{ cman_conf.miss_count }}"
+      {% endif %}
+      {% if (cman_conf.rrp_mode is defined) %}
+      <!-- RRP mode (none/member/passive) -->
+      rrp_mode="{{ cman_conf.rrp_mode }}"
+      {% endif %}
+      {% if (cman_conf.rrp_problem_timeout is defined) %}
+      <!-- RRP problem timeout (ms) -->
+      rrp_problem_timeout="{{ cman_conf.rrp_problem_timeout }}"
+      {% endif %}
+      {% if (cman_conf.rrp_active is defined) %}
+      <!-- RRP active flag -->
+      rrp_active="{{ cman_conf.rrp_active }}"
+      {% endif %}
+      {% if (cman_conf.rrp_transport is defined) %}
+      <!-- RRP transport type -->
+      rrp_transport="{{ cman_conf.rrp_transport }}"
+      {% endif %}
     </totem>
+    {% else %}
+    <!--
+      Totem protocol configuration (default transport).
+      Uses default 'udpu' or 'openais' if transport is not specified.
+    -->
+    <totem>
+      {% if (cman_conf.secauth is defined) %}
+      <!-- Enable/Disable authentication in totem messages -->
+      secauth="{{ cman_conf.secauth }}"
+      {% endif %}
+      {% if (cman_conf.totem_version is defined) %}
+      <!-- Totem protocol version -->
+      version="{{ cman_conf.totem_version }}"
+      {% endif %}
+      {% if (cman_conf.token is defined) %}
+      <!-- Token timeout (ms) -->
+      token="{{ cman_conf.token }}"
+      {% endif %}
+      {% if (cman_conf.consensus_timeout is defined) %}
+      <!-- Consensus timeout (ms) -->
+      consensus_timeout="{{ cman_conf.consensus_timeout }}"
+      {% endif %}
+      {% if (cman_conf.join is defined) %}
+      <!-- Join timeout (ms) -->
+      join="{{ cman_conf.join }}"
+      {% endif %}
+      {% if (cman_conf.token_retransmit is defined) %}
+      <!-- Token retransmit timeout (ms) -->
+      token_retransmit="{{ cman_conf.token_retransmit }}"
+      {% endif %}
+      {% if (cman_conf.token_retransmits_before_loss is defined) %}
+      <!-- Retransmits before token loss -->
+      token_retransmits_before_loss="{{ cman_conf.token_retransmits_before_loss }}"
+      {% endif %}
+      {% if (cman_conf.join_retransmit is defined) %}
+      <!-- Join retransmit timeout (ms) -->
+      join_retransmit="{{ cman_conf.join_retransmit }}"
+      {% endif %}
+      {% if (cman_conf.max_messages is defined) %}
+      <!-- Max messages size (bytes) -->
+      max_messages="{{ cman_conf.max_messages }}"
+      {% endif %}
+      {% if (cman_conf.max_network_delay is defined) %}
+      <!-- Max network delay (ms) -->
+      max_network_delay="{{ cman_conf.max_network_delay }}"
+      {% endif %}
+      {% if (cman_conf.miss_count is defined) %}
+      <!-- Miss count threshold -->
+      miss_count="{{ cman_conf.miss_count }}"
+      {% endif %}
+      {% if (cman_conf.rrp_mode is defined) %}
+      <!-- RRP mode (none/member/passive) -->
+      rrp_mode="{{ cman_conf.rrp_mode }}"
+      {% endif %}
+      {% if (cman_conf.rrp_problem_timeout is defined) %}
+      <!-- RRP problem timeout (ms) -->
+      rrp_problem_timeout="{{ cman_conf.rrp_problem_timeout }}"
+      {% endif %}
+      {% if (cman_conf.rrp_active is defined) %}
+      <!-- RRP active flag -->
+      rrp_active="{{ cman_conf.rrp_active }}"
+      {% endif %}
+      {% if (cman_conf.rrp_transport is defined) %}
+      <!-- RRP transport type -->
+      rrp_transport="{{ cman_conf.rrp_transport }}"
+      {% endif %}
+    </totem>
+    {% endif %}
+
+    <!--
+      Cluster nodes.
+      Each entry defines a node identity, ID, and optional fencing agents.
+    -->
+    {% for node in nodes | default([]) %}
+    <node name="{{ node.name }}" nodeid="{{ node.id }}">
+      <fencedevices>
+        {% for dev in node.fencedevices | default([]) %}
+        <!-- Fencing device: {{ dev.name }} -->
+        <fencedevice name="{{ dev.name }}" agent="{{ dev.agent }}">
+          {% if dev.options is mapping %}
+          {% for key, val in dev.options | dict2items %}
+          <!-- Option: {{ key }} = {{ val }} -->
+          <fencedevice_option name="{{ key }}" value="{{ val }}"/>
+          {% endfor %}
+          {% endif %}
+        </fencedevice>
+        {% endfor %}
+      </fencedevices>
+      <fence>
+        {% for method in node.fence_methods | default([]) %}
+        <!-- Fence method: {{ method.name }} -->
+        <method name="{{ method.name }}">
+          {% for device in method.devices | default([]) %}
+          <!-- Fence device reference: {{ device }} -->
+          <device name="{{ device }}"/>
+          {% endfor %}
+        </method>
+        {% endfor %}
+      </fence>
+    </node>
+    {% endfor %}
   </cman>
   {% endif %}
 
-  <!-- Resource management settings -->
+  <!--
+    Global fencing devices.
+    Available to all nodes in the cluster.
+    Defines STONITH agents used by the cluster.
+  -->
   <fencedevices>
-    {% for dev in global_fencedevices %}
+    {% for dev in global_fencedevices | default([]) %}
     <!-- Global fencing device: {{ dev.name }} -->
-    <fencedevice name="{{ dev.name }}" agent="{{ dev.agent }}"
-               {% if dev.options %}
-               {% for key, val in dev.options.items() %}
-               {{ key }}="{{ val }}"
-               {% endfor %}
-               {% endif %}
-    />
+    <fencedevice name="{{ dev.name }}" agent="{{ dev.agent }}">
+      {% if dev.options is mapping %}
+      {% for key, val in dev.options | dict2items %}
+      <!-- Option: {{ key }} = {{ val }} -->
+      <fencedevice_option name="{{ key }}" value="{{ val }}"/>
+      {% endfor %}
+      {% endif %}
+    </fencedevice>
     {% endfor %}
   </fencedevices>
 
+  <!--
+    Resource Manager (RM) settings.
+    Typically managed by Pacemaker for HA workloads.
+  -->
+  {% set rm_conf = rm | default({}) %}
   <rm>
-    <!-- Pacemaker compatibility (if enabled) -->
-    <pacemaker startup="{{ rm.pacemaker_startup }}" wait_for_all="{{ '1' if rm.pacemaker_wait_for_all else '0' }}" shutdown_timeout="{{ rm.shutdown_timeout }}"/>
+    <!--
+      Pacemaker compatibility settings.
+      Controls how Pacemaker starts and behaves.
+    -->
+    <pacemaker
+      startup="{{ rm_conf.pacemaker_startup | default('') }}"
+      wait_for_all="{{ '1' if rm_conf.pacemaker_wait_for_all | default(false) else '0' }}"
+      shutdown_timeout="{{ rm_conf.shutdown_timeout | default('') }}"
+    />
 
-    <!-- Resources -->
-    {% for resource in rm.resources %}
+    <!--
+      Cluster resources.
+      Defines services to be managed by Pacemaker.
+    -->
+    {% for resource in rm_conf.resources | default([]) %}
     <!-- {{ resource.type | upper }} resource: {{ resource.id }} -->
-    <{{ resource.type }} id="{{ resource.id }}"
-    {% for key, val in resource.attrs.items() %}
-    {{ key }}="{{ val }}"
-    {% endfor %}
-    {% if resource.meta %}
-    >
+    <{{ resource.type }} id="{{ resource.id }}">
+      {% if resource.attrs is mapping %}
+      {% for key, val in resource.attrs | dict2items %}
+      <!-- Attribute: {{ key }} = {{ val }} -->
+      <nvpair id="{{ resource.id }}-{{ key }}" name="{{ key }}" value="{{ val }}"/>
+      {% endfor %}
+      {% endif %}
+      {% if resource.meta is mapping %}
+      <!-- Meta attributes for resource {{ resource.id }} -->
       <meta_attributes id="{{ resource.id }}-meta">
-      {% for key, val in resource.meta.items() %}
-        <nvpair id="{{ resource.id }}-meta-{{ loop.index }}" name="{{ key }}" value="{{ val }}"/>
+      {% for key, val in resource.meta | dict2items %}
+      <!-- Meta attribute: {{ key }} = {{ val }} -->
+      <nvpair id="{{ resource.id }}-meta-{{ loop.index }}" name="{{ key }}" value="{{ val }}"/>
       {% endfor %}
       </meta_attributes>
-    {% endif %}
-    />
+      {% endif %}
+    </{{ resource.type }}>
     {% endfor %}
 
-    <!-- Resource groups -->
-    {% for group in rm.groups %}
+    <!--
+      Resource groups.
+      Bundles resources to start/stop together.
+    -->
+    {% for group in rm_conf.groups | default([]) %}
     <!-- Resource group: {{ group.id }} -->
-    <group id="{{ group.id }}" node="{{ group.preferred_node | default('') }}" priority="{{ group.priority | default(0) }}">
-      {% for rid in group.resources %}
+    <group id="{{ group.id }}">
+      {% if group.preferred_node is defined %}
+      <!-- Preferred node for this group -->
+      <rule id="{{ group.id }}-preferred" score="{{ group.priority | default(0) }}">
+        <expression attribute="preferred_node" value="{{ group.preferred_node }}"/>
+      </rule>
+      {% endif %}
+      {% for rid in group.resources | default([]) %}
       <!-- Resource in group: {{ rid }} -->
       <resource_ref id="{{ rid }}"/>
       {% endfor %}
     </group>
     {% endfor %}
 
-    <!-- Failover domains -->
-    {% for domain in rm.failover_domains %}
+    <!--
+      Failover domains.
+      Defines node priorities for failover.
+    -->
+    {% for domain in rm_conf.failover_domains | default([]) %}
     <!-- Failover domain: {{ domain.id }} -->
-    <failoverdomain id="{{ domain.id }}" ordered="{{ '1' if domain.ordered else '0' }}" restricted="{{ '1' if domain.restricted else '0' }}" {% if domain.preferred_node %}preferred="{{ domain.preferred_node }}"{% endif %}>
-      {% for node in domain.nodes %}
-      <!-- Failover domain member: {{ node }} -->
-      <failoverdomainnode name="{{ node }}" priority="{{ node.priority | default(loop.index) }}"/>
+    <failoverdomain
+      id="{{ domain.id }}"
+      ordered="{{ '1' if domain.ordered | default(false) else '0' }}"
+      restricted="{{ '1' if domain.restricted | default(false) else '0' }}"
+    >
+      {% for node_entry in domain.nodes | default([]) %}
+      <!-- Failover domain member: {{ node_entry.name }} -->
+      <failoverdomainnode name="{{ node_entry.name }}" priority="{{ node_entry.priority | default(loop.index) }}"/>
       {% endfor %}
     </failoverdomain>
     {% endfor %}
 
-    <!-- Locking (if used) -->
-    {% if rm.dlm_lockspace is defined %}
-    <!-- DLM lockspace configuration -->
-    <dlm_lockspace name="{{ rm.dlm_lockspace.name }}" plocks="{{ '1' if rm.dlm_lockspace.plocks else '0' }}" num_plocks="{{ rm.dlm_lockspace.num_plocks | default(0) }}"/>
+    <!--
+      DLM lockspace configuration.
+      Distributed Lock Manager settings for clustered file systems.
+    -->
+    {% if rm_conf.dlm_lockspace is defined and rm_conf.dlm_lockspace %}
+    <!-- DLM lockspace: {{ rm_conf.dlm_lockspace.name }} -->
+    <dlm_lockspace
+      name="{{ rm_conf.dlm_lockspace.name }}"
+      plocks="{{ '1' if rm_conf.dlm_lockspace.plocks | default(false) else '0' }}"
+      num_plocks="{{ rm_conf.dlm_lockspace.num_plocks | default(0) }}"
+    />
     {% endif %}
 
   </rm>

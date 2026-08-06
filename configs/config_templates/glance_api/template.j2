@@ -1,111 +1,222 @@
+# ============================================================
+# Glance API Configuration Template
+# ============================================================
+# This template generates the [glance-api] configuration file
+# for OpenStack Glance (Image Service).
+#
+# Structure: INI-style sections corresponding to Glance API
+# configuration groups: DEFAULT, worker_process_count, database,
+# keystone_authtoken, glance_store, quota, image_cache,
+# notification, ssl, paste_deploy, service_credentials.
+#
+# All variables are sourced from Ansible variables defined in
+# the role's schema. Every variable reference includes a
+# | default(...) filter to ensure the template renders safely
+# even if a variable is undefined.
+# ============================================================
+
+# ----------------------------------------------------------
+# [DEFAULT] Section
+# General settings for the Glance API server.
+# ----------------------------------------------------------
 [DEFAULT]
-# Logging configuration
-log_file = {{ log_file }}
-log_dir = {{ log_dir }}
-# Enable debug mode
-debug = {{ debug }}
 
-# Worker configuration
+# log_file: Path to the log file for API server logs.
+log_file = {{ log_file | default('/var/log/glance/api.log') }}
+
+# log_dir: Directory for log files.
+log_dir = {{ log_dir | default('/var/log/glance') }}
+
+# debug: Enable verbose debug logging.
+debug = {{ debug | default(False) }}
+
+# ----------------------------------------------------------
+# [worker_process_count] Section
+# Configuration for worker processes handling API requests.
+# ----------------------------------------------------------
 [worker_process_count]
-# Number of worker processes for API service
-workers = {{ workers }}
 
-# Database connection
+# workers: Number of worker processes to handle incoming API requests.
+workers = {{ workers | default(1) }}
+
+# ----------------------------------------------------------
+# [database] Section
+# Database connection settings for Glance backend storage.
+# ----------------------------------------------------------
 [database]
-# Database connection string
-connection = {{ database.connection }}
 
-# Authentication / Identity (Keystone)
+# connection: Database connection string (SQLAlchemy format).
+# Default is SQLite for single-node deployments.
+connection = {{ (database | default({'connection': 'sqlite:////var/lib/glance/glance-api.db'})).connection }}
+
+# ----------------------------------------------------------
+# [keystone_authtoken] Section
+# Keystone Identity Service authentication configuration.
+# Glance API uses this section to validate tokens from clients.
+# ----------------------------------------------------------
 [keystone_authtoken]
-# Auth URI for Keystone
-auth_uri = {{ keystone.auth_uri }}
-# Auth URL for Keystone
-auth_url = {{ keystone.auth_url }}
-# Domain name for admin user
-project_domain_name = {{ keystone.project_domain_name }}
-# Project name for admin user
-project_name = {{ keystone.project_name }}
-# User domain name
-user_domain_name = {{ keystone.user_domain_name }}
-# Username for service user
-username = {{ keystone.username }}
-# Password for service user
-password = {{ keystone.password }}
-# Insecure TLS (disable certificate verification)
-insecure = {{ keystone.insecure }}
 
-# Glance store configuration
+# auth_uri: The public endpoint of Keystone for client authentication.
+auth_uri = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).auth_uri }}
+
+# auth_url: The admin endpoint of Keystone for token validation.
+auth_url = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).auth_url }}
+
+# project_domain_name: Name of the domain where the service project resides.
+project_domain_name = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).project_domain_name }}
+
+# project_name: Name of the service project (usually 'service' or 'glance').
+project_name = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).project_name }}
+
+# user_domain_name: Name of the domain where the service user resides.
+user_domain_name = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).user_domain_name }}
+
+# username: Service username for Keystone authentication.
+username = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).username }}
+
+# password: Service password for Keystone authentication.
+password = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).password }}
+
+# insecure: Disable SSL certificate verification (use only in trusted test environments).
+insecure = {{ (keystone | default({'auth_uri': 'http://controller:5000', 'auth_url': 'http://controller:5000', 'project_domain_name': 'Default', 'project_name': 'service', 'user_domain_name': 'Default', 'username': 'glance', 'password': 'GLANCE_PASS', 'insecure': False})).insecure }}
+
+# ----------------------------------------------------------
+# [glance_store] Section
+# Image storage backend configuration.
+# Supports file, swift, rbd, ceph, and other store plugins.
+# ----------------------------------------------------------
 [glance_store]
-# Default filesystem store directory
-stores = {{ glance_store.stores | join(', ') }}
-default_store = {{ glance_store.default_store }}
-filesystem_store_datadir = {{ glance_store.filesystem_store_datadir }}
-{% if glance_store.stores | length > 0 %}
-# Additional store configurations
-{% for store in glance_store.stores %}
+
+# stores: Comma-separated list of enabled store plugins.
+# Example: "file,swift,rbd"
+stores = {{ ((glance_store | default({'stores': [], 'default_store': 'file', 'filesystem_store_datadir': '/var/lib/glance/images/'}))).stores | join(', ') }}
+
+# default_store: The default store backend to use for new images.
+default_store = {{ ((glance_store | default({'stores': [], 'default_store': 'file', 'filesystem_store_datadir': '/var/lib/glance/images/'}))).default_store }}
+
+# filesystem_store_datadir: Directory on the local filesystem for storing images when using the 'file' store.
+filesystem_store_datadir = {{ ((glance_store | default({'stores': [], 'default_store': 'file', 'filesystem_store_datadir': '/var/lib/glance/images/'}))).filesystem_store_datadir }}
+
+# Additional store configurations (loop over enabled stores if defined)
+{% if ((glance_store | default({'stores': [], 'default_store': 'file', 'filesystem_store_datadir': '/var/lib/glance/images/'}))).stores | length > 0 %}
+{% for store in (glance_store | default({'stores': [], 'default_store': 'file', 'filesystem_store_datadir': '/var/lib/glance/images/'})).stores %}
+# Store configuration for store index {{ loop.index }} ({{ (store | default({})).name | default('unknown') }})
 [glance_store:stores.{{ loop.index }}]
-store = {{ store.name }}
-{% if store.endpoint %}
+store = {{ (store | default({})).name | default('unknown') }}
+{% if (store | default({})).endpoint is defined %}
 endpoint = {{ store.endpoint }}
 {% endif %}
-{% if store.username %}
+{% if (store | default({})).username is defined %}
 username = {{ store.username }}
 {% endif %}
-{% if store.password %}
+{% if (store | default({})).password is defined %}
 password = {{ store.password }}
 {% endif %}
-{% if store.project_name %}
+{% if (store | default({})).project_name is defined %}
 project_name = {{ store.project_name }}
 {% endif %}
-{% if store.auth_url %}
+{% if (store | default({})).auth_url is defined %}
 auth_url = {{ store.auth_url }}
 {% endif %}
-{% if store.container %}
+{% if (store | default({})).container is defined %}
 container = {{ store.container }}
 {% endif %}
 {% endfor %}
 {% endif %}
 
-# Image quota and limits
+# ----------------------------------------------------------
+# [quota] Section
+# Quota limits for image storage per tenant/project.
+# ----------------------------------------------------------
 [quota]
-# Maximum number of images per project
-images = {{ quota.images }}
 
-# Image cache configuration
+# images: Maximum number of images allowed per project/tenant.
+images = {{ (quota | default({'images': 100})).images }}
+
+# ----------------------------------------------------------
+# [image_cache] Section
+# Configuration for the image cache manager.
+# Enables caching of images for faster access.
+# ----------------------------------------------------------
 [image_cache]
-# Enable image caching
-enabled = {{ image_cache.enabled }}
-cache_dir = {{ image_cache.cache_dir }}
-max_cache_size = {{ image_cache.max_cache_size }}
 
-# Notification configuration
+# enabled: Enable the image cache feature.
+enabled = {{ (image_cache | default({'enabled': False, 'cache_dir': '/var/lib/glance/image-cache/', 'max_cache_size': 10737418240})).enabled }}
+
+# cache_dir: Directory where cached images are stored.
+cache_dir = {{ (image_cache | default({'enabled': False, 'cache_dir': '/var/lib/glance/image-cache/', 'max_cache_size': 10737418240})).cache_dir }}
+
+# max_cache_size: Maximum total size of the image cache in bytes (default ~10GB).
+max_cache_size = {{ (image_cache | default({'enabled': False, 'cache_dir': '/var/lib/glance/image-cache/', 'max_cache_size': 10737418240})).max_cache_size }}
+
+# ----------------------------------------------------------
+# [notification] Section
+# Message queue notification settings.
+# Used to broadcast events (e.g., image created/deleted).
+# ----------------------------------------------------------
 [notification]
-# Notification driver
-driver = {{ notification.driver }}
-# Topics for notifications
-topics = {{ notification.topics | join(', ') }}
 
-# Security / SSL
+# driver: Notification driver to use (e.g., 'messagingv2' for RabbitMQ/Kafka).
+driver = {{ (notification | default({'driver': 'messagingv2', 'topics': ['notifications']})).driver }}
+
+# topics: List of message queue topics to subscribe to for notifications.
+topics = {{ ((notification | default({'driver': 'messagingv2', 'topics': ['notifications']}))).topics | join(', ') }}
+
+# ----------------------------------------------------------
+# [ssl] Section
+# SSL/TLS configuration for the Glance API service.
+# ----------------------------------------------------------
 [ssl]
-# Enable SSL
-enabled = {{ ssl.enabled }}
-certfile = {{ ssl.certfile }}
-keyfile = {{ ssl.keyfile }}
-ca_certs = {{ ssl.ca_certs }}
 
-# API server binding
+# enabled: Enable SSL termination for the API service.
+enabled = {{ (ssl | default({'enabled': False, 'certfile': '/etc/ssl/certs/glance-api.crt', 'keyfile': '/etc/ssl/private/glance-api.key', 'ca_certs': '/etc/ssl/certs/ca-certificates.crt'})).enabled }}
+
+# certfile: Path to the SSL certificate file.
+certfile = {{ (ssl | default({'enabled': False, 'certfile': '/etc/ssl/certs/glance-api.crt', 'keyfile': '/etc/ssl/private/glance-api.key', 'ca_certs': '/etc/ssl/certs/ca-certificates.crt'})).certfile }}
+
+# keyfile: Path to the SSL private key file.
+keyfile = {{ (ssl | default({'enabled': False, 'certfile': '/etc/ssl/certs/glance-api.crt', 'keyfile': '/etc/ssl/private/glance-api.key', 'ca_certs': '/etc/ssl/certs/ca-certificates.crt'})).keyfile }}
+
+# ca_certs: Path to the CA certificate bundle for client verification.
+ca_certs = {{ (ssl | default({'enabled': False, 'certfile': '/etc/ssl/certs/glance-api.crt', 'keyfile': '/etc/ssl/private/glance-api.key', 'ca_certs': '/etc/ssl/certs/ca-certificates.crt'})).ca_certs }}
+
+# ----------------------------------------------------------
+# [paste_deploy] Section
+# PasteDeploy configuration for WSGI middleware stack.
+# ----------------------------------------------------------
 [paste_deploy]
-# Flavor for PasteDeploy configuration
-flavor = {{ paste_deploy.flavor }}
 
-# Service credentials for registry (used by glance-scrubber, glance-cache, etc.)
+# flavor: Flavor of the PasteDeploy configuration to use.
+# Usually 'keystone' for Keystone-integrated setups.
+flavor = {{ (paste_deploy | default({'flavor': 'keystone'})).flavor }}
+
+# ----------------------------------------------------------
+# [service_credentials] Section
+# Credentials used by Glance sub-services (scrubber, cache).
+# These connect back to Keystone for identity management.
+# ----------------------------------------------------------
 [service_credentials]
-# Authentication method
-auth_type = {{ service_credentials.auth_type }}
-auth_url = {{ service_credentials.auth_url }}
-username = {{ service_credentials.username }}
-password = {{ service_credentials.password }}
-project_name = {{ service_credentials.project_name }}
-user_domain_name = {{ service_credentials.user_domain_name }}
-project_domain_name = {{ service_credentials.project_domain_name }}
-insecure = {{ service_credentials.insecure }}
+
+# auth_type: Authentication method for sub-services.
+auth_type = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).auth_type }}
+
+# auth_url: Keystone URL for service credential authentication.
+auth_url = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).auth_url }}
+
+# username: Service username for sub-services.
+username = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).username }}
+
+# password: Service password for sub-services.
+password = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).password }}
+
+# project_name: Service project name for sub-services.
+project_name = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).project_name }}
+
+# user_domain_name: User domain name for sub-services.
+user_domain_name = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).user_domain_name }}
+
+# project_domain_name: Project domain name for sub-services.
+project_domain_name = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).project_domain_name }}
+
+# insecure: Disable SSL certificate verification for sub-services.
+insecure = {{ (service_credentials | default({'auth_type': 'password', 'auth_url': 'http://controller:5000', 'username': 'glance', 'password': 'GLANCE_PASS', 'project_name': 'service', 'user_domain_name': 'Default', 'project_domain_name': 'Default', 'insecure': False})).insecure }}

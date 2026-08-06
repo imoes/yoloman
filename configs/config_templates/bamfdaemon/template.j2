@@ -1,40 +1,112 @@
-# Enable verbose logging for debugging
-{% if debug %}Debug = true{% else %}Debug = false{% endif %}
+# ==============================================================================
+# BAMF Daemon Configuration Template
+# ==============================================================================
+# This configuration controls the behavior of the BAMF (Application Matching Framework)
+# daemon, which is responsible for matching running windows to desktop applications
+# (used primarily by Unity and other desktop environments).
+# ==============================================================================
 
-# Path to the BAMF daemon runtime directory
-RuntimeDir = {{ runtime_dir }}
+# ------------------------------------------------------------------------------
+# Debugging
+# ------------------------------------------------------------------------------
+# Enable verbose debugging output to aid troubleshooting.
+# When true, the daemon will emit detailed logs useful for diagnosing matching issues.
+Debug = {% if debug | default(False) | bool %}true{% else %}false{% endif %}
 
-# Path to the BAMF state file (persisted window matches)
-StateFile = {{ state_file }}
+# ------------------------------------------------------------------------------
+# Runtime Directory
+# ------------------------------------------------------------------------------
+# Directory where the daemon stores runtime data (e.g., PID file, sockets).
+# Must be writable by the daemon user.
+RuntimeDir = {{ runtime_dir | default('/run/bamfdaemon') | string }}
 
-# Number of worker threads for event processing
-WorkerThreads = {{ worker_threads }}
+# ------------------------------------------------------------------------------
+# State File
+# ------------------------------------------------------------------------------
+# Path to the file used to persist window match mappings across restarts.
+# Ensures that window-to-application associations are preserved after daemon restarts.
+StateFile = {{ state_file | default('/var/lib/bamfdaemon/bamfstate.yaml') | string }}
 
-# Timeout (in milliseconds) for window matching queries
-MatchTimeout = {{ match_timeout }}
+# ------------------------------------------------------------------------------
+# Worker Threads
+# ------------------------------------------------------------------------------
+# Number of worker threads to handle window matching events concurrently.
+# Higher values may improve performance under heavy load but increase resource usage.
+WorkerThreads = {{ worker_threads | default(4) | int }}
 
-# Enable/Disable X11 integration (required on X11 sessions)
-{% if x11_enabled %}UseX11 = true{% else %}UseX11 = false{% endif %}
+# ------------------------------------------------------------------------------
+# Match Timeout
+# ------------------------------------------------------------------------------
+# Maximum time (in milliseconds) to wait for a window match operation before timing out.
+# If a match operation exceeds this duration, it is aborted to prevent hanging.
+MatchTimeout = {{ match_timeout | default(500) | int }}
 
-# Enable/Disable Wayland integration (required on Wayland sessions)
-{% if wayland_enabled %}UseWayland = true{% else %}UseWayland = false{% endif %}
+# ------------------------------------------------------------------------------
+# X11 Support
+# ------------------------------------------------------------------------------
+# Enable support for X11 windows (required on traditional X11 sessions).
+# If disabled, the daemon will ignore X11 window events.
+UseX11 = {% if x11_enabled | default(True) | bool %}true{% else %}false{% endif %}
 
-# List of application-specific matching rules
-{% for rule in matching_rules %}# Match rule: {{ rule.name }}
-{{ rule.section }} {
-  Name = {{ rule.name }}
-  Exec = {{ rule.exec }}
-  Icon = {{ rule.icon | default('') | trim | default('') | replace('None', '') | replace('', '') }}
-{% if rule.wmclass %}  WMClass = {{ rule.wmclass }}{% endif %}
-{% if rule.wmname %}  WMName = {{ rule.wmname }}{% endif %}
-{% if rule.regex %}  Regex = {{ rule.regex }}{% endif %}
+# ------------------------------------------------------------------------------
+# Wayland Support
+# ------------------------------------------------------------------------------
+# Enable support for Wayland windows (required on modern Wayland sessions).
+# If disabled, the daemon will ignore Wayland window events.
+UseWayland = {% if wayland_enabled | default(True) | bool %}true{% else %}false{% endif %}
+
+# ------------------------------------------------------------------------------
+# Custom Matching Rules
+# ------------------------------------------------------------------------------
+# List of custom application matching rules to override default behavior.
+# Each rule defines how specific windows should be matched to applications.
+{% for rule in matching_rules | default([]) %}
+# --- Custom Rule: {{ rule.name | default('unnamed') }} ---
+{{ rule.section | default('App') }} {
+  # Application name to match against
+  Name = {{ rule.name | default('') | string }}
+
+  # Executable command pattern to match
+  Exec = {{ rule.exec | default('') | string }}
+
+  # Icon filename or theme name (optional)
+  Icon = {{ rule.icon | default('') | string | trim }}
+
+  # Window Manager Class (optional, if present)
+  {% if rule.wmclass is defined and rule.wmclass is not none and rule.wmclass != '' %}
+  WMClass = {{ rule.wmclass | string }}
+  {% endif %}
+
+  # Window Manager Name (optional, if present)
+  {% if rule.wmname is defined and rule.wmname is not none and rule.wmname != '' %}
+  WMName = {{ rule.wmname | string }}
+  {% endif %}
+
+  # Regular Expression for window matching (optional, if present)
+  {% if rule.regex is defined and rule.regex is not none and rule.regex != '' %}
+  Regex = {{ rule.regex | string }}
+  {% endif %}
 }
 {% endfor %}
 
+# ------------------------------------------------------------------------------
+# Signal Handling
+# ------------------------------------------------------------------------------
 # Signal handling: reload on SIGHUP, exit gracefully on SIGTERM
+# These settings are typically static and define how the daemon responds to OS signals.
 ReloadSignal = SIGHUP
 ExitSignal = SIGTERM
 
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
 # Logging destination: syslog or file
-{% if log_to_file %}LogFile = {{ log_file }}{% endif %}
-LogLevel = {{ log_level }}
+# If log_to_file is true, log output is written to a file instead of syslog.
+{% if log_to_file | default(False) | bool %}
+# Logging to file is enabled
+LogFile = {{ log_file | default('/var/log/bamfdaemon.log') | string }}
+{% endif %}
+
+# Minimum severity level for logged messages.
+# Common levels: debug, info, warn, error, fatal
+LogLevel = {{ log_level | default('info') | string }}

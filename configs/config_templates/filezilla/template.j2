@@ -1,0 +1,45 @@
+{# FileZilla Command-Line Options Template #}
+{# This template generates the command-line arguments for invoking FileZilla #}
+{# via Ansible. It supports connection modes (URL, Site Manager path) and #}
+{# utility flags (help, version, site manager UI). #}
+
+{# --- Connection/Operation Mode --- #}
+
+{# -c <path>: Specify a complete site path from the Site Manager to open. #}
+{# Required for the `-c` option. Example: '0/foo/bar/sl\\ash' #}
+{% if site_path is defined %}
+-c {{ site_path | default('0') }}
+{% endif %}
+
+{# -a <path>: Specify the local site path to set. #}
+{# Required for the `-a` option. #}
+{% if local_path is defined %}
+-a "{{ local_path | default('') }}"
+{% endif %}
+
+{# --- URL Mode --- #}
+{# -u <url>: FTP URL to connect to (e.g., 'ftp://example.com/path'). #}
+{# Required for URL mode. If this is provided, other flags may apply. #}
+{% if url is defined %}
+    {# -l <type>: Login type, either 'ask' or 'interactive'. #}
+    {# Only valid with `-l` and a URL. Defaults to empty (no flag) if not specified or invalid. #}
+    {% if logontype is defined and logontype in ['ask', 'interactive'] %}
+    -l {{ logontype | default('') }}
+    {% endif %}
+    
+    {# The URL itself #}
+    {{ url | default('ftp') }}
+
+{% elif start_site_manager is defined and start_site_manager %}
+    {# -s: Start FileZilla with the Site Manager opened. #}
+    -s
+
+{% elif show_version is defined and show_version %}
+    {# -v: Display version number. #}
+    -v
+
+{% elif show_help is defined and show_help %}
+    {# -h: Display help information. #}
+    -h
+
+{% endif %}

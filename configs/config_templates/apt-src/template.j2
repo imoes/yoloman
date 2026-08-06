@@ -1,0 +1,74 @@
+{# /etc/apt/apt.conf.d/50apt-src #}
+{# This file configures the APT source package handling behavior (apt-src). #}
+{# It maps to the APT::Src::* configuration tree. #}
+{# #}
+{# Variables used: #}
+{# - apt_src (object): The root configuration object for apt-src settings. #}
+
+{# Build source packages after installing or upgrading them. #}
+{# Corresponds to APT::Src::Compile. #}
+{# Default: false #}
+APT::Src::Compile "{{ (apt_src | default({})).compile | default(false) }}";
+
+{# Install binary packages after building sources. Implies compile. #}
+{# Corresponds to APT::Src::InstallDebs. #}
+{# Default: false #}
+APT::Src::InstallDebs "{{ (apt_src | default({})).installdebs | default(false) }}";
+
+{# Try to patch local changes into new source tree when upgrading. #}
+{# Corresponds to APT::Src::Patch. #}
+{# Default: true #}
+APT::Src::Patch "{{ (apt_src | default({})).patch | default(true) }}";
+
+{# Directory; only operate on packages in that directory. #}
+{# Corresponds to APT::Src::Location. #}
+{# Default: '' (empty string) #}
+APT::Src::Location "{{ (apt_src | default({})).location | default('') }}";
+
+{# Only operate on packages in the current directory. #}
+{# Corresponds to APT::Src::Here. #}
+{# Default: false #}
+APT::Src::Here "{{ (apt_src | default({})).here | default(false) }}";
+
+{# Do not delete .debs and other built files after installing them. #}
+{# Corresponds to APT::Src::KeepBuilt. #}
+{# Default: false #}
+APT::Src::KeepBuilt "{{ (apt_src | default({})).keep_built | default(false) }}";
+
+{# Do not delete source files when removing source package. #}
+{# Corresponds to APT::Src::NoDeleteSource. #}
+{# Default: false #}
+APT::Src::NoDeleteSource "{{ (apt_src | default({})).no_delete_source | default(false) }}";
+
+{# Direct all command output to /dev/null unless a command fails. #}
+{# Corresponds to APT::Src::Quiet. #}
+{# Default: false #}
+APT::Src::Quiet "{{ (apt_src | default({})).quiet | default(false) }}";
+
+{# Output each command as it is run. #}
+{# Corresponds to APT::Src::Trace. #}
+{# Default: false #}
+APT::Src::Trace "{{ (apt_src | default({})).trace | default(false) }}";
+
+{# Command to use to build a tree. For non-root users, '-rfakeroot' is appended. #}
+{# Corresponds to APT::Src::BuildCommand. #}
+{# Default: 'dpkg-buildpackage -b -us -uc' #}
+APT::Src::BuildCommand "{{ (apt_src | default({})).build_command | default('dpkg-buildpackage -b -us -uc') }}";
+
+{# Command used to become root, e.g. to satisfy build-deps. #}
+{# Corresponds to APT::Src::RootCommand. #}
+{# Default: 'sudo' #}
+APT::Src::RootCommand "{{ (apt_src | default({})).root_command | default('sudo') }}";
+
+{# Controls whether apt-src makes sure a source package's build dependencies are installed. #}
+{# Corresponds to APT::Src::BuildDeps. #}
+{# Default: true #}
+APT::Src::BuildDeps "{{ (apt_src | default({})).build_deps | default(true) }}";
+
+{# List of APT source entries (like /etc/apt/sources.list lines). #}
+{# Each item is a map with keys: type (deb|deb-src), uri, dist, components (optional list). #}
+{# Default: [] (empty list) #}
+{% for repo in (apt_src | default({})).sources_list | default([]) %}
+{# Source: {{ repo.uri | default('') }} ({{ repo.dist | default('') }}{{ (repo.components | default(['main'])) | join(' ') }}) #}
+{{ repo.type | default('deb') }} {{ repo.uri }} {{ repo.dist }} {{ (repo.components | default(['main'])) | join(' ') }}
+{% endfor %}

@@ -1,0 +1,65 @@
+# AusweisApp Configuration
+# This template generates command-line arguments for the AusweisApp service.
+# All variables use the 'default()' Jinja filter to ensure safe rendering even if
+# the variable is not defined in the Ansible inventory.
+
+# --- Proxy Configuration ---
+# Description: Enable system proxy (set to false to disable)
+# Default: True
+{% if use_proxy | default(true) %}
+# Proxy is ENABLED. The application will use system proxy settings.
+--use-proxy
+{% endif %}
+
+# --- UI Modes Configuration ---
+# Description: UI modes to start. Allowed values: qml (GUI), webservice (HTTP/JSON), websocket (SDK).
+# Default: ['qml', 'webservice', 'websocket']
+{% set ui_modes = ui_mode | default(['qml', 'webservice', 'websocket']) %}
+# The following flag specifies which UI backends should be initialized.
+--ui {{ ui_modes | join(',') }}
+
+# --- Webservice Port Configuration ---
+# Description: Port for the webservice. Use 0 to let AusweisApp assign a random port and write it to a file.
+# Default: 24727
+{% if port is not none and port | default(24727) is not none %}
+# The port the webservice will listen on.
+--port {{ port | default(24727) }}
+{% endif %}
+
+# --- Bind Addresses Configuration ---
+# Description: IP addresses to bind the webservice/websocket to. By default, only localhost for security.
+# Default: ['127.0.0.1']
+{% for addr in bind_addresses | default(['127.0.0.1']) %}
+# Binding the service to this specific address.
+--address {{ addr }}
+{% endfor %}
+
+# --- Logging Configuration ---
+# Description: Keep log file after exit (default: delete it).
+# Default: False
+{% if keep_log | default(false) %}
+# Retain the log file on disk after the application exits.
+--keep
+{% endif %}
+
+# Description: Suppress writing log file to ${TMP}/AusweisApp.*.log (logs still go to stdout unless no_loghandler is set).
+# Default: False
+{% if no_logfile | default(false) %}
+# Do not create a log file on disk; output is suppressed to file but may still appear in stdout.
+--no-logfile
+{% endif %}
+
+# Description: Disable the default log handler (suppresses stdout logging).
+# Default: False
+{% if no_loghandler | default(false) %}
+# Disable the default log handler entirely; no stdout logging will occur.
+--no-loghandler
+{% endif %}
+
+# --- GUI Startup Configuration ---
+# Description: Show GUI window on startup.
+# Default: False
+{% if show_on_start | default(false) %}
+# Force the GUI window to be visible immediately upon application start.
+--show
+{% endif %}

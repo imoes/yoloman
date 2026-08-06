@@ -1,0 +1,31 @@
+{# cue2toc configuration file (~/.cue2tocrc) #}
+{# Generated from cue2toc(1) manpage, section CONFIGURATION #}
+{# This configuration file controls the behavior of the cue2toc utility. #}
+{# It defines whether to convert audio files, write CD-Text metadata, #}
+{# enable quiet mode, and define custom file conversion rules. #}
+
+# Main configuration section
+
+# enable/disable automatic conversion of audio files (e.g., MP3→WAV).
+# Default: True. Set to 'no' or 'false' to disable conversion.
+CONVERT = {{ (values | default({})).convert | default(true) | lower }}
+
+# enable/disable writing of CD-Text data to the TOC file.
+# Default: True. Set to 'no' or 'false' to disable CD-Text generation.
+CDTEXT = {{ (values | default({})).cdtext | default(true) | lower }}
+
+# suppress warning messages (equivalent to -q option).
+# Default: False. Set to 'yes' or 'true' to enable quiet mode.
+QUIET = {{ (values | default({})).quiet | default(false) | lower }}
+
+# Converter rules: ext_from → ext_to via command.
+# Each entry is a map with keys: ext_from, ext_to, command.
+# ext_from: Source file extension (e.g., 'mp3').
+# ext_to: Target file extension (e.g., 'wav').
+# command: Shell command to perform the conversion.
+{% for converter in (values | default({})).converters | default([]) %}
+{# Define a single conversion rule for a specific file format. #}
+{# The command should use appropriate tools (e.g., ffmpeg, lame, sox). #}
+CONVERTER = {{ converter.ext_from | default('') }} {{ converter.ext_to | default('') }}
+  "{{ (converter.command | default('')) | replace('"', '\"') }}"
+{% endfor %}

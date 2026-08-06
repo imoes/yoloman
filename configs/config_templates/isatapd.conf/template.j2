@@ -1,43 +1,79 @@
-# ISATAP daemon configuration
-# Global ISATAP configuration options
-# Enable/disable ISATAP daemon
-enabled: {{ enabled | string | lower }}
+# ============================================================================
+# ISATAP Daemon Configuration Template
+# ============================================================================
+# This configuration file manages the ISATAP (Intra-Site Automatic Tunnel
+# Addressing Protocol) daemon (isatapd). It configures tunnel interfaces,
+# routing behavior, and logging for automatic IPv6-over-IPv4 tunneling.
+# ============================================================================
 
-# Network interface to use for ISATAP (e.g., 'eth0')
-interface: {{ interface }}
+# ----------------------------------------------------------------------------
+# Tunnel Interface Name
+# Description: Name of the tunnel interface. Default is 'is0'.
+# ----------------------------------------------------------------------------
+tunnel_name: {{ tunnel_name | default('is0') }}
 
-# IPv4 address of the ISATAP router (required for ISATAP operation)
-isatap_router_ipv4: {{ isatap_router_ipv4 }}
+# ----------------------------------------------------------------------------
+# Network Interface (Link Device)
+# Description: Tunnel link device. If specified, tunnel will be restricted
+# to that device. 'auto' guesses the outgoing IPv4 address.
+# ----------------------------------------------------------------------------
+interface: {{ interface | default('auto') }}
 
-# IPv6 prefix for ISATAP-generated addresses (e.g., '2001:db8:1::/64')
-isatap_ipv6_prefix: {{ isatap_ipv6_prefix }}
+# ----------------------------------------------------------------------------
+# MTU Settings
+# Description: Sets the MTU for the tunnel device, minimum is 1280.
+# 0 or 'auto' lets the kernel choose (usually 1480).
+# ----------------------------------------------------------------------------
+mtu: {{ mtu | default(0) }}
 
-# Maximum lifetime (in seconds) for ISATAP router advertisements
-router_advert_lifetime: {{ router_advert_lifetime }}
+# ----------------------------------------------------------------------------
+# TTL / Hoplimit
+# Description: Set the tunnel hoplimit. Default is 64.
+# 'auto' or 'inherit' makes the tunnel inherit the TTL from the linked device.
+# ----------------------------------------------------------------------------
+ttl: {{ ttl | default('64') }}
 
-# Interval (in seconds) between router advertisements
-router_advert_interval: {{ router_advert_interval }}
+# ----------------------------------------------------------------------------
+# Path MTU Discovery
+# Description: Disable (IPv4) Path MTU Discovery on this tunnel.
+# Requires --ttl to be set to inherit for full effect.
+# ----------------------------------------------------------------------------
+disable_pmtudisc: {{ disable_pmtudisc | default(false) | string | lower }}
 
-# Enable/disable MTU discovery
-mtu_discovery: {{ mtu_discovery | string | lower }}
-
-# Optional: specify additional ISATAP hosts to trust (list of IPv4 addresses)
-{% for host in trusted_hosts %}# Trusted ISATAP host
-trusted_host: {{ host }}
+# ----------------------------------------------------------------------------
+# ISATAP Routers
+# Description: Set a potential router. Up to 10 potential routers can be
+# specified. Default is the unqualified domainname 'isatap'.
+# isatapd will resolve them to find the best path.
+# ----------------------------------------------------------------------------
+{% for router in routers | default(['isatap']) %}router: {{ router }}
 {% endfor %}
 
-# Logging level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
-log_level: {{ log_level }}
+# ----------------------------------------------------------------------------
+# Router Solicitation Interval
+# Description: Default interval to send router solicitations.
+# If 0 or 'auto', the interval will be 80% of the router's lifetime.
+# Can be used to force solicitation timing.
+# ----------------------------------------------------------------------------
+interval: {{ interval | default(0) }}
 
-# Log file path (use '-' for stdout)
-log_file: {{ log_file }}
+# ----------------------------------------------------------------------------
+# DNS Check Interval
+# Description: Interval to perform DNS resolution of configured routers
+# and to recreate the PRL, if necessary. Set to 0 to disable.
+# ----------------------------------------------------------------------------
+dns_check_interval: {{ dns_check_interval | default(3600) }}
 
-# Enable/disable IPv6 forwarding (system-level)
-ipv6_forwarding: {{ ipv6_forwarding | string | lower }}
+# ----------------------------------------------------------------------------
+# Log File Path
+# Description: Log file path. Use '-' to log to stdout/stderr.
+# ----------------------------------------------------------------------------
+log_file: {{ log_file | default('-') }}
 
-# Optional: list of zones (ISATAP zones define administrative domains)
-{% for zone in zones %}# ISATAP zone: {{ zone.name }}
-zone_name: {{ zone.name }}
-zone_prefix: {{ zone.prefix }}
-zone_router: {{ zone.router }}
-{% endfor %}
+# ----------------------------------------------------------------------------
+# Log Level
+# Description: Verbosity of logging (controlled by -v/-q).
+# isatapd logs to stderr when run in foreground and to syslog(3)
+# using facility LOG_DAEMON.
+# ----------------------------------------------------------------------------
+log_level: {{ log_level | default('INFO') }}

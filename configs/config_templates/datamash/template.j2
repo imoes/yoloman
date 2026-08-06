@@ -1,0 +1,154 @@
+# =============================================================================
+# DATAMASH CLI INVOCATION CONFIGURATION
+# =============================================================================
+# This template generates the command-line arguments for `datamash`.
+# It is designed to be consumed by an Ansible task (e.g., command, shell, or script module)
+# that passes these options to the datamash binary during data processing.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Field Separator
+# -----------------------------------------------------------------------------
+# Defines the character used to separate fields in the input data.
+# Default: TAB (\t)
+# Allowed: Any single character. Escape special characters as needed for the shell.
+--field-separator="{{ field_separator|default('\t') }}"
+
+# -----------------------------------------------------------------------------
+# Output Delimiter
+# -----------------------------------------------------------------------------
+# Defines the character used to separate fields in the output.
+# If left empty or not specified, datamash uses the same delimiter as `field_separator`.
+# Default: (empty, inherits from field_separator)
+{% if output_delimiter|default('') %}
+--output-delimiter="{{ output_delimiter|default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Comment Handling
+# -----------------------------------------------------------------------------
+# If true, lines starting with '#' or ';' are treated as comments and skipped.
+# Default: False
+{% if skip_comments|default(false) %}
+--skip-comments
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Sorting
+# -----------------------------------------------------------------------------
+# If true, the input is sorted before processing grouping operations.
+# Note: This may require additional memory for large datasets.
+# Default: False
+{% if sort_input|default(false) %}
+--sort-input
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Header Handling (Input)
+# -----------------------------------------------------------------------------
+# If true, the first line of input is treated as a header row.
+# This affects how field names are referenced in `group_fields`.
+# Default: False
+{% if header_in|default(false) %}
+--header-in
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Header Handling (Output)
+# -----------------------------------------------------------------------------
+# If true, prints the column headers as the first line of the output.
+# This requires `header_in` to be active or explicit header names to be provided.
+# Default: False
+{% if header_out|default(false) %}
+--header-out
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Group Fields
+# -----------------------------------------------------------------------------
+# Specifies which fields to group by.
+# Values can be 1-based numeric indices (e.g., '1', '3') or header names (if `header_in` is true).
+# Multiple fields can be specified as a space-separated list or via individual flags.
+# Example: --group-fields="1 3" or --group-fields="Name Category"
+{% if group_fields|default([])|length > 0 %}
+--group-fields="{{ group_fields|default([])|join(' ') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Operations
+# -----------------------------------------------------------------------------
+# Specifies the statistical or transformation operations to perform.
+# Each operation can target specific fields.
+# Format: --operation=OP[:FIELD] or --operation=OP[:FIELD1,FIELD2]
+# See `man datamash` for available operations (sum, mean, median, std, etc.).
+#
+# Example items in `operations` list:
+#   - operation: "mean"
+#     field: "2"
+#   - operation: "sum"
+#     field: "3-5"
+#
+# Default: (empty, implies no operations unless piped)
+{% if operations|default([])|length > 0 %}
+{% for op in operations %}
+--operation="{{ op.operation }}{% if op.field|default('') %}:{{ op.field }}{% endif %}"
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Collapse Delimiter
+# -----------------------------------------------------------------------------
+# Delimiter used when outputting collapsed lists (e.g., for 'collapse' or 'unique' ops).
+# Default: Comma (,)
+{% if collapse_delimiter|default(',') != ',' %}
+--collapse-delimiter="{{ collapse_delimiter|default(',') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Rounding / Precision
+# -----------------------------------------------------------------------------
+# Number of decimal places to round numeric results.
+# Default: 0 (integer output for whole numbers, full precision otherwise)
+{% if round_places|default(0) != 0 %}
+--round={{ round_places|default(0) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# NA/NaN Handling
+# -----------------------------------------------------------------------------
+# If true, NA (Not Available) and NaN (Not a Number) values are skipped in numeric calculations.
+# If false, they may cause errors or propagate through the result.
+# Default: False
+{% if narm|default(false) %}
+--narm
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Random Seed
+# -----------------------------------------------------------------------------
+# Sets the seed for random number generation (used by operations like 'rand', 'strbin').
+# Useful for reproducibility.
+# Default: (empty, system time or random source)
+{% if seed|default('') %}
+--seed="{{ seed|default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Whitespace Delimiter
+# -----------------------------------------------------------------------------
+# If true, treats any sequence of whitespace (spaces/tabs) as a field delimiter.
+# Overrides `field_separator` if set.
+# Default: False
+{% if whitespace_delimiter|default(false) %}
+--whitespace-delimiter
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Zero-Terminated Lines
+# -----------------------------------------------------------------------------
+# If true, treats lines as terminated by null bytes (0x00) instead of newlines.
+# Useful for processing output from `find -print0` or similar tools.
+# Default: False
+{% if zero_terminated|default(false) %}
+--zero-terminated
+{% endif %}

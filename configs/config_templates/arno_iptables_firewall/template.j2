@@ -1,81 +1,147 @@
-# arno-iptables-firewall configuration (Jinja2 template)
-# This file is sourced by /usr/sbin/iptables-firewall
+# =============================================================================
+# Arno IPTables Firewall Configuration
+# =============================================================================
+# This file is sourced by the /usr/sbin/iptables-firewall script.
+# It controls the behavior of the firewall, including NAT, DMZ, logging,
+# and service exposure.
+#
+# All variables are explicitly defaulted here to ensure safety even if
+# the Ansible role does not define them. Do not remove the | default()
+# filters unless you have verified the variables are always defined upstream.
+# =============================================================================
 
-# Enable/disable verbose logging to syslog
-VERBOSE={{ verbose }}
+# -----------------------------------------------------------------------------
+# General Logging & Verbosity
+# -----------------------------------------------------------------------------
 
-# Enable/disable kernel logging of dropped packets
-LOG_DROPS={{ log_drops }}
+# Enable verbose output to syslog when the firewall starts/stops.
+# Helps in debugging startup issues.
+VERBOSE={{ verbose | default(False) }}
 
-# Enable/disable logging of refused connections
-LOG_REFUSED={{ log_refused }}
+# Enable/disable kernel logging of dropped packets.
+# Logs include REASON and packet details for forensic analysis.
+LOG_DROPS={{ log_drops | default(True) }}
 
-# Syslog facility for firewall messages
-LOG_FACILITY={{ log_facility }}
+# Enable/disable logging of refused connection attempts.
+# Useful for identifying port scanning or unauthorized access attempts.
+LOG_REFUSED={{ log_refused | default(True) }}
 
-# Enable/disable Masquerading (NAT) for outbound traffic
-NAT={{ nat_enabled }}
+# Syslog facility to use for firewall log messages.
+# Common values: daemon, local0, local1, etc.
+LOG_FACILITY={{ log_facility | default('daemon') }}
 
-# Internal network(s) (space-separated, CIDR or hostnames)
-# For multi-homed setups, separate internal and external interfaces explicitly
-INTERNAL_HOSTS="{% for host in internal_hosts %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}"
+# -----------------------------------------------------------------------------
+# Network Interfaces & Topology
+# -----------------------------------------------------------------------------
 
-# External interface (WAN/uplink) — single-homed default
-EXTERNAL_IF={{ external_interface }}
+# Enable/disable Masquerading (NAT) for outbound traffic to the Internet.
+# If true, internal hosts are hidden behind the external IP.
+NAT={{ nat_enabled | default(True) }}
 
-# Enable/disable DMZ (demilitarized zone) support
-DMZ={{ dmz_enabled }}
+# List of internal (private) IP subnets or host addresses to protect.
+# These ranges are trusted and usually excluded from NAT or strict filtering.
+# Format: Space-separated CIDR notation (e.g., "10.0.0.0/8 192.168.1.0/24").
+INTERNAL_HOSTS="{% for host in internal_hosts | default(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']) %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}"
 
-# DMZ subnet(s) (space-separated)
-DMZ_HOSTS="{% for host in dmz_hosts %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}"
+# Name of the external (WAN/uplink) network interface.
+# Traffic destined for the Internet is routed out this interface.
+EXTERNAL_IF={{ external_interface | default('eth0') }}
 
-# DMZ interface (required if DMZ is enabled)
-DMZ_IF={{ dmz_interface }}
+# -----------------------------------------------------------------------------
+# DMZ (Demilitarized Zone) Configuration
+# -----------------------------------------------------------------------------
 
-# Enable/disable ADSL support (PPPoE-specific optimizations)
-ADSL={{ adsl_enabled }}
+# Enable/disable a demilitarized zone (DMZ) for semi-trusted services.
+# DMZ hosts are exposed to the Internet but isolated from the internal LAN.
+DMZ={{ dmz_enabled | default(False) }}
 
-# PPPoE interface name (if ADSL is enabled)
-PPPOE_IF={{ pppoe_interface }}
+# List of DMZ subnets or hosts exposed to the Internet.
+# Only used if DMZ is enabled.
+DMZ_HOSTS="{% for host in dmz_hosts | default([]) %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}"
 
-# Enable/disable TCP SYN flood protection
-SYN_FLOOD_PROTECT={{ syn_flood_protect }}
+# Name of the interface connected to the DMZ network.
+# Required if DMZ is enabled.
+DMZ_IF={{ dmz_interface | default('eth1') }}
 
-# Rate limit for ICMP ping responses (packets per second)
-ICMP_PING_RATE_LIMIT={{ icmp_ping_rate_limit }}
+# -----------------------------------------------------------------------------
+# ADSL / PPPoE Configuration
+# -----------------------------------------------------------------------------
 
-# Allowed inbound services (comma-separated list of ports or service names)
-# Example: ssh,http,https,22,80,443
-INBOUND_PORTS="{% for svc in inbound_services %}{{ svc }}{% if not loop.last %},{% endif %}{% endfor %}"
+# Enable/disable ADSL/PPPoE-specific optimizations.
+# Includes MSS clamping to prevent packet fragmentation issues over PPPoE.
+ADSL={{ adsl_enabled | default(False) }}
 
-# Allow inbound SSH from external? (true/false)
-ALLOW_INBOUND_SSH={{ allow_inbound_ssh }}
+# Name of the PPPoE interface.
+# Only relevant if ADSL is enabled (e.g., ppp0).
+PPPOE_IF={{ pppoe_interface | default('ppp0') }}
 
-# Allow inbound SSH only from internal network? (true/false)
-SSH_ONLY_FROM_INTERNAL={{ ssh_only_from_internal }}
+# -----------------------------------------------------------------------------
+# Security & Flood Protection
+# -----------------------------------------------------------------------------
 
-# Enable/disable forwarding for DMZ hosts
-FORWARD_DMZ={{ forward_dmz }}
+# Enable/disable TCP SYN flood protection.
+# Rate-limits new TCP connection attempts to mitigate DDoS.
+SYN_FLOOD_PROTECT={{ syn_flood_protect | default(True) }}
 
-# Enable/disable forwarding between internal networks (multi-homed only)
-FORWARD_INTERNAL={{ forward_internal }}
+# Maximum ICMP echo requests (ping) per second allowed from external sources.
+# Helps prevent ping floods while allowing basic connectivity checks.
+ICMP_PING_RATE_LIMIT={{ icmp_ping_rate_limit | default(5) }}
 
-# Enable/disable logging of forwarded packets
-LOG_FORWARD={{ log_forward }}
+# Enable/disable stateful packet inspection.
+# Tracks connection states (ESTABLISHED, RELATED) to allow return traffic.
+STATEFUL={{ stateful | default(True) }}
 
-# Additional custom iptables rules (one rule per line, no comments)
-# Example: -A INPUT -p tcp --dport 8080 -j ACCEPT
-CUSTOM_RULES="{% for rule in custom_rules %}
+# -----------------------------------------------------------------------------
+# Inbound Services & SSH Access
+# -----------------------------------------------------------------------------
+
+# List of services (ports or named services like 'ssh', 'http') to allow inbound.
+# Comma-separated list (e.g., "ssh,http,https").
+# These are allowed on the EXTERNAL_IF if other conditions permit.
+INBOUND_PORTS="{% for svc in inbound_services | default(['ssh', 'http', 'https']) %}{{ svc }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+# Allow inbound SSH connections from the Internet.
+# WARNING: Not recommended unless explicitly needed. Prefer key-based auth.
+ALLOW_INBOUND_SSH={{ allow_inbound_ssh | default(False) }}
+
+# Allow inbound SSH only from internal (protected) networks.
+# If true, SSH is blocked from EXTERNAL_IF even if ALLOW_INBOUND_SSH is true.
+SSH_ONLY_FROM_INTERNAL={{ ssh_only_from_internal | default(True) }}
+
+# Allow DNS responses from your own DNS servers (e.g., if running BIND locally).
+# Allows inbound DNS queries/updates if the firewall acts as a DNS server.
+ALLOW_DNS_INBOUND={{ allow_dns_inbound | default(False) }}
+
+# -----------------------------------------------------------------------------
+# Forwarding Rules
+# -----------------------------------------------------------------------------
+
+# Allow traffic forwarding between internal network and DMZ.
+# Requires DMZ to be enabled.
+FORWARD_DMZ={{ forward_dmz | default(False) }}
+
+# Allow forwarding between multiple internal interfaces (multi-homed only).
+# Useful for router setups connecting two private networks.
+FORWARD_INTERNAL={{ forward_internal | default(False) }}
+
+# Enable/disable logging of forwarded packets to syslog for auditing.
+LOG_FORWARD={{ log_forward | default(False) }}
+
+# -----------------------------------------------------------------------------
+# Advanced / Miscellaneous
+# -----------------------------------------------------------------------------
+
+# Additional custom iptables rules (one rule per line, no comments).
+# Must be valid iptables -A syntax.
+# Example:
+# -A INPUT -p tcp --dport 8080 -j ACCEPT
+CUSTOM_RULES="{% for rule in custom_rules | default([]) %}
 {{ rule }}{% endfor %}"
 
-# Enable/disable IPv6 firewall (if ip6tables available)
-IPV6={{ ipv6_enabled }}
+# Enable/disable IPv6 firewall rules (requires ip6tables).
+# If false, only IPv4 rules (iptables) are applied.
+IPV6={{ ipv6_enabled | default(False) }}
 
-# Enable/disable stateful packet inspection (state tracking)
-STATEFUL={{ stateful }}
-
-# Enable/disable randomization of source port ranges for outbound NAT
-RANDOMIZE_OUTBOUND_PORTS={{ randomize_outbound_ports }}
-
-# DNS servers to allow inbound DNS responses (for DNS servers running locally)
-ALLOW_DNS_INBOUND={{ allow_dns_inbound }}
+# Enable/disable randomization of source port ranges for outbound NAT.
+# Improves security by making outbound connections harder to track/predict.
+RANDOMIZE_OUTBOUND_PORTS={{ randomize_outbound_ports | default(False) }}

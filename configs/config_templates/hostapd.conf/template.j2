@@ -1,89 +1,144 @@
-# IEEE 802.11 wireless LAN configuration (hostapd)
-# Interface to use for the access point
-interface={{ interface }}
+# ==============================================================================
+# hostapd.conf — IEEE 802.11 Wireless Access Point Configuration
+# ==============================================================================
+# This template generates a complete hostapd configuration file.
+# All variables use defaults from the schema to ensure the file is always valid.
 
-# Driver to use (e.g., nl80211, mac80211, bsd, etc.)
-driver={{ driver }}
+# ------------------------------------------------------------------------------
+# Interface and Driver
+# ------------------------------------------------------------------------------
 
-# SSID (network name) to broadcast
-ssid={{ ssid }}
+# Wireless interface to use for the access point (e.g., wlan0, wlp3s0).
+interface={{ interface | default('wlan0') }}
 
-# Country code (required for regulatory compliance)
-country_code={{ country_code }}
+# Driver interface to use (nl80211 is standard for modern Linux kernel).
+driver={{ driver | default('nl80211') }}
 
-# Hardware mode: a = 5 GHz, b = 2.4 GHz, g = 2.4 GHz (802.11g), n = 802.11n, ac = 5 GHz
-hw_mode={{ hw_mode }}
+# ------------------------------------------------------------------------------
+# Network Identity and Radio Settings
+# ------------------------------------------------------------------------------
 
-# Channel number (1–14 for 2.4 GHz, 36+ for 5 GHz)
-channel={{ channel }}
+# Service Set Identifier (network name) broadcast by the AP.
+ssid={{ ssid | default('MyAP') }}
 
-{% if beacon_rate is defined %}
-# Beacon transmission rate (optional)
-beacon_rate={{ beacon_rate }}
-{% endif %}
+# Two-letter ISO/IEC 3166-1 alpha-2 country code for regulatory compliance.
+country_code={{ country_code | default('US') }}
 
-{% if hw_mode in ['g', 'n'] %}
-# 802.11n configuration (optional but common for modern APs)
+# Hardware mode: 'b', 'g', 'a', 'n', or 'ac'. Choose 'g' for 2.4 GHz, 'a' or 'ac' for 5 GHz.
+hw_mode={{ hw_mode | default('g') }}
+
+# Channel number (1–13 for 2.4 GHz, 36–165 for 5 GHz).
+channel={{ channel | default(6) }}
+
+# Beacon frame transmission rate in kbps (e.g., '1000' = 1 Mbps). Optional.
+beacon_rate={{ beacon_rate | default('1000') }}
+
+# ------------------------------------------------------------------------------
+# 802.11n (2.4 GHz) Configuration
+# ------------------------------------------------------------------------------
+
+# Enable 802.11n features for 2.4 GHz modes (g, n).
+{% if hw_mode | default('g') in ['g', 'n'] %}
+# Enable IEEE 802.11n support
 ieee80211n=1
-# Require HT (802.11n) for stations (optional)
+# Require HT (High Throughput) for connected stations
 require_ht=1
 {% endif %}
 
-{% if hw_mode in ['a', 'ac'] %}
-# 802.11ac configuration (5 GHz only)
-{% if hw_mode == 'ac' %}
+# ------------------------------------------------------------------------------
+# 802.11ac (5 GHz) Configuration
+# ------------------------------------------------------------------------------
+
+# Enable 802.11ac features for 5 GHz modes (a, ac).
+{% if hw_mode | default('g') in ['a', 'ac'] %}
+# Enable IEEE 802.11ac support (only for mode 'ac')
+{% if hw_mode | default('g') == 'ac' %}
 ieee80211ac=1
 require_vht=1
-# VHT channel width: 0=20 MHz, 1=40 MHz, 2=80 MHz, 3=160 MHz, 4=80+80 MHz
+
+# VHT channel width: 0=20, 1=40, 2=80, 3=160, 4=80+80 MHz. Used only with hw_mode=ac.
 vht_oper_chwidth={{ vht_oper_chwidth | default(1) }}
-# Center freq. segment 0 for 80/160 MHz channels (e.g., 42 for 5 GHz channel 36+80)
-vht_oper_centr_freq_seg0_idx={{ vht_oper_centr_freq_seg0_idx }}
+
+# Center frequency segment 0 index (e.g., 42 for channel 36 with 80 MHz width).
+# Required with hw_mode=ac and vht_oper_chwidth ≥ 2.
+vht_oper_centr_freq_seg0_idx={{ vht_oper_centr_freq_seg0_idx | default(42) }}
 {% endif %}
 {% endif %}
 
-# Authentication & security
-# Enable WPA2-PSK (TKIP+CCMP recommended)
+# ------------------------------------------------------------------------------
+# Security and Authentication
+# ------------------------------------------------------------------------------
+
+# Enable WPA2/WPA3-PSK (TKIP+CCMP recommended)
 wpa=2
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=CCMP
 rsn_pairwise=CCMP
 
-# Pre-shared key (min 8 chars; use wpa_passphrase or wpa_psk)
-{% if wpa_passphrase is defined %}
-wpa_passphrase={{ wpa_passphrase }}
+# Pre-shared key configuration.
+# Prefer wpa_passphrase (ASCII) over wpa_psk (hex).
+# If wpa_passphrase is provided, it takes precedence.
+{% if wpa_passphrase | default('') != '' %}
+# WPA pre-shared key as ASCII passphrase (8–63 characters).
+wpa_passphrase={{ wpa_passphrase | default('') }}
 {% else %}
-wpa_psk={{ wpa_psk }}
+# WPA pre-shared key as 64-character hex string (used if passphrase is empty).
+wpa_psk={{ wpa_psk | default('') }}
 {% endif %}
 
-{% if macaddr_acl is defined and macaddr_acl | length > 0 %}
-# MAC address filtering (0=accept all, 1=accept only listed, 2=reject listed)
-macaddr_acl={{ macaddr_acl_mode }}
-{% for mac in macaddr_acl %}
-accept_mac={{ mac }}
-{% endfor %}
-{% endif %}
-
-# Disable WPS (strongly recommended for security)
+# Disable WPS (WPS is insecure and should always be disabled)
 wps_state=2
 ap_setup_locked=1
 
-# Hide SSID (0= broadcast, 1= hide)
-wpa_disable_eapol_key_index_retry={{ 1 if hide_ssid else 0 }}
-ignore_broadcast_ssid={{ 1 if hide_ssid else 0 }}
+# ------------------------------------------------------------------------------
+# MAC Address Filtering
+# ------------------------------------------------------------------------------
 
-# Optional: AP isolation (prevent clients from talking to each other)
-#bridge={{ bridge | default('') }}
-# (uncomment above and uncomment bridge= line in values_schema to enable)
+# MAC ACL mode: 0=accept all (default), 1=accept only listed, 2=reject listed.
+macaddr_acl={{ macaddr_acl_mode | default(0) }}
 
-# Logging (optional)
+# List of MAC addresses to allow/deny depending on macaddr_acl_mode.
+# Format: 'aa:bb:cc:dd:ee:ff'.
+{% for mac in (macaddr_acl | default([])) %}
+accept_mac={{ mac }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# SSID Broadcasting
+# ------------------------------------------------------------------------------
+
+# If true, broadcast SSID is hidden (0 beacons, or null SSID).
+# Note: Hiding SSID does not provide real security and may cause connectivity issues.
+wpa_disable_eapol_key_index_retry={{ 1 if (hide_ssid | default(False) | bool) else 0 }}
+ignore_broadcast_ssid={{ 1 if (hide_ssid | default(False) | bool) else 0 }}
+
+# ------------------------------------------------------------------------------
+# Networking and Bridging
+# ------------------------------------------------------------------------------
+
+# Bridge interface to add the AP to (e.g., 'br0'). Leave empty to run standalone.
+# Uncomment and set this variable if you want the AP interface to be part of a Linux bridge.
+# bridge={{ bridge | default('') }}
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+
+# Logging configuration for syslog and stdout.
 logger_syslog=-1
 logger_stdout=-1
 logger_syslog_level=2
 logger_stdout_level=2
 
-# Optional: IEEE 802.11d (country information element broadcasting)
-dot11d={{ 1 if enable_dot11d else 0 }}
-dot11h={{ 1 if enable_dot11h else 0 }}
+# ------------------------------------------------------------------------------
+# IEEE 802.11 Extensions
+# ------------------------------------------------------------------------------
 
-# Optional: WDS (Wireless Distribution System)
-wds_sta={{ 1 if enable_wds else 0 }}
+# If true, broadcast 802.11d country information element. Required in some countries.
+dot11d={{ 1 if (enable_dot11d | default(False) | bool) else 0 }}
+
+# If true, enable 802.11h (DFS/TPC) — required for some 5 GHz channels.
+dot11h={{ 1 if (enable_dot11h | default(False) | bool) else 0 }}
+
+# If true, enable WDS (Wireless Distribution System) for repeater or mesh behavior.
+wds_sta={{ 1 if (enable_wds | default(False) | bool) else 0 }}

@@ -1,75 +1,82 @@
 # Multizone Bidirectional nftables Firewall (foomuuri) Configuration
-# This file is managed by foomuuri; avoid manual edits unless you know nftables syntax.
-# The firewall enforces bidirectional policies across named zones with stateful tracking.
+{# This file is managed by foomuuri; avoid manual edits unless you know nftables syntax. #}
+{# The firewall enforces bidirectional policies across named zones with stateful tracking. #}
+# This template is SELF-DOCUMENTING: every directive is preceded by its schema description.
 
-# Global runtime behavior
+{# Global firewall behavior settings. Adjust log verbosity, naming conventions, and default security posture. #}
 [global]
-log_level = "{{ global.log_level }}"  # Log level: emerg|alert|crit|err|warn|notice|info|debug
 
-# nftables table and chain name prefix (must start with a letter or underscore)
-table_prefix = "{{ global.table_prefix }}"
+{# Verbosity of internal logging. Choose based on production needs (debug for troubleshooting, warn or info for production). #}
+log_level = "{{ (global | default({})).log_level | default('warn') }}"
 
-# Default action for unmatched traffic (drop or reject)
-default_action = "{{ global.default_action }}"
+{# Prefix for nftables table and chain names (must be alphanumeric or underscore, starting with letter). Avoid collisions with other firewalls. #}
+table_prefix = "{{ (global | default({})).table_prefix | default('foomuuri') }}"
 
-# Enable connection tracking (required for stateful filtering)
-enable_conntrack = {{ global.enable_conntrack | lower }}
+{# Default policy for traffic that doesn't match any rule. 'drop' is stealthy; 'reject' sends ICMP error back. #}
+default_action = "{{ (global | default({})).default_action | default('drop') }}"
 
-# Syslog facility for firewall logs (e.g., local0, auth, kern)
-syslog_facility = "{{ global.syslog_facility }}"
+{# Enable kernel connection tracking for stateful filtering. Required for allowing return traffic automatically. #}
+enable_conntrack = {{ (global | default({})).enable_conntrack | default(True) | lower }}
 
-# Per-zone definitions
-{% for zone in zones %}
-[zone."{{ zone.name }}"]
-description = "{{ zone.description }}"
+{# Syslog facility used when logging firewall events. Must be a valid rsyslog/klog facility name. #}
+syslog_facility = "{{ (global | default({})).syslog_facility | default('local0') }}"
 
-# Interfaces bound to this zone (list of interface names)
+{# List of firewall zones. Each zone represents a network segment (e.g., LAN, DMZ, IoT) with its own interfaces and security settings. #}
+{% for zone in (zones | default([], true)) %}
+{# Zone name identifier (implied by the section header key) #}
+[zone."{{ zone.name | default('unnamed') }}"]
+{# Human-readable description of the zone's purpose #}
+description = "{{ zone.description | default('') }}"
+
+{# Interfaces bound to this zone (list of interface names) #}
 interfaces = [
-{% for iface in zone.interfaces %}  "{{ iface }}"{% if not loop.last %},{% endif %}
+{% for iface in (zone.interfaces | default([], true)) %}  "{{ iface }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-# Trust level: internal, external, dmz, guest, etc.
-trust_level = "{{ zone.trust_level }}"
+{# Trust level: internal, external, dmz, guest, etc. #}
+trust_level = "{{ zone.trust_level | default('internal') }}"
 
-# Enable stateful filtering (in/out established/related)
-enable_stateful = {{ zone.enable_stateful | lower }}
+{# Enable stateful filtering (in/out established/related) #}
+enable_stateful = {{ zone.enable_stateful | default(True) | lower }}
 
-# Default policy for this zone (accept or drop)
-default_policy = "{{ zone.default_policy }}"
+{# Default policy for this zone (accept or drop) #}
+default_policy = "{{ zone.default_policy | default('drop') }}"
 
-# Optional: rate-limit new connections per second (0 = unlimited)
-new_conn_rate_limit = {{ zone.new_conn_rate_limit }}
+{# Optional: rate-limit new connections per second (0 = unlimited) #}
+new_conn_rate_limit = {{ zone.new_conn_rate_limit | default(0) }}
 
-# Optional: burst limit for new connections
-new_conn_rate_burst = {{ zone.new_conn_rate_burst }}
+{# Optional: burst limit for new connections #}
+new_conn_rate_burst = {{ zone.new_conn_rate_burst | default(0) }}
 
-# Optional: allowlisted hosts (IP/CIDR or MAC) — inbound only
+{# Optional: allowlisted hosts (IP/CIDR or MAC) — inbound only #}
 allowlisted_hosts = [
-{% for host in zone.allowlisted_hosts %}  "{{ host }}"{% if not loop.last %},{% endif %}
+{% for host in (zone.allowlisted_hosts | default([], true)) %}  "{{ host }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
 {% endfor %}
 
-# Bidirectional zone-pair policies: define allowed traffic flows between zones
-{% for pair in zone_pairs %}
-[zone_pair."{{ pair.src }}_to_{{ pair.dst }}"]
-src_zone = "{{ pair.src }}"
-dst_zone = "{{ pair.dst }}"
+{# Bidirectional zone pairs define traffic flows between zones. Each pair is unidirectional; symmetric traffic requires two pairs. #}
+{% for pair in (zone_pairs | default([], true)) %}
+{# Zone pair identifier based on source and destination zones #}
+[zone_pair."{{ pair.src | default('') }}_to_{{ pair.dst | default('') }}"]
+src_zone = "{{ pair.src | default('') }}"
+dst_zone = "{{ pair.dst | default('') }}"
 
-# Allow established/related (always true unless explicitly disabled)
-enable_established = {{ pair.enable_established | lower }}
+{# Allow established/related (always true unless explicitly disabled) #}
+enable_established = {{ pair.enable_established | default(True) | lower }}
 
-# Explicitly allowed services/ports (list of service descriptors)
+{# Explicitly allowed services/ports (list of service descriptors) #}
 allowed_services = [
-{% for svc in pair.allowed_services %}  "{{ svc }}"{% if not loop.last %},{% endif %}
+{% for svc in (pair.allowed_services | default([], true)) %}  "{{ svc }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-# Optional: log matched rules (true/false)
-log_matches = {{ pair.log_matches | lower }}
+{# Optional: log matched rules (true/false) #}
+log_matches = {{ pair.log_matches | default(False) | lower }}
 {% endfor %}
 
-# Optional: raw nftables commands (for advanced custom chains/rules)
-{% for cmd in raw_nft_commands %}
-# Raw nft command: {{ cmd.description }}
-nft_raw."{{ loop.index }}" = '''{{ cmd.body | replace("''', "\"''\"" | replace("\n", "\\n")) }}'''
+{# List of raw nft commands for expert customization — inserted verbatim into the generated nft ruleset. #}
+{% for cmd in (raw_nft_commands | default([], true)) %}
+{# Raw nft command description for documentation purposes #}
+# Raw nft command: {{ cmd.description | default('') }}
+nft_raw."{{ loop.index }}" = '''{{ cmd.body | default('') | replace("'''", "\"''\"") | replace("\n", "\\n") }}'''
 {% endfor %}

@@ -1,23 +1,98 @@
-# dsniff configuration file - controls logging and logging targets
+# =============================================================================
+# dsniff.conf — Configuration for Dsniff (Network Password Sniffer & Toolset)
+#
+# This file controls the behavior of dsniff, specifically regarding logging,
+# monitored interfaces, and protocol-specific port overrides.
+#
+# Self-documenting: Every directive is preceded by a comment explaining its
+# purpose and source. All variables use 'default()' to ensure safe rendering
+# even if the variable is undefined in the Ansible inventory.
+# =============================================================================
+
 [global]
+
+# --- Logging Configuration ---------------------------------------------------
+
 # Enable verbose logging
-verbose = {{ verbose|default(false)|string|lower }}
+# Description: If true, dsniff includes detailed packet headers and decoded
+# content in the logs. This is useful for debugging but generates large logs.
+# Default: false
+verbose = {{ verbose | default(false) | string | lower }}
+
 # Log directory for captured data
-logdir = {{ logdir|default('/var/log/dsniff') }}
+# Description: The directory where dsniff stores captured traffic logs.
+# Ensure this directory exists and is writable by the dsniff user.
+# Default: /var/log/dsniff
+logdir = {{ logdir | default('/var/log/dsniff') }}
+
 # Maximum size (in bytes) of a single log file before rotation
-logfile_maxsize = {{ logfile_maxsize|default(10485760) }}
+# Description: When a log file reaches this size, it is rotated.
+# Default: 10485760 (10 MB)
+logfile_maxsize = {{ logfile_maxsize | default(10485760) }}
+
 # Maximum number of rotated log files to keep
-logfile_rotate = {{ logfile_rotate|default(5) }}
-# List of services (protocols) to sniff — leave empty or comment to enable default set
-# Example: ssh, ftp, http, smtp, pop, imap, telnet, nntp, snmp, ldap, dns
-# services = {{ services | join(', ') if services is defined else '' }}
-{% if services is defined and services %}services = {{ services | join(', ') }}{% else %}# services = ssh, ftp, http, smtp, pop, imap, telnet, nntp, snmp, ldap, dns, x11{% endif %}
+# Description: Old rotated files are overwritten once this count is exceeded.
+# Default: 5
+logfile_rotate = {{ logfile_rotate | default(5) }}
+
+# --- Sniffing Targets --------------------------------------------------------
+
+# List of services (protocols) to sniff
+# Description: Comma-separated list of protocols (e.g., ssh, ftp, http).
+# If this section is commented out or empty, dsniff uses its default internal
+# list of common protocols.
+# Default: Empty (uses built-in defaults)
+{% if services is defined and services is iterable and (services | length) > 0 %}
+# Explicitly defined services to sniff:
+services = {{ services | join(', ') }}
+{% else %}
+# services = ssh, ftp, http, smtp, pop, imap, telnet, nntp, snmp, ldap, dns, x11
+# (Default set will be used as 'services' is not defined or is empty)
+{% endif %}
+
 # List of network interfaces to sniff on
-{% for iface in interfaces %}# Interface: {{ iface.name }}
-{% if iface.enabled|default(true) %}# Enabled
-{% endif %}interface = {{ iface.name }}{% if iface.enabled is defined and not iface.enabled %} # disabled{% endif %}
+# Description: Specifies the network interfaces dsniff should monitor.
+# If this block is empty, dsniff may use promiscuous mode on all interfaces
+# or require command-line specification.
+{% if interfaces is defined and interfaces is iterable and (interfaces | length) > 0 %}
+# Custom interfaces configured for monitoring:
+{% for iface in interfaces %}
+# --- Interface: {{ iface.name | default('unknown') }} ---
+# Description: Name of the network interface (e.g., eth0, wlan0).
+# Default: 'unknown' if not provided
+{% if iface.enabled is defined %}
+{% if iface.enabled | default(true) %}
+interface = {{ iface.name }}
+# Status: Enabled
+{% else %}
+interface = {{ iface.name }} # disabled
+# Status: Explicitly disabled via configuration
+{% endif %}
+{% else %}
+interface = {{ iface.name }}
+# Status: Enabled (default when 'enabled' is not specified)
+{% endif %}
 {% endfor %}
-# Optional: override default port mappings (e.g., ftp=2121, http=8080)
-{% if custom_ports is defined and custom_ports %}# Custom port mappings
-{% for svc, port in custom_ports.items() %}port_{{ svc }} = {{ port }}
-{% endfor %}{% endif %}
+{% else %}
+# No specific interfaces defined in configuration.
+# dsniff will likely rely on default behavior or CLI arguments.
+{% endif %}
+
+# --- Port Overrides ----------------------------------------------------------
+
+# Optional: Override default port mappings for services
+# Description: Allows remapping standard service ports to non-standard ones.
+# Format: port_<service_name> = <port_number>
+# Example: port_http = 8080
+{% if custom_ports is defined and custom_ports is mapping and (custom_ports | length) > 0 %}
+# Custom port mappings:
+{% for svc, port in custom_ports | dict2items %}
+# Service: {{ svc.key | default('unknown') }}
+# Description: Override default port for the {{ svc.key }} protocol.
+# Value: {{ svc.value | default('') }}
+port_{{ svc.key }} = {{ svc.value }}
+{% endfor %}
+{% else %}
+# No custom port mappings defined.
+# dsniff will use default port numbers for services.
+{% endif %}

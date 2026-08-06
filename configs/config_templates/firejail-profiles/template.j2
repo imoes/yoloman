@@ -1,0 +1,147 @@
+# ============================================================================
+# Firejail Security Profile for {{ package_name | default('0ad') }}
+# ============================================================================
+# This file is a Firejail sandbox configuration profile. It restricts the
+# application's access to system resources, filesystem, network, and capabilities
+# to minimize the attack surface in case of compromise.
+#
+# Source: Ansible Role Management
+# Package Identifier: {{ package_name | default('0ad') }}
+# Application Description: {{ description | default('Real-time strategy game of ancient warfare') }}
+#
+# NOTE: This file is auto-generated and overwritten by Ansible. Do not edit manually.
+#       Local customizations should be placed in {{ package_name | default('0ad') }}.local
+#       Global customizations should be placed in globals.local
+# ============================================================================
+
+# --- Includes ---
+# Include persistent local customizations defined by the administrator
+include {{ package_name | default('0ad') }}.local
+
+# Include persistent global definitions applicable to all profiles
+include globals.local
+
+# --- Cache & Configuration Access ---
+# Allow reading from the user's cache, configuration, and local share directories
+# for this specific application to ensure proper operation and persistence of settings.
+
+noblacklist ${HOME}/.cache/{{ package_name | default('0ad') }}
+noblacklist ${HOME}/.config/{{ package_name | default('0ad') }}
+noblacklist ${HOME}/.local/share/{{ package_name | default('0ad') }}
+
+# --- Interpreter Overrides ---
+# Firejail's default 'disable-interpreters.inc' blocks gjs (GNOME JavaScript).
+# This profile explicitly allows gjs if needed by the application runtime.
+include allow-gjs.inc
+
+# --- System Resource Restrictions ---
+# Block access to system exec directory to prevent executing arbitrary binaries there
+blacklist /usr/libexec
+
+# --- Security Baselines (Inc files) ---
+# Include standard security restriction modules provided by the Firejail distribution.
+# These enforce restrictions on common development tools, execution permissions,
+# interpreters, known programs, and XDG directory access.
+
+include disable-common.inc
+include disable-devel.inc
+include disable-exec.inc
+include disable-interpreters.inc
+include disable-programs.inc
+include disable-xdg.inc
+
+# --- Filesystem Isolation (Whitelist/Mkdir) ---
+# Explicitly create necessary directories within the user's home if they do not exist,
+# then whitelist access to them. Also whitelist the application's share data and common
+# game data directories.
+
+mkdir ${HOME}/.cache/{{ package_name | default('0ad') }}
+mkdir ${HOME}/.config/{{ package_name | default('0ad') }}
+mkdir ${HOME}/.local/share/{{ package_name | default('0ad') }}
+
+whitelist ${HOME}/.cache/{{ package_name | default('0ad') }}
+whitelist ${HOME}/.config/{{ package_name | default('0ad') }}
+whitelist ${HOME}/.local/share/{{ package_name | default('0ad') }}
+
+# Whitelist application data directories
+whitelist /usr/share/{{ package_name | default('0ad') }}
+whitelist /usr/share/games
+
+# Include standard whitelists for common system directories and data
+include whitelist-common.inc
+include whitelist-usr-share-common.inc
+include whitelist-var-common.inc
+
+# --- Capabilities & Privileges ---
+# Drop ALL Linux capabilities to run with minimal privileges.
+caps.drop all
+
+# --- Network & Hardware Restrictions ---
+# Enable network filtering (netfilter) to restrict network traffic.
+netfilter
+
+# Disable DVD access
+nodvd
+
+# Restrict group access
+nogroups
+
+# Disable input device access (keyboard/mouse) unless explicitly needed by GUI
+# Note: Some GUI apps may need this relaxed, but strict sandboxing prefers 'noinput'
+noinput
+
+# Do not set the NEW_PRIVS flag (prevents privilege escalation via setuid/setgid)
+nonewprivs
+
+# Do not run as root
+noroot
+
+# Disable TV access
+notv
+
+# Disable U2F hardware token access
+nou2f
+
+# Disable video access (capture)
+novideo
+
+# Restrict allowed network protocols
+protocol unix,inet,inet6
+
+# Enable seccomp-bpf syscall filtering for additional kernel-level protection
+seccomp
+
+# Block secondary syscalls not explicitly allowed in the main seccomp filter
+seccomp.block-secondary
+
+# Enable syscall tracing for debugging (optional, can be heavy)
+tracelog
+
+# --- Mount Namespace Isolation ---
+# Disable mounting new filesystems inside the sandbox
+disable-mnt
+
+# Restrict visible binaries to a whitelist.
+# Only the specified binaries (and their dependencies) are accessible.
+# This prevents the user from running other commands within the sandbox.
+private-bin 0ad,pyrogenesis,sh,which
+
+# Private cache directory (isolated from host cache)
+private-cache
+
+# Private /dev directory (isolated from host devices)
+private-dev
+
+# Private /tmp directory (isolated from host temp files)
+private-tmp
+
+# --- D-Bus Restrictions ---
+# Disable user-level and system-level D-Bus communication to prevent
+# interacting with other desktop services or system daemons.
+dbus-user none
+dbus-system none
+
+# --- Namespace Restrictions ---
+# Restrict the creation of new namespaces (user, mount, network, etc.)
+# to prevent the sandboxed process from escaping isolation.
+restrict-namespaces

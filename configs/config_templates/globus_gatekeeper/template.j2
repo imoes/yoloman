@@ -1,54 +1,101 @@
-# Gatekeeper service configuration for Globus Grid Community Toolkit
-# Enables the gatekeeper to accept incoming gridFTP and data transfer requests
-# Port on which the gatekeeper listens for incoming connections
-GLOBUS_GATEKEEPER_PORT={{ gatekeeper_port }}
+# =============================================================================
+# Globus Gatekeeper Configuration Template
+# =============================================================================
+# This template generates the environment/configuration file for the Globus
+# Grid Community Toolkit Gatekeeper service. The Gatekeeper acts as an entry
+# point for gridFTP and data transfer requests, managing security, resource
+# allocation, and job delegation.
+#
+# Self-Documenting Principle:
+# Every configuration directive is preceded by a comment derived from the
+# schema description, explaining its purpose and expected value.
+# =============================================================================
 
-# Path to the gatekeeper's certificate chain
-GLOBUS_GATEKEEPER_CERT={{ gatekeeper_cert_path }}
+# Port number on which the gatekeeper listens for incoming gridFTP and data
+# transfer requests. Must be accessible through firewall.
+# Default: 2811
+GLOBUS_GATEKEEPER_PORT={{ gatekeeper_port | default(2811) }}
 
-# Path to the gatekeeper's private key
-GLOBUS_GATEKEEPER_KEY={{ gatekeeper_key_path }}
+# Absolute path to the gatekeeper's X.509 host certificate file.
+# This certificate identifies the gatekeeper to clients.
+# Default: /etc/grid-security/hostcert.pem
+GLOBUS_GATEKEEPER_CERT={{ gatekeeper_cert_path | default('/etc/grid-security/hostcert.pem') }}
 
-# Path to the CA certificate directory for trust validation
-GLOBUS_GATEKEEPER_TRUSTED_CA_DIR={{ trusted_ca_dir }}
+# Absolute path to the gatekeeper's X.509 host private key file (must be
+# readable only by root). This key is used to prove ownership of the
+# certificate.
+# Default: /etc/grid-security/hostkey.pem
+GLOBUS_GATEKEEPER_KEY={{ gatekeeper_key_path | default('/etc/grid-security/hostkey.pem') }}
 
-# Maximum number of concurrent gatekeeper worker threads
-GLOBUS_GATEKEEPER_MAX_WORKERS={{ max_workers }}
+# Path to the directory containing trusted CA certificates (X.509
+# certificates) for validating client certificates. The gatekeeper uses these
+# to verify the authenticity of connecting users/services.
+# Default: /etc/grid-security/certificates
+GLOBUS_GATEKEEPER_TRUSTED_CA_DIR={{ trusted_ca_dir | default('/etc/grid-security/certificates') }}
 
-# Hostname or IP to bind the gatekeeper to (empty string means all interfaces)
-GLOBUS_GATEKEEPER_BIND_HOST={{ bind_host }}
+# Maximum number of concurrent worker threads to handle incoming requests.
+# Adjust based on expected load and system resources. Higher values allow
+# more parallel transfers but consume more memory/CPU.
+# Default: 10
+GLOBUS_GATEKEEPER_MAX_WORKERS={{ max_workers | default(10) }}
 
-# Enable or disable debug logging
-GLOBUS_GATEKEEPER_DEBUG={{ debug | lower }}
+# IP address or hostname to bind the gatekeeper to. Empty string binds to all
+# interfaces (0.0.0.0). For security, consider binding to a specific interface
+# IP if the server has multiple network adapters.
+# Default: '' (all interfaces)
+GLOBUS_GATEKEEPER_BIND_HOST={{ bind_host | default('') }}
 
-# Enable or disable SSL/TLS
-GLOBUS_GATEKEEPER_SSL={{ enable_ssl | lower }}
+# Enable or disable verbose debug logging. Set to 'true' only for
+# troubleshooting; impacts performance and log volume significantly.
+# Default: False
+GLOBUS_GATEKEEPER_DEBUG={{ debug | default(False) | lower }}
 
-# List of allowed source hosts (empty = allow all)
-{% for host in allowed_hosts %}GLOBUS_GATEKEEPER_ALLOWED_HOST={{ host }}
+# Enable SSL/TLS encryption for gatekeeper connections. Should be left enabled
+# unless in trusted, isolated environments where encryption overhead is
+# unacceptable or keys are unavailable.
+# Default: True
+GLOBUS_GATEKEEPER_SSL={{ enable_ssl | default(True) | lower }}
+
+# List of allowed source hostnames or IP addresses (exact match). If empty,
+# no host restriction applies (any host can connect, subject to other checks).
+# Default: []
+{% for host in (allowed_hosts | default([])) %}GLOBUS_GATEKEEPER_ALLOWED_HOST={{ host }}
 {% endfor %}
 
-# List of allowed source networks in CIDR notation (empty = allow all)
-{% for net in allowed_networks %}GLOBUS_GATEKEEPER_ALLOWED_NETWORK={{ net }}
+# List of allowed source networks in CIDR notation (e.g., '192.168.1.0/24').
+# If empty, no network restriction applies.
+# Default: []
+{% for net in (allowed_networks | default([])) %}GLOBUS_GATEKEEPER_ALLOWED_NETWORK={{ net }}
 {% endfor %}
 
-# Path to the log file for gatekeeper events
-GLOBUS_GATEKEEPER_LOG_FILE={{ log_file_path }}
+# Absolute path to the gatekeeper log file.
+# Default: /var/log/globus/gatekeeper.log
+GLOBUS_GATEKEEPER_LOG_FILE={{ log_file_path | default('/var/log/globus/gatekeeper.log') }}
 
-# Maximum log file size in bytes before rotation (0 = disable rotation)
-GLOBUS_GATEKEEPER_LOG_MAX_SIZE={{ log_max_size }}
+# Maximum size (in bytes) of the log file before rotation. Set to 0 to disable
+# automatic rotation.
+# Default: 104857600 (100 MB)
+GLOBUS_GATEKEEPER_LOG_MAX_SIZE={{ log_max_size | default(104857600) }}
 
-# Number of rotated log files to keep
-GLOBUS_GATEKEEPER_LOG_BACKUP_COUNT={{ log_backup_count }}
+# Number of rotated log files to keep. Only applies if log rotation is enabled
+# (i.e., log_max_size > 0).
+# Default: 5
+GLOBUS_GATEKEEPER_LOG_BACKUP_COUNT={{ log_backup_count | default(5) }}
 
-# Enable or disable TCP keepalive on accepted connections
-GLOBUS_GATEKEEPER_TCP_KEEPALIVE={{ tcp_keepalive | lower }}
+# Enable or disable TCP keepalive probes on accepted connections to detect
+# dead peers or stale connections.
+# Default: True
+GLOBUS_GATEKEEPER_TCP_KEEPALIVE={{ tcp_keepalive | default(True) | lower }}
 
-# TCP keepalive idle time (seconds)
-GLOBUS_GATEKEEPER_TCP_KEEPIDLE={{ tcp_keepidle }}
+# Seconds of idle time before TCP starts sending keepalive probes.
+# Default: 60
+GLOBUS_GATEKEEPER_TCP_KEEPIDLE={{ tcp_keepidle | default(60) }}
 
-# TCP keepalive interval (seconds)
-GLOBUS_GATEKEEPER_TCP_KEEPINTVL={{ tcp_keepintvl }}
+# Seconds between TCP keepalive probes.
+# Default: 10
+GLOBUS_GATEKEEPER_TCP_KEEPINTVL={{ tcp_keepintvl | default(10) }}
 
-# TCP keepalive probe count
-GLOBUS_GATEKEEPER_TCP_KEEPCNT={{ tcp_keepcnt }}
+# Number of unacknowledged keepalive probes before the connection is considered
+# dead and closed.
+# Default: 3
+GLOBUS_GATEKEEPER_TCP_KEEPCNT={{ tcp_keepcnt | default(3) }}

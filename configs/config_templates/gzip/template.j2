@@ -1,0 +1,31 @@
+# Gzip Default Options Configuration
+# This file sets the default options for gzip, gunzip, and zcat commands.
+# It effectively replaces the deprecated GZIP environment variable.
+# Syntax: OPTION=value or just OPTION for flags.
+
+# Default compression options passed to gzip.
+# Standard options include level (-1 to -9), format (--best, --fast), etc.
+# Default is '-9' for maximum compression.
+# See 'man gzip' for available options.
+GZIP={{ gzip_options_default | default('-9') }}
+
+# Per-file compression tuning rules.
+# Allows setting specific compression levels for files matching glob patterns.
+# Format: <pattern>=<level>
+# <level> can be an integer 1-9, 'fast', or 'best'.
+# Rules are applied in order if multiple match, but typically only the first match is used by tools supporting this feature.
+# If no rules are configured, this section remains empty.
+{% for rule in (gzip_compression_rules | default([])) %}{{ rule.pattern }}={{ rule.level }}
+{% endfor %}
+
+# Alternative file suffix for compressed files.
+# By default, gzip uses '.gz'. Set this to a non-empty value to override (e.g., '.Z' for legacy compatibility).
+# Note: Changing this may break standard tools that expect '.gz'.
+{% if (gzip_suffix | default('')) != '' %}SUFFIX={{ gzip_suffix | default('') }}
+{% endif %}
+
+# Enable rsyncable compression mode.
+# When enabled, gzip inserts markers to facilitate efficient delta transfers with rsync.
+# This may slightly reduce compression ratio but speeds up incremental backups.
+{% if gzip_rsyncable | default(false) | bool %}RSYNCABLE=1
+{% endif %}

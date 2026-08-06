@@ -1,76 +1,66 @@
-# Configuration file for popa3d (POP3 daemon)
-# This file is read at startup; changes require service restart
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          popa3d
+# Required-Start:    $remote_fs $network
+# Required-Stop:     $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start the popa3d server.
+### END INIT INFO
 
-# Log level: 0 = quiet, 1 = normal, 2 = verbose
-loglevel {{ loglevel }}
 
-# Path to the spool directory containing user mailboxes
-spooldir {{ spooldir }}
+test -f /usr/sbin/popa3d || exit 0
 
-# User under which the daemon drops privileges (usually 'popper' or 'nobody')
-user {{ daemon_user }}
+DAEMON=/usr/sbin/popa3d
+NAME=popa3d
+DEFAULT=/etc/default/popa3d
+ARGS="-D"
+PIDFILE=/var/run/popa3d.pid
 
-# Group under which the daemon drops privileges (usually 'mail' or 'nobody')
-group {{ daemon_group }}
+#. /etc/default/popa3d
+. /lib/lsb/init-functions
 
-# Maximum number of simultaneous connections
-maxconn {{ max_connections }}
+# Check for default file, if it is not there or it says no start
+# then bomb out
 
-# Timeout (in seconds) for client inactivity
-idle_timeout {{ idle_timeout }}
+if [ -e /etc/default/popa3d ]; then
+    . /etc/default/popa3d
+    case $RUN_STANDALONE in
+	yes|1|true)
+	    ;;
+	*)
+	    exit 0
+	    ;;
+    esac
+fi
 
-# Enable or disable TLS support
-tls {{ tls_enabled | string | lower }}
 
-# Path to the TLS certificate file (if TLS is enabled)
-{% if tls_enabled %}certfile {{ tls_certfile }}{% endif %}
+case "$1" in
+start|force-reload)
 
-# Path to the TLS private key file (if TLS is enabled)
-{% if tls_enabled %}keyfile {{ tls_keyfile }}{% endif %}
+  echo -n "Starting pop daemon: "
+  start-stop-daemon --start --name popa3d --exec $DAEMON -- $ARGS
+  echo `pidof popa3d` > $PIDFILE
+  echo ${NAME}.
+  ;;
+stop)
+  echo -n "Stopping pop daemon: "
+  start-stop-daemon --stop --name popa3d --pidfile $PIDFILE
+  echo ${NAME}.
+  ;;
 
-# List of allowed client hostnames/IPs (empty = allow all)
-{% if allowed_hosts %}allow{% for host in allowed_hosts %} {{ host }}{% endfor %}
-{% endif %}
+reload|restart)
+  echo -n "Stopping pop daemon: "
+  start-stop-daemon --stop --name popa3d --pidfile $PIDFILE
+  echo ${NAME}.
+  echo -n "Starting pop daemon: "
+  start-stop-daemon --start --name popa3d --exec $DAEMON -- $ARGS
+  echo ${NAME}.
+  ;;
 
-# List of denied client hostnames/IPs (empty = deny none)
-{% if denied_hosts %}deny{% for host in denied_hosts %} {{ host }}{% endfor %}
-{% endif %}
+*)
+  echo "Usage: /etc/init.d/popa3d {start|stop|restart|force-reload}"
+  exit 1
+esac
 
-# Enable or disable debug mode
-{% if debug %}debug{% endif %}
-
-# Enable or disable chroot jail (recommended for security)
-chroot {{ chroot_enabled | string | lower }}
-
-# Path to chroot directory (used only if chroot is enabled)
-{% if chroot_enabled %}chrootdir {{ chroot_dir }}{% endif %}
-
-# Enable or disable POP3 TOP command support
-top {{ top_enabled | string | lower }}
-
-# Enable or disable POP3 UIDL command support
-uidl {{ uidl_enabled | string | lower }}
-
-# Enable or disable POP3 SASL authentication
-sasl {{ sasl_enabled | string | lower }}
-
-# Path to SASL configuration (if SASL is enabled)
-{% if sasl_enabled %}sasldb {{ sasl_db_path }}{% endif %}
-
-# Enable or disable logging of failed login attempts
-logfailed {{ log_failed | string | lower }}
-
-# Maximum failed login attempts before temporary lockout
-maxfailed {{ max_failed_attempts }}
-
-# Lockout duration (in seconds) after max failed attempts
-lockout_duration {{ lockout_duration }}
-
-# Enable or disable maildir format (default is mbox)
-maildir {{ maildir_format | string | lower }}
-
-# Path to custom user quota file (if quotas enabled)
-{% if quota_enabled %}quotadir {{ quota_dir }}{% endif %}
-
-# Enable or disable per-user quota enforcement
-{% if quota_enabled %}quota{% endif %}
+exit 0

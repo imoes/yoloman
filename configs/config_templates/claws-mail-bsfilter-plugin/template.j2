@@ -1,0 +1,31 @@
+# Claws Mail bsfilter plugin configuration
+# Self-documented and safe to reuse in an Ansible role.
+# See: claws-mail-bsfilter-plugin(7)
+
+# Path to the bsfilter executable; defaults to 'bsfilter' (assumed in PATH)
+bsfilter_path={{ (bsfilter_path | default('bsfilter')) | string }}
+
+# Command to train bsfilter with ham (non-spam) messages.
+# Must include %f placeholder for the message file.
+train_ham_command={{ train_ham_command | default('') | string }}
+
+# Command to train bsfilter with spam messages.
+# Must include %f placeholder for the message file.
+train_spam_command={{ train_spam_command | default('') | string }}
+
+# Bayesian classification threshold between 0.0 and 1.0.
+# Messages with probability >= threshold are marked as spam.
+bayesian_threshold={{ bayesian_threshold | default(0.5) }}
+
+# If true, use a custom path for the bsfilter database files.
+# When enabled, custom_db_path is used.
+{% if (use_custom_db_path | default(false) | bool) %}
+# Custom path to the bsfilter database directory (used only if use_custom_db_path is true).
+custom_db_path={{ (custom_db_path | default('')) | string }}
+{% endif %}
+
+# List of MIME headers that should be included when training.
+# Example: ['From', 'Subject', 'X-Mailer']. Empty list means use defaults.
+{% if (learn_headers | default([])) | length > 0 %}
+learn_headers={{ learn_headers | default([]) | join(',') }}
+{% endif %}

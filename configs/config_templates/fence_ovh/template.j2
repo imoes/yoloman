@@ -1,36 +1,117 @@
+{# ============================================================================ #}
+{# OVH Cloud Fence Agent Configuration Template                                   #}
+{# ============================================================================ #}
+{# This template generates the configuration file for the fence_ovh agent.         #}
+{# It is designed to be self-documenting: every directive is preceded by a comment #}
+{# explaining its purpose and source (schema description).                          #}
+{# ============================================================================ #}
+
 # OVH Cloud Fence Agent configuration
 # This file is sourced by the fence_ovh agent at runtime
 
-# API credentials for OVH API
-endpoint = {{ ovh_endpoint }}
-application_key = {{ ovh_application_key }}
-application_secret = {{ ovh_application_secret }}
-consumer_key = {{ ovh_consumer_key }}
+# ---------------------------------------------------------------------------- #
+# API Credentials Section
+# These credentials are obtained from the OVH dashboard when registering an    #
+# API application. They authenticate the fence agent to the OVH API.           #
+# ---------------------------------------------------------------------------- #
 
-# Optional: API timeout in seconds (default: 30)
+# OVH API endpoint region (e.g., ovh-eu, ovh-ca, kimsufi-eu, soyoustart-eu)
+endpoint = {{ ovh_endpoint | default('ovh-eu') }}
+
+# OVH API Application Key (obtained when registering an OVH API application)
+application_key = {{ ovh_application_key | default('') }}
+
+# OVH API Application Secret (obtained when registering an OVH API application)
+application_secret = {{ ovh_application_secret | default('') }}
+
+# OVH API Consumer Key (must be generated with permissions for /cloud, /dedicated, /me, and /ip)
+consumer_key = {{ ovh_consumer_key | default('') }}
+
+# ---------------------------------------------------------------------------- #
+# Required Runtime Parameters
+# The fence_ovh man page mandates that these fields are present and non-empty. #
+# Using | default('') with validation in the Ansible role ensures the play fails #
+# early if they are not provided, preventing silent configuration errors.        #
+# ---------------------------------------------------------------------------- #
+
+# Reboot notification email — always required per fence_ovh(8) man page
+email = {{ email | default('') }}
+
+# Login username — always required per fence_ovh(8) man page
+username = {{ username | default('') }}
+
+# ---------------------------------------------------------------------------- #
+# Optional / Security Sensitive Parameters
+# These fields may be empty if not needed by the specific deployment           #
+# strategy.                                                                    #
+# ---------------------------------------------------------------------------- #
+
+# Login password or passphrase
+password = {{ password | default('') }}
+
+# Script to run to retrieve password
+password_script = {{ password_script | default('') }}
+
+# ---------------------------------------------------------------------------- #
+# Timeout and Retry Configuration
+# Controls how the agent interacts with the OVH API under load or failure.     #
+# ---------------------------------------------------------------------------- #
+
+# Timeout (in seconds) for each API request
 timeout = {{ timeout | default(30) }}
 
-# Optional: Retry count (default: 3)
+# Number of times to retry failed API calls
 retry = {{ retry | default(3) }}
 
-# Optional: Retry sleep in seconds (default: 1)
+# Seconds to wait between retries
 retry_sleep = {{ retry_sleep | default(1) }}
 
-# Optional: Enable verbose logging (true/false)
+# ---------------------------------------------------------------------------- #
+# Debugging and API Compatibility
+# ---------------------------------------------------------------------------- #
+
+# Enable verbose debug logging to stderr
 debug = {{ debug | default(false) | lower }}
 
-# Optional: Use OVH legacy API (true/false)
-# If true, uses /api/ovh instead of /api/me
+# Use legacy /api/ovh endpoint instead of /api/me (required for some older OVH accounts)
 legacy_api = {{ legacy_api | default(false) | lower }}
 
-# List of servers (sub-objects)
-{% for server in servers %}
-[{{ server.name }}]
-server_id = {{ server.server_id }}
-domain = {{ server.domain }}
-{% if server.ipmi_ip %}ipmi_ip = {{ server.ipmi_ip }}{% endif %}
-{% if server.ipmi_user %}ipmi_user = {{ server.ipmi_user }}{% endif %}
-{% if server.ipmi_pass %}ipmi_pass = {{ server.ipmi_pass }}{% endif %}
-{% if server.power_wait %}power_wait = {{ server.power_wait }}{% endif %}
-{% if server.use_ipmi %}use_ipmi = {{ server.use_ipmi | lower }}{% endif %}
+# ---------------------------------------------------------------------------- #
+# Server Management Section
+# Defines the OVH servers (cloud or bare metal) that this agent can fence.     #
+# Each server block is named by its logical 'name' and contains specific       #
+# identification details.                                                      #
+# ---------------------------------------------------------------------------- #
+
+{% for server in servers | default([]) %}
+[{{ server.name | default('unknown_server') }}]
+# Unique identifier for the server on OVH
+server_id = {{ server.server_id | default('') }}
+# Domain of the server
+domain = {{ server.domain | default('') }}
+
+# IPMI IP address for out-of-band management (if applicable)
+{% if server.ipmi_ip is defined and server.ipmi_ip %}
+ipmi_ip = {{ server.ipmi_ip | default('') }}
+{% endif %}
+
+# IPMI username for out-of-band management (if applicable)
+{% if server.ipmi_user is defined and server.ipmi_user %}
+ipmi_user = {{ server.ipmi_user | default('') }}
+{% endif %}
+
+# IPMI password for out-of-band management (if applicable)
+{% if server.ipmi_pass is defined and server.ipmi_pass %}
+ipmi_pass = {{ server.ipmi_pass | default('') }}
+{% endif %}
+
+# Wait time for power state change (if applicable)
+{% if server.power_wait is defined and server.power_wait %}
+power_wait = {{ server.power_wait | default(0) }}
+{% endif %}
+
+# Enable IPMI usage for this server (if applicable)
+{% if server.use_ipmi is defined and server.use_ipmi %}
+use_ipmi = {{ server.use_ipmi | default(false) | lower }}
+{% endif %}
 {% endfor %}

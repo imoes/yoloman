@@ -1,20 +1,63 @@
-{# Main dleyna-renderer configuration #}
+# dleyna-renderer configuration file (JSON format)
+# Self-documenting template generated for Ansible role.
+# Every directive is preceded by a comment describing its schema field and purpose.
+
 {
-  "{# Hostname to advertise on D-Bus and mDNS #}": "{{ hostname }}",
-  "{# Port for the REST API endpoint (0 = disable) #}": {{ rest_api_port }},
-  "{# Port for the D-Bus system bus connection (0 = use default system bus) #}": {{ dbus_port }},
-  "{# Maximum number of concurrent transcoding sessions #}": {{ max_transcoding_sessions }},
-  "{# Enable or disable UPnP/AV device discovery #}": {{ enable_discovery | lower }},
-  "{# List of supported media profiles with transcoding options #}": [
-{% for profile in media_profiles %}    {
-      "{# Human-readable profile name #}": "{{ profile.name }}",
-      "{# Encoder command (supports substitution like %i, %o, %f) #}": {{ profile.encoder | tojson }},
-      "{# MIME type of the output format #}": "{{ profile.mime_type }}",
-      "{# Enable transcoding for this profile #}": {{ profile.enabled | lower }},
-      "{# Maximum resolution (WxH) allowed for this profile #}": "{{ profile.max_resolution | default('') }}"
-    }{{ ',' if not loop.last else '' }}
-{% endfor %}  ],
-  "{# Logging level: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG, 4=TRACE #}": {{ log_level }},
-  "{# Path to custom D-Bus service file override (optional) #}": "{{ dbus_service_file | default('') }}",
-  "{# Enable glib main loop integration (recommended) #}": {{ enable_glib | lower }}
+  # hostname: Hostname used to identify this renderer on the network (via mDNS/D-Bus).
+  # Default: 'dleyna-renderer'
+  "hostname": "{{ (hostname | default('dleyna-renderer')) | string }}",
+
+  # rest_api_port: Port to expose the internal REST API for diagnostics and control. Set to 0 to disable.
+  # Default: 0
+  "rest_api_port": {{ rest_api_port | default(0) }},
+
+  # dbus_port: D-Bus daemon port to connect to. Set to 0 to use the system bus default.
+  # Default: 0
+  "dbus_port": {{ dbus_port | default(0) }},
+
+  # max_transcoding_sessions: Maximum number of simultaneous audio/video transcoding sessions allowed.
+  # Default: 2
+  "max_transcoding_sessions": {{ max_transcoding_sessions | default(2) }},
+
+  # enable_discovery: Whether to actively discover and register UPnP/AV devices on the network.
+  # Default: True
+  "enable_discovery": {{ enable_discovery | default(True) | lower }},
+
+  # media_profiles: List of transcoding profiles to use when rendering media from incompatible sources.
+  # Default: List of dictionaries with name, encoder, mime_type, enabled, max_resolution
+  "media_profiles": [
+{% for profile in (media_profiles | default([
+  {'name': 'audio-mp3', 'encoder': ['ffmpeg', '-i', '%i', '-acodec', 'libmp3lame', '-ab', '192k', '-f', 'mp3', '%o'], 'mime_type': 'audio/mpeg', 'enabled': True, 'max_resolution': ''},
+  {'name': 'video-h264', 'encoder': ['ffmpeg', '-i', '%i', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-f', 'mp4', '%o'], 'mime_type': 'video/mp4', 'enabled': True, 'max_resolution': '1920x1080'}
+])) %}
+    {
+      # name: Human-readable profile name
+      "name": "{{ (profile.name | default('')) | string }}",
+
+      # encoder: Encoder command (supports substitution like %i, %o, %f)
+      "encoder": {{ (profile.encoder | default([])) | tojson }},
+
+      # mime_type: MIME type of the output format
+      "mime_type": "{{ (profile.mime_type | default('')) | string }}",
+
+      # enabled: Enable transcoding for this profile
+      "enabled": {{ (profile.enabled | default(True)) | lower }},
+
+      # max_resolution: Maximum resolution (WxH) allowed for this profile
+      "max_resolution": "{{ (profile.max_resolution | default('')) | string }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ],
+
+  # log_level: Verbosity of logging: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG, 4=TRACE.
+  # Default: 2
+  "log_level": {{ log_level | default(2) }},
+
+  # dbus_service_file: Optional custom path to a D-Bus service file override. Empty = use default.
+  # Default: ''
+  "dbus_service_file": "{{ (dbus_service_file | default('')) | string }}",
+
+  # enable_glib: Enable GLib main loop integration for event handling and signal processing.
+  # Default: True
+  "enable_glib": {{ enable_glib | default(True) | lower }}
 }

@@ -1,53 +1,18 @@
-# Configure global lldpd settings
-CONFIGURE GLOBAL
-  sysname {{ lldp.sysname | default('') | trim }}
-  system-description {{ lldp.system_description | default('') | trim }}
-  port-description {{ lldp.port_description | default('') | trim }}
+# Configuration for the Link Layer Discovery Protocol daemon (lldpd).
+# This file controls the startup arguments passed to the lldpd service.
 
-# Enable or disable LLDP globally
-{% if lldp.enabled | default(true) %}
-ENABLE LLDP
-{% else %}
-DISABLE LLDP
-{% endif %}
-
-# Configure LLDP packet transmission interval (in seconds)
-CONFIGURE LLDP
-  tx-hold {{ lldp.tx_hold | default(4) }}
-  tx-interval {{ lldp.tx_interval | default(30) }}
-
-# Configure management address (IPv4/IPv6) for LLDP announcements
-{% for addr in lldp.management_addresses | default([]) %}
-CONFIGURE MANAGEMENT
-  {% if addr.version == 4 %}
-  ipv4 {{ addr.address }}
-  {% elif addr.version == 6 %}
-  ipv6 {{ addr.address }}
-  {% endif %}
-{% endfor %}
-
-# Configure interfaces to enable/disable LLDP on
-{% for interface in lldp.interfaces | default([]) %}
-{% if interface.enabled | default(true) %}
-CONFIGURE INTERFACE {{ interface.name }}
-  ENABLE LLDP
-{% if interface.description %}
-  PORT DESCRIPTION {{ interface.description }}
-{% endif %}
-{% else %}
-CONFIGURE INTERFACE {{ interface.name }}
-  DISABLE LLDP
-{% endif %}
-{% endfor %}
-
-# Set SNMP read-only community for LLDP-MIB access (if needed)
-{% if lldp.snmp_community %}
-CONFIGURE SNMP
-  READCOMMUNITY {{ lldp.snmp_community }}
-{% endif %}
-
-# Configure chassis ID (MAC or chassis subtypes)
-{% if lldp.chassis_id %}
-CONFIGURE CHASSIS
-  ID {{ lldp.chassis_id }}
-{% endif %}
+# DAEMON_ARGS: Startup arguments for the lldpd daemon.
+# These arguments are passed directly to the lldpd process upon start.
+# Common flags:
+#   -x          Enable LLDP-MED (Media Endpoint Discovery)
+#   -c          Enable CDP (Cisco Discovery Protocol)
+#   -s          Enable SONMP (ShoreTel Network Management Protocol)
+#   -e          Enable EDP (Edge Discovery Protocol)
+#   -u          Disable SNMP subagent
+#
+# The default value '-x -c -s -e' enables LLDP-MED and several proprietary
+# discovery protocols while keeping the SNMP subagent active.
+#
+# To modify the behavior, change the string below. Ensure the value is
+# properly quoted if it contains spaces.
+DAEMON_ARGS="{{ lldpd | default('-x -c -s -e') }}"

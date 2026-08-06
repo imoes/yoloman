@@ -1,33 +1,109 @@
-# SRS domain for rewriting outgoing sender addresses
-# Must match the domain you use for SRS (e.g., example.com)
-SRS_DOMAIN={{ srs_domain }}
+#! /bin/sh
+#
+# postsrsd
+#               start/stop the postsrsd daemon for Postfix
+#
+### BEGIN INIT INFO
+# Provides:          postsrsd
+# Required-Start:    $syslog $network $remote_fs
+# Required-Stop:     $syslog $network $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start/stop the postsrsd daemon
+# Description:       postsrsd offers Sender Rewriting Scheme support for Postfix
+### END INIT INFO
 
-# SRS secret key — used to sign/verify SRS addresses
-# Must be at least 16 characters, random and kept secret
-SRS_SECRET={{ srs_secret | quote }}
+set -e
 
-# Prefix for rewritten outgoing addresses (e.g., "SRS0=")
-SRS_FORWARD_PREFIX={{ srs_forward_prefix }}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/postsrsd
+NAME=postsrsd
+DESC="Postfix Sender Rewriting Scheme daemon"
 
-# Prefix for rewritten incoming addresses (e.g., "SRS0=" — same as forward by default)
-SRS_REVERSE_PREFIX={{ srs_reverse_prefix }}
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
 
-# TCP port for the postsrsd lookup socket (Postfix connects via smtpd_recipient_restrictions)
-LISTEN_PORT={{ listen_port }}
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
 
-# Listen address for the socket (127.0.0.1 is typical; use 0.0.0.0 only if remote Postfix)
-LISTEN_ADDR={{ listen_addr }}
+. /lib/lsb/init-functions
 
-# Maximum number of connections (only relevant for high-traffic sites)
-MAX_CONNECTIONS={{ max_connections }}
+# Default configuration
+SRS_FORWARD_PORT={{ srs_forward_port }}
+SRS_REVERSE_PORT={{ srs_reverse_port }}
+SRS_DOMAIN=`postconf -h mydomain || true`
+SRS_SECRET=/etc/postsrsd.secret
+SRS_SEPARATOR==
+SRS_HASHLENGTH=4
+SRS_HASHMIN=4
+SRS_EXTRA_OPTIONS=
+RUN_AS=postsrsd
+CHROOT=/var/lib/postsrsd
+SRS_LISTEN_ADDR={{ listen_addr }}
+SRS_EXCLUDE_DOMAINS=
 
-# Optional: additional domains to exclude from rewriting (space-separated list)
-# Useful if some domains handle their own SRS or shouldn't be rewritten
-EXCLUDE_DOMAINS={{ exclude_domains | join(' ') | quote }}
+# Read config file if it is present
+if [ -r /etc/default/$NAME ]
+then
+	. /etc/default/$NAME
+fi
 
-# Optional: debug mode (0=off, 1=on)
-DEBUG={{ debug | int }}
+test -r "$SRS_SECRET" -a -n "$SRS_DOMAIN" || exit 1
 
-# Optional: chroot directory (leave empty string to disable chroot)
-# Not typically needed; only for hardened deployments
-CHROOT_DIR={{ chroot_dir | quote }}
+ret=0
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	if start-stop-daemon --start --oknodo --quiet \
+		--pidfile $PIDFILE \
+		--name $NAME \
+		--startas $DAEMON \
+		-- $SRS_EXTRA_OPTIONS -f "$SRS_FORWARD_PORT" -r "$SRS_REVERSE_PORT" \
+		   -d "$SRS_DOMAIN" -s "$SRS_SECRET" -a "$SRS_SEPARATOR" \
+		   -n "$SRS_HASHLENGTH" -N "$SRS_HASHMIN" -u "$RUN_AS" -p "$PIDFILE" \
+		   -c "$CHROOT" -l "$SRS_LISTEN_ADDR" -D -X"$SRS_EXCLUDE_DOMAINS"
+	then
+	    log_end_msg 0
+	else
+	    ret=$?
+	    log_end_msg 1
+	fi
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	if start-stop-daemon --stop --oknodo --quiet \
+		--pidfile $PIDFILE --exec $DAEMON --name $NAME
+	then
+	    log_end_msg 0
+	else
+	    ret=$?
+	    log_end_msg 1
+	fi
+        rm -f $PIDFILE
+	;;
+  reload|force-reload|restart)
+	$0 stop
+	$0 start
+	ret=$?
+	;;
+  status)
+        log_daemon_msg "postsrsd is running"
+        if [ -s $PIDFILE ]; then
+            PID=`cat $PIDFILE`
+            if kill -0 "$PID" 2>/dev/null; then
+                log_end_msg 0
+            else
+                log_end_msg 1
+            fi
+        else
+            log_end_msg 1
+        fi
+        ;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit $ret

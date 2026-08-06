@@ -1,0 +1,124 @@
+# Flawfinder Configuration Template
+# This template generates command-line arguments for the `flawfinder` static analysis tool.
+# Each schema field is mapped to its corresponding CLI flag(s).
+# Blank lines and comments are preserved where appropriate for readability.
+
+# --- Source and Input Configuration ---
+
+# List of source files or directories to analyze.
+# These are the primary targets for the scan.
+{% for source in input_sources | default([]) %}{{ source }}
+{% endfor %}
+
+# Path to a unified diff file; restricts reporting to hits on changed lines.
+# Flag: --patch
+{% if patch_file | default('') != '' %}--patch {{ patch_file | default('') }}
+{% endif %}
+
+# List of command-line arguments to pass to flawfinder.
+# These are appended after other generated flags.
+{% for arg in args | default([]) %}{{ arg }}
+{% endfor %}
+
+# --- Output Format Configuration ---
+
+# Output format for the report.
+# Supported values: 'text', 'csv', 'html', 'sarif'.
+# Flag: --output-format (or shorthand if applicable, here we use explicit long form if needed, but flawfinder uses specific flags)
+# Note: Flawfinder uses specific flags for these formats rather than a single --output-format flag in all versions,
+# but based on schema, we map them to their respective flags.
+# 'text' is default, no flag needed usually, but we can be explicit if needed.
+# 'csv': --csv
+# 'html': --html
+# 'sarif': --sarif
+{% if output_format | default('text') == 'csv' %}--csv
+{% elif output_format | default('text') == 'html' %}--html
+{% elif output_format | default('text') == 'sarif' %}--sarif
+{% endif %}
+
+# Enable false positive reduction.
+# This applies heuristic checks to reduce known false positives.
+# Flag: --falsepositive
+{% if false_positive_reduction | default(False) %}--falsepositive
+{% endif %}
+
+# Respect 'Flawfinder: ignore' directives in source code.
+# If false, forces --neverignore, overriding inline directives.
+# Flag: --neverignore (if false)
+{% if not ignore_directives | default(True) %}--neverignore
+{% endif %}
+
+# Report only input-related functions.
+# Flag: --inputs
+{% if only_inputs | default(False) %}--inputs
+{% endif %}
+
+# Follow symbolic links during analysis.
+# Flag: --allowlink
+{% if follow_symlinks | default(False) %}--allowlink
+{% endif %}
+
+# Descend into dot-directories (directories starting with a dot).
+# Flag: --followdotdir
+{% if include_dotdirs | default(False) %}--followdotdir
+{% endif %}
+
+# Include source code line of each hit in output.
+# Flag: --context
+{% if include_context | default(False) %}--context
+{% endif %}
+
+# Include column number in each hit.
+# Flag: --columns
+{% if include_columns | default(False) %}--columns
+{% endif %}
+
+# Minimum risk level to include in the report.
+# Levels range from 0 to 5. Hits below this level are suppressed.
+# Flag: --minlevel
+--minlevel {{ minlevel | default(1) }}
+
+# If any hit with this level or higher is found, exit with nonzero status.
+# 0 means no error exit regardless of findings.
+# Flag: --error-level
+--error-level {{ error_level | default(0) }}
+
+# Suppress status output (progress messages).
+# Flag: --quiet
+{% if quiet | default(False) %}--quiet
+{% endif %}
+
+# Suppress header and footer in the output.
+# Flag: --dataonly
+{% if data_only | default(False) %}--dataonly
+{% endif %}
+
+# Display hits immediately as they are found, rather than at the end.
+# Flag: --immediate
+{% if immediate_display | default(False) %}--immediate
+{% endif %}
+
+# Omit timing information from the summary.
+# Flag: --omittime
+{% if omit_timing | default(False) %}--omittime
+{% endif %}
+
+# Save hitlist to a file for later use.
+# Flag: --savehitlist <file>
+{% if save_hitlist | default('') != '' %}--savehitlist {{ save_hitlist | default('') }}
+{% endif %}
+
+# Load hitlist from a file to reuse previous analysis results.
+# Flag: --loadhitlist <file>
+{% if load_hitlist | default('') != '' %}--loadhitlist {{ load_hitlist | default('') }}
+{% endif %}
+
+# Show only hits not in a reference hitlist file (diff mode).
+# Flag: --diffhitlist <file>
+{% if diff_hitlist | default('') != '' %}--diffhitlist {{ diff_hitlist | default('') }}
+{% endif %}
+
+# Regular expression to filter reported hits to those matching at least one CWE.
+# Flag: --cwe-filter
+{% if cwe_filter | default('') != '' %}--cwe-filter {{ cwe_filter | default('') }}
+{% endif %}

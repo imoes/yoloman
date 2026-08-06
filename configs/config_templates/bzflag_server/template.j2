@@ -1,115 +1,209 @@
-# BZFlag server configuration file — main server settings
-# Do not edit directly; use the configuration management interface
+# ==============================================================================
+# BZFlag Server Configuration Template
+#
+# This template generates the main bzflag_server configuration file.
+# It is self-documenting: every directive is preceded by a comment describing
+# its purpose and source field.
+#
+# Variables are safe to override; defaults are applied inline to prevent
+# undefined-variable errors during Ansible rendering.
+# ==============================================================================
 
-# Enable or disable the server
-{{ enabled | string | lower }}
+# --------------------------------------------------------------------------
+# enabled: Whether the server is active and accepting connections.
+# --------------------------------------------------------------------------
+{{ (enabled | default(true) | bool) | ternary('yes', 'no') }}
 
-# Server name ( displayed in server list )
-{{ server_name }}
+# --------------------------------------------------------------------------
+# server_name: Publicly visible name of the server (appears in server browsers).
+# --------------------------------------------------------------------------
+{{ server_name | default('My BZFlag Server') }}
 
-# Admin email (for player reports and inquiries)
-{{ admin_email }}
+# --------------------------------------------------------------------------
+# admin_email: Contact email for server administration and support requests.
+# --------------------------------------------------------------------------
+{{ admin_email | default('admin@example.com') }}
 
-# Publicly advertised hostname or IP (must be reachable by players)
-{{ public_host }}
+# --------------------------------------------------------------------------
+# public_host: Publicly advertised hostname or IP address used to connect
+#              to the server (must be reachable by players).
+# --------------------------------------------------------------------------
+{{ public_host | default('server.example.com') }}
 
-# Port used for game traffic (UDP)
-{{ udp_port }}
+# --------------------------------------------------------------------------
+# udp_port: UDP port for game traffic (standard BZFlag game port).
+# --------------------------------------------------------------------------
+{{ udp_port | default(5154) }}
 
-# Port used for HTTP status queries (TCP)
-{{ http_port }}
+# --------------------------------------------------------------------------
+# http_port: TCP port for HTTP status and query endpoints.
+# --------------------------------------------------------------------------
+{{ http_port | default(5155) }}
 
-# Maximum number of players allowed
-{{ max_players }}
+# --------------------------------------------------------------------------
+# max_players: Maximum number of simultaneous players allowed on the server.
+# --------------------------------------------------------------------------
+{{ max_players | default(32) }}
 
-# Timeout (in seconds) before idle players are kicked
-{{ idle_timeout }}
+# --------------------------------------------------------------------------
+# idle_timeout: Seconds of inactivity before a player is automatically
+#               kicked (0 = disabled).
+# --------------------------------------------------------------------------
+{{ idle_timeout | default(180) }}
 
-# Flag respawn time (in seconds)
-{{ flag_respawn_time }}
+# --------------------------------------------------------------------------
+# flag_respawn_time: Seconds between when a flag is dropped and when it
+#                    respawns at base.
+# --------------------------------------------------------------------------
+{{ flag_respawn_time | default(15) }}
 
-# Game duration (in seconds); 0 = infinite
-{{ game_duration }}
+# --------------------------------------------------------------------------
+# game_duration: Length of each match in seconds; set to 0 for infinite
+#                duration (rotates maps instead).
+# --------------------------------------------------------------------------
+{{ game_duration | default(0) }}
 
-# Enable or disable password protection
-{{ password_protected | string | lower }}
-{% if password_protected %}
-# Password required to connect (if enabled)
-{{ game_password }}
+# --------------------------------------------------------------------------
+# password_protected: If enabled, players must provide the game password
+#                     to connect.
+# --------------------------------------------------------------------------
+{{ (password_protected | default(false) | bool) | ternary('yes', 'no') }}
+
+{% if password_protected | default(false) | bool %}
+# --------------------------------------------------------------------------
+# game_password: Password required to join the server (only used if
+#                password protection is enabled).
+# --------------------------------------------------------------------------
+{{ game_password | default('') }}
 {% endif %}
 
-# Enable or disable team balancing
-{{ team_balance | string | lower }}
+# --------------------------------------------------------------------------
+# team_balance: If enabled, the server automatically balances teams when
+#               players join.
+# --------------------------------------------------------------------------
+{{ (team_balance | default(true) | bool) | ternary('yes', 'no') }}
 
-# Default team rotation mode: 'none', 'random', 'fair'
-{{ team_rotation }}
+# --------------------------------------------------------------------------
+# team_rotation: Team assignment mode: 'none' (player picks), 'random'
+#                (auto-assigned), or 'fair' (balance team strength).
+# --------------------------------------------------------------------------
+{{ team_rotation | default('none') }}
 
-# Allowed game flags (comma-separated list; empty = all)
-{% if allowed_flags | length > 0 %}
-{{ allowed_flags | join(', ') }}
+# --------------------------------------------------------------------------
+# allowed_flags: List of allowed game flags (e.g., 'B', 'N', 'L') —
+#                empty list means all flags are allowed.
+# --------------------------------------------------------------------------
+{% if allowed_flags | default([]) | length > 0 %}
+# Allowed flags:
+{% for flag in allowed_flags | default([]) %}
+{{ flag }}
+{% endfor %}
 {% else %}
 # (none — all flags enabled)
 {% endif %}
 
-# Disallowed game flags (comma-separated list)
-{% if disallowed_flags | length > 0 %}
-{{ disallowed_flags | join(', ') }}
-{% else %}
-# (none)
-{% endif %}
-
-# List of admin usernames (one per line)
-{% if admins | length > 0 %}
-{% for admin in admins %}{{ admin }}
+# --------------------------------------------------------------------------
+# disallowed_flags: List of flags explicitly forbidden on this server.
+# --------------------------------------------------------------------------
+{% if disallowed_flags | default([]) | length > 0 %}
+# Disallowed flags:
+{% for flag in disallowed_flags | default([]) %}
+{{ flag }}
 {% endfor %}
 {% else %}
 # (none)
 {% endif %}
 
-# List of banned players (IP or username per line)
-{% if bans | length > 0 %}
-{% for ban in bans %}{{ ban }}
+# --------------------------------------------------------------------------
+# admins: List of player usernames granted administrative privileges.
+# --------------------------------------------------------------------------
+{% if admins | default([]) | length > 0 %}
+# Administrators:
+{% for admin in admins | default([]) %}
+{{ admin }}
 {% endfor %}
 {% else %}
 # (none)
 {% endif %}
 
-# List of allowed player networks (CIDR notation, one per line)
-# Use '0.0.0.0/0' to allow all
-{% if allowed_networks | length > 0 %}
-{% for network in allowed_networks %}{{ network }}
+# --------------------------------------------------------------------------
+# bans: List of banned players (by IP address or username).
+# --------------------------------------------------------------------------
+{% if bans | default([]) | length > 0 %}
+# Banned players:
+{% for ban in bans | default([]) %}
+{{ ban }}
+{% endfor %}
+{% else %}
+# (none)
+{% endif %}
+
+# --------------------------------------------------------------------------
+# allowed_networks: List of allowed network ranges in CIDR notation. Use
+#                   0.0.0.0/0 to allow all IPs.
+# --------------------------------------------------------------------------
+{% if allowed_networks | default(['0.0.0.0/0']) | length > 0 %}
+# Allowed networks:
+{% for network in allowed_networks | default(['0.0.0.0/0']) %}
+{{ network }}
 {% endfor %}
 {% else %}
 0.0.0.0/0
 {% endif %}
 
-# Log level: 0 = silent, 1 = minimal, 2 = normal, 3 = verbose, 4 = debug
-{{ log_level }}
+# --------------------------------------------------------------------------
+# log_level: Verbosity of server logs: 0 = silent, 1 = minimal, 2 =
+#            normal, 3 = verbose, 4 = debug.
+# --------------------------------------------------------------------------
+{{ log_level | default(2) }}
 
-# Log file path (relative to /var/log/bzflag/ or absolute)
-{{ log_file }}
+# --------------------------------------------------------------------------
+# log_file: Filename for server activity logs (saved under /var/log/bzflag/).
+# --------------------------------------------------------------------------
+{{ log_file | default('server.log') }}
 
-# Map rotation (list of map filenames)
-{% for map in map_rotation %}{{ map }}
+# --------------------------------------------------------------------------
+# map_rotation: Ordered list of map files to use in rotation (must be
+#               installed in /usr/share/games/bzflag/maps/).
+# --------------------------------------------------------------------------
+{% for map_name in map_rotation | default(['canyon.bzw', 'cavern.bzw']) %}
+{{ map_name }}
 {% endfor %}
 
-# Enable or disable HTTP stats endpoint
-{{ http_stats | string | lower }}
+# --------------------------------------------------------------------------
+# http_stats: If enabled, exposes an HTTP endpoint for real-time server
+#             statistics.
+# --------------------------------------------------------------------------
+{{ (http_stats | default(true) | bool) | ternary('yes', 'no') }}
 
-# HTTP stats refresh interval (in seconds)
-{{ http_stats_interval }}
+# --------------------------------------------------------------------------
+# http_stats_interval: Seconds between updates to the HTTP stats page.
+# --------------------------------------------------------------------------
+{{ http_stats_interval | default(10) }}
 
-# Enable or disable replay recording
-{{ replay_enabled | string | lower }}
+# --------------------------------------------------------------------------
+# replay_enabled: If enabled, records gameplay replays for later viewing.
+# --------------------------------------------------------------------------
+{{ (replay_enabled | default(true) | bool) | ternary('yes', 'no') }}
 
-# Directory for replay files
-{{ replay_directory }}
+# --------------------------------------------------------------------------
+# replay_directory: Directory where replay files are stored.
+# --------------------------------------------------------------------------
+{{ replay_directory | default('/var/lib/bzflag/replays') }}
 
-# Replay retention policy (in days)
-{{ replay_retention_days }}
+# --------------------------------------------------------------------------
+# replay_retention_days: Number of days to retain replay files before
+#                        automatic deletion.
+# --------------------------------------------------------------------------
+{{ replay_retention_days | default(7) }}
 
-# Enable or disable ground vehicle physics (optional tweak)
-{{ ground_vehicle_physics | string | lower }}
+# --------------------------------------------------------------------------
+# ground_vehicle_physics: If enabled, uses realistic ground vehicle
+#                         physics (tanks slide, roll, and drift).
+# --------------------------------------------------------------------------
+{{ (ground_vehicle_physics | default(true) | bool) | ternary('yes', 'no') }}
 
-# Enable or disable wall jumping
-{{ wall_jump | string | lower }}
+# --------------------------------------------------------------------------
+# wall_jump: If enabled, allows players to bounce off walls during jumps.
+# --------------------------------------------------------------------------
+{{ (wall_jump | default(true) | bool) | ternary('yes', 'no') }}

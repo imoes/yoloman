@@ -1,0 +1,288 @@
+# ==============================================================================
+# bgpq4 Configuration Template
+# ==============================================================================
+# This template generates command-line arguments for the bgpq4 utility.
+# bgpq4 queries IRR (Internet Routing Registry) databases to generate
+# prefix-lists, access-lists, or route-filter-lists for various network
+# device configurations.
+#
+# All variables are sourced from `bgpq4_options`. Defaults are applied inline
+# to ensure safe rendering even if a field is omitted in the playbook.
+# ==============================================================================
+
+{# -------------------------------------------------------------------------- #}
+{# IRRD Host Configuration                                                    #}
+{# -------------------------------------------------------------------------- #}
+{# Description: IRRD host:port to query for routing data.                  #}
+{# Default: Empty (bgpq4 uses its own default hosts)                          #}
+{# -------------------------------------------------------------------------- #}
+{%- if (bgpq4_options | default({})).host is defined and (bgpq4_options | default({})).host != '' %}
+# IRRD host:port
+-h {{ (bgpq4_options | default({})).host }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# IRRD Sources Configuration                                                 #}
+{# -------------------------------------------------------------------------- #}
+{# Description: List of IRRD sources (comma-separated in CLI).               #}
+{# Default: [] (empty list)                                                   #}
+{# -------------------------------------------------------------------------- #}
+{%- if (bgpq4_options | default({})).sources is defined and (bgpq4_options | default({})).sources | default([]) %}
+# IRRD sources list (comma-separated)
+-S {{ (bgpq4_options | default({})).sources | join(',') }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Output Format Configuration                                                #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Output format selection.                                       #}
+{# Default: 'cisco'                                                           #}
+{# Supported: cisco, juniper, bird, openbgpd, arista, nokia_sros_mdcli,      #}
+{#           nokia_sros_classic, nokia_srl, huawei, huawei_xpl,              #}
+{#           mikrotik_rosv6, mikrotik_rosv7, json, user_defined             #}
+{# -------------------------------------------------------------------------- #}
+{%- set fmt = (bgpq4_options | default({})).format | default('cisco') %}
+{%- if fmt is defined and fmt != '' %}
+# Output format selection
+{%- if fmt == 'cisco' %}
+# Cisco IOS format (default)
+{%- elif fmt == 'juniper' %}
+# Juniper Router OS format
+-J
+{%- elif fmt == 'bird' %}
+# BIRD format
+-b
+{%- elif fmt == 'openbgpd' %}
+# OpenBGPD format
+-B
+{%- elif fmt == 'arista' %}
+# Arista EOS format
+-e
+{%- elif fmt == 'nokia_sros_mdcli' %}
+# Nokia SR OS (MD-CLI) format
+-n
+{%- elif fmt == 'nokia_sros_classic' %}
+# Nokia SR OS (Classic) format
+-N
+{%- elif fmt == 'nokia_srl' %}
+# Nokia SR Linux format
+-n2
+{%- elif fmt == 'huawei' %}
+# Huawei VRP format
+-U
+{%- elif fmt == 'huawei_xpl' %}
+# Huawei XPL format
+-u
+{%- elif fmt == 'mikrotik_rosv6' %}
+# Mikrotik ROS v6 format
+-K
+{%- elif fmt == 'mikrotik_rosv7' %}
+# Mikrotik ROS v7 format
+-K7
+{%- elif fmt == 'json' %}
+# JSON format
+-j
+{%- elif fmt == 'user_defined' and (bgpq4_options | default({})).user_format is defined and (bgpq4_options | default({})).user_format != '' %}
+# User-defined format string
+-F {{ (bgpq4_options | default({})).user_format }}
+{%- endif %}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# IP Version Selection                                                       #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Generate IPv6 prefix/access-lists.                           #}
+{# Default: False                                                             #}
+{# -------------------------------------------------------------------------- #}
+{%- if (bgpq4_options | default({})).ipv6 is defined and (bgpq4_options | default({})).ipv6 %}
+# Generate IPv6 prefix/access-lists
+-6
+{%- endif %}
+
+{# Description: Generate IPv4 prefix/access-lists (default).                 #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).ipv4 is defined and (bgpq4_options | default({})).ipv4 %}
+# Generate IPv4 prefix/access-lists
+-4
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Aggregation and Extended Access Control                                    #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Aggregate prefix-lists.                                      #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).aggregate is defined and (bgpq4_options | default({})).aggregate %}
+# Aggregate prefix-lists
+-A
+{%- endif %}
+
+{# Description: Extended access-list / route-filters / prefix-sets.          #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).extended is defined and (bgpq4_options | default({})).extended %}
+# Extended access-list / route-filters / prefix-sets
+-E
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# AS-Path and AS-Origin Filters                                              #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Generate input as-path access-list (-f).                     #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).aspath is defined and (bgpq4_options | default({})).aspath %}
+# Generate input as-path access-list
+-F as-path
+{%- endif %}
+
+{# Description: Generate output as-path access-list (-G).                    #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).aspath_format is defined and (bgpq4_options | default({})).aspath_format %}
+# Generate output as-path access-list
+-G {{ (bgpq4_options | default({})).aspath_format }}
+{%- endif %}
+
+{# Description: Generate output as-list for as-path-origin filter (-H).      #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).asorigin is defined and (bgpq4_options | default({})).asorigin %}
+# Generate output as-list for as-path-origin filter
+-H {{ (bgpq4_options | default({})).asorigin }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Debugging and Sequence Numbers                                             #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Enable debugging output.                                     #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).debug is defined and (bgpq4_options | default({})).debug %}
+# Enable debugging output
+-d
+{%- endif %}
+
+{# Description: Emit sequence numbers in IOS-style prefix-lists.             #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).sequence_numbers is defined and (bgpq4_options | default({})).sequence_numbers %}
+# Emit sequence numbers in IOS-style prefix-lists
+-s
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Source and Recursion Constraints                                           #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Emit prefixes where origin ASN is 23456 or in private range. #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).sources_only is defined and (bgpq4_options | default({})).sources_only %}
+# Emit prefixes where origin ASN is 23456 or in private range
+-p
+{%- endif %}
+
+{# Description: Limit recursion depth when expanding as-sets.                #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).recursion_limit is defined and (bgpq4_options | default({})).recursion_limit %}
+# Limit recursion depth when expanding as-sets
+-L {{ (bgpq4_options | default({})).recursion_limit }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Prefix Length Constraints                                                  #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Maximum prefix-length of accepted prefixes.                  #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).max_prefix_len is defined and (bgpq4_options | default({})).max_prefix_len %}
+# Maximum prefix-length of accepted prefixes
+-m {{ (bgpq4_options | default({})).max_prefix_len }}
+{%- endif %}
+
+{# Description: Allow more specific routes starting with specified masklen too. #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).min_prefix_len is defined and (bgpq4_options | default({})).min_prefix_len %}
+# Allow more specific routes starting with specified masklen too
+-r {{ (bgpq4_options | default({})).min_prefix_len }}
+{%- endif %}
+
+{# Description: Allow more specific routes up to specified masklen too.      #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).max_prefix_len_range is defined and (bgpq4_options | default({})).max_prefix_len_range %}
+# Allow more specific routes up to specified masklen too
+-R {{ (bgpq4_options | default({})).max_prefix_len_range }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Connection and Device Specific Options                                     #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Disable pipelining.                                          #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).no_pipelining is defined and (bgpq4_options | default({})).no_pipelining %}
+# Disable pipelining
+-T
+{%- endif %}
+
+{# Description: Generate config for Cisco IOS XR devices.                    #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).xr is defined and (bgpq4_options | default({})).xr %}
+# Generate config for Cisco IOS XR devices
+-X
+{%- endif %}
+
+{# Description: Generate route-filter-lists.                                 #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).route_filter_list is defined and (bgpq4_options | default({})).route_filter_list %}
+# Generate route-filter-lists
+-z
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# ASN and Entry Name                                                         #}
+{# -------------------------------------------------------------------------- #}
+{# Description: ASN to deny in case of empty prefix-list (OpenBGPD).         #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).asn is defined and (bgpq4_options | default({})).asn %}
+# ASN to deny in case of empty prefix-list (OpenBGPD)
+-a {{ (bgpq4_options | default({})).asn }}
+{%- endif %}
+
+{# Description: Name of generated entry.                                     #}
+{# Default: ''                                                              #}
+{%- if (bgpq4_options | default({})).entry_name is defined and (bgpq4_options | default({})).entry_name %}
+# Name of generated entry
+-l {{ (bgpq4_options | default({})).entry_name }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# AS-Path and AS-Set Constraints                                             #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Generate as-path strings of no more than len items.          #}
+{# Default: 0                                                               #}
+{%- if (bgpq4_options | default({})).aspath_length is defined and (bgpq4_options | default({})).aspath_length %}
+# Generate as-path strings of no more than len items
+-W {{ (bgpq4_options | default({})).aspath_length }}
+{%- endif %}
+
+{# Description: Generate as-sets for OpenBGPd, BIRD and JSON formats.        #}
+{# Default: False                                                             #}
+{%- if (bgpq4_options | default({})).as_set is defined and (bgpq4_options | default({})).as_set %}
+# Generate as-sets for OpenBGPd, BIRD and JSON formats
+-t
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Extra Match and Objects                                                    #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Extra match conditions for Juniper route-filters.             #}
+{# Default: ''                                                              #}
+{%- if (bgpq4_options | default({})).extra_match is defined and (bgpq4_options | default({})).extra_match %}
+# Extra match conditions for Juniper route-filters
+-M {{ (bgpq4_options | default({})).extra_match }}
+{%- endif %}
+
+{# Description: List of objects (networks, ASNs, as-sets, route-sets).       #}
+{# Default: []                                                              #}
+{%- if (bgpq4_options | default({})).objects is defined and (bgpq4_options | default({})).objects | default([]) %}
+# List of objects (networks, ASNs, as-sets, route-sets)
+{{ (bgpq4_options | default({})).objects | join(' ') }}
+{%- endif %}
+
+{# Description: Objects to exclude from expansion.                           #}
+{# Default: []                                                              #}
+{%- if (bgpq4_options | default({})).except_objects is defined and (bgpq4_options | default({})).except_objects | default([]) %}
+# Objects to exclude from expansion
+except {{ (bgpq4_options | default({})).except_objects | join(' ') }}
+{%- endif %}

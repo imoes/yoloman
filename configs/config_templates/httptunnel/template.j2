@@ -1,53 +1,108 @@
-# Start HTTP tunneling daemon
-# Bind to the specified host and port for incoming connections
-bind_address = {{ bind_address }}
-bind_port = {{ bind_port }}
+# ==============================================================================
+# HTTP Tunnel Server Configuration Template
+# ==============================================================================
+# This file configures the httptunnel daemon. It controls binding, tunneling,
+# security, logging, and process management settings.
+# ==============================================================================
 
-# Maximum number of simultaneous connections
-max_connections = {{ max_connections }}
+# IP address the HTTP tunnel server binds to.
+# Use '127.0.0.1' for localhost-only access or '0.0.0.0' for all interfaces.
+# Default: 0.0.0.0
+bind_address = {{ bind_address | default('0.0.0.0') }}
 
-# Enable or disable compression (gzip) of tunneled data
-# Default: off
-{% if compression %}compress = on{% else %}compress = off{% endif %}
+# Port number the server listens on for incoming HTTP tunnel requests.
+# Default: 8080
+bind_port = {{ bind_port | default(8080) }}
 
-# Path to the log file; use '-' for stderr
-log_file = {{ log_file }}
+# Maximum number of concurrent client connections the server accepts.
+# Default: 100
+max_connections = {{ max_connections | default(100) }}
 
-# Log level: 0 (none) to 5 (debug)
-log_level = {{ log_level }}
-
-# Timeout for idle connections (in seconds)
-idle_timeout = {{ idle_timeout }}
-
-# Optional authentication method and file
-# If auth_type is 'file', credentials are read from auth_file (line-based: user:password)
-{% if auth_type == 'file' %}auth_type = file
-auth_file = {{ auth_file }}
-{% elif auth_type == 'none' %}auth_type = none
+# Enable gzip compression of the tunneled payload to reduce bandwidth usage.
+# Default: False (off)
+{% if (compression | default(False) | bool) %}
+# Compression is enabled.
+compress = on
+{% else %}
+# Compression is disabled.
+compress = off
 {% endif %}
 
-# Forward target: where to forward the tunneled data stream
-forward_address = {{ forward_address }}
-forward_port = {{ forward_port }}
+# Path to the log file. Use '-' to log to standard error.
+# Default: /var/log/httptunnel/httptunnel.log
+log_file = {{ log_file | default('/var/log/httptunnel/httptunnel.log') }}
 
-# Optional: allow only specific source IPs (one per line, or empty for all)
-{% for ip in allowed_ips %}allow_ip = {{ ip }}
-{% endfor %}
+# Verbosity of logging: 0 (none) to 5 (debug).
+# Recommended: 3 (info).
+# Default: 3
+log_level = {{ log_level | default(3) }}
 
-# Optional: deny specific source IPs
-{% for ip in denied_ips %}deny_ip = {{ ip }}
-{% endfor %}
+# Seconds before an idle connection is closed.
+# Set to 0 to disable the timeout entirely.
+# Default: 300
+idle_timeout = {{ idle_timeout | default(300) }}
 
-# Use SSL/TLS for the server-side connection (if true, cert and key required)
-{% if ssl_enabled %}ssl = on
-ssl_cert = {{ ssl_cert }}
-ssl_key = {{ ssl_key }}
-ssl_ciphers = {{ ssl_ciphers }}
-{% else %}ssl = off
+# Authentication method configuration.
+# Options: 'none' (no auth) or 'file' (user:password lines in auth_file).
+{% if (auth_type | default('none')) == 'file' %}
+# Authentication via htpasswd-style file is enabled.
+auth_type = file
+# Path to the file containing user:password credentials.
+# Default: /etc/httptunnel/htpasswd
+auth_file = {{ auth_file | default('/etc/httptunnel/htpasswd') }}
+{% else %}
+# No authentication is required.
+auth_type = none
 {% endif %}
 
-# Process background (daemonize)
-{% if daemonize %}daemonize = on{% else %}daemonize = off{% endif %}
+# Destination host (IP or hostname) where tunneled traffic is forwarded.
+# Default: 127.0.0.1
+forward_address = {{ forward_address | default('127.0.0.1') }}
 
-# PID file location (only used if daemonize = on)
-pid_file = {{ pid_file }}
+# Destination port for forwarded traffic.
+# Common values: 22 (SSH), 80 (HTTP), 443 (HTTPS).
+# Default: 22
+forward_port = {{ forward_port | default(22) }}
+
+# List of IP addresses allowed to connect.
+# If this list is empty, all IPs are allowed (subject to denied_ips).
+{% for ip in (allowed_ips | default([])) %}allow_ip = {{ ip }}
+{% endfor %}
+
+# List of IP addresses explicitly denied, overriding the allow list.
+{% for ip in (denied_ips | default([])) %}deny_ip = {{ ip }}
+{% endfor %}
+
+# SSL/TLS encryption configuration for the HTTP tunnel connection.
+{% if (ssl_enabled | default(False) | bool) %}
+# TLS is enabled.
+ssl = on
+# Path to the SSL certificate file (PEM format).
+# Default: /etc/httptunnel/server.crt
+ssl_cert = {{ ssl_cert | default('/etc/httptunnel/server.crt') }}
+# Path to the SSL private key file (PEM format).
+# Default: /etc/httptunnel/server.key
+ssl_key = {{ ssl_key | default('/etc/httptunnel/server.key') }}
+# TLS cipher suite list, colon- or comma-separated.
+# Defaults to modern secure ciphers.
+ssl_ciphers = {{ ssl_ciphers | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256') }}
+{% else %}
+# TLS is disabled.
+ssl = off
+{% endif %}
+
+# Run the service as a background daemon.
+# Recommended: True for production environments.
+# Default: True
+{% if (daemonize | default(True) | bool) %}
+# Daemon mode is enabled.
+daemonize = on
+{% else %}
+# Daemon mode is disabled (runs in foreground).
+daemonize = off
+{% endif %}
+
+# Path to write the daemon's PID file.
+# Only used if daemonize is True.
+# Default: /run/httptunnel.pid
+pid_file = {{ pid_file | default('/run/httptunnel.pid') }}

@@ -1,18 +1,58 @@
 {
-  "main_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether ModemManager service is enabled at startup."
-  },
   "main_log_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Log verbosity: 0=none, 1=ERR, 2=WARN, 3=INFO, 4=DEBUG."
+    "type": "string",
+    "default": "INFO",
+    "description": "Log verbosity: ERR, WARN, INFO, or DEBUG.",
+    "enum": [
+      "ERR",
+      "WARN",
+      "INFO",
+      "DEBUG"
+    ]
   },
   "main_log_domains": {
     "type": "number",
     "default": 0,
     "description": "Bitmask for filtering log messages by domain (e.g., 0x00000001 = general, 0x00000002 = GSM, etc.)."
+  },
+  "main_plugin_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Path to ModemManager plugin directory."
+  },
+  "main_enable_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Plugins to enable explicitly (e.g., ['mbim', 'qmi']). If non-empty, only these are loaded."
+  },
+  "main_disable_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Plugins to disable explicitly (e.g., ['at'])."
+  },
+  "main_filter_policy": {
+    "type": "string",
+    "default": "",
+    "description": "Specify which ports are probed and how: 'ALLOWLIST-ONLY' or 'STRICT'.",
+    "enum": [
+      "ALLOWLIST-ONLY",
+      "STRICT"
+    ]
+  },
+  "main_no_auto_scan": {
+    "type": "bool",
+    "default": false,
+    "description": "Fully disable udev-based auto-scan looking for devices."
+  },
+  "modem_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Per-modem configuration overrides. Each item defines settings for a specific modem, matched by hardware/firmware identifiers or port patterns."
+  },
+  "removed": {
+    "type": "object",
+    "default": true,
+    "description": "Whether ModemManager service is enabled at startup."
   },
   "main_modem_timeout": {
     "type": "number",
@@ -23,11 +63,6 @@
     "type": "number",
     "default": 3,
     "description": "Maximum attempts to connect to a modem before marking it failed."
-  },
-  "main_plugin_dir": {
-    "type": "string",
-    "default": "/usr/lib/modemmanager/plugins",
-    "description": "Path to ModemManager plugin directory."
   },
   "main_allowed_vendor_ids": {
     "type": "list",
@@ -49,93 +84,77 @@
     "default": [],
     "description": "List of forbidden hardware device IDs in hex. Overrides allowed list."
   },
-  "main_enable_plugins": {
-    "type": "list",
-    "default": [],
-    "description": "Plugins to enable explicitly (e.g., ['mbim', 'qmi']). If non-empty, only these are loaded."
+  "modem_overrides_items": {
+    "type": "object",
+    "default": true,
+    "description": "Unique ID for this override (e.g., 'modem-1', or filename-like). Used as section header."
   },
-  "main_disable_plugins": {
-    "type": "list",
-    "default": [],
-    "description": "Plugins to disable explicitly (e.g., ['at'])."
+  "comment": {
+    "type": "string",
+    "default": "",
+    "description": "Optional human-readable description."
   },
-  "modem_overrides": {
+  "modem_overrides_items_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable this specific modem (overrides global Enabled setting)."
+  },
+  "hardware_vendor": {
+    "type": "string",
+    "default": "",
+    "description": "Hardware vendor ID in hex (e.g., '0x12d1')."
+  },
+  "hardware_model": {
+    "type": "string",
+    "default": "",
+    "description": "Hardware model ID in hex (e.g., '0x1506')."
+  },
+  "hardware_revision": {
+    "type": "string",
+    "default": "",
+    "description": "Hardware revision string."
+  },
+  "firmware_vendor": {
+    "type": "string",
+    "default": "",
+    "description": "Firmware vendor string."
+  },
+  "firmware_model": {
+    "type": "string",
+    "default": "",
+    "description": "Firmware model string."
+  },
+  "firmware_revision": {
+    "type": "string",
+    "default": "",
+    "description": "Firmware revision string."
+  },
+  "port_types": {
     "type": "list",
-    "default": [],
-    "items": {
-      "id": {
-        "type": "string",
-        "description": "Unique ID for this override (e.g., 'modem-1', or filename-like). Used as section header."
-      },
-      "comment": {
-        "type": "string",
-        "default": "",
-        "description": "Optional human-readable description."
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable this specific modem (overrides global Enabled setting)."
-      },
-      "hardware_vendor": {
-        "type": "string",
-        "default": "",
-        "description": "Hardware vendor ID in hex (e.g., '0x12d1')."
-      },
-      "hardware_model": {
-        "type": "string",
-        "default": "",
-        "description": "Hardware model ID in hex (e.g., '0x1506')."
-      },
-      "hardware_revision": {
-        "type": "string",
-        "default": "",
-        "description": "Hardware revision string."
-      },
-      "firmware_vendor": {
-        "type": "string",
-        "default": "",
-        "description": "Firmware vendor string."
-      },
-      "firmware_model": {
-        "type": "string",
-        "default": "",
-        "description": "Firmware model string."
-      },
-      "firmware_revision": {
-        "type": "string",
-        "default": "",
-        "description": "Firmware revision string."
-      },
-      "port_types": {
-        "type": "list",
-        "default": [
-          "at",
-          "qcdm",
-          "mbim",
-          "ncm",
-          "qmi",
-          "gobi",
-          "uim"
-        ],
-        "description": "Port types to probe, in order."
-      },
-      "scan_ports": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether to scan all ports (true) or only those explicitly listed."
-      },
-      "no_sim": {
-        "type": "bool",
-        "default": false,
-        "description": "Skip SIM probing for this modem."
-      },
-      "no_ppp": {
-        "type": "bool",
-        "default": false,
-        "description": "Disable PPP (Point-to-Point Protocol) for this modem."
-      }
-    },
-    "description": "Per-modem configuration overrides. Each item defines settings for a specific modem, matched by hardware/firmware identifiers or port patterns."
+    "default": [
+      "at",
+      "qcdm",
+      "mbim",
+      "ncm",
+      "qmi",
+      "gobi",
+      "uim"
+    ],
+    "description": "Port types to probe, in order."
+  },
+  "scan_ports": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to scan all ports (true) or only those explicitly listed."
+  },
+  "no_sim": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip SIM probing for this modem."
+  },
+  "no_ppp": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable PPP (Point-to-Point Protocol) for this modem."
   }
 }

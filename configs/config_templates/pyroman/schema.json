@@ -11,28 +11,7 @@
   },
   "default_policy": {
     "type": "object",
-    "items": {
-      "input": {
-        "type": "string",
-        "default": "drop",
-        "description": "Default policy for incoming packets."
-      },
-      "output": {
-        "type": "string",
-        "default": "accept",
-        "description": "Default policy for outgoing packets."
-      },
-      "forward": {
-        "type": "string",
-        "default": "drop",
-        "description": "Default policy for forwarded packets."
-      }
-    },
-    "default": {
-      "input": "drop",
-      "output": "accept",
-      "forward": "drop"
-    },
+    "default": null,
     "description": "Global default policies for each packet flow direction."
   },
   "conn_table_size": {
@@ -57,194 +36,31 @@
   },
   "log_facility": {
     "type": "string",
-    "default": null,
-    "description": "Optional syslog facility for logs (e.g., 'local0'). If omitted, uses default."
+    "default": "daemon",
+    "description": "Optional syslog facility for logs (e.g., 'local0'). If omitted, uses default.",
+    "enum": [
+      "daemon",
+      "user"
+    ]
   },
   "interfaces": {
     "type": "list",
-    "items": {
-      "name": {
-        "type": "string",
-        "required": true,
-        "description": "Interface name (e.g., eth0)."
-      },
-      "zone": {
-        "type": "string",
-        "required": true,
-        "description": "Zone name to assign this interface to."
-      },
-      "mtu": {
-        "type": "number",
-        "required": false,
-        "description": "Optional custom MTU for this interface."
-      },
-      "comment": {
-        "type": "string",
-        "required": false,
-        "description": "Optional human-readable description."
-      }
-    },
     "default": [],
     "description": "List of network interfaces managed by the firewall."
   },
   "zones": {
     "type": "list",
-    "items": {
-      "name": {
-        "type": "string",
-        "required": true,
-        "description": "Unique zone identifier (e.g., 'lan', 'wan')."
-      },
-      "description": {
-        "type": "string",
-        "required": false,
-        "description": "Optional human-readable description of the zone's purpose."
-      }
-    },
     "default": [],
     "description": "List of firewall zones for logical grouping of interfaces."
   },
   "zone_assignments": {
     "type": "list",
-    "items": {
-      "interface": {
-        "type": "string",
-        "required": true,
-        "description": "Interface name to assign."
-      },
-      "zone": {
-        "type": "string",
-        "required": true,
-        "description": "Target zone name."
-      }
-    },
     "default": [],
     "description": "Explicit interface-to-zone assignments (overrides implicit assignment from `interfaces`)."
   },
   "nat_rules": {
     "type": "list",
-    "items": {
-      "name": {
-        "type": "string",
-        "required": true,
-        "description": "Rule name (for identification)."
-      },
-      "type": {
-        "type": "string",
-        "required": true,
-        "description": "NAT type (e.g., 'masquerade', 'dnat', 'snat')."
-      },
-      "interface": {
-        "type": "string",
-        "required": true,
-        "description": "Output interface for the NAT operation."
-      },
-      "source": {
-        "type": "string",
-        "required": false,
-        "description": "Source IP or subnet (default: 'any')."
-      },
-      "destination": {
-        "type": "string",
-        "required": false,
-        "description": "Destination IP or subnet (default: 'any')."
-      },
-      "comment": {
-        "type": "string",
-        "required": false,
-        "description": "Optional comment."
-      }
-    },
     "default": [],
-    "description": "Network Address Translation rules."
-  },
-  "filter_rules": {
-    "type": "list",
-    "items": {
-      "name": {
-        "type": "string",
-        "required": true,
-        "description": "Rule name (for identification)."
-      },
-      "chain": {
-        "type": "string",
-        "required": true,
-        "description": "Target chain (e.g., 'input', 'output', 'forward')."
-      },
-      "action": {
-        "type": "string",
-        "required": true,
-        "description": "Action (e.g., 'accept', 'drop', 'reject')."
-      },
-      "protocol": {
-        "type": "string",
-        "required": false,
-        "description": "Protocol (e.g., 'tcp', 'udp', 'icmp') or 'any'."
-      },
-      "source": {
-        "type": "string",
-        "required": false,
-        "description": "Source IP or subnet (default: 'any')."
-      },
-      "destination": {
-        "type": "string",
-        "required": false,
-        "description": "Destination IP or subnet (default: 'any')."
-      },
-      "port": {
-        "type": "string",
-        "required": false,
-        "description": "Port number or range (e.g., '22', '8000-9000') or 'any'."
-      },
-      "comment": {
-        "type": "string",
-        "required": false,
-        "description": "Optional comment."
-      }
-    },
-    "default": [],
-    "description": "Packet filtering rules."
-  },
-  "time_based_rules": {
-    "type": "list",
-    "items": {
-      "name": {
-        "type": "string",
-        "required": true,
-        "description": "Rule name."
-      },
-      "zone": {
-        "type": "string",
-        "required": true,
-        "description": "Zone the rule applies to."
-      },
-      "start": {
-        "type": "string",
-        "required": true,
-        "description": "Start time (HH:MM 24h format or 'sunrise')."
-      },
-      "end": {
-        "type": "string",
-        "required": true,
-        "description": "End time (HH:MM 24h format or 'sunset')."
-      },
-      "action": {
-        "type": "string",
-        "required": true,
-        "description": "Action during time window (e.g., 'accept', 'drop')."
-      }
-    },
-    "default": [],
-    "description": "Time-gated rules (e.g., for scheduled services)."
-  },
-  "dns_spoof_protection": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable DNS spoofing protection (e.g., drop responses from upstream servers that don\u2019t match query origin)."
-  },
-  "dns_log_queries": {
-    "type": "bool",
-    "default": false,
-    "description": "Log DNS queries received via the firewall."
+    "description": "List of NAT rules."
   }
 }

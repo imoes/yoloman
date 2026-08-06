@@ -1,53 +1,98 @@
 # GNSS location data sharing daemon configuration
-# Enable or disable the daemon
-{% if enabled | default(false) %}
+# This file controls the behavior of the gnss-share daemon, including GNSS device access,
+# local API exposure, position logging, and peer-to-peer data sharing.
+
+# ---------------------------------------------------------------------------
+# Global daemon switch
+# ---------------------------------------------------------------------------
+# Whether the GNSS sharing daemon should be started automatically.
+# Defaults to true if the variable is not provided or evaluates to true.
+{% if enabled | default(true) %}
 enabled=true
 {% else %}
 enabled=false
 {% endif %}
 
-# Bind address for the local HTTP API
-bind_address={{ api.bind_address | default('127.0.0.1') }}
+# ---------------------------------------------------------------------------
+# Local HTTP Status/Metadata API
+# ---------------------------------------------------------------------------
+# IP address on which the local HTTP status/metadata API will listen.
+# Defaults to 127.0.0.1 (localhost only).
+bind_address={{ (api | default({})).bind_address | default('127.0.0.1') }}
 
-# Port for the HTTP API
-api_port={{ api.port | default(8080) }}
+# Port for the local HTTP API (status, metrics, control).
+# Defaults to 8080.
+api_port={{ (api | default({})).port | default(8080) }}
 
-# Path to the GNSS device (e.g., GPS serial device or NMEA source)
-gnss_device={{ gnss.device_path | default('/dev/ttyUSB0') }}
+# ---------------------------------------------------------------------------
+# GNSS Device Configuration
+# ---------------------------------------------------------------------------
+# Device file path to the GNSS receiver (e.g., GPS USB device or serial port).
+# Defaults to /dev/ttyUSB0.
+gnss_device={{ (gnss | default({})).device_path | default('/dev/ttyUSB0') }}
 
-# Baud rate for serial connection to GNSS device
-baud_rate={{ gnss.baud_rate | default(9600) }}
+# Serial baud rate for communication with the GNSS device.
+# Defaults to 9600.
+baud_rate={{ (gnss | default({})).baud_rate | default(9600) }}
 
-# NMEA sentence types to accept and share (comma-separated list)
-accepted_nmea_types={{ gnss.accepted_nmea_types | join(', ') }}
+# List of NMEA sentence types to parse and share. Common types: GGA (position fix),
+# RMC (recommended minimum), VTG (velocity). Defaults to ['GGA', 'RMC'].
+accepted_nmea_types={{ ((gnss | default({})).accepted_nmea_types | default(['GGA', 'RMC'])) | join(', ') }}
 
-# Minimum required satellites for valid location fix
-min_satellites={{ gnss.min_satellites | default(4) }}
+# Minimum satellites required for a valid fix. Prevents sharing low-accuracy locations.
+# Defaults to 4.
+min_satellites={{ (gnss | default({})).min_satellites | default(4) }}
 
-# Maximum age (seconds) of position data before considered stale
-max_position_age={{ gnss.max_position_age | default(30) }}
+# Maximum age (in seconds) for a position data point before it's considered stale
+# and discarded. Defaults to 30.
+max_position_age={{ (gnss | default({})).max_position_age | default(30) }}
 
-# Path to store position history log
-position_log_path={{ logging.position_log_path | default('/var/log/gnss-share/positions.log') }}
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+# Absolute path to the log file where successfully parsed positions are stored.
+# Defaults to /var/log/gnss-share/positions.log.
+position_log_path={{ (logging | default({})).position_log_path | default('/var/log/gnss-share/positions.log') }}
 
-# Log level: debug, info, warn, error
-log_level={{ logging.log_level | default('info') }}
+# Verbosity of daemon logging. Valid values: debug, info, warn, error.
+# Defaults to 'info'.
+log_level={{ (logging | default({})).log_level | default('info') }}
 
-# List of peers to share location data with (each: hostname:port)
-{% for peer in sharing.peers %}sharing_peer={{ peer.hostname }}:{{ peer.port }}
+# ---------------------------------------------------------------------------
+# Peer Sharing Configuration
+# ---------------------------------------------------------------------------
+# List of remote services to share GNSS position updates with.
+# Each peer is defined as a dictionary with 'hostname' and 'port'.
+# Defaults to an empty list.
+{% for peer in (sharing | default({})).peers | default([]) %}
+sharing_peer={{ peer.hostname }}:{{ peer.port }}
 {% endfor %}
 
-# Enable or disable TLS for peer communication
-tls_enabled={{ sharing.tls.enabled | default(false) }}
+# ---------------------------------------------------------------------------
+# TLS Configuration for Peer Sharing
+# ---------------------------------------------------------------------------
+# Whether to use TLS (HTTPS) when sharing data with peers.
+# Defaults to false.
+tls_enabled={{ ((sharing | default({})).tls | default({})).enabled | default(false) }}
 
-# TLS certificate path
-tls_cert_path={{ sharing.tls.cert_path | default('/etc/gnss-share/tls/gnss-share.crt') }}
+# Path to the TLS certificate used for peer authentication and encryption.
+# Defaults to /etc/gnss-share/tls/gnss-share.crt.
+tls_cert_path={{ ((sharing | default({})).tls | default({})).cert_path | default('/etc/gnss-share/tls/gnss-share.crt') }}
 
-# TLS key path
-tls_key_path={{ sharing.tls.key_path | default('/etc/gnss-share/tls/gnss-share.key') }}
+# Path to the TLS private key used for TLS connections.
+# Defaults to /etc/gnss-share/tls/gnss-share.key.
+tls_key_path={{ ((sharing | default({})).tls | default({})).key_path | default('/etc/gnss-share/tls/gnss-share.key') }}
 
-# Path to shared data cache (JSON format)
-cache_path={{ sharing.cache_path | default('/var/lib/gnss-share/cache.json') }}
+# ---------------------------------------------------------------------------
+# Caching Configuration
+# ---------------------------------------------------------------------------
+# Path to the JSON file used to cache recent shared positions for retransmission or recovery.
+# Defaults to /var/lib/gnss-share/cache.json.
+cache_path={{ (sharing | default({})).cache_path | default('/var/lib/gnss-share/cache.json') }}
 
-# Interval (seconds) between position sharing attempts
-sharing_interval={{ sharing.interval | default(10) }}
+# ---------------------------------------------------------------------------
+# Sharing Interval
+# ---------------------------------------------------------------------------
+# Interval (in seconds) between position-sharing attempts to peers (minimum recommended: 5).
+# Defaults to 10.
+sharing_interval={{ (sharing | default({})).interval | default(10) }}

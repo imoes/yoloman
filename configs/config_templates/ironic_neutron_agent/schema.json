@@ -1,7 +1,12 @@
 {
-  "verbose": {
+  "enabled": {
     "type": "bool",
     "default": true,
+    "description": "Enable Ironic Neutron Agent service"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
     "description": "Enable verbose logging (INFO level and above)"
   },
   "debug": {
@@ -26,7 +31,7 @@
   },
   "project_name": {
     "type": "string",
-    "default": "services",
+    "default": "ironic",
     "description": "Project (tenant) name used by the agent to authenticate with Ironic"
   },
   "username": {
@@ -53,18 +58,6 @@
     "type": "string",
     "default": "password",
     "description": "Authentication type for Ironic API access (typically 'password')"
-  },
-  "service_token_roles": {
-    "type": "list",
-    "default": [
-      "service"
-    ],
-    "description": "List of roles required in service tokens to access Ironic API"
-  },
-  "service_token_required": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether service tokens are required for Ironic API access"
   },
   "neutron_url": {
     "type": "string",
@@ -111,70 +104,14 @@
     "default": 30,
     "description": "Timeout (in seconds) for Neutron API requests"
   },
-  "service_credentials_auth_type": {
-    "type": "string",
-    "default": "password",
-    "description": "Fallback auth type (for older deployments using [service_credentials] section)"
-  },
-  "service_credentials_auth_url": {
-    "type": "string",
-    "default": "http://localhost:5000/v3",
-    "description": "Fallback auth URL (for older deployments)"
-  },
-  "service_credentials_username": {
-    "type": "string",
-    "default": "neutron",
-    "description": "Fallback service username"
-  },
-  "service_credentials_password": {
-    "type": "string",
-    "default": "",
-    "description": "Fallback service password"
-  },
-  "service_credentials_project_name": {
-    "type": "string",
-    "default": "services",
-    "description": "Fallback project name"
-  },
-  "service_credentials_project_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Fallback project domain"
-  },
-  "service_credentials_user_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Fallback user domain"
-  },
-  "agent_workers": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of worker processes for the agent"
-  },
   "agent_polling_interval": {
     "type": "number",
-    "default": 60,
+    "default": 10,
     "description": "Interval (seconds) between polling Ironic for node status updates"
-  },
-  "agent_enable_dhcp": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable DHCP management for bare metal instances via Neutron DHCP agent"
-  },
-  "agent_enable_l3": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable L3 (routing) management for bare metal instances via Neutron L3 agent"
   },
   "physical_network_mappings": {
     "type": "list",
-    "default": [
-      "physnet1:br-phys"
-    ],
-    "description": "List of mappings from logical network names to physical network names/interfaces (format: 'net:iface')",
-    "items": {
-      "type": "string",
-      "description": "Network mapping in format 'logical_network:physical_interface_or_bridge'"
-    }
+    "default": [],
+    "description": "List of mappings from logical network names to physical network names/interfaces (format: 'net:iface')\n      :type: list of str\n      :default: []\n      If empty, the agent will try to detect networks automatically if possible, or fail if not. The format is typically 'physical_network:interface_name'. For example: ['physnet1:eth0']. If not set, the agent uses the default physical network configured in Neutron if available, or relies on auto-detection."
   }
 }

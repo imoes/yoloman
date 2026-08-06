@@ -1,162 +1,42 @@
 {
-  "logdir": {
+  "yaws_conf": {
     "type": "string",
-    "default": "/var/log/yaws",
-    "description": "Directory where access and error logs are written."
+    "default": "/etc/yaws/yaws.conf",
+    "description": "Path to the main Yaws configuration file."
   },
-  "docroot": {
+  "yaws_id": {
     "type": "string",
-    "default": "/var/www/yaws",
-    "description": "Global default document root for static files when no virtual host matches."
+    "default": "debian_yaws",
+    "description": "Daemon ID used by init scripts; must be alphanumeric only."
   },
-  "listen": {
+  "daemon_opts": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address to bind the primary listener to (e.g., '127.0.0.1', '::')."
-  },
-  "port": {
-    "type": "number",
-    "default": 80,
-    "description": "TCP port for the primary HTTP listener."
-  },
-  "ipv6": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable IPv6 support globally."
-  },
-  "dir_listings": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow directory listing when no index file is present."
-  },
-  "user": {
-    "type": "string",
-    "default": "yaws",
-    "description": "Unix user account under which Yaws runs after startup (must exist)."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 8000,
-    "description": "Maximum number of concurrent TCP connections allowed."
-  },
-  "num_acceptors": {
-    "type": "number",
-    "default": 10,
-    "description": "Number of Erlang processes dedicated to accepting new connections."
-  },
-  "servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of virtual hosts (server blocks) to configure. Each defines a distinct site.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique name for the virtual host (e.g., 'example.com')."
-      },
-      "listen": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "IP to bind this virtual host to."
-      },
-      "port": {
-        "type": "number",
-        "default": 80,
-        "description": "Port for this virtual host (e.g., 8080 for alt HTTP)."
-      },
-      "ipv6": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable IPv6 for this virtual host."
-      },
-      "docroot": {
-        "type": "string",
-        "default": "/var/www/example.com",
-        "description": "Document root specific to this virtual host."
-      },
-      "dir_listings": {
-        "type": "bool",
-        "default": true,
-        "description": "Permit directory listing for this virtual host only (overrides global)."
-      },
-      "index_files": {
-        "type": "list",
-        "default": [
-          "index.html",
-          "index.yaws"
-        ],
-        "description": "Ordered list of index files to try when a directory is requested."
-      },
-      "extra_headers": {
-        "type": "list",
-        "default": [],
-        "description": "Custom HTTP response headers to add (first header only supported by schema).",
-        "items": {
-          "type": "object",
-          "items": {
-            "name": {
-              "type": "string",
-              "description": "Header name (e.g., 'X-Frame-Options')."
-            },
-            "value": {
-              "type": "string",
-              "description": "Header value (e.g., 'SAMEORIGIN')."
-            }
-          }
-        }
-      },
-      "access_log": {
-        "type": "string",
-        "default": "/var/log/yaws/access_example.com.log",
-        "description": "Path to per-vhost access log file."
-      },
-      "error_log": {
-        "type": "string",
-        "default": "/var/log/yaws/error_example.com.log",
-        "description": "Path to per-vhost error log file."
-      },
-      "apps": {
-        "type": "list",
-        "default": [],
-        "description": "List of embedded application handlers (e.g., SCGI/CGI backends).",
-        "items": {
-          "name": {
-            "type": "string",
-            "description": "Identifier for the app block (e.g., 'php')."
-          },
-          "scgi": {
-            "type": "bool",
-            "default": false,
-            "description": "Enable SCGI for this app handler."
-          },
-          "cgi": {
-            "type": "bool",
-            "default": false,
-            "description": "Enable traditional CGI for this app handler."
-          },
-          "dir": {
-            "type": "string",
-            "description": "Server path to app directory (e.g., '/var/www/example.com/app')."
-          },
-          "extra_params": {
-            "type": "list",
-            "default": [],
-            "description": "Key-value configuration for app (e.g., PHP-FPM socket settings).",
-            "items": {
-              "type": "object",
-              "items": {
-                "key": {
-                  "type": "string",
-                  "description": "Parameter key (e.g., 'php_value')."
-                },
-                "value": {
-                  "type": "string",
-                  "description": "Parameter value (e.g., 'sendmail_path = /usr/sbin/sendmail -t -i')."
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    "default": "--heart",
+    "description": "Additional options passed to the Yaws daemon (e.g., `--heart`, `--debug`).",
+    "enum": [
+      "--heart",
+      "--nodebug",
+      "--debug",
+      "--daemon",
+      "--interactive",
+      "--winteractive",
+      "--trace",
+      "--tracetraf",
+      "--tracehttp",
+      "--traceout",
+      "--disable-kpoll",
+      "--umask",
+      "--encoding",
+      "--id",
+      "--name",
+      "--sname",
+      "--mnesiadir",
+      "--proto_dist",
+      "--erlarg",
+      "--pa",
+      "--runmod",
+      "--conf",
+      "--heart-restart"
+    ]
   }
 }

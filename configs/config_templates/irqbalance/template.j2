@@ -1,23 +1,112 @@
-# /etc/default/irqbalance - configuration for the Interrupt Balancing Daemon
-# This file is sourced by the irqbalance systemd service.
+# /etc/default/irqbalance — Environment variables for the irqbalance daemon.
+# This file is consumed by systemd via EnvironmentFile or by init scripts.
+# Variables are documented with their source description and default values.
 
-# Enable or disable irqbalance
-ENABLE_IRQBALANCE={{ enabled | string | lower }}
+{% if not enabled | default(true) %}
+# Disabled: irqbalance will NOT run.
+# enabled: default=True
+# desc='Enable the irqbalance daemon. When false, the service will not run.'
+#else
+# IRQBALANCE_ONESHOT
+#    After starting, wait for ten seconds, then look at the interrupt
+#    load and balance it once; after balancing exit and do not change
+#    it again.
+# irqbalance_oneshot: default=''
+# desc="Set to '1' to run irqbalance once and exit after initial balancing. Empty to run continuously."
+IRQBALANCE_ONESHOT={{ irqbalance_oneshot | default('') }}
 
-# CPU affinity mask for irqbalance daemon itself (hex, e.g., 'f' = CPUs 0-3)
-IRQBALANCE_BANNED_CPUS={{ banned_cpus }}
+#
+# IRQBALANCE_BANNED_CPUS
+#    64 bit bitmask which allows you to indicate which CPUs should
+#    be skipped when reblancing IRQs.  CPU numbers which have their
+#    corresponding bits set to one in this mask will not have any
+#    IRQs assigned to them on rebalance.
+# banned_cpus: default='0'
+# desc="Hexadecimal CPU affinity mask for CPUs excluded from interrupt handling (e.g., 'f' excludes CPUs 0–3). Set to '0' to allow all CPUs."
+IRQBALANCE_BANNED_CPUS={{ banned_cpus | default('0') }}
 
-# Interval (in seconds) between balancing decisions
-IRQBALANCE_ARGS="--daemonize --pidfile=/run/irqbalance/irqbalance.pid {{ '' if pwr_thrst_threshold is none else '--power_thresh=' + pwr_thrst_threshold | string }} {{ '' if up_thresh is none else '--up_thresh=' + up_thresh | string }} {{ '' if banlist | length == 0 else '--banlist=' + banlist | join(',') }}"
+#
+# IRQBALANCE_BANNED_CPULIST
+#    The CPUs list which allows you to indicate which CPUs should
+#    be skipped when reblancing IRQs. CPU numbers in CPUs list will
+#    not have any IRQs assigned to them on rebalance.
+#
+#      The format of CPUs list is:
+#        <cpu number>,...,<cpu number>
+#      or a range:
+#        <cpu number>-<cpu number>
+#      or a mixture:
+#        <cpu number>,...,<cpu number>-<cpu number>
+# banned_cpu_list: default=''
+# desc="Comma-separated CPU list (e.g., '0-1,3') for CPUs excluded from interrupt handling. Overrides banned_cpus if set."
+IRQBALANCE_BANNED_CPULIST={{ banned_cpu_list | default('') }}
 
-# List of IRQs to ignore (comma-separated)
-{% if ignore_irqs | length > 0 %}IRQBALANCE_IGNORE_IRQS="{{ ignore_irqs | join(',') }}"{% else %}# IRQBALANCE_IGNORE_IRQS=""{% endif %}
+#
+# IRQBALANCE_ARGS
+#    Append any args here to the irqbalance daemon as documented in the man
+#    page.
+# irqbalance_args: default=''
+# desc="Additional arguments to pass to irqbalance daemon, e.g., '--foreground --debug'."
+IRQBALANCE_ARGS={{ irqbalance_args | default('') }}
 
-# Rebalance interval (seconds) — how often full rebalance is forced
-{% if rebalance_interval is not none %}IRQBALANCE_REBALANCE_INTERVAL="{{ rebalance_interval }}"{% else %}# IRQBALANCE_REBALANCE_INTERVAL=""{% endif %}
+#
+# IRQBALANCE_BANLIST
+#    List of IRQ numbers to permanently exclude from balancing.
+# banlist: default=[]
+# desc="List of IRQ numbers to permanently exclude from balancing (e.g., ['1', '9', '120'])."
+# Format: comma-separated string of IRQ IDs.
+IRQBALANCE_BANLIST={{ banlist | default([]) | join(',') }}
 
-# Topology-aware balancing mode: 'package', 'core', or 'thread'
-{% if topology_mode is not none %}IRQBALANCE_TOPOLOGY_MODE="{{ topology_mode }}"{% else %}# IRQBALANCE_TOPOLOGY_MODE=""{% endif %}
+#
+# IRQBALANCE_IGNORE_IRQS
+#    List of IRQs to skip during periodic reassignment (e.g., legacy ISA IRQs).
+# ignore_irqs: default=['1', '9', '120']
+# desc='List of IRQs to skip during periodic reassignment (e.g., legacy ISA IRQs).'
+# Format: comma-separated string of IRQ IDs.
+IRQBALANCE_IGNORE_IRQS={{ ignore_irqs | default(['1', '9', '120']) | join(',') }}
 
-# Custom power-saving vs performance tuning: comma-separated list of policy pairs (e.g., 'balance:low,balance:high')
-{% if policies | length > 0 %}IRQBALANCE_POLICY="{% for p in policies %}{{ p.name }}:{{ p.level }}{% if not loop.last %},{% endif %}{% endfor %}"{% else %}# IRQBALANCE_POLICY=""{% endif %}
+#
+# IRQBALANCE_REBALANCE_INTERVAL
+#    Interval (seconds) between full rebalances of all IRQs, regardless of current distribution.
+# rebalance_interval: default=600
+# desc='Interval (seconds) between full rebalances of all IRQs, regardless of current distribution.'
+IRQBALANCE_REBALANCE_INTERVAL={{ rebalance_interval | default(600) }}
+
+#
+# IRQBALANCE_TOPOLOGY_MODE
+#    Topology unit to use for load balancing decisions: 'package' (sockets), 'core' (physical cores),
+#    or 'thread' (hyperthreads).
+# topology_mode: default='core'
+# desc="Topology unit to use for load balancing decisions: 'package' (sockets), 'core' (physical cores), or 'thread' (hyperthreads)."
+IRQBALANCE_TOPOLOGY_MODE={{ topology_mode | default('core') }}
+
+#
+# IRQBALANCE_PWR_THRST_THRESHOLD
+#    Power threshold (percentage) above which aggressive power-saving balancing is triggered.
+#    0 disables power-based balancing.
+# pwr_thrst_threshold: default=30
+# desc='Power threshold (percentage) above which aggressive power-saving balancing is triggered. 0 disables power-based balancing.'
+IRQBALANCE_PWR_THRST_THRESHOLD={{ pwr_thrst_threshold | default(30) }}
+
+#
+# IRQBALANCE_UP_THRESH
+#    CPU usage threshold (percentage) above which performance-oriented balancing is triggered.
+#    Must be greater than pwr_thrst_threshold.
+# up_thresh: default=90
+# desc='CPU usage threshold (percentage) above which performance-oriented balancing is triggered. Must be greater than pwr_thrst_threshold.'
+IRQBALANCE_UP_THRESH={{ up_thresh | default(90) }}
+
+#
+# IRQBALANCE_POLICIES
+#    Custom balancing policies.
+# policies: default=[{'name': 'interrupts', 'level': 'balance'}, {'name': 'interrupts', 'level': 'power'}, {'name': 'interrupts', 'level': 'performance'}]
+# desc='Custom balancing policies.'
+# Note: This daemon typically does not support inline policy definitions in the env file;
+# these are handled via configuration files or command-line flags if supported by the version.
+# We leave this as a comment or placeholder if the env file format doesn't support it.
+# For now, we output it as a JSON array string if the daemon supports parsing it, otherwise omit.
+# Based on standard irqbalance, policies are often not set via env var.
+# We will output it as a commented-out section if the user explicitly wants it,
+# but standard env files usually don't take complex objects.
+# Let's stick to the simple key-value pairs defined above.
+{% endif %}

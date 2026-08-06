@@ -1,59 +1,23 @@
-# Listen on this TCP port for client connections
-port {{ port }}
+# /etc/default/cwdaemon
+# Configuration defaults for cwdaemon (CW keyer daemon)
+# This file is sourced by the init system or systemd unit.
 
-# Device node for the key interface (e.g., /dev/ttyS0, /dev/parport0)
-device {{ device }}
+# Device node for the key interface (serial or parallel port).
+# Must be specified without /dev/ prefix (e.g., ttyS0, parport0).
+# Use 'null' for no port keying (software-only or other mechanism).
+DEVICE="{{ device | default('parport0') }}"
 
-# Transmit speed in WPM (words per minute)
-wpm {{ wpm }}
+# UDP port on which cwdaemon listens for client connections.
+UDPPORT="{{ port | default('6789') }}"
 
-# Set the weight of dit vs dah (50 = straight key timing, 20 = fast, 80 = slow)
-weight {{ weight }}
+# Morse code transmit speed in words per minute (WPM).
+SPEED="{{ wpm | default('24') }}"
 
-# Enable or disable parallel port support
-parallel {{ parallel }}
+# PTT (push-to-talk) delay in milliseconds.
+PTTDELAY="{{ ptt_delay | default('0') }}"
 
-# Enable or disable serial port support
-serial {{ serial }}
+# Audio output gain (0–100), only applicable if cwdaemon is built with audio support.
+VOLUME="{{ audio_gain | default('70') }}"
 
-# Minimum space between elements (in ms) — prevents overlapping
-minspace {{ minspace }}
-
-# Maximum space between characters (in ms)
-maxspace {{ maxspace }}
-
-# Maximum space between words (in ms)
-maxwordspace {{ maxwordspace }}
-
-# Gain factor for audio output (0–100); only used if sound output is enabled
-# Note: cwdaemon does not produce audio by default; this applies only with audio support compiled in
-{% if audio_gain is defined %}audio_gain {{ audio_gain }}
-{% endif %}
-
-# List of allowed client IP addresses (CIDR notation or single IP); if empty, all are allowed
-{% for client in allowed_clients %}allow {{ client }}
-{% endfor %}
-
-# List of denied client IP addresses (overrides allow list)
-{% for client in denied_clients %}deny {{ client }}
-{% endfor %}
-
-# Run as this user (recommended: 'cwdaemon' or 'nobody')
-user {{ user }}
-
-# PID file location
-pidfile {{ pidfile }}
-
-# Log level: 0 = silent, 1 = errors, 2 = warnings, 3 = info, 4 = debug
-loglevel {{ loglevel }}
-
-# Path to log file (use '-' for stdout)
-logfile {{ logfile }}
-
-# Optional: invert key line (for some interfaces where low = key down)
-{% if invert_key %}invert_key
-{% endif %}
-
-# Optional: use DTR instead of RTS for key control (serial only)
-{% if use_dtr %}use_dtr
-{% endif %}
+# Dit/dah timing weight (50 = straight key; lower = faster dits, higher = slower dits).
+WEIGHT="{{ weight | default('0') }}"

@@ -1,13 +1,34 @@
-# fence_kdump: configuration for fence_kdump fencing agent
-# Path to the kdump crash dump directory
-path: {{ kdump_path }}
-# Timeout (in seconds) for kdump operations
-timeout: {{ timeout }}
-# Number of retry attempts before failing
-retry: {{ retry }}
-# Hostname or IP of the target node to fence
-target: {{ target }}
-# Optional: extra options passed to kdump (e.g., --verbose, --force)
-{% if extra_options %}# Extra options for fence_kdump
-extra_options: {% for opt in extra_options %}{{ opt }}{% if not loop.last %} {% endif %}{% endfor %}
-{% endif %}
+# ==============================================================================
+# kdump: Configuration for the kdump crash capture service
+# This template configures the behavior of the kdump subsystem, which captures
+# kernel crash dumps (vmcores) for debugging purposes.
+# ==============================================================================
+
+# [kdump_crash_dir]
+# Absolute path to the directory where kdump crash dumps are stored.
+# Default: /var/crash
+crash_dir: {{ kdump_crash_dir | default('/var/crash') }}
+
+# [kdump_max_mem]
+# Maximum memory (in MB) reserved for the crash kernel.
+# This value is passed to the kernel boot parameter `crashkernel=...`.
+# Default: 64
+max_mem: {{ kdump_max_mem | default(64) }}
+
+# [kdump_numcpus]
+# Number of CPUs to use for capturing the kdump.
+# Controls how many CPUs are online during the kdump boot to accelerate dump capture.
+# Default: 1
+numcpus: {{ kdump_numcpus | default(1) }}
+
+# [kdump_dump_dump]
+# Whether to save the kdump core to disk.
+# When true, the kernel panic dump is written to the crash_dir.
+# Default: True
+dump_dump: {{ kdump_dump_dump | default(True) }}
+
+# [kdump_user_helper]
+# Path to the kdump user space helper binary.
+# Used by kdump to perform pre-dump operations or custom dump handling in userspace.
+# Leave empty to use the default system helper or no helper.
+user_helper: {{ kdump_user_helper | default('') }}

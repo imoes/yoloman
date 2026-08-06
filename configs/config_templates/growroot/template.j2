@@ -1,30 +1,44 @@
 #!/bin/sh
-# Attempt to resize the root filesystem to fill the partition
-# if the partition has been expanded (e.g., by cloud-init)
+# growroot - Resize the root filesystem to fill the available partition space.
+# This script is designed to run early in the boot process (e.g., via cloud-init or initramfs)
+# to automatically expand the root partition if the underlying disk has been enlarged.
+
 set -e
+
+# ROOTDEV: The block device path for the root filesystem partition (e.g., /dev/vda2, /dev/sda1).
+# Must be a block device node.
+ROOTDEV="{{ ROOTDEV | default('/dev/vda2') }}"
 
 # Only proceed if root device is a block device (skip if loop/nbd/etc. without resize support)
 if [ ! -b "$ROOTDEV" ]; then
   exit 0
 fi
 
-# Detect current filesystem type and resize accordingly
+# USE_RESIZE2FS: Enable resizing for ext2/3/4 filesystems using resize2fs.
+# If false, the script will skip the ext* filesystem expansion path.
+{% if USE_RESIZE2FS | default(True) %}
 # For ext* filesystems
 if [ -x "$(command -v resize2fs)" ]; then
   resize2fs "$ROOTDEV"
   exit 0
 fi
+{% endif %}
 
+# USE_XFS_GROWFS: Enable resizing for XFS filesystems using xfs_growfs (requires remount on /).
+# If false, the script will skip the XFS filesystem expansion path.
+{% if USE_XFS_GROWFS | default(True) %}
 # For xfs filesystems
 if [ -x "$(command -v xfs_growfs)" ]; then
-  mount -o remount /dev
-  xfs_growfs /  # assume root is mounted on /
+  # Remount root filesystem read-write if needed for some XFS grow operations
+  mount -o remount /
+  xfs_growfs /
   exit 0
 fi
+{% endif %}
 
-# Fallback: try generic resize (may not work for all FS types)
+# Fallback: If no suitable tools were found or executed successfully
 if [ -x "$(command -v resize2fs)" ] || [ -x "$(command -v xfs_growfs)" ]; then
-  echo "No suitable resize tool found. Cannot resize root filesystem." >&2
+  echo "No suitable resize tool found or execution failed. Cannot resize root filesystem." >&2
   exit 1
 fi
 

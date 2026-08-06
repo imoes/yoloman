@@ -6,13 +6,8 @@
   },
   "max_lease_time": {
     "type": "number",
-    "default": 864000,
-    "description": "Maximum lease duration in seconds for dynamic clients."
-  },
-  "dns_update_style": {
-    "type": "string",
-    "default": "none",
-    "description": "Method for updating DNS records (e.g., 'none', 'ad hoc', 'static', 'interim')."
+    "default": 86400,
+    "description": "Maximum lease duration in seconds for dynamic clients. Note: Man page default is 86400."
   },
   "use_logging": {
     "type": "bool",
@@ -22,7 +17,26 @@
   "log_facility": {
     "type": "string",
     "default": "daemon",
-    "description": "Syslog facility to use for logging (e.g., 'daemon', 'local0'\u2013'local7')."
+    "description": "Syslog facility to use for logging (e.g., 'daemon', 'local0'\u2013'local7').",
+    "enum": [
+      "auth",
+      "authpriv",
+      "cron",
+      "daemon",
+      "ftp",
+      "kern",
+      "lpr",
+      "mail",
+      "mark",
+      "news",
+      "ntp",
+      "security",
+      "syslog",
+      "user",
+      "uucp",
+      "local0",
+      "local7"
+    ]
   },
   "domain_name": {
     "type": "string",
@@ -40,81 +54,11 @@
   "subnets": {
     "type": "list",
     "default": [],
-    "description": "List of IPv4 subnets to serve. Each entry defines a network, range, and gateway.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "network": {
-          "type": "string",
-          "description": "Network address (e.g., '192.168.1.0')."
-        },
-        "cidr": {
-          "type": "number",
-          "description": "CIDR prefix length (e.g., 24)."
-        },
-        "netmask": {
-          "type": "string",
-          "description": "Netmask in dotted-quad format (e.g., '255.255.255.0')."
-        },
-        "range_start": {
-          "type": "string",
-          "description": "First IP in the dynamic range."
-        },
-        "range_end": {
-          "type": "string",
-          "description": "Last IP in the dynamic range."
-        },
-        "gateway": {
-          "type": "string",
-          "description": "Default gateway IP for this subnet."
-        },
-        "broadcast": {
-          "type": "string",
-          "description": "Broadcast address for this subnet."
-        },
-        "default_lease_time": {
-          "type": "number",
-          "default": null,
-          "description": "Per-subnet default lease time (overrides global if set)."
-        },
-        "max_lease_time": {
-          "type": "number",
-          "default": null,
-          "description": "Per-subnet max lease time (overrides global if set)."
-        },
-        "options": {
-          "type": "object",
-          "default": {},
-          "description": "Additional custom DHCP options for this subnet (e.g., {'timezone': '\"UTC\"', 'ntp-servers': '\"0.pool.ntp.org\"'})."
-        }
-      }
-    }
+    "description": "List of IPv4 subnets to serve. Each entry defines a network, range, and gateway."
   },
   "hosts": {
     "type": "list",
     "default": [],
-    "description": "List of static host reservations. Each entry binds a MAC address to a fixed IP.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "hostname": {
-          "type": "string",
-          "description": "Descriptive hostname for this reservation."
-        },
-        "mac": {
-          "type": "string",
-          "description": "Client's MAC address in colon-separated hex (e.g., 'aa:bb:cc:dd:ee:ff')."
-        },
-        "ip": {
-          "type": "string",
-          "description": "Static IP address to assign."
-        },
-        "options": {
-          "type": "object",
-          "default": {},
-          "description": "Custom DHCP options for this host (e.g., {'host-name': '\"printer1\"'})."
-        }
-      }
-    }
+    "description": "List of static host reservations. Each entry binds a MAC address to a fixed IP."
   }
 }

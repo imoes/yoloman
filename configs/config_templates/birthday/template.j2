@@ -1,0 +1,38 @@
+{# ============================================================================= #}
+{# birthday (1) configuration template                                          #}
+{# Self-documenting: every directive is prefixed with a comment explaining the   #}
+{# corresponding schema field and its default value.                             #}
+{# ============================================================================= #}
+
+{# entries: List of birthday/event entries and directives.                       #}
+{# Each item in this list is processed in order. It can be a comment, an include #}
+{# directive, or an event definition.                                            #}
+{# Default: None (empty list)                                                    #}
+{% for entry in (entries | default([])) %}
+
+    {# ----------------------------------------------------------------------- #}
+    {# entries.items.comment: Text to emit as a comment line.                  #}
+    {# Empty string means no comment is emitted.                               #}
+    {# Default: '' (empty string)                                              #}
+    {% if entry.comment is defined and entry.comment != '' %}
+    # {{ entry.comment }}
+    {% endif %}
+
+    {# ----------------------------------------------------------------------- #}
+    {# entries.items.directive: An &include directive.                         #}
+    {# Must have name='include' and a path to the included file.               #}
+    {# Default: None                                                           #}
+    {% if entry.directive is defined and entry.directive %}
+    &{{ entry.directive.name | default('include') }}{% if entry.directive.path is defined and entry.directive.path %} {{ entry.directive.path }}
+    {% else %}
+    {% endif %}
+    {% endif %}
+
+    {# ----------------------------------------------------------------------- #}
+    {# entries.items.event: A birthday/anniversary/event definition.           #}
+    {# Format: name=date[ type][ options...]                                   #}
+    {# Default: None                                                           #}
+    {% if entry.event is defined and entry.event %}
+    {{ entry.event.name | default('bd') }}={{ entry.event.date | default('') }}{% if entry.event.type is defined and entry.event.type %} {{ entry.event.type }}{% endif %}{% if entry.event.options is defined and entry.event.options %} {{ entry.event.options | join(' ') }}{% endif %}
+    {% endif %}
+{% endfor %}

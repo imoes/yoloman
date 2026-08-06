@@ -1,131 +1,189 @@
-# [DEFAULT] Common options for all cinder services
+# =============================================================================
+# Cinder Backup Service Configuration
+# =============================================================================
+# This template configures the cinder-backup service for OpenStack.
+# It uses standard INI-style sections expected by Oslo-based services.
+# =============================================================================
+
+# [DEFAULT] Global defaults for all Cinder services
 [DEFAULT]
 
-# Enable the backup service
-{% if enable_backup_service | default(false) %}
-enable_backup_service = True
-{% else %}
-enable_backup_service = False
-{% endif %}
+# enable_backup_service: Enable or disable the Cinder backup service.
+enable_backup_service = {{ enable_backup_service | default(False) | ternary('True', 'False') }}
 
-# RPC backend driver
+# rpc_backend: RPC backend driver used for inter-service communication.
+# Currently hardcoded to RabbitMQ as per OpenStack standard.
 rpc_backend = rabbit
 
-# Authentication strategy (keystone or noauth)
+# auth_strategy: Authentication strategy. 'keystone' is required for production.
 auth_strategy = keystone
 
-# Logging configuration
+# log_dir: Directory where log files are stored.
 log_dir = /var/log/cinder
+
+# log_file: Name of the log file for the backup service.
 log_file = cinder-backup.log
 
-# Database connection string
-{% if database_connection | default('') != '' %}
-database_connection = {{ database_connection }}
+# database_connection: Database connection string (overrides automatic generation using other DB variables).
+# If provided, it overrides the auto-generated connection string below.
+# If empty, a default MySQL/MariaDB connection string is constructed using
+# db_host, db_name, db_user (cinder), and db_password.
+{% if (database_connection | default('')) != '' %}
+database_connection = {{ database_connection | default('') }}
 {% else %}
-database_connection = mysql+pymysql://cinder:{{ db_password }}@{{ db_host }}/{{ db_name }}
+database_connection = mysql+pymysql://cinder:{{ db_password | default('') }}@{{ db_host | default('localhost') }}/{{ db_name | default('cinder') }}
 {% endif %}
 
-# Redis connection for caching (optional)
-{% if redis_host | default('') != '' %}
-redis_host = {{ redis_host }}
+# Redis connection configuration for caching.
+# If redis_host is empty, Redis support is effectively disabled.
+# Note: Some versions of Cinder do not use these variables directly;
+# check if oslo_cache is configured elsewhere. These are provided for
+# compatibility with standard oslo.cfg expectations if used.
+{% if (redis_host | default('')) != '' %}
+# redis_host: Hostname or IP of Redis server (optional — used for caching).
+redis_host = {{ redis_host | default('') }}
+
+# redis_port: Redis port number.
 redis_port = {{ redis_port | default(6379) }}
 {% endif %}
 
-# Backup driver (e.g., swift, nfs, ceph, etc.)
-backup_driver = {{ backup_driver }}
+# backup_driver: Backup driver class (e.g., cinder.backup.drivers.swift.SwiftBackupDriver, cinder.backup.drivers.nfs.NfsBackupDriver).
+backup_driver = {{ backup_driver | default('cinder.backup.drivers.swift.SwiftBackupDriver') }}
 
-# Backup object container (for Swift/NFS backends)
-{% if backup_swift_url | default('') != '' %}
-backup_swift_url = {{ backup_swift_url }}
+# backup_swift_url: Swift service URL (required if using Swift backup driver).
+{% if (backup_swift_url | default('')) != '' %}
+backup_swift_url = {{ backup_swift_url | default('') }}
 {% endif %}
 
-# Backup container name in Swift
+# backup_swift_container: Swift container name to store backups.
 backup_swift_container = {{ backup_swift_container | default('cinder_backups') }}
 
-# Backup object size (in bytes) — chunking size
+# backup_object_size: Size (in bytes) of each backup object chunk. Larger values reduce metadata overhead; smaller values improve parallelism.
 backup_object_size = {{ backup_object_size | default(52428800) }}
 
-# Backup compression algorithm (none, gzip, zstd)
+# backup_compression_algorithm: Compression algorithm for backups: 'none', 'gzip', or 'zstd'.
 backup_compression_algorithm = {{ backup_compression_algorithm | default('none') }}
 
-# Backup maximum number of concurrent backup operations
+# backup_max_concurrent_operations: Maximum number of concurrent backup/restore operations.
 backup_max_concurrent_operations = {{ backup_max_concurrent_operations | default(5) }}
 
-# Backup TTL (in seconds) before deletion of stale backups (0 = disabled)
+# backup_tombstone_age: Age (in seconds) after which backup tombstones (soft-deleted backups) are purged. 0 disables automatic purging.
 backup_tombstone_age = {{ backup_tombstone_age | default(0) }}
 
-# API listen address and port
+# api_bind_host: IP address or hostname to bind the backup API service to.
 bind_host = {{ api_bind_host | default('0.0.0.0') }}
+
+# api_bind_port: Port to listen on for backup API requests.
 bind_port = {{ api_bind_port | default(8778) }}
 
-# SSL/TLS settings (optional)
-{% if ssl_enabled | default(false) %}
-cert_file = {{ ssl_cert_file }}
-key_file = {{ ssl_key_file }}
-ca_file = {{ ssl_ca_file }}
+# SSL/TLS settings for the backup API endpoint.
+# These are only active if ssl_enabled is True.
+{% if ssl_enabled | default(False) %}
+# ssl_cert_file: Path to SSL certificate file (required if ssl_enabled=true).
+cert_file = {{ ssl_cert_file | default('') }}
+
+# ssl_key_file: Path to SSL private key file (required if ssl_enabled=true).
+key_file = {{ ssl_key_file | default('') }}
+
+# ssl_ca_file: Path to CA certificate bundle for client verification (optional).
+ca_file = {{ ssl_ca_file | default('') }}
 {% endif %}
 
-# Rate limiting (requests per second per project)
+# rate_limit: Maximum requests per second per project. 0 disables rate limiting.
 rate_limit = {{ rate_limit | default(0) }}
 
-# [keystone_authtoken] Section — used for keystone auth (if auth_strategy=keystone)
+# =============================================================================
+# [keystone_authtoken] Section
+# =============================================================================
+# Configuration for Keystone authentication.
+# Required when auth_strategy = keystone.
+
 [keystone_authtoken]
 
-# Keystone auth URL
-auth_url = {{ keystone_auth_url }}
+# keystone_auth_url: Keystone auth endpoint URL (e.g., http://keystone:5000/v3).
+auth_url = {{ keystone_auth_url | default('') }}
 
-# Service user credentials
+# keystone_project_domain_name: Keystone project domain name for the Cinder service user.
 project_domain_name = {{ keystone_project_domain_name | default('Default') }}
-project_name = {{ keystone_project_name | default('service') }}
-user_domain_name = {{ keystone_user_domain_name | default('Default') }}
-username = {{ keystone_username | default('cinder') }}
-password = {{ keystone_password }}
 
-# Interface type for internal communication
+# keystone_project_name: Keystone service project name.
+project_name = {{ keystone_project_name | default('service') }}
+
+# keystone_user_domain_name: Keystone user domain name for the Cinder service user.
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# keystone_username: Keystone username for the Cinder service user.
+username = {{ keystone_username | default('cinder') }}
+
+# keystone_password: Keystone password for the Cinder service user.
+password = {{ keystone_password | default('') }}
+
+# keystone_interface: Keystone endpoint interface type: 'public', 'internal', or 'admin'.
 interface = {{ keystone_interface | default('internal') }}
 
-# Disable SSL verification (dangerous — use only for dev/testing)
-{% if keystone_ssl_verify | default(true) %}
+# keystone_ssl_verify: Verify Keystone TLS certificates. Disable only in test/dev environments.
+{% if keystone_ssl_verify | default(True) %}
 verify = True
 {% else %}
 verify = False
 {% endif %}
 
-# [oslo_concurrency] Section — lock path for concurrency control
+# =============================================================================
+# [oslo_concurrency] Section
+# =============================================================================
+# Configuration for file-based locking to ensure concurrency safety.
+
 [oslo_concurrency]
 
-# Path to lock directory
+# lock_path: Directory for file-based locking (required for multi-node deployments).
 lock_path = {{ lock_path | default('/var/lock/cinder') }}
 
-# [oslo_middleware] Section — CORS and request handling
+# =============================================================================
+# [oslo_middleware] Section
+# =============================================================================
+# Configuration for middleware handling (CORS, etc.).
+
 [oslo_middleware]
 
-# Enable CORS (optional, for cross-domain API access)
-{% if cors_enabled | default(false) %}
+# cors_enabled: Enable Cross-Origin Resource Sharing (CORS) headers in API responses.
+# Only enable if the backup service is accessed from different domains.
+{% if cors_enabled | default(False) %}
 enable_cors = True
 {% else %}
 enable_cors = False
 {% endif %}
 
-# [oslo_policy] Section — policy file path
+# =============================================================================
+# [oslo_policy] Section
+# =============================================================================
+# Configuration for policy enforcement.
+
 [oslo_policy]
 
-# Path to policy JSON file
+# policy_file: Path to the policy definition file.
 policy_file = {{ policy_file | default('/etc/cinder/policy.json') }}
 
-# [oslo_reports] Section — logging extension for debugging
+# =============================================================================
+# [oslo_reports] Section
+# =============================================================================
+# Configuration for reporting and debugging.
+
 [oslo_reports]
 
-# Log the config file contents on service startup (for debugging)
-{% if log_config | default(false) %}
+# log_config: Log the entire configuration file on service startup for debugging.
+{% if log_config | default(False) %}
 log_config_file = True
 {% endif %}
 
-# [oslo_versionedobjects] Section — object serialization
+# =============================================================================
+# [oslo_versionedobjects] Section
+# =============================================================================
+# Configuration for versioned objects support.
+
 [oslo_versionedobjects]
 
-# Enable versioned objects for API compatibility
-{% if enable_versioned_objects | default(true) %}
+# enable_versioned_objects: Enable versioned objects for API and DB object compatibility across upgrades.
+{% if enable_versioned_objects | default(True) %}
 enable = True
 {% else %}
 enable = False

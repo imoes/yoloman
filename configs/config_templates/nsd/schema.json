@@ -27,7 +27,15 @@
   "log_level": {
     "type": "string",
     "default": "3",
-    "description": "Logging verbosity level: 0 (none) to 5 (debug). Higher levels log more details."
+    "description": "Logging verbosity level: 0 (none) to 5 (debug). Higher levels log more details.",
+    "enum": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ]
   },
   "tcp_query_count": {
     "type": "number",
@@ -50,38 +58,7 @@
         "ip6_only": false
       }
     ],
-    "description": "List of network interfaces (address, port, protocol) on which NSD listens.",
-    "items": {
-      "address": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "IP address to bind to (IPv4 or IPv6)."
-      },
-      "port": {
-        "type": "number",
-        "default": 53,
-        "description": "Port to listen on (typically 53)."
-      },
-      "proto": {
-        "type": "string",
-        "default": "udp",
-        "enum": [
-          "udp",
-          "tcp"
-        ],
-        "description": "Protocol: 'udp', 'tcp', or both (add two interface entries)."
-      },
-      "ip4_only": {
-        "type": "bool",
-        "default": false,
-        "description": "If true, bind only to IPv4 for this interface."
-      },
-      "ip6_only": {
-        "type": "bool",
-        "default": false,
-        "description": "If true, bind only to IPv6 for this interface."
-      }
-    }
+    "description": "List of network interfaces (address, port, protocol) on which NSD listens."
   },
   "remote_control_enable": {
     "type": "bool",
@@ -125,113 +102,7 @@
   },
   "zones": {
     "type": "list",
-    "default": [
-      {
-        "name": "example.com",
-        "zonefile": "example.com.zone",
-        "allow_query": [
-          "any"
-        ],
-        "allow_notify": []
-      }
-    ],
-    "description": "List of authoritative zones managed by this NSD instance.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Zone name (e.g., 'example.com')."
-      },
-      "zonefile": {
-        "type": "string",
-        "default": "",
-        "description": "Filename (relative to zones-dir) containing the zone data (SOA, records)."
-      },
-      "allow_notify": {
-        "type": "list",
-        "default": [],
-        "description": "List of allowed IP addresses allowed to send notifies for this zone.",
-        "items": {
-          "type": "string"
-        }
-      },
-      "allow_query": {
-        "type": "list",
-        "default": [
-          "any"
-        ],
-        "description": "List of allowed IPs/networks to query this zone; 'any' grants public access.",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  "acls": {
-    "type": "list",
     "default": [],
-    "description": "Optional access control lists (ACLs) to define reusable permission sets.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "ACL name (used by zone or remote-control to reference)."
-      },
-      "ip": {
-        "type": "list",
-        "default": [],
-        "description": "List of IP addresses or CIDR networks.",
-        "items": {
-          "type": "string"
-        }
-      },
-      "action": {
-        "type": "string",
-        "default": "",
-        "enum": [
-          "deny",
-          "refuse",
-          "allow",
-          "allow-super",
-          "allow-transfer"
-        ],
-        "description": "Action when match is found."
-      },
-      "allow": {
-        "type": "list",
-        "default": [],
-        "description": "List of actions to allow (e.g., ['notify', 'transfer']).",
-        "items": {
-          "type": "string",
-          "enum": [
-            "notify",
-            "transfer",
-            "resolve",
-            "control"
-          ]
-        }
-      },
-      "allow_query": {
-        "type": "list",
-        "default": [],
-        "description": "List of IPs/networks explicitly allowed to query (overrides default).",
-        "items": {
-          "type": "string"
-        }
-      },
-      "allow_notify": {
-        "type": "list",
-        "default": [],
-        "description": "List of IPs/networks explicitly allowed to send notifies.",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  "debug_mode": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable debug mode (prints verbose details and disables some optimizations). Use only for troubleshooting."
+    "description": "List of zone configurations (name, zonefile, allow-query, etc.)."
   }
 }

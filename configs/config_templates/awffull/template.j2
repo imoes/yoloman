@@ -1,145 +1,77 @@
-# Enable detailed debug logging
-#debug on
-#debug off
-debug {{ debug | lower }}
+{#
+  awffull cron.daily maintenance script
+  =====================================
+  This script orchestrates the daily processing of web server access logs using the `awffull` tool.
+  It iterates over all configuration files in the awffull configuration directory, validates log/output
+  paths, and invokes the awffull binary.
 
-# Location of the web server logs to analyze
-#log /path/to/log/file
-{% for log_file in log_files %}
-log {{ log_file }}
-{% endfor %}
+  It supports two invocation modes:
+  1. Systemd timer: Invoked with argument "systemd-timer", bypassing the systemd check.
+  2. Cron daily: Invoked without arguments or other arguments, checks for systemd presence.
 
-# Base URL used to generate absolute links in reports (required for some features)
-#url http://example.com/awffull/
-url {{ url }}
+  Variables:
+    awffull_binary: Path to the awffull executable.
+    awffull_confdir: Directory containing .conf files for awffull.
+#}
+#!/bin/sh
+# /etc/cron.daily/awffull: AwfFull daily maintenance script
+# Written by Jose Carlos Medeiros <jose@psabs.com.br> based on
+# webalizer.cron.daily that was in webalizer package
 
-# Output directory for generated reports
-#output /var/www/awffull/reports
-output {{ output_dir }}
+# This script just run awffull against all .conf files in /etc/awfull directory
 
-# Use gzip compression for output files
-#use_gzip off
-use_gzip {{ use_gzip | lower }}
+# Optional argument to force execution even if systemd timer is active
+AWFTIMER=$1
 
-# Timezone offset in hours from UTC (e.g., -5 for EST)
-#timezone 0
-timezone {{ timezone }}
+# Skip job in favour of systemd timer if invoked by cron.daily.
+if [ -d /run/systemd/system ] && [ "$AWFTIMER" != "systemd-timer" ]; then
+    exit 0
+fi
 
-# Date format for report headers and file names (strftime-style)
-#date_format %Y-%m-%d
-date_format {{ date_format }}
+# Path to the awffull binary
+AWFFULL={{ awffull_binary | default('/usr/bin/awffull') }}
+# Directory containing awffull configuration files
+AWFFULL_CONFDIR={{ awffull_confdir | default('/etc/awffull') }}
 
-# Maximum number of days of log data to retain in reports (0 = unlimited)
-#retention 0
-retention {{ retention }}
+[ -x ${AWFFULL} ] || exit 0;
+[ -d ${AWFFULL_CONFDIR} ] || exit 0;
 
-# Ignore requests from these IP addresses (one per line)
-#ignore_ip 127.0.0.1
-{% for ip in ignore_ips %}
-ignore_ip {{ ip }}
-{% endfor %}
+for i in ${AWFFULL_CONFDIR}/*.conf; do
+  # run against a rotated or normal logfile
+  LOGFILE=`awk '$1 ~ /^LogFile$/ {print $2}' $i`;
 
-# Exclude specific URLs from reports (supports wildcards)
-#exclude_url *.png
-{% for pattern in exclude_patterns %}
-exclude_url {{ pattern }}
-{% endfor %}
+  # empty ?
+  [ -s "${LOGFILE}" ] || { echo "ERROR: LogFile not found: ${LOGFILE}"; continue; };
+  # readable ?
+  [ -r "${LOGFILE}" ] || { echo "ERROR: LogFile is not readable: ${LOGFILE}"; continue; };
 
-# Include only URLs matching these patterns (overrides exclude_url)
-#include_url /admin/
-{% for pattern in include_patterns %}
-include_url {{ pattern }}
-{% endfor %}
+  # there was a output ?
+  OUTDIR=`awk '$1 ~ /^OutputDir$/ {print $2}' $i`;
+  # exists something ?
+  [ "${OUTDIR}" != "" ] || { echo "ERROR: OutputDir not defined: ${OUTDIR}"; continue; };
+  # its a directory ?
+  [ -d ${OUTDIR} ] || { echo "ERROR: OutputDir is not a directory: ${OUTDIR}"; continue; };
+  # its writable ?
+  [ -w ${OUTDIR} ] || { echo "ERROR: OutputDir not writable: ${OUTDIR}"; continue; };
 
-# Enable/disable per-user tracking (requires log format with user field)
-#users off
-users {{ users_enabled | lower }}
+  # Run Really quietly, exit with status code if !0
+  ${AWFFULL} --config=${i} || { echo "ERROR: Running awffull, exit status: $?"; continue; };
+  RET=$?;
 
-# Enable/disable referrer analysis
-#referrer on
-referrer {{ referrer_enabled | lower }}
+  # Non rotated log file
+  NLOGFILE=`awk '$1 ~ /^LogFile$/ {gsub(/\.[0-9]+(\.gz)?/,""); print $2}' $i`;
 
-# Enable/disable search engine keyword extraction
-#keywords on
-keywords {{ keywords_enabled | lower }}
+  # check current log, if last log is a rotated logfile
+  if [ "${LOGFILE}" != "${NLOGFILE}" ]; then
+    # empty ?
+    [ -s "${NLOGFILE}" ] || { echo "INFO: Non-rotated LogFile empty or missing: ${NLOGFILE}"; continue; };
+    # readable ?
+    [ -r "${NLOGFILE}" ] || { echo "WARNING: Non-rotated LogFile is not readable: ${NLOGFILE}"; continue; };
 
-# Enable/disable browser/OS detection
-#browser on
-browser {{ browser_enabled | lower }}
+    ${AWFFULL} --config=${i} ${NLOGFILE};
+    RET=$?;
+  fi;
+done;
 
-# Enable/disable country/region analysis (requires MaxMind GeoIP database)
-#country off
-country {{ country_enabled | lower }}
-
-# Path to MaxMind GeoIP database (if country analysis is enabled)
-#geoip_db /usr/share/GeoIP/GeoIP.dat
-geoip_db {{ geoip_db_path }}
-
-# Number of top pages/users/referrers/keywords to show
-#top_pages 10
-top_pages {{ top_count }}
-top_users {{ top_count }}
-top_referrers {{ top_count }}
-top_keywords {{ top_count }}
-
-# Number of top countries to show
-#top_countries 10
-top_countries {{ top_count }}
-
-# Hide URLs shorter than N characters in reports
-#hide_short_urls 3
-hide_short_urls {{ hide_short_urls }}
-
-# Use 24-hour time in hourly reports
-#hourly_24h on
-hourly_24h {{ hourly_24h | lower }}
-
-# Skip requests with status codes in this comma-separated list
-#skip_status 304,204
-skip_status {{ skip_status_list | join(',') }}
-
-# Log format specification (must match your web server logs)
-#log_format "%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i""
-log_format {{ log_format }}
-
-# Report title (shown in HTML headers)
-#title AWFFull Web Statistics
-report_title {{ report_title }}
-
-# Enable generation of RSS feeds (requires feed_enabled = on and url set)
-#feed off
-feed {{ feed_enabled | lower }}
-
-# Enable generation of summary HTML index (index.html)
-#summary on
-summary {{ summary_enabled | lower }}
-
-# Use SSL/TLS in generated links (if your site is HTTPS)
-#secure off
-secure {{ secure_enabled | lower }}
-
-# Custom CSS file to use in HTML output
-#css /etc/awffull/custom.css
-css {{ custom_css }}
-
-# Enable hourly reports
-#hourly on
-hourly {{ hourly_enabled | lower }}
-
-# Enable daily/weekly/monthly reports (on by default)
-#daily off
-daily {{ daily_enabled | lower }}
-weekly {{ weekly_enabled | lower }}
-monthly {{ monthly_enabled | lower }}
-
-# Set max age (in days) of log data considered for daily/weekly/monthly reports
-#report_max_age 31
-report_max_age {{ report_max_age }}
-
-# Enable caching to speed up repeated analyses
-#cache on
-cache {{ cache_enabled | lower }}
-
-# Path to cache directory
-#cache_dir /var/cache/awffull
-cache_dir {{ cache_dir }}
+# exit with awffull's exit code
+exit $RET;

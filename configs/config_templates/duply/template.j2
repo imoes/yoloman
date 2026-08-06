@@ -1,78 +1,172 @@
-{# Duply profile configuration — site-specific settings that control backup behavior #}
-# Duply profile: {{ profile_name }}
+{#
+  Duply Profile Configuration Template
+  ====================================
+  This template generates a `profile_name` script (usually located at
+  /etc/duply/<profile_name>/profile) which is sourced by the `duply` command.
+  All variables below must be exported as shell variables.
+#}
 
-{# URL of the backup target (e.g., file:///backup, s3://bucket/path, scp://user@host//dir) #}
-TARGET='{{ target_url }}'
+{# -------------------------------------------------------------------------- #}
+{# Profile Identification                                                     #}
+{# -------------------------------------------------------------------------- #}
 
-{# Source directory(ies) to back up. May be a single path or a list. #}
+{# Name of the duply profile. This is also the directory name under /etc/duply/. #}
+PROFILE_NAME='{{ profile_name | default('default') }}'
+
+{# -------------------------------------------------------------------------- #}
+{# Backup Source & Target                                                     #}
+{# -------------------------------------------------------------------------- #}
+
+{# Top-level directory or file to back up. #}
 SOURCE='{{ source_dir | default('/home') }}'
 
-{# Encryption key for GnuPG (used if GPG_KEY_ID is not set); overrides GPG_KEY_ID for backward compat #}
-GPG_KEY='{{ gpg_key | default('') }}'
+{# Backup target URL (e.g., s3://my-bucket/duply, file:///mnt/backup). Required. #}
+TARGET='{{ target_url | default('') }}'
 
-{# GnuPG key ID to use for encryption/decryption #}
+{# -------------------------------------------------------------------------- #}
+{# Encryption & Authentication (GnuPG)                                        #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  GnuPG key ID to use for encryption/decryption (e.g., 0x1234ABCD).
+  Note: The variable name in duply is GPG_KEY_ID.
+#}
 GPG_KEY_ID='{{ gpg_key_id | default('') }}'
 
-{# GnuPG passphrase (preferred over GPG_PASSPHRASE_FILE); never set in production if untrusted #}
+{#
+  GPG passphrase (plaintext). Use only in secure, local deployments.
+  Prefer `gpg_passphrase_file` instead for better security.
+#}
 GPG_PASSPHRASE='{{ gpg_passphrase | default('') }}'
 
-{# Path to a file containing the GnuPG passphrase (more secure than direct env var) #}
+{#
+  Absolute path to a file containing only the GPG passphrase (more secure).
+#}
 GPG_PASSPHRASE_FILE='{{ gpg_passphrase_file | default('') }}'
 
-{# Maximum age (in days) of old backups to retain before cleanup #}
+{# -------------------------------------------------------------------------- #}
+{# Retention Policies                                                         #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Maximum age of backups to retain (e.g., '1Y' for one year, '3M' for three months).
+  Empty string = no automatic cleanup based on age.
+#}
 MAX_AGE='{{ max_age | default('') }}'
 
-{# Maximum number of backup sets to keep (0 = unlimited) #}
+{#
+  Maximum number of backup sets to keep.
+  Empty string = no limit on count.
+#}
 MAX_COUNT='{{ max_count | default('') }}'
 
-{# Maximum size (in MB) of each volume (duplicity `--volsize`) #}
+{# -------------------------------------------------------------------------- #}
+{# Performance & Parallelism                                                  #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Maximum size (in MB) of each volume in a multipart backup.
+  Example: '200' results in 200 MB volumes.
+  Empty = default duplicity behavior.
+#}
 VOLSIZE='{{ volsize | default('') }}'
 
-{# Number of parallel file processes for multipart uploads (0 = auto) #}
+{#
+  Number of parallel file operations for cloud backends.
+  0 = auto-detect.
+#}
 MAX_PARALLEL='{{ max_parallel | default('') }}'
 
-{# Duplicity verbosity level: 0–9 (0 = quiet, 9 = debug) #}
+{# -------------------------------------------------------------------------- #}
+{# Logging & Verbosity                                                        #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Duply/duplicity log verbosity level (0–9).
+  Recommended: 3 (info) or 4 (debug).
+#}
 VERBOSITY='{{ verbosity | default('3') }}'
 
-{# Space-separated list of file patterns (e.g., '+ /home/user - /home/user/.cache') #}
-# Use --include/--exclude syntax; must be quoted if contains spaces
+{# -------------------------------------------------------------------------- #}
+{# Include/Exclude Patterns                                                   #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Space-separated duplicity include/exclude patterns.
+  Uses duplicity's native syntax: '+ /etc', '- /proc', etc.
+  See: https://duplicity.nongnu.org/duplicity.1.html
+#}
 DUPLICITY_INCLUDE='{{ duplicity_include | default('') }}'
 DUPLICITY_EXCLUDE='{{ duplicity_exclude | default('') }}'
 
-{# File or directory patterns to exclude using GLOB-style wildcards (one per line) #}
-# These are passed as `--exclude` rules, with each line becoming a separate rule
-{% for pattern in exclude_patterns %}EXCLUDE{% if loop.first %}{'{% ' %}list{% endfor %} = \
-{% for pattern in exclude_patterns %}    '{{ pattern }}'{% if not loop.last %} \
-{% endif %}{% endfor %}
-{% if exclude_patterns %}{% endif %}
+{#
+  List of file/directory patterns to exclude using glob-style wildcards.
+  Each pattern becomes a separate `--exclude` argument in the command line.
+#}
+{% if exclude_patterns | default([]) | length > 0 %}
+# Dynamically generated exclude arguments
+DUPLICITY_EXCLUDE_ARGS='--exclude {{ exclude_patterns | default([]) | join(' --exclude ') }}'
+{% else %}
+DUPLICITY_EXCLUDE_ARGS=''
+{% endif %}
 
-{# Optional pre-backup command to run (e.g., flush caches, sync DBs) #}
+{# -------------------------------------------------------------------------- #}
+{# Hooks (Pre/Post Commands)                                                  #}
+{# -------------------------------------------------------------------------- #}
+
+{# Shell command to run before backup starts (e.g., flush caches, sync DBs). #}
 PRE='{{ pre_backup_cmd | default('') }}'
 
-{# Optional post-backup command to run (e.g., send notification, rotate logs) #}
+{# Shell command to run after backup completes (e.g., send notification). #}
 POST='{{ post_backup_cmd | default('') }}'
 
-{# If 'true', skip backup and only run cleanup (e.g., cron-based cleanup only) #}
-CLEANUP_ONLY='{{ cleanup_only | default('false') }}'
+{# -------------------------------------------------------------------------- #}
+{# Backup Mode & Verification                                                 #}
+{# -------------------------------------------------------------------------- #}
 
-{# If 'true', run a full backup instead of incremental (overrides automatic full) #}
-FULL_BACKUP='{{ full_backup | default('false') }}'
+{#
+  If 'true', skip backup and run only cleanup actions (e.g., for cron-based cleanup only).
+#}
+CLEANUP_ONLY='{{ cleanup_only | default(false) | ternary('true', 'false') }}'
 
-{# Time (in days) after which a new full backup is enforced #}
+{#
+  If 'true', force a full backup (overrides automatic incremental logic).
+#}
+FULL_BACKUP='{{ full_backup | default(false) | ternary('true', 'false') }}'
+
+{#
+  Force a full backup every N days (if not already done).
+#}
 FULL_BACKUP_DAYS='{{ full_backup_days | default('30') }}'
 
-{# If 'true', disable automatic full backups (duplicity chooses automatically) #}
-NO_FULL='{{ no_full | default('false') }}'
+{#
+  If 'true', disable automatic full backups — only incrementals.
+#}
+NO_FULL='{{ no_full | default(false) | ternary('true', 'false') }}'
 
-{# If 'true', verify the last backup before proceeding to cleanup #}
-VERIFY='{{ verify | default('false') }}'
+{#
+  If 'true', verify the last backup before running cleanup.
+#}
+VERIFY='{{ verify | default(false) | ternary('true', 'false') }}'
 
-{# Path to a file containing duplicity options (e.g., --s3-use-multiprocessing) #}
+{# -------------------------------------------------------------------------- #}
+{# Advanced Options                                                           #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Path to a file with additional duplicity options (one option per line).
+  Example: /etc/duply/options.conf
+#}
 DUPLICITY_OPTIONS_FILE='{{ duplicity_options_file | default('') }}'
 
-{# Optional environment variables passed directly to duplicity (e.g., AWS_ACCESS_KEY_ID=...) #}
-{% for key, value in env_vars.items() %}export {{ key }}='{{ value }}'
+{#
+  Optional environment variables to export before backup runs.
+  Useful for cloud provider credentials (AWS, GCP, etc.).
+#}
+{% for key, value in env_vars | default({}) | dict2items %}export {{ key.key }}='{{ value.value }}'
 {% endfor %}
 
-{# Optional custom duplicity command suffix (for hooks, debug, etc.) #}
+{#
+  Additional duplicity command-line options (e.g., '--no-encryption --allow-source-mismatch').
+#}
 DUPLICITY_EXTRA_OPTS='{{ duplicity_extra_opts | default('') }}'

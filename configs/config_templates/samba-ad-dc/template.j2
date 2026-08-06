@@ -1,97 +1,63 @@
-# Global settings
-[global]
-   workgroup = {{ workgroup }}
-   realm = {{ realm }}
-   netbios name = {{ netbios_name }}
-   server role = active directory domain controller
-   server services = {{ server_services | join(', ') }}
+#! /bin/sh
 
-   # Logging
-   log level = {{ log_level }}
-   log file = {{ log_file }}
-   max log size = {{ max_log_size }}
+### BEGIN INIT INFO
+# Provides:          samba-ad-dc
+# Required-Start:    $network $local_fs $remote_fs
+# Required-Stop:     $network $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Samba daemons for the AD DC
+# Description:  Meta-service to provide AD and SMB/CIFS services to clients
+### END INIT INFO
 
-   # DNS and Kerberos
-   dns forwarder = {{ dns_forwarder }}
-   # Use internal DNS by default; set to 'no' to use external DNS (e.g., BIND9 DLZ)
-   dcerpc endpoint servers = {{ dcerpc_endpoint_servers | join(', ') }}
-   idmap_ldb:use rfc2307 = yes
-   # Internal DNS backend
-   dns backend = {{ dns_backend }}
+NAME=samba
+DAEMON=/usr/sbin/$NAME
+PIDFILE=/run/samba/$NAME.pid
+DESC="Samba AD DC server"
+SCRIPT=samba-ad-dc
 
-   # Password and account policies
-   # Password policy settings (enforced by default DC policy)
-   min password length = {{ min_password_length }}
-   password complexity = {{ password_complexity | lower }}
-   password history = {{ password_history }}
-   logon script = {{ logon_script }}
-   logon path = {{ logon_path }}
-   logon drive = {{ logon_drive }}
+# clear conflicting settings from the environment
+unset TMPDIR
 
-   # Kerberos and time sync
-   time server = yes
+test -x $DAEMON || exit 0
+/usr/share/samba/is-configured $NAME || exit 0
 
-   # File serving & shares defaults
-   # Disable default shares; enable only explicit shares below
-   load printers = no
-   printing = bsd
-   printcap name = /dev/null
-   disable spoolss = yes
+[ -f /etc/default/samba ] && . /etc/default/samba
 
-   # Performance tuning
-   # Worker and connection limits
-   max connections = {{ max_connections }}
-   socket options = {{ socket_options | join(', ') }}
-   read raw = {{ read_raw | lower }}
-   write raw = {{ write_raw | lower }}
-   # Thread pool for async I/O (e.g., VFS modules)
-   aio max threads = {{ aio_max_threads }}
+. /lib/lsb/init-functions
 
-   # Security hardening
-   # Require encryption (modern clients only)
-   server signing = {{ server_signing }}
-   client signing = {{ client_signing }}
-   # Prefer strong ciphers
-   server min protocol = {{ server_min_protocol }}
-   client min protocol = {{ client_min_protocol }}
-   # Disable insecure auth by default
-   lanman auth = no
-   ntlm auth = {{ ntlm_auth | lower }}
-   krb5 auth = yes
-
-   # LDAP backend (for internal use only — not LDAP DC mode)
-   # Do NOT expose LDAP externally without explicit hardening
-   ldap server require strong auth = yes
-   # Use Samba's built-in LDAP (sam.ldb) — do not change
-   # (Other LDAP backends unsupported for AD DC)
-
-# Default shares
-[netlogon]
-   comment = Domain logon services
-   path = {{ netlogon_path }}
-   read only = no
-   browsable = no
-   share modes = no
-
-[sysvol]
-   comment = SYSVOL (policy & scripts) share
-   path = {{ sysvol_path }}
-   read only = no
-   browsable = no
-   share modes = no
-
-# Custom user-defined shares
-{% for share in shares %}
-[{{ share.name }}]
-   comment = {{ share.comment | default('') }}
-   path = {{ share.path }}
-   read only = {{ 'yes' if share.read_only else 'no' }}
-   browsable = {{ 'yes' if share.browsable else 'no' }}
-{% if share.guest_ok %}   guest ok = yes{% endif %}
-{% if share.write_list %}   write list = {{ share.write_list | join(', ') }}{% endif %}
-{% if share.valid_users %}   valid users = {{ share.valid_users | join(', ') }}{% endif %}
-{% if share.force_user %}   force user = {{ share.force_user }}{% endif %}
-{% if share.force_group %}   force group = {{ share.force_group }}{% endif %}
-{% if share.create_mask %}   create mask = {{ share.create_mask }}{% endif %}
-{% if share.directory_mask %}   directory mask = {{ share.directory_mask }}{% endif %}
-{% endfor %}
+case "$1" in
+	(start)
+		# CVE-2013-4475
+		KEYFILE=/var/lib/samba/private/tls/key.pem
+		if [ -e $KEYFILE ]
+		then
+				KEYPERMS=`stat -c %a $KEYFILE`
+				if [ "$KEYPERMS" != "600" ]
+				then
+						echo "wrong permission on $KEYFILE, must be 600"
+						echo "samba will not start (CVE-2013-4475)"
+						echo "Removing all tls .pem files will cause an auto-regeneration with the correct permissions."
+						exit 1
+				fi
+		fi
+		log_daemon_msg "Starting $DESC" $NAME
+		start-stop-daemon --start --quiet --oknodo --exec $DAEMON --pidfile $PIDFILE -- -D $SAMBAOPTIONS
+		log_end_msg $?
+		;;
+	(stop)
+		log_daemon_msg "Stopping $DESC" $NAME
+		start-stop-daemon --stop  --quiet --oknodo --exec $DAEMON --pidfile $PIDFILE
+		log_end_msg $?
+		;;
+	(restart|force-reload)
+		$0 stop && sleep 1 && $0 start
+		;;
+	(status)
+		status_of_proc -p $PIDFILE $DAEMON $NAME
+		;;
+	(*)
+		echo "Usage: /etc/init.d/$SCRIPT {start|stop|restart|force-reload|status}"
+		exit 1
+		;;
+esac

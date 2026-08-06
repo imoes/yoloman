@@ -42,58 +42,50 @@
     "default": [],
     "description": "List of DNS zones served by this server.",
     "items": {
-      "type": "object",
-      "description": "Configuration for a single zone.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Zone name (e.g., 'example.com')."
-        },
-        "file": {
-          "type": "string",
-          "default": null,
-          "description": "Path to the zone data file (e.g., '/etc/gdnsd/zones/example.com'). Optional if geodata is used."
-        },
-        "options": {
+      "name": {
+        "type": "string",
+        "description": "Zone name (e.g., 'example.com')."
+      },
+      "file": {
+        "type": "string",
+        "default": null,
+        "description": "Path to the zone data file (e.g., '/etc/gdnsd/zones/example.com'). Optional if geodata is used."
+      },
+      "options": {
+        "type": "list",
+        "default": [],
+        "description": "List of zone-level options, each as a key-value pair (e.g., ['soa_ttl: 86400', 'refresh: 10800']).",
+        "items": {
           "type": "list",
-          "default": [],
-          "description": "List of zone-level options, each as a key-value pair (e.g., ['soa_ttl: 86400', 'refresh: 10800']).",
+          "description": "Two-element list: [key, value] (both strings).",
           "items": {
-            "type": "list",
-            "description": "Two-element list: [key, value] (both strings).",
-            "items": {
-              "type": "string"
-            }
+            "type": "string"
           }
-        },
-        "geodatas": {
+        }
+      },
+      "geodatas": {
+        "type": "list",
+        "default": [],
+        "description": "List of geolocation rules for this zone. Each list item is a set of IP/geolocation mappings.",
+        "items": {
           "type": "list",
-          "default": [],
-          "description": "List of geolocation rules for this zone. Each list item is a set of IP/geolocation mappings.",
+          "description": "A set of IP-to-location rules for geographically-aware responses.",
           "items": {
-            "type": "list",
-            "description": "A set of IP-to-location rules for geographically-aware responses.",
-            "items": {
-              "type": "object",
-              "description": "A single geolocation rule.",
-              "fields": {
-                "ip": {
-                  "type": "string",
-                  "description": "IPv4 address (e.g., '192.0.2.0'). Either ip, net, or host must be present."
-                },
-                "net": {
-                  "type": "string",
-                  "description": "CIDR notation (e.g., '192.0.2.0/24')."
-                },
-                "host": {
-                  "type": "string",
-                  "description": "Wildcard hostname pattern (e.g., '*.cdn.example.com')."
-                },
-                "location": {
-                  "type": "string",
-                  "description": "Geographic location code (e.g., 'US', 'EU', 'ASIA' \u2014 must match entries in geo_sources)."
-                }
-              }
+            "ip": {
+              "type": "string",
+              "description": "IPv4 address (e.g., '192.0.2.0'). Either ip, net, or host must be present."
+            },
+            "net": {
+              "type": "string",
+              "description": "CIDR notation (e.g., '192.0.2.0/24')."
+            },
+            "host": {
+              "type": "string",
+              "description": "Wildcard hostname pattern (e.g., '*.cdn.example.com')."
+            },
+            "location": {
+              "type": "string",
+              "description": "Geographic location code (e.g., 'US', 'EU', 'ASIA' \u2014 must match entries in geo_sources)."
             }
           }
         }

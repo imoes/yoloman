@@ -5,11 +5,11 @@ Documentation=man:kactivitymanagerd(1)
 
 [Service]
 # Launches the kactivitymanagerd binary with the user's session bus environment.
-ExecStart={{ exec_start }}
+ExecStart={{ exec_start | default('/usr/bin/kactivitymanagerd') }}
 
 # Environment variables required for the daemon to function in the user session context.
-Environment=XDG_RUNTIME_DIR={{ xdg_runtime_dir }}
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path={{ xdg_runtime_dir }}/bus
+Environment=XDG_RUNTIME_DIR={{ xdg_runtime_dir | default('/run/user/%U') }}
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path={{ xdg_runtime_dir | default('/run/user/%U') }}/bus
 
 # Ensure the service is managed by the user's systemd instance, not system-wide.
 Type=dbus
@@ -23,7 +23,7 @@ RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths={{ state_path }}
+ReadWritePaths={{ state_path | default('{{ xdg_runtime_dir | default("/run/user/%U") }}/kactivitymanagerd') }}
 PrivateTmp=yes
 
 [Install]

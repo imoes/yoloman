@@ -1,57 +1,156 @@
-# Listen for IPP connections on specified address and port
-Listen {{ listen_address }}:{{ listen_port }}
+# =============================================================================
+# CUPS IPP Utils Configuration Template
+# =============================================================================
+# This template configures the IPP (Internet Printing Protocol) backend for
+# CUPS (Common UNIX Printing System). It controls network listening, security,
+# logging, browsing (discovery), and access rules.
+# =============================================================================
 
-# Enable the server to accept IPP requests from the network
-# (Set to 'No' to disable network access entirely)
-{% if network_access %}Network yes{% else %}Network no{% endif %}
+# =============================================================================
+# Network Listening Configuration
+# =============================================================================
 
-# Allow remote administration of this IPP service
-{% if admin_access %}RemoteAdmin yes{% else %}RemoteAdmin no{% endif %}
+# IP address the IPP service listens on
+# (e.g., 127.0.0.1 for localhost only, or 0.0.0.0 for all interfaces)
+Listen {{ listen_address | default('0.0.0.0') }}:{{ listen_port | default(631) }}
 
-# Enable browsing of printers via the Internet Printing Protocol
-{% if browsing_enabled %}Browsing On{% else %}Browsing Off{% endif %}
+# =============================================================================
+# Network Access Control
+# =============================================================================
 
-# Default job timeout in seconds
-MaxJobTime {{ max_job_time }}
+# Whether to accept IPP connections from remote clients (not just localhost)
+# Set to 'Yes' to allow network connections, 'No' to restrict to local socket only.
+{% if network_access | default(true) %}
+Network yes
+{% else %}
+Network no
+{% endif %}
 
-# Maximum number of jobs to keep in history
-MaxJobs {{ max_jobs }}
+# =============================================================================
+# Administrative Access
+# =============================================================================
 
-# Log level: none, warn, error, info, debug, debug2, etc.
-LogLevel {{ log_level }}
+# Whether to allow remote administrative operations via IPP
+# WARNING: Enabling this allows remote management of the printer queue.
+{% if admin_access | default(false) %}
+RemoteAdmin yes
+{% else %}
+RemoteAdmin no
+{% endif %}
 
-# Log file path
-{% if log_file %}ErrorLog {{ log_file }}{% else %}ErrorLog /var/log/cups/ipp_error_log{% endif %}
+# =============================================================================
+# Printer Browsing / Discovery
+# =============================================================================
 
-# Access log file path
-{% if access_log_file %}AccessLog {{ access_log_file }}{% else %}AccessLog /var/log/cups/ipp_access_log{% endif %}
+# Whether to broadcast and discover printers via IPP (enables Browsing On/Off)
+# This allows the server to share its queue with other CUPS servers on the network.
+{% if browsing_enabled | default(true) %}
+Browsing On
+{% else %}
+Browsing Off
+{% endif %}
 
-# SSL/TLS configuration — enabled only if certificates provided
-{% if ssl_enabled %}
+# =============================================================================
+# Job Management Limits
+# =============================================================================
+
+# Maximum time (in seconds) a job may remain queued before being automatically canceled
+# Default is 7 days (604800 seconds)
+MaxJobTime {{ max_job_time | default(604800) }}
+
+# Maximum number of jobs (active + completed) to retain in the job history
+# Older jobs may be purged when this limit is reached.
+MaxJobs {{ max_jobs | default(500) }}
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Verbosity of error logs
+# Recommended for production: 'warn' or 'error'. Options: none, warn, error, info, debug, debug2, etc.
+LogLevel {{ log_level | default('warn') }}
+
+# Path to the error log file
+# If empty, defaults to /var/log/cups/ipp_error_log
+{% if log_file | default('') %}
+ErrorLog {{ log_file | default('') }}
+{% else %}
+ErrorLog /var/log/cups/ipp_error_log
+{% endif %}
+
+# Path to the access log file
+# If empty, defaults to /var/log/cups/ipp_access_log
+{% if access_log_file | default('') %}
+AccessLog {{ access_log_file | default('') }}
+{% else %}
+AccessLog /var/log/cups/ipp_access_log
+{% endif %}
+
+# =============================================================================
+# SSL/TLS Configuration (HTTPS)
+# =============================================================================
+
+# Enable HTTPS (IPP over TLS) for encrypted communication
+# If enabled, ensure ServerCertificate and ServerKey paths are correct and files exist.
+{% if ssl_enabled | default(false) %}
 # Enable HTTPS for IPP (Port 631 with encryption)
 Port 631
+
 # SSL certificate file
 ServerCertificate /etc/ssl/certs/ipp.crt
+
 # SSL private key file
 ServerKey /etc/ssl/private/ipp.key
 {% endif %}
 
-# Access control: allow/deny per subnet
-{% for rule in access_rules %}
+# =============================================================================
+# Access Control Rules (Allow/Deny)
+# =============================================================================
+
+# Ordered list of allow/deny rules for network access control.
+# Each rule specifies an action (allow/deny) and a source subnet.
+{% for rule in access_rules | default([{'action': 'allow', 'source': '127.0.0.0/8', 'description': 'Allow access from localhost'}, {'action': 'allow', 'source': '192.168.0.0/16', 'description': 'Allow access from private network (LAN)'}]) %}
 # {{ rule.description | default('Access control rule') }}
-{% if rule.action == 'allow' %}Allow{% else %}Deny{% endif %} {{ rule.source | default('*') }}
+{% if rule.action | default('allow') == 'allow' %}
+Allow {{ rule.source | default('*') }}
+{% else %}
+Deny {{ rule.source | default('*') }}
+{% endif %}
 {% endfor %}
 
-# Printer discovery via DNS-SD / Avahi
-{% if dns_sd_enabled %}Browsing On{% else %}Browsing Off{% endif %}
-# DNS-SD service name (e.g., _ipp._tcp)
-{% if dns_sd_service_name %}DNSSDServiceName {{ dns_sd_service_name }}{% endif %}
+# =============================================================================
+# DNS-SD (Bonjour/Avahi) Service Announcements
+# =============================================================================
 
-# Default printer options (applied if not overridden)
-{% for option in default_printer_options %}
-# Default option: {{ option.description }}
-Default {{ option.name }}={{ option.value }}
+# Enable DNS-SD service announcements for printer discovery on the local network
+{% if dns_sd_enabled | default(true) %}
+# Restart browsing to apply DNS-SD changes if necessary
+# (Note: In some CUPS versions, Browsing On is required for DNS-SD)
+Browsing On
+{% else %}
+Browsing Off
+{% endif %}
+
+# Optional custom DNS-SD service name (e.g., 'MyIPPDevice')
+# If empty, defaults to hostname.
+{% if dns_sd_service_name | default('') %}
+DNSSDServiceName {{ dns_sd_service_name | default('') }}
+{% endif %}
+
+# =============================================================================
+# Default Printer Options
+# =============================================================================
+
+# Default IPP attributes applied to print jobs unless overridden by client.
+# These are default settings for new print jobs.
+{% for option in default_printer_options | default([{'name': 'MediaType', 'value': 'Plain', 'description': 'Default media type for new jobs'}, {'name': 'sides', 'value': 'one-sided', 'description': 'Default duplex mode'}]) %}
+# {{ option.description | default('') }}
+Default {{ option.name | default('') }}={{ option.value | default('') }}
 {% endfor %}
 
-# Limit on request body size (KB) — prevents memory exhaustion attacks
-MaxRequestSize {{ max_request_size_kb }}
+# =============================================================================
+# Security Limits
+# =============================================================================
+
+# Maximum HTTP request body size (in kilobytes) to prevent denial-of-service via large payloads
+MaxRequestSize {{ max_request_size_kb | default(1024) }}

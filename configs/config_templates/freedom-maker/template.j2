@@ -1,0 +1,109 @@
+# freedom-maker configuration template
+# This template generates command-line invocations for `freedom-maker` to build FreedomBox images.
+# Each variable is self-documented with its schema default and description.
+
+# Image targets to build (e.g., beaglebone, raspberry3, amd64, etc.)
+# Default: []
+{% for target in (targets | default([])) %}
+# Build FreedomBox image for {{ target }}
+freedom-maker --target {{ target }}
+{% endfor %}
+
+# Hostname to set inside the built images
+# Default: 'freedombox'
+freedom-maker --hostname {{ hostname | default('freedombox') }}
+
+# Debian release to use in built image
+# Default: 'bullseye'
+freedom-maker --distribution {{ distribution | default('bullseye') }}
+
+# Size of the image to build (e.g., '4G', '8G')
+# Default: '4G'
+freedom-maker --image-size {{ image_size | default('4G') }}
+
+# Debian mirror to use for building
+# Default: 'http://deb.debian.org/debian'
+freedom-maker --build-mirror {{ build_mirror | default('http://deb.debian.org/debian') }}
+
+# Debian mirror to use in built image
+# Default: 'http://deb.debian.org/debian'
+freedom-maker --mirror {{ mirror | default('http://deb.debian.org/debian') }}
+
+# Logging level — one of 'critical', 'error', 'warn', 'info', 'debug'
+# Default: 'debug'
+freedom-maker --log-level {{ log_level | default('debug') }}
+
+# Directory to build images and create log file
+# Default: '/var/lib/freedom-maker'
+freedom-maker --build-dir {{ build_dir | default('/var/lib/freedom-maker') }}
+
+# Build stamp to use on image file names (e.g., YYYYMMDD)
+# Default: ''
+{% if build_stamp | default('') %}
+# Use build stamp {{ build_stamp }}
+freedom-maker --build-stamp {{ build_stamp }}
+{% endif %}
+
+# Sign the images with default GPG key after building
+# Default: False
+{% if sign | default(False) %}
+# Sign images with default GPG key after building
+freedom-maker --sign
+{% endif %}
+
+# Force rebuild of images even when required image exists
+# Default: False
+{% if force | default(False) %}
+# Force rebuild of images
+freedom-maker --force
+{% endif %}
+
+# Build the image in RAM for faster build (requires RAM equal to image size)
+# Default: False
+{% if build_in_ram | default(False) %}
+# Build image in RAM
+freedom-maker --build-in-ram
+{% endif %}
+
+# Add extra Debian release component (e.g., 'contrib', 'non-free')
+# Default: []
+{% set add_comp = add_release_component | default([]) %}
+{% if add_comp %}
+# Add extra Debian release components: {{ add_comp | join(',') }}
+freedom-maker --add-release-component {{ add_comp | join(',') }}
+{% endif %}
+
+# Additional packages to install in the image
+# Default: []
+{% for pkg in (packages | default([])) %}
+# Install additional package {{ pkg }}
+freedom-maker --package {{ pkg }}
+{% endfor %}
+
+# Path(s) to DEB file(s) to install into the image
+# Default: []
+{% for deb in (custom_packages | default([])) %}
+# Install package from DEB file {{ deb }}
+freedom-maker --custom-package {{ deb }}
+{% endfor %}
+
+# Enable backports in the image (default: true; backports are enabled for stable by default)
+# Default: True
+{% if not (enable_backports | default(True)) %}
+# Disable backports
+freedom-maker --disable-backports
+{% endif %}
+
+# Include build dependencies in the image
+# Default: False
+{% if with_build_dep | default(False) %}
+# Include build dependencies in image
+freedom-maker --with-build-dep
+{% endif %}
+
+# Skip compression of final image
+# Default: False
+{% if skip_compression | default(False) %}
+# Skip compression of final image
+freedom-maker --skip-compression
+{% endif %}

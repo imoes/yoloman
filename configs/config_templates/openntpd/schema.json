@@ -1,4 +1,9 @@
 {
+  "ntpd_config_path": {
+    "type": "string",
+    "default": "/etc/openntpd/ntpd.conf",
+    "description": "Path to the main NTP daemon configuration file."
+  },
   "listen_addresses": {
     "type": "list",
     "default": [
@@ -15,20 +20,7 @@
         "mask": 32
       }
     ],
-    "description": "List of allowed client networks/hosts with optional netmask. Each entry must contain 'address' (IPv4/IPv6) and 'mask' (CIDR prefix length).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "address": {
-          "type": "string",
-          "description": "Base IP address of the allowed network (e.g., '192.168.1.0')."
-        },
-        "mask": {
-          "type": "number",
-          "description": "Netmask as CIDR prefix length (e.g., 24 for /24). Use 32 for a single host."
-        }
-      }
-    }
+    "description": "List of allowed client networks/hosts with optional netmask. Each entry must contain 'address' (IPv4/IPv6) and 'mask' (CIDR prefix length)."
   },
   "servers": {
     "type": "list",
@@ -50,31 +42,17 @@
         "iburst": true
       }
     ],
-    "description": "List of upstream NTP servers to synchronize with. Each server entry includes hostname and optional iburst flag.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "hostname": {
-          "type": "string",
-          "description": "Hostname or IP address of the upstream NTP server (e.g., 'pool.ntp.org')."
-        },
-        "iburst": {
-          "type": "bool",
-          "default": true,
-          "description": "When true, use 'iburst' mode (fast initial sync with burst of packets)."
-        }
-      }
-    }
+    "description": "List of upstream NTP servers to synchronize with. Each server entry includes hostname and optional iburst flag."
   },
   "fallback_to_local_clock": {
     "type": "bool",
     "default": false,
-    "description": "Enable fallback to local clock if all external servers are unreachable. Requires driftfile and optionally allows local-clock synchronization."
+    "description": "Enable fallback to local clock if all external servers are unreachable."
   },
   "allow_local_clock": {
     "type": "bool",
     "default": false,
-    "description": "Allow this host to act as an NTP server even when using local clock as fallback (i.e., unsynchronized). Should only be used in isolated networks."
+    "description": "Allow this host to act as an NTP server even when using local clock as fallback."
   },
   "log_level": {
     "type": "number",
@@ -84,11 +62,11 @@
   "step_first": {
     "type": "bool",
     "default": false,
-    "description": "Step clock immediately on large initial offset instead of slewing. Only effective if enabled; threshold controls the offset limit."
+    "description": "Step clock immediately on large initial offset instead of slewing."
   },
   "step_first_threshold": {
     "type": "number",
     "default": 1.0,
-    "description": "Maximum offset (in seconds) to trigger immediate clock stepping. Only used if `step_first` is enabled."
+    "description": "Maximum offset (in seconds) to trigger immediate clock stepping."
   }
 }

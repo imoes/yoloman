@@ -1,84 +1,103 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Globus GridFTP Server Configuration File -->
-<!-- Defines server-wide parameters such as ports, authentication, data channels, logging, and worker threads -->
+<!--
+  Globus GridFTP Server Configuration
+  ===================================
+  Self-documenting Jinja2 template for Ansible.
+  All variables use schema defaults to ensure safe rendering even when
+  optional variables are omitted in the play.
+-->
 <Configuration>
-  <!-- Globus home directory (used for runtime files, certificates, etc.) -->
-  <GlobusHome>{{ globus_home }}</GlobusHome>
+  {# GlobusHome: Base directory for Globus runtime files, certificates, and temporary data. #}
+  <GlobusHome>{{ globus_home | default('/var/lib/globus') }}</GlobusHome>
 
-  <!-- Service name as known to the system (e.g., for systemd integration) -->
-  <ServiceName>{{ service_name }}</ServiceName>
-
-  <!-- Network interface binding; leave empty to bind to all interfaces -->
+  {# Interface: Network interface to bind the control listener to (e.g., 'eth0').
+     Leave empty to bind to all interfaces. #}
   <Interface>{{ bind_interface | default('') }}</Interface>
 
-  <!-- Main listening port for control connections -->
-  <Port>{{ control_port }}</Port>
+  {# Port: TCP port used for GridFTP control connections. #}
+  <Port>{{ control_port | default(2811) }}</Port>
 
-  <!-- Minimum and maximum ports for data connections (passive mode) -->
-  <DataPortMin>{{ data_port_min }}</DataPortMin>
-  <DataPortMax>{{ data_port_max }}</DataPortMax>
+  {# DataPortMin: Lowest TCP port available for passive data connections. #}
+  <DataPortMin>{{ data_port_min | default(50000) }}</DataPortMin>
 
-  <!-- Enable TLS (SSL) for secure transfers -->
-  <TLS>{{ tls_enabled | lower }}</TLS>
+  {# DataPortMax: Highest TCP port available for passive data connections. #}
+  <DataPortMax>{{ data_port_max | default(55000) }}</DataPortMax>
 
-  <!-- Path to TLS certificate chain (required if TLS is enabled) -->
-  <CertificateFile>{{ tls_cert_path }}</CertificateFile>
+  {# TLS: Enable TLS encryption for control and data channels. #}
+  <TLS>{{ tls_enabled | default(True) | lower }}</TLS>
 
-  <!-- Path to TLS private key (required if TLS is enabled) -->
-  <KeyFile>{{ tls_key_path }}</KeyFile>
+  {# CertificateFile: Path to the server’s TLS certificate (PEM format).
+     Required if TLS is enabled. #}
+  <CertificateFile>{{ tls_cert_path | default('/etc/grid-security/hostcert.pem') }}</CertificateFile>
 
-  <!-- TLS protocol version(s); e.g., '1.2' or '1.2:1.3' -->
-  <TLSProtocol>{{ tls_protocol }}</TLSProtocol>
+  {# KeyFile: Path to the server’s TLS private key (PEM format, unencrypted).
+     Required if TLS is enabled. #}
+  <KeyFile>{{ tls_key_path | default('/etc/grid-security/hostkey.pem') }}</KeyFile>
 
-  <!-- Enable client certificate verification (mTLS) -->
-  <VerifyClient>{{ client_cert_verify | lower }}</VerifyClient>
+  {# TLSProtocol: Supported TLS protocol versions (e.g., '1.2', '1.2:1.3').
+     Avoid insecure protocols like SSLv3 or TLS 1.0. #}
+  <TLSProtocol>{{ tls_protocol | default('1.2') }}</TLSProtocol>
 
-  <!-- Path to CA certificate bundle for client verification -->
-  <CACertificateFile>{{ ca_cert_path | default('') }}</CACertificateFile>
+  {# VerifyClient: Require and verify client TLS certificates (mTLS).
+     Use with GridFTP GSI authentication. #}
+  <VerifyClient>{{ client_cert_verify | default(False) | lower }}</VerifyClient>
 
-  <!-- Maximum number of simultaneous connections allowed -->
-  <MaxConnections>{{ max_connections }}</MaxConnections>
+  {# CACertificateFile: Path to CA certificate bundle or directory for verifying
+     client certificates. Required if `client_cert_verify` is true. #}
+  <CACertificateFile>{{ ca_cert_path | default('/etc/grid-security/certificates/') }}</CACertificateFile>
 
-  <!-- Maximum number of worker threads for I/O processing -->
-  <MaxThreads>{{ max_threads }}</MaxThreads>
+  {# MaxConnections: Maximum number of concurrent client connections allowed. #}
+  <MaxConnections>{{ max_connections | default(100) }}</MaxConnections>
 
-  <!-- Enable RFC 3540 extended features (e.g., `MLSD`, `MFMT`) -->
-  <RFC3540>{{ rfc3540_enabled | lower }}</RFC3540>
+  {# MaxThreads: Maximum number of worker threads handling I/O operations. #}
+  <MaxThreads>{{ max_threads | default(16) }}</MaxThreads>
 
-  <!-- Logging verbosity: 0 (none) to 10 (debug) -->
-  <LogLevel>{{ log_level }}</LogLevel>
+  {# RFC3540: Enable RFC 3540 extensions (e.g., MLSD, MFMT) for modern FTP clients. #}
+  <RFC3540>{{ rfc3540_enabled | default(True) | lower }}</RFC3540>
 
-  <!-- Logging destination; leave empty for default (e.g., syslog) -->
+  {# LogLevel: Logging verbosity: 0=none, 1=error, 2=warn, 3=info, 4=debug, up to 10. #}
+  <LogLevel>{{ log_level | default(3) }}</LogLevel>
+
+  {# LogPath: File path for server logs. If empty, logs go to system syslog. #}
   <LogPath>{{ log_path | default('') }}</LogPath>
 
-  <!-- Enable TCP_NODELAY (disable Nagle) for lower latency -->
-  <TCPNoDelay>{{ tcp_nodelay | lower }}</TCPNoDelay>
+  {# TCPNoDelay: Disable Nagle’s algorithm for lower latency data transfers. #}
+  <TCPNoDelay>{{ tcp_nodelay | default(True) | lower }}</TCPNoDelay>
 
-  <!-- List of allowed authentication methods -->
+  {# AuthMethods: Ordered list of supported authentication mechanisms. #}
   <AuthMethods>
-{% for method in auth_methods %}    <AuthMethod>{{ method }}</AuthMethod>
-{% endfor %}  </AuthMethods>
+    {% for method in auth_methods | default(['gridftp', 'userpass']) %}
+    <AuthMethod>{{ method }}</AuthMethod>
+    {% endfor %}
+  </AuthMethods>
 
-  <!-- List of allowed GSI authorization rules (if using grid auth) -->
+  {# Authorization: GSI-based authorization rules for fine-grained access control. #}
   <Authorization>
-{% for rule in authz_rules %}    <Rule>{{ rule }}</Rule>
-{% endfor %}  </Authorization>
+    {% for rule in authz_rules | default(['permit all']) %}
+    <Rule>{{ rule }}</Rule>
+    {% endfor %}
+  </Authorization>
 
-  <!-- Optional: list of allowed user home directories (e.g., for chroot) -->
+  {# ChrootDirs: List of chroot directories to restrict users’ filesystem access. #}
   <ChrootDirs>
-{% for dir in chroot_dirs %}    <Directory>{{ dir }}</Directory>
-{% endfor %}  </ChrootDirs>
+    {% for dir in chroot_dirs | default([]) %}
+    <Directory>{{ dir }}</Directory>
+    {% endfor %}
+  </ChrootDirs>
 
-  <!-- Optional: list of allowed user groups for access control -->
+  {# AllowedGroups: List of groups whose members may authenticate and use the service. #}
   <AllowedGroups>
-{% for group in allowed_groups %}    <Group>{{ group }}</Group>
-{% endfor %}  </AllowedGroups>
+    {% for group in allowed_groups | default([]) %}
+    <Group>{{ group }}</Group>
+    {% endfor %}
+  </AllowedGroups>
 
-  <!-- Optional: timeout values in seconds -->
+  {# Timeouts: Connection timeout configuration. #}
   <Timeouts>
-    <!-- Idle connection timeout before server closes it -->
-    <IdleTimeout>{{ timeout_idle }}</IdleTimeout>
-    <!-- Data connection inactivity timeout -->
-    <DataTimeout>{{ timeout_data }}</DataTimeout>
+    {# IdleTimeout: Seconds of inactivity before the server closes a control connection. #}
+    <IdleTimeout>{{ timeout_idle | default(600) }}</IdleTimeout>
+
+    {# DataTimeout: Seconds of inactivity before the server closes a data connection. #}
+    <DataTimeout>{{ timeout_data | default(300) }}</DataTimeout>
   </Timeouts>
 </Configuration>

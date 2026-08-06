@@ -1,0 +1,70 @@
+# ampr-ripd main configuration file
+# This configuration is consumed by the ampr-ripd daemon.
+# Each directive corresponds to a schema field; see the comments
+# for descriptions and defaults.
+
+{# Tunnel interface to use (e.g., tunl0) #}
+-i {{ (interface | default('tunl0')) | string }}
+
+{# Routing table to use (e.g., main, ampr) #}
+-t {{ (routing_table | default('main')) | string }}
+
+{# List of IPs, hostnames, or subnets to ignore in RIPv2 updates. #}
+{# Subnets may use network/mask or network/len (encap) format. #}
+{# Local interface IPs are implicitly ignored. #}
+-a {{ (ignore_list | default([])) | join(',') }}
+
+{# Metric applied to routes inserted into the routing table (0–255) #}
+-m {{ (metric | default(0)) | int }}
+
+{# TCP window size for IP over AX.25 links. 0 disables it (not recommended) #}
+-w {{ (window | default(840)) | int }}
+
+{# RIPv2 authentication password. Leave empty to use default or auto-detected #}
+{% set _pw = (password | default('')) | string %}
+{% if _pw != '' %}
+-p {{ _pw }}
+{% endif %}
+
+{# Interface on which to forward RIPv2 packets. Empty means disabled #}
+{% set _ri = (rip_forward_interface | default('')) | string %}
+{% if _ri != '' %}
+-f {{ _ri }}
+{% endif %}
+
+{# Multicast destination IP for RIPv2 forwarding #}
+{% set _rfd = (rip_forward_dest | default('224.0.0.9')) | string %}
+{% if _rfd != '' %}
+-e {{ _rfd }}
+{% endif %}
+
+{# Interface on which to forward AMPR RIP packets. Empty means disabled #}
+{% set _ari = (ampr_rip_forward_interface | default('')) | string %}
+{% if _ari != '' %}
+-F {{ _ari }}
+{% endif %}
+
+{# Multicast destination IP for AMPR RIP forwarding #}
+{% set _arfd = (ampr_rip_forward_dest | default('224.0.0.9')) | string %}
+{% if _arfd != '' %}
+-E {{ _arfd }}
+{% endif %}
+
+{# Shell command to execute after route set/change (e.g., 'logger updated routes') #}
+{% set _rhc = (route_hook_cmd | default('')) | string %}
+{% if _rhc != '' %}
+-x "{{ _rhc }}"
+{% endif %}
+
+{# Gateway IP or interface name for direct 44net connections. Auto-detected if empty #}
+{% set _gw = (gateway | default('')) | string %}
+{% if _gw != '' %}
+-g {{ _gw }}
+{% endif %}
+
+{# Callsign@locator string to report to the central gateway (udp:44.182.21.1:59001). #}
+{# Empty disables registration #}
+{% set _cl = (callsign_locator | default('')) | string %}
+{% if _cl != '' %}
+-L "{{ _cl }}"
+{% endif %}

@@ -1,7 +1,36 @@
 # inetd.conf: Internet super-server configuration
+# This file defines the services managed by the Internet super-server (inetd/xinetd).
 # Each line describes one service and how it should be started.
-# Format: service_name socket_type protocol wait|nowait user[.group] server_path args
-# Lines starting with '#' are comments.
-{% for service in services %}
-{{ service.name }} {{ service.socket_type }} {{ service.protocol }} {{ service.wait }} {{ service.user }}{{ '.' + service.group if service.group else '' }} {{ service.server_path }} {{ service.args | join(' ') }}
+# Format: [host:]service_name socket_type protocol[,rcvbuf=...,sndbuf=...] wait[.waitmax] user[.group] server_path args
+
+# List of services managed by inetd/xinetd. Each item defines a service to expose via the Internet super-server.
+# Supports optional host address specifier and socket buffer tuning.
+{% for service in services | default([]) %}
+  # Service: {{ service.name | default('') }}
+  # Description: Optional host address specifier. If specified and not a wildcard, prepends host: to the line.
+  # If empty or '*', no prefix is added.
+  {% set host = service.host | default('') %}
+  {% if host | trim() | length() > 0 and host != '*' %}
+    {% set host_prefix = host | trim() + ':' %}
+  {% else %}
+    {% set host_prefix = '' %}
+  {% endif %}
+
+  # Description: The network protocol used by the service (e.g., tcp, udp, raw).
+  {% set protocol = service.protocol | default('tcp') %}
+
+  # Description: Build optional protocol extensions (socket buffer sizes).
+  {% set proto_extra = [] %}
+  {% if service.rcvbuf is defined and service.rcvbuf | trim() | length() > 0 %}
+    {% set proto_extra = proto_extra + ['rcvbuf=' + service.rcvbuf | trim()] %}
+  {% endif %}
+  {% if service.sndbuf is defined and service.sndbuf | trim() | length() > 0 %}
+    {% set proto_extra = proto_extra + ['sndbuf=' + service.sndbuf | trim()] %}
+  {% endif %}
+  {% set protocol_extra = proto_extra | join(',') %}
+
+  # Description: Emit the service line.
+  # Fields: host_prefix, name, socket_type, protocol [+ extensions], wait mode, waitmax, user, group, server_path, args
+  {{ host_prefix }}{{ service.name | default('') }} {{ service.socket_type | default('stream') }} {{ protocol }}{% if protocol_extra | length() > 0 %},{{ protocol_extra }}{% endif %} {{ service.wait | default('nowait') }}{% if service.wait_max is defined and service.wait_max | trim() | length() > 0 %}.{{ service.wait_max | trim() }}{% endif %} {{ service.user | default('root') }}{{ '.' + service.group if service.group is defined and service.group | trim() | length() > 0 else '' }} {{ service.server_path | default('') }} {{ service.args | default([]) | join(' ') }}
+
 {% endfor %}

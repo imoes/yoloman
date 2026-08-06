@@ -1,0 +1,100 @@
+{# ============================================================================ #}
+{# bruteforce-salted-openssl command-line configuration                         #}
+{#                                                                              #}
+{# This template generates the command-line arguments for the `bruteforce-      #}
+{# salted-openssl` utility, which attempts to recover passwords from OpenSSL-    #}
+{# encrypted files by brute-forcing or using a dictionary.                      #}
+{#                                                                              #}
+{# Self-documenting: every parameter is commented with its schema description   #}
+{# and defaults. Variable references always include a `| default(...)` filter   #}
+{# to prevent rendering errors when optional fields are undefined.              #}
+{# ============================================================================ #}
+
+{# Operation mode: 'exhaustive' (brute-force) or 'dictionary' (wordlist)       #}
+# Mode of operation: exhaustive or dictionary
+{% set mode = mode | default('exhaustive') %}
+{% if mode == 'exhaustive' %}
+
+{# Exhaustive mode: Brute-force password search                                  #}
+# Exhaustive mode parameters
+# Beginning of the password to try in exhaustive mode
+-b "{{ begin_password | default('') }}"
+# End of the password to try in exhaustive mode
+-e "{{ end_password | default('') }}"
+
+{# Character set for exhaustive mode: defaults to digits, upper, lower alphanums #}
+{% set charset = charset | default('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') %}
+{% if charset | default('') %}-s "{{ charset | default('') }}"{% endif %}
+
+{# Minimum password length (inclusive) for exhaustive mode                     #}
+-l {{ min_length | default(1) }}
+
+{# Maximum password length (inclusive) for exhaustive mode                     #}
+-m {{ max_length | default(8) }}
+
+{% elif mode == 'dictionary' %}
+
+{# Dictionary mode: Use a wordlist for password recovery                       #}
+# Dictionary mode parameter
+# Path to dictionary file for dictionary mode
+-f "{{ dictionary_file | default('') }}"
+
+{% else %}
+# WARNING: Unsupported mode '{{ mode }}'. Defaulting to exhaustive behavior.
+{# Exhaustive mode parameters (fallback) #}
+-b "{{ begin_password | default('') }}"
+-e "{{ end_password | default('') }}"
+{% set charset = charset | default('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') %}
+{% if charset | default('') %}-s "{{ charset | default('') }}"{% endif %}
+-l {{ min_length | default(1) }}
+-m {{ max_length | default(8) }}
+{% endif %}
+
+{# Encryption parameters: Specify how the target file was encrypted              #}
+# Encryption parameters
+# Symmetric cipher algorithm to use (e.g., aes-256-cbc)
+{% set cipher = cipher | default('aes-256-cbc') %}
+{% if cipher | default('aes-256-cbc') %}-c "{{ cipher | default('aes-256-cbc') }}"{% endif %}
+
+# Digest algorithm for key/IV derivation (e.g., md5, sha256)
+{% set digest = digest | default('md5') %}
+{% if digest | default('md5') %}-d "{{ digest | default('md5') }}"{% endif %}
+
+# Thread and performance parameters
+# Number of threads to use
+{% set threads = threads | default(1) %}
+{% if threads | default(1) %}-t {{ threads | default(1) }}{% endif %}
+
+# Print progress every N seconds; 0 disables periodic output
+{% set progress_interval = progress_interval | default(0) %}
+{% if progress_interval | default(0) != 0 %}-v {{ progress_interval | default(0) }}{% endif %}
+
+# State persistence (optional)
+# File to save/restore session state (allows resuming interrupted runs)
+{% set state_file = state_file | default('') %}
+{% if state_file | default('') %}-w "{{ state_file | default('') }}"{% endif %}
+
+# Additional flags (boolean flags)
+# Stop after finding the first candidate password
+{% if stop_after_first | default(false) | bool %}-1{% endif %}
+
+# Ignore salt during decryption
+{% if ignore_salt | default(false) | bool %}-n{% endif %}
+
+# Ignore decryption errors (similar to openssl -nopad)
+{% if ignore_errors | default(false) | bool %}-N{% endif %}
+
+# Preview size (in bytes) to check for magic string
+{% set preview_bytes = preview_bytes | default(1024) %}
+{% if preview_bytes | default(1024) %}-p {{ preview_bytes | default(1024) }}{% endif %}
+
+# Magic string matcher: consider decryption successful if data starts with this string
+# (Useful for matching specific file headers or binary magic numbers)
+{% set magic_string = magic_string | default('') %}
+{% if magic_string | default('') %}-M "{{ magic_string | default('') }}"{% endif %}
+
+{# Output file (binary mode, rare) — not included by default                    #}
+{# {{ '-B "' ~ binary_file ~ '"' if binary_file else '' }} #}
+
+{# Target file is passed as command-line argument at runtime                    #}
+{# e.g.: bruteforce-salted-openssl [options] <filename>                        #}

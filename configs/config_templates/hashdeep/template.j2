@@ -1,0 +1,202 @@
+# =============================================================================
+# hashdeep Configuration Template
+# =============================================================================
+# This template generates a configuration file (or argument list) for the
+# 'hashdeep' tool, which is used for creating and verifying file hashes
+# (checksums). It supports multiple algorithms, recursive scanning, auditing,
+# and various output formatting options.
+#
+# All variables here are sourced from the Ansible playbook/role variables.
+# Every variable reference uses the `default()` filter to ensure the template
+# does not fail if a variable is undefined in the current context.
+# =============================================================================
+
+# --- Hash Algorithms ---
+# Specify which hash algorithms to compute.
+# Supported: md5, sha1, sha256, tiger, whirlpool.
+# Multiple algorithms are joined by commas.
+{% if algorithms | default(['md5', 'sha256']) | length > 0 -%}
+# Computation mode: specify hash algorithms to compute
+-c {{ algorithms | default(['md5', 'sha256']) | join(',') }}
+{% endif %}
+
+# --- Known Hashes ---
+# Load known hashes from files for matching/audit modes.
+# Each file in the list is added with the -k flag.
+{% for kh in known_hashes | default([]) %}
+# Load known hash from: {{ kh }}
+-k {{ kh }}
+{% endfor %}
+
+# --- Audit Mode ---
+# Enable audit mode (-a). This compares input files against known hashes.
+{% if audit | default(false) | bool %}
+# Audit mode: compare input files against known hashes
+-a
+{% endif %}
+
+# --- Positive Matching ---
+# Enable positive matching (-m). Output only files matching known hashes.
+{% if positive_match | default(false) | bool %}
+# Positive matching: output only files matching known hashes
+-m
+{% endif %}
+
+# --- Negative Matching ---
+# Enable negative matching (-x). Output only files NOT matching known hashes.
+{% if negative_match | default(false) | bool %}
+# Negative matching: output only files NOT matching known hashes
+-x
+{% endif %}
+
+# --- Files List ---
+# Read input filenames from a specified file instead of command line arguments.
+{% if files_list | default('') | length > 0 %}
+# Read input filenames from file: {{ files_list | default('') }}
+-f {{ files_list | default('') }}
+{% endif %}
+
+# --- Output Match Filename ---
+# Show the matched known hash filename for files in matching mode.
+{% if output_match_filename | default(false) | bool %}
+# Show matched known hash filename for matching mode
+-w
+{% endif %}
+
+# --- Show Hash in Output ---
+# Show the actual hash value for matched files.
+# Implies either positive (-M) or negative (-X) matching depending on configuration.
+{% if show_hash | default(false) | bool %}
+# Show hash value for matched files
+{% if positive_match | default(false) | bool %}-M
+{% elif negative_match | default(false) | bool %}-X
+{% else %}# Note: -M/-X requires positive_match or negative_match to be true
+{% endif %}
+{% endif %}
+
+# --- Recursive Directory Traversal ---
+# Recursively traverse directories to find files.
+{% if recursive | default(false) | bool %}
+# Recursively traverse directories
+-r
+{% endif %}
+
+# --- Progress Indicator ---
+# Show a progress indicator and estimated time remaining.
+{% if progress | default(false) | bool %}
+# Show progress indicator and time estimate
+-e
+{% endif %}
+
+# --- Case-Insensitive Audit ---
+# Perform case-insensitive filename matching during audit.
+{% if case_insensitive_audit | default(false) | bool %}
+# Case-insensitive filename matching in audit mode
+-E
+{% endif %}
+
+# --- Size Threshold ---
+# Only hash files smaller than the specified threshold.
+# Supports IEC suffixes: b, k, m, g, t, p, e.
+{% if size_threshold | default('') | length > 0 %}
+# Size threshold: only hash files smaller than threshold
+-i {{ size_threshold | default('') }}
+{% endif %}
+
+# --- Expert Output Modes ---
+# Select specific file types to process using single-character codes.
+# Valid codes: f(binary), b(binary), c(character), p(pipe), l(link), s(socket), d(device), e(encrypted).
+# Must be empty or a subset of valid characters.
+{% if output_modes | default([]) | length > 0 %}
+# Expert file-type selection: specify which file types to process
+-o {{ output_modes | default([]) | join('') }}
+{% endif %}
+
+# --- Silent Mode ---
+# Suppress error messages from the tool.
+{% if silent | default(false) | bool %}
+# Suppress error messages
+-s
+{% endif %}
+
+# --- Piecewise Mode ---
+# Break files into chunks before hashing to handle very large files or streaming.
+{% if piecewise_mode | default(false) | bool %}
+# Break files into chunks before hashing
+-p
+{% if piecewise_chunk_size | default('') | length > 0 %}
+# Chunk size: {{ piecewise_chunk_size | default('') }}
+{{ piecewise_chunk_size | default('') }}
+{% endif %}
+{% endif %}
+
+# --- Bare Mode ---
+# Strip leading directory information from output filenames.
+{% if bare_mode | default(false) | bool %}
+# Strip leading directory information from output filenames
+-b
+{% endif %}
+
+# --- Relative Paths ---
+# Output relative file paths instead of absolute paths.
+{% if relative_paths | default(false) | bool %}
+# Output relative file paths instead of absolute paths
+-l
+{% endif %}
+
+# --- Verbose Level ---
+# Set the verbose level for audit output.
+# 0 = default, 1 = summary, 2 = discrepancies, 3 = per-file details.
+# Note: In hashdeep, `-v` is typically repeated for higher verbosity levels in some versions,
+# or a numeric argument is used. This template uses the `-v` flag repeated `verbose` times
+# if verbose > 0, assuming the tool accepts multiple `-v` flags or the schema implies
+# a specific counting mechanism. If `verbose` is an integer level, this loop generates
+# that many `-v` flags. Adjust if the tool prefers `-v <level>`.
+{% set v_level = verbose | default(0) %}
+{% if v_level is number and v_level > 0 %}
+# Verbose mode (level {{ v_level }})
+{% for i in range(v_level) %}-v
+{% endfor %}
+{% elif v_level is string and v_level | length > 0 %}
+# Verbose mode (string: {{ v_level }})
+-v {{ v_level }}
+{% endif %}
+
+# --- Threads ---
+# Control multi-threading.
+# -j0 disables multithreading; -jN uses N threads; default auto-scales.
+# Note: If `threads` is 0, it might mean "auto". The flag -j0 explicitly disables.
+# If the default 0 means "auto", we might omit -j or pass a positive number.
+# Here we assume the value passed to -j is the desired thread count,
+# and if it's 0, we might output -j0 (disable) or rely on default behavior.
+# Based on description "-j0 disables", we output the flag with the value.
+{% if threads | default(0) is number %}
+# Multi-threading: {{ threads | default(0) }} threads
+-j{{ threads | default(0) }}
+{% endif %}
+
+# --- DFXML Output ---
+# Output results in Digital Forensics XML (DFXML) format.
+{% if dfxml | default(false) | bool %}
+# Output in Digital Forensics XML (DFXML) format
+-d
+{% endif %}
+
+# --- Unicode Quoting ---
+# Quote Unicode characters in output using U+XXXX notation.
+{% if quote_unicode | default(false) | bool %}
+# Quote Unicode characters in output (U+XXXX notation)
+-u
+{% endif %}
+
+# --- I/O Mode ---
+# Select the I/O mode for reading input files.
+# buffered: fopen (default), unbuffered: open(), mmap: memory-mapped.
+{% set io_mode_val = io_mode | default('buffered') %}
+{% if io_mode_val in ['buffered', 'unbuffered', 'mmap'] %}
+# I/O mode: {{ io_mode_val }}
+{% if io_mode_val == 'buffered' %}-Fb
+{% elif io_mode_val == 'unbuffered' %}-Fu
+{% elif io_mode_val == 'mmap' %}-Fm
+{% endif %}
+{% endif %}

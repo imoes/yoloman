@@ -1,86 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Configuration file for Syncthing -->
-<configuration version="39">
-  <!-- Global device ID and name (auto-generated from keys; here we override only device name) -->
-  <device id="{{ device_id }}" name="{{ device_name | e }}" compression="{{ compression }}" />
-  
-  <!-- Listen on local addresses for incoming connections -->
-  {% for listen_addr in listen_addresses %}
-  <!-- Listen address: {{ listen_addr }} -->
-  <listen-address>{{ listen_addr }}</listen-address>
-  {% endfor %}
+[syncthing]
+title=Syncthing
+description=Syncthing file synchronisation
+ports={{ syncthing_port }}|21027/udp
 
-  <!-- Global NAT traversal settings -->
-  <global-announcements enabled="{{ announce_global_enabled | lower }}" />
-  <local-announcements enabled="{{ announce_local_enabled | lower }}" />
-
-  <!-- UPnP / NAT-PMP settings -->
-  <upnp enabled="{{ upnp_enabled | lower }}" />
-
-  <!-- Sync progress reporting -->
-  <device id="{{ device_id }}" name="{{ device_name | e }}">
-    <addresses>{{ addresses_for_self | join(', ') }}</addresses>
-  </device>
-
-  <!-- Define shared folders (each folder has a label, path, and set of devices to sync with) -->
-  {% for folder in folders %}
-  <!-- Folder: {{ folder.label | e }} (path: {{ folder.path | e }}) -->
-  <folder id="{{ folder.id | e }}" label="{{ folder.label | e }}" path="{{ folder.path | e }}" type="{{ folder.type | e }}" rescanIntervalS="{{ folder.rescan_interval_s }}" fsWatcherEnabled="{{ folder.fs_watcher_enabled | lower }}" fsWatcherDelayS="{{ folder.fs_watcher_delay_s }}" ignorePerms="{{ folder.ignore_perms | lower }}">
-    <device id="{{ folder.device_id | e }}" introducedBy="" />
-    {% for ignored_path in folder.ignored_paths %}
-    <ignoredPath>{{ ignored_path | e }}</ignoredPath>
-    {% endfor %}
-    <versioning type="{{ folder.versioning.type | e }}">
-      <param key="cleanupIntervalS" value="{{ folder.versioning.cleanup_interval_s }}" />
-      <param key="maxAgeS" value="{{ folder.versioning.max_age_s }}" />
-      <param key="versionsPath" value="{{ folder.versioning.versions_path | e }}" />
-      <param key="keepVersions" value="{{ folder.versioning.keep_versions }}" />
-    </versioning>
-  </folder>
-  {% endfor %}
-
-  <!-- GUI settings -->
-  <gui enabled="{{ gui_enabled | lower }}" address="{{ gui_address | e }}" tls="{{ gui_tls_enabled | lower }}" useTLS="{{ gui_tls_enabled | lower }}">
-    <user>{{ gui_user | e }}</user>
-    <password>{{ gui_password | e }}</password>
-    <api-key>{{ gui_api_key | e }}</api-key>
-  </gui>
-
-  <!-- Metrics collection (optional) -->
-  <metrics enabled="{{ metrics_enabled | lower }}">
-    <database>{{ metrics_db_path | e }}</database>
-  </metrics>
-
-  <!-- Discovery of devices on the local network and globally (via STUN/relays) -->
-  <discovery>
-    {% for mdns in mdns_enabled %}
-    <!-- mDNS discovery: enabled={{ mdns.enabled | lower }} -->
-    <mdns enabled="{{ mdns.enabled | lower }}" />
-    {% endfor %}
-    {% for lacp in local %}
-    <!-- Local discovery via HTTP/LACP -->
-    <lans discoverBy="{{ lacp.discover_by | e }}" />
-    {% endfor %}
-    {% for relay in relays %}
-    <!-- Relay server: {{ relay.url | e }} -->
-    <relay url="{{ relay.url | e }}" />
-    {% endfor %}
-  </discovery>
-
-  <!-- Options for performance and behavior -->
-  <options>
-    <!-- Global rate limits (in KiB/s); 0 = unlimited -->
-    <globalUploadRateKb>{{ global_upload_rate_kib }}</globalUploadRateKb>
-    <globalDownloadRateKb>{{ global_download_rate_kib }}</globalDownloadRateKb>
-
-    <!-- Max connections per device -->
-    <maxRecvKbps>{{ max_recv_kbps }}</maxRecvKbps>
-    <maxSendKbps>{{ max_send_kbps }}</maxSendKbps>
-
-    <!-- Other toggles -->
-    <autoAcceptFolders>{{ auto_accept_folders | lower }}</autoAcceptFolders>
-    <minHomeDiskFree unit="{{ min_home_disk_free_unit | e }}">{{ min_home_disk_free_value }}</minHomeDiskFree>
-    <reconnectIntervalS>{{ reconnect_interval_s }}</reconnectIntervalS>
-    <allowInitialPeersConnection>{{ allow_initial_peers_connection | lower }}</allowInitialPeersConnection>
-  </options>
-</configuration>
+[syncthing-gui]
+title=Syncthing-GUI
+description=Syncthing web gui
+ports={{ syncthing_gui_port }}/tcp

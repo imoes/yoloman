@@ -1,61 +1,7 @@
-# Monit global configuration file
-# Set polling interval in seconds
-set daemon {{ monitor_daemon_interval }}
+# /etc/default/monit
 
-# Log file location
-{% if monitor_log_file %}set logfile {{ monitor_log_file }}{% endif %}
+# Defaults for monit initscript.  This file is sourced by
+# /bin/sh from /etc/init.d/monit.
 
-# Mail server for alerts (if email is configured)
-{% if mail_servers %}set mailserver{% for server in mail_servers %}
-  {% if loop.first %}{{ server.host }}{% else %}{{ server.host }} port {{ server.port }}{% if server.tls %} using SSL{% endif %}{% if server.username %} username "{{ server.username }}"{% endif %}{% if server.password %} password "{{ server.password }}"{% endif %}{% endif %}{% if server.from_name %} with timeout {{ server.timeout | default(30) }}{% endif %}{% if not loop.last %}{% endif %}
-{% endfor %}{% endif %}
-
-# Email sender and recipient settings
-{% if email_alerts %}set alert {{ email_recipients | join(',') }}{% endif %}
-
-# HTTP daemon for web interface (if enabled)
-{% if httpd_enabled %}set httpd port {{ httpd_port }} and{% if httpd_ssl %} use ssl{% if httpd_ssl_cert %} certificate {{ httpd_ssl_cert }}{% endif %}{% if httpd_ssl_key %} key {{ httpd_ssl_key }}{% endif %}{% endif %}{% if httpd_allow_from %} allow {% for ip in httpd_allow_from %}{{ ip }}{% if not loop.last %} and {% endif %}{% endfor %}{% endif %}{% if httpd_username %} allow {{ httpd_username }}:{{ httpd_password }}{% endif %}{% endif %}
-
-# Event queue settings (optional)
-{% if event_queue %}set eventqueue{% if event_queue.basepath %} basedir {{ event_queue.basepath }}{% endif %}{% if event_queue.slots %} slots {{ event_queue.slots }}{% endif %}{% endif %}
-
-# Include service definitions
-{% for service in services %}# Service: {{ service.name }}
-check process {{ service.name }}{% if service.withpidfile %} with pidfile {{ service.withpidfile }}{% endif %}
-{% if service.start %}  start program = "{{ service.start }}"{% endif %}
-{% if service.stop %}  stop program = "{{ service.stop }}"{% endif %}
-{% if service.restart %}  restart program = "{{ service.restart }}"{% endif %}
-{% if service.group %}  group {{ service.group }}{% endif %}
-{% if service.mode %}  mode {{ service.mode }}{% endif %}
-{% if service.uid %}  uid {{ service.uid }}{% endif %}
-{% if service.gid %}  gid {{ service.gid }}{% endif %}
-{% if service.startwait %}  start wait {{ service.startwait }} seconds{% endif %}
-{% if service.stopwait %}  stop wait {{ service.stopwait }} seconds{% endif %}
-{% if service.ignores %}{% for ignore in service.ignores %}  ignore {{ ignore.type }}{% if ignore.value is defined %} {{ ignore.value }}{% endif %}
-{% endfor %}{% endif %}
-{% if service.if_changed %}  if changed{% if service.if_changed.mode %} mode{% endif %}{% if service.if_changed.uid %} uid{% endif %}{% if service.if_changed.gid %} gid{% endif %}{% if service.if_changed.timestamp %} timestamp{% endif %}{% if service.if_changed.checksum %} checksum{% endif %}{% endif %}
-{% if service.if_failed %}  if failed{% if service.if_failed.port %} port {{ service.if_failed.port }}{% endif %}{% if service.if_failed.protocol %} protocol {{ service.if_failed.protocol }}{% endif %}{% if service.if_failed.address %} address {{ service.if_failed.address }}{% endif %}{% if service.if_failed.timeout %} timeout {{ service.if_failed.timeout }} seconds{% endif %}{% if service.if_failed.content %} content = "{{ service.if_failed.content }}"{% endif %}{% if service.if_failed.content_match %} content = "{{ service.if_failed.content_match }}"{% endif %}{% if service.if_failed.perm %} permission {{ service.if_failed.perm }}{% endif %}{% if service.if_failed.uid %} uid {{ service.if_failed.uid }}{% endif %}{% if service.if_failed.gid %} gid {{ service.if_failed.gid }}{% endif %}{% if service.if_failed.timestamp %} timestamp {{ service.if_failed.timestamp }}{% endif %}{% if service.if_failed.checksum %} checksum {{ service.if_failed.checksum }}{% endif %}{% if service.if_failed.cpu %} cpu usage > {{ service.if_failed.cpu }}%{% endif %}{% if service.if_failed.memory %} memory usage > {{ service.if_failed.memory }}{% endif %}{% if service.if_failed.threads %} threads > {{ service.if_failed.threads }}{% endif %}{% if service.if_failed.children %} children > {{ service.if_failed.children }}{% endif %}{% if service.if_failed.timestamp_diff %} timestamp diff > {{ service.if_failed.timestamp_diff }} seconds{% endif %}{% endif %}
-{% if service.if_running %}  if failed{% if service.if_running.checksum %} checksum {{ service.if_running.checksum }}{% endif %}{% endif %}
-{% if service.if not running %}  if not failed{% if service.if not running.restart %} restart{% endif %}{% endif %}
-{% if service.if totalmemory %}  if totalmemory > {{ service.if_totalmemory }}{% endif %}
-{% if service.if cpu %}  if cpu > {{ service.if_cpu }}{% endif %}
-{% if service.if loadavg %}  if loadavg ({{ service.if_loadavg }}) > {{ service.if_loadavg_threshold }}{% endif %}
-{% if service.if timestamp %}  if timestamp > {{ service.if_timestamp }}{% endif %}
-{% if service.if permission %}  if permission > {{ service.if_permission }}{% endif %}
-{% if service.if uid %}  if uid != {{ service.if_uid }}{% endif %}
-{% if service.if gid %}  if gid != {{ service.if_gid }}{% endif %}
-{% if service.if link %}  if failed link{% if service.if_link.url %} url {{ service.if_link.url }}{% endif %}{% if service.if_link.content %} content = "{{ service.if_link.content }}"{% endif %}{% endif %}
-{% if service.if changed %}  if changed{% if service.if_changed.checksum %} checksum{% endif %}{% if service.if_changed.uid %} uid{% endif %}{% if service.if_changed.gid %} gid{% endif %}{% if service.if_changed.timestamp %} timestamp{% endif %}{% if service.if_changed.content %} content{% endif %}{% endif %}
-{% if service.if does not exist %}  if does not exist{% if service.if_does_not_exist.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and not started %}  if does not exist and not started{% if service.if_does_not_exist_and_not_started.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and started %}  if does not exist and started{% if service.if_does_not_exist_and_started.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and not running %}  if does not exist and not running{% if service.if_does_not_exist_and_not_running.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and running %}  if does not exist and running{% if service.if_does_not_exist_and_running.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and not started or not running %}  if does not exist and not started or not running{% if service.if_does_not_exist_and_not_started_or_not_running.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and started or running %}  if does not exist and started or running{% if service.if_does_not_exist_and_started_or_running.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and not started or not running or not exist %}  if does not exist and not started or not running or not exist{% if service.if_does_not_exist_and_not_started_or_not_running_or_not_exist.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and started or running or exist %}  if does not exist and started or running or exist{% if service.if_does_not_exist_and_started_or_running_or_exist.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and not started or not running or not exist and started or running or exist %}  if does not exist and not started or not running or not exist and started or running or exist{% if service.if_does_not_exist_and_not_started_or_not_running_or_not_exist_and_started_or_running_or_exist.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and started or running or exist or not started or not running or not exist %}  if does not exist and started or running or exist or not started or not running or not exist{% if service.if_does_not_exist_and_started_or_running_or_exist_or_not_started_or_not_running_or_not_exist.restart %} restart{% endif %}{% endif %}
-{% if service.if does not exist and not started or not running or not exist and started or running or exist or not started or not running or not exist %}  if does not exist and not started or not running or not exist and started or running or exist or not started or not running or not exist{% if service.if_does_not_exist_and_not_started_or_not_running_or_not_exist_and_started_or_running_or_exist_or_not_started_or_not_running_or_not_exist.restart %} restart{% endif %}{% endif %}
-{% endfor %}
+# Options to pass to monit
+#MONIT_OPTS={{ monit_opts }}

@@ -1,0 +1,95 @@
+# vim:set ft=sh sw=2 sts=2 et:
+
+# ==============================================================================
+# dbus-user-session Service Template
+# ==============================================================================
+# Self-documenting Jinja2 template for configuring the DBus user session.
+#
+# This script manages the environment variable DBUS_SESSION_BUS_ADDRESS.
+# If not explicitly set, it attempts to auto-detect the DBus session bus
+# address by checking the XDG_RUNTIME_DIR.
+#
+# Variables:
+#   DBUS_SESSION_BUS_ADDRESS: The explicit DBus session bus address.
+#                             If empty, auto-detection is used.
+#   XDG_RUNTIME_DIR:          The path to the XDG runtime directory.
+#                             Defaults to /run/user/<uid>.
+#   NULL:                     Legacy placeholder for environment safety.
+# ==============================================================================
+
+# Schema field: DBUS_SESSION_BUS_ADDRESS
+# Description: The DBus session bus address. If empty, the script auto-detects
+#              it based on XDG_RUNTIME_DIR.
+{% if DBUS_SESSION_BUS_ADDRESS | default('') != '' %}
+# --------------------------------------------------------------------------
+# Explicit DBUS_SESSION_BUS_ADDRESS is provided via schema field:
+#   DBUS_SESSION_BUS_ADDRESS: The DBus session bus address. If empty, the
+#                             script auto-detects it based on XDG_RUNTIME_DIR.
+# --------------------------------------------------------------------------
+export DBUS_SESSION_BUS_ADDRESS="{{ DBUS_SESSION_BUS_ADDRESS | default('') }}"
+
+{% else %}
+# --------------------------------------------------------------------------
+# DBUS_SESSION_BUS_ADDRESS is empty or unset.
+# Schema field: DBUS_SESSION_BUS_ADDRESS (default='')
+# The script will attempt to auto-detect the bus address using XDG_RUNTIME_DIR.
+# --------------------------------------------------------------------------
+if [ -z "${DBUS_SESSION_BUS_ADDRESS}" ] && [ -n "{{ XDG_RUNTIME_DIR | default('/run/user/`id -u`') }}" ] && \
+    [ "{{ XDG_RUNTIME_DIR | default('/run/user/`id -u`') }}" = "/run/user/`id -u`" ] && \
+    [ -S "{{ XDG_RUNTIME_DIR | default('/run/user/`id -u`') }}/bus" ]; then
+  # We are under systemd-logind or something remarkably similar, and
+  # a user-session socket has already been set up.
+  #
+  # Be nice to non-libdbus, non-sd-bus implementations by using
+  # that as the session bus address in the environment. The check for
+  # XDG_RUNTIME_DIR = "/run/user/`id -u`" is because we know that
+  # form of the address, from systemd-logind, doesn't need escaping,
+  # whereas arbitrary addresses might.
+  #
+  # Schema field: XDG_RUNTIME_DIR
+  # Description: The XDG runtime directory path, typically /run/user/<uid>.
+  DBUS_SESSION_BUS_ADDRESS="unix:path={{ XDG_RUNTIME_DIR | default('/run/user/`id -u`') }}/bus"
+  export DBUS_SESSION_BUS_ADDRESS
+fi
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Environment Propagation
+# --------------------------------------------------------------------------
+# Schema field: NULL
+# Description: Legacy empty variable placeholder for environment variable
+#              expansion safety.
+
+# Ensure NULL has a default to prevent undefined variable errors during rendering
+{% set null_val = NULL | default('') %}
+
+{% if null_val | trim | length > 0 %}
+{% set null_part = null_val | trim %}
+{% if null_part is not sameas '' %}
+if [ -x "/usr/bin/dbus-update-activation-environment" ]; then
+  # tell dbus-daemon --session (and systemd --user, if running)
+  # to put a minimal subset of the Xsession's environment in activated
+  # services' environments
+  dbus-update-activation-environment --verbose --systemd \
+    DBUS_SESSION_BUS_ADDRESS \
+    DISPLAY \
+    XAUTHORITY \
+    XDG_CURRENT_DESKTOP \
+    {{ null_part }}
+fi
+{% endif %}
+{% else %}
+# The NULL variable is empty/unset; skipping the null expansion part.
+# If dbus-update-activation-environment is available, we still propagate
+# standard variables.
+if [ -x "/usr/bin/dbus-update-activation-environment" ]; then
+  # tell dbus-daemon --session (and systemd --user, if running)
+  # to put a minimal subset of the Xsession's environment in activated
+  # services' environments
+  dbus-update-activation-environment --verbose --systemd \
+    DBUS_SESSION_BUS_ADDRESS \
+    DISPLAY \
+    XAUTHORITY \
+    XDG_CURRENT_DESKTOP
+fi
+{% endif %}

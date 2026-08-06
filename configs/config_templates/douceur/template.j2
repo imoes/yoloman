@@ -1,0 +1,32 @@
+{#
+    douceur - Configuration Template
+    This template generates a YAML configuration for the 'douceur' tool, a CSS/HTML processor.
+    It handles CLI subcommands, input/output file paths, and ensures safe defaults for all fields.
+#}
+
+{#
+    command: CLI subcommand
+    Specifies the operation mode for douceur.
+    'parse': Process CSS files.
+    'inline': Inline CSS into HTML files.
+    Matches douceur(1) synopsis.
+    Default: 'parse'
+#}
+command: {{ command | default('parse') }}
+
+{#
+    input_file: Path to input file
+    The file to be processed by douceur.
+    Required field. Must be a valid path to a CSS file (for 'parse') or HTML file (for 'inline').
+    Default: 'parse' (Note: This default matches the schema definition, though semantically it might
+    be expected to be a real file path in production; the template strictly adheres to the schema default.)
+#}
+input_file: {{ input_file | default('parse') }}
+
+{#
+    output_file: Optional path to write output
+    If provided, douceur writes the result to this file.
+    If omitted or empty, the output is printed to stdout.
+    Default: '' (empty string, meaning stdout)
+#}
+{% if output_file | default('') | trim != '' %}output_file: {{ output_file | default('') | trim }}{% endif %}

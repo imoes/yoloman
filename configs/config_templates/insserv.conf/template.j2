@@ -1,20 +1,22 @@
-# /etc/insserv.conf - insserv configuration file
+# insserv configuration file
 # Controls service dependency ordering and default runlevel behavior
 # Format: key=value, one per line. Empty lines and lines starting with # are ignored.
 
-{% if default_runlevel is defined %}# Default runlevel (if not specified by the init script LSB headers)
-default_runlevel={{ default_runlevel }}
-{% endif %}
+# Default runlevel used when an init script doesn't specify LSB runlevel information.
+# Common values: 2 (multi-user), 3 (multi-user with network), 5 (graphical).
+default_runlevel={{ (default_runlevel | default('2')) | string }}
 
-# Enable verbose output during dependency resolution (useful for debugging)
-verbose={{ verbose | string | lower }}
+# Enable verbose logging during dependency resolution to help debug service ordering issues.
+verbose={{ (verbose | default(False)) | string | lower }}
 
-# Prevent insserv from removing existing symlinks (for safety during upgrades)
-force_symlinks={{ force_symlinks | string | lower }}
+# When true, preserve existing symlinks during upgrades instead of regenerating them —
+# useful for avoiding disruption in production.
+force_symlinks={{ (force_symlinks | default(True)) | string | lower }}
 
-# List of service names to ignore during dependency resolution (space-separated)
-# Useful for excluding services that are managed externally or non-standard
-ignore_services={{ ignore_services | join(' ') | default('') }}
+# Space-separated list of service names to skip during dependency resolution
+# (e.g., services managed by systemd or containers).
+ignore_services={{ (ignore_services | default([]) | list) | join(' ') }}
 
-# Maximum number of levels to traverse when resolving dependencies (prevents infinite loops)
-max_depth={{ max_depth }}
+# Maximum recursion depth during dependency resolution.
+# Prevents stack overflow or infinite loops in circular dependencies.
+max_depth={{ (max_depth | default(100)) | int }}

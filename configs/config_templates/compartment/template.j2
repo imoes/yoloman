@@ -1,0 +1,56 @@
+{# compartment(1) configuration template #}
+{# ============================================================ #}
+{# Secure program/service wrapper configuration                 #}
+{# Every line corresponds to one --option passed to compartment #}
+{# Run as: compartment [options] /full/path/to/program          #}
+{#                                                              #}
+{# Self-documenting: each directive is preceded by its          #}
+{# schema description as a comment. All variables use defaults  #}
+{# to prevent undefined-variable failures during Ansible render.#}
+{# ============================================================ #}
+
+{% if cap | default('') | length > 0 %}
+# Linux capability set to apply (e.g., CAP_NET_BIND_SERVICE). Must be a valid capability constant or comma-separated list. See /usr/include/linux/capability.h
+--cap {{ cap | default('') }}
+{% endif %}
+
+{% if chroot | default('') | length > 0 %}
+# Path to chroot directory. Must be a valid, populated chroot environment.
+--chroot {{ chroot | default('') }}
+{% endif %}
+
+{% if user | default('') | length > 0 %}
+# Username to run the target program as. Requires root privileges.
+--user {{ user | default('') }}
+{% endif %}
+
+{% if group | default('') | length > 0 %}
+# Group name to run the target program as. Requires root privileges.
+--group {{ group | default('') }}
+{% endif %}
+
+{% if init_program | default('') | length > 0 %}
+# Path to an initialisation script or binary to execute before launching the main program (e.g., to prepare the chroot).
+--init {{ init_program | default('') }}
+{% endif %}
+
+{% if verbose | default(False) %}
+# If true, enable verbose logging to stderr and syslog.
+--verbose
+{% endif %}
+
+{% if not quiet | default(False) and not verbose | default(False) %}
+# If true, suppress syslog output. Incompatible with --verbose.
+# (Note: --quiet is only effective if --verbose is not used)
+{% if quiet | default(False) %}
+--quiet
+{% endif %}
+{% endif %}
+
+{% if fork | default(False) %}
+# If true, fork to background after successful setup (mother process exits).
+--fork
+{% endif %}
+
+# Absolute path to the program/service to run inside the compartment. Required.
+{{ program | default('') }}

@@ -1,0 +1,85 @@
+# Arj Configuration Template
+# This template generates configuration for the 'arj' archiver utility.
+# It defines default patterns for virus scanning and archive operations
+# (create/extract) for various formats (ARJ, ZIP, RAR, TAR variants).
+
+# Command used to run the virus scanner for ARJ archives.
+# Defaults to /usr/bin/scan with options /nomem /sub *.
+VIRUS {{ arj_virus_scan_command | default('/usr/bin/scan') | string }} /nomem /sub *
+
+# ARJ Archive Handling
+# Default patterns for creating and extracting .arj archives.
+arj
+# Pattern for creating ARJ archives (used with `arj a`).
+# Defaults to %s.
+ arj a -+ -y -a1 -r -j$ -s -jm -2s "{{ arj_archive_create_pattern | default('%s') | string }}"
+# Pattern for extracting ARJ archives (used with `arj x`).
+# Defaults to %s.
+ arj x -y "{{ arj_archive_extract_pattern | default('%s') | string }}"
+ AD
+
+# ZIP Archive Handling
+# Default patterns for creating and extracting .zip archives.
+zip
+# Pattern for creating ZIP archives.
+# Defaults to %s.
+ zip -r "{{ zip_archive_create_pattern | default('%s') | string }}" . -i *
+# Pattern for extracting ZIP archives.
+# Defaults to %s.
+ unzip "{{ zip_archive_extract_pattern | default('%s') | string }}"
+ AD
+
+# RAR Archive Handling
+# Default patterns for creating and extracting .rar archives.
+rar
+# Pattern for creating RAR archives.
+# Defaults to %s.
+ rar a -r -y "{{ rar_archive_create_pattern | default('%s') | string }}"
+# Pattern for extracting RAR archives.
+# Defaults to %s.
+ rar x -y "{{ rar_archive_extract_pattern | default('%s') | string }}"
+ AD
+
+# tar.Z Archive Handling
+# Default patterns for creating and extracting .tar.Z archives.
+tar.Z
+# Pattern for creating tar.Z archives.
+# Defaults to %s.
+ tar -cvZf "{{ tarZ_archive_create_pattern | default('%s') | string }}" .
+# Pattern for extracting tar.Z archives.
+# Defaults to %s.
+ tar -xvZf "{{ tarZ_archive_extract_pattern | default('%s') | string }}"
+ ADT
+
+# tar.gz Archive Handling
+# Default patterns for creating and extracting .tar.gz archives.
+tar.gz
+# Pattern for creating tar.gz archives.
+# Defaults to %s.
+ tar -cvzf "{{ tarGZ_archive_create_pattern | default('%s') | string }}" .
+# Pattern for extracting tar.gz archives.
+# Defaults to %s.
+ tar -xvzf "{{ tarGZ_archive_extract_pattern | default('%s') | string }}"
+ ADT
+
+# tgz Archive Handling
+# Default patterns for creating and extracting .tgz archives (same as tar.gz).
+tgz
+# Pattern for creating tgz archives.
+# Defaults to %s.
+ tar -cvzf "{{ tgz_archive_create_pattern | default('%s') | string }}" .
+# Pattern for extracting tgz archives.
+# Defaults to %s.
+ tar -xvzf "{{ tgz_archive_extract_pattern | default('%s') | string }}"
+ ADT
+
+# tar.bz2 Archive Handling
+# Default patterns for creating and extracting .tar.bz2 archives.
+tar.bz2
+# Pattern for creating tar.bz2 archives.
+# Defaults to %s.
+ tar --bzip2 -cvf "{{ tarBZ2_archive_create_pattern | default('%s') | string }}" .
+# Pattern for extracting tar.bz2 archives.
+# Defaults to %s.
+ tar --bzip2 -xvf "{{ tarBZ2_archive_extract_pattern | default('%s') | string }}"
+ ADT

@@ -1,21 +1,30 @@
 # Module to execute shell commands via XMPP — DO NOT enable on production servers
 # This module grants XMPP users the ability to execute arbitrary shell commands — EXTREMELY DANGEROUS
 # Only enable if you fully understand the security implications and have strict access controls
-{% if mod_shcommands_enabled %}
+{% if mod_shcommands_enabled | default(False) %}
 modules:
   mod_shcommands:
     # Path to the shell interpreter used for command execution
-    shell: {{ mod_shcommands_shell }}
-    # Maximum number of concurrent shell processes
-    max_processes: {{ mod_shcommands_max_processes }}
+    # Default: /bin/sh
+    # Typical values: /bin/sh, /bin/bash
+    shell: {{ mod_shcommands_shell | default('/bin/sh') }}
+    # Maximum number of concurrent shell command processes allowed at once
+    # Prevents resource exhaustion from spamming commands
+    # Default: 10
+    max_processes: {{ mod_shcommands_max_processes | default(10) }}
     # Timeout (in seconds) for each command execution
-    timeout: {{ mod_shcommands_timeout }}
-    # List of allowed commands (empty list = all commands allowed — NOT RECOMMENDED)
-{% if mod_shcommands_allowed_commands | length > 0 %}
+    # Commands exceeding this duration are terminated
+    # Default: 30
+    timeout: {{ mod_shcommands_timeout | default(30) }}
+    # List of allowed commands (empty list = ALL commands allowed — NOT RECOMMENDED)
+    # Empty list is INSECURE; always restrict to a minimal, necessary set
+    # Default: [] (empty)
+{% if mod_shcommands_allowed_commands | default([]) | length > 0 %}
     allowed_commands:
 {% for cmd in mod_shcommands_allowed_commands %}      - {{ cmd }}
 {% endfor %}
 {% else %}
-    # WARNING: No allowed commands list; ALL commands are permitted
+      # WARNING: No allowed commands list defined; ALL commands are permitted
+      # This is a significant security risk. Define allowed_commands to restrict access.
 {% endif %}
 {% endif %}

@@ -1,0 +1,70 @@
+# ============================================================================
+# chezdav - Simple WebDAV Server Configuration
+# ============================================================================
+# This template generates the command-line arguments for the chezdav daemon.
+# Each section corresponds to a specific configuration option defined in the
+# schema. Variables use defaults to ensure the template renders correctly
+# even if the variable is not provided by Ansible.
+# ============================================================================
+
+# --- Path Configuration ---
+# -P <path>
+# Path to export; defaults to home directory if omitted.
+# If 'path' is not explicitly set, it falls back to '/home/<current_user>'.
+{%- if path is defined or current_user is defined %}
+-P {{ (path | default('/home/' ~ (current_user | default('', true)), true)) }}
+{%- endif %}
+
+# --- Port Configuration ---
+# -p <port>
+# Port to listen on; 0 means random (default).
+# If port is 0, chezdav picks a random available port.
+{%- if port is defined %}
+-p {{ port | default(0, true) }}
+{%- endif %}
+
+# --- Bind Address / Network Scope ---
+# --local | --public
+# If true, listen only on loopback (127.0.0.1); if false, listen on all interfaces.
+{%- if bind_local is defined %}
+{%- if bind_local | default(True, true) %}
+--local
+{%- else %}
+--public
+{%- endif %}
+{%- endif %}
+
+# --- mDNS / DNS-SD Broadcasting ---
+# --no-mdns
+# If true, disable mDNS/DNS-SD service broadcasting.
+# By default (False), chezdav advertises itself on the local network via mDNS.
+{%- if no_mdns is defined %}
+{%- if no_mdns | default(False, true) %}
+--no-mdns
+{%- endif %}
+{%- endif %}
+
+# --- Authentication: htdigest File ---
+# -d <path>
+# Path to htdigest file for Digest authentication.
+# This file must be created externally using the htdigest utility.
+{%- if htdigest_path is defined %}
+-d {{ htdigest_path | default('', true) }}
+{%- endif %}
+
+# --- Authentication: Realm ---
+# --realm="<realm>"
+# Digest authentication realm; must match the realm used when generating the htdigest file.
+# If omitted, a default realm may be used by the server, but explicit setting is preferred.
+{%- if realm is defined %}
+--realm="{{ realm | default('', true) }}"
+{%- endif %}
+
+# --- Verbosity ---
+# -v
+# If true, print verbose runtime information (useful for debugging).
+{%- if verbose is defined %}
+{%- if verbose | default(False, true) %}
+-v
+{%- endif %}
+{%- endif %}

@@ -2,95 +2,51 @@
   "domain": {
     "type": "string",
     "default": "",
-    "description": "The fully qualified domain name (FQDN) of the Active Directory domain (e.g., 'example.com')."
+    "description": "The domain to connect to. If a domain is not specified, then the domain part of the local computer's host name is used."
   },
   "domain_controller": {
     "type": "string",
     "default": "",
-    "description": "Optional hostname of a specific domain controller to use (e.g., 'dc1.example.com'). If empty, adcli will use DNS SRV records to discover controllers."
+    "description": "Connect to a specific domain controller (equivalent to --domain-controller). If not specified, then an appropriate domain controller is automatically discovered."
   },
   "domain_realm": {
     "type": "string",
     "default": "",
-    "description": "Optional alternate realm name (usually same as domain). If not set, defaults to uppercased domain."
+    "description": "Kerberos realm for the domain (equivalent to --domain-realm). If not specified, then the upper cased domain name is used."
   },
-  "domain_short": {
+  "login_user": {
+    "type": "string",
+    "default": "Administrator",
+    "description": "Use the specified user account to authenticate with the domain (equivalent to --login-user). If not specified, then the name 'Administrator' will be used."
+  },
+  "computer_name": {
     "type": "string",
     "default": "",
-    "description": "NetBIOS-style short domain name (e.g., 'EXAMPLE'). Required if joining with legacy Kerberos (e.g., pre-Windows 2008 R2 DCs)."
+    "description": "The short non-dotted name of the computer account that will be created in the domain (equivalent to --computer-name). If not specified, then the first portion of the --host-fqdn is used."
   },
-  "computer_ou": {
+  "domain_ou": {
     "type": "string",
     "default": "",
-    "description": "LDAP distinguished name (DN) of the organizational unit (OU) where the computer account will be created (e.g., 'OU=Workstations,DC=example,DC=com'). If empty, uses the default OU."
+    "description": "The full distinguished name of the OU in which to create the computer account (equivalent to --domain-ou). If not specified, then the computer account will be created in a default location."
   },
-  "krb5_realm": {
+  "host_fqdn": {
     "type": "string",
     "default": "",
-    "description": "Kerberos realm name (typically uppercase domain). If not set, derived from 'domain'."
+    "description": "Override the local machine's fully qualified domain name (equivalent to --host-fqdn). If not specified, the local machine's hostname will be retrieved via gethostname()."
   },
-  "adcli_user": {
-    "type": "string",
-    "default": "",
-    "description": "Pre-registered computer account name (UPN or SAM account) to use for join operations (e.g., 'join-user@EXAMPLE.COM'). If empty, the default 'HOSTNAME$' account is created."
-  },
-  "join_type": {
-    "type": "string",
-    "default": "computer",
-    "description": "Type of account to create: 'computer' (default) or 'server'. Some AD environments distinguish between these."
-  },
-  "join_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the joining user account (used only if 'adcli_user' is specified). Prefer using keytab instead for security."
-  },
-  "keytab_file": {
+  "host_keytab": {
     "type": "string",
     "default": "/etc/krb5.keytab",
-    "description": "Path to the Kerberos keytab file used for authentication (e.g., for unattended joins). If empty, interactive authentication is used."
+    "description": "Specify the path to the host keytab where host credentials will be written after a successful join operation (equivalent to --host-keytab). If not specified, the default location will be used, usually /etc/krb5.keytab."
+  },
+  "use_ldaps": {
+    "type": "bool",
+    "default": false,
+    "description": "Connect to the domain controller with LDAPS (equivalent to --use-ldaps). By default the LDAP port is used."
   },
   "verbose": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
-    "description": "Enable verbose output for debugging. Set to true to see detailed logs during join."
-  },
-  "dns_ttl": {
-    "type": "number",
-    "default": 120,
-    "description": "Time-to-live (TTL) in seconds for DNS records (e.g., A, PTR) created for the host in AD-integrated DNS zones."
-  },
-  "disable_dns_update": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, skip automatic DNS A/Ptr record registration. Useful in environments where DNS is managed externally."
-  },
-  "use_fqdn": {
-    "type": "boolean",
-    "default": true,
-    "description": "If true, use fully qualified hostnames (e.g., 'host.example.com'). If false, use short hostname (e.g., 'host')."
-  },
-  "ca_cert_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to a CA certificate file (PEM format) used to verify LDAPS connections. Required if connecting to AD over LDAPS with self-signed certificates."
-  },
-  "ldaps_servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of LDAPS server hostnames to prefer over DNS discovery. Each item must include hostname and optionally port (e.g., 'ldaps://dc1.example.com:636').",
-    "items": {
-      "type": "object",
-      "fields": {
-        "hostname": {
-          "type": "string",
-          "description": "FQDN or IP address of the LDAPS server."
-        },
-        "port": {
-          "type": "number",
-          "default": 636,
-          "description": "LDAPS port (default: 636). Set to 0 to skip port (uses default)."
-        }
-      }
-    }
+    "description": "Run in verbose mode with debug output (equivalent to --verbose)."
   }
 }

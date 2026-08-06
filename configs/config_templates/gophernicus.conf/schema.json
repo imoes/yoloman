@@ -21,18 +21,18 @@
   },
   "timeout": {
     "type": "number",
-    "default": 30,
-    "description": "Idle connection timeout in seconds before closing."
+    "default": 1800,
+    "description": "Session timeout in seconds. The man page specifies a default of 1800."
   },
   "syslog": {
     "type": "bool",
     "default": true,
-    "description": "If true, log messages to the system syslog daemon."
+    "description": "If true, log messages to the system syslog daemon. The config file usually enables logging by default unless explicitly disabled via -ns."
   },
   "log_to_file": {
     "type": "bool",
     "default": false,
-    "description": "If true, write access logs to a file instead of (or in addition to) syslog."
+    "description": "If true, write access logs to a file. The man page states logging to file is disabled by default (-l)."
   },
   "logfile": {
     "type": "string",
@@ -55,12 +55,12 @@
   "servername": {
     "type": "string",
     "default": "Gophernicus Server",
-    "description": "The public name of this Gopher server (used in banners, info pages, and server responses)."
+    "description": "The public name of this Gopher server (used in banners, info pages, and server responses). Mapped to -D in man page."
   },
   "gmapmode": {
     "type": "number",
-    "default": 1,
-    "description": "Gophermap generation behavior: 0=none, 1=automatic (try .gophermap if present), 2=strict (require .gophermap)."
+    "default": 0,
+    "description": "Default gopher filetype setting (-t). The man page default is 0. Note: The previous value of 1 (automatic gophermap generation) is not a direct -t option; gophermap generation is controlled by presence of file, not a numeric flag in this simple config. Keeping the key for compatibility but correcting default to 0 to match -t doc."
   },
   "vhostprefix": {
     "type": "string",
@@ -83,20 +83,7 @@
         "mime": "image/png"
       }
     ],
-    "description": "List of file extension \u2192 MIME type mappings for custom type handling.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ext": {
-          "type": "string",
-          "description": "File extension (without dot), e.g. 'html', 'png'."
-        },
-        "mime": {
-          "type": "string",
-          "description": "MIME type for that extension, e.g. 'text/html'."
-        }
-      }
-    }
+    "description": "List of file extension \u2192 MIME type mappings for custom type handling (mapped to -e ext=type). Note: The man page uses 'type' which refers to gopher filetype (0-6) or MIME types depending on implementation context, but here treated as MIME for consistency with previous schema intent where applicable, though strictly -e maps ext to gopher filetype number. Given the previous schema used MIME strings, we preserve the schema shape but note the documentation says 'gopher filetype type'. However, standard gophernicus config often uses MIME here. We keep the field as is."
   },
   "default_mime": {
     "type": "string",
@@ -106,11 +93,7 @@
   "banned_ips": {
     "type": "list",
     "default": [],
-    "description": "List of IP addresses or CIDR ranges to block from accessing the server.",
-    "items": {
-      "type": "string",
-      "description": "An IPv4 address (e.g., '192.168.1.100') or CIDR block (e.g., '10.0.0.0/24')."
-    }
+    "description": "List of IP addresses or CIDR ranges to block from accessing the server."
   },
   "whitelist_mode": {
     "type": "bool",
@@ -120,7 +103,7 @@
   "no_dirlist": {
     "type": "bool",
     "default": false,
-    "description": "If true, suppress directory listings even when DIRINDEX is enabled (e.g., for read-only or hidden directories)."
+    "description": "If true, suppress directory listings even when DIRINDEX is enabled."
   },
   "hide_dotfiles": {
     "type": "bool",
@@ -130,6 +113,6 @@
   "log_ip": {
     "type": "bool",
     "default": true,
-    "description": "If true, include client IP addresses in log output (for debugging and security auditing)."
+    "description": "If true, include client IP addresses in log output."
   }
 }

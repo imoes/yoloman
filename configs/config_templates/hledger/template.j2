@@ -1,0 +1,65 @@
+# hledger configuration file
+# (generated from template; do not edit directly)
+# See hledger(1) man page, section "Directives"
+
+# List of additional journal file paths to include. If empty, defaults to using
+# the primary journal file via environment variables or default behavior.
+{% for file in journal_files | default([]) %}
+# Include additional journal file
+include {{ file }}
+{% endfor %}
+
+# List of account alias rules. Each rule has fields 'old' (string) and 'new' (string).
+# Aliases rewrite account names in reports and commands.
+{% for rule in alias_rules | default([]) %}
+{% if rule.old is defined and rule.new is defined %}
+# Account alias: replace '{{ rule.old | default("") }}' with '{{ rule.new | default("") }}'
+alias {{ rule.old | default("") }} = {{ rule.new | default("") }}
+{% endif %}
+{% endfor %}
+
+# List of commodity declarations. Each entry has 'symbol' (string) and optional
+# 'style' (string). The style controls display formatting (e.g., number of decimals).
+{% for comm in commodities | default([]) %}
+{% if comm.symbol is defined %}
+# Declare commodity '{{ comm.symbol | default("") }}' with display style '{{ comm.style | default("") }}'
+commodity {{ comm.symbol | default("") }}{% if comm.style is defined and comm.style != '' %} {{ comm.style | default("") }}{% endif %}
+{% endif %}
+{% endfor %}
+
+# Decimal mark character to use for parsing numbers ('.' or ','). Overrides per-commodity
+# inference when present.
+{% if decimal_mark is defined %}
+# Set decimal mark character to '{{ decimal_mark | default(".") }}'
+decimal-mark {{ decimal_mark | default(".") }}
+{% endif %}
+
+# List of account declarations. Each entry has 'name' (string, required), optional
+# 'type' (string: one of A, L, E, R, X, C, V), and optional 'tags' (map).
+{% for acct in accounts | default([]) %}
+{% if acct.name is defined %}
+# Declare account '{{ acct.name | default("") }}' with optional type and metadata
+account {{ acct.name | default("") }}{% if acct.type is defined and acct.type != '' %} ; type:{{ acct.type | default("") | upper }}{% endif %}{% if acct.tags is defined and acct.tags | length > 0 %}{% for tag_name, tag_val in acct.tags | dict2items %} ; {{ tag_name.key | default("") }}:{{ tag_val.value | default("") }}{% endfor %}{% endif %}
+{% endif %}
+{% endfor %}
+
+# Default year for parsing dates without explicit years (e.g., '12/31' becomes
+# '2000-12-31' if default_year=2000). Set via Y directive.
+{% if default_year is defined %}
+# Set default year for date parsing
+Y {{ default_year | default(2000) }}
+{% endif %}
+
+# List of known payee names (strings). Required only if using payee error checking
+# (strict mode or hledger check payees).
+{% for payee in payees | default([]) %}
+# Declare known payee '{{ payee | default("") }}'
+payee {{ payee | default("") }}
+{% endfor %}
+
+# List of allowed tag names (strings). Required only if using tag error checking
+# (strict mode or hledger check tags).
+{% for tag_name in tags | default([]) %}
+# Declare allowed tag name '{{ tag_name | default("") }}'
+tag {{ tag_name | default("") }}
+{% endfor %}

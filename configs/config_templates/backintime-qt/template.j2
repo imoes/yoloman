@@ -1,0 +1,129 @@
+# =============================================================================
+# backintime-qt Service Configuration Template
+# =============================================================================
+# This template generates the configuration for backintime-qt.
+# backintime-qt is a backup tool for Linux that creates incremental snapshots
+# of files to local or remote destinations.
+#
+# IMPORTANT: The generated configuration file path and format depend on the
+# installation profile. This template outputs a generic key-value configuration
+# suitable for systemd service overrides or wrapper scripts that consume these
+# parameters.
+#
+# Self-Documenting Design:
+# - Every variable uses a default() filter to prevent render errors if the
+#   variable is undefined in the Ansible inventory.
+# - Comments describe the schema field and its effect on the backup/restore process.
+# - Boolean values are explicitly converted to 'true' or 'false' strings
+#   expected by the backintime CLI.
+# - Lists (extra_args) are iterated to generate indexed arguments.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Configuration Paths
+# -----------------------------------------------------------------------------
+
+# Config file location (override default ~/.config/backintime/config)
+# Type: string
+# Default: ~/.config/backintime/config
+CONFIG={{ config_path | default('~/.config/backintime/config', true) | string }}
+
+# Runtime data directory (locks, logs, mounts)
+# Type: string
+# Default: ~/.local/share/backintime
+SHARE_PATH={{ share_path | default('~/.local/share/backintime', true) | string }}
+
+# -----------------------------------------------------------------------------
+# Profile Selection
+# -----------------------------------------------------------------------------
+
+# Profile name (must be unique); overrides profile-id if both present
+# Type: string
+# Default: '' (empty string implies no specific name-based selection)
+PROFILE_NAME={{ profile_name | default('', true) | string }}
+
+# Profile ID (numeric or string); used when selecting profile programmatically
+# Type: string
+# Default: '' (empty string implies no specific ID-based selection)
+PROFILE_ID={{ profile_id | default('', true) | string }}
+
+# -----------------------------------------------------------------------------
+# Backup and Restore Behavior Flags
+# -----------------------------------------------------------------------------
+
+# Force checksum-based file change detection (default: false)
+# When enabled, backintime uses checksums to detect changes instead of
+# file metadata (mtime/size). This is more accurate but slower.
+# Type: boolean
+# Default: false
+USE_CHECKSUM={{ use_checksum | default(False, true) | ternary('true', 'false') }}
+
+# Backup local files before modifying them during restore (default: true)
+# Creates a local backup of the file being overwritten before the restore
+# operation proceeds. This protects against accidental data loss during restore.
+# Type: boolean
+# Default: true
+LOCAL_BACKUP={{ local_backup | default(True, true) | ternary('true', 'false') }}
+
+# Temporarily disable local backup creation during restore (overrides LOCAL_BACKUP)
+# If set to true, this flag overrides LOCAL_BACKUP and prevents the creation
+# of a backup of the file being restored over. Useful for speeding up restores
+# when data safety is less critical.
+# Type: boolean
+# Default: false
+NO_LOCAL_BACKUP={{ no_local_backup | default(False, true) | ternary('true', 'false') }}
+
+# Restore only files newer or missing in destination (rsync --update)
+# If set to true, backintime will only restore files that are newer in the
+# snapshot than the current destination file, or files that are missing.
+# Type: boolean
+# Default: false
+ONLY_NEW={{ only_new | default(False, true) | ternary('true', 'false') }}
+
+# Restore and delete newer files not in snapshot (DANGEROUS)
+# WARNING: If set to true, backintime will delete files in the destination
+# that are newer than the corresponding files in the snapshot and are not
+# present in the snapshot. This can lead to significant data loss if misconfigured.
+# Type: boolean
+# Default: false
+DELETE={{ delete | default(False, true) | ternary('true', 'false') }}
+
+# Retain mounted snapshot path on exit
+# If set to true, the mount point used for the snapshot will not be unmounted
+# when the backup/restore operation completes. This is useful for debugging
+# or for allowing subsequent access to the snapshot without remounting.
+# Type: boolean
+# Default: false
+KEEP_MOUNT={{ keep_mount | default(False, true) | ternary('true', 'false') }}
+
+# -----------------------------------------------------------------------------
+# System Integration Flags
+# -----------------------------------------------------------------------------
+
+# Skip crontab entry installation during check-config
+# If set to true, backintime will not modify the system's crontab to schedule
+# backups. This is typically used during configuration validation checks.
+# Type: boolean
+# Default: false
+NO_CRONTAB={{ no_crontab | default(False, true) | ternary('true', 'false') }}
+
+# Shutdown system after backup completes
+# If set to true, the system will be shut down immediately after a successful
+# backup operation. Useful for laptops that are backed up before sleep.
+# Type: boolean
+# Default: false
+SHUTDOWN_AFTER_BACKUP={{ shutdown_after_backup | default(False, true) | ternary('true', 'false') }}
+
+# -----------------------------------------------------------------------------
+# Extra CLI Arguments
+# -----------------------------------------------------------------------------
+# Each item in the extra_args list is expanded into a separate EXTRA_ARG_N
+# variable. This allows passing arbitrary backintime CLI flags that are not
+# covered by the explicit boolean flags above.
+# Type: list of strings
+# Default: []
+
+{% for item in extra_args | default([], true) %}
+# Extra CLI argument {{ loop.index }}
+EXTRA_ARG_{{ loop.index }}={{ item | string }}
+{% endfor %}

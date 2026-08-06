@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FreeFileSync Configuration File (XML)
+  =====================================
+  This template generates a valid FreeFileSync `.ffs_gui` or `.ffs_batch` compatible XML configuration.
+  It defines synchronization behavior, folder pairs, comparison logic, and notification settings.
+
+  SELF-DOCUMENTATION PRINCIPLE:
+  Every XML element is preceded by a comment describing its schema field, allowed values, and default.
+  Variable references use `| default(...)` to ensure safe rendering even if the Ansible variable is undefined.
+-->
+
+<!-- Root element. Includes optional extra XML attributes (e.g., for namespaces). -->
+<!-- Field: extra_attrs (list of dicts with 'key'/'value'). Defaults to empty list. -->
+<FreeFileSync>
+{% for attr in extra_attrs | default([]) %}
+  {{ attr.key | default('') }}="{{ attr.value | default('') }}"
+{% endfor %}
+
+  <!-- CreationDate: ISO 8601 timestamp indicating when this config was created. -->
+  <!-- Field: creation_date. Default: '2026-06-28T00:00:00Z' -->
+  <CreationDate>{{ creation_date | default('2026-06-28T00:00:00Z') }}</CreationDate>
+
+  <!-- ModificationDate: ISO 8601 timestamp indicating the last time this config was modified. -->
+  <!-- Field: modification_date. Default: '2026-06-28T00:00:00Z' -->
+  <ModificationDate>{{ modification_date | default('2026-06-28T00:00:00Z') }}</ModificationDate>
+
+  <!-- Version: The FreeFileSync application version used to create this configuration. -->
+  <!-- Field: version. Default: '14.10' -->
+  <Version>{{ version | default('14.10') }}</Version>
+
+  <!-- ConfigVersion: The internal schema version of the config file (must match Version). -->
+  <!-- Field: config_version. Default: '14.10' -->
+  <ConfigVersion>{{ config_version | default('14.10') }}</ConfigVersion>
+
+  <!-- Synchronization Configuration -->
+  <!-- SyncMode: The type of synchronization to perform. -->
+  <!-- Options: 'mirror' (source->dest), 'two-way', 'update', 'custom'. -->
+  <!-- Field: sync_mode. Default: 'mirror' -->
+  <SyncMode>{{ sync_mode | default('mirror') }}</SyncMode>
+
+  <!-- UpdateStrategy: Strategy used when SyncMode is 'update'. -->
+  <!-- Options: 'byTimestamp' or 'byContent'. -->
+  <!-- Field: update_strategy. Default: 'byTimestamp' -->
+  <UpdateStrategy>{{ update_strategy | default('byTimestamp') }}</UpdateStrategy>
+
+  <!-- TimestampPreservation: Whether to preserve original file timestamps after sync. -->
+  <!-- Field: timestamp_preservation. Default: True -->
+  <TimestampPreservation>{{ timestamp_preservation | default(true) }}</TimestampPreservation>
+
+  <!-- Folder Pairs: List of source/destination pairs to synchronize. -->
+  <!-- Each pair defines Left/Right paths, optional ignore patterns, and file filters. -->
+  <!-- Field: folder_pairs (list). Default: [] -->
+  {% for pair in folder_pairs | default([]) %}
+  <FolderPair>
+    <!-- Left: The source or first side of the synchronization pair. -->
+    <Left>{{ pair.left | default('') }}</Left>
+
+    <!-- Right: The destination or second side of the synchronization pair. -->
+    <Right>{{ pair.right | default('') }}</Right>
+
+    <!-- IgnorePatterns: List of glob patterns for files/folders to ignore. -->
+    {% if pair.ignore_patterns is defined and pair.ignore_patterns | default([]) | length > 0 %}
+    <IgnorePatterns>
+      {% for pattern in pair.ignore_patterns | default([]) %}
+      <Pattern>{{ pattern | default('') }}</Pattern>
+      {% endfor %}
+    </IgnorePatterns>
+    {% endif %}
+
+    <!-- FileFilter: List of filename patterns to include/exclude. -->
+    {% if pair.file_filter is defined and pair.file_filter | default([]) | length > 0 %}
+    <FileFilter>
+      {% for filter in pair.file_filter | default([]) %}
+      <Filter>{{ filter | default('') }}</Filter>
+      {% endfor %}
+    </FileFilter>
+    {% endif %}
+  </FolderPair>
+  {% endfor %}
+
+  <!-- Comparison Settings: How FreeFileSync determines if files differ. -->
+  <Comparison>
+    <!-- Method: Base method for comparing files. -->
+    <!-- Options: 'timestamp', 'size', 'content'. -->
+    <!-- Field: comparison_method. Default: 'timestamp' -->
+    <Method>{{ comparison_method | default('timestamp') }}</Method>
+
+    <!-- BinaryComparison: Enable byte-by-byte check if timestamps/sizes match. -->
+    <!-- Field: binary_comparison. Default: False -->
+    <BinaryComparison>{{ binary_comparison | default(false) }}</BinaryComparison>
+  </Comparison>
+
+  <!-- Error Handling -->
+  <!-- OnConflict: Action when files differ and need synchronization. -->
+  <!-- Options: 'skip', 'overwriteNewer', 'keepBoth'. -->
+  <!-- Field: on_conflict. Default: 'skip' -->
+  <OnConflict>{{ on_conflict | default('skip') }}</OnConflict>
+
+  <!-- OnError: Behavior when a sync operation fails. -->
+  <!-- Options: 'continue', 'abort', 'retry'. -->
+  <!-- Field: on_error. Default: 'continue' -->
+  <OnError>{{ on_error | default('continue') }}</OnError>
+
+  <!-- Deletion Behavior: Scope of deletions during sync. -->
+  <!-- Options: 'both', 'left', 'right', 'none'. -->
+  <!-- Field: deletion_behavior. Default: 'both' -->
+  <Deletion>{{ deletion_behavior | default('both') }}</Deletion>
+
+  <!-- MoveDetection: Detect moved files using internal database (requires .ffs_db). -->
+  <!-- Field: move_detection. Default: True -->
+  <MoveDetection>{{ move_detection | default(true) }}</MoveDetection>
+
+  <!-- Logging Configuration -->
+  <Log>
+    <!-- Level: Verbosity of the log output. -->
+    <!-- Options: 'minimal', 'detailed', 'debug'. -->
+    <!-- Field: log_level. Default: 'detailed' -->
+    <Level>{{ log_level | default('detailed') }}</Level>
+
+    <!-- File: Path to write the log file. If empty, logs go to console/stdout. -->
+    <!-- Field: log_file. Default: '' -->
+    {% set log_file_val = log_file | default('') %}
+    {% if log_file_val is defined and log_file_val | length > 0 %}
+    <File>{{ log_file_val }}</File>
+    {% endif %}
+  </Log>
+
+  <!-- Parallelization Settings -->
+  <Parallelization>
+    <!-- MaxParallelFiles: Max number of files processed concurrently. -->
+    <!-- Field: max_parallel_files. Default: 4 -->
+    <MaxParallelFiles>{{ max_parallel_files | default(4) }}</MaxParallelFiles>
+
+    <!-- MaxParallelOps: Max number of parallel I/O operations per device. -->
+    <!-- Field: max_parallel_ops. Default: 8 -->
+    <MaxParallelOps>{{ max_parallel_ops | default(8) }}</MaxParallelOps>
+  </Parallelization>
+
+  <!-- Email Notifications (Donation/Business Edition Only) -->
+  {% set email_recipients_val = email_recipients | default([]) %}
+  {% if email_recipients_val is defined and email_recipients_val | length > 0 %}
+  <EmailNotifications>
+    <!-- Enabled: Turns email notifications on. -->
+    <Enabled>true</Enabled>
+    <Recipients>
+      <!-- Recipient: Individual email address receiving logs. -->
+      {% for email in email_recipients_val | default([]) %}
+      <Recipient>{{ email | default('') }}</Recipient>
+      {% endfor %}
+    </Recipients>
+  </EmailNotifications>
+  {% endif %}
+
+</FreeFileSync>

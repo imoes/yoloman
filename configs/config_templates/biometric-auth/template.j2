@@ -1,0 +1,109 @@
+#!/bin/bash
+#
+# LSB (Linux Standard Base) Init Script for Biometric Authentication Service
+#
+# This script manages the {{ (service_name | default('biometric-authentication')) }} service.
+# It handles starting, stopping, restarting, and checking the status of the
+# biometric authentication daemon using start-stop-daemon.
+
+### BEGIN INIT INFO
+# Provides:          {{ (provides | default('biometric-authentication')) }}
+# Required-Start:    $local_fs dbus
+# Required-Stop:     $local_fs dbus
+# Should-Start:      $named
+# Should-Stop:       $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ (short_description | default('Biometric Authentication Service')) }}
+# Description:
+{% for line in (description_lines | default([])) | list %}
+{{ line | string }}
+{% endfor %}
+### END INIT INFO
+
+# Ensure exit on error
+set -e
+
+# Define paths for the daemon binary
+# Base directory derived from service_name
+# Default service_name: biometric-authentication
+# Default daemon executable: biometric-authenticationd
+# Path suffix allows for architecture-specific paths if needed
+{% set sn = service_name | default('biometric-authentication') %}
+{% set dn = daemon_name | default('biometric-authenticationd') %}
+{% set ps = path_suffix | default('') %}
+
+PATH=/bin:/usr/bin:/sbin:/usr/lib/{{ sn }}/{{ ps | string }}
+DAEMON=/usr/lib/{{ sn }}/{{ dn }}{{ ps | string }}
+PIDFILE=/tmp/{{ sn }}.pid
+
+# Load locale settings if available to ensure consistent logging/output
+if [ -r /etc/default/locale ]; then
+  . /etc/default/locale
+  export LANG LANGUAGE
+fi
+
+# Check if the daemon binary exists and is executable
+test -x $DAEMON || exit 0
+
+# Source LSB init functions for standard logging
+. /lib/lsb/init-functions
+
+# Arguments for starting the daemon
+# --pidfile: Specifies the PID file for tracking the daemon process
+# --remove-pidfile: Removes the PID file upon daemon exit
+# --background: Runs the daemon in the background
+# --quiet: Reduces output verbosity
+# --exec: Specifies the executable to run
+SSD_START_ARGS="--pidfile $PIDFILE --remove-pidfile --background --quiet --exec $DAEMON"
+
+# Arguments for stopping the daemon
+SSD_STOP_ARGS="--pidfile $PIDFILE"
+
+# Function to start the service
+# Logs the start message, invokes start-stop-daemon, and logs the result
+start(){
+  # Log start message using the lowercase short description
+  log_begin_msg "Starting {{ (short_description_lower | default('biometric authentication service')) }}"
+  start-stop-daemon --start $SSD_START_ARGS
+  log_end_msg 0
+}
+
+# Function to stop the service
+# Logs the stop message, invokes start-stop-daemon, and logs the result
+# Uses || true to prevent script failure if the daemon is already stopped
+stop(){
+  log_daemon_msg "Stopping {{ (short_description_lower | default('biometric authentication service')) }}"
+  start-stop-daemon --stop --quiet $SSD_STOP_ARGS || true
+  log_end_msg 0
+}
+
+# Main command dispatcher based on script argument $1
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart)
+    # Restart involves stopping first, then starting
+    stop
+    start
+    ;;
+  force-reload)
+    # Force-reload also stops and starts, typically used if config changes
+    stop
+    start
+    ;;
+  status)
+    # Check the status of the process associated with the PID file
+    status_of_proc -p "$PIDFILE" "$DAEMON" "$(basename $DAEMON)"
+    ;;
+  *)
+    # Display usage instructions if an unrecognized argument is passed
+    echo "Usage: /etc/init.d/{{ sn }} {start|stop|restart|status}"
+    exit 1
+esac
+
+exit 0

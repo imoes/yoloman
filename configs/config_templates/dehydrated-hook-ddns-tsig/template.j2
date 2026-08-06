@@ -1,0 +1,107 @@
+# ============================================================================
+# dehydrated-hook-ddns-tsig Configuration Template
+# ============================================================================
+# This file configures the dehydrated DDNS TSIG hook.
+# It allows dehydrated (Let's Encrypt client) to dynamically update DNS records
+# using TSIG authentication, enabling automated certificate issuance for
+# domains managed via dynamic DNS.
+#
+# Sections:
+#   [DEFAULT]  - Global settings applied to all domains.
+#   [domain.tld]- Optional per-domain overrides.
+# ============================================================================
+
+[DEFAULT]
+# ---------------------------------------------------------------------------
+# DNS Nameserver Configuration
+# ---------------------------------------------------------------------------
+
+# IP address of the DNS nameserver to update.
+# This server must be authoritative for the zones you are updating and
+# configured to accept TSIG-signed updates.
+# Default: 10.0.0.1
+name_server_ip = {{ name_server_ip | default('10.0.0.1') }}
+
+# Time-to-live (seconds) for the DNS challenge record (_acme-challenge).
+# This determines how long resolvers should cache the challenge TXT record.
+# Shorter TTLs allow faster propagation but increase query load.
+# Default: 300
+ttl = {{ ttl | default(300) }}
+
+# Seconds to wait before verifying the challenge is served.
+# The hook waits this duration after pushing the record to allow DNS
+# propagation before the ACME server attempts validation.
+# Default: 5
+wait = {{ wait | default(5) }}
+
+# Verbosity level of the script.
+# Use negative values to suppress more output (e.g., -1 for errors only).
+# 0 is standard info/debug output.
+# Default: 0
+verbosity = {{ verbosity | default(0) }}
+
+# ---------------------------------------------------------------------------
+# TSIG Key Authentication Configuration
+# ---------------------------------------------------------------------------
+
+# Name of the TSIG key defined in your DNS server (e.g., BIND9).
+# This key name is used to identify the secret during the update transaction.
+# If omitted, it is read from the DDNS_HOOK_KEY_FILE environment variable.
+# Default: testkey
+key_name = {{ key_name | default('testkey') }}
+
+# Base64-encoded TSIG key secret.
+# This secret must match the key configured in your DNS server's
+# named.conf (or equivalent). It is used to sign all DNS updates.
+# If omitted, it is read from the DDNS_HOOK_KEY_FILE environment variable.
+# Default: R3HI8P6BKw9ZwXwN3VZKuQ==
+key_secret = "{{ key_secret | default('R3HI8P6BKw9ZwXwN3VZKuQ==') }}"
+
+# Algorithm used for the TSIG key.
+# Supported values include hmac-md5, hmac-sha1, hmac-sha256, etc.
+# Note: Older BIND versions may only support hmac-md5.
+# If omitted, it is read from the DDNS_HOOK_KEY_FILE environment variable.
+# Default: hmac-md5
+key_algorithm = {{ key_algorithm | default('hmac-md5') }}
+
+# ---------------------------------------------------------------------------
+# DNS Record Rewriting (Optional)
+# ---------------------------------------------------------------------------
+
+# Perl-style regex for rewriting DNS record names during updates.
+# Useful when you want to keep the ACME challenge in a "static" zone
+# (where you can create CNAMEs) but actually update a "dynamic" zone.
+# Example: s/^_acme-challenge\.(.+)$/\.dynamiczone.otherdomain.ext/
+# The hook will replace the domain part of the _acme-challenge record
+# with the target specified in the regex replacement.
+# If omitted, updates are performed on the exact domain requested.
+# Default: s/^_acme-challenge\.(.+)$/.dynamiczone.otherdomain.ext/
+dns_rewrite = {{ dns_rewrite | default('s/^_acme-challenge\\.(.+)$/\\.dynamiczone.otherdomain.ext/') }}
+
+# ---------------------------------------------------------------------------
+# Post-Deployment Hooks
+# ---------------------------------------------------------------------------
+
+# Path to an optional script to run after a certificate is successfully
+# deployed to the server. This corresponds to dehydrated's 'deploy_cert' hook.
+# The script will be called with standard dehydrated arguments (domain, cert,
+# chain, fullchain, key).
+# If omitted, no post-deployment script is executed.
+# Default: /script/to/dehydrated_hooks/deploy_cert.sh
+post_deploy_cert = {{ post_deploy_cert | default('/script/to/dehydrated_hooks/deploy_cert.sh') }}
+
+# ---------------------------------------------------------------------------
+# Per-Domain Overrides
+# ---------------------------------------------------------------------------
+# Uncomment the section below and replace 'example.com' with your domain
+# to override specific settings for that domain only.
+# All keys defined in [DEFAULT] can be overridden here.
+#
+#[example.com]
+#name_server_ip = 127.0.0.1
+#ttl = 60
+#key_name = example_key
+#key_secret = "base64secrethere=="
+#key_algorithm = hmac-sha256
+#dns_rewrite = s/^_acme-challenge\.(.+)$/\.internal.example.com/
+#post_deploy_cert = /usr/local/bin/reload-webserver.sh

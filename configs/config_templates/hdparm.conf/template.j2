@@ -1,57 +1,111 @@
-# hdparm.conf — Debian configuration for disk power management and tuning
-# This file is processed by udev and/or /lib/udev/hdparm to apply hdparm options
-# to block devices on boot or when devices are inserted.
+# hdparm configuration template
+# This file configures hdparm (hard drive parameter settings) for Linux systems.
+# It supports global defaults and per-device overrides.
 #
-# Options defined *outside* any 'DEV {...}' block apply to *all* drives.
-# Options defined *inside* a 'DEV {...}' block apply only to that specific device.
+# Format:
+# Global options (applied to all devices):
+#   option = value
 #
-# Each line must contain a single option (directive) with optional value.
-# Lines with only whitespace or starting with # are ignored.
-# No inline comments supported; avoid trailing comments.
-#
-# Example structure:
-#   global_option value
-#   DEV {
-#     device_specific_option value
+# Device-specific blocks:
+#   /dev/sdX {
+#       option = value
+#       ...
 #   }
-#
-# IMPORTANT: Misconfigured hdparm options may cause data loss or hardware instability.
 
-# Enable acoustic management (AAM) — controls acoustic noise by reducing drive head movement speed.
-# Value: 0–254 (0 = disable, 1–127 = quiet, 128–254 = performance); default 128.
-acoustic = {{ acoustic_management | default(128) }}
+# Global acoustic management level.
+# 0=off, 1–127=quiet, 128–254=performance.
+# Default: 128
+acoustic_management = {{ acoustic_management | default(128) }}
 
-# Enable Advanced Power Management (APM) — reduces power consumption by spinning down or idling.
-# Value: 1–254 (1 = minimum, 254 = maximum); 255 = disable. Default 128 on many systems.
+# Global Advanced Power Management (APM) level.
+# 1=lowest power, 254=highest performance, 255=off.
+# Default: 128
 apm = {{ apm_level | default(128) }}
 
-# Enable disk write-caching — improves performance but may increase data loss risk on power failure.
-# Value: on/off or 1/0. Enabled by default on most drives unless explicitly disabled.
+# Global write-back caching setting.
+# 'on' enables write caching, 'off' disables it.
+# Default: 'on'
 write_cache = {{ write_cache | default('on') }}
 
-# Enable/disable aggressive idle spindown (standby) — puts drive into low-power mode after inactivity.
-# Value: seconds (0–240 or multiples up to 7200 via special encodings); 0 = disabled.
-# Note: Long delays (>240s) require encoding like `240:7200` or use `standby` via udev rules instead.
-standby = {{ standby_timeout | default(60) }}
+# Global standby (spindown) timeout in seconds.
+# 0=disabled, max 7200 with encoding.
+# Default: 60
+spindown_time = {{ standby_timeout | default(60) }}
 
-# Set the I/O scheduler queue depth — adjusts number of queued requests for better throughput.
-# Not all devices support this; typically only for SATA/SCSI. Value: 1–256.
-# Usually left at driver default unless tuning for specific workloads.
-deep = {{ deep_sleep | default(0) }}
+# Global deep sleep level.
+# 0=off, >0 enables deep sleep (limited hardware support).
+# Default: 0
+# Note: hdparm does not have a direct 'deep_sleep' flag in all versions;
+# this template maps it to a comment or skips if not directly supported by the global syntax.
+# However, hdparm.conf does not support a global 'deep_sleep' keyword directly.
+# We will omit it from the global section as it's typically a device-specific or non-existent global cmd.
+# If intended for future compatibility, it can be noted in a comment.
+# deep_sleep is not a standard global hdparm.conf directive.
 
-# Set the number of sectors for read-ahead — improves sequential read performance.
-# Value: number of 512-byte sectors (e.g., 256 = 128KB); 0 = system default.
-# Modern kernels often auto-tune; only adjust for workloads with known access patterns.
-readahead = {{ read_ahead_sectors | default(256) }}
+# Global read-ahead buffer size in 512-byte sectors.
+# Default: 256
+# Note: In newer kernels, read-ahead is managed by the block layer, not hdparm.
+# This setting is legacy but still parsed by hdparm for compatibility.
+read_ahead_sectors = {{ read_ahead_sectors | default(256) }}
 
-# Enable/disable DMA — Direct Memory Access allows faster data transfer without CPU involvement.
-# Value: on/off or 1/0. Should usually be `on`; disabling is only for troubleshooting.
+# Global DMA (Direct Memory Access) setting.
+# 'on' enables DMA, 'off' disables it.
+# Default: 'on'
 dma = {{ dma_enabled | default('on') }}
 
-# Enable multi-sector I/O — allows reading/writing multiple sectors in one command.
-# Value: 1–16 sectors. Higher values improve throughput for large I/O but may increase latency.
-# Modern drives often use larger values (e.g., 16), but older drives may only support up to 4.
-multi_count = {{ multi_sector_io | default(16) }}
+# Global multi-sector I/O setting.
+# Number of sectors per command, 1–16.
+# Default: 16
+mult_sect_io = {{ multi_sector_io | default(16) }}
 
-# Set security password lock/unlock (used rarely in production configs).
-# Format: `password = 
+# Global power settings reapplied on system resume.
+# If true, power settings are re-applied after PM resume.
+# Default: False
+# Note: This is handled by the init script/pm-utils hook, not a hdparm.conf directive directly.
+# We log it as a comment for documentation purposes.
+# global_power_during_resume = {{ global_power_during_resume | default(False) }}
+
+# Device-specific configurations
+# Iterates over the 'devices' list provided in the schema.
+# Each device block applies the specified options to the named block device.
+{% for device_cfg in devices | default([]) %}
+# Configuration for device: {{ device_cfg.device | default('unknown') }}
+{% if device_cfg.device %}
+{{ device_cfg.device }} {
+    # Acoustic management for this device
+    {% if device_cfg.acoustic_management is defined %}
+    acoustic_management = {{ device_cfg.acoustic_management | default(128) }}
+    {% endif %}
+
+    # APM level for this device
+    {% if device_cfg.apm_level is defined %}
+    apm = {{ device_cfg.apm_level | default(128) }}
+    {% endif %}
+
+    # Write cache for this device
+    {% if device_cfg.write_cache is defined %}
+    write_cache = {{ device_cfg.write_cache | default('on') }}
+    {% endif %}
+
+    # Standby timeout for this device
+    {% if device_cfg.standby_timeout is defined %}
+    spindown_time = {{ device_cfg.standby_timeout | default(60) }}
+    {% endif %}
+
+    # Read-ahead sectors for this device
+    {% if device_cfg.read_ahead_sectors is defined %}
+    read_ahead_sectors = {{ device_cfg.read_ahead_sectors | default(256) }}
+    {% endif %}
+
+    # DMA setting for this device
+    {% if device_cfg.dma_enabled is defined %}
+    dma = {{ device_cfg.dma_enabled | default('on') }}
+    {% endif %}
+
+    # Multi-sector I/O for this device
+    {% if device_cfg.multi_sector_io is defined %}
+    mult_sect_io = {{ device_cfg.multi_sector_io | default(16) }}
+    {% endif %}
+}
+{% endif %}
+{% endfor %}

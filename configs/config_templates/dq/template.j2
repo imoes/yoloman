@@ -1,0 +1,152 @@
+# ============================================================================
+# dq - DNS Query Tool Configuration
+# ============================================================================
+# This file configures default behavior for the 'dq' command-line DNS query tool.
+# dq is a simple DNS client that supports recursive and authoritative queries,
+# TCP/UDP transport, and DNSCurve for encrypted/resolved DNS.
+#
+# By default, dq uses the system's /etc/resolv.conf for resolution.
+# This configuration file allows overriding those defaults globally.
+# Specific overrides can also be passed via command-line flags at runtime.
+#
+# See `man dq` for full documentation of available options and environment variables.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Recursive vs Authoritative Query Mode
+# --------------------------------------------------------------------------
+# Controls whether dq sends standard recursive queries (using local resolvers)
+# or authoritative queries (directed at a specific nameserver).
+#
+# - true:  Sends recursive queries (-r flag is implied). This is the default
+#          behavior for typical DNS lookups.
+# - false: Sends authoritative queries (-a flag). Useful for debugging or
+#          querying specific authoritative servers directly.
+#
+# Schema Default: true
+default_recursive: {{ default_recursive | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# Transport Protocol: UDP or TCP
+# --------------------------------------------------------------------------
+# Selects the transport layer protocol for DNS queries.
+#
+# - false: Uses UDP (User Datagram Protocol). This is the standard, faster,
+#          default for most DNS traffic.
+# - true:  Uses TCP (Transmission Control Protocol). Required for large
+#          responses (DNSSEC, zone transfers) or when UDP is blocked.
+#
+# Schema Default: false
+default_tcp: {{ default_tcp | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# DNSCurve Streamlined Mode
+# --------------------------------------------------------------------------
+# Enables or disables the "streamlined" format for DNSCurve queries.
+# DNSCurve is a protocol for encrypted DNS communications.
+#
+# - true:  Uses streamlined format (-s). Optimized for typical DNSCurve
+#          setups.
+# - false: Uses regular DNSCurve mode.
+#
+# Note: If using DNSCurve TXT format (via dnscurve_txt_suffix), this setting
+#       is ignored.
+#
+# Schema Default: true
+default_dnscurve_streamlined: {{ default_dnscurve_streamlined | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# DNSCurve TXT Format Suffix
+# --------------------------------------------------------------------------
+# Specifies the DNS label suffix used when querying via DNSCurve TXT records.
+# This allows DNSCurve queries to be tunneled through standard TXT records
+# in a specific TLD or subdomain.
+#
+# Example: Setting this to 'cz' means dq will query TXT records like
+#          `<query>.cz.` instead of standard DNSCurve channels.
+#
+# Note: Ignored if not using DNSCurve or if streamlined mode is active.
+#
+# Schema Default: '' (empty string)
+dnscurve_txt_suffix: {{ dnscurve_txt_suffix | default('') }}
+
+# --------------------------------------------------------------------------
+# DNSCurve Server Public Key
+# --------------------------------------------------------------------------
+# The hex-encoded 32-byte public key of the DNSCurve server.
+# This key is used to authenticate and encrypt communications with the
+# specified DNSCurve server.
+#
+# Note: Required only when using DNSCurve mode. Must be a 64-character
+#       hexadecimal string (32 bytes).
+#
+# Schema Default: '' (empty string)
+dnscurve_public_key: {{ dnscurve_public_key | default('') }}
+
+# --------------------------------------------------------------------------
+# Query Timeout
+# --------------------------------------------------------------------------
+# Sets the maximum time dq waits for a response before giving up.
+#
+# Range: 1 to 60 seconds.
+# If no response is received within this window, dq returns an error.
+#
+# Schema Default: 60
+default_timeout: {{ default_timeout | default(60) }}
+
+# --------------------------------------------------------------------------
+# Default DNS Port
+# --------------------------------------------------------------------------
+# Specifies the default port number for DNS queries.
+#
+# - Standard DNS uses port 53.
+# - This setting is primarily relevant when `default_host` is explicitly
+#   configured to point to a non-standard DNS server.
+# - Queries relying on /etc/resolv.conf generally ignore this setting.
+#
+# Schema Default: 53
+default_port: {{ default_port | default(53) }}
+
+# --------------------------------------------------------------------------
+# Custom DNS Server Host
+# --------------------------------------------------------------------------
+# Overrides the DNS server used for queries.
+#
+# - If empty: dq falls back to the nameservers defined in /etc/resolv.conf.
+# - If set:   dq sends queries to this hostname or IP address.
+#
+# This is particularly useful for:
+# 1. Authoritative queries against a specific nameserver.
+# 2. Overriding system resolvers for testing or privacy reasons.
+# 3. Connecting to private/enterprise DNS servers.
+#
+# Schema Default: '' (empty string)
+default_host: {{ default_host | default('') }}
+
+# --------------------------------------------------------------------------
+# Environment Variable Overrides (Reference Only)
+# --------------------------------------------------------------------------
+# dq respects the following environment variables, which take precedence
+# over some command-line defaults or config settings depending on context.
+# These are NOT configurable via this file, but are provided for reference.
+#
+# - DNSCACHEIP:  IP address to use for DNS caching/forwarding.
+# - LOCALDOMAIN: Default domain suffix to append to unqualified names.
+# - DNSREWRITEFILE: Path to a file containing DNS rewrite rules.
+#
+# See `man dq` ENVIRONMENT section for detailed behavior.
+
+# --------------------------------------------------------------------------
+# Usage Examples
+# --------------------------------------------------------------------------
+#
+# 1. Basic query using defaults (recursive, UDP, system resolver):
+#      dq A example.com
+#
+# 2. Authoritative query to a specific server (non-recursive, TCP):
+#      dq -a -t A example.com ns.example.com
+#
+# 3. Using this config file's defaults:
+#      Ensure this file is in the expected location (usually /etc/dq.conf
+#      or similar, depending on distribution). dq will automatically read
+#      these defaults if no conflicting flags are provided on the command line.

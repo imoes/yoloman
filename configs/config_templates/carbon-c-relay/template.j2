@@ -1,0 +1,45 @@
+# Carbon-C-Relay Configuration Template
+#
+# This template generates the main configuration file for carbon-c-relay, a high-performance
+# metric relay agent for the Carbon protocol (used by Graphite/InfluxDB).
+#
+# The configuration defines clusters of backend destinations and routing rules (match statements)
+# to direct incoming metrics to those backends.
+#
+# Variables are sourced from the Ansible role schema. Every variable uses the `default()` filter
+# to prevent render errors if the variable is undefined.
+
+## Cluster: send-through
+# Description: A cluster of backend destinations where ALL metrics are forwarded to every host
+# in the list (replication/mirroring). This is useful for high availability or fan-out.
+#
+# Configuration directive: `cluster <name>` followed by `forward` and a list of `host:port` entries.
+# The variable `send_through_destinations` is expected to contain pre-formatted, indented lines
+# representing the backend hosts.
+#
+# Default: Mirrors to host1:2003 and host2:2003 if not specified.
+cluster send-through
+  forward
+{{ send_through_destinations | default('    host1:2003\n    host2:2003') }}
+
+## Cluster: send-to-any-one
+# Description: A cluster of backend destinations where metrics are sent to the FIRST responsive
+# host in the list (any-of replication). This is useful for active/standby failover scenarios.
+#
+# Configuration directive: `cluster <name>` followed by `any_of` and a space-separated list
+# of `host:port` entries.
+#
+# Default: Sends to host1:2003 or host2:2003 (whichever responds first) if not specified.
+cluster send-to-any-one
+  any_of{{ send_to_any_one_destinations | default(' host1:2003 host2:2003') }};
+
+## Default Routing Rules
+# These match statements determine which metrics go to which clusters.
+# By default, all metrics (*) are sent to both clusters. Adjust these rules based on your
+# topology requirements.
+
+# Route all metrics to the 'send-through' cluster (replicated)
+match * send to send-through;
+
+# Route all metrics to the 'send-to-any-one' cluster (failover)
+match * send to send-to-any-one;

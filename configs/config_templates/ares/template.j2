@@ -1,0 +1,70 @@
+# ==============================================================================
+# ares configuration template
+# ==============================================================================
+# This template generates the command-line invocation for the ares emulator.
+# It uses `--flag=value` syntax derived from the provided schema fields.
+# All variables default to their schema defaults to ensure valid output
+# even when upstream values are missing.
+# ==============================================================================
+
+{% if cmd_opts | default([]) %}
+# Command-line options: List of raw command-line options passed directly to ares.
+# Each item is one argument.
+{% for opt in cmd_opts | default([]) %}{{ opt }}
+{% endfor %}{% endif %}
+
+{% if rom_path | default('') %}
+# Path to ROM directory (absolute or user-relative).
+# Defaults to ares' default ROM directory if empty.
+--rom-path={{ rom_path | default('') }}
+{% endif %}
+
+{% if system_path | default('') %}
+# Path to system directory (absolute or user-relative, for BIOS/firmware).
+# Defaults to ares' default system directory if empty.
+--system-path={{ system_path | default('') }}
+{% endif %}
+
+{% if shader_path | default('') %}
+# Path to shader directory (absolute or user-relative).
+# Defaults to ares' default shader directory if empty.
+--shader-path={{ shader_path | default('') }}
+{% endif %}
+
+# Enable or disable video output.
+# Must be boolean. Defaults to true.
+--video={{ video_enabled | default(true) | lower }}
+
+# Enable or disable audio output.
+# Must be boolean. Defaults to true.
+--audio={{ audio_enabled | default(true) | lower }}
+
+# Desired video output resolution in 'widthxheight' format (e.g., '1920x1080').
+# Empty string means default resolution.
+{% if video_resolution | default('') %}--video-resolution={{ video_resolution | default('') }}{% endif %}
+
+# Audio output sample rate in Hz.
+# Common values: 44100, 48000, 96000. Defaults to 48000.
+--audio-sample-rate={{ audio_sample_rate | default(48000) }}
+
+# Enable or disable input devices (controllers, keyboards).
+# Must be boolean. Defaults to true.
+--input={{ input_enabled | default(true) | lower }}
+
+# Enable or disable networking functionality.
+# Must be boolean. Defaults to false.
+--network={{ network_enabled | default(false) | lower }}
+
+# Enable or disable logging.
+# Must be boolean. Defaults to false.
+--logging={{ logging_enabled | default(false) | lower }}
+
+# Verbosity level for logs.
+# Valid values: 'debug', 'info', 'warn', 'error'.
+# Empty string means use the application's default.
+{% if log_level | default('') %}--log-level={{ log_level | default('') }}{% endif %}
+
+# List of plugins to load at startup.
+# Each item is a plugin name or path to a plugin identifier.
+{% if plugins | default([]) %}{% for plugin in plugins | default([]) %}--plugin={{ plugin }}
+{% endfor %}{% endif %}

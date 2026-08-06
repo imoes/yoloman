@@ -1,0 +1,18 @@
+# Gearman Job Server Configuration Template
+# This file configures the startup parameters for the gearmand daemon.
+# It is intended to be rendered into a script variable (PARAMS) passed to the
+# init script or systemd service.
+
+# Listen address and port options for gearmand.
+# Typically --listen=<host>[:<port>].
+# Default: --listen=localhost
+PARAMS="--listen={{ gearman_listen | default('--listen=localhost') }} \
+
+# Whether to run gearmand as a daemon.
+# Set to empty string to disable daemon mode (run in foreground).
+# Default: --daemon
+{{ gearman_daemon | default('--daemon') }} \
+
+# Path to the gearmand log file.
+# Default: /var/log/gearman-job-server/gearmand.log
+--log-file={{ gearman_log_file | default('/var/log/gearman-job-server/gearmand.log') }}"

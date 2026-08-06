@@ -1,69 +1,80 @@
 # ipmitool configuration file
 # Controls default behavior of ipmitool commands
+#
+# This template is self-documenting. Each setting is commented with its
+# schema description and source default. Variables use `default()` to
+# ensure safe rendering even if the Ansible role does not pass them.
 
-# Default BMC IP address (overrides environment variable IPMI_HOST)
-# Set to 'localhost' for local BMC access via kernel IPMI
-# Set to 'ipmi://user:pass@host:port' for remote BMC access via IPMI-LAN
-#host = localhost
+# ==============================================================================
+# BMC Access & Authentication
+# ==============================================================================
 
-# Default BMC username (overrides environment variable IPMI_USERNAME)
-#username = admin
+# BMC hostname/IP or IPMI URI for remote access (e.g., 'ipmi://user:pass@192.168.1.10:623')
+# Defaults to 'localhost' for local BMC access via kernel IPMI.
+# If set to an IPMI URI, it overrides username/password/interface settings in many drivers.
+#host = {{ host | default('localhost') }}
 
-# Default BMC password (overrides environment variable IPMI_PASSWORD)
-#password = password
+# BMC username for authentication (leave blank to use environment variable or prompt)
+#username = {{ username | default('') }}
 
-# Default BMC interface type
+# BMC password for authentication (leave blank to use environment variable or prompt)
+#password = {{ password | default('') }}
+
+# ==============================================================================
+# Network Interface Settings
+# ==============================================================================
+
+# IPMI interface type to use (e.g., 'lanplus' for IPMI 2.0 over LAN)
 # Supported: 'open', 'imb', 'lan', 'lanplus', 'kcs', 'bt'
-#interface = lan
+#interface = {{ interface | default('lan') }}
 
-# Default RMCP+ cipher suite (used only with 'lanplus' interface)
+# ==============================================================================
+# IPMI 2.0 / LANplus Security
+# ==============================================================================
+
+# RMCP+ cipher suite number for 'lanplus' interface (17 = AES-CBC-128 with SHA256)
 # Cipher 0 = no encryption/auth; 1 = hmac-sha1; 3 = aes-cbc-128; 6 = hmac-sha256
-#ciphersuite = 3
+# Note: This setting is primarily used when interface='lanplus'.
+ciphersuite = {{ ciphersuite | default(17) }}
 
-# Default RMCP+ authentication type (used only with 'lanplus' interface)
+# RMCP+ authentication level (6 = HMAC-SHA1) for 'lanplus' interface
 # 1 = none, 2 = md2, 3 = md5, 6 = hmac-sha1, 7 = hmac-sha256, 8 = aes-cmac-128, 9 = hmac-sha384, 10 = hmac-sha512
-#authlevel = 6
+# Note: This setting is primarily used when interface='lanplus'.
+#authlevel = {{ authlevel | default(6) }}
 
-# Default RMCP+ session timeout in milliseconds
-#timeout = 1500
+# ==============================================================================
+# Connection Reliability
+# ==============================================================================
 
-# Default RMCP+ retry count
-#retries = 3
+# RMCP+ session timeout in milliseconds
+#timeout = {{ timeout | default(1500) }}
 
-# Enable verbose output (same as '-v' flag)
-#verbose = false
+# Number of RMCP+ packet retries before failing
+#retries = {{ retries | default(3) }}
 
-# Default payload mode for SOL (Serial-over-LAN)
-# Supported: 'raw', 'rfu', 'serial', 'bridge'
-#payload_mode = raw
+# ==============================================================================
+# Output & Debugging
+# ==============================================================================
 
-# Default SOL payload port number (for 'bridge' payload mode)
-#sol_port = 0
+# Enable verbose debug output (equivalent to '-v' command-line flag)
+#verbose = {{ verbose | default(false) }}
 
-# Enable SOL session keep-alive (send periodic keep-alive packets)
-#sol_keepalive = true
+# ==============================================================================
+# Serial Over LAN (SOL)
+# ==============================================================================
 
-# Default SOL idle timeout in seconds
-#sol_idle_timeout = 30
+# Enable periodic keep-alive packets during SOL sessions
+#sol_keepalive = {{ sol_keepalive | default(true) }}
 
-# Default SOL character size in bits
-#sol_char_size = 8
+# ==============================================================================
+# Local Device Access
+# ==============================================================================
 
-# Default SOL stop bits
-#sol_stop_bits = 1
+# Local IPMI device path (used with kernel interface like 'kcs', 'bt')
+#device = {{ device | default('/dev/ipmi0') }}
 
-# Default SOL parity
-# Supported: 'none', 'odd', 'even', 'mark', 'space'
-#sol_parity = none
+# Enable file locking on the local device path for safe concurrent access
+#local_locking = {{ local_locking | default(true) }}
 
-# Default SOL baud rate divisor
-#sol_baud_rate = 9600
-
-# Default local device path (for kernel IPMI interface)
-#device = /dev/ipmi0
-
-# Enable local device locking (use flock on device file)
-#local_locking = true
-
-# Enable use of environment variables for credentials (if not set above)
-#use_env = true
+# Allow credentials and settings to be overridden via environment variables
+#use_env = {{ use_env | default(true) }}

@@ -52,7 +52,11 @@
   "missing_stripe_filler": {
     "type": "string",
     "default": "error",
-    "description": "What to use as a placeholder for missing stripes (e.g., 'error', 'zero', or a device path like '/dev/null')."
+    "description": "What to use as a placeholder for missing stripes (e.g., 'error', 'zero', or a device path like '/dev/null').",
+    "enum": [
+      "error",
+      "zero"
+    ]
   },
   "use_udev_events": {
     "type": "bool",
@@ -112,7 +116,11 @@
   "mirror_log_type": {
     "type": "string",
     "default": "disk",
-    "description": "Default mirror log type: 'disk' (persistent log on disk) or 'core' (in-memory, lost on restart)."
+    "description": "Default mirror log type: 'disk' (persistent log on disk) or 'core' (in-memory, lost on restart).",
+    "enum": [
+      "disk",
+      "core"
+    ]
   },
   "default_mirror_count": {
     "type": "number",
@@ -126,97 +134,6 @@
   },
   "dmeventd_mirror_library": {
     "type": "string",
-    "default": "liblvm2-raid-monitor.so",
-    "description": "Dmeventd library to monitor RAID/mirror devices."
-  },
-  "dmeventd_raid_library": {
-    "type": "string",
-    "default": "liblvm2-raid-monitor.so",
-    "description": "Dmeventd library to monitor RAID devices (shared with mirrors in many setups)."
-  },
-  "dmeventd_snapshot_library": {
-    "type": "string",
-    "default": "liblvm2-snapshot-monitor.so",
-    "description": "Dmeventd library to monitor snapshot devices."
-  },
-  "activation_missing_stripe_filler": {
-    "type": "string",
-    "default": "error",
-    "description": "Action when activating a stripe LV with missing PVs: 'error', 'zero', or a device path."
-  },
-  "activation_min_available_percent": {
-    "type": "number",
-    "default": 0,
-    "description": "Minimum available space (%) required in VG to activate an LV (0 = always activate)."
-  },
-  "activation_verify_metadata": {
-    "type": "bool",
-    "default": false,
-    "description": "Verify metadata consistency before activation (slower but safer)."
-  },
-  "activation_retry_deactivation": {
-    "type": "number",
-    "default": 100,
-    "description": "Delay (ms) to retry deactivation after failure."
-  },
-  "activation_reserved_memory": {
-    "type": "number",
-    "default": 8192,
-    "description": "Reserved memory (KB) for device activation (0 = auto)."
-  },
-  "polling_interval": {
-    "type": "number",
-    "default": 10,
-    "description": "Seconds between checks for RAID/snapshot sync progress."
-  },
-  "cache_default_mode": {
-    "type": "string",
-    "default": "writethrough",
-    "description": "Default cache mode for new cache LVs: 'writethrough' (safe) or 'writeback' (faster but risk if cache fails)."
-  },
-  "cache_default_metadata_size": {
-    "type": "number",
-    "default": 128,
-    "description": "Default cache metadata size (MB)."
-  },
-  "cache_default_data_size": {
-    "type": "number",
-    "default": 1024,
-    "description": "Default cache data size (MB)."
-  },
-  "cache_default_policy": {
-    "type": "string",
-    "default": "smq",
-    "description": "Default cache eviction policy: 'smq' (most common), 'mq', or 'cleaner'."
-  },
-  "cache_policy_settings": {
-    "type": "object",
-    "default": {
-      "migration_threshold": 2048
-    },
-    "description": "Key-value settings passed to cache policy (e.g., migration_threshold, metadata_ratio).",
-    "items": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Policy setting name (e.g., migration_threshold)."
-        },
-        "value": {
-          "type": "string",
-          "description": "Policy setting value as string (LVM expects string-based config)."
-        }
-      }
-    }
-  },
-  "locking_type": {
-    "type": "number",
-    "default": 1,
-    "description": "Locking method: 0=none, 1=local (file-based), 2=clustered (via lvmlockd), 3=clustered (via lock manager)."
-  },
-  "activation_read_only": {
-    "type": "bool",
-    "default": false,
-    "description": "Force all LV activation to be read-only (for disaster recovery or inspection)."
+    "description": "Path to the dmeventd mirror monitoring library (not parametrized in default)."
   }
 }

@@ -1,0 +1,29 @@
+# fzf (fuzzy finder) configuration template
+# This template generates a shell snippet to set fzf options and enable
+# shell integration for Bash, Zsh, or Fish.
+
+# Set the default options for fzf via the FZF_DEFAULT_OPTS environment variable.
+# This is equivalent to setting $FZF_DEFAULT_OPTS in your shell profile.
+# Example value: '--layout=reverse --border --cycle'
+export FZF_DEFAULT_OPTS={{ fzf_default_opts | default('') | quote }}
+
+{# Shell integration: Bash #}
+{# Enables key bindings and fuzzy completion for Bash. #}
+{% if shell_integration_bash is sameas true %}
+# Bash integration
+eval "$(fzf --bash)"
+{% endif %}
+
+{# Shell integration: Zsh #}
+{# Enables key bindings and fuzzy completion for Zsh. #}
+{% if shell_integration_zsh is sameas true %}
+# Zsh integration
+source <(fzf --zsh)
+{% endif %}
+
+{# Shell integration: Fish #}
+{# Enables key bindings and fuzzy completion for Fish. #}
+{% if shell_integration_fish is sameas true %}
+# Fish integration
+fzf --fish | source
+{% endif %}

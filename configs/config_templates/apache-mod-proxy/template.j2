@@ -4,14 +4,6 @@ LoadModule proxy_http_module modules/mod_proxy_http.so
 LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
 LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
 
-# Enable runtime configuration for shared memory slot-based session management
-<IfModule mod_slotmem_shm.c>
-  SlotMemProvider slotmem-shm
-</IfModule>
-
-# Set default proxy timeout values (seconds)
-ProxyTimeout {{ proxy_timeout }}
-
 # Enable or disable proxy requests (disable in production unless explicitly needed)
 <IfModule mod_proxy.c>
   ProxyRequests Off
@@ -21,6 +13,9 @@ ProxyTimeout {{ proxy_timeout }}
     Require host localhost
   </Proxy>
 </IfModule>
+
+# Set default proxy timeout values (seconds)
+ProxyTimeout {{ proxy_timeout }}
 
 # Define load balancer cluster members
 {% for upstream in upstreams %}
@@ -49,7 +44,3 @@ ProxyPass "/" "balancer://{{ upstream.name }}/"
 ProxyPassReverse "/" "balancer://{{ upstream.name }}/"
 {% endif %}
 {% endfor %}
-
-# Optional health check endpoint (requires mod_proxy_hcheck)
-# Uncomment to enable periodic health checks (requires mod_proxy_hcheck)
-# HCheckMgmtInterval 60

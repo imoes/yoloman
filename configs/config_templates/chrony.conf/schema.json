@@ -2,56 +2,22 @@
   "allow_networks": {
     "type": "list",
     "default": [],
-    "description": "List of networks to allow NTP clients from. Each item has IP and prefix length.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ip": {
-          "type": "string",
-          "default": "",
-          "description": "IPv4 or IPv6 base address (e.g., '192.168.1.0')"
-        },
-        "prefix": {
-          "type": "number",
-          "default": 24,
-          "description": "Network prefix length (e.g., 24 for /24)"
-        }
-      }
-    }
+    "description": "List of networks to allow NTP clients from. Each item has IP and prefix length."
   },
   "allow_hosts": {
     "type": "list",
     "default": [],
-    "description": "List of specific hosts (by IP or hostname) to allow NTP clients from.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of specific hosts (by IP or hostname) to allow NTP clients from."
   },
   "restrict_networks": {
     "type": "list",
     "default": [],
-    "description": "List of networks to restrict (relax default restrictions for).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ip": {
-          "type": "string",
-          "default": ""
-        },
-        "prefix": {
-          "type": "number",
-          "default": 32
-        }
-      }
-    }
+    "description": "List of networks to restrict (relax default restrictions for)."
   },
   "restrict_hosts": {
     "type": "list",
     "default": [],
-    "description": "List of specific hosts to restrict.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of specific hosts to restrict."
   },
   "server_mode": {
     "type": "bool",
@@ -71,12 +37,12 @@
   "local_reference": {
     "type": "bool",
     "default": false,
-    "description": "If true, use a local reference clock (e.g., PTP) as time source when no external servers reachable."
+    "description": "If true, use the local directive to act as an NTP server with an unsynchronized clock."
   },
-  "stratum_weight": {
+  "local_stratum": {
     "type": "number",
-    "default": 0,
-    "description": "Stratum weight to assign to this server (0\u201315). Higher values increase preference for upstream servers."
+    "default": 10,
+    "description": "Stratum level for the local reference mode. Must be 1-15. Default 10."
   },
   "makestep_threshold": {
     "type": "number",
@@ -95,37 +61,38 @@
       "statistics",
       "tracking"
     ],
-    "description": "Types of data to log (e.g., measurements, statistics, tracking, rawdata)."
+    "description": "Types of data to log (e.g., measurements, statistics, tracking)."
   },
   "rtcsync": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Enable continuous synchronization of the system clock to the RTC (hardware clock)."
   },
   "leapsec_mode": {
     "type": "string",
-    "default": "slew",
-    "description": "How to handle leap seconds: 'slew' (gradual adjustment) or 'step' (immediate adjustment)."
-  },
-  "slew_limit_ppm": {
-    "type": "number",
-    "default": 600,
-    "description": "Maximum slew rate (parts per million) allowed when correcting clock offset. Higher = faster correction."
+    "default": "system",
+    "description": "How to handle leap seconds: 'system' (kernel steps), 'step' (chronyd steps), 'slew' (gradual), or 'ignore'. Default is 'system' on Linux.",
+    "enum": [
+      "system",
+      "step",
+      "slew",
+      "ignore"
+    ]
   },
   "keyfile": {
     "type": "string",
     "default": "",
     "description": "Path to NTP authentication keys file (e.g., '/etc/chrony/chrony.keys'). Leave empty to disable auth."
   },
-  "command_key_index": {
-    "type": "number",
-    "default": 1,
-    "description": "Key index used for authenticating chronyd command-line control (e.g., via `chronyc`)."
-  },
   "ntp4_enabled": {
     "type": "bool",
     "default": true,
     "description": "Use NTP version 4 (RFC 5905). Set to false for NTPv3 compatibility (rarely needed)."
+  },
+  "ntpsigndsocket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the Samba ntp_signd socket for MS-SNTP signing. Required if ntp4_enabled and MS-SNTP is needed."
   },
   "initstepslew_threshold": {
     "type": "number",
@@ -136,21 +103,6 @@
     "type": "list",
     "default": [],
     "description": "List of network interfaces to enable hardware timestamping on (if supported by NIC/kernel)."
-  },
-  "bclient_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, enable broadcast/multicast client mode to receive NTP broadcasts (not recommended in secure environments)."
-  },
-  "broadcast_interval": {
-    "type": "number",
-    "default": 64,
-    "description": "Interval (in seconds) for broadcasting time to clients (only if `broadcast_enabled` is true)."
-  },
-  "broadcast_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable broadcast server mode to serve NTP time via broadcast packets."
   },
   "minpoll_exp": {
     "type": "number",
@@ -165,7 +117,7 @@
   "max_sources": {
     "type": "number",
     "default": 6,
-    "description": "Maximum number of sources to use for synchronization (0\u20138). More = more robust but more overhead."
+    "description": "Maximum number of sources to use for synchronization (0-16)."
   },
   "webserver_enabled": {
     "type": "bool",
@@ -177,15 +129,10 @@
     "default": 8080,
     "description": "Port for the web UI (only if `webserver_enabled` is true)."
   },
-  "webserver_keyfile": {
-    "type": "string",
-    "default": "",
-    "description": "Path to TLS key/cert PEM file for the web UI (if HTTPS required)."
-  },
   "enable_tracking_files": {
     "type": "bool",
     "default": false,
-    "description": "Enable debug logging to /var/log/chrony/ (for advanced troubleshooting)."
+    "description": "Enable debug logging/dump of measurement histories to /var/log/chrony/"
   },
   "comment_allow": {
     "type": "string",
@@ -206,11 +153,6 @@
     "type": "string",
     "default": "# Use local hardware clock as reference",
     "description": "Comment header for local reference clock."
-  },
-  "comment_stratum": {
-    "type": "string",
-    "default": "# Stratum weight",
-    "description": "Comment header for `stratumweight`."
   },
   "comment_base_dir": {
     "type": "string",
@@ -242,20 +184,10 @@
     "default": "# Leap second handling",
     "description": "Comment header for `leapsecmode`."
   },
-  "comment_slewlimit": {
-    "type": "string",
-    "default": "# Max slew rate",
-    "description": "Comment header for `slewlimit`."
-  },
   "comment_keyfile": {
     "type": "string",
     "default": "# Authentication key file",
     "description": "Comment header for `keyfile`."
-  },
-  "comment_commandkey": {
-    "type": "string",
-    "default": "# Command auth key index",
-    "description": "Comment header for `commandkey`."
   },
   "comment_ntp4": {
     "type": "string",
@@ -272,16 +204,6 @@
     "default": "# Hardware timestamping",
     "description": "Comment header for `hwtimestamp`."
   },
-  "comment_bclient": {
-    "type": "string",
-    "default": "# Disable broadcast client mode",
-    "description": "Comment header for `bclient`."
-  },
-  "comment_broadcast": {
-    "type": "string",
-    "default": "# Enable broadcast server",
-    "description": "Comment header for broadcast options."
-  },
   "comment_minpoll_maxpoll": {
     "type": "string",
     "default": "# Poll interval range",
@@ -291,11 +213,6 @@
     "type": "string",
     "default": "# Max NTP sources",
     "description": "Comment header for `maxsources`."
-  },
-  "comment_tzfile": {
-    "type": "string",
-    "default": "# Timezone rules",
-    "description": "Comment header for `tzfile`."
   },
   "comment_webserver": {
     "type": "string",

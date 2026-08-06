@@ -1,84 +1,47 @@
-# NSD configuration file for authoritative-only DNS server
-# Run as a non-iterative, authoritative-only DNS server
-# Enable IPv4 and/or IPv6
-# Configure zones and access controls
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          nsd
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: authoritative domain name server
+# Description:       NSD is a authoritative-only domain name server
+### END INIT INFO
 
-# Number of server processes to run (usually equal to CPU cores)
-server-count: {{ server_count }}
+NAME=nsd                  # Introduce the short server's name here
+DAEMON=/usr/sbin/$NAME    # Introduce the server's location here
+DESC="Name Server Daemon" # Introduce a short description here
+PIDFILE=$(nsd-checkconf -o pidfile /etc/nsd/nsd.conf)
 
-# User to run as (must have read access to zone files and config)
-chroot: {{ chroot_path }}
+do_tmpfiles() {
+    local type path mode user group
 
-# Directory where zone files are stored
-zones-dir: "{{ zones_dir }}"
+    if [ -r "/usr/lib/tmpfiles.d/$1.conf" ]; then
+        TMPFILE=/usr/lib/tmpfiles.d/$1.conf
+    fi
+    if [ -r "/etc/tmpfiles.d/$1.conf" ]; then
+        TMPFILE=/etc/tmpfiles.d/$1.conf
+    fi
 
-# File to write PID to
-pidfile: "{{ pidfile_path }}"
+    while read type path mode user group age argument; do
+        if [ "$type" = "d" ]; then
+            mkdir -p "$path"
+            chmod "$mode" "$path"
+            chown "$user:$group" "$path"
+        fi
+    done < "$TMPFILE"
+}
 
-# Logging options
-log-time: yes
-log-queries: {{ log_queries | lower }}
-log-level: "{{ log_level }}"
+do_start_prepare() {
+    do_tmpfiles $(basename $0)
+}
 
-# TCP connection limits
-tcp-query-count: {{ tcp_query_count }}
-tcp-timeout: {{ tcp_timeout }}
-
-# Interface binding (list of addresses/ports)
-{% for iface in interfaces %}# Listen on {{ iface.address }}:{{ iface.port }}{% if iface.proto %} ({{ iface.proto }}){% endif %}
-ip4-only: {{ iface.ip4_only | lower if iface.proto == 'tcp' else 'no' }}
-ip6-only: {{ iface.ip6_only | lower if iface.proto == 'tcp' else 'no' }}
-local-zone: {{ iface.address }}
-{% if iface.port != 53 %}port: {{ iface.port }}{% endif %}
-{% if iface.proto %}proto: {{ iface.proto }}{% endif %}
-{% endfor %}
-
-# Remote control (rcnd) — disabled by default
-remote-control:
-  control-enable: {{ remote_control_enable | lower }}
-  control-interface: {{ remote_control_interface }}
-  control-port: {{ remote_control_port }}
-  server-key-file: "{{ remote_control_key_file }}"
-  server-cert-file: "{{ remote_control_cert_file }}"
-  control-key-file: "{{ remote_control_cli_key_file }}"
-  control-cert-file: "{{ remote_control_cli_cert_file }}"
-
-# Optional: custom zone list file (alternative to zones-dir)
-{% if zone_list_file %}# Explicit zone list file
-zonefile: "{{ zone_list_file }}"
-{% endif %}
-
-# Zone-specific configuration
-# Each zone block defines an authoritative zone
-{% for zone in zones %}# Zone: {{ zone.name }}
-zone:
-  name: "{{ zone.name }}"
-  zonefile: "{{ zone.zonefile }}"
-  {% if zone.allow_notify %}  allow-notify: {{ zone.allow_notify | join(', ') }}
-  {% endif %}
-  {% if zone.allow_query %}  allow-query: {{ zone.allow_query | join(', ') }}
-  {% endif %}
-  {% if zone.supersede %}  supersede:
-  {% for key, val in zone.supersede.items() %}    {{ key }}: {{ val }}
-  {% endfor %}
-  {% endif %}
-{% endfor %}
-
-# Optional: access control lists (ACLs)
-{% if acls %}# Access control lists
-{% for acl in acls %}acl:
-  name: "{{ acl.name }}"
-  ip-address: {{ acl.ip | join(', ') }}
-  {% if acl.action %}  action: {{ acl.action }}
-  {% endif %}
-  {% if acl.allow %}  allow: {{ acl.allow | join(', ') }}
-  {% endif %}
-  {% if acl.allow_query %}  allow-query: {{ acl.allow_query | join(', ') }}
-  {% endif %}
-  {% if acl.allow_notify %}  allow-notify: {{ acl.allow_notify | join(', ') }}
-  {% endif %}
-{% endfor %}
-{% endif %}
-
-# Optional: debug mode
-debug-mode: {{ debug_mode | lower }}
+do_reload() {
+    nsd-control reload >/dev/null
+    return $?
+}

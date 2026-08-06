@@ -1,0 +1,48 @@
+# Display-Dhammapada Configuration Template
+# This template generates command-line arguments for the `display-dhammapada` utility.
+# It supports selecting a translation and specifying which verses to display.
+# Variables must be provided via Ansible inventory or defaults.
+
+{# -------------------------------------------------------------------------- #}
+{# Translation Selection                                                     #}
+{# Selects which translation of the Dhammapada to display.                    #}
+{# Valid values: 'richards' (default), 'muller', 'both', 'polish'            #}
+{# -------------------------------------------------------------------------- #}
+{% set translation = translation | default('richards') %}
+{% if translation == 'richards' %}
+-r
+{% elif translation == 'muller' %}
+-m
+{% elif translation == 'both' %}
+-b
+{% elif translation == 'polish' %}
+-pl
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Verse Selection                                                           #}
+{# Determines which verse(s) to print.                                       #}
+{# Priority:                                                             #}
+{#   1. Explicit list 'verses' (if non-empty)                                #}
+{#   2. Single verse 'verse_number'                                          #}
+{#   3. Range 'all' via 'verse_range'                                        #}
+{#   4. If nothing specified, behavior depends on utility (random verse)     #}
+{# -------------------------------------------------------------------------- #}
+
+{% set verse_number = verse_number | default(omit) %}
+{% set verse_range = verse_range | default(omit) %}
+{% set verses = verses | default([]) %}
+
+{# Check if an explicit list of verses is provided and non-empty.           #}
+{# If so, print each verse number on a new line.                            #}
+{% if verses is defined and verses | length > 0 %}
+{% for v in verses %}
+{{ v }}
+{% endfor %}
+{# If no explicit list, check for a single verse number.                    #}
+{% elif verse_number is defined %}
+{{ verse_number }}
+{# If no single verse, check for the 'all' range specifier.                 #}
+{% elif verse_range is defined and verse_range == 'all' %}
+all
+{% endif %}

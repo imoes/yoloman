@@ -1,0 +1,123 @@
+{# gnubiff configuration file #}
+{# This file uses simple KEY=VALUE syntax. #}
+{# Each section is commented with its purpose and the underlying schema field description. #}
+
+# =============================================================================
+# Mailbox Configuration
+# Description: List of mailboxes to check for mail. Each item must specify type
+# and server-specific fields depending on type.
+# =============================================================================
+{% for mb in mailboxes | default([], true) %}
+
+{# Mailbox protocol: pop3, imap4, mh, maildir, or mbox #}
+mail.{{ loop.index }}.type = {{ mb.type | default('pop3') }}
+
+{% if mb.type == 'pop3' %}
+    {# Mail server hostname or IP address (for pop3/imap4) #}
+    mail.{{ loop.index }}.server = {{ mb.server | default('localhost') }}
+    
+    {# Username for authentication #}
+    mail.{{ loop.index }}.user = {{ mb.user | default('') }}
+    
+    {# Password for authentication (insecure; consider external tools like gnome-keyring) #}
+    mail.{{ loop.index }}.pass = {{ mb.pass | default('') }}
+    
+    {# Port number (110 for POP3, 143 for IMAP4) #}
+    mail.{{ loop.index }}.port = {{ mb.port | default(110) }}
+    
+    {# Use SSL/TLS for connection #}
+    mail.{{ loop.index }}.ssl = {% if mb.use_ssl | default(False) %}true{% else %}false{% endif %}
+
+{% elif mb.type == 'imap4' %}
+    {# IMAP4 mailbox configuration #}
+    {# Mail server hostname or IP address (for pop3/imap4) #}
+    mail.{{ loop.index }}.server = {{ mb.server | default('localhost') }}
+    
+    {# Username for authentication #}
+    mail.{{ loop.index }}.user = {{ mb.user | default('') }}
+    
+    {# Password for authentication (insecure; consider external tools like gnome-keyring) #}
+    mail.{{ loop.index }}.pass = {{ mb.pass | default('') }}
+    
+    {# Port number (110 for POP3, 143 for IMAP4) #}
+    mail.{{ loop.index }}.port = {{ mb.port | default(143) }}
+    
+    {# Use SSL/TLS for connection #}
+    mail.{{ loop.index }}.ssl = {% if mb.use_ssl | default(False) %}true{% else %}false{% endif %}
+
+{% elif mb.type == 'mh' %}
+    {# MH mailbox configuration #}
+    {# Path to local mailbox (for mh/maildir/mbox) #}
+    mail.{{ loop.index }}.path = {{ mb.path | default('~/Mail') }}
+
+{% elif mb.type == 'maildir' %}
+    {# Maildir mailbox configuration #}
+    {# Path to local mailbox (for mh/maildir/mbox) #}
+    mail.{{ loop.index }}.path = {{ mb.path | default('~/Maildir') }}
+
+{% elif mb.type == 'mbox' %}
+    {# Mbox/mailfile mailbox configuration #}
+    {# Path to local mailbox (for mh/maildir/mbox) #}
+    mail.{{ loop.index }}.path = {{ mb.path | default('/var/spool/mail/' + (mb.user | default('user'))) }}
+
+{% else %}
+    {# Unknown or unsupported mailbox type; no specific config directives emitted #}
+{% endif %}
+{% endfor %}
+
+# =============================================================================
+# Global Options
+# =============================================================================
+
+{# Enable automatic mail checking #}
+check.newmail = {% if check_newmail | default(True) %}true{% else %}false{% endif %}
+
+{# Interval (in seconds) between mail checks #}
+check.every = {{ check_every | default(60) }}
+
+# =============================================================================
+# Display Options
+# =============================================================================
+
+{# Show new mail notification icon/badge #}
+show.newmail = {% if show_newmail | default(True) %}true{% else %}false{% endif %}
+
+{# Sort messages by date instead of arrival order #}
+sort.by.date = {% if sort_by_date | default(True) %}true{% else %}false{% endif %}
+
+# =============================================================================
+# Notification Options
+# =============================================================================
+
+{# Play a sound when new mail arrives #}
+play.sound = {% if play_sound | default(True) %}true{% else %}false{% endif %}
+
+{# Path to sound file to play #}
+sound.file = {{ sound_file | default('/usr/share/sounds/gnubiff/newmail.wav') }}
+
+# =============================================================================
+# Mail Reader
+# =============================================================================
+
+{# Command or program to open/read messages #}
+mail.reader = {{ mail_reader | default('xdg-open') }}
+
+# =============================================================================
+# Spam Filtering
+# =============================================================================
+
+{# Enable spam filtering #}
+spam.filter = {% if spam_filter | default(False) %}true{% else %}false{% endif %}
+
+{# Email header to inspect for spam status #}
+spam.header = {{ spam_header | default('X-Spam-Status') }}
+
+{# Value indicating spam in spam_header #}
+spam.value = {{ spam_value | default('YES') }}
+
+# =============================================================================
+# System Tray
+# =============================================================================
+
+{# Show icon in system tray (requires desktop environment support) #}
+system.tray = {% if system_tray | default(True) %}true{% else %}false{% endif %}

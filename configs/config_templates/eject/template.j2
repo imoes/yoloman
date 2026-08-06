@@ -1,0 +1,46 @@
+# /etc/default/eject
+# Default configuration for eject(1)
+# This file provides system-wide defaults for the eject utility.
+# It is a shell-compatible environment file sourced by eject scripts.
+
+# Default device node to use when none is specified on the command line.
+# Common values: /dev/cdrom, /dev/sr0, /dev/cdroms/cdrom0
+DEVICE={{ device | default('/dev/cdrom') }}
+
+# List of eject methods to try (cdrom, scsi, floppy, tape).
+# Empty means try all four in order.
+# Comma-separated list, no spaces.
+METHODS={{ methods | default([]) | join(',') }}
+
+# Enable auto-eject when device is closed (on|off).
+# When enabled, the drive will automatically open when the tray is pushed.
+AUTO_EJECT={{ auto_eject | default(false) | ternary('on', 'off') }}
+
+# Disable hardware eject button when true (on|off).
+# When enabled, the physical eject button on the drive will be ignored.
+# This prevents accidental ejection.
+MANUAL_EJECT={{ manual_eject | default(false) | ternary('on', 'off') }}
+
+# Do not unmount other partitions on same device.
+# When enabled, eject will only unmount the specific partition being ejected,
+# leaving other partitions mounted on the same block device.
+NO_PARTITIONS_UNMOUNT={{ no_partitions_unmount | default(false) | ternary('yes', 'no') }}
+
+# Do not attempt to unmount before ejecting.
+# When enabled, eject will proceed even if the device is currently mounted.
+# This can be useful for non-mounted devices or force operations.
+NO_UNMOUNT={{ no_unmount | default(false) | ternary('yes', 'no') }}
+
+# Use /proc/mounts instead of /etc/mtab for mounted device detection.
+# /proc/mounts is generally more accurate and up-to-date.
+USE_PROC_MOUNTS={{ use_proc_mounts | default(false) | ternary('yes', 'no') }}
+
+# Default slot number (0-indexed) for CD changers.
+# -1 means no changer operation; used for single-drive setups.
+# For a 10-drive changer, use 0-9.
+CHANGE_SLOT={{ change_slot | default(-1) }}
+
+# Default CD-ROM speed in X units (e.g., 8 = 8x).
+# 0 = max speed. -1 means no change (keep current speed).
+# Useful for drives that behave poorly at high speeds.
+CD_SPEED={{ cd_speed | default(-1) }}

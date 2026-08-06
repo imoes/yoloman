@@ -1,77 +1,100 @@
 {
   "ws_address": {
     "type": "string",
-    "default": "*",
+    "default": {
+      "value": "*"
+    },
     "description": "IP address or hostname to bind the Cockpit web service to. Use `*` to listen on all network interfaces."
   },
   "ws_port": {
     "type": "number",
-    "default": 9090,
-    "description": "TCP port on which the Cockpit web UI listens."
+    "default": {
+      "value": 9090
+    },
+    "description": "TCP port on which the Cockpit web UI listens. Note: Cockpit listens on port 9090 by default and this cannot be changed in cockpit.conf."
   },
   "ws_tls": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable TLS (HTTPS) encryption for Cockpit connections. Requires valid certificate and key paths."
+    "type": "boolean",
+    "default": {
+      "value": true
+    },
+    "description": "Enable TLS (HTTPS) encryption for Cockpit connections. TLS is implicitly enabled when TLSCert/TLSKey are configured. To allow HTTP fallback, use ws_allow_unencrypted=false."
   },
   "ws_tls_cert": {
     "type": "string",
-    "default": "/etc/cockpit/ws-certs.d/0-self-signed.cert",
+    "default": {
+      "value": "/etc/cockpit/ws-certs.d/0-self-signed.cert"
+    },
     "description": "File path to the TLS certificate used for HTTPS. Must be readable by the `cockpit-ws` user."
   },
   "ws_tls_key": {
     "type": "string",
-    "default": "/etc/cockpit/ws-certs.d/0-self-signed.cert",
-    "description": "File path to the TLS private key. Usually the same file as the certificate for self-signed certs. Must be secure and readable by `cockpit-ws`."
+    "default": {
+      "value": "/etc/cockpit/ws-certs.d/0-self-signed.key"
+    },
+    "description": "File path to the TLS private key. Must be secure and readable by `cockpit-ws`."
   },
   "ws_cors_domains": {
     "type": "list",
-    "default": [],
-    "items": {
-      "type": "string",
-      "description": "Allowed domain(s) for CORS requests (e.g., `https://example.com`). Use empty list to disable CORS."
+    "default": {
+      "value": []
     },
-    "description": "List of origins permitted to make cross-origin requests to Cockpit. Leave empty or omit to disable CORS."
+    "description": "List of origins permitted to make cross-origin requests to Cockpit. Leave empty or omit to disable CORS. The config key is `Origins` in section `[WebService]`."
+  },
+  "ws_allow_unencrypted": {
+    "type": "boolean",
+    "default": {
+      "value": false
+    },
+    "description": "If true, cockpit will accept unencrypted HTTP connections. Otherwise, HTTP is redirected to HTTPS. Defaults to false. This controls HTTP/HTTPS behavior when TLS is enabled."
   },
   "login_banner": {
-    "type": "bool",
-    "default": true,
-    "description": "Show or hide the login banner (the small message box above the login form)."
+    "type": "boolean",
+    "default": {
+      "value": false
+    },
+    "description": "Show or hide the login banner. By default (per cockpit.conf(5)), no banner is displayed unless specified. Set to true to show it."
   },
   "login_banner_text": {
     "type": "string",
-    "default": "Welcome to Cockpit \u2014 your server\u2019s cockpit for Linux.",
-    "description": "Custom text shown on the login banner. Use `\"\"` to suppress (if `Banner` is `true` but text should be empty)."
+    "default": {
+      "value": ""
+    },
+    "description": "Banner text shown on the login page. Empty string suppresses banner text. Not used unless Banner is true."
   },
   "session_timeout_minutes": {
     "type": "number",
-    "default": 60,
-    "description": "Maximum session lifetime in minutes. Set to `0` to disable (not recommended for security)."
+    "default": {
+      "value": null
+    },
+    "description": "Session idle timeout in minutes (key: IdleTimeout). 0 disables timeout. Not recommended for production."
   },
   "session_idle_timeout_minutes": {
     "type": "number",
-    "default": 30,
-    "description": "Minutes of inactivity before a session times out. Set to `0` to disable (not recommended)."
+    "default": {
+      "value": null
+    },
+    "description": "Idle timeout in minutes before logging out due to inactivity. Set to 0 to disable. Note: IdleTimeout only applies to interactive password logins."
   },
   "session_max_per_user": {
     "type": "number",
-    "default": 5,
-    "description": "Maximum number of concurrent sessions allowed per user. Set to `0` for unlimited."
+    "default": {
+      "value": null
+    },
+    "description": "Maximum number of concurrent sessions per user. Set to 0 for unlimited. Not documented in cockpit.conf(5); may be handled via PAM or system limits."
   },
   "session_recording_path": {
     "type": "string",
-    "default": "",
+    "default": {
+      "value": ""
+    },
     "description": "Absolute directory path where session recordings will be stored (e.g., `/var/log/cockpit`). Leave empty or omit to disable recording."
   },
   "session_recording_exclude_users": {
     "type": "list",
-    "default": [
-      "root"
-    ],
-    "items": {
-      "type": "string",
-      "description": "System user name to exclude from session recording. By default, `root` is excluded."
+    "default": {
+      "value": []
     },
-    "description": "List of usernames whose sessions should NOT be recorded, even if session recording is enabled."
+    "description": "List of usernames whose sessions should NOT be recorded. By default, all users (including root) are recorded if session recording is enabled."
   }
 }

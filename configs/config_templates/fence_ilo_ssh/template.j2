@@ -1,44 +1,67 @@
-# HP iLO over SSH fence agent configuration — this file is sourced by fence_ilo_ssh
-# Do not edit directly; manage via configuration management or install wizard
+# HP iLO over SSH fence agent configuration
+# This file is sourced by fence_ilo_ssh to perform remote power fencing.
+# Managed via Ansible; do not edit directly.
 
-# Connection parameters
-ILO_HOST={{ ilo_host }}
-ILO_USER={{ ilo_user }}
-ILO_PASSWORD={{ ilo_password }}
+# Connection parameters for the primary HP iLO interface
+# ilo_host: Primary HP iLO hostname or IP address (required for basic operation)
+ILO_HOST={{ ilo_host | default('') }}
+
+# ilo_user: iLO user account with remote power control privileges (e.g., 'Administrator')
+ILO_USER={{ ilo_user | default('') }}
+
+# ilo_password: Password for the iLO user (preferably managed by a secrets backend in production)
+ILO_PASSWORD={{ ilo_password | default('') }}
 
 # Optional: SSH connection tuning
-SSH_PORT={{ ssh_port }}
-SSH_TIMEOUT={{ ssh_timeout }}
+# ssh_port: SSH port on the iLO interface (typically 22)
+SSH_PORT={{ ssh_port | default(22) }}
+
+# ssh_timeout: SSH connection timeout in seconds
+SSH_TIMEOUT={{ ssh_timeout | default(10) }}
 
 # Optional: Proxy/relay for network-isolated environments
 # Leave empty to use direct connection
+# ilo_proxy_host: Optional proxy/bastion host to tunnel SSH connections (e.g., 'bastion.example.com')
 ILO_PROXY_HOST={{ ilo_proxy_host | default('') }}
+
+# ilo_proxy_user: User for the SSH proxy host (if used)
 ILO_PROXY_USER={{ ilo_proxy_user | default('') }}
+
+# ilo_proxy_password: Password for the SSH proxy user (if used)
 ILO_PROXY_PASSWORD={{ ilo_proxy_password | default('') }}
 
 # Optional: Custom SSH options (e.g., identity file, strict host key checking)
+# ssh_options: Extra SSH command-line options (e.g., '-i /path/to/key -o ServerAliveInterval=30')
 SSH_OPTIONS={{ ssh_options | default('-o StrictHostKeyChecking=no') }}
 
 # Optional: Command prefix (e.g., for containerized agents or namespace isolation)
 # Example: 'sudo -n' or 'ssh -J user@bastion host'
+# fence_cmd_prefix: Optional command prefix before the actual fencing command (e.g., 'sudo -n')
 FENCE_CMD_PREFIX={{ fence_cmd_prefix | default('') }}
 
 # Power operation timeout (seconds)
-POWER_TIMEOUT={{ power_timeout }}
+# power_timeout: Maximum time (seconds) to wait for a power operation to complete
+POWER_TIMEOUT={{ power_timeout | default(60) }}
 
 # Retry parameters
-RETRY_COUNT={{ retry_count }}
-RETRY_SLEEP={{ retry_sleep }}
+# retry_count: Number of retry attempts for failed power operations
+RETRY_COUNT={{ retry_count | default(3) }}
+
+# retry_sleep: Seconds to wait between retries
+RETRY_SLEEP={{ retry_sleep | default(5) }}
 
 # Logging verbosity: 0 (quiet) to 3 (debug)
-VERBOSE={{ verbose }}
+# verbose: Verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug
+VERBOSE={{ verbose | default(1) }}
 
 # Optional: Enable secure power check (queries hardware state before acting)
-SECURE_POWER_CHECK={{ secure_power_check }}
+# secure_power_check: Whether to query hardware power state before executing commands (prevents duplicate actions)
+SECURE_POWER_CHECK={{ secure_power_check | default(true) | lower }}
 
 # List of additional hosts (multi-node mode support)
 # Each entry defines a redundant/alternate iLO endpoint
-{% for host in ilo_hosts %}
+# ilo_hosts: List of alternate iLO endpoints for redundancy (e.g., secondary iLO in a dual-socket server)
+{% for host in ilo_hosts | default([]) %}
 # Alternate iLO host {{ loop.index }}
 ILO_HOST_{{ loop.index }}={{ host.host }}
 ILO_USER_{{ loop.index }}={{ host.user | default(ilo_user) }}

@@ -1,22 +1,79 @@
-# /etc/incron.conf - incron daemon main configuration
-# Defines system-wide settings and access control
+# ==============================================================================
+# Incron Configuration
+# ==============================================================================
+# This file configures the inotify-based cron daemon (incrond).
+# It defines directories for system and user tables, access control files,
+# lockfile locations, and the default editor for user tables.
 
-# Maximum number of concurrent inotify watches per user (0 = system limit)
-maxwatches = {{ max_watches }}
+# ------------------------------------------------------------------------------
+# System Table Directory
+# ------------------------------------------------------------------------------
+# Description: Directory where system incron table files are stored.
+#              incrond reads these files at startup and upon SIGHUP.
+# Default: /etc/incron.d
+# ------------------------------------------------------------------------------
+system_table_dir = {{ (system_table_dir | default('/etc/incron.d')) | string }}
 
-# Allow users/groups listed in /etc/incron.allow (if exists) to use incron
-# Deny all others (default behavior if /etc/incron.deny is absent)
-allow = {{ allow_users | join(',') | default('') }}
 
-# Explicitly deny users listed in /etc/incron.deny (if exists)
-# Ignored if /etc/incron.allow exists and is non-empty
-deny = {{ deny_users | join(',') | default('') }}
+# ------------------------------------------------------------------------------
+# User Table Directory
+# ------------------------------------------------------------------------------
+# Description: Directory where per-user inotify table files (spooled tables)
+#              are stored. These are managed per-user and processed by incrond.
+# Default: /var/spool/incron
+# ------------------------------------------------------------------------------
+user_table_dir = {{ (user_table_dir | default('/var/spool/incron')) | string }}
 
-# Use syslog for logging (true/false)
-use_syslog = {{ use_syslog }}
 
-# Log level: 0=error, 1=warn, 2=info, 3=debug
-log_level = {{ log_level }}
+# ------------------------------------------------------------------------------
+# Allowed Users File
+# ------------------------------------------------------------------------------
+# Description: Path to the file containing the list of users allowed to use
+#              incron. If this file exists, only users listed here (or root)
+#              can create/edit user tables. If absent, all users may use incron
+#              unless denied by denied_users_file.
+# Default: /etc/incron.allow
+# ------------------------------------------------------------------------------
+allowed_users_file = {{ (allowed_users_file | default('/etc/incron.allow')) | string }}
 
-# Path to the user table directory
-user_table_dir = {{ user_table_dir }}
+
+# ------------------------------------------------------------------------------
+# Denied Users File
+# ------------------------------------------------------------------------------
+# Description: Path to the file containing the list of users explicitly denied
+#              from using incron, even if they are not in the allowed list.
+#              Takes precedence over allowed_users_file.
+# Default: /etc/incron.deny
+# ------------------------------------------------------------------------------
+denied_users_file = {{ (denied_users_file | default('/etc/incron.deny')) | string }}
+
+
+# ------------------------------------------------------------------------------
+# Lockfile Directory
+# ------------------------------------------------------------------------------
+# Description: Directory used for creating the incron lockfile. The lockfile
+#              prevents multiple instances of incrond from running simultaneously.
+#              The lockfile name is derived from lockfile_name plus '.pid'.
+# Default: /var/run
+# ------------------------------------------------------------------------------
+lockfile_dir = {{ (lockfile_dir | default('/var/run')) | string }}
+
+
+# ------------------------------------------------------------------------------
+# Lockfile Name
+# ------------------------------------------------------------------------------
+# Description: Base name for the lockfile. incrond appends '.pid' to this name
+#              to create the actual PID file (e.g., /var/run/incrond.pid).
+# Default: incrond
+# ------------------------------------------------------------------------------
+lockfile_name = {{ (lockfile_name | default('incrond')) | string }}
+
+
+# ------------------------------------------------------------------------------
+# Editor
+# ------------------------------------------------------------------------------
+# Description: The default editor command used when editing user incron tables.
+#              This is invoked by incrontab or related utilities.
+# Default: vim
+# ------------------------------------------------------------------------------
+editor = {{ (editor | default('vim')) | string }}

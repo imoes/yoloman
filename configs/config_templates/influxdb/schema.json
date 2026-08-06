@@ -9,20 +9,20 @@
     "default": "/var/lib/influxdb/data",
     "description": "Directory path for storing TSM data files."
   },
-  "hints_dir": {
+  "wal_dir": {
     "type": "string",
-    "default": "/var/lib/influxdb/hints",
-    "description": "Directory path for HRT (hints) files."
+    "default": "/var/lib/influxdb/wal",
+    "description": "Directory path for WAL files."
+  },
+  "reporting_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable reporting of usage data to usage.influxdata.com."
   },
   "http_bind_address": {
     "type": "string",
     "default": "127.0.0.1:8086",
     "description": "Host and port to bind the HTTP API service to."
-  },
-  "http_port": {
-    "type": "number",
-    "default": 8086,
-    "description": "Port number for the HTTP API (used when `http-bind-address` doesn\u2019t specify port)."
   },
   "http_enabled": {
     "type": "bool",
@@ -32,7 +32,7 @@
   "https_enabled": {
     "type": "bool",
     "default": false,
-    "description": "Enable HTTPS for the HTTP API. Requires `https-cert-file` and `https-key-file`."
+    "description": "Enable HTTPS for the HTTP API. Requires `https_cert_file` and `https_key_file`."
   },
   "https_cert_file": {
     "type": "string",
@@ -44,65 +44,36 @@
     "default": "",
     "description": "Path to the private key file for HTTPS (PEM format)."
   },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Minimum log level: debug, info, warn, or error."
-  },
   "log_path": {
     "type": "string",
     "default": "",
-    "description": "Path to the log file. If empty, logs go to stdout."
-  },
-  "trace_logging_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable trace-level logging for deep debugging."
+    "description": "Path to the access log file. If empty, logs go to stderr."
   },
   "logging_level": {
     "type": "string",
     "default": "info",
-    "description": "Legacy logging level (kept for compatibility)."
+    "description": "Minimum log level: debug, info, warn, or error.",
+    "enum": [
+      "debug",
+      "info",
+      "warn",
+      "error"
+    ]
   },
   "logging_format": {
     "type": "string",
     "default": "logfmt",
-    "description": "Log format: human-readable (logfmt) or machine-friendly (json)."
+    "description": "Log format: human-readable (logfmt) or machine-friendly (json).",
+    "enum": [
+      "logfmt",
+      "json",
+      "auto"
+    ]
   },
   "monitoring_enabled": {
     "type": "bool",
     "default": false,
     "description": "Enable internal monitoring endpoint (deprecated in newer versions)."
-  },
-  "monitoring_bind_address": {
-    "type": "string",
-    "default": "127.0.0.1:8088",
-    "description": "Binding address for monitoring endpoint."
-  },
-  "monitoring_port": {
-    "type": "number",
-    "default": 8088,
-    "description": "Port for monitoring endpoint."
-  },
-  "retention_default": {
-    "type": "string",
-    "default": "autogen",
-    "description": "Name of the default retention policy."
-  },
-  "retention_duration": {
-    "type": "string",
-    "default": "0s",
-    "description": "Duration of the default retention policy (e.g., `7d`, `0s` for infinite)."
-  },
-  "retention_replication_factor": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of copies of each shard (cluster mode only)."
-  },
-  "retention_check_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable periodic enforcement of retention policies."
   },
   "retention_check_interval": {
     "type": "string",
@@ -123,389 +94,5 @@
     "type": "string",
     "default": "1h",
     "description": "How far ahead to precreate shards (must be \u2265 shard-duration)."
-  },
-  "admin_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable legacy admin UI (deprecated in InfluxDB 2.x)."
-  },
-  "admin_bind_address": {
-    "type": "string",
-    "default": "127.0.0.1:8083",
-    "description": "Bind address for the admin UI (deprecated)."
-  },
-  "admin_port": {
-    "type": "number",
-    "default": 8083,
-    "description": "Port for the admin UI (deprecated)."
-  },
-  "http_auth_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable HTTP basic auth for API endpoints."
-  },
-  "http_log_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable request logging for HTTP API."
-  },
-  "http_max_row_limit": {
-    "type": "number",
-    "default": 10000,
-    "description": "Maximum rows returned in a single query result."
-  },
-  "http_max_concurrent_write_limit": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum concurrent write requests (0 = unlimited)."
-  },
-  "http_max_body_size": {
-    "type": "number",
-    "default": 250000000,
-    "description": "Maximum request body size in bytes."
-  },
-  "http_max_write_timeout": {
-    "type": "string",
-    "default": "10s",
-    "description": "Maximum time to wait for a write request before timing out."
-  },
-  "http_max_header_size": {
-    "type": "number",
-    "default": 1048576,
-    "description": "Maximum size in bytes of HTTP headers."
-  },
-  "storage_cache_max_memory_size": {
-    "type": "number",
-    "default": 262144000,
-    "description": "Maximum memory used by cache (bytes)."
-  },
-  "storage_cache_memory_warn_percent": {
-    "type": "number",
-    "default": 80,
-    "description": "Cache memory usage percentage at which warnings are logged."
-  },
-  "storage_tsm_full_compaction_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable full compactions (consolidation of TSM files)."
-  },
-  "storage_tsm_optimize_on_shutdown": {
-    "type": "bool",
-    "default": false,
-    "description": "Optimize TSM files during graceful shutdown."
-  },
-  "storage_tsm_wal_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable WAL (write-ahead log) for durability."
-  },
-  "storage_tsm_wal_sync_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Sync WAL to disk on every write."
-  },
-  "coordinator_write_timeout_max": {
-    "type": "string",
-    "default": "10s",
-    "description": "Maximum time a write request waits before timing out."
-  },
-  "coordinator_max_concurrent_queries": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum concurrent queries (0 = unlimited)."
-  },
-  "coordinator_query_timeout": {
-    "type": "string",
-    "default": "0s",
-    "description": "Timeout per query (0 = no timeout)."
-  },
-  "coordinator_log_queries_after": {
-    "type": "string",
-    "default": "0s",
-    "description": "Log queries taking longer than this duration."
-  },
-  "coordinator_max_select_point": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum points returned in a SELECT (0 = unlimited)."
-  },
-  "coordinator_max_select_series": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum series in a SELECT (0 = unlimited)."
-  },
-  "coordinator_max_select_buckets": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum buckets (time intervals) in a SELECT (0 = unlimited)."
-  },
-  "cq_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable continuous query execution."
-  },
-  "cq_check_interval": {
-    "type": "string",
-    "default": "10s",
-    "description": "How often to check for CQs to run."
-  },
-  "cq_log_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable logging of CQ execution."
-  },
-  "cq_compute_queries_within": {
-    "type": "string",
-    "default": "1h",
-    "description": "Maximum age of data processed in each CQ iteration."
-  },
-  "cq_compute_runs_per_interval": {
-    "type": "number",
-    "default": 0,
-    "description": "Number of times to run CQs per check interval (0 = run once)."
-  },
-  "tls_min_version": {
-    "type": "string",
-    "default": "TLS1.2",
-    "description": "Minimum supported TLS version."
-  },
-  "graphite_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Graphite input listener."
-  },
-  "graphite_bind_address": {
-    "type": "string",
-    "default": "127.0.0.1:2003",
-    "description": "Host:port for Graphite plaintext listener."
-  },
-  "graphite_port": {
-    "type": "number",
-    "default": 2003,
-    "description": "Port for Graphite input (used only if bind-address lacks port)."
-  },
-  "graphite_database": {
-    "type": "string",
-    "default": "graphite",
-    "description": "Database to write Graphite data into."
-  },
-  "graphite_retention": {
-    "type": "string",
-    "default": "autogen",
-    "description": "Retention policy to use for Graphite data."
-  },
-  "graphite_protocol": {
-    "type": "string",
-    "default": "tcp",
-    "description": "Transport protocol for Graphite: tcp or udp."
-  },
-  "graphite_batch_size": {
-    "type": "number",
-    "default": 1000,
-    "description": "Number of points to buffer before flushing."
-  },
-  "graphite_batch_pending": {
-    "type": "number",
-    "default": 5000,
-    "description": "Number of pending batches (max queued)."
-  },
-  "graphite_batch_timeout": {
-    "type": "string",
-    "default": "1s",
-    "description": "Max time to wait before flushing a partial batch."
-  },
-  "graphite_tls_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS for Graphite listener."
-  },
-  "graphite_tls_cert": {
-    "type": "string",
-    "default": "",
-    "description": "Path to certificate (for TLS)."
-  },
-  "graphite_tls_key": {
-    "type": "string",
-    "default": "",
-    "description": "Path to private key (for TLS)."
-  },
-  "graphite_tls_ca": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA cert (for TLS client auth)."
-  },
-  "graphite_templates": {
-    "type": "list",
-    "default": [],
-    "description": "List of template patterns (e.g., `'*.app.*'` \u2192 `'measurement'`, `'tag.key'`)",
-    "items": {
-      "type": "string",
-      "description": "Template string in the format: `'measurement' tag.key tag2.key2'"
-    }
-  },
-  "collectd_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Collectd input listener."
-  },
-  "collectd_bind_address": {
-    "type": "string",
-    "default": "127.0.0.1:25826",
-    "description": "Host:port for Collectd listener."
-  },
-  "collectd_port": {
-    "type": "number",
-    "default": 25826,
-    "description": "Port for Collectd input."
-  },
-  "collectd_database": {
-    "type": "string",
-    "default": "collectd",
-    "description": "Database to write Collectd data into."
-  },
-  "collectd_retention_policy": {
-    "type": "string",
-    "default": "autogen",
-    "description": "Retention policy for Collectd data."
-  },
-  "collectd_batch_size": {
-    "type": "number",
-    "default": 1000,
-    "description": "Max points to batch."
-  },
-  "collectd_batch_pending": {
-    "type": "number",
-    "default": 5000,
-    "description": "Max queued batches."
-  },
-  "collectd_batch_timeout": {
-    "type": "string",
-    "default": "1s",
-    "description": "Max wait before flush."
-  },
-  "collectd_tls_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS for Collectd listener."
-  },
-  "collectd_tls_cert": {
-    "type": "string",
-    "default": "",
-    "description": "Certificate file (for TLS)."
-  },
-  "collectd_tls_key": {
-    "type": "string",
-    "default": "",
-    "description": "Private key (for TLS)."
-  },
-  "collectd_tls_ca": {
-    "type": "string",
-    "default": "",
-    "description": "CA cert (for TLS)."
-  },
-  "collectd_typesdb": {
-    "type": "string",
-    "default": "/usr/share/collectd/types.db",
-    "description": "Path to Collectd types database."
-  },
-  "opentsdb_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable OpenTSDB listener."
-  },
-  "opentsdb_bind_address": {
-    "type": "string",
-    "default": "127.0.0.1:4242",
-    "description": "Host:port for OpenTSDB listener."
-  },
-  "opentsdb_port": {
-    "type": "number",
-    "default": 4242,
-    "description": "Port for OpenTSDB input."
-  },
-  "opentsdb_database": {
-    "type": "string",
-    "default": "opentsdb",
-    "description": "Database to write OpenTSDB data into."
-  },
-  "opentsdb_retention_policy": {
-    "type": "string",
-    "default": "autogen",
-    "description": "Retention policy for OpenTSDB data."
-  },
-  "opentsdb_batch_size": {
-    "type": "number",
-    "default": 1000,
-    "description": "Batch size for incoming points."
-  },
-  "opentsdb_batch_pending": {
-    "type": "number",
-    "default": 5000,
-    "description": "Max queued batches."
-  },
-  "opentsdb_batch_timeout": {
-    "type": "string",
-    "default": "1s",
-    "description": "Max wait before flush."
-  },
-  "opentsdb_tls_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS for OpenTSDB listener."
-  },
-  "opentsdb_tls_cert": {
-    "type": "string",
-    "default": "",
-    "description": "Certificate file (for TLS)."
-  },
-  "opentsdb_tls_key": {
-    "type": "string",
-    "default": "",
-    "description": "Private key (for TLS)."
-  },
-  "opentsdb_tls_ca": {
-    "type": "string",
-    "default": "",
-    "description": "CA cert (for TLS)."
-  },
-  "udp_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable UDP listener for raw UDP write protocol."
-  },
-  "udp_bind_address": {
-    "type": "string",
-    "default": "127.0.0.1:8089",
-    "description": "Host:port for UDP listener."
-  },
-  "udp_port": {
-    "type": "number",
-    "default": 8089,
-    "description": "Port for UDP input."
-  },
-  "udp_database": {
-    "type": "string",
-    "default": "udp",
-    "description": "Database for UDP data."
-  },
-  "udp_retention_policy": {
-    "type": "string",
-    "default": "autogen",
-    "description": "Retention policy for UDP data."
-  },
-  "udp_batch_size": {
-    "type": "number",
-    "default": 1000,
-    "description": "Max points to buffer."
-  },
-  "udp_batch_pending": {
-    "type": "number",
-    "default": 5000,
-    "description": "Max queued batches."
-  },
-  "udp_batch_timeout": {
-    "type": "string",
-    "default": "1s",
-    "description": "Max wait before flush."
   }
 }

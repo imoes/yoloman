@@ -1,31 +1,46 @@
-# /etc/clustershell/groups.conf
-# Group source configuration for ClusterShell.
-# Each section (except [Main]) defines one named group source backed by shell commands.
+# Configuration file for clush (ClusterShell)
+# Please see man clush.conf(5)
+#
+# This template is self-documenting: every setting is described
+# in the comment immediately above it, sourced from the Ansible
+# role schema. All variables use the `default()` filter to prevent
+# rendering errors when a value is omitted.
 
 [Main]
-# Default group source used when no @source: prefix is specified in group expressions
-default: {{ default_source }}
-{% if confdir_paths %}
-# Space-separated list of directories scanned for additional *.conf group source files
-confdir: {{ confdir_paths | join(' ') }}
-{% endif %}
-{% for source in group_sources %}
 
-[{{ source.name }}]
-# Shell command returning the node list for group $GROUP (nodeset or newline-separated)
-map: {{ source.map_cmd }}
-# Shell command listing all group names provided by this source (one name per line)
-list: {{ source.list_cmd }}
-{% if source.all_cmd %}
-# Shell command returning every node known to this source (used by @all expansion)
-all: {{ source.all_cmd }}
-{% endif %}
-{% if source.reverse_cmd %}
-# Shell command returning group names for node $NODE (enables reverse group lookup)
-reverse: {{ source.reverse_cmd }}
-{% endif %}
-{% if source.cache_time %}
-# Seconds to cache shell command results; 0 disables caching
-cache_time: {{ source.cache_time }}
-{% endif %}
-{% endfor %}
+# fanout: Maximum number of parallel workers in clush
+fanout: {{ fanout | default(64) }}
+
+# connect_timeout: Connection timeout in seconds for clush
+connect_timeout: {{ connect_timeout | default(15) }}
+
+# command_timeout: Command timeout in seconds for clush; 0 means unlimited
+command_timeout: {{ command_timeout | default(0) }}
+
+# color: Color output mode for clush (auto|yes|no)
+color: {{ color | default('auto') }}
+
+# fd_max: Maximum number of file descriptors clush may use
+fd_max: {{ fd_max | default(8192) }}
+
+# history_size: Maximum number of commands stored in clush history
+history_size: {{ history_size | default(100) }}
+
+# maxrc: Whether to exit with the maximum exit code of all nodes (yes|no)
+maxrc: {{ maxrc | default('no') }}
+
+# node_count: Whether to show node count summary (yes|no)
+node_count: {{ node_count | default('yes') }}
+
+# verbosity: Verbosity level for clush (0-2)
+verbosity: {{ verbosity | default(1) }}
+
+# confdir: Directories scanned for additional clush.conf files; $CFGDIR expands to the package config dir
+# The schema provides a list of paths. Here we format it into a space-separated string
+# expected by clush.conf.
+confdir: {{ confdir_paths | default(['/etc/clustershell/clush.conf.d', '$CFGDIR/clush.conf.d']) | join(' ') }}
+
+# Add always all remote hosts to known_hosts without confirmation
+#ssh_user: root
+#ssh_path: /usr/bin/ssh
+#ssh_options: -oStrictHostKeyChecking=no

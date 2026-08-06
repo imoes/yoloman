@@ -1,0 +1,106 @@
+# ==============================================================================
+# fbterm Configuration File (~/.fbtermrc)
+# ==============================================================================
+# This file configures the framebuffer terminal emulator fbterm.
+#
+# FORMAT:
+#   Every line must be in the form: option=value
+#   Lines starting with '#' are comments and ignored.
+#
+# SELF-DOCUMENTATION:
+#   Each setting below is preceded by a comment describing its schema field,
+#   default value, and purpose. Variables use Jinja2 defaults matching the
+#   Ansible schema to prevent render errors when variables are undefined.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Font Settings
+# ------------------------------------------------------------------------------
+
+# Ordered list of font family names (fontconfig patterns) to try.
+# Default: ['DejaVu Sans Mono']
+# Note: Joined into a comma-separated string for the config file.
+font-names={{ (font_names | default(['DejaVu Sans Mono'])) | join(',') }}
+
+# Font pixel size.
+# Default: 12
+font-size={{ font_size | default(12) }}
+
+# Force font width in pixels (0 = auto-detect).
+# Default: 0
+font-width={{ font_width | default(0) }}
+
+# Force font height in pixels (0 = auto-detect).
+# Default: 0
+font-height={{ font_height | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Color Settings
+# ------------------------------------------------------------------------------
+
+# Foreground color index (0-255).
+# See fbterm(1) for color encoding details.
+# Default: 7 (White)
+color-foreground={{ color_foreground | default(7) }}
+
+# Background color index (0-255).
+# See fbterm(1) for color encoding details.
+# Default: 0 (Black)
+color-background={{ color_background | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Text Encoding
+# ------------------------------------------------------------------------------
+
+# Additional text encodings (beyond locale default) to support via Ctrl+Alt+F2..F6.
+# Default: [] (empty list)
+# Note: Joined into a comma-separated string. If the list is empty, this outputs nothing (or empty string).
+text-encodings={{ (text_encodings | default([])) | join(',') }}
+
+# ------------------------------------------------------------------------------
+# Character Width Handling
+# ------------------------------------------------------------------------------
+
+# If true, treat ambiguous-width characters (e.g., in CJK) as wide.
+# 1 = enable (wide), 0 = disable (narrow).
+# Default: False (0)
+ambiguous-wide={{ ambiguous_wide | default(False) | int }}
+
+# ------------------------------------------------------------------------------
+# Display Settings
+# ------------------------------------------------------------------------------
+
+# Screen rotation: 0=normal, 1=+90°, 2=180°, 3=-90° (270°).
+# Default: 0
+screen-rotate={{ screen_rotate | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Input Method
+# ------------------------------------------------------------------------------
+
+# Path to input method program (e.g., /usr/bin/fbterm-im).
+# If empty, IM is disabled.
+# Default: '' (empty string)
+input-method={{ input_method | default('') }}
+
+# ------------------------------------------------------------------------------
+# Cursor Settings
+# ------------------------------------------------------------------------------
+
+# Cursor shape: 0=block, 1=underline, 2=vertical bar.
+# Default: 0
+cursor-shape={{ cursor_shape | default(0) }}
+
+# Cursor flash interval in milliseconds (0 = no flashing).
+# Default: 500
+cursor-interval={{ cursor_interval | default(500) }}
+
+# ------------------------------------------------------------------------------
+# Video Mode
+# ------------------------------------------------------------------------------
+
+# VESA video mode number (e.g., 0x317).
+# If 0, fbterm uses framebuffer or auto-selects VESA mode.
+# Use 'fbterm --vesa-mode=list' to list available modes.
+# Default: 0
+vesa-mode={{ vesa_mode | default(0) }}

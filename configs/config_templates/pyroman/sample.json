@@ -6,80 +6,13 @@
     "output": "accept",
     "forward": "drop"
   },
-  "conn_table_size": 131072,
+  "conn_table_size": 100000,
   "conn_tracking_max": 65536,
   "packet_buffer_size": 65536,
-  "log_level": "notice",
-  "log_facility": "local0",
-  "interfaces": [
-    {
-      "name": "eth0",
-      "zone": "wan",
-      "comment": "ISP uplink"
-    },
-    {
-      "name": "eth1",
-      "zone": "lan",
-      "mtu": 9000,
-      "comment": "Internal gigabit"
-    }
-  ],
-  "zones": [
-    {
-      "name": "wan",
-      "description": "External untrusted network"
-    },
-    {
-      "name": "lan",
-      "description": "Trusted internal LAN"
-    }
-  ],
+  "log_level": "warning",
+  "log_facility": null,
+  "interfaces": [],
+  "zones": [],
   "zone_assignments": [],
-  "nat_rules": [
-    {
-      "name": "masq-wan",
-      "type": "masquerade",
-      "interface": "eth0",
-      "source": "192.168.0.0/16",
-      "comment": "Allow internal hosts to reach internet"
-    }
-  ],
-  "filter_rules": [
-    {
-      "name": "allow-ssh-lan",
-      "chain": "input",
-      "action": "accept",
-      "protocol": "tcp",
-      "source": "192.168.0.0/16",
-      "port": "22",
-      "comment": "Allow SSH from LAN only"
-    },
-    {
-      "name": "allow-dns-out",
-      "chain": "output",
-      "action": "accept",
-      "protocol": "udp",
-      "destination": "any",
-      "port": "53",
-      "comment": "Allow DNS queries"
-    }
-  ],
-  "time_based_rules": [
-    {
-      "name": "office-hours",
-      "zone": "lan",
-      "start": "08:00",
-      "end": "18:00",
-      "action": "accept"
-    },
-    {
-      "name": "after-hours-restrict",
-      "zone": "lan",
-      "start": "18:01",
-      "end": "07:59",
-      "action": "drop"
-    }
-  ],
-  "dns_spoof_protection": true,
-  "dns_log_queries": false
+  "nat_rules": []
 }

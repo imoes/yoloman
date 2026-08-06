@@ -62,37 +62,11 @@
   "auto_discover": {
     "type": "bool",
     "default": true,
-    "description": "If true, automatically discovers and connects to nearby nodes using flooding/ gossip. Disable for controlled topologies."
+    "description": "If true, automatically discovers and connects to nearby nodes using flooding/gossip. Disable for controlled topologies."
   },
   "peers": {
     "type": "list",
     "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "address": {
-          "type": "string",
-          "description": "Hostname or IP of the static peer node.",
-          "required": true
-        },
-        "port": {
-          "type": "number",
-          "description": "Port used by the peer for overlay communication.",
-          "required": true,
-          "default": 60001
-        },
-        "role": {
-          "type": "string",
-          "enum": [
-            "hub",
-            "spoke",
-            "gateway"
-          ],
-          "description": "Optional role in hybrid topologies.",
-          "default": null
-        }
-      }
-    },
     "description": "List of static peer nodes. Required in 'star' or 'hybrid' topologies, optional otherwise for resilience."
   },
   "tunnel_interface": {
@@ -107,44 +81,121 @@
   },
   "underlay_ip": {
     "type": "string",
-    "description": "IP address to use as source for overlay packets. If omitted, inferred from underlay_interface.",
-    "default": ""
+    "default": "",
+    "description": "IP address to use as source for overlay packets. If omitted, inferred from underlay_interface."
   },
   "underlay_subnet": {
     "type": "string",
     "default": "10.0.0.0/24",
-    "description": "Local network segment in CIDR notation. Used for neighbor discovery and routing scope."
+    "description": "Underlay subnet for overlay network."
   },
-  "ipv6_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable support for IPv6 overlay networks. Requires IPv6 underlay connectivity."
+  "debug": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level [0..3]. Higher values produce more verbose logs."
   },
-  "services": {
+  "map_request_retries": {
+    "type": "number",
+    "default": 2,
+    "description": "Additional Map-Requests to send per map cache miss."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/oor.log",
+    "description": "Log file path when running in daemon mode."
+  },
+  "operating_mode": {
+    "type": "string",
+    "default": "xTR",
+    "description": "LISP device operating mode: 'xTR', 'RTR', 'MN', or 'MS'.",
+    "enum": [
+      "xTR",
+      "RTR",
+      "MN",
+      "MS"
+    ]
+  },
+  "control_iface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Interface for control-plane messages (MS only)."
+  },
+  "lisp_site": {
     "type": "list",
     "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Name of the local service exposed by this node (e.g., 'api', 'db')."
-        },
-        "port": {
-          "type": "number",
-          "description": "TCP/UDP port the service listens on."
-        },
-        "protocol": {
-          "type": "string",
-          "enum": [
-            "tcp",
-            "udp"
-          ],
-          "description": "Protocol used by the service.",
-          "default": "tcp"
-        }
-      }
-    },
-    "description": "List of local services advertised to the overlay (used by gateways and hubs for service routing)."
+    "description": "Allowed LISP sites for registration (MS only)."
+  },
+  "ms_static_registered_site": {
+    "type": "list",
+    "default": [],
+    "description": "Static registered mappings for Map Server."
+  },
+  "encapsulation": {
+    "type": "string",
+    "default": "LISP",
+    "description": "Encapsulation type: 'LISP' or 'VXLAN-GPE'.",
+    "enum": [
+      "LISP",
+      "VXLAN-GPE"
+    ]
+  },
+  "rloc_probe_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between RLOC probes. Set to 0 to disable."
+  },
+  "rloc_probe_retries": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of RLOC probe retries before marking locator down."
+  },
+  "rloc_probe_retries_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between RLOC probe retries."
+  },
+  "map_resolver": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address(es) of Map Resolver(s), comma-separated."
+  },
+  "static_map_cache": {
+    "type": "list",
+    "default": [],
+    "description": "Static entries in the Map Cache."
+  },
+  "rtr_ifaces": {
+    "type": "list",
+    "default": [],
+    "description": "RTR interface definitions for outgoing traffic."
+  },
+  "nat_traversal_support": {
+    "type": "string",
+    "default": "off",
+    "description": "Enable NAT traversal ('on' or 'off').",
+    "enum": [
+      "on",
+      "off"
+    ]
+  },
+  "map_server": {
+    "type": "list",
+    "default": [],
+    "description": "Map Server(s) to send Map-Registers to."
+  },
+  "proxy_etr": {
+    "type": "list",
+    "default": [],
+    "description": "Proxy-ETR(s) for non-LISP-located destinations."
+  },
+  "database_mapping": {
+    "type": "list",
+    "default": [],
+    "description": "Local EID-to-RLOC mappings."
+  },
+  "explicit_locator_path": {
+    "type": "list",
+    "default": [],
+    "description": "Predefined ELPs used in routing."
   }
 }

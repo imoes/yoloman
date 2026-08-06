@@ -1,5 +1,9 @@
 # D-Bus system bus configuration
 # Loaded by dbus-daemon on startup. See dbus-daemon(1) for details.
+#
+# This template is self-documenting. All variables use Jinja2 defaults
+# derived from the schema to prevent render failures when variables are
+# undefined. Comments above each directive reflect the schema description.
 
 # Allow root to connect (usually needed for system services)
 <policy user="root">
@@ -14,30 +18,37 @@
   <allow receive_sender="*"/>
 </policy>
 
-# Restrict access to specific system services via <limit> and <limit_type> directives
-<limit name="max_connections_per_user">{{ max_connections_per_user }}</limit>
-<limit name="max_pending_service_activations">{{ max_pending_activations }}</limit>
-<limit name="max_services_per_user">{{ max_services_per_user }}</limit>
-<limit name="max_replies_per_connection">{{ max_replies_per_connection }}</limit>
-<limit name="max_match_rules_per_connection">{{ max_match_rules_per_connection }}</limit>
-<limit name="max_matches_per_rule">{{ max_matches_per_rule }}</limit>
+# Max connections per user: Maximum number of simultaneous connections allowed per user.
+# Higher values support more clients but increase resource usage.
+<limit name="max_connections_per_user">{{ (max_connections_per_user | default(256)) }}</limit>
 
-# Audit logging (optional)
-{% if enable_audit %}<audit type="enabled"/>{% endif %}
+# Max pending activations: Maximum number of pending service activation requests per user.
+# Controls concurrency of auto-started services.
+<limit name="max_pending_service_activations">{{ (max_pending_activations | default(256)) }}</limit>
 
-# Bind to specific Unix socket path
-<listen>unix:path={{ socket_path }}</listen>
+# Max services per user: Maximum number of uniquely named services a single user may own on the bus.
+<limit name="max_services_per_user">{{ (max_services_per_user | default(128)) }}</limit>
 
-# Enable or disable systemd activation support
-{% if enable_systemd %}<servicehelper>/usr/lib/dbus-1.0/dbus-daemon-launch-helper</servicehelper>{% endif %}
+# Max replies per connection: Maximum number of pending method call replies per connection.
+# Prevents unbounded memory growth from slow clients.
+<limit name="max_replies_per_connection">{{ (max_replies_per_connection | default(512)) }}</limit>
 
-# Explicitly set the bus ID file path (for debugging or containers)
-<standard_session_servicedirs>
-  <servicedir>/usr/share/dbus-1/system-services</servicedir>
-</standard_session_servicedirs>
+# Max match rules per connection: Maximum number of match rules (for signal filtering) per connection.
+<limit name="max_match_rules_per_connection">{{ (max_match_rules_per_connection | default(256)) }}</limit>
 
-<!-- Default service directory for system services -->
-<servicedir>/etc/dbus-1/system.d</servicedir>
+# Max matches per rule: Maximum number of signal matches per rule.
+# Prevents overly complex signal filters.
+<limit name="max_matches_per_rule">{{ (max_matches_per_rule | default(1024)) }}</limit>
 
-# Security: enable or disable kernel-assisted filesystem access control (SELinux/AppArmor integration)
-{% if enforce_security %}<apparmor mode="enforce"/>{% endif %}
+# Audit logging: If true, enable D-Bus audit logging via the audit subsystem (e.g., syslog with audit tags).
+{% if (enable_audit | default(false) | bool) %}
+<audit type="enabled"/>
+{% endif %}
+
+# Socket path: Unix filesystem path where the system bus listener socket will be bound.
+<listen>unix:path={{ (socket_path | default('/var/run/dbus/system_bus_socket')) }}</listen>
+
+# Enable systemd: If true, integrate with systemd for privileged service activation (required on most modern Linux systems).
+{% if (enable_systemd | default(true) | bool) %}
+<servicehelper>/usr/lib/dbus-1.0/dbus-daemon-launch-helper</servicehelper>
+{% endif %}

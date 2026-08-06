@@ -6,8 +6,8 @@
   },
   "abi_version": {
     "type": "string",
-    "default": "2.9",
-    "description": "ABI version string (e.g., '2.9'); defines which language features are available"
+    "default": "kernel",
+    "description": "ABI version string (e.g., '<abi/3.0>', 'kernel'); defines which language features are available"
   },
   "include_common": {
     "type": "bool",
@@ -24,20 +24,33 @@
     "default": "",
     "description": "Optional execution attachment path (e.g., '/usr/bin/myapp'); used for profile matching"
   },
+  "profile_flags": {
+    "type": "list",
+    "default": [],
+    "description": "List of profile flags (e.g., ['debug', 'mediate_deleted']); affects profile behavior globally"
+  },
   "mode": {
     "type": "string",
     "default": "enforce",
-    "description": "Profile enforcement mode: 'enforce', 'complain', 'kill', 'unconfined', 'default_allow', or 'prompt'"
+    "description": "Profile enforcement mode: 'enforce', 'complain', 'kill', 'unconfined', 'default_allow', or 'prompt'",
+    "enum": [
+      "enforce",
+      "complain",
+      "kill",
+      "default_allow",
+      "unconfined",
+      "prompt"
+    ]
   },
   "audit_rules": {
     "type": "list",
     "default": [],
-    "description": "List of rule types to always audit (e.g., ['capability net_admin', 'network inet tcp'])"
+    "description": "List of rule types to always audit (e.g., ['file /etc/shadow r'])"
   },
   "debug": {
     "type": "bool",
     "default": false,
-    "description": "If true, enable debug logging for violations"
+    "description": "If true, enable debug flag in profile header"
   },
   "capabilities": {
     "type": "list",
@@ -47,37 +60,37 @@
   "network_rules": {
     "type": "list",
     "default": [],
-    "description": "List of network rules: each is {domain, access, local?, peer?}; domain e.g. 'inet', access e.g. 'tcp', local e.g. 'port=8080', peer e.g. '127.0.0.1'"
+    "description": "List of network rules: each is {domain, type, local?, peer?}; domain e.g. 'inet', type e.g. 'tcp', local e.g. '127.0.0.1', peer is dict with ip and port"
   },
   "file_rules": {
     "type": "list",
     "default": [],
-    "description": "List of file rules: each is {owner?, type, path, access?, target?}; access e.g. 'rwl', target e.g. 'unconfined' for exec transitions"
+    "description": "List of file rules: each is {qualifiers?, owner?, type, path, access?, target?}; access e.g. 'rwl', target e.g. 'unconfined' for exec transitions"
   },
   "signal_rules": {
     "type": "list",
     "default": [],
-    "description": "List of signal rules: each is {access?, set?, peer?}; set is list of signal names like ['term', 'hup']; peer is label string"
+    "description": "List of signal rules: each is {qualifiers?, access?, set?, peer?}; set is list of signal names like ['term', 'hup']; peer is label string"
   },
   "unix_rules": {
     "type": "list",
     "default": [],
-    "description": "List of Unix socket rules: each is {access?, type?, protocol?, local?, peer?}; e.g. access='connect', local='addr=@/tmp/foo'"
+    "description": "List of Unix socket rules: each is {qualifiers?, access?, type?, protocol?, local?, peer?}; e.g. access='connect', local='@/tmp/foo', peer is list of dicts with label/addr"
   },
   "dbus_rules": {
     "type": "list",
     "default": [],
-    "description": "List of DBus rules: each is {access?, bus?, name?, path?, interface?, member?, peer?}; bus e.g. 'system'"
+    "description": "List of DBus rules: each is {qualifiers?, access?, bus?, name?, path?, interface?, member?, peer?}; bus e.g. 'system'; peer is list of dicts with name/label"
   },
   "mount_rules": {
     "type": "list",
     "default": [],
-    "description": "List of mount rules: each is {access, fstype?, options?, source, dest}; e.g. access='mount', source='/dev/sda1', dest='/mnt/data'"
+    "description": "List of mount rules: each is {qualifiers?, action, fstype?, fstype_cond?, options?, options_cond?, source, dest}; action is 'mount', 'remount' or 'umount'"
   },
   "rlimit_rules": {
     "type": "list",
     "default": [],
-    "description": "List of rlimit rules: each is {resource, operator?, value?}; resource e.g. 'nofile', value e.g. '1024' or '1G'"
+    "description": "List of rlimit rules: each is {resource, operator, value}; resource e.g. 'nofile', operator e.g. '<=', value e.g. '1024' or '1G'"
   },
   "change_profile_rules": {
     "type": "list",
@@ -88,5 +101,14 @@
     "type": "bool",
     "default": false,
     "description": "If true, adds 'all,' rule (allows everything \u2014 for testing only)"
+  },
+  "allow_all_qualifiers": {
+    "type": "string",
+    "default": "",
+    "description": "Qualifiers for the 'all' rule, e.g., 'audit' or 'deny'",
+    "enum": [
+      "audit",
+      "deny"
+    ]
   }
 }

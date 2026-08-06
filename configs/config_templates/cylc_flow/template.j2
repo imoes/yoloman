@@ -1,48 +1,71 @@
+# Cylc Flow Workflow Configuration
+# This template configures the Cylc workflow scheduler and task runtime.
+# It is self-documenting: every variable has a default and a descriptive comment.
+
 [scheduler]
-  # Enable automatic workflow shutdown after all tasks finish
-  auto shutdown = {{ scheduler_auto_shutdown }}
+  # Automatically shut down the workflow after all tasks complete.
+  # Default: False
+  auto shutdown = {{ (scheduler_auto_shutdown | default(False)) | lower }}
 
-  # Number of retries for task submission
-  try 1 max submissions = {{ scheduler_try_1_max_submissions }}
+  # Maximum number of task submission attempts (try 1).
+  # Default: 10
+  try 1 max submissions = {{ scheduler_try_1_max_submissions | default(10) }}
 
-  # Time interval between polling task states (seconds)
-  poll interval = {{ scheduler_poll_interval }}
+  # Interval in seconds between polling task states.
+  # Default: 30
+  poll interval = {{ scheduler_poll_interval | default(30) }}
 
-  # Time interval between checking for new tasks (seconds)
-  cycle point delay = {{ scheduler_cycle_point_delay }}
+  # Delay in seconds between checking for new cycle points.
+  # Default: 120
+  cycle point delay = {{ scheduler_cycle_point_delay | default(120) }}
 
-  # Maximum number of tasks to hold at once
-  max active cycle points = {{ scheduler_max_active_cycle_points }}
+  # Maximum number of active cycle points held in memory.
+  # Default: 10
+  max active cycle points = {{ scheduler_max_active_cycle_points | default(10) }}
 
   # Workflow logging configuration
 [scheduler][log file]
-  # Enable workflow logging
-  enable = {{ log_file_enable }}
-  # Path to workflow log file
-  path = {{ log_file_path }}
-  # Log rotation (bytes); 0 means no rotation
-  max size = {{ log_file_max_size }}
+  # Enable writing workflow logs to disk.
+  # Default: True
+  enable = {{ (log_file_enable | default(True)) | lower }}
+
+  # Path to the workflow log file (supports Cylc environment variables).
+  # Default: '${HOME}/.cylc-run/${WORKFLOW_NAME}/log/log'
+  path = {{ log_file_path | default('${HOME}/.cylc-run/${WORKFLOW_NAME}/log/log') }}
+
+  # Maximum size (in bytes) before log rotation; 0 disables rotation.
+  # Default: 10485760
+  max size = {{ log_file_max_size | default(10485760) }}
 
   # Task runtime environment and execution configuration
-{% for task_name, task_config in tasks.items() %}
+# The 'tasks' field is a list of task definitions. Each item is a mapping.
+# We iterate over the list to produce [runtime][[task_name]] blocks.
+{% for task_def in (tasks | default([])) %}
+# Task definition: {{ task_def.name if task_def.name is defined else 'unknown_task' }}
 [runtime]
-  [[{{ task_name }}]]
+  [[{{ task_def.name | default('undefined_task') }}]]
     # Environment variables for task
-{% for env_name, env_val in task_config.environment.items() %}
+{% if task_def.environment is defined and task_def.environment is mapping %}
+{% for env_name, env_val in task_def.environment | dict2items %}
     [[[envp]]]
       {{ env_name }} = {{ env_val }}
 {% endfor %}
-    # Shell used for task script
-    script = {{ task_config.script }}
+{% endif %}
+    # Shell command to execute for this task.
+{% if task_def.script is defined %}
+    script = {{ task_def.script }}
+{% else %}
+    script = echo "Hello from {{ task_def.name | default('task') }}"
+{% endif %}
     # Command to submit task (e.g., to a batch system)
-{% if task_config.submit_command is defined %}
+{% if task_def.submit_command is defined %}
     [[[job]]]
-      batch system = {{ task_config.batch_system }}
-      submit command = {{ task_config.submit_command }}
+      batch system = {{ task_def.batch_system | default('slurm') }}
+      submit command = {{ task_def.submit_command }}
 {% endif %}
     # Task retry configuration
-{% if task_config.retry is defined %}
+{% if task_def.retry is defined %}
     [[[attempt]]]
-      retry delays = {{ task_config.retry | join(', ') }}
+      retry delays = {{ task_def.retry | join(', ') }}
 {% endif %}
 {% endfor %}

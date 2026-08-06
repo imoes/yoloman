@@ -1,0 +1,33 @@
+# Configuration for chiark-backup LVM storage options
+# This file defines how the backup script interacts with LVM volume groups and logical volumes.
+
+# Name of the LVM volume group to use for backups
+# Schema description: Name of the LVM volume group to use for backups
+# Defaults to empty string, requiring explicit configuration via Ansible inventory or defaults.
+lvm_vg={{ lvm_vg | default('') }}
+
+# Name of the LVM logical volume to use for backups
+# Schema description: Name of the LVM logical volume to use for backups
+# Defaults to 'chiark_backup'
+lvm_lv={{ lvm_lv | default('chiark_backup') }}
+
+# Options for specifying the logical volume size
+# Schema description: Options for specifying the logical volume size
+# Defaults to empty string. The comment in the original template suggests logic related to extents
+# and space usage, but this variable allows passing arbitrary size specifiers (e.g., +5G, 100%FREE).
+lvm_lvsize_opts={{ lvm_lvsize_opts | default('') }}
+
+# Options passed to lvm tools (e.g., lvcreate)
+# Schema description: Options passed to lvm tools (e.g., lvcreate)
+# Defaults to '-A n' to disable automatic activation of the volume, preventing conflicts during backup processes.
+lvm_lvtools_opts={{ lvm_lvtools_opts | default('-A n') }}
+
+# Additional options for the lvcreate command
+# Schema description: Additional options for the lvcreate command
+# Defaults to empty string. Used to pass flags directly to lvcreate before the arguments.
+lvm_lvcreate_opts={{ lvm_lvcreate_opts | default('') }}
+
+# Additional arguments for the lvcreate command
+# Schema description: Additional arguments for the lvcreate command
+# Defaults to empty string. Used to pass positional arguments to lvcreate (e.g., device paths if needed).
+lvm_lvcreate_args={{ lvm_lvcreate_args | default('') }}

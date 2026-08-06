@@ -1,0 +1,167 @@
+## =============================================================================
+## hdparm(8) configuration template for Debian/Ubuntu systems
+## =============================================================================
+##
+## This file configures hdparm to tune hard drive parameters at boot or on
+## demand. The syntax is device-specific blocks or global defaults.
+##
+## FORMAT:
+##   # Global options (applied to all devices unless overridden)
+##   option = value
+##
+##   # Device-specific blocks
+##   /dev/sdX {
+##       option = value
+##   }
+##
+## NOTE: This template generates a default 'quiet' mode and a block for the
+## primary disk variable `device` (if defined). Global defaults are also set
+## so they apply if a specific device block is missing or empty.
+
+# -q: Be quiet during execution.
+quiet
+
+# -----------------------------------------------------------------------------
+# GLOBAL DEFAULTS
+# -----------------------------------------------------------------------------
+# These settings apply to ALL drives unless a specific /dev/sdX block overrides
+# them. This ensures a safe baseline configuration.
+
+# read_ahead_sect: Sector count for filesystem read-ahead.
+# Default: 12
+read_ahead_sect = {{ read_ahead_sect | default(12) }}
+
+# lookahead: Disable/enable the IDE drive's read-lookahead feature.
+# Values: on | off
+# Default: on
+lookahead = {{ lookahead | default('on') }}
+
+# bus: Bus state (on|off).
+# Default: on
+bus = {{ bus | default('on') }}
+
+# apm: Advanced Power Management setting.
+# Range: 1-255 (255 = disabled).
+# Default: 255
+apm = {{ apm | default(255) }}
+
+# apm_battery: APM setting when running on battery power.
+# Range: 1-255 (255 = disabled).
+# Default: 127
+apm_battery = {{ apm_battery | default(127) }}
+
+# io32_support: Enable (E)IDE 32-bit I/O support.
+# Values: 0 | 1 | 3
+# Default: 1
+io32_support = {{ io32_support | default(1) }}
+
+# dma: Disable/enable the "using_dma" flag for this drive.
+# Values: on | off
+# Default: off
+dma = {{ dma | default('off') }}
+
+# defect_mana: Enable/disable on-drive defect management.
+# Values: on | off
+# Default: off
+defect_mana = {{ defect_mana | default('off') }}
+
+# cd_speed: CD-ROM speed setting.
+# Default: 16
+cd_speed = {{ cd_speed | default(16) }}
+
+# keep_settings_over_reset: Disable/enable the "keep_settings_over_reset" flag.
+# Values: on | off
+# Default: off
+keep_settings_over_reset = {{ keep_settings_over_reset | default('off') }}
+
+# keep_features_over_reset: Disable/enable the drive's "keep_features_over_reset" flag.
+# Values: on | off
+# Default: on
+keep_features_over_reset = {{ keep_features_over_reset | default('on') }}
+
+# mult_sect_io: Sector count for multiple sector I/O.
+# Default: 32
+mult_sect_io = {{ mult_sect_io | default(32) }}
+
+# prefetch_sect: Maximum sector count for the drive's internal prefetch mechanism.
+# Default: 12
+prefetch_sect = {{ prefetch_sect | default(12) }}
+
+# read_only: Read-only flag for device.
+# Values: on | off
+# Default: off
+read_only = {{ read_only | default('off') }}
+
+# write_read_verify: Enable/Disable Write-Read-Verify.
+# Values: on | off
+# Default: off
+write_read_verify = {{ write_read_verify | default('off') }}
+
+# poweron_standby: Turn on/off power on in standby mode.
+# Values: on | off
+# Default: off
+poweron_standby = {{ poweron_standby | default('off') }}
+
+# spindown_time: Standby (spindown) timeout in 500ms units.
+# 0 = never spin down.
+# Default: 24
+spindown_time = {{ spindown_time | default(24) }}
+
+# force_spindown_time: Same as spindown_time, but applied even if disk
+# doesn't support APM. Debian-specific option. Use with caution.
+# Default: 24
+force_spindown_time = {{ force_spindown_time | default(24) }}
+
+# interrupt_unmask: Interrupt-unmask flag for the drive.
+# Values: on | off
+# Default: on
+interrupt_unmask = {{ interrupt_unmask | default('on') }}
+
+# write_cache: Disable/enable the IDE drive's write-caching feature.
+# Values: on | off
+# Default: off
+write_cache = {{ write_cache | default('off') }}
+
+# transfer_mode: IDE transfer mode (e.g., 34 = multiword DMA mode 2).
+# Default: 34
+transfer_mode = {{ transfer_mode | default(34) }}
+
+# acoustic_management: Set the acoustic management properties of a drive.
+# Values: 128 (medium) | 254 (fast) | etc.
+# Default: 128
+acoustic_management = {{ acoustic_management | default(128) }}
+
+# -----------------------------------------------------------------------------
+# DEVICE-SPECIFIC BLOCKS
+# -----------------------------------------------------------------------------
+# If `devices` is defined as a list/dict of device identifiers, generate
+# specific blocks for them. If not defined, this section is skipped.
+# If `device` (string) is defined, generate a block for it.
+
+{% if devices is defined %}
+{% for dev_id, dev_opts in devices | dict2items %}
+# Block for device: {{ dev_id }}
+{{ dev_id }} {
+{% if dev_opts is mapping %}
+    # Explicit options for {{ dev_id }}
+{% for opt_name, opt_val in dev_opts | dict2items %}
+    {{ opt_name }} = {{ opt_val }}
+{% endfor %}
+{% else %}
+    # No specific options provided for {{ dev_id }}, using global defaults.
+{% endif %}
+}
+
+{% endfor %}
+{% endif %}
+
+{% if device is defined and device is not none %}
+# Block for primary device: {{ device }}
+{{ device }} {
+    # Global defaults apply to this device as well unless overridden below.
+    # You can uncomment and modify specific lines here to override globals.
+    # read_ahead_sect = 12
+    # apm = 255
+}
+
+{% endif %}

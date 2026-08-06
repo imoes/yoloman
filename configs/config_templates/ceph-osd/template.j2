@@ -1,51 +1,14 @@
-# Global Ceph configuration for the cluster
-[global]
-# Cluster name
-fsid = {{ cluster_fsid }}
+# Ceph OSD System Tuning Parameters
+# This configuration applies kernel-level tuning parameters required for Ceph OSD daemons
+# to operate efficiently with high I/O concurrency and sufficient process limits.
 
-# Monitor addresses (comma-separated list of host:port)
-mon_host = {{ mon_hosts | join(', ') }}
+# fs_aio_max_nr: Maximum number of asynchronous I/O operations per process.
+# Ceph OSDs perform heavy asynchronous I/O; this limit must be raised well above default.
+# Type: integer
+fs.aio-max-nr = {{ fs_aio_max_nr | default(1048576) }}
 
-# Network interfaces for public and cluster traffic
-public_network = {{ public_network }}
-cluster_network = {{ cluster_network }}
-
-# Authentication type (none, cephx)
-auth_cluster_required = {{ auth_cluster_required }}
-auth_service_required = {{ auth_service_required }}
-auth_client_required = {{ auth_client_required }}
-
-# Logging
-log_file = {{ log_file }}
-
-# OSD-specific defaults
-osd_journal_size = {{ osd_journal_size }}
-osd_max_backfills = {{ osd_max_backfills }}
-osd_recovery_max_active = {{ osd_recovery_max_active }}
-
-{% for osd in osds %}
-# OSD {{ osd.id }}: data and block device paths
-[osd.{{ osd.id }}]
-# Data device path
-osd_data = {{ osd.data_path }}
-
-{% if osd.has_journal %}
-# Journal device or file path
-osd_journal = {{ osd.journal_path }}
-{% endif %}
-
-{% if osd.has_wal %}
-# WAL (write-ahead log) device or file path
-osd_db = {{ osd.wal_path }}
-{% endif %}
-
-# Optional: custom host or metadata device (e.g., for bluefs layout)
-{% if osd.host_name %}
-host = {{ osd.host_name }}
-{% endif %}
-
-{% if osd.device_class %}
-device_class = {{ osd.device_class }}
-{% endif %}
-
-{% endfor %}
+# kernel_pid_max: Maximum number of processes (PIDs) allowed on the system.
+# Ceph OSDs spawn many threads and processes for recovery, scrubbing, and replication;
+# this limit must be high enough to accommodate the expected load.
+# Type: integer
+kernel.pid_max = {{ kernel_pid_max | default(4194304) }}

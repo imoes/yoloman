@@ -1,57 +1,12 @@
-# /etc/munin/munin.conf — Main Munin master configuration file
 #
-# See munin.conf(5) for more info: http://munin-monitoring.org/wiki/Documentation
+# cron-jobs for munin
+#
 
-# Global settings
-[defaults]
-  # Directory where munin stores HTML, PNG, and RRD files
-  html_dir: {{ defaults.html_dir }}
-  # Directory where RRD data files are stored
-  lib_dir: {{ defaults.lib_dir }}
-  # Directory where log files are stored
-  log_dir: {{ defaults.log_dir }}
-  # Directory where PID files are stored
-  run_dir: {{ defaults.run_dir }}
-  # User under which munin-run runs (usually munin)
-  user: {{ defaults.user }}
-  # Group under which munin-run runs (usually munin)
-  group: {{ defaults.group }}
-  # How often (in minutes) to update graphs (default: 5)
-  interval: {{ defaults.interval }}
-  # Enable or disable HTML generation (on/off)
-  html_strategy: {{ defaults.html_strategy }}
-  # Enable or disable RRD update generation (on/off)
-  rrd_strategy: {{ defaults.rrd_strategy }}
+MAILTO={{ contact_groups.alerts.command | replace('mail -s \'Munin alert\' root', '').replace('mail -s', '').strip().replace('\'','').replace('root', '{{ contact_groups.alerts.contacts[0].value if contact_groups.alerts.contacts else 'root' }}') }}
 
-# Define contact groups for alerts
-[contact.group.alerts]
-  command: {{ contact_groups.alerts.command }}
-{% for contact in contact_groups.alerts.contacts %}
-  {{ contact.name }}.contact: {{ contact.value }}
-{% endfor %}
+*/{{ defaults.interval }} * * * *     {{ defaults.user }} if [ -x /usr/bin/munin-cron ]; then /usr/bin/munin-cron; fi
+14 10 * * *     {{ defaults.user }} if [ -x /usr/share/munin/munin-limits ]; then /usr/share/munin/munin-limits --force --contact nagios --contact old-nagios; fi
 
-# Define each node ( Munin client ) to monitor
-{% for node in nodes %}
-[{{ node.name }}]
-  # Node address — IP or hostname
-  address: {{ node.address }}
-  # TCP port to connect to (default: 4949)
-  port: {{ node.port }}
-  # Optional node-specific group
-  group: {{ node.group | default('ungrouped') }}
-  # Optional node-specific description
-  use_node_name: {{ node.use_node_name | default('yes') }}
-  # Optional labels
-{% if node.labels %}
-{% for label_key, label_val in node.labels.items() %}
-  label_{{ label_key }}: {{ label_val }}
-{% endfor %}
-{% endif %}
-{% endfor %}
-
-# Optional: Define node groups for HTML rendering
-{% for group in node_groups %}
-[{{ group.name }}]
-  # Comma-separated list of node names to include in this group
-  nodes: {{ group.nodes | join(', ') }}
-{% endfor %}
+# remove stale generated html and graph files (e.g. disabled plugins or fields with volatile names)
+27 03 * * *     {{ defaults.user }} htmldir=$({ cat /etc/munin/munin.conf /etc/munin/munin-conf.d/* 2>/dev/null || true; } | sed -nE 's/^\s*htmldir\s+(\S.*)$/\1/p' | tail -1); htmldir=${htmldir:-{{ defaults.html_dir }}}; if [ -d "$htmldir" ]; then find "$htmldir/" -type f -name "*.html" -mtime +30 -delete; find "$htmldir/" -mindepth 1 -type d -empty -delete; fi
+32 03 * * *     {{ defaults.user }} cgitmpdir=$({ cat /etc/munin/munin.conf /etc/munin/munin-conf.d/* 2>/dev/null || true; } | sed -nE 's/^\s*cgitmpdir\s+(\S.*)$/\1/p' | tail -1); cgitmpdir=${cgitmpdir:-/var/lib/munin/cgi-tmp}; if [ -d "$cgitmpdir" ]; then find "$cgitmpdir/" -type f -mtime +1 -delete; find "$cgitmpdir/" -mindepth 1 -type d -empty -delete; fi

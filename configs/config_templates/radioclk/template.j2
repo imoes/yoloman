@@ -1,67 +1,81 @@
-# radioclk configuration file — controls MSF/WWVB/DCF77 radio clock input to NTP
-# Enable/disable the MSF (UK) receiver
-{% if msf.enabled %}
-msf_device {{ msf.device }}
-msf_enabled yes
-{% else %}
-msf_enabled no
-{% endif %}
+#! /bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          radioclk
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start simple radio NTP reference clock daemon
+# Description: Start simple radio NTP reference clock daemon
+### END INIT INFO
 
-# Enable/disable the WWVB (USA) receiver
-{% if wwvb.enabled %}
-wwvb_device {{ wwvb.device }}
-wwvb_enabled yes
-{% else %}
-wwvb_enabled no
-{% endif %}
+. /lib/lsb/init-functions
 
-# Enable/disable the DCF77 (Germany) receiver
-{% if dcf77.enabled %}
-dcf77_device {{ dcf77.device }}
-dcf77_enabled yes
-{% else %}
-dcf77_enabled no
-{% endif %}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/radioclkd
+NAME=radioclkd
+DESC="Radio Clock daemon"
+DEFAULTS=/etc/default/radioclk
+PIDFILE=/var/run/$NAME.pid
 
-# Signal quality thresholds (0–100 scale; lower values accept weaker signals)
-min_snr {{ min_snr }}
-min_signal_strength {{ min_signal_strength }}
+test -x $DAEMON || exit 5
 
-# Time tolerance: maximum offset (in milliseconds) accepted before rejecting the signal
-max_offset_ms {{ max_offset_ms }}
+set -e
 
-# Logging verbosity: 0 = quiet, 5 = debug
-log_level {{ log_level }}
+if [ -e "$DEFAULTS" ] ; then
+	. "$DEFAULTS"
+fi
 
-# Optional: device-specific tuning parameters (applies to all enabled receivers)
-{% for device_param in device_params %}
-# {{ device_param.description }}
-device_{{ device_param.param }} {{ device_param.value }}
-{% endfor %}
+if [ "$PORT" = "" ] ; then
+	printf "You need to edit $DEFAULTS before using $NAME.\n"
+	exit 0
+fi
 
-# Optional: fallback NTP servers when all radio sources are down
-{% if fallback_ntp | length > 0 %}
-{% for server in fallback_ntp %}fallback_server {{ server }}
-{% endfor %}
-{% endif %}
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $PORT
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+	echo "$NAME."
+	;;
+  #reload)
+	#
+	#	If the daemon can reload its config files on the fly
+	#	for example by sending it SIGHUP, do it here.
+	#
+	#	If the daemon responds to changes in its config file
+	#	directly anyway, make this a do-nothing entry.
+	#
+	# echo "Reloading $DESC configuration files."
+	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
+	#	/var/run/$NAME.pid --exec $DAEMON
+  #;;
+  restart|force-reload)
+	#
+	#	If the "reload" option is implemented, move the "force-reload"
+	#	option to the "reload" entry above. If not, "force-reload" is
+	#	just the same as "restart".
+	#
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+	sleep 1
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $PORT
+	echo "$NAME."
+	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
 
-# Optional: custom serial port settings (baud, parity, stop bits)
-serial_baud {{ serial.baud }}
-serial_parity {{ serial.parity }}
-serial_stopbits {{ serial.stopbits }}
-
-# Optional: enable pulse-per-second (PPS) discipline
-{% if pps.enabled %}
-pps_device {{ pps.device }}
-pps_enabled yes
-{% else %}
-pps_enabled no
-{% endif %}
-
-# Output file for raw decoded timecodes (for diagnostics)
-{% if debug.dump_file %}
-dump_file {{ debug.dump_file }}
-{% endif %}
-
-# Process priority (nice value: -20 to 19)
-nice {{ nice }}
+exit 0

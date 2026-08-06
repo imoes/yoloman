@@ -1,0 +1,72 @@
+# direvent configuration file
+#
+# This is the configuration file for direvent.
+# Read direvent.conf(5) for more information about how to
+# fill this file.
+#
+# direvent monitors directories and executes commands on file events.
+# This template is self-documenting: every directive is described
+# by its schema field description above it.
+
+# Global options can be set here (e.g., log level, pid file).
+# Currently, the schema focuses on watcher blocks.
+
+# --- Watcher Block Template ---
+# A watcher block defines a directory to monitor and actions to take.
+# This block is commented out by default to allow users to enable
+# specific configurations. Copy and uncomment as needed.
+
+#watcher {
+#    # Path to watch (required in active watcher blocks)
+#    # Default: ''
+    path {{ watcher_path | default('') }} {{ watcher_level | default('10') }};
+
+#    # Space-separated list of file name patterns to match (optional)
+#    # Default: ''
+    file {{ watcher_file_pattern_list | default('') }};
+
+#    # Space-separated list of events to watch for (e.g., create, modify, delete)
+#    # Default: 'create'
+    event {{ watcher_event_list | default('create') }};
+
+#    # Command to execute when an event occurs
+#    # Default: ''
+    command {{ watcher_command_line | default('') }};
+
+#    # User to run the command as (optional)
+#    # Default: ''
+    user {{ watcher_user | default('') }};
+
+#    # Timeout in seconds for command execution (optional)
+#    # Default: 0 (no timeout)
+    timeout {{ watcher_timeout | default(0) }};
+
+#    # Environment variable specifications (e.g., VAR=value)
+#    # Default: ''
+    environ {{ watcher_environ | default('') }};
+
+#    # Space-separated list of option flags (optional)
+#    # Default: ''
+    option {{ watcher_option_string_list | default('') }};
+#}
+
+# --- Example Watcher Block ---
+# An example of use where test.sh has:
+# #!/bin/bash
+# /bin/echo "Hello, this is a test of direvent" > /tmp/test.txt
+
+# This block demonstrates a simple file creation watcher.
+# Uncomment to use.
+
+#watcher {
+#    # Path used in the commented example
+#    # Default: '/home/user'
+    path {{ example_watcher_path | default('/home/user') }};
+
+#    # Hardcoded event for this example
+    event create;
+
+#    # Command used in the commented example
+#    # Default: '/tmp/test.sh'
+    command "{{ example_watcher_command | default('/tmp/test.sh') }}";
+#}

@@ -1,0 +1,139 @@
+# =============================================================================
+# Configuration file for bugz (pybugz) command-line Bugzilla client.
+# This file is auto-generated and self-documenting. Each directive is preceded
+# by a comment explaining its source schema field, its default value, and its
+# semantic meaning.
+#
+# Structure:
+#   [global]  – Default settings applied to all Bugzilla instances.
+#   [name]    – Per-server override sections for specific Bugzilla instances.
+# =============================================================================
+
+[global]
+
+# server_url (string):
+#   Default Bugzilla server URL. Must include the protocol (http/https) and
+#   a trailing slash.
+#   Default: 'https://bugs.debian.org/'
+server = {{ server_url | default('https://bugs.debian.org/') }}
+
+# username (string):
+#   Default Bugzilla username for authentication.
+#   Default: '' (empty)
+username = {{ username | default('') }}
+
+# api_key (string):
+#   Default Bugzilla API key for authentication. This is preferred over the
+#   password field if provided.
+#   Default: '' (empty)
+{% if (api_key | default('')) is string and api_key | default('') %}
+# api_key = {{ api_key | default('') }}
+api_key = {{ api_key | default('') }}
+{% endif %}
+
+# password (string):
+#   Default Bugzilla password for authentication. Used as a fallback if the
+#   API key is not available or not set.
+#   Default: '' (empty)
+{% if (password | default('')) is string and password | default('') %}
+# password = {{ password | default('') }}
+password = {{ password | default('') }}
+{% endif %}
+
+# product (string):
+#   Default Bugzilla product name to scope searches and operations against
+#   (e.g., 'Debian', 'Core').
+#   Default: '' (empty)
+product = {{ product | default('') }}
+
+# component (string):
+#   Default Bugzilla component to scope searches and operations against.
+#   Default: '' (empty)
+component = {{ component | default('') }}
+
+# status (list):
+#   Default list of bug statuses to include in queries.
+#   Default: ['NEW', 'ASSIGNED', 'REOPENED']
+#   Rendered as a comma-separated list.
+status = {{ status | default(['NEW', 'ASSIGNED', 'REOPENED']) | join(',') }}
+
+# priority (list):
+#   Default list of bug priorities to filter by. If empty, no priority
+#   filtering is applied.
+#   Default: []
+#   Rendered as a comma-separated list.
+priority = {{ priority | default([]) | join(',') }}
+
+# max_bugs (int):
+#   Maximum number of bugs to display or return in summary views.
+#   Default: 10
+max_bugs = {{ max_bugs | default(10) }}
+
+# timeout (int):
+#   Timeout in seconds for network connections to the Bugzilla server.
+#   Default: 30
+timeout = {{ timeout | default(30) }}
+
+# verbose (bool):
+#   Enable verbose output for debugging and logging.
+#   Default: false
+verbose = {{ verbose | default(false) }}
+
+# debug (bool):
+#   Enable debug output. This implies verbose mode.
+#   Default: false
+debug = {{ debug | default(false) }}
+
+# extra_options (list of dicts):
+#   List of additional key=value pairs for server-specific options not
+#   covered by standard fields. Each item must have 'key' and 'value'.
+#   Default: []
+{% if extra_options | default([]) | length > 0 %}
+# --- Additional Server-Specific Options ---
+{% for option in extra_options | default([]) %}
+# {{ option.key | default('') }} = {{ option.value | default('') }}
+{{ option.key | default('') }} = {{ option.value | default('') }}
+{% endfor %}
+{% endif %}
+
+# servers (list of dicts):
+#   List of additional server configurations. Each entry represents an
+#   alternate Bugzilla instance with its own overrides.
+#   Default: []
+{% if servers | default([]) | length > 0 %}
+# --- Per-Server Overrides ---
+{% for srv in servers | default([]) %}
+
+# [{{ srv.name | default('unnamed') }}]
+#   Configuration block for Bugzilla instance: {{ srv.name | default('unnamed') }}
+[{{ srv.name | default('unnamed') }}]
+
+# server (string):
+#   Override URL for this specific Bugzilla instance.
+#   Default: 'https://bugs.debian.org/'
+#   Note: If srv.server_url exists, use it; otherwise fall back to srv.url or global.
+{% set srv_url = (srv.server_url | default('')) if (srv.server_url | default('')) else (srv.url | default('https://bugs.debian.org/')) %}
+server = {{ srv_url }}
+
+{% if srv.username | default('') %}
+# username (string):
+#   Override username for this instance.
+# username = {{ srv.username | default('') }}
+username = {{ srv.username | default('') }}
+{% endif %}
+
+{% if srv.api_key | default('') %}
+# api_key (string):
+#   Override API key for this instance.
+# api_key = {{ srv.api_key | default('') }}
+api_key = {{ srv.api_key | default('') }}
+{% endif %}
+
+{% if srv.password | default('') %}
+# password (string):
+#   Override password for this instance.
+# password = {{ srv.password | default('') }}
+password = {{ srv.password | default('') }}
+{% endif %}
+{% endfor %}
+{% endif %}

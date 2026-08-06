@@ -1,0 +1,89 @@
+# ==============================================================================
+# dbview Configuration Template
+# ==============================================================================
+# This template generates a configuration file for 'dbview', a tool used to
+# display and inspect dBase III/IV (.dbf) files.
+#
+# Every variable uses the `default(...)` filter to ensure safe rendering even
+# if the variable is not defined in the Ansible host vars. This makes the
+# template self-documenting and robust against missing inputs.
+# ==============================================================================
+
+# Path to the dBase III/IV (.dbf) file to display
+# Default: 'database.dbf'
+INPUT_FILE: {{ input_file | default('database.dbf') }}
+
+# Enable browse mode (no field names, single-line records)
+# When enabled, records are printed on a single line, separated by the delimiter.
+# When disabled, a standard multi-line format is used.
+# Default: False
+{% if browse_mode | default(false) %}
+MODE: browse
+{% else %}
+MODE: standard
+{% endif %}
+
+# Field separator used in browse mode (e.g., tab, pipe, colon)
+# Only effective when browse_mode is true.
+# Default: ':'
+DELIMITER: {{ delimiter | default(':') }}
+
+# Include deleted records and show delete state
+# If true, records marked as deleted in the .dbf header are included in the output.
+# Default: False
+{% if show_deleted | default(false) %}
+INCLUDE_DELETED: true
+{% else %}
+INCLUDE_DELETED: false
+{% endif %}
+
+# Show field descriptions (field types, lengths)
+# If true, metadata about each field is displayed alongside the data.
+# Default: False
+{% if show_descriptions | default(false) %}
+SHOW_DESCRIPTIONS: true
+{% else %}
+SHOW_DESCRIPTIONS: false
+{% endif %}
+
+# Omit data content (show structure only)
+# If true, the actual record data is omitted, showing only the database schema/metadata.
+# Default: False
+{% if omit_content | default(false) %}
+OMIT_CONTENT: true
+{% else %}
+OMIT_CONTENT: false
+{% endif %}
+
+# Keep original field name casing (do not convert to title case)
+# By default, dbview may normalize field names. This flag preserves the exact case
+# stored in the .dbf file header.
+# Default: False
+{% if preserve_case | default(false) %}
+PRESERVE_CASE: true
+{% else %}
+PRESERVE_CASE: false
+{% endif %}
+
+# Trim leading/trailing whitespace from field values
+# Useful for cleaning up fixed-length character fields in .dbf files.
+# Default: False
+{% if trim_values | default(false) %}
+TRIM_VALUES: true
+{% else %}
+TRIM_VALUES: false
+{% endif %}
+
+# Display technical database metadata (record count, record size, etc.)
+# Shows summary statistics about the .dbf file.
+# Default: False
+{% if show_info | default(false) %}
+SHOW_INFO: true
+{% else %}
+SHOW_INFO: false
+{% endif %}
+
+# Encoding conversion hint for legacy dBase files (e.g., 'ibmpc:latin1' via recode)
+# Specify the source and target encoding to handle legacy DOS code pages correctly.
+# If left empty or undefined, the system default encoding is used.
+ENCODING: {{ encoding | default('') }}

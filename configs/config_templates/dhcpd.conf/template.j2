@@ -1,52 +1,158 @@
-# The default DHCP server configuration file
-# Define the authoritative flag for this server
+# ==============================================================================
+# DHCP Server Configuration Template (dhcpd.conf)
+# ==============================================================================
+# This template generates a valid ISC DHCP server configuration file.
+# It supports global defaults, subnet definitions with dynamic ranges,
+# and static host reservations.
+#
+# Self-Documenting Principle:
+# Every configuration directive is preceded by a comment explaining its
+# purpose and source (schema field). All variables use inline defaults
+# to prevent rendering failures if upstream Ansible variables are missing.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Options
+# --------------------------------------------------------------------------
+
+# Mark this server as authoritative for the local network.
+# This prevents the server from answering queries on subnets it does not
+# have a definition for, which helps avoid misconfiguration in complex networks.
 authoritative;
 
-# Default lease time in seconds
-default-lease-time {{ default_lease_time }};
+# --------------------------------------------------------------------------
+# Lease Time Defaults
+# --------------------------------------------------------------------------
 
-# Maximum lease time in seconds
-max-lease-time {{ max_lease_time }};
+# Default lease duration in seconds for dynamic clients.
+# Applied to subnets that do not specify their own lease times.
+# Default: 86400 (24 hours)
+default-lease-time {{ default_lease_time | default(86400) }};
 
-# DNS servers to hand out to clients
-ddns-update-style {{ dns_update_style }};
+# Maximum lease duration in seconds for dynamic clients.
+# The maximum time a client may hold a lease, even if the requested
+# duration exceeds this value. Man page default is 86400.
+# Default: 86400 (24 hours)
+max-lease-time {{ max_lease_time | default(86400) }};
 
-{% if use_logging %}
-# Logging configuration
-log-facility {{ log_facility }};
+# --------------------------------------------------------------------------
+# DNS Configuration
+# --------------------------------------------------------------------------
+
+# DNS domain name to assign to DHCP clients via option 15.
+# This allows clients to resolve short hostnames within the local domain.
+# Default: 'localdomain'
+option domain-name "{{ domain_name | default('localdomain') }}";
+
+# List of DNS server IP addresses to assign to clients via option 6.
+# Clients will use these servers for name resolution.
+# Default: ['8.8.8.8', '8.8.4.4']
+option domain-name-servers {{ (name_servers | default(['8.8.8.8', '8.8.4.4'])) | join(', ') }};
+
+# --------------------------------------------------------------------------
+# Logging Configuration
+# --------------------------------------------------------------------------
+
+# Enable detailed logging of DHCP activity.
+# If true, the syslog facility is configured below.
+# Default: True
+{% if use_logging | default(True) | bool %}
+# Syslog facility to use for logging (e.g., 'daemon', 'local0'–'local7').
+# Common choices: daemon, local0, local1, etc.
+# Default: 'daemon'
+log-facility {{ log_facility | default('daemon') }};
 {% endif %}
 
-# Global options
-option domain-name "{{ domain_name }}";
-option domain-name-servers {{ name_servers | join(', ') }};
+# --------------------------------------------------------------------------
+# Subnet Declarations
+# --------------------------------------------------------------------------
 
-# Subnet declarations
-{% for subnet in subnets %}
-# Subnet {{ subnet.network }}/{{ subnet.cidr }}
-subnet {{ subnet.network }} netmask {{ subnet.netmask }} {
-  range {{ subnet.range_start }} {{ subnet.range_end }};
-  option routers {{ subnet.gateway }};
-  option broadcast-address {{ subnet.broadcast }};
-  default-lease-time {{ subnet.default_lease_time }};
-  max-lease-time {{ subnet.max_lease_time }};
-{% if subnet.options %}
-{% for key, value in subnet.options.items() %}
-  option {{ key }} {{ value | regex_replace('"', '') | regex_replace("'", '') }};
-{% endfor %}
-{% endif %}
+# List of IPv4 subnets to serve.
+# Each entry defines a network, range of available IPs, and gateway.
+# Schema field: subnets (list of dicts)
+# Default: []
+{% for subnet in subnets | default([]) %}
+
+# --------------------------------------------------------------------------
+# Subnet: {{ subnet.network }}/{{ subnet.netmask }}
+# --------------------------------------------------------------------------
+
+# Network definition for this subnet block.
+# Specifies the network address and netmask for the physical segment.
+subnet {{ subnet.network | default('0.0.0.0') }} netmask {{ subnet.netmask | default('255.255.255.0') }} {
+
+  # Available IP range for dynamic assignment.
+  # Clients requesting a lease will be assigned an IP within this range.
+  range {{ subnet.range_start | default('') }} {{ subnet.range_end | default('') }};
+
+  # Default gateway for clients in this subnet (Router Option 3).
+  option routers {{ subnet.gateway | default('0.0.0.0') }};
+
+  # Broadcast address for this subnet (Broadcast Option 28).
+  option broadcast-address {{ subnet.broadcast | default('') }};
+
+  # Per-subnet default lease time.
+  # Overrides the global default-lease-time for this specific subnet.
+  # If omitted, the global default is used.
+  default-lease-time {{ subnet.default_lease_time | default(86400) }};
+
+  # Per-subnet maximum lease time.
+  # Overrides the global max-lease-time for this specific subnet.
+  # If omitted, the global default is used.
+  max-lease-time {{ subnet.max_lease_time | default(86400) }};
+
+  # --------------------------------------------------------------------------
+  # Subnet-Specific Custom Options
+  # --------------------------------------------------------------------------
+
+  # Custom DHCP options defined in the subnet configuration.
+  # Allows for vendor-specific or other non-standard options.
+  {% if subnet.options | default({}) %}
+  {% for key, value in subnet.options | default({}) | dict2items %}
+  # Custom Option: {{ key }} = {{ value }}
+  option {{ key }} {{ value | string | regex_replace('"', '') | regex_replace("'", '') }};
+  {% endfor %}
+  {% endif %}
+
 }
 {% endfor %}
 
-# Static host reservations
-{% for host in hosts %}
-# Static host: {{ host.hostname }} ({{ host.mac }})
-host {{ host.hostname }} {
-  hardware ethernet {{ host.mac }};
-  fixed-address {{ host.ip }};
-{% if host.options %}
-{% for key, value in host.options.items() %}
-  option {{ key }} {{ value | regex_replace('"', '') | regex_replace("'", '') }};
-{% endfor %}
-{% endif %}
+# --------------------------------------------------------------------------
+# Static Host Reservations
+# --------------------------------------------------------------------------
+
+# List of static host reservations.
+# Each entry binds a MAC address to a fixed IP address, ensuring a device
+# always receives the same IP.
+# Schema field: hosts (list of dicts)
+# Default: []
+{% for host in hosts | default([]) %}
+
+# --------------------------------------------------------------------------
+# Host: {{ host.hostname }}
+# --------------------------------------------------------------------------
+
+# Host declaration name (often matches the hostname).
+host {{ host.hostname | default('unknown') }} {
+
+  # Hardware MAC address of the client.
+  # Must be formatted as hex pairs separated by colons (e.g., 00:11:22:33:44:55).
+  hardware ethernet {{ host.mac | default('00:00:00:00:00:00') }};
+
+  # Fixed IP address to assign to this host.
+  fixed-address {{ host.ip | default('0.0.0.0') }};
+
+  # --------------------------------------------------------------------------
+  # Host-Specific Custom Options
+  # --------------------------------------------------------------------------
+
+  # Custom DHCP options defined for this specific host.
+  {% if host.options | default({}) %}
+  {% for key, value in host.options | default({}) | dict2items %}
+  # Custom Option: {{ key }} = {{ value }}
+  option {{ key }} {{ value | string | regex_replace('"', '') | regex_replace("'", '') }};
+  {% endfor %}
+  {% endif %}
+
 }
 {% endfor %}

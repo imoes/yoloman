@@ -1,0 +1,44 @@
+{# CMST (Cockpit Main System Tray) Configuration Template #}
+{# This template generates a systemd drop-in configuration for the cmst service. #}
+{# It configures environment variables and startup overrides based on the provided schema. #}
+
+[Unit]
+Description=CMST System Tray Application Service Override Configuration
+
+[Service]
+{# List of command-line arguments to pass to cmst (e.g., ['-m', '-d']). #}
+{# Each entry becomes a separate override line using sed to modify ExecStart. #}
+{% if start_args | default([]) | length > 0 %}
+# Explicit command-line arguments override
+{% for arg in start_args | default([]) %}
+ExecStartPost=/bin/sh -c '/usr/bin/sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/cmst {{ arg }}|" /etc/systemd/system/cmst.service.d/override.conf'
+{% endfor %}
+{% endif %}
+
+{# Seconds to wait before attempting to create the tray icon. #}
+{# Useful for auto-start scenarios where the system tray may not yet be ready. #}
+Environment=CMST_WAIT_TIME={{ wait_time | default(0) }}
+
+{# Icon scaling factor: 1.0 to 3.0. #}
+{# Use 2.0 for high-DPI displays. #}
+Environment=CMST_ICON_SCALE={{ icon_scale | default(1.0) }}
+
+{# Hex RRGGBB color to simulate tray icon transparency. #}
+{# Used when the system tray does not support true transparency. #}
+{# Empty string disables this feature. #}
+{% if fake_transparency | default('') | trim | length > 0 %}
+Environment=CMST_FAKE_TRANSPARENCY={{ fake_transparency | default('') }}
+{% endif %}
+
+{# [Experimental] Seconds between counter updates (TX/RX time/data). #}
+Environment=CMST_COUNTER_UPDATE_RATE={{ counter_update_rate | default(10) }}
+
+{# [Experimental] Data threshold in KB to trigger a counter update. #}
+Environment=CMST_COUNTER_UPDATE_KB={{ counter_update_kb | default(1024) }}
+
+{# Icon theme name. #}
+{# CMST will try to use icons from that theme. #}
+{# If not provided, it falls back to the system-wide theme or internal icons. #}
+{% if icon_theme | default('') | trim | length > 0 %}
+Environment=CMST_ICON_THEME={{ icon_theme | default('') }}
+{% endif %}

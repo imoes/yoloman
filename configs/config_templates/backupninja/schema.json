@@ -1,87 +1,52 @@
 {
-  "tmpdir": {
-    "type": "string",
-    "default": "/etc/backupninja",
-    "description": "Directory where backup scripts are stored and executed from."
+  "loglevel": {
+    "type": "number",
+    "default": 4,
+    "description": "Verbosity level for logs (5=Debug, 4=Info, 3=Warning, 2=Error, 1=Fatal)."
   },
-  "logdir": {
-    "type": "string",
-    "default": "/var/log/backupninja",
-    "description": "Directory where individual backup logs are stored."
-  },
-  "masterlogfile": {
-    "type": "string",
-    "default": "/var/log/backupninja/master.log",
-    "description": "Centralized log file for backupninja run events."
-  },
-  "emailresults": {
+  "reportprom": {
     "type": "bool",
     "default": false,
-    "description": "Enable or disable email notifications about backup results."
+    "description": "Produce prometheus metrics of backup status."
   },
   "emailto": {
     "type": "string",
-    "default": "root@localhost",
-    "description": "Email address to receive backup reports (used if email results are enabled)."
+    "default": "root",
+    "description": "Email address (local part only) to receive backup reports."
   },
-  "smtpserver": {
-    "type": "string",
-    "default": "localhost",
-    "description": "SMTP server hostname for sending email notifications."
+  "reportsuccess": {
+    "type": "bool",
+    "default": true,
+    "description": "Send email report even if all modules succeeded."
   },
-  "smtpport": {
-    "type": "number",
-    "default": 25,
-    "description": "SMTP server port (e.g., 25 for plain, 587 for STARTTLS, 465 for SSL)."
-  },
-  "smtptls": {
-    "type": "number",
-    "default": 0,
-    "description": "SMTP security mode: 0 = none, 1 = TLS, 2 = SSL."
-  },
-  "smtpfrom": {
-    "type": "string",
-    "default": "backupninja@localhost",
-    "description": "From address used in notification emails."
-  },
-  "retention_days": {
-    "type": "number",
-    "default": 30,
-    "description": "Default retention period (in days) for local backups. Set to 0 to disable automatic cleanup."
-  },
-  "maxjobs": {
-    "type": "number",
-    "default": 3,
-    "description": "Maximum number of concurrent backup jobs. Prevents resource exhaustion on the host."
-  },
-  "dryrun": {
+  "reportinfo": {
     "type": "bool",
     "default": false,
-    "description": "Run in simulation mode (no changes made). Useful for testing."
+    "description": "Include info messages from handlers in email reports."
   },
-  "actions": {
-    "type": "list",
-    "default": [],
-    "description": "List of backup actions to schedule and run. Each action defines a script name, optional schedule, and arguments.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Name of the backup script (e.g., 'rsync', 'duplicity', 'mysql-backup.sh'). Must exist in tmpdir or be fully qualified."
-      },
-      "when": {
-        "type": "string",
-        "default": null,
-        "description": "Cron-style schedule (e.g., '0 2 * * *' for daily at 2 AM). If omitted, the action runs once per backupninja invocation."
-      },
-      "options": {
-        "type": "list",
-        "default": [],
-        "description": "List of additional arguments passed to the backup script."
-      },
-      "description": {
-        "type": "string",
-        "description": "Human-readable description of the action (used in inline comments)."
-      }
-    }
+  "reportwarning": {
+    "type": "bool",
+    "default": true,
+    "description": "Send email report even if there were no errors."
+  },
+  "reportspace": {
+    "type": "bool",
+    "default": false,
+    "description": "Include disk space usage in backup email reports."
+  },
+  "reporthost": {
+    "type": "string",
+    "default": "",
+    "description": "Remote host to rsync backupninja logs for aggregation. Empty string means disabled."
+  },
+  "masterlogfile": {
+    "type": "string",
+    "default": "/var/log/backupninja.log",
+    "description": "Where the main backupninja log file is located."
+  },
+  "tmpdir": {
+    "type": "string",
+    "default": "/etc/backup.d",
+    "description": "Directory where all the backup configuration files live."
   }
 }

@@ -1,43 +1,71 @@
-# Main listen address and port for the DICOD service
-bind: {{ bind_address }}:{{ bind_port }}
+# DICOD Configuration Template
+# Self-documenting: every directive is preceded by its schema description.
+# Variables use explicit defaults to ensure safe rendering even when variables are undefined.
 
-# Maximum number of concurrent connections
-max_connections: {{ max_connections }}
+# IP address the DICOD service listens on. Use 0.0.0.0 to listen on all interfaces.
+# bind_address default: '127.0.0.1'
+bind: {{ (bind_address | default('127.0.0.1')) | string }}:{{ (bind_port | default(8090)) | int }}
 
-# Path to the database directory
+# Maximum number of simultaneous client connections allowed.
+# max_connections default: 100
+max_connections: {{ max_connections | default(100) | int }}
+
+# Filesystem path where DICOD stores its data and metadata.
+# storage_path default: '/var/lib/dicod'
 storage:
-  path: {{ storage_path }}
-  # Enable background compaction of old data
-  compact: {{ compact_enabled | lower }}
+  path: {{ storage_path | default('/var/lib/dicod') | string }}
+  # Whether to enable automatic background compaction of old data to reclaim space.
+  # compact_enabled default: True
+  compact: {{ compact_enabled | default(true) | lower }}
 
-# Logging configuration
+# Logging verbosity level: debug, info, warn, error, fatal.
+# log_level default: 'info'
 log:
-  level: {{ log_level }}
-  file: {{ log_file }}
+  level: {{ log_level | default('info') | string }}
+  # Path to the DICOD log file.
+  # log_file default: '/var/log/dicod/dicod.log'
+  file: {{ log_file | default('/var/log/dicod/dicod.log') | string }}
 
-# Worker pool configuration
+# Number of worker threads to process incoming requests.
+# worker_count default: 4
 workers:
-  count: {{ worker_count }}
-  queue_size: {{ worker_queue_size }}
+  count: {{ worker_count | default(4) | int }}
+  # Maximum size of the per-worker job queue.
+  # worker_queue_size default: 1000
+  queue_size: {{ worker_queue_size | default(1000) | int }}
 
-# Allowed clients (CIDR blocks or hostnames)
-{% for client in allowed_clients %}allow: {{ client }}
+# List of allowed client IP ranges (CIDR) or hostnames. Connections from other sources will be rejected.
+# allowed_clients default: ['127.0.0.1/32']
+{% for client in (allowed_clients | default(['127.0.0.1/32'])) %}
+allow: {{ client | string }}
 {% endfor %}
 
-# TLS configuration (optional)
-{% if tls_enabled %}tls:
-  cert_file: {{ tls_cert_file }}
-  key_file: {{ tls_key_file }}
+# Whether to enable TLS encryption for client connections.
+# tls_enabled default: False
+{% if tls_enabled | default(false) %}
+tls:
+  # Path to the TLS certificate file (PEM format). Required if TLS is enabled.
+  # tls_cert_file default: '/etc/dicod/tls.crt'
+  cert_file: {{ tls_cert_file | default('/etc/dicod/tls.crt') | string }}
+  # Path to the TLS private key file (PEM format). Required if TLS is enabled.
+  # tls_key_file default: '/etc/dicod/tls.key'
+  key_file: {{ tls_key_file | default('/etc/dicod/tls.key') | string }}
 {% endif %}
 
-# Rate limiting per client IP (optional)
-{% for rate_limit in rate_limits %}rate_limit:
-  ip: {{ rate_limit.ip }}
-  requests_per_minute: {{ rate_limit.requests_per_minute }}
+# List of per-IP rate limits (optional). Leave empty to disable rate limiting.
+# rate_limits default: []
+{% for rate_limit in (rate_limits | default([])) %}
+rate_limit:
+  ip: {{ rate_limit.ip | string }}
+  requests_per_minute: {{ rate_limit.requests_per_minute | int }}
 {% endfor %}
 
-# Metrics endpoint (optional)
-{% if metrics_enabled %}metrics:
-  enabled: {{ metrics_enabled | lower }}
-  port: {{ metrics_port }}
+# Whether to expose an internal metrics endpoint.
+# metrics_enabled default: False
+{% if metrics_enabled | default(false) %}
+metrics:
+  enabled: {{ metrics_enabled | default(false) | lower }}
+  # Port for the metrics endpoint (only active if metrics are enabled).
+  # metrics_port default: 9090
+  port: {{ metrics_port | default(9090) | int }}
 {% endif %}

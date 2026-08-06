@@ -1,0 +1,50 @@
+# debug-me configuration file.
+# This template supports both client and server modes.
+# Directives are passed as command-line style arguments.
+
+{# URL of the debug-me server to connect to (overrides default).
+   Only emitted if provided and non-empty. #}
+{% if (server_url | default('')) | trim != '' %}
+# Server URL
+--use-server {{ server_url | default('') }}
+{% endif %}
+
+{# Custom command to run instead of the default login shell.
+   Only emitted if provided and non-empty. #}
+{% if (command | default('')) | trim != '' %}
+# Custom command to run
+--run {{ command | default('') }}
+{% endif %}
+
+{# Whether to open a separate control window for session management and chat.
+   Emits the --control flag if true. #}
+{% if control_window | default(true) | bool %}
+# Enable control window
+--control
+{% endif %}
+
+{# Run debug-me as a server instead of a client.
+   When true, server-specific options are emitted. #}
+{% if server_mode | default(false) | bool %}
+# Run in server mode
+--server {{ server_logdir | default('/var/log/debug-me') }}
+
+  {# TCP port the server listens on (used only in server mode).
+     Default: 8080. #}
+  # Server listening port
+  --port {{ server_port | default(8080) }}
+
+  {# Email address used as sender for session log emails (used only in server mode).
+     Only emitted if provided and non-empty. #}
+  {% if (from_email | default('')) | trim != '' %}
+  # Email sender address
+  --from-email {{ from_email | default('') }}
+  {% endif %}
+
+  {# Delete log files after the session ends (used only in server mode).
+     Emits the --delete-old-logs flag if true. #}
+  {% if delete_old_logs | default(false) | bool %}
+  # Delete logs after session
+  --delete-old-logs
+  {% endif %}
+{% endif %}

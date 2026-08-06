@@ -1,67 +1,105 @@
-# OpenStack Ironic fence agent configuration for fence_ironic
-# This file is sourced by the fence_ironic agent script.
-# All required parameters are key=value pairs.
-# Comments begin with '#'.
+# ==============================================================================
+# fence_ironic Agent Configuration Template
+# ==============================================================================
+# This file is sourced by the fence_ironic agent script to connect to an
+# OpenStack Ironic deployment for hardware power management (fencing).
+#
+# Format: Simple key=value pairs.
+# Security: Sensitive fields (passwords) should be managed via Ansible Vault
+#           or external secret managers (HashiCorp Vault, etc.).
+# ==============================================================================
 
-# Authentication: Identity API endpoint (Keystone v3 recommended)
-auth_url={{ auth_url }}
+# --------------------------------------------------------------------------
+# Authentication: Keystone Identity API
+# --------------------------------------------------------------------------
 
-# Project/tenant name (or domain-scoped project name)
-project_name={{ project_name }}
+# auth_url: Keystone Identity API endpoint URL (e.g., https://keystone.example.com:5000/v3). Required.
+# Must point to a valid Keystone v3 endpoint.
+auth_url={{ auth_url | default('') }}
 
-# Username to authenticate as
-username={{ username }}
+# project_name: Name of the OpenStack project (tenant) containing the Ironic node.
+# The user must have permissions within this project to manage Ironic nodes.
+project_name={{ project_name | default('') }}
 
-# Password for the user
-password={{ password }}
+# username: Username for authenticating with OpenStack.
+# Usually part of a service account or administrative user.
+username={{ username | default('') }}
 
-# (Optional) Domain name for user/project (v3 only); defaults to 'Default'
+# password: Password for the OpenStack user.
+# Recommended to be stored in a secure credential store or environment.
+# Ansible users should use `vault_id` or `--vault-pass-file` for this value.
+password={{ password | default('') }}
+
+# domain_name: Domain name for the project (Keystone v3). Usually 'Default' unless using custom domains.
 domain_name={{ domain_name | default('Default') }}
 
-# (Optional) User domain name (v3); defaults to 'Default'
+# user_domain_name: Domain name of the user (Keystone v3).
 user_domain_name={{ user_domain_name | default('Default') }}
 
-# (Optional) Project domain name (v3); defaults to 'Default'
+# project_domain_name: Domain name of the project (Keystone v3).
 project_domain_name={{ project_domain_name | default('Default') }}
 
-# Authentication method: 'password' (default) or 'token'
+# auth_type: Authentication method. Currently only 'password' is widely supported.
+# Common values: 'password', 'token', 'v3password'.
 auth_type={{ auth_type | default('password') }}
 
-# (Optional) API version for Ironic; defaults to '1'
+# --------------------------------------------------------------------------
+# Ironic API Connection Settings
+# --------------------------------------------------------------------------
+
+# ironic_api_version: Ironic API version to use. Set to '1' for current stable (Pike+).
 ironic_api_version={{ ironic_api_version | default('1') }}
 
-# (Optional) Insecure: allow connections to SSL sites without certs (true|false)
-insecure={{ insecure | default('false') }}
+# insecure: If true, skip SSL certificate verification (not recommended for production).
+# Use with caution; only for testing or internal trusted networks with self-signed certs.
+insecure={{ insecure | default(false) | ternary('true', 'false') }}
 
-# (Optional) Path to CA certificate bundle for SSL verification (overrides system store if set)
+# ca_cert: Absolute path to a CA certificate bundle for secure connections.
+# Leave empty to use the system trust store.
 ca_cert={{ ca_cert | default('') }}
 
-# (Optional) Region name (if using multi-region deployments)
+# region_name: OpenStack region to use (e.g., 'RegionOne').
+# Leave blank if single-region or not applicable.
 region_name={{ region_name | default('') }}
 
-# (Required) UUID or name of the target Ironic node to fence
-node={{ node }}
+# --------------------------------------------------------------------------
+# Target Node Configuration
+# --------------------------------------------------------------------------
 
-# (Optional) Timeout in seconds per API call (default: 60)
-timeout={{ timeout | default('60') }}
+# node: UUID (preferred) or name of the Ironic node to fence.
+# This is the specific hardware element the agent will control.
+node={{ node | default('') }}
 
-# (Optional) Action to perform: 'on', 'off', 'reboot', 'status', 'list', 'monitor'
-# Note: The fencing agent is usually invoked with this action externally;
-# this value serves as fallback or default if not specified at runtime.
+# --------------------------------------------------------------------------
+# Timeout and Retry Policies
+# --------------------------------------------------------------------------
+
+# timeout: Maximum seconds to wait for each OpenStack API call before timing out.
+# Adjust based on network latency and Ironic conductor load.
+timeout={{ timeout | default(60) }}
+
+# retry: Number of times to retry a failed operation (e.g., network glitch).
+retry={{ retry | default(3) }}
+
+# retry_max_delay: Maximum delay (seconds) between retries, used for exponential backoff.
+retry_max_delay={{ retry_max_delay | default(5) }}
+
+# --------------------------------------------------------------------------
+# Additional Options
+# --------------------------------------------------------------------------
+
+# default_action: Fallback fencing action if not specified at invocation (on/off/reboot/status/list/monitor).
+# The fence agent usually receives the action dynamically, but this provides a safe default.
 default_action={{ default_action | default('reboot') }}
 
-# (Optional) Retry count for failed operations
-retry={{ retry | default('3') }}
-
-# (Optional) Delay (seconds) between retries
-retry_max_delay={{ retry_max_delay | default('5') }}
-
-# (Optional) List of additional HTTP headers (e.g., for proxy auth or custom headers)
-# Format: header1:value1;header2:value2
+# extra_headers: Semicolon-separated list of HTTP headers to add to requests
+# (e.g., 'X-Forwarded-For:10.0.0.1;X-Custom:abc').
+# Useful for load balancers, proxies, or custom authentication gateways.
 extra_headers={{ extra_headers | default('') }}
 
-# (Optional) Use SSL/TLS (true|false); typically auto-detected from auth_url scheme
-secure={{ secure | default('true') }}
+# secure: If false, disable SSL/TLS (only use for testing on trusted networks).
+# Typically auto-detected from auth_url scheme (http vs https), but can be forced.
+secure={{ secure | default(true) | ternary('true', 'false') }}
 
-# (Optional) List of Ironic endpoint types to prefer, in order (e.g., public,internal,admin)
+# endpoint_type: Preferred Ironic service endpoint type (public/internal/admin), in order of precedence.
 endpoint_type={{ endpoint_type | default('public') }}

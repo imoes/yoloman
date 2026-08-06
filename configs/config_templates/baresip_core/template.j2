@@ -1,56 +1,204 @@
-# SIP User-Agent configuration — baresip core
-# Global SIP settings
-{% if username %}USERNAME={{ username }}{% endif %}
-{% if password %}PASSWORD={{ password }}{% endif %}
-{% if displayname %}DISPLAY_NAME={{ displayname }}{% endif %}
+# ============================================================================
+# baresip_core Configuration Template
+# ============================================================================
+# This template generates the configuration file for the baresip SIP user-agent.
+# It supports multiple SIP accounts, audio/video device selection, NAT traversal,
+# logging, module loading, and TLS settings.
+#
+# All variables use Jinja2 `default()` filters to ensure safe rendering even if
+# an input variable is undefined. String defaults are quoted, numbers/booleans
+# are bare, and collections default to empty lists or dicts.
+# ============================================================================
 
-# SIP registrar and account settings
-{% for account in accounts %}
-# SIP account: {{ account.display_name }}
-{% if account.uri %}ACCOUNT_URI={{ account.uri }}{% endif %}
-{% if account.alias %}ACCOUNT_ALIAS={{ account.alias }}{% endif %}
-{% if account.host %}ACCOUNT_HOST={{ account.host }}{% endif %}
-{% if account.transport %}ACCOUNT_TRANSPORT={{ account.transport }}{% endif %}
-{% if account.priority is defined and account.priority != 0 %}ACCOUNT_PRIORITY={{ account.priority }}{% endif %}
-{% if account.pubname %}ACCOUNT_PUBNAME={{ account.pubname }}{% endif %}
-{% if account.register is defined %}ACCOUNT_REGISTER={{ 'yes' if account.register else 'no' }}{% endif %}
-{% if account.rtp_ipv6 is defined %}ACCOUNT_RTP_IPV6={{ 'yes' if account.rtp_ipv6 else 'no' }}{% endif %}
-{% if account.rtp_force_ipv4 is defined %}ACCOUNT_RTP_FORCE_IPV4={{ 'yes' if account.rtp_force_ipv4 else 'no' }}{% endif %}
-{% if account.media_ipv4 is defined %}ACCOUNT_MEDIA_IPV4={{ 'yes' if account.media_ipv4 else 'no' }}{% endif %}
-{% if account.sips_contact is defined %}ACCOUNT_SIPS_CONTACT={{ account.sips_contact }}{% endif %}
+# ------------------------------------------------------------------------------
+# SIP User-Agent Identity
+# ------------------------------------------------------------------------------
+
+# SIP username (local part of SIP URI); leave blank if not using default account
+{% set _username = username | default('') %}
+{% if _username %}USERNAME={{ _username }}
+{% endif %}
+
+# SIP authentication password
+{% set _password = password | default('') %}
+{% if _password %}PASSWORD={{ _password }}
+{% endif %}
+
+# Caller ID / display name shown on outgoing calls
+{% set _displayname = displayname | default('') %}
+{% if _displayname %}DISPLAY_NAME={{ _displayname }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# SIP Registrar and Account Settings
+# ------------------------------------------------------------------------------
+# Each entry in the `accounts` list creates a block for one SIP account.
+# The loop iterates over the list provided by the `accounts` variable.
+# If `accounts` is empty or undefined, this block is skipped.
+{% for account in (accounts | default([])) %}
+# SIP Account Configuration
+# -------------------------
+# This block configures one SIP account. Fields: uri, alias, host, transport,
+# priority, pubname, register, rtp_ipv6, rtp_force_ipv4, media_ipv4, sips_contact.
+
+# SIP account URI (e.g., 'sip:user@domain.com')
+{% if account.uri is defined and account.uri %}ACCOUNT_URI={{ account.uri }}
+{% endif %}
+
+# Alias for this account (used for display or internal routing)
+{% if account.alias is defined and account.alias %}ACCOUNT_ALIAS={{ account.alias }}
+{% endif %}
+
+# SIP registrar/host server
+{% if account.host is defined and account.host %}ACCOUNT_HOST={{ account.host }}
+{% endif %}
+
+# Transport protocol (e.g., 'udp', 'tcp', 'tls')
+{% if account.transport is defined and account.transport %}ACCOUNT_TRANSPORT={{ account.transport }}
+{% endif %}
+
+# Registration priority (higher value = higher priority; 0 = default/omitted)
+{% if account.priority is defined and account.priority != 0 %}ACCOUNT_PRIORITY={{ account.priority }}
+{% endif %}
+
+# Public name / identity for this account
+{% if account.pubname is defined and account.pubname %}ACCOUNT_PUBNAME={{ account.pubname }}
+{% endif %}
+
+# Whether to register with the registrar ('yes' or 'no')
+{% if account.register is defined %}ACCOUNT_REGISTER={{ 'yes' if account.register else 'no' }}
+{% endif %}
+
+# Force RTP to use IPv6
+{% if account.rtp_ipv6 is defined %}ACCOUNT_RTP_IPV6={{ 'yes' if account.rtp_ipv6 else 'no' }}
+{% endif %}
+
+# Force media to use IPv4
+{% if account.rtp_force_ipv4 is defined %}ACCOUNT_RTP_FORCE_IPV4={{ 'yes' if account.rtp_force_ipv4 else 'no' }}
+{% endif %}
+
+# Media IPv4 setting
+{% if account.media_ipv4 is defined %}ACCOUNT_MEDIA_IPV4={{ 'yes' if account.media_ipv4 else 'no' }}
+{% endif %}
+
+# SIPS contact URI
+{% if account.sips_contact is defined and account.sips_contact %}ACCOUNT_SIPS_CONTACT={{ account.sips_contact }}
+{% endif %}
+
 {% endfor %}
+# End of account loop
 
-# Audio device / backend
-{% if audio_device %}AUD_DEV={{ audio_device }}{% endif %}
-{% if audio_sample_rate %}AUD_SR={{ audio_sample_rate }}{% endif %}
-{% if audio_channels %}AUD_CH={{ audio_channels }}{% endif %}
-{% if audio_buffer_size %}AUD_BUFSIZE={{ audio_buffer_size }}{% endif %}
+# ------------------------------------------------------------------------------
+# Audio Device / Backend Configuration
+# ------------------------------------------------------------------------------
 
-# Video device / settings
-{% if video_device %}VID_DEV={{ video_device }}{% endif %}
-{% if video_size %}VID_SIZE={{ video_size }}{% endif %}
-{% if video_bitrate %}VID_BITRATE={{ video_bitrate }}{% endif %}
-{% if video_fps %}VID_FPS={{ video_fps }}{% endif %}
-{% if video_display is defined %}VID_DISPLAY={{ 'yes' if video_display else 'no' }}{% endif %}
-{% if video_encode is defined %}VID_ENCODE={{ 'yes' if video_encode else 'no' }}{% endif %}
-{% if video_decode is defined %}VID_DECODE={{ 'yes' if video_decode else 'no' }}{% endif %}
+# Audio input/output device list (comma-separated; e.g., 'pulse,alsa' or 'oss,/dev/dsp')
+{% set _audio_device = audio_device | default('pulse,alsa') %}
+AUD_DEV={{ _audio_device }}
 
-# NAT traversal
-{% if stun_server %}STUN_SERVER={{ stun_server }}{% endif %}
-{% if natpmp_enabled is defined %}NATPMP={{ 'yes' if natpmp_enabled else 'no' }}{% endif %}
-{% if upnp_enabled is defined %}UPNP={{ 'yes' if upnp_enabled else 'no' }}{% endif %}
+# Audio sample rate in Hz (0 = auto-detect)
+{% set _audio_sample_rate = audio_sample_rate | default(0) %}
+AUD_SR={{ _audio_sample_rate }}
 
-# Logging
-{% if log_level is defined %}LOG_LEVEL={{ log_level }}{% endif %}
-{% if log_file %}LOG_FILE={{ log_file }}{% endif %}
-{% if log_timestamps is defined %}LOG_TIMESTAMPS={{ 'yes' if log_timestamps else 'no' }}{% endif %}
+# Audio channels (0 = mono, 1 = mono, 2 = stereo; 0 = auto)
+{% set _audio_channels = audio_channels | default(0) %}
+AUD_CH={{ _audio_channels }}
 
+# Audio buffer size in milliseconds (0 = default)
+{% set _audio_buffer_size = audio_buffer_size | default(0) %}
+AUD_BUFSIZE={{ _audio_buffer_size }}
+
+# ------------------------------------------------------------------------------
+# Video Device / Settings
+# ------------------------------------------------------------------------------
+
+# Video capture device (e.g., 'v4l2:/dev/video0', 'avfoundation', 'dshow')
+{% set _video_device = video_device | default('v4l2:/dev/video0') %}
+VID_DEV={{ _video_device }}
+
+# Video resolution in width x height (e.g., '320x240', '640x480', '1280x720')
+{% set _video_size = video_size | default('640x480') %}
+VID_SIZE={{ _video_size }}
+
+# Video encoder bitrate in bits per second
+{% set _video_bitrate = video_bitrate | default(1000000) %}
+VID_BITRATE={{ _video_bitrate }}
+
+# Video frames per second
+{% set _video_fps = video_fps | default(25) %}
+VID_FPS={{ _video_fps }}
+
+# Enable local video preview display ('yes' or 'no')
+{% set _video_display = video_display | default(true) %}
+VID_DISPLAY={{ 'yes' if _video_display else 'no' }}
+
+# Enable local video encoding/transmission ('yes' or 'no')
+{% set _video_encode = video_encode | default(true) %}
+VID_ENCODE={{ 'yes' if _video_encode else 'no' }}
+
+# Enable remote video decoding/reception ('yes' or 'no')
+{% set _video_decode = video_decode | default(true) %}
+VID_DECODE={{ 'yes' if _video_decode else 'no' }}
+
+# ------------------------------------------------------------------------------
+# NAT Traversal
+# ------------------------------------------------------------------------------
+
+# STUN server URL (e.g., 'stun:stun.l.google.com:19302')
+{% set _stun_server = stun_server | default('') %}
+{% if _stun_server %}STUN_SERVER={{ _stun_server }}
+{% endif %}
+
+# Enable NAT-PMP for port mapping (router must support) ('yes' or 'no')
+{% set _natpmp_enabled = natpmp_enabled | default(false) %}
+NATPMP={{ 'yes' if _natpmp_enabled else 'no' }}
+
+# Enable UPnP for automatic port forwarding ('yes' or 'no')
+{% set _upnp_enabled = upnp_enabled | default(false) %}
+UPNP={{ 'yes' if _upnp_enabled else 'no' }}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Log verbosity level: 0=quiet, 5=debug (default: 4 = info)
+{% set _log_level = log_level | default(4) %}
+LOG_LEVEL={{ _log_level }}
+
+# Path to log file (empty = stdout)
+{% set _log_file = log_file | default('') %}
+{% if _log_file %}LOG_FILE={{ _log_file }}
+{% endif %}
+
+# Include timestamps in log output ('yes' or 'no')
+{% set _log_timestamps = log_timestamps | default(true) %}
+LOG_TIMESTAMPS={{ 'yes' if _log_timestamps else 'no' }}
+
+# ------------------------------------------------------------------------------
 # Modules
-{% for module in modules %}# Load module: {{ module.name }}
-{% if module.config is defined and module.config %}{{ module.name }}_CONFIG={{ module.config }}{% endif %}
+# ------------------------------------------------------------------------------
+# List of baresip modules to load. Each module is a mapping with 'name' and
+# optionally 'config'. The loop iterates over the list provided by the `modules`
+# variable.
+{% for module in (modules | default([{'name': 'avcodec'}, {'name': 'v4l2'}, {'name': 'pulse'}, {'name': 'alsa'}, {'name': 'aufile'}, {'name': 'menu'}, {'name': 'uag_module'}])) %}
+# Module: {{ module.name }}
+{% if module.config is defined and module.config %}{{ module.name }}_CONFIG={{ module.config }}
+{% endif %}
 {% endfor %}
+# End of module loop
 
-# TLS settings
-{% if tls_cert %}TLS_CERT={{ tls_cert }}{% endif %}
-{% if tls_cafile %}TLS_CAFILE={{ tls_cafile }}{% endif %}
-{% if tls_verify_server is defined %}TLS_VERIFY_SERVER={{ 'yes' if tls_verify_server else 'no' }}{% endif %}
+# ------------------------------------------------------------------------------
+# TLS Settings
+# ------------------------------------------------------------------------------
+
+# Path to TLS certificate file (PEM format)
+{% set _tls_cert = tls_cert | default('/etc/ssl/certs/baresip.crt') %}
+TLS_CERT={{ _tls_cert }}
+
+# Path to CA certificates bundle (PEM format)
+{% set _tls_cafile = tls_cafile | default('/etc/ssl/certs/ca-certificates.crt') %}
+TLS_CAFILE={{ _tls_cafile }}
+
+# Verify server certificate during TLS handshake (for outbound TLS) ('yes' or 'no')
+{% set _tls_verify_server = tls_verify_server | default(true) %}
+TLS_VERIFY_SERVER={{ 'yes' if _tls_verify_server else 'no' }}

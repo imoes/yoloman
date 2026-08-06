@@ -1,0 +1,873 @@
+# $Id$ -*- text -*-
+#
+# AVRDUDE Configuration File
+#
+# Self-documenting template for AVRDUDE.
+# All user-configurable defaults are injected below.
+# See schema fields for descriptions of each setting.
+
+# AVRDUDE configuration file version
+avrdude_conf_version = "{{ avrdude_conf_version | default('7.3') }}";
+
+# Overall avrdude defaults; suitable for ~/.config/avrdude/avrdude.rc
+#
+# Default parallel port device
+default_parallel   = "{{ default_parallel | default('/dev/parport0') }}";
+
+# Default serial port device
+default_serial     = "{{ default_serial | default('/dev/ttyS0') }}";
+
+# Default SPI device (empty string by default)
+default_spi        = "{{ default_spi | default('') }}";
+
+# Default Linux GPIO chip name
+default_linuxgpio  = "{{ default_linuxgpio | default('gpiochip0') }}";
+
+# Whether to allow subshells (no by default)
+allow_subshells    = {{ allow_subshells | default(False) | lower }};
+
+
+#
+# PROGRAMMER DEFINITIONS
+#
+# The following programmer definitions are provided as defaults.
+# They define hardware pinouts and communication protocols for
+# various AVR programmers (USB, Serial, Parallel, JTAG, etc.).
+
+#------------------------------------------------------------
+# dryrun
+#------------------------------------------------------------
+
+# Emulates programming without a programmer.
+# Useful for testing command-line syntax and logic without
+# connecting physical hardware.
+programmer # dryrun
+    id                     = "dryrun";
+    desc                   = "Emulates programming without a programmer";
+    type                   = "dryrun";
+    prog_modes             = PM_TPI | PM_ISP | PM_PDI | PM_UPDI | PM_HVSP | PM_HVPP | PM_aWire;
+;
+
+#------------------------------------------------------------
+# dryboot
+#------------------------------------------------------------
+
+# Emulates bootloader programming without a programmer.
+# Specifically for communicating to bootloaders (PM_SPM).
+# Allows exploring bootloader behavior (page erasure before write).
+programmer # dryboot
+    id                     = "dryboot";
+    desc                   = "Emulates bootloader programming without a programmer";
+    type                   = "dryrun";
+    prog_modes             = PM_SPM;
+;
+
+#------------------------------------------------------------
+# wiring
+#------------------------------------------------------------
+
+# Wiring for bootloader using STK500 v2 protocol.
+# Based on the Wiring embedded programming environment.
+programmer # wiring
+    id                     = "wiring";
+    desc                   = "Wiring for bootloader using STK500 v2 protocol";
+    type                   = "wiring";
+    prog_modes             = PM_SPM;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# arduino
+#------------------------------------------------------------
+
+# Arduino for bootloader using STK500 v1 protocol.
+# Serves optiboot bootloaders and others.
+# Superseded by 'urclock' for modern use cases but kept for compatibility.
+programmer # arduino
+    id                     = "arduino";
+    desc                   = "Arduino for bootloader using STK500 v1 protocol";
+    type                   = "arduino";
+    prog_modes             = PM_SPM;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# urclock
+#------------------------------------------------------------
+
+# Urclock programmer for urboot bootloaders using urprotocol.
+# Supports vector bootloaders and automatic reset via RTS/DTR.
+# See https://github.com/stefanrueger/urboot
+programmer # urclock
+    id                     = "urclock";
+    desc                   = "Urclock programmer for urboot bootloaders using urprotocol";
+    type                   = "urclock";
+    prog_modes             = PM_SPM;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# xbee
+#------------------------------------------------------------
+
+# XBee for Series 2 Over-The-Air (XBeeBoot) bootloader using STK500 v1 protocol.
+# See https://github.com/davidsainty/xbeeboot
+programmer # xbee
+    id                     = "xbee";
+    desc                   = "XBee for Series 2 Over-The-Air (XBeeBoot) bootloader using STK500 v1 protocol";
+    type                   = "xbee";
+    prog_modes             = PM_SPM;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# ft2232h (base)
+#------------------------------------------------------------
+
+# FT2232H/D based generic programmer.
+# Uses FTDI Multi-Protocol Synchronous Serial Engine (MPSSE).
+# Default USB interface device string.
+programmer # avrftdi
+    id                     = "avrftdi", "2232h";
+    desc                   = "FT2232H/D based generic programmer";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6010;
+    usbdev                 = "{{ default_ft2232h_usbdev | default('A') }}";
+    reset                  = 3; # AD3 (TMS)
+    sck                    = 0; # AD0 (TCK)
+    sdo                    = 1; # AD1 (TDI)
+    sdi                    = 2; # AD2 (TDO)
+;
+
+#------------------------------------------------------------
+# ft2232h (parent)
+#------------------------------------------------------------
+
+# Parent definition for ft2232h-based programmers.
+programmer parent "2232h" # ft2232h
+    id                     = "ft2232h";
+    is_serialadapter       = yes;
+;
+
+#------------------------------------------------------------
+# 2232hio
+#------------------------------------------------------------
+
+# 2232hio based on FT2232H with buffer and LEDs.
+programmer parent "2232h" # 2232hio
+    id                     = "2232hio";
+    desc                   = "2232hio based on FT2232H with buffer and LEDs";
+    buff                   = ~4;
+    errled                 = ~11;
+    rdyled                 = ~14;
+    pgmled                 = ~13;
+    vfyled                 = ~12;
+;
+
+#------------------------------------------------------------
+# tigard
+#------------------------------------------------------------
+
+# Tigard interface board (FT2232H based).
+# See https://github.com/tigard-tools/tigard
+programmer parent "2232h" # tigard
+    id                     = "tigard";
+    desc                   = "Tigard interface board";
+    usbdev                 = "{{ tigard_usbdev | default('B') }}";
+    reset                  = 5; # BD5 (GPIOL1)
+;
+
+#------------------------------------------------------------
+# avrisp-u
+#------------------------------------------------------------
+
+# Kanda AVRISP-U.
+# Kanda's low cost FT2232H based programmer.
+programmer parent "2232h" # avrisp-u
+    id                     = "avrisp-u";
+    desc                   = "Kanda AVRISP-U";
+    usbsn                  = "{{ avrisp_u_usbsn | default('AVR') }}";
+    buff                   = ~5;
+    reset                  = 4;
+    pgmled                 = ~10;
+;
+
+#------------------------------------------------------------
+# ft2232h_jtag
+#------------------------------------------------------------
+
+# FT2232H based generic JTAG programmer.
+# Uses JTAG signals (TCK, TDI, TDO, TMS).
+programmer # ft2232h_jtag
+    id                     = "ft2232h_jtag";
+    desc                   = "FT2232H based generic JTAG programmer";
+    type                   = "avrftdi_jtag";
+    prog_modes             = PM_JTAG;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6010;
+    usbdev                 = "{{ default_ft2232h_jtag_usbdev | default('A') }}";
+    tck                    = 0; # AD0 (TCK)
+    tdi                    = 1; # AD1 (TDI)
+    tdo                    = 2; # AD2 (TDO)
+    tms                    = 3; # AD3 (TMS)
+;
+
+#------------------------------------------------------------
+# ft4232h
+#------------------------------------------------------------
+
+# FT4232H based generic programmer.
+# Treated as FT2232H but with different USB PID.
+programmer parent "ft2232h" # ft4232h
+    id                     = "ft4232h";
+    desc                   = "FT4232H based generic programmer";
+    usbpid                 = 0x6011;
+;
+
+#------------------------------------------------------------
+# 4232h
+#------------------------------------------------------------
+
+# FT4232H based generic programmer.
+# Parented to "2232h" in some contexts.
+programmer parent "2232h" # 4232h
+    id                     = "4232h";
+    desc                   = "FT4232H based generic programmer";
+    usbpid                 = 0x6011;
+;
+
+#------------------------------------------------------------
+# jtagkey
+#------------------------------------------------------------
+
+# Amontec JTAGKey, JTAGKey-Tiny and JTAGKey2.
+programmer # jtagkey
+    id                     = "jtagkey";
+    desc                   = "Amontec JTAGKey, JTAGKey-Tiny and JTAGKey2";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0xcff8;
+    usbdev                 = "{{ jtagkey_usbdev | default('A') }}";
+    buff                   = ~4;
+    reset                  = 3; # TMS 7 violet
+    sck                    = 0; # TCK 9 white
+    sdo                    = 1; # TDI 5 green
+    sdi                    = 2; # TDO 13 orange
+;
+
+#------------------------------------------------------------
+# ft232h
+#------------------------------------------------------------
+
+# FT232H based generic programmer.
+programmer # ft232h
+    id                     = "ft232h";
+    desc                   = "FT232H based generic programmer";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    is_serialadapter       = yes;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6014;
+    usbdev                 = "{{ default_ft232h_usbdev | default('A') }}";
+    reset                  = 3; # AD3 (TMS)
+    sck                    = 0; # AD0 (TCK)
+    sdo                    = 1; # AD1 (TDI)
+    sdi                    = 2; # AD2 (TDO)
+;
+
+#------------------------------------------------------------
+# ft232h_jtag
+#------------------------------------------------------------
+
+# FT232H based generic JTAG programmer.
+programmer # ft232h_jtag
+    id                     = "ft232h_jtag";
+    desc                   = "FT232H based generic JTAG programmer";
+    type                   = "avrftdi_jtag";
+    prog_modes             = PM_JTAG;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6014;
+    usbdev                 = "{{ default_ft232h_jtag_usbdev | default('A') }}";
+    tck                    = 0; # AD0 (TCK)
+    tdi                    = 1; # AD1 (TDI)
+    tdo                    = 2; # AD2 (TDO)
+    tms                    = 3; # AD3 (TMS)
+;
+
+#------------------------------------------------------------
+# um232h
+#------------------------------------------------------------
+
+# UM232H module from FTDI.
+programmer parent "ft232h" # um232h
+    id                     = "um232h";
+    desc                   = "UM232H module from FTDI";
+    is_serialadapter       = no;
+;
+
+#------------------------------------------------------------
+# c232hm
+#------------------------------------------------------------
+
+# C232HM cable from FTDI.
+programmer parent "um232h" # c232hm
+    id                     = "c232hm";
+    desc                   = "C232HM cable from FTDI";
+;
+
+#------------------------------------------------------------
+# o-link
+#------------------------------------------------------------
+
+# O-Link, OpenJTAG ARM JTAG USB.
+# Essentially same as jtagkey with different USB IDs.
+programmer parent "jtagkey" # o-link
+    id                     = "o-link";
+    desc                   = "O-Link, OpenJTAG ARM JTAG USB";
+    usbvid                 = 0x1457;
+    usbpid                 = 0x5118;
+    usbvendor              = "www.100ask.net";
+    usbproduct             = "USB<=>JTAG&RS232";
+;
+
+#------------------------------------------------------------
+# openmoko
+#------------------------------------------------------------
+
+# Openmoko debug board (v3).
+programmer # openmoko
+    id                     = "openmoko";
+    desc                   = "Openmoko debug board (v3)";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    usbvid                 = 0x1457;
+    usbpid                 = 0x5118;
+    usbdev                 = "{{ openmoko_usbdev | default('A') }}";
+    reset                  = 3; # TMS 7
+    sck                    = 0; # TCK 9
+    sdo                    = 1; # TDI 5
+    sdi                    = 2; # TDO 13
+;
+
+#------------------------------------------------------------
+# lm3s811
+#------------------------------------------------------------
+
+# Luminary Micro LM3S811 Eval Board (Rev. A).
+programmer # lm3s811
+    id                     = "lm3s811";
+    desc                   = "Luminary Micro LM3S811 Eval Board (Rev. A)";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0xbcd9;
+    usbdev                 = "{{ lm3s811_usbdev | default('A') }}";
+    usbvendor              = "LMI";
+    usbproduct             = "LM3S811 Evaluation Board";
+    buff                   = 7;
+    reset                  = 3;
+    sck                    = 0;
+    sdo                    = 1;
+    sdi                    = 2;
+;
+
+#------------------------------------------------------------
+# tumpa
+#------------------------------------------------------------
+
+# TIAO USB Multi-Protocol Adapter.
+programmer parent "2232h" # tumpa
+    id                     = "tumpa";
+    desc                   = "TIAO USB Multi-Protocol Adapter";
+    usbpid                 = 0x8a98;
+    usbvendor              = "TIAO";
+;
+
+#------------------------------------------------------------
+# tumpa-b
+#------------------------------------------------------------
+
+# Second SPI connector for TUMPA-B.
+programmer parent "tumpa" # tumpa-b
+    id                     = "tumpa-b";
+    usbdev                 = "{{ tumpa_b_usbdev | default('B') }}";
+;
+
+#------------------------------------------------------------
+# tumpa_jtag
+#------------------------------------------------------------
+
+# TIAO USB Multi-Protocol Adapter (JTAG).
+programmer parent "ft2232h_jtag" # tumpa_jtag
+    id                     = "tumpa_jtag";
+    desc                   = "TIAO USB Multi-Protocol Adapter (JTAG)";
+    usbpid                 = 0x8a98;
+    usbvendor              = "TIAO";
+    buff                   = ~11;
+    reset                  = 4; # RST AD4 (Pin 15)
+;
+
+#------------------------------------------------------------
+# ktlink
+#------------------------------------------------------------
+
+# KT-LINK FT2232H interface with IO switching and voltage buffers.
+# Created on 20220410 by CeDeROM Tomasz CEDRO.
+programmer # ktlink
+    id                     = "ktlink";
+    desc                   = "KT-LINK FT2232H interface with IO switching and voltage buffers";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0xbbe2;
+    usbdev                 = "{{ ktlink_usbdev | default('A') }}";
+    buff                   = 5, ~10, ~13, ~14;
+    reset                  = 8;
+    sck                    = 0;
+    sdo                    = 1;
+    sdi                    = 2;
+    rdyled                 = ~15;
+;
+
+#------------------------------------------------------------
+# digilent-hs2
+#------------------------------------------------------------
+
+# Digilent JTAG HS2 (MPSSE).
+# FT232H-based dongle with buffers.
+programmer # digilent-hs2
+    id                     = "digilent-hs2";
+    desc                   = "Digilent JTAG HS2 (MPSSE)";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6014;
+    usbdev                 = "{{ digilent_hs2_usbdev | default('A') }}";
+    buff                   = 5, 6, 7;
+    reset                  = 3;
+    sck                    = 0;
+    sdo                    = 1;
+    sdi                    = 2;
+;
+
+#------------------------------------------------------------
+# flyswatter2
+#------------------------------------------------------------
+
+# TinCan Tools Flyswatter 2.
+# FT2232H based JTAG programmer.
+programmer # flyswatter2
+    id                     = "flyswatter2";
+    desc                   = "TinCan Tools Flyswatter 2";
+    type                   = "avrftdi";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6010;
+    usbdev                 = "{{ flyswatter2_usbdev | default('A') }}";
+    usbvendor              = "TinCanTools";
+    usbproduct             = "Flyswatter2";
+    buff                   = ~6;
+    reset                  = 3;
+    sck                    = 0;
+    sdo                    = 1;
+    sdi                    = 2;
+    rdyled                 = ~11;
+    pgmled                 = ~12;
+;
+
+#------------------------------------------------------------
+# serialupdi
+#------------------------------------------------------------
+
+# SerialUPDI.
+# Based on Microchip pymcuprog utility.
+# Uses serial connection to provide UPDI interface.
+programmer # serialupdi
+    id                     = "serialupdi";
+    desc                   = "SerialUPDI";
+    type                   = "serialupdi";
+    prog_modes             = PM_UPDI;
+    connection_type        = serial;
+    hvupdi_support         = 1;
+;
+
+#------------------------------------------------------------
+# avrisp
+#------------------------------------------------------------
+
+# Atmel AVR ISP.
+# The original RS232 based Atmel AVR ISP programmer.
+programmer # avrisp
+    id                     = "avrisp";
+    desc                   = "Atmel AVR ISP";
+    type                   = "stk500";
+    prog_modes             = PM_ISP;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# avrispv2
+#------------------------------------------------------------
+
+# Atmel AVR ISP v2.
+programmer # avrispv2
+    id                     = "avrispv2";
+    desc                   = "Atmel AVR ISP v2";
+    type                   = "stk500v2";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# avrispmkII
+#------------------------------------------------------------
+
+# Atmel AVR ISP mkII.
+programmer # avrispmkII
+    id                     = "avrispmkII", "avrisp2";
+    desc                   = "Atmel AVR ISP mkII";
+    type                   = "stk500v2";
+    prog_modes             = PM_TPI | PM_ISP | PM_PDI;
+    extra_features         = HAS_VTARG_READ;
+    connection_type        = usb;
+;
+
+#------------------------------------------------------------
+# buspirate
+#------------------------------------------------------------
+
+# The Bus Pirate.
+# Bus Pirate in AVR programming mode (hardware v3 and v4).
+programmer # buspirate
+    id                     = "buspirate";
+    desc                   = "The Bus Pirate";
+    type                   = "buspirate";
+    prog_modes             = PM_ISP;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# buspirate_bb
+#------------------------------------------------------------
+
+# The Bus Pirate (bitbang interface, supports TPI).
+programmer # buspirate_bb
+    id                     = "buspirate_bb";
+    desc                   = "The Bus Pirate (bitbang interface, supports TPI)";
+    type                   = "buspirate_bb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = serial;
+    reset                  = 1;
+    sck                    = 3;
+    sdo                    = 4;
+    sdi                    = 2;
+;
+
+#------------------------------------------------------------
+# stk500
+#------------------------------------------------------------
+
+# Atmel STK500 (probes STK500v2 first then STK500v1).
+programmer # stk500
+    id                     = "stk500";
+    desc                   = "Atmel STK500 (probes STK500v2 first then STK500v1)";
+    type                   = "stk500generic";
+    prog_modes             = PM_ISP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# stk500v1
+#------------------------------------------------------------
+
+# Atmel STK500 version 1.x firmware.
+# Used by Arduino as ISP and various bootloaders.
+programmer # stk500v1
+    id                     = "stk500v1";
+    desc                   = "Atmel STK500 version 1.x firmware";
+    type                   = "stk500";
+    prog_modes             = PM_ISP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# arduino_as_isp
+#------------------------------------------------------------
+
+# Arduino board as programmer using arduino as ISP firmware.
+# Treats EEPROM r/w correctly for arduino_as_isp programmers.
+programmer # arduino_as_isp
+    id                     = "arduino_as_isp";
+    desc                   = "Arduino board as programmer using arduino as ISP firmware";
+    type                   = "stk500";
+    prog_modes             = PM_ISP;
+    connection_type        = serial;
+    baudrate               = 19200;
+;
+
+#------------------------------------------------------------
+# mib510
+#------------------------------------------------------------
+
+# Crossbow MIB510 programming board.
+# Serial gateway that can program AVRs over ISP or TPI.
+programmer # mib510
+    id                     = "mib510";
+    desc                   = "Crossbow MIB510 programming board";
+    type                   = "stk500";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# stk500v2
+#------------------------------------------------------------
+
+# Atmel STK500 version 2.x firmware.
+programmer # stk500v2
+    id                     = "stk500v2", "scratchmonkey";
+    desc                   = "Atmel STK500 version 2.x firmware";
+    type                   = "stk500v2";
+    prog_modes             = PM_TPI | PM_ISP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# stk500pp
+#------------------------------------------------------------
+
+# Atmel STK500 v2 in parallel programming mode.
+programmer # stk500pp
+    id                     = "stk500pp", "scratchmonkey_pp";
+    desc                   = "Atmel STK500 v2 in parallel programming mode";
+    type                   = "stk500pp";
+    prog_modes             = PM_HVPP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# stk500hvsp
+#------------------------------------------------------------
+
+# Atmel STK500 v2 in high-voltage serial programming mode.
+programmer # stk500hvsp
+    id                     = "stk500hvsp", "scratchmonkey_hvsp";
+    desc                   = "Atmel STK500 v2 in high-voltage serial programming mode";
+    type                   = "stk500hvsp";
+    prog_modes             = PM_HVSP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# stk600
+#------------------------------------------------------------
+
+# Atmel STK600.
+# STK600 development board.
+programmer # stk600
+    id                     = "stk600";
+    desc                   = "Atmel STK600";
+    type                   = "stk600";
+    prog_modes             = PM_TPI | PM_ISP | PM_PDI;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = usb;
+;
+
+#------------------------------------------------------------
+# stk600pp
+#------------------------------------------------------------
+
+# Atmel STK600 in parallel programming mode.
+programmer # stk600pp
+    id                     = "stk600pp";
+    desc                   = "Atmel STK600 in parallel programming mode";
+    type                   = "stk600pp";
+    prog_modes             = PM_HVPP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = usb;
+;
+
+#------------------------------------------------------------
+# stk600hvsp
+#------------------------------------------------------------
+
+# Atmel STK600 in high-voltage serial programming mode.
+programmer # stk600hvsp
+    id                     = "stk600hvsp";
+    desc                   = "Atmel STK600 in high-voltage serial programming mode";
+    type                   = "stk600hvsp";
+    prog_modes             = PM_HVSP;
+    extra_features         = HAS_VTARG_ADJ | HAS_VTARG_READ | HAS_FOSC_ADJ | HAS_VAREF_ADJ;
+    connection_type        = usb;
+;
+
+#------------------------------------------------------------
+# avr910
+#------------------------------------------------------------
+
+# Atmel Low Cost Serial Programmer.
+# Based on AVR910 application note.
+programmer # avr910
+    id                     = "avr910";
+    desc                   = "Atmel Low Cost Serial Programmer";
+    type                   = "avr910";
+    prog_modes             = PM_ISP;
+    connection_type        = serial;
+;
+
+#------------------------------------------------------------
+# ft245r
+#------------------------------------------------------------
+
+# FT245R based generic programmer.
+# Uses FTDI chips for bit-banging mode.
+programmer # ft245r
+    id                     = "ft245r";
+    desc                   = "FT245R based generic programmer";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    reset                  = 4; # D4
+    sck                    = 0; # D0
+    sdo                    = 2; # D2
+    sdi                    = 1; # D1
+;
+
+#------------------------------------------------------------
+# ft232r
+#------------------------------------------------------------
+
+# FT232R based generic programmer.
+programmer # ft232r
+    id                     = "ft232r";
+    desc                   = "FT232R based generic programmer";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    is_serialadapter       = yes;
+    connection_type        = usb;
+    usbvid                 = 0x0403;
+    usbpid                 = 0x6001;
+    reset                  = 4;  # DTR
+    sck                    = 0;  # TxD
+    sdo                    = 2;  # RTS
+    sdi                    = 1;  # RxD
+;
+
+#------------------------------------------------------------
+# bwmega
+#------------------------------------------------------------
+
+# BitWizard ftdi_atmega builtin programmer.
+programmer # bwmega
+    id                     = "bwmega";
+    desc                   = "BitWizard ftdi_atmega builtin programmer";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    reset                  = 7;  # RI
+    sck                    = 6;  # DCD
+    sdo                    = 3;  # CTS
+    sdi                    = 5;  # DSR
+;
+
+#------------------------------------------------------------
+# arduino-ft232r
+#------------------------------------------------------------
+
+# Arduino: FT232R connected to ISP.
+# Helps programming Arduino Diecimila, NG and Duemilanove without bootloader.
+programmer # arduino-ft232r
+    id                     = "arduino-ft232r", "diecimila";
+    desc                   = "Arduino: FT232R connected to ISP";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    reset                  = 7;  # RI  X3(4)
+    sck                    = 5;  # DSR X3(2)
+    sdo                    = 6;  # DCD X3(3)
+    sdi                    = 3;  # CTS X3(1)
+;
+
+#------------------------------------------------------------
+# tc2030
+#------------------------------------------------------------
+
+# Tag-Connect TC2030.
+programmer # tc2030
+    id                     = "tc2030";
+    desc                   = "Tag-Connect TC2030";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    reset                  = 3;  # CTS = D3 (wire to ~RESET)
+    sck                    = 2;  # RTS = D2 (wire to SCK)
+    sdo                    = 0;  # TxD = D0 (wire to TPIDATA via 1k resistor)
+    sdi                    = 1;  # RxD = D1 (wire to TPIDATA directly)
+;
+
+#------------------------------------------------------------
+# uncompatino
+#------------------------------------------------------------
+
+# uncompatino with all pairs of pins shorted.
+# ATmega328P kit PCB allowing ISP via on-board FT232R.
+programmer # uncompatino
+    id                     = "uncompatino";
+    desc                   = "uncompatino with all pairs of pins shorted";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    reset                  = 7; # ri
+    sck                    = 5; # dsr
+    sdo                    = 6; # dcd
+    sdi                    = 3; # cts
+;
+
+#------------------------------------------------------------
+# ttl232r
+#------------------------------------------------------------
+
+# FTDI TTL232R-5V with ICSP adapter.
+programmer # ttl232r
+    id                     = "ttl232r";
+    desc                   = "FTDI TTL232R-5V with ICSP adapter";
+    type                   = "ftdi_syncbb";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+    reset                  = 0; # txd
+    sck                    = 1; # rxd
+    sdo                    = 3; # cts
+    sdi                    = 2; # rts
+;
+
+#------------------------------------------------------------
+# usbasp
+#------------------------------------------------------------
+
+# USBasp ISP and TPI programmer.
+# From http://www.fischl.de/usbasp
+# USB in-circuit programmer for Atmel AVR controllers.
+programmer # usbasp
+    id                     = "usbasp";
+    desc                   = "USBasp ISP and TPI programmer";
+    type                   = "usbasp";
+    prog_modes             = PM_TPI | PM_ISP;
+    connection_type        = usb;
+;

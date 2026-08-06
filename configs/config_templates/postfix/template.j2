@@ -1,11 +1,70 @@
-myhostname = {{ hostname }}
-mydomain = {{ domain }}
-myorigin = $mydomain
-inet_interfaces = {{ inet_interfaces }}
-mydestination = $myhostname, localhost.$mydomain, localhost
-relayhost = {{ relayhost }}
-mynetworks = {{ mynetworks }}
-{% if tls.enabled %}smtpd_tls_cert_file = {{ tls.cert_file }}
-smtpd_tls_key_file = {{ tls.key_file }}
-smtp_tls_security_level = {{ tls.security_level }}
-{% endif %}message_size_limit = {{ message_size_limit }}
+#! /bin/sh
+set -e
+
+### BEGIN INIT INFO
+# Provides:          postfix mail-transport-agent
+# Required-Start:    $local_fs $remote_fs $syslog $named $network $time
+# Required-Stop:     $local_fs $remote_fs $syslog $named $network
+# Should-Start:      postgresql mysql clamav-daemon postgrey spamassassin saslauthd dovecot
+# Should-Stop:       postgresql mysql clamav-daemon postgrey spamassassin saslauthd dovecot
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Postfix Mail Transport Agent
+# Description:       postfix is a Mail Transport agent
+### END INIT INFO
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DAEMON=/usr/sbin/postfix
+unset TZ
+
+[ -x $DAEMON ] && [ -f /etc/postfix/main.cf ] || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+
+    (start) # iterate: quiet-if-already-running, skip disabled instances
+	log_daemon_msg "Starting the Postfix mail system"
+	rc=0 && postmulti -x "$0" internal-instance-$1 || rc=$?
+	log_end_msg $rc
+    ;;
+    (internal-instance-start)
+	[ yes = $multi_instance_enable ] || exit 0
+	$daemon_directory/master -t 2>/dev/null || exit 0 # already running
+	log_progress_msg ${multi_instance_name:-$config_directory}
+	err=$($DAEMON start 2>&1) || { echo "$err" >&2; exit 1; }
+    ;;
+
+    (stop) # iterate: quiet-if-not-running
+	log_daemon_msg "Stopping the Postfix mail system"
+	rc=0 && postmulti -x "$0" internal-instance-$1 || rc=$?
+	log_end_msg $rc
+    ;;
+    (internal-instance-stop) # do not fail if already stopped
+	$daemon_directory/master -t 2>/dev/null && exit 0
+	log_progress_msg ${multi_instance_name:-$config_directory}
+	err=$($DAEMON stop 2>&1) || { echo "$err" >&2; exit 1; }
+    ;;
+
+    (status)
+	postmulti -x "$0" internal-instance-status
+    ;;
+    (internal-instance-status) # no fail if a disabled instance is not running
+	$DAEMON status || [ yes != $multi_instance_enable ]
+    ;;
+
+    (status|reload|force-reload|flush|check|abort)
+	$DAEMON ${1#force-} || { log_end_msg 1; exit 1; }
+    ;;
+
+    restart)
+        $0 stop || :
+        $0 start
+    ;;
+
+    (*)
+	log_action_msg "Usage: /etc/init.d/postfix {start|stop|restart|reload|force-reload|flush|check|abort|status}"
+	exit 1
+    ;;
+
+esac

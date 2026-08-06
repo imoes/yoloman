@@ -1,51 +1,51 @@
 [kcm]
-# Enable debug output to stderr and syslog
+# Enable verbose debugging to stderr and syslog. Only for troubleshooting.
 debug = {{ debug | default(false) | lower }}
 
-# Maximum number of simultaneous client connections
+# Maximum number of simultaneous client connections. Increase under heavy load.
 max_connections = {{ max_connections | default(100) }}
 
-# Path to the Kerberos keytab file used for service tickets
+# Absolute path to the Kerberos keytab file for service ticket decryption.
 keytab = {{ keytab | default('/etc/krb5.keytab') }}
 
-# Path to the socket used for client communication
+# Absolute path to the Unix domain socket used for client communication.
 socket_path = {{ socket_path | default('/var/run/heimdal-kcm/socket') }}
 
-# Enable or disable Kerberos credential cache (ccache) persistence across reboots
+# If true, persist credentials cache across system reboots (requires filesystem persistence).
 persistent_cache = {{ persistent_cache | default(false) | lower }}
 
-# Maximum lifetime (in seconds) of cached credentials
+# Maximum lifetime (in seconds) of cached tickets (e.g., 86400 = 24 hours).
 max_ticket_lifetime = {{ max_ticket_lifetime | default(86400) }}
 
-# Maximum renew lifetime (in seconds) of cached tickets
+# Maximum renew lifetime (in seconds) of tickets before re-authentication required.
 max_renew_lifetime = {{ max_renew_lifetime | default(604800) }}
 
-# List of acceptable encryption types (as comma-separated strings); order matters
-# Leave empty to use system defaults (typically all modern enctype suites)
-enctypes = {%- if enctypes %}
-{{ enctypes | join(', ') }}
+# Ordered list of acceptable encryption types (e.g., aes256-cts-hmac-sha1-96, aes128-cts-hmac-sha1-96).
+# Leave empty to use defaults.
+{%- if enctypes is defined and enctypes | length > 0 %}
+enctypes = {{ enctypes | join(', ') }}
 {%- else %}
-# (empty = system default)
+enctypes =
 {%- endif %}
 
-# Restrict access to socket to these Unix groups (optional)
-# If empty, only root/admin can connect
-allowed_groups = {%- if allowed_groups %}
-{{ allowed_groups | join(', ') }}
+# Unix group names allowed to access the KCM socket. Leave empty for root-only access.
+{%- if allowed_groups is defined and allowed_groups | length > 0 %}
+allowed_groups = {{ allowed_groups | join(', ') }}
 {%- else %}
-# (empty = no group restrictions)
+allowed_groups =
 {%- endif %}
 
-# Log level: 0=error, 1=warn, 2=info, 3=debug, 4=trace
+# Verbosity level: 0=error, 1=warn, 2=info, 3=debug, 4=trace.
 log_level = {{ log_level | default(2) }}
 
-# Path to the system log target (syslog facility is always 'auth')
+# Syslog facility used for logging (typically 'auth' or 'authpriv').
 syslog_facility = {{ syslog_facility | default('auth') }}
 
-# Enable support for Windows KDC referrals (experimental)
+# Enable experimental support for Windows KDC referrals (may be unstable).
 windows_referrals = {{ windows_referrals | default(false) | lower }}
 
-# List of trusted realm referrals (each: { realm, kdc })
-{% for referral in referrals %}# Referral for realm '{{ referral.realm }}' to KDC '{{ referral.kdc }}'
-referral_{{ loop.index0 }} = {{ referral.realm }} = {{ referral.kdc }}
-{% endfor %}
+# Static realm referral mappings. Each entry defines a trusted external realm and its KDC.
+{%- for referral in referrals | default([]) %}
+# Referral for realm '{{ referral.realm | default("unknown") }}' to KDC '{{ referral.kdc | default("unknown") }}'
+referral_{{ loop.index0 }} = {{ referral.realm | default("") }} = {{ referral.kdc | default("") }}
+{%- endfor %}

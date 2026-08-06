@@ -1,72 +1,13 @@
-{# Path to the system's sendmail-compatible binary #}
-SENDMAIL="/usr/sbin/sendmail"
+# /etc/cron.d/logcheck: crontab entries for the logcheck package
+# These do nothing under systemd because the systemd timer will take precedence
 
-{# Email address to which logcheck reports are sent #}
-REPORTMAIL="root"
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-{# Path to the temporary directory used by logcheck #}
-TEMPDIR="/var/tmp"
+# REPORTMAIL: Primary email address to receive logcheck summary reports.
+MAILTO={{ (REPORTMAIL | default('root')) | default('root') }}
 
-{# Path to the logcheck work directory (contains rule sets, etc.) #}
-WORKDIR="/etc/logcheck"
+# Run logcheck manually if systemd is not present, otherwise systemd timer handles it.
+@reboot	logcheck	if [ ! -d /run/systemd/system ] && [ -x /usr/sbin/logcheck ]; then nice -n10 /usr/sbin/logcheck -R; fi
 
-{# Path to the logcheck log file (used when logrotate is not employed) #}
-LOGFILE="/var/log/logcheck/logcheck.log"
-
-{# Number of log lines to read from each log file at a time #}
-LINES=200
-
-{# Maximum number of seconds to wait before considering a log processing timeout #}
-TIMEOUT=60
-
-{# Whether to compress rotated log files before analysis (true/false) #}
-COMPRESS_LOGS="yes"
-
-{# Whether to send reports even when no events match (true/false) #}
-SEND_EMPTY_RESULTS="no"
-
-{# Whether to run in server mode (monitoring system logs continuously) #}
-SERVER_MODE="no"
-
-{# List of log files to monitor, each with path and optional flags #}
-{% for log in LOGFILES %}
-# Log file: {{ log.path }}{{ ' (' + log.flags | join(', ') + ')' if log.flags else '' }}
-LOGFILE{{ loop.index }}="{{ log.path }}"
-{% endfor %}
-
-{# List of hosts to include in the subject line of reports (e.g., hostname prefixes) #}
-{% for host in REPORT_HOSTS %}
-# Hostname prefix for report subject: {{ host }}
-HOSTNAME{{ loop.index }}="{{ host }}"
-{% endfor %}
-
-{# Optional: List of custom regex rules to include/exclude lines #}
-{% for rule in CUSTOM_RULES %}
-# Custom rule: {{ rule.name }} — {{ rule.mode }} pattern: {{ rule.pattern }}
-{% if rule.mode == 'ignore' %}IGNORE_PATTERN{% else %}IGNORE_LINE{% endif %}{{ loop.index }}="{{ rule.pattern }}"
-{% endfor %}
-
-{# List of log directories to scan (used with recursive scanning) #}
-{% for dir in LOG_DIRS %}
-# Directory to scan recursively: {{ dir.path }}
-LOGDIR{{ loop.index }}="{{ dir.path }}"
-{% if dir.recursive %}LOGDIR{{ loop.index }}_RECURSIVE="yes"{% else %}LOGDIR{{ loop.index }}_RECURSIVE="no"{% endif %}
-{% endfor %}
-
-{# List of email recipients (additional addresses beyond REPORTMAIL) #}
-{% if REPORT_CC %}
-# Additional email recipients for reports
-REPORTCC="{{ REPORT_CC | join(', ') }}"
-{% endif %}
-
-{# List of suppression rulesets (e.g., 'server', 'desktop') #}
-{% if SUPPRESS_RULESETS %}
-# Suppression rulesets to apply (comma-separated)
-SUPPRESS="{{ SUPPRESS_RULESETS | join(', ') }}"
-{% endif %}
-
-{# List of violation rulesets (e.g., 'failures', 'violations') #}
-{% if VIOLATION_RULESETS %}
-# Violation rulesets to apply (comma-separated)
-VIOLATIONS="{{ VIOLATION_RULESETS | join(', ') }}"
-{% endif %}
+# Run logcheck every 2 hours if systemd is not present.
+2 * * * *	logcheck	if [ ! -d /run/systemd/system ] && [ -x /usr/sbin/logcheck ]; then nice -n10 /usr/sbin/logcheck; fi

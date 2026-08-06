@@ -1,0 +1,86 @@
+{# ============================================================================ #}
+{# brightnessctl Configuration Template                                         #}
+{#                                                                              #}
+{# This template generates a configuration file for brightnessctl.              #}
+{# brightnessctl is a command-line utility to query and control brightness        #}
+{# of Linux devices (usually backlight or leds).                                #}
+{#                                                                              #}
+{# Every variable below uses the 'default()' filter to ensure safe rendering.    #}
+{# If a variable is not provided by the playbook/role, the schema default is used.#}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Device selection                                                             #}
+{# Device identifier (e.g., 'intel_backlight', 'amdgpu_bl1').                   #}
+{# Supports wildcards like 'backlight:*'.                                       #}
+{# If empty, brightnessctl auto-detects.                                        #}
+{# ---------------------------------------------------------------------------- #}
+{% if device is defined and device | default('') | trim != '' -%}
+device={{ device | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Device class filter                                                          #}
+{# Device class filter (e.g., 'backlight', 'leds').                             #}
+{# Restricts device selection to a specific class.                              #}
+{# If empty, all classes are considered.                                        #}
+{# ---------------------------------------------------------------------------- #}
+{% if class is defined and class | default('') | trim != '' -%}
+class={{ class | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Minimum brightness value                                                     #}
+{# Minimum brightness value when using delta operations                         #}
+{# (e.g., '50-' will not go below this).                                        #}
+{# ---------------------------------------------------------------------------- #}
+min_value={{ min_value | default(1) }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Exponent for perceptual brightness curve                                     #}
+{# Exponent for perceptual brightness curve; 4 is recommended for perceptual    #}
+{# uniformity (linear if not set).                                              #}
+{# ---------------------------------------------------------------------------- #}
+exponent={{ exponent | default(4) }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Save brightness state                                                        #}
+{# Whether to save the current brightness state to a temporary file.            #}
+{# When true, brightnessctl saves the current level to a temp file.             #}
+{# ---------------------------------------------------------------------------- #}
+{% if save_enabled | default(False) | bool -%}
+save_enabled=true
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Restore brightness state                                                     #}
+{# Whether to restore a previously saved brightness state on startup.           #}
+{# When true, brightnessctl restores the level from the temp file.              #}
+{# ---------------------------------------------------------------------------- #}
+{% if restore_enabled | default(False) | bool -%}
+restore_enabled=true
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Machine-readable output                                                      #}
+{# Enable machine-readable output format (e.g., for scripting).                 #}
+{# ---------------------------------------------------------------------------- #}
+{% if machine_readable | default(False) | bool -%}
+machine_readable=true
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Quiet mode                                                                   #}
+{# Suppress all standard output (errors still shown).                           #}
+{# ---------------------------------------------------------------------------- #}
+{% if quiet | default(False) | bool -%}
+quiet=true
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Pretend mode                                                                 #}
+{# Pretend mode: compute operations but skip writes (useful for dry runs).      #}
+{# ---------------------------------------------------------------------------- #}
+{% if pretend | default(False) | bool -%}
+pretend=true
+{% endif %}

@@ -1,0 +1,105 @@
+# ==============================================================================
+# gcp(1) Configuration Template
+#
+# This template generates configuration directives for the `gcp` command-line tool.
+# Every variable referenced below MUST have a default value defined in the Ansible
+# play/role variables or passed directly to the template engine to ensure safe rendering.
+# ==============================================================================
+
+# --- Global Flags ---
+
+# verbose: Enable verbose mode; matches --verbose flag.
+# Default: False
+{% if verbose | default(False) %}
+# Verbose mode enabled
+verbose: true
+{% endif %}
+
+# force: Overwrite existing files; matches --force flag.
+# Default: False
+{% if force | default(False) %}
+# Force overwriting of existing files
+force: true
+{% endif %}
+
+# dereference: Always follow symbolic links; matches --dereference flag.
+# Default: False
+# If false, --no-dereference is implied.
+{% if dereference | default(False) %}
+# Always follow symbolic links in sources
+follow_symlinks: true
+{% else %}
+# Never follow symbolic links in sources
+follow_symlinks: false
+{% endif %}
+
+# preserve_attributes: Attributes to preserve; allowed values: 'mode', 'ownership', 'timestamps'.
+# Default: []
+# Matches --preserve=ATTRS. Must be a list of strings.
+{% if preserve_attributes | default([]) | length > 0 %}
+# Preserve specified attributes (comma-separated list)
+# Valid attributes: mode, ownership, timestamps
+preserve: {{ preserve_attributes | default([]) | join(', ') }}
+{% endif %}
+
+# fix_filenames: Filename mangling strategy: 'force', 'auto', or 'no'.
+# Default: 'auto'
+# Matches --fix-filenames=VAL.
+{% if fix_filenames | default('auto') in ['force', 'auto', 'no'] %}
+# Filename mangling for target filesystem compatibility
+filename_fix: {{ fix_filenames | default('auto') }}
+{% endif %}
+
+# no_progress: Disable progress bar; matches --no-progress flag.
+# Default: False
+{% if no_progress | default(False) %}
+# Disable progress bar
+no_progress: true
+{% endif %}
+
+# --- Source File Management ---
+
+# sources_action: Source file list management action: 'save', 'replace', 'load', 'delete', 'list', 'full_list', or '' for direct file arguments.
+# Default: ''
+# Used to manage saved source file lists.
+{% if sources_action | default('') == 'save' %}
+# Save source files list
+sources_list_name: {{ sources_name | default('default') }}
+sources_mode: save
+{% elif sources_action | default('') == 'replace' %}
+# Save (replace if exists) source files list
+sources_list_name: {{ sources_name | default('default') }}
+sources_mode: replace
+{% elif sources_action | default('') == 'load' %}
+# Load previously saved source files list
+sources_list_name: {{ sources_name | default('default') }}
+sources_mode: load
+{% elif sources_action | default('') == 'delete' %}
+# Delete a saved source files list
+sources_list_name: {{ sources_name | default('default') }}
+sources_mode: delete
+{% elif sources_action | default('') == 'list' %}
+# List saved source file list names
+sources_mode: list
+{% elif sources_action | default('') == 'full_list' %}
+# List saved source file list names with content
+sources_mode: full_list
+{% endif %}
+
+# sources_names: List of source file names for direct copying.
+# Default: []
+# Used when sources_action is empty (default).
+{% if sources_names | default([]) | length > 0 %}
+# Explicit list of source file names to process
+# (used when no sources_action is defined and direct arguments are provided)
+{% for item in sources_names | default([]) %}
+source: {{ item }}
+{% endfor %}
+{% endif %}
+
+# --- Destination ---
+
+# destination: Destination path (file or directory).
+# Default: ''
+# Required when using direct file arguments (sources_action is empty).
+destination: {{ destination | default('') }}

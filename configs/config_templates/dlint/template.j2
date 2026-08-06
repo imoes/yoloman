@@ -1,0 +1,49 @@
+{# ============================================================================ #}
+{# dlint(1) Configuration Template                                                #}
+{#                                                                                #}
+{# Self-documenting Jinja2 template for dlint DNS zone scanner.                   #}
+{#                                                                                #}
+{# Schema Reference:                                                              #}
+{#   zone          : Fully-qualified domain name of the DNS zone to scan          #}
+{#                   (must end with a period). Default: ''                        #}
+{#   recursive     : Whether to recursively traverse subdomains.                  #}
+{#                   Equivalent to omitting -n flag. Default: True                #}
+{#   nameserver    : Optional IP address or FQDN of the authoritative             #}
+{#                   nameserver to query directly. Default: ''                    #}
+{#                                                                                #}
+{# Usage in Ansible:                                                              #}
+{#   - Ensure 'zone' is set to the target domain (e.g. 'example.com.')            #}
+{#   - 'recursive' controls subdomain scanning depth.                             #}
+{#   - 'nameserver' overrides the system resolver for specific authoritative      #}
+{#     queries. If empty, the host's default resolvers are used.                  #}
+{# ============================================================================ #}
+
+# ============================================================================ #
+{# Zone Configuration                                                           #}
+{# Zone to scan (must be fully-qualified with trailing dot)                     #}
+{# This is the primary target for the DNS scan.                                 #}
+# ============================================================================ #
+ZONE={{ (zone | default('')) | trim }}
+
+# ============================================================================ #
+{# Recursive Traversal Configuration                                            #}
+{# Enable recursive traversal of subdomains? (default: yes)                     #}
+{# When true, dlint will traverse subdomains recursively.                       #}
+{# When false, only the specified zone is scanned.                              #}
+# ============================================================================ #
+{% if recursive | default(True) | bool %}
+RECURSIVE=true
+{% else %}
+RECURSIVE=false
+{% endif %}
+
+# ============================================================================ #
+{# Nameserver Configuration                                                     #}
+{# Nameserver to query (optional; if unset, system resolver is used)            #}
+{# Specify an IP address or FQDN here to force queries against a specific       #}
+{# authoritative nameserver. If omitted, dlint uses the system's configured       #}
+{# resolvers (e.g., /etc/resolv.conf on Linux).                                 #}
+# ============================================================================ #
+{% if nameserver | default('') | trim != '' %}
+NAMESERVER={{ nameserver | default('') | trim }}
+{% endif %}

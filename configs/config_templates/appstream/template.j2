@@ -1,0 +1,93 @@
+# AppStream APT configuration template.
+# This file configures APT to acquire and process DEP-11 metadata
+# (GUI application icons and descriptions) from Debian/Ubuntu repositories.
+
+Acquire::IndexTargets {
+    # The YAML metadata files for desktop components (DEP-11).
+    # Specifies how APT downloads the Components-*.yml files.
+    deb::DEP-11  {
+        # Path pattern for the YAML metadata file within the repository.
+        # Variables like $(COMPONENT), $(RELEASE), $(NATIVE_ARCHITECTURE)
+        # are substituted by APT itself.
+        MetaKey "$(COMPONENT)/dep11/Components-$(NATIVE_ARCHITECTURE).yml";
+        ShortDescription "Components-$(NATIVE_ARCHITECTURE)";
+        Description "$(RELEASE)/$(COMPONENT) $(NATIVE_ARCHITECTURE) Components";
+
+        # Whether to keep the downloaded file compressed.
+        KeepCompressed "true";
+        # The compression format to store.
+        KeepCompressedAs "gz";
+    };
+
+    # Configuration for small icons (48x48px) used in GUI component lists.
+    deb::DEP-11-icons-small  {
+        # Path pattern for the small icons tar archive.
+        MetaKey "$(COMPONENT)/dep11/icons-48x48.tar";
+        ShortDescription "icons-48x48";
+        Description "$(RELEASE)/$(COMPONENT) Icons (48x48)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Small icons are often disabled by default to save bandwidth/disk.
+        DefaultEnabled "false";
+    };
+
+    # Configuration for normal-sized icons (64x64px) for GUI components.
+    deb::DEP-11-icons  {
+        # Path pattern for the normal icons tar archive.
+        MetaKey "$(COMPONENT)/dep11/icons-64x64.tar";
+        ShortDescription "icons-64x64";
+        Description "$(RELEASE)/$(COMPONENT) Icons (64x64)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        DefaultEnabled "false";
+    };
+
+    # Configuration for HiDPI icons (64x64@2px, 128px) for GUI components.
+    deb::DEP-11-icons-hidpi  {
+        # Path pattern for the HiDPI icons tar archive.
+        MetaKey "$(COMPONENT)/dep11/icons-64x64@2.tar";
+        ShortDescription "icons-64x64@2";
+        Description "$(RELEASE)/$(COMPONENT) Icons (64x64@2)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        DefaultEnabled "false";
+    };
+
+    # Configuration for larger icons (128x128px) often used on HiDPI displays as fallback.
+    deb::DEP-11-icons-large  {
+        # Path pattern for the large icons tar archive.
+        MetaKey "$(COMPONENT)/dep11/icons-128x128.tar";
+        ShortDescription "icons-128x128";
+        Description "$(RELEASE)/$(COMPONENT) Icons (128x128)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        DefaultEnabled "false";
+    };
+
+    # Configuration for very large icons (128x128@2px, 256px) for HiDPI displays.
+    deb::DEP-11-icons-large-hidpi {
+        # Path pattern for the very large HiDPI icons tar archive.
+        MetaKey "$(COMPONENT)/dep11/icons-128x128@2.tar";
+        ShortDescription "icons-128x128@2";
+        Description "$(RELEASE)/$(COMPONENT) Icons (128x128@2)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        DefaultEnabled "false";
+    };
+};
+
+# Refresh the AppStream cache automatically after APT runs 'apt update'.
+# This ensures that GUI applications listed in Software Centers are up-to-date
+# without requiring manual 'appstreamcli refresh' commands.
+APT::Update::Post-Invoke-Success {
+    # Run appstreamcli refresh if the cache directory is writable and the binary exists.
+    # The command redirects output to /dev/null and ignores errors to avoid
+    # breaking apt update if the refresh fails or is not needed.
+    # Note: The path to the appstreamcli binary is configured below.
+    "if /usr/bin/test -w {{ appstream_cache_dir | default('/var/cache/swcatalog') }} -a -e {{ appstreamcli_path | default('/usr/bin/appstreamcli') }}; then {{ appstreamcli_path | default('/usr/bin/appstreamcli') }} refresh --source=os > /dev/null || true; fi";
+};

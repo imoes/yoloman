@@ -1,33 +1,51 @@
 [global]
-# Model of the device connected to the system
-model = {{ model }}
-# Connection port for the device (e.g., /dev/ttyUSB0, com1)
-port = {{ port }}
-# Connection type: serial, Bluetooth, network, etc.
-connection = {{ connection }}
-# Baud rate for serial connections; ignored for non-serial connections
-baudrate = {{ baudrate }}
-# SMS center address (e.g., +1234567890)
-smsc = {{ smsc | default('') }}
-# Timeout in seconds for SMS operations
-timeout = {{ timeout }}
-# Log level: 0 (none) to 7 (debug)
-loglevel = {{ loglevel }}
-# Path to log file (empty string = disable file logging)
-logfile = {{ logfile }}
+# Model of the device connected to the system (e.g., 'AT', '6510', '5110').
+# Use 'AT' for generic AT-mode devices.
+model = {{ model | default('AT') }}
 
-{% if pin %}[security]
-# PIN code for SIM card (if required)
+# Device communication port (e.g., /dev/ttyUSB0, /dev/ttyACM0, /dev/rfcomm0, or host:port).
+port = {{ port | default('/dev/ttyUSB0') }}
+
+# Connection type. Supported: 'serial', 'bluetooth', 'network', 'irda', 'posix'.
+connection = {{ connection | default('serial') }}
+
+# Baud rate for serial connections (e.g., 9600, 19200, 115200).
+# Ignored for non-serial connections.
+baudrate = {{ baudrate | default(115200) }}
+
+# SMS Service Center (SMSC) phone number (with '+' prefix), e.g., '+1234567890'.
+# Leave blank to use the SIM's default SMSC.
+smsc = {{ smsc | default('') }}
+
+# Timeout (in seconds) for SMS send/receive operations.
+timeout = {{ timeout | default(30) }}
+
+# Logging verbosity: 0 (none) to 7 (debug). Higher values produce more detailed logs.
+loglevel = {{ loglevel | default(7) }}
+
+# Path to log file. Use empty string ('') to disable file logging (logs only to stderr).
+logfile = {{ logfile | default('/var/log/gnokii-smsd.log') }}
+
+{% if pin is defined and pin %}
+[security]
+# PIN code for the SIM card (e.g., '1234').
+# Leave blank if no PIN is set or if PIN handling is done externally.
 pin = {{ pin }}
 {% endif %}
 
-{% if devices %}[devices]
-# List of additional devices to manage
-{% for device in devices %}device_{{ loop.index }} = {{ device.name }}
+{% if devices is defined and devices %}
+[devices]
+# List of additional devices to manage. Each entry defines a device with its own settings.
+{% for device in devices %}
+device_{{ loop.index }} = {{ device.name | default('') }}
   device_{{ loop.index }}_model = {{ device.model | default('') }}
-  device_{{ loop.index }}_port = {{ device.port }}
-  device_{{ loop.index }}_connection = {{ device.connection }}
-  {% if device.baudrate %}device_{{ loop.index }}_baudrate = {{ device.baudrate }}{% endif %}
-  {% if device.pin %}device_{{ loop.index }}_pin = {{ device.pin }}{% endif %}
+  device_{{ loop.index }}_port = {{ device.port | default('') }}
+  device_{{ loop.index }}_connection = {{ device.connection | default('') }}
+  {% if device.baudrate is defined and device.baudrate %}
+  device_{{ loop.index }}_baudrate = {{ device.baudrate }}
+  {% endif %}
+  {% if device.pin is defined and device.pin %}
+  device_{{ loop.index }}_pin = {{ device.pin }}
+  {% endif %}
 {% endfor %}
 {% endif %}

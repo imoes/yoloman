@@ -1,48 +1,93 @@
-# Btrfs system-wide tuning options for utilities like btrfs, mkfs.btrfs, balance, scrub, etc.
-# This file is sourced by systemd services and CLI tools (e.g., btrfs balance, btrfs scrub)
-# See `man btrfs.conf` for details
+# ==============================================================================
+# Btrfs System-Wide Configuration Template
+# ==============================================================================
+# This file configures system-wide tuning options for Btrfs utilities such as
+# `btrfs`, `mkfs.btrfs`, `btrfs-balance`, `btrfs-scrub`, and related tools.
+# It is typically sourced by systemd services or consumed by wrapper scripts.
+#
+# Self-documenting: Every directive includes its schema description and default
+# value for safety and clarity.
+# ==============================================================================
 
-# Maximum number of compression threads (0 = auto-detect)
-COMPRESSION_THREADS={{ compression_threads }}
+# --- General Tuning -----------------------------------------------------------
 
-# Enable/disable checksumming during I/O (0=off, 1=on)
-CHECKSUM={{ checksum }}
+# Number of threads for compression operations.
+# 0 lets btrfs auto-detect based on available CPU count.
+# Default: 0
+COMPRESSION_THREADS={{ compression_threads | default(0) }}
 
-# Enable/disable SSD optimization hints (0=off, 1=on) for mkfs.btrfs
-SSD_OPTIMIZATION={{ ssd_optimization }}
+# Enable checksumming during I/O operations for data integrity verification.
+# 1 = enabled (recommended), 0 = disabled.
+# Default: 1
+CHECKSUM={{ checksum | default(1) }}
 
-# Default block size for mkfs.btrfs (e.g., 4096, 65536, etc.)
-BLOCK_SIZE={{ block_size }}
+# Enable SSD-friendly optimizations during filesystem creation and operations.
+# 1 = enabled, 0 = disabled.
+# Default: 1
+SSD_OPTIMIZATION={{ ssd_optimization | default(1) }}
 
-# Default compression type for new filesystems (e.g., zstd, lzo, zlib, none)
-COMPRESSION_TYPE={{ compression_type }}
+# --- Filesystem Creation Defaults ---------------------------------------------
 
-# Enable/disable delayed allocation (0=off, 1=on)
-DELAYED_ALLOC={{ delayed_alloc }}
+# Block size for mkfs.btrfs in bytes.
+# Most commonly 4096 (4 KiB). Supported sizes depend on architecture/filesystem version.
+# Default: 4096
+BLOCK_SIZE={{ block_size | default(4096) }}
 
-# List of mount options applied via btrfs-mount helper (if used)
-# Each entry is passed as-is to mount(8) -e.g., "noatime,compress=zstd:1"
-{% for opt in mount_options %}MOUNT_OPTIONS="{{ opt }}"
+# Default compression algorithm for new filesystems created by mkfs.btrfs.
+# Supported values: zstd, lzo, zlib, none.
+# Default: 'zstd'
+COMPRESSION_TYPE={{ compression_type | default('zstd') }}
+
+# Enable/disable delayed allocation.
+# 1 = enabled (improves fragmentation reduction, may slightly affect latency),
+# 0 = disabled (strict immediate allocation).
+# Default: 1
+DELAYED_ALLOC={{ delayed_alloc | default(1) }}
+
+# Default RAID profile used by mkfs.btrfs for metadata and data allocation.
+# Options: single, dup, raid0, raid1, raid10, raid5, raid6.
+# Default: 'single'
+DEFAULT_RAID_PROFILE="{{ default_raid_profile | default('single') }}"
+
+# Maximum number of stripes per device for mkfs.btrfs.
+# 0 means default/unlimited. Typically set for multi-device RAID setups.
+# Default: 0
+MAX_STRIPES={{ max_stripes | default(0) }}
+
+# Enable metadata duplication for single-device filesystems.
+# 1 = enabled (increases metadata redundancy/safety), 0 = disabled.
+# Default: 0
+METADATA_DUP={{ metadata_dup | default(0) }}
+
+# --- Maintenance & Scheduling -------------------------------------------------
+
+# List of mount options to apply via btrfs-mount helper or recommended defaults.
+# Each option is quoted and passed individually.
+# Default: ['noatime', 'compress=zstd:1']
+{% for opt in (mount_options | default(['noatime', 'compress=zstd:1'])) %}MOUNT_OPTIONS="{{ opt }}"
 {% endfor %}
 
-# Default scrub scheduling interval (in hours) for automatic scrub jobs
-SCRUB_INTERVAL_HOURS={{ scrub_interval_hours }}
+# Frequency (in hours) for automatic btrfs scrub jobs.
+# 168 hours = weekly. Set to 0 to disable automatic scrubs.
+# Default: 168
+SCRUB_INTERVAL_HOURS={{ scrub_interval_hours | default(168) }}
 
-# Enable/disable automatic balance (0=off, 1=on)
-AUTO_BALANCE={{ auto_balance }}
+# --- Automatic Balancing ------------------------------------------------------
 
-# Balance thresholds (percent full before triggering auto-balance)
-AUTO_BALANCE_THRESHOLD={{ auto_balance_threshold }}
+# Enable/disable automatic background balancing.
+# 1 = enabled, 0 = disabled. Use with caution as it can be I/O intensive.
+# Default: 0
+AUTO_BALANCE={{ auto_balance | default(0) }}
 
-# Maximum number of stripes per device for mkfs.btrfs
-MAX_STRIPES={{ max_stripes }}
+# Data block group usage percentage threshold that triggers auto-balance.
+# Range: 1–100. Balancing triggers when usage exceeds this percentage.
+# Default: 80
+AUTO_BALANCE_THRESHOLD={{ auto_balance_threshold | default(80) }}
 
-# Enable/disable RAID profile hints in mkfs.btrfs (e.g., raid1, raid10, single)
-DEFAULT_RAID_PROFILE="{{ default_raid_profile }}"
+# --- Environment Variables ----------------------------------------------------
 
-# Enable/disable metadata duplication (0=off, 1=on) for mkfs.btrfs
-METADATA_DUP={{ metadata_dup }}
-
-# Additional environment variables passed to btrfs CLI tools
-{% for var, val in env_vars %}export {{ var }}="{{ val }}"
+# Additional environment variable assignments to export before running btrfs CLI tools.
+# Format: export KEY="VALUE"
+# Default: [] (empty list)
+{% for item in (env_vars | default([])) %}export {{ item.key }}="{{ item.value }}"
 {% endfor %}

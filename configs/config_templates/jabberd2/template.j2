@@ -1,67 +1,19 @@
-{# Listen address and port for client connections #}
-<port>{{ c2s.port }}</port>
+# Defaults for jabberd2 initscript
+# sourced by /etc/init.d/jabberd2
+# installed at /etc/default/jabberd2 by the maintainer scripts
 
-{# Bind to all interfaces or specific IP #}
-<bind>{{ c2s.bind }}</bind>
+# run router
+# Enable running the jabberd2 router component.
+ROUTER_RUN={{ (router_run | default(true)) | lower }}
 
-{# Enable TLS for encrypted connections #}
-{% if c2s.tls.enabled %}
-<tls>
-  <cert-file>{{ c2s.tls.cert_file }}</cert-file>
-  <key-file>{{ c2s.tls.key_file }}</key-file>
-{% if c2s.tls.ciphers is not none %}  <cipher-list>{{ c2s.tls.ciphers }}</cipher-list>{% endif %}
-  <verify-peer>{{ 'true' if c2s.tls.verify_peer else 'false' }}</verify-peer>
-{% if c2s.tls.ca_file %}  <ca-file>{{ c2s.tls.ca_file }}</ca-file>{% endif %}
-</tls>
-{% else %}
-<!-- TLS disabled -->
-{% endif %}
+# run sm
+# Enable running the jabberd2 session manager (sm) component.
+SM_RUN={{ (sm_run | default(true)) | lower }}
 
-{# Authentication backend #}
-<authreg>
-  <id>{{ authreg.id }}</id>
-  <driver>{{ authreg.driver }}</driver>
-{% for param in authreg.params %}  <param name="{{ param.name }}">{{ param.value }}</param>{% endfor %}
-</authreg>
+# run s2s
+# Enable running the jabberd2 server-to-server (s2s) component.
+S2S_RUN={{ (s2s_run | default(true)) | lower }}
 
-{# Storage backend (roster, vcard, etc.) #}
-<storage>
-  <id>{{ storage.id }}</id>
-  <driver>{{ storage.driver }}</driver>
-{% for param in storage.params %}  <param name="{{ param.name }}">{{ param.value }}</param>{% endfor %}
-</storage>
-
-{# Session & message routing settings #}
-<sm>
-  <id>{{ sm.id }}</id>
-  <log>{{ sm.log }}</log>
-  <max-packets>{{ sm.max_packets }}</max-packets>
-  <route-localname>{{ 'true' if sm.route_localname else 'false' }}</route-localname>
-</sm>
-
-{# User registration UI & limits #}
-<register>
-  <enabled>{{ 'true' if register.enabled else 'false' }}</enabled>
-  <set-user-password>{{ 'true' if register.set_user_password else 'false' }}</set-user-password>
-  <max-users-per-ip>{{ register.max_users_per_ip }}</max-users-per-ip>
-</register>
-
-{# Resource limiting #}
-<limits>
-  <max-streams>{{ limits.max_streams }}</max-streams>
-  <idle-timeout>{{ limits.idle_timeout }}</idle-timeout>
-  <read-rate>{{ limits.read_rate }}</read-rate>
-  <write-rate>{{ limits.write_rate }}</write-rate>
-</limits>
-
-{# Debug settings (optional) #}
-{% if debug %}<debug>
-  <level>{{ debug.level }}</level>
-  <file>{{ debug.file }}</file>
-</debug>{% endif %}
-
-{# Hostname & realm configuration #}
-<host>{{ host }}</host>
-
-{# DNS SRV fallback (optional, rarely used) #}
-{% if dns_srv %}<dns-srv/> {% endif %}
+# run c2s
+# Enable running the jabberd2 client-to-server (c2s) component.
+C2S_RUN={{ (c2s_run | default(true)) | lower }}

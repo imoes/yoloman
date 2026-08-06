@@ -1,58 +1,147 @@
+# ============================================================================
 # ferm (firewall manager) main configuration file
-# Load required modules
-{% for module in modules %}@module {{ module }}
-{% endfor %# Define default policies
-{% if default_input_policy %}INPUT {{ default_input_policy }}
-{% endif %}
-{% if default_output_policy %}OUTPUT {{ default_output_policy }}
-{% endif %}
-{% if default_forward_policy %}FORWARD {{ default_forward_policy }}
-{% endif %# Define chains and rules
-{% for chain in chains %}
-{% if chain.comment %}# {{ chain.comment }}
-{% endif %}
-{% if chain.table %}table {{ chain.table }} {
-{% endif %}
-{% if chain.chain %}chain {{ chain.chain }} {
-{% endif %}
-{% for rule in chain.rules %}  {{ rule }}
+# This template generates the configuration for the ferm firewall frontend.
+# ferm reads this file and generates iptables/ip6tables rules.
+#
+# Self-documenting: Every configurable field is commented above its output.
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# Modules
+# Field: modules
+# Description: List of netfilter modules (e.g., ip, tcp, udp, icmp) to load
+#              before rule processing.
+# Default: ['ip', 'tcp', 'udp', 'icmp']
+# -----------------------------------------------------------------------------
+{% for module in modules | default(['ip', 'tcp', 'udp', 'icmp']) %}
+@module {{ module }}
 {% endfor %}
+
+# -----------------------------------------------------------------------------
+# Default Policies
+# Fields: default_input_policy, default_output_policy, default_forward_policy
+# Description: Default policies for the INPUT, OUTPUT, and FORWARD chains.
+#              Typical values are ACCEPT or DROP.
+# -----------------------------------------------------------------------------
+{% if default_input_policy | default('DROP') %}
+INPUT {{ default_input_policy | default('DROP') }}
+{% endif %}
+
+{% if default_output_policy | default('ACCEPT') %}
+OUTPUT {{ default_output_policy | default('ACCEPT') }}
+{% endif %}
+
+{% if default_forward_policy | default('DROP') %}
+FORWARD {{ default_forward_policy | default('DROP') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Chains and Rules
+# Field: chains
+# Description: A list of chain definitions. Each chain may have an optional
+#              comment, table name, chain name, and a list of raw rules.
+# Default: []
+# -----------------------------------------------------------------------------
+{% for chain in chains | default([]) %}
+
+# Chain Comment: {{ chain.comment | default('No comment provided') }}
+{% if chain.table %}
+table {{ chain.table }} {
+{% endif %}
+{% if chain.chain %}
+chain {{ chain.chain }} {
+{% endif %}
+
+# Rules for chain {{ chain.chain | default('unnamed') }}
+{% for rule in chain.rules | default([]) %}
+  {{ rule }}
+{% endfor %}
+
 {% if chain.chain %}}
 {% endif %}
 {% if chain.table %}}
 {% endif %}
-{% endfor %# Define domain-specific rules (e.g., SSH, HTTP, ICMP)
-{% for service in services %}
-{% if service.comment %}# {{ service.comment }}
-{% endif %}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Services (Predefined Rules)
+# Field: services
+# Description: A list of service definitions to generate common firewall rules.
+#              Each item has a 'name' (e.g., ssh, http, icmp), optional 'port',
+#              optional 'daddr' (destination address), and optional 'comment'.
+#              Default includes SSH and ICMP.
+# -----------------------------------------------------------------------------
+{% for service in services | default([{'name': 'ssh', 'port': 22}, {'name': 'icmp', 'comment': 'Allow ping'}]) %}
+
+# Service: {{ service.name | default('unknown') }}
+# Comment: {{ service.comment | default('No comment') }}
 {% if service.name == 'ssh' %}
-# Accept incoming SSH connections (port {{ service.port }})
-INPUT [ {{ service.daddr|default('0.0.0.0/0') }} ] TCP dport {{ service.port }} ACCEPT
+# Accept incoming SSH connections (port {{ service.port | default(22) }})
+INPUT [ {{ service.daddr | default('0.0.0.0/0') }} ] TCP dport {{ service.port | default(22) }} ACCEPT
+
 {% elif service.name == 'http' %}
-# Accept incoming HTTP connections (port {{ service.port }})
-INPUT [ {{ service.daddr|default('0.0.0.0/0') }} ] TCP dport {{ service.port }} ACCEPT
+# Accept incoming HTTP connections (port {{ service.port | default(80) }})
+INPUT [ {{ service.daddr | default('0.0.0.0/0') }} ] TCP dport {{ service.port | default(80) }} ACCEPT
+
 {% elif service.name == 'https' %}
-# Accept incoming HTTPS connections (port {{ service.port }})
-INPUT [ {{ service.daddr|default('0.0.0.0/0') }} ] TCP dport {{ service.port }} ACCEPT
+# Accept incoming HTTPS connections (port {{ service.port | default(443) }})
+INPUT [ {{ service.daddr | default('0.0.0.0/0') }} ] TCP dport {{ service.port | default(443) }} ACCEPT
+
 {% elif service.name == 'icmp' %}
 # Allow ICMP echo requests (ping)
 INPUT ICMP type echo-request ACCEPT
+
 {% elif service.name == 'custom' %}
-# Custom service: {{ service.name|default('unnamed') }}
-{% for rule in service.rules %}  {{ rule }}
-{% endfor %}{% endif %}
-{% endfor %# Load helper modules & final policies
-{% if load_modules %}# Load additional helper modules
-{% for mod in load_modules %}@load {{ mod }}
+# Custom service rule set: {{ service.name | default('unnamed') }}
+{% for rule in service.rules | default([]) %}
+  {{ rule }}
+{% endfor %}
+
+{% else %}
+# Unknown service name: {{ service.name | default('unnamed') }}. Skipping standard generation.
+{% endif %}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Load Modules (Helpers)
+# Field: load_modules
+# Description: Additional netfilter modules to load via @load directive
+#              (e.g., conntrack, limit, state).
+# Default: []
+# -----------------------------------------------------------------------------
+{% if load_modules | default([]) | length > 0 %}
+# Load additional helper modules
+{% for mod in load_modules | default([]) %}
+@load {{ mod }}
 {% endfor %}
 {% endif %}
-{% if drop_invalid %}# Drop invalid packets (stateful inspection)
+
+# -----------------------------------------------------------------------------
+# Invalid Packet Handling
+# Field: drop_invalid
+# Description: Whether to explicitly drop invalid packets, enabling basic
+#              stateful inspection.
+# Default: True
+# -----------------------------------------------------------------------------
+{% if drop_invalid | default(True) %}
+# Drop invalid packets (stateful inspection)
 INPUT DROP # { invalid }
 {% endif %}
-# Final default policies
-{% if final_policy_input %}INPUT {{ final_policy_input }}
+
+# -----------------------------------------------------------------------------
+# Final Policies
+# Fields: final_policy_input, final_policy_output, final_policy_forward
+# Description: Final policies for chains. These override the default policies
+#              if explicitly set.
+# -----------------------------------------------------------------------------
+{% if final_policy_input | default('DROP') %}
+INPUT {{ final_policy_input | default('DROP') }}
 {% endif %}
-{% if final_policy_output %}OUTPUT {{ final_policy_output }}
+
+{% if final_policy_output | default('ACCEPT') %}
+OUTPUT {{ final_policy_output | default('ACCEPT') }}
 {% endif %}
-{% if final_policy_forward %}FORWARD {{ final_policy_forward }}
+
+{% if final_policy_forward | default('DROP') %}
+FORWARD {{ final_policy_forward | default('DROP') }}
 {% endif %}

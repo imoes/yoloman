@@ -1,0 +1,129 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          bacula-director
+# Required-Start:    $remote_fs $syslog
+# Should-Start:      bacula-sd bacula-fd postgresql mysql
+# Required-Stop:     $remote_fs $syslog
+# Should-Stop:       bacula-sd bacula-fd postgresql mysql
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Bacula Director
+# Description:       bacula-director is the daemon that supervises all the
+#                    backup, restore, verify and archive operations. The
+#                    system administrator uses the Bacula Director to schedule
+#                    backups and to recover files.
+### END INIT INFO
+# bacula-director     SysV init script for Bacula-Director.
+#
+#       Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#       Modified for Debian GNU/Linux by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+#       Customized for Bacula by Jose Luis Tallon <jltallon@adv-solutions.net>
+#
+
+set -e
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/bacula-dir
+NAME="bacula-dir"
+PORT={{ director_port }}
+DESC="Bacula Director"
+BUSER="bacula"
+BGROUP="bacula"
+
+if [ ! -x $DAEMON ] ; then
+	echo "No bacula-director SQL package installed"
+	exit 0
+fi
+
+PIDFILE=/run/bacula/$NAME.$PORT.pid
+
+. /lib/lsb/init-functions
+. /usr/share/bacula-common/common-functions.init
+if [ -r /etc/default/$NAME ]; then
+	. /etc/default/$NAME
+fi
+
+CONFIG="${CONFIG:-/etc/bacula/$NAME.conf}"
+
+create_run_dir
+
+get_pid()
+{
+	if [ -r "$1" ]; then pid="`cat $1`";
+	else pid=""; fi
+}
+
+kill_pid()
+{
+	kill -$1 $2 2>/dev/null || true
+}
+
+do_start()
+{
+	if $DAEMON -u $BUSER -g $BGROUP -t -c $CONFIG > /dev/null 2>&1; then
+		start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--oknodo --exec $DAEMON -- -u $BUSER -g $BGROUP -c $CONFIG
+		return 0
+	else
+		log_progress_msg "- the configtest"
+		return 1
+	fi
+}
+
+do_stop()
+{
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--retry TERM/30/KILL/5 --name `basename $DAEMON`
+}
+
+
+########################################################################
+
+case "$1" in
+  start)
+	if [ "$ENABLED" = "no" ]; then
+                log_failure_msg "Not starting $DESC: disabled via /etc/default/$NAME"
+		exit 0
+	fi
+
+	log_daemon_msg "Starting $DESC..." "$NAME"
+        if do_start ; then
+                log_end_msg 0
+        else
+                log_end_msg 1
+        fi
+	;;
+  stop)
+        log_daemon_msg "Stopping $DESC..." "$NAME"
+        if do_stop ; then
+                log_end_msg 0
+        else
+                log_end_msg 1
+        fi
+	;;
+  reload)
+        log_daemon_msg "Reloading $DESC..." "$NAME"
+        get_pid $PIDFILE
+        if [ -n "$pid" ]; then kill_pid HUP $pid ;
+        else do_start ;
+        fi
+	;;
+  restart|force-reload)
+	$0 stop
+	$0 start
+	;;
+  try-restart)
+	$0 status || exit 0
+	$0 restart
+	;;
+  status)
+       status_of_proc -p $PIDFILE $DAEMON $NAME
+       ;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|reload|restart|force-reload|try-restart|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

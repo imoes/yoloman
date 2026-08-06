@@ -1,40 +1,61 @@
-# /etc/ahcpd/ahcpd.conf — Ad-Hoc Configuration Protocol (AHCP) Server Configuration
-# Listen on specified interfaces and addresses
-listen {{ listen_address | default('::') }}
-{% if interfaces %}
-# Bind to the following network interfaces
-interface {{ interfaces | join(', ') }}
-{% endif %}
-# Server mode (server, auto, or none)
-mode {{ mode | default('server') }}
-# DHCPv6 prefix delegation pool (prefix/length)
-prefix {{ pool_prefix | default('2001:db8::/32') }}
-# Prefix delegation lifetime (seconds)
-prefix_lifetime {{ prefix_lifetime | default(86400) }}
-# Prefix delegation preferred lifetime (seconds)
-prefix_preferred_lifetime {{ prefix_preferred_lifetime | default(43200) }}
-# DHCPv6 address pool (start-end range)
-{% if address_ranges %}
-# Static IPv6 address ranges for DHCPv6 allocation
-{% for range in address_ranges %}# {{ range.description | default('Static range') }}
-address {{ range.start }} {{ range.end }}
-{% endfor %}
-{% endif %}
-# DNS server list (comma-separated IPv6/IPv4 addresses)
-{% if dns_servers %}# Provide these DNS servers to clients
-dns {{ dns_servers | join(', ') }}
-{% endif %}
-# NTP server list (comma-separated hostnames/IPs)
-{% if ntp_servers %}# Provide these NTP servers to clients
-ntp {{ ntp_servers | join(', ') }}
-{% endif %}
-# Domain search list (comma-separated domains)
-{% if domain_search %}# Provide this domain search list to clients
-domain {{ domain_search | join(', ') }}
-{% endif %}
-# Lease file path (for persistence)
-lease_file {{ lease_file | default('/var/lib/ahcpd/leases') }}
-# Log level: debug, info, notice, warning, error, crit, alert, emerg
-log_level {{ log_level | default('notice') }}
-# Enable or disable IPv4 fallback (auto, off)
-ipv4_fallback {{ ipv4_fallback | default('auto') }}
+# Ansible-managed configuration for AHCPd (Ad-Hoc Configuration Protocol Daemon)
+# This script is sourced by the init.d initscript /etc/init.d/ahcpd.
+# It defines shell variables that control the ahcpd daemon behavior.
+
+# List of network interfaces on which the AHCP protocol should operate.
+# If empty, the daemon uses default routing to discover interfaces.
+# Example: 'eth0 wlan0'
+INTERFACES="{{ interfaces | default([]) | join(' ') }}"
+
+# Additional command-line arguments passed to the ahcpd daemon.
+# These arguments configure the daemon's operation mode, logging, address pooling,
+# and the DNS/NTP information provided to clients.
+DAEMON_ARGS="
+    # Daemon ID for uniqueness
+    -i /var/lib/ahcpd/unique-id
+
+    # Logging verbosity: debug, info, notice, warning, error, crit, alert, emerg
+    -l {{ log_level | default('info') }}
+
+    # Operation mode: server (active), auto (detect), none (disabled)
+    -m {{ mode | default('server') }}
+
+    # IPv6 Prefix Delegation (PD) prefix to assign to clients
+    -p {{ pool_prefix | default('2001:db8::/32') }}
+
+    # Lifetime (seconds) for delegated prefixes
+    -L {{ prefix_lifetime | default(2592000) }}
+
+    # Preferred lifetime (seconds) for delegated prefixes (before deprecation)
+    -P {{ prefix_preferred_lifetime | default(604800) }}
+
+    # Static IPv6 address ranges for specific clients/subnets
+    # Format: start-end (e.g., '2001:db8:1::1-2001:db8:1::10')
+    -a {{ address_ranges | default([]) | join(' ') }}
+
+    # DNS server addresses provided to AHCP clients
+    -d {{ dns_servers | default([]) | join(' ') }}
+
+    # NTP server addresses/hosts provided to AHCP clients
+    -n {{ ntp_servers | default([]) | join(' ') }}
+
+    # DNS search domains for client resolution
+    -s {{ domain_search | default([]) | join(' ') }}
+
+    # Path to the state file for lease persistence
+    -f {{ lease_file | default('/var/lib/ahcpd/ahcpd.state') }}
+
+    # IPv4 fallback behavior: auto (enable if IPv6 down), off (IPv6 only)
+    -4 {{ ipv4_fallback | default('auto') }}
+
+    # Explicit interface binding arguments (-i <interface>) for each interface
+    {{ interfaces | default([]) | map('regex_replace', '^(.*)$', '-i \\1') | join(' ') }}
+"
+# Note: DAEMON_ARGS is a multi-line string in shell, but the initscript
+# likely expects it as a single quoted string or expanded carefully.
+# The raw template joined these on one line. We preserve the single-line
+# semantic but formatted for readability in the source.
+# For strict compatibility with the original initscript sourcing, we ensure
+# the variable assignment is valid shell.
+
+DAEMON_ARGS="-i /var/lib/ahcpd/unique-id -l {{ log_level | default('info') }} -m {{ mode | default('server') }} -p {{ pool_prefix | default('2001:db8::/32') }} -L {{ prefix_lifetime | default(2592000) }} -P {{ prefix_preferred_lifetime | default(604800) }} -a {{ address_ranges | default([]) | join(' ') }} -d {{ dns_servers | default([]) | join(' ') }} -n {{ ntp_servers | default([]) | join(' ') }} -s {{ domain_search | default([]) | join(' ') }} -f {{ lease_file | default('/var/lib/ahcpd/ahcpd.state') }} -4 {{ ipv4_fallback | default('auto') }} {{ interfaces | default([]) | map('regex_replace', '^(.*)$', '-i \\1') | join(' ') }}"

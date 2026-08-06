@@ -1,93 +1,94 @@
-# GKrellM Server Monitor (gkrellmd) configuration file
-# Listen on specified host and port
-bind_address: {{ bind_address }}
-bind_port: {{ bind_port }}
+# GKrellM Daemon Configuration Template
+#
+# This template configures the gkrellmd (GKrellM server) daemon.
+# It is self-documenting: every directive is preceded by a comment
+# derived from the schema definition.
 
-# Enable/disable SSL for HTTPS connections
-ssl_enabled: {{ ssl_enabled | lower }}
+# IP address to bind the GKrellM server daemon to. Use '0.0.0.0' to listen on all interfaces.
+address {{ bind_address | default('127.0.0.1') }}
 
-# SSL certificate and key file paths (only used if ssl_enabled is true)
-ssl_cert_file: {{ ssl_cert_file }}
-ssl_key_file: {{ ssl_key_file }}
+# TCP port on which gkrellmd will listen for client connections.
+port {{ bind_port | default(19150) }}
 
-# Log level: 0=quiet, 1=normal, 2=verbose
-log_level: {{ log_level }}
-
-# Location of log file (empty = syslog)
-log_file: {{ log_file }}
-
-# Refresh interval in milliseconds for client data updates
-data_refresh_ms: {{ data_refresh_ms }}
-
-# Maximum number of simultaneous clients
-max_clients: {{ max_clients }}
-
-# Enable/disable authentication
-auth_enabled: {{ auth_enabled | lower }}
-
-# Users allowed to connect (only used if auth_enabled is true)
-{% for user in users %}user: {{ user.name }} {{ user.password }} {{ user.permissions | join(' ') }}
+# List of hosts allowed to connect. Use '0.0.0.0/0' or '*' for all hosts (not recommended).
+{% for host in allow_hosts | default(['localhost', '127.0.0.1', '::ffff:127.0.0.1']) %}
+allow-host	{{ host }}
 {% endfor %}
 
-# Enable/disable built-in SNMP monitoring
-snmp_enabled: {{ snmp_enabled | lower }}
+# Drop privileges after startup (you must start gkrellmd as root to do it).
+# NOTE: Option ignored on Windows
+user	gkrellmd
 
-# SNMP community string (for SNMP v1/v2c)
-snmp_community: {{ snmp_community }}
+# Group to switch to after dropping privileges.
+# NOTE: Option ignored on Windows
+group	proc
 
-# SNMP hosts to monitor (only used if snmp_enabled is true)
-{% for host in snmp_hosts %}snmp_host: {{ host.hostname }} {{ host.community | default(snmp_community) }} {{ host.version | default('1') }}
-{% endfor %}
+# Create a PID file for the running gkrellmd.  Default is no PID file.
+# NOTE: Option ignored on Windows
+# pidfile /var/run/gkrellmd.pid
 
-# Enable/disable built-in UPS monitoring (apcupsd, nut, etc.)
-ups_enabled: {{ ups_enabled | lower }}
+# Run in background and detach from the controlling terminal
+# NOTE: Option ignored on Windows
+detach
 
-# UPS device type: apcupsd | nut | none
-ups_type: {{ ups_type }}
+# Enable writing logging message to the system syslog file
+# NOTE: On windows this enables logging to the windows event log
+# syslog
 
-#UPS host and port (for nut-based servers)
-ups_host: {{ ups_host }}
-ups_port: {{ ups_port }}
-ups_name: {{ ups_name }}
+# Time interval between checks for various monitors.  If nfs-interval
+# is <= 0 then gkrellmd will not read data for nfs file system types.
+# fs-interval 2
+# nfs-interval 16
 
-# Enable/disable built-in MySQL monitoring
-mysql_enabled: {{ mysql_enabled | lower }}
+# The Internet monitor defaults to reading tcp connections once per second.
+# However, for Linux SMP kernels where reading /proc/net/tcp causes high
+# cpu usage, the inet-interval may be set to 1-20 seconds to slow down
+# /proc/net/tcp reads.  Or set it to 0 to totally disable the Inet monitor.
+# Requires at least gkrellmd version 2.1.8.
+# inet-interval 1
 
-# MySQL connection parameters
-mysql_host: {{ mysql_host }}
-mysql_port: {{ mysql_port }}
-mysql_user: {{ mysql_user }}
-mysql_password: {{ mysql_password }}
-mysql_database: {{ mysql_database }}
+# If the mbmon daemon is started before gkrellmd with this command:
+#     mbmon -r -P port-number
+# (the "-r" mbmon tag mode is required) then gkrellmd will monitor mbmon
+# reported sensors if this is uncommented and the port-numbers match.
+# mbmon-port port-number
 
-# Enable/disable built-in PostgreSQL monitoring
-pg_enabled: {{ pg_enabled | lower }}
+# Configure gkrellm clients to disconnect from a gkrellmd server if
+# there is an io-timeout seconds interval where the client receives no input
+# from the server.  Use this for conditions where gkrellmd may be
+# ungracefully terminated such that socket connections are not closed.
+# Minimum is 2 (less than 2 for no I/O disconnecting and is the default).
+# Requires at least 2.1.8 versions of both gkrellmd and gkrellm.
+# io-timeout 5
 
-# PostgreSQL connection parameters
-pg_host: {{ pg_host }}
-pg_port: {{ pg_port }}
-pg_user: {{ pg_user }}
-pg_password: {{ pg_password }}
-pg_database: {{ pg_database }}
+# Configure gkrellm clients to attempt automatic reconnects to a
+# gkrellmd server every reconnect-timeout seconds after a disconnected
+# state is detected.  Disconnected states are created by normal gkrellmd
+# shutdowns or by an expiring io-timeout.
+# Minimum is 2 (less than 2 for no automatic reconnecting and is the default).
+# Requires at least 2.1.8 versions of both gkrellmd and gkrellm.
+# reconnect-timeout 5
 
-# Enable/disable built-in Apache monitoring
-apache_enabled: {{ apache_enabled | lower }}
+# Server side local mailbox counts can be sent to gkrellm clients.  List here
+# paths to mbox, MH mail, or Maildir style mailboxes.
+# Requires at least 2.1.11 versions of both gkrellmd and gkrellm.
+# NOTE: Option ignored on Windows
+# mailbox /var/mail/bill
 
-# Apache server-status URL (requires mod_status enabled)
-apache_status_url: {{ apache_status_url }}
+# List of plugins to enable.  Use "gkrellmd -plist" to view a list of all
+# available plugins.  Use "gkrellmd -plog" to output a log of the plugin
+# install process (note: the detach option is ignored when using -plog).
+# plugin-enable gkrelltopd
 
-# Enable/disable built-in NTP monitoring
-ntp_enabled: {{ ntp_enabled | lower }}
+# Configure gkrellmd to send the connect time for a network interface
+# to all clients to be displayed in the client gkrellm timer button
+# monitor display.  If this is done, the client gkrellm timer button can
+# still execute commands on the client, but the button will not affect the
+# timer display.  If you want the client timer button to execute commands
+# on the server, your timer button commands can use ssh.
+# So set this if your server box has a ppp or ippp connection and you
+# want to monitor its connect time.
+# net-timer ppp0
 
-# NTP server to query
-ntp_server: {{ ntp_server }}
-
-# Enable/disable built-in disk space monitoring
-monitor_disks: {{ monitor_disks | lower }}
-
-# Enable/disable built-in process monitoring
-monitor_processes: {{ monitor_processes | lower }}
-
-# Process names to monitor (only used if monitor_processes is true)
-{% for proc in monitor_process_list %}proc: {{ proc.name }} {{ proc.cmdline }}
-{% endfor %}
+# For debugging purposes, gkrellmd can print out messages on console.
+# debug level 0x1

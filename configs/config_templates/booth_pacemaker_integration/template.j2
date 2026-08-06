@@ -1,45 +1,84 @@
-# Booth configuration for integration with Pacemaker
+# =============================================================================
+# Booth Site Configuration for Pacemaker Integration
+# =============================================================================
+# This template generates the booth-site.conf file used by the booth cluster
+# arbitration service. It also optionally provides the Pacemaker CIB XML
+# snippet to register the booth resource agent.
+#
+# Variables must be defined in the Ansible inventory or role defaults.
+# All variables are provided with safe defaults based on the schema.
+# =============================================================================
+
+# --- Booth Core Settings ---
+
+# Path to the booth site configuration file used for site-specific settings.
+# This directive tells booth where to look for its own configuration if nested,
+# or simply documents the expected location.
 [booth]
-  # Name of the booth site configuration file
-  config = {{ booth_config }}
-  # Port to listen on for booth messages
-  port = {{ booth_port }}
-  # Authentication type: 'file' or 'none'
-  auth = {{ booth_auth | default('file') }}
-  # Path to the auth file (used if auth=file)
-  authfile = {{ booth_authfile | default('/etc/booth/authfile') }}
-  # Timeout (ms) for receiving responses from remote sites
-  timeout = {{ booth_timeout | default(5000) }}
-  # Retry count before declaring a site unreachable
-  retry = {{ booth_retry | default(3) }}
+config = {{ booth_config | default('/etc/booth/booth-site.conf') }}
 
+# UDP port on which booth listens for cluster communication (must match across all nodes).
+port = {{ booth_port | default(9999) }}
+
+# Authentication method for booth messages. Use 'none' only in trusted environments.
+auth = {{ booth_auth | default('file') }}
+
+# Path to the shared secret file used when auth=file. Must be identical on all nodes.
+authfile = {{ booth_authfile | default('/etc/booth/authfile') }}
+
+# Timeout in milliseconds for waiting for responses from remote booth sites.
+timeout = {{ booth_timeout | default(5000) }}
+
+# Number of retries before a remote site is considered unreachable.
+retry = {{ booth_retry | default(3) }}
+
+# --- Site Definitions ---
+# List of booth sites (clusters) participating in the arbitration decision.
+# Each site must have an 'addr' (IP/FQDN) and optionally 'priority'.
+{% if sites is defined and sites is iterable %}
 {% for site in sites %}
-# Booth site: {{ site.name }}
+# Booth site: {{ site.name | default('site-' + loop.index|string) }}
 [site]
-  # Hostname or IP of this site
-  addr = {{ site.addr }}
-  # Priority (0-255); higher = preferred in split-brain resolution
-  priority = {{ site.priority }}
+# Hostname or IP of this site
+addr = {{ site.addr | default('0.0.0.0') }}
+# Priority (0-255); higher = preferred in split-brain resolution
+priority = {{ site.priority | default(128) }}
 {% endfor %}
-
-{% if arbitrators %}
-# Arbitrator sites (passive participants in quorum decisions)
-{% for arb in arbitrators %}
-[arbitrator]
-  # Hostname or IP of arbitrator
-  addr = {{ arb.addr }}
-{% endfor %}
+{% else %}
+# No sites defined in the schema.
 {% endif %}
 
-# Resource agent parameters for Pacemaker integration
+# --- Arbitrator Definitions ---
+# Optional list of arbitrator nodes (external passive observers for quorum).
+{% if arbitrators is defined and arbitrators is iterable %}
+{% for arb in arbitrators %}
+# Arbitrator site: {{ arb.name | default('arb-' + loop.index|string) }}
+[arbitrator]
+# Hostname or IP of arbitrator
+addr = {{ arb.addr | default('0.0.0.0') }}
+{% endfor %}
+{% else %}
+# No arbitrators defined.
+{% endif %}
+
+# --- Pacemaker Resource Agent Configuration ---
+# Parameters for the Pacemaker OCF/LSF resource agent integration.
 [resource]
-  # Resource agent name (as registered in Pacemaker)
-  name = {{ resource_name }}
-  # Timeout (s) for resource start/stop operations
-  timeout = {{ resource_timeout | default(30) }}
-  # Start delay (s) after Pacemaker starts the resource
-  start_delay = {{ resource_start_delay | default(5) }}
-  # Check interval (s) for resource health
-  monitor_interval = {{ resource_monitor_interval | default(60) }}
-  # Action to take when quorum is lost
-  quorum_loss_action = {{ quorum_loss_action | default('stop') }}
+# Name of the Pacemaker resource agent (must match an RA registered in OCF or LSF).
+name = {{ resource_name | default('booth') }}
+
+# Maximum time in seconds to wait for start/stop/monitor operations to complete.
+timeout = {{ resource_timeout | default(30) }}
+
+# Delay (in seconds) after Pacemaker initiates the resource before it becomes active.
+start_delay = {{ resource_start_delay | default(5) }}
+
+# Interval (in seconds) between health checks (monitor operations) on the booth resource.
+monitor_interval = {{ resource_monitor_interval | default(60) }}
+
+# Pacemaker action to take on the booth resource when cluster quorum is lost.
+quorum_loss_action = {{ quorum_loss_action | default('stop') }}
+
+# =============================================================================
+# END OF booth-site.conf
+# =============================================================================

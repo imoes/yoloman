@@ -1,41 +1,82 @@
-{# Daily summary rule set for logcheck-daily #}
-{# Include this file in /etc/logcheck/logcheck.d/ to enable daily log analysis #}
-{# Disable this file by renaming to *.disable or removing execute permission #}
+{# ============================================================================= #}
+{# logcheck-daily: Daily log summary rule set for logcheck                     #}
+{#                                                                             #}
+{# This template generates a logcheck rule file (typically placed in           #}
+{# /etc/logcheck/logcheck.d/server.d/ or similar) that controls which log      #}
+{# lines are reported in daily security/operations summaries.                  #}
+{#                                                                             #}
+{# Usage: Include this file in your logcheck configuration or source it        #}
+{# from a wrapper script. The 'enabled' flag allows disabling the entire       #}
+{# rule set by outputting 'exit 0' instead of rules.                           #}
+{# ============================================================================= #}
 
 {% if enabled | default(true) %}
+
+# -----------------------------------------------------------------------------
+{# enabled: Enable the daily summary rule set. Set to false to disable        #}
+{#          without deleting the file.                                        #}
+# -----------------------------------------------------------------------------
 # Daily summary rules (processed once per day, typically at 00:00 via cron)
 
+# -----------------------------------------------------------------------------
+{# exclude_patterns: List of regex patterns to filter OUT (ignore) from       #}
+{#                  daily reports.                                            #}
+# -----------------------------------------------------------------------------
 # Exclude lines matching these patterns (case-insensitive)
-{% for pattern in exclude_patterns %}
-{% if loop.first %}# Exclude patterns:
-{% endif %}
-{{ pattern | regex_escape }}
+{% for pattern in exclude_patterns | default(['^$', '^$', '^\\s*$', '^[A-Z][a-z]+ [A-Z][a-z]+ [0-9]+ [0-9:]+ [A-Za-z0-9._-]+ (kernel|systemd)[\\s:]+.*$', '^.*\\[notice\\].*$', '^.*\\[debug\\].*$']) %}
+    {% if loop.first %}# Exclude patterns:
+    {% endif %}
+    {{ pattern }}
 {% endfor %}
 
+# -----------------------------------------------------------------------------
+{# include_patterns: List of regex patterns to include in daily reports       #}
+{#                  (only lines matching these are reported).                 #}
+# -----------------------------------------------------------------------------
 # Include only lines matching these patterns (case-sensitive by default)
-{% for pattern in include_patterns %}
-{% if loop.first %}# Include patterns:
-{% endif %}
-{{ pattern | regex_escape }}
+{% for pattern in include_patterns | default(['^.*\\[error\\].*$', '^.*\\[warning\\].*$', '^.*\\[crit\\].*$', '^.*\\[alert\\].*$', '^.*\\[emergency\\].*$', '^.*\\(fail\\).*$', '^.*\\(error\\).*$', '^.*\\(failed\\).*$', '^.*\\(denied\\).*$', '^.*\\(aborted\\).*$']) %}
+    {% if loop.first %}# Include patterns:
+    {% endif %}
+    {{ pattern }}
 {% endfor %}
 
+# -----------------------------------------------------------------------------
+{# sort_output: Sort output by pattern group for stable ordering             #}
+{#             (recommended for cron reporting).                            #}
+# -----------------------------------------------------------------------------
 # Output format: one line per matching event group, with count and sample lines
 {% if sort_output | default(true) %}
 # Sort output by pattern (deterministic for diffing and cron reporting)
 set_sort_output=yes
 {% else %}
+# Output order follows pattern definition order
 set_sort_output=no
 {% endif %}
 
+# -----------------------------------------------------------------------------
+{# sample_limit: Maximum number of sample log lines to show per matched      #}
+{#              pattern group.                                               #}
+# -----------------------------------------------------------------------------
 # Maximum number of sample lines per group (to avoid huge daily summaries)
-sample_limit={{ sample_limit }}
+sample_limit={{ sample_limit | default(10) }}
 
+# -----------------------------------------------------------------------------
+{# report_email: List of recipients for the daily email report.              #}
+# -----------------------------------------------------------------------------
 # Email recipients for daily report (comma-separated)
-report_email={{ report_email | join(', ') }}
+report_email={{ report_email | default(['root@localhost']) | join(', ') }}
 
+# -----------------------------------------------------------------------------
+{# report_subject_prefix: Prefix added to the subject line of the daily      #}
+{#                       email report.                                      #}
+# -----------------------------------------------------------------------------
 # Subject line prefix for email reports
-report_subject_prefix={{ report_subject_prefix }}
+report_subject_prefix={{ report_subject_prefix | default('[logcheck-daily] ') }}
 
+# -----------------------------------------------------------------------------
+{# verbose: Enable verbose logging to syslog (useful for debugging the       #}
+{#         rule matching logic).                                             #}
+# -----------------------------------------------------------------------------
 # Enable verbose output in syslog (for debugging)
 {% if verbose | default(false) %}
 verbose=yes
@@ -43,6 +84,10 @@ verbose=yes
 verbose=no
 {% endif %}
 {% else %}
+# -----------------------------------------------------------------------------
+{# The module is disabled. The rule file outputs 'exit 0' to prevent         #}
+{# logcheck from processing it.                                              #}
+# -----------------------------------------------------------------------------
 # Disabled: Daily summary module is turned off
 exit 0
 {% endif %}

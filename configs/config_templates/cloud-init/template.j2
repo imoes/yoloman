@@ -1,0 +1,285 @@
+# cloud-init configuration file
+# This is a standard cloud-config YAML document consumed by cloud-init on first boot.
+# See: https://cloud-init.io/docs/reference/cloud-config.html
+
+#cloud-config
+
+{# config_version: cloud-config version; must be 2 for modern configs. #}
+# Note: The `#cloud-config` header above signals version 2 to the parser.
+# The explicit config_version key is optional but supported by some parsers.
+{% if config_version is defined %}config_version: {{ config_version | default(2) }}
+{% endif %}
+
+{# system_info: Override system information (rarely needed; used in testing). Use only when building custom images. See cloud-init docs for limitations. #}
+{% if system_info is defined %}system_info:
+  dist: {{ (system_info | default({})).dist | default('ubuntu') }}
+  release: {{ (system_info | default({})).release | default('22.04') }}
+  arch: {{ (system_info | default({})).arch | default('amd64') }}
+{% endif %}
+
+{# package_upgrade: If true, run apt-get upgrade on first boot. #}
+{% if package_upgrade is defined %}package_upgrade: {{ package_upgrade | default(false) | bool | string | lower }}
+{% endif %}
+
+{# packages: List of package names to install via apt. #}
+{% if packages is defined %}packages:
+{% for pkg in packages %}  - {{ pkg }}
+{% endfor %}
+{% endif %}
+
+{# apt: APT configuration for mirrors, sources, and proxy. #}
+{% if apt is defined %}apt:
+{# apt.primary: APT primary repository configuration. #}
+{% if apt.primary is defined %}  primary:
+{# apt.primary.arches: List of architectures for which the primary repo applies. Use ['default'] to apply everywhere. #}
+{% if apt.primary.arches is defined %}    arches: {{ apt.primary.arches | default(['default']) }}
+{% endif %}
+{# apt.primary.suite: Suite name (e.g., focal, jammy, noble) — used with primary URI. #}
+{% if apt.primary.suite is defined %}    suite: {{ apt.primary.suite | default('focal') }}
+{% endif %}
+{# apt.primary.uri: Base URI of the primary APT repository. #}
+{% if apt.primary.uri is defined %}    uri: {{ apt.primary.uri | default('http://archive.ubuntu.com/ubuntu') }}
+{% endif %}
+{# apt.primary.keyid: GPG key ID for verifying primary repo. Omit if using signed-by=. #}
+{% if apt.primary.keyid is defined %}    keyid: {{ apt.primary.keyid | default('') }}
+{% endif %}
+{# apt.primary.keyserver: Keyserver used to fetch GPG keys for APT. #}
+{% if apt.primary.keyserver is defined %}    keyserver: {{ apt.primary.keyserver | default('keyserver.ubuntu.com') }}
+{% endif %}
+{% endif %}
+
+{# apt.sources: List of additional APT sources (PPAs or custom repos). #}
+{% if apt.sources is defined %}  sources:
+{% for src in apt.sources %}
+{# apt.sources[].name: Identifier for the APT source file (e.g., 'my-ppa'). #}
+  {{ src.name | default('custom-source') }}:
+{# apt.sources[].source: APT source line. May use $ARCH and $RELEASE substitutions. #}
+    source: {{ src.source | default('deb http://archive.ubuntu.com/ubuntu $RELEASE main') }}
+{# apt.sources[].keyid: GPG key ID to verify this source. #}
+{% if src.keyid is defined %}    keyid: {{ src.keyid | default('') }}
+{% endif %}
+{# apt.sources[].keyserver: Keyserver to retrieve the key from. #}
+{% if src.keyserver is defined %}    keyserver: {{ src.keyserver | default('keyserver.ubuntu.com') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# apt.proxy: HTTP/HTTPS proxy URL for APT operations. #}
+{% if apt.proxy is defined %}  proxy: {{ apt.proxy | default('') }}
+{% endif %}
+
+{# apt.preserve_sources_list: If true, don’t replace existing /etc/apt/sources.list. Useful when customizing existing images. #}
+{% if apt.preserve_sources_list is defined %}  preserve_sources_list: {{ apt.preserve_sources_list | default(false) | bool | string | lower }}
+{% endif %}
+
+{# apt.add_ppa_indeed: Deprecated; use apt.sources with proper source lines instead. #}
+{% if apt.add_ppa_indeed is defined %}  add_ppa_indeed: {{ apt.add_ppa_indeed | default(false) | bool | string | lower }}
+{% endif %}
+{% endif %}
+
+{# runcmd: List of shell commands to run at first boot (after network is up and users created). #}
+{% if runcmd is defined %}runcmd:
+{% for cmd in runcmd %}  - {{ cmd }}
+{% endfor %}
+{% endif %}
+
+{# bootcmd: List of shell commands to run at earliest boot stage (before cloud-init modules). Use with caution. #}
+{% if bootcmd is defined %}bootcmd:
+{% for cmd in bootcmd %}  - {{ cmd }}
+{% endfor %}
+{% endif %}
+
+{# users: List of users to create. #}
+{% if users is defined %}users:
+{% for user in users %}  - name: {{ user.name | default('ubuntu') }}
+{# users[].groups: Supplementary groups for the user (e.g., adm, docker). #}
+    groups: {{ user.groups | default(['sudo']) | join(', ') }}
+{# users[].shell: User login shell. #}
+    shell: {{ user.shell | default('/bin/bash') }}
+{# users[].sudo: Sudoers entry or boolean; if true, grants passwordless sudo. #}
+    sudo: {{ user.sudo | default('ALL=(ALL) NOPASSWD:ALL') }}
+{# users[].lock_passwd: If true, lock password (disable password auth); requires SSH keys. #}
+    lock_passwd: {{ user.lock_passwd | default(true) | bool | string | lower }}
+{# users[].ssh_authorized_keys: List of SSH public keys to add to authorized_keys for this user. #}
+{% if user.ssh_authorized_keys is defined %}    ssh_authorized_keys:
+{% for key in user.ssh_authorized_keys %}      - {{ key }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# ssh_pwauth: If true, enable password authentication for SSH. #}
+{% if ssh_pwauth is defined %}ssh_pwauth: {{ ssh_pwauth | default(false) | bool | string | lower }}
+{% endif %}
+
+{# ssh_authorized_keys: Global list of SSH public keys to add to all users’ authorized_keys unless overridden per-user. #}
+{% if ssh_authorized_keys is defined %}ssh_authorized_keys:
+{% for key in ssh_authorized_keys %}  - {{ key }}
+{% endfor %}
+{% endif %}
+
+{# hostname: System hostname (short name). #}
+{% if hostname is defined %}hostname: {{ hostname | default('cloudinit') }}
+{% endif %}
+
+{# fqdn: Fully-qualified domain name. Must be set if hostnamed is to be used. #}
+{% if fqdn is defined %}fqdn: {{ fqdn | default('') }}
+{% endif %}
+
+{# resize_rootfs: If true, automatically resize root filesystem on first boot (if underlying disk is larger). #}
+{% if resize_rootfs is defined %}resize_rootfs: {{ resize_rootfs | default(true) | bool | string | lower }}
+{% endif %}
+
+{# locale: System locale for LANG/LC_* variables. #}
+{% if locale is defined %}locale: {{ locale | default('en_US.UTF-8') }}
+{% endif %}
+
+{# timezone: System timezone (e.g., America/New_York, Etc/UTC). #}
+{% if timezone is defined %}timezone: {{ timezone | default('Etc/UTC') }}
+{% endif %}
+
+{# ntp: NTP client configuration. #}
+{% if ntp is defined %}ntp:
+{# ntp.enabled: If true, configure and enable NTP (via chrony or systemd-timesyncd). #}
+{% if ntp.enabled is defined %}  enabled: {{ ntp.enabled | default(true) | bool | string | lower }}
+{% endif %}
+{# ntp.pool: NTP server pool list. #}
+{% if ntp.pool is defined %}  pool:
+{% for pool in ntp.pool %}    - {{ pool }}
+{% endfor %}
+{% endif %}
+{# ntp.config: Raw NTP configuration (e.g., /etc/chrony/chrony.conf content). #}
+{% if ntp.config is defined %}  config: {{ ntp.config | default('') }}
+{% endif %}
+{% endif %}
+
+{# mounts: List of filesystem mount points to create and mount on boot. #}
+{% if mounts is defined %}mounts:
+{% for mp in mounts %}
+{# mounts[].device: Block device or UUID to mount (e.g., /dev/disk/by-uuid/...). #}
+{# mounts[].point: Mount point path. #}
+{# mounts[].fstype: Filesystem type (e.g., ext4, xfs, none). #}
+{# mounts[].opts: Mount options (e.g., [noatime, rw]). #}
+{# mounts[].freq: Dump frequency (0 or 1) — used by dump(8). #}
+{# mounts[].passno: Filesystem pass (0-2) for fsck(8) ordering. #}
+  - [
+    {{ mp.device | default('/dev/xvdb') }},
+    {{ mp.point | default('/mnt/data') }},
+    {{ mp.fstype | default('ext4') }},
+    {{ mp.opts | default(['defaults']) | join(' ') }},
+    {{ mp.freq | default(0) }},
+    {{ mp.passno | default(0) }}
+    ]
+{% endfor %}
+{% endif %}
+
+{# power_state: Poweroff/reboot behavior after cloud-init finishes. #}
+{% if power_state is defined %}power_state:
+{# power_state.mode: Power action: poweroff, reboot, halt, or suspend. #}
+  mode: {{ (power_state | default({})).mode | default('poweroff') }}
+{# power_state.delay: Delay before power action (e.g., 'now', '+2m'). #}
+  delay: {{ (power_state | default({})).delay | default('now') }}
+{# power_state.timeout: Timeout (seconds) for waiting on services before powering off. #}
+  timeout: {{ (power_state | default({})).timeout | default(1800) }}
+{# power_state.message: Message written to syslog and console before power action. #}
+  message: {{ (power_state | default({})).message | default('Cloud-init completed') }}
+{% endif %}
+
+{# write_files: List of files to write (including content, ownership, and permissions). #}
+{% if write_files is defined %}write_files:
+{% for wf in write_files %}  - path: {{ wf.path | default('/etc/myapp/config.yaml') }}
+    content: |
+{% for line in wf.content.splitlines() | default([]) %}      {{ line }}
+{% endfor %}
+{# write_files[].owner: Owner:group for the file. #}
+{% if wf.owner is defined %}    owner: {{ wf.owner | default('root:root') }}
+{% endif %}
+{# write_files[].permissions: Octal permission bits for the file. #}
+{% if wf.permissions is defined %}    permissions: {{ wf.permissions | default('0644') }}
+{% endif %}
+{# write_files[].append: If true, append to existing file instead of overwriting. #}
+{% if wf.append is defined %}    append: {{ wf.append | default(false) | bool | string | lower }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# repo_update: Deprecated alias for package_upgrade: true. Prefer package_upgrade. #}
+{% if repo_update is defined %}repo_update: {{ repo_update | default(false) | bool | string | lower }}
+{% endif %}
+
+{# repo_upgrade: Deprecated alias for package_upgrade: true. Prefer package_upgrade. #}
+{% if repo_upgrade is defined %}repo_upgrade: {{ repo_upgrade | default(false) | bool | string | lower }}
+{% endif %}
+
+{# disable_root: If true, disable the root account (lock it and prevent password login). #}
+{% if disable_root is defined %}disable_root: {{ disable_root | default(false) | bool | string | lower }}
+{% endif %}
+
+{# ssh_deletekeys: If true, delete existing SSH host keys and regenerate them on first boot. #}
+{% if ssh_deletekeys is defined %}ssh_deletekeys: {{ ssh_deletekeys | default(true) | bool | string | lower }}
+{% endif %}
+
+{# ssh_genkeytypes: List of SSH key types to generate for host keys. #}
+{% if ssh_genkeytypes is defined %}ssh_genkeytypes:
+{% for kt in ssh_genkeytypes %}  - {{ kt }}
+{% endfor %}
+{% endif %}
+
+{# ssh_putkeys: Deprecated: Map of key type to private key (e.g., rsa: '...'). Use write_files or ssh_authorized_keys instead. #}
+{% if ssh_putkeys is defined %}ssh_putkeys:
+{% for ktype, key in (ssh_putkeys | default({})) | dict2items %}  {{ ktype.key }}: {{ ktype.value }}
+{% endfor %}
+{% endif %}
+
+{# network: Network configuration using netplan v2 schema (recommended). #}
+{% if network is defined %}network:
+{# network.version: Must be 2 for netplan v2. #}
+{% if network.version is defined %}  version: {{ network.version | default(2) }}
+{% endif %}
+{# network.config: Raw netplan config (interfaces, routes, DNS). #}
+{% if network.config is defined %}  config:
+{# network.config.interfaces: List of interface definitions. #}
+{% if network.config.interfaces is defined %}    version: 2
+    ethernets:
+{% for iface in network.config.interfaces %}      {{ iface.name | default('eth0') }}:
+{# network.config.interfaces[].type: Interface type: ethernet, bond, vlan, bridge. #}
+        dhcp4: {{ (iface | default({})).dhcp4 | default(true) | bool | string | lower }}
+        dhcp6: {{ (iface | default({})).dhcp6 | default(false) | bool | string | lower }}
+{# network.config.interfaces[].addresses: List of static IPv4/IPv6 addresses with prefix (e.g., '10.0.0.5/24'). #}
+{% if iface.addresses is defined %}        addresses:
+{% for addr in iface.addresses %}          - {{ addr }}
+{% endfor %}
+{% endif %}
+{# network.config.interfaces[].gateway4: IPv4 default gateway. #}
+{% if iface.gateway4 is defined %}        gateway4: {{ iface.gateway4 | default('') }}
+{% endif %}
+{# network.config.interfaces[].gateway6: IPv6 default gateway. #}
+{% if iface.gateway6 is defined %}        gateway6: {{ iface.gateway6 | default('') }}
+{% endif %}
+{# network.config.interfaces[].nameservers: DNS configuration. #}
+{% if iface.nameservers is defined %}        nameservers:
+{# network.config.interfaces[].nameservers.search: DNS search domains. #}
+{% if iface.nameservers.search is defined %}          search: {{ iface.nameservers.search | default(['example.com']) }}
+{% endif %}
+{# network.config.interfaces[].nameservers.addresses: DNS server IP addresses. #}
+{% if iface.nameservers.addresses is defined %}          addresses:
+{% for addr in iface.nameservers.addresses %}            - {{ addr }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{# network.config.interfaces[].routes: List of static routes. #}
+{% if iface.routes is defined %}        routes:
+{% for route in iface.routes %}          - to: {{ route.to | default('0.0.0.0/0') }}
+            via: {{ route.via | default('') }}
+{% if route.metric is defined %}            metric: {{ route.metric | default(100) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endif %}
+
+{# v1_data: Raw cloud-config v1 data (deprecated). Use structured keys above instead. #}
+{% if v1_data is defined %}{{ v1_data }}
+{% endif %}

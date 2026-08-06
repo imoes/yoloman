@@ -1,27 +1,62 @@
-# Hippotat server configuration — main settings
-# General server address and port for HTTP requests
-bind_address: {{ bind_address }}
-bind_port: {{ bind_port }}
+# =============================================================
+# Hippotat Server Configuration Template
+# =============================================================
+# This template generates the main configuration file for Hippotat,
+# a thin HTTP-based tunneling daemon (typically used for IPv6-in-IPv4 tunnels).
+# All variables are sourced from the Ansible role's variables and must
+# adhere to the schema provided.
+# =============================================================
 
-# Path to the IP pool file (CIDR ranges assigned to clients)
-ip_pool_file: {{ ip_pool_file }}
+# -------------------------------------------------------------
+# Server Network Binding
+# -------------------------------------------------------------
+# bind_address: IP address the server listens on (e.g., '0.0.0.0' for all interfaces, or specific IP).
+bind_address: {{ bind_address | default('0.0.0.0') }}
 
-# Path to the client configuration directory (per-client configs)
-clients_dir: {{ clients_dir }}
+# bind_port: TCP port for HTTP server (commonly 80 or 8080).
+bind_port: {{ bind_port | default(80) }}
 
-# Network interface used for outgoing traffic (e.g., to NAT/masquerade)
-out_interface: {{ out_interface }}
+# -------------------------------------------------------------
+# IP Pool Configuration
+# -------------------------------------------------------------
+# ip_pool_file: Path to a file listing client IP pools in CIDR notation (one per line).
+ip_pool_file: {{ ip_pool_file | default('/etc/hippotat/ip_pool') }}
 
-# Maximum number of concurrent HTTP connections (per client)
-max_connections: {{ max_connections }}
+# -------------------------------------------------------------
+# Client Configuration Directory
+# -------------------------------------------------------------
+# clients_dir: Directory containing per-client configuration files (typically named by client IP).
+clients_dir: {{ clients_dir | default('/etc/hippotat/clients') }}
 
-# Timeout (seconds) for idle connections
-idle_timeout: {{ idle_timeout }}
+# -------------------------------------------------------------
+# Network Interface
+# -------------------------------------------------------------
+# out_interface: Network interface used for routing client traffic (must support masquerading/NAT).
+out_interface: {{ out_interface | default('eth0') }}
 
-# Enable or disable verbose logging
-debug: {{ debug | lower }}
+# -------------------------------------------------------------
+# Connection Limits
+# -------------------------------------------------------------
+# max_connections: Maximum number of concurrent HTTP connections allowed per client.
+max_connections: {{ max_connections | default(100) }}
 
-# Per-client rate limits — applied per client
+# idle_timeout: Seconds of inactivity before an idle connection is closed.
+idle_timeout: {{ idle_timeout | default(30) }}
+
+# -------------------------------------------------------------
+# Debugging and Logging
+# -------------------------------------------------------------
+# debug: Enable detailed logging for troubleshooting (set to true for verbose output).
+debug: {{ debug | default(false) | lower }}
+
+# -------------------------------------------------------------
+# Rate Limits
+# -------------------------------------------------------------
+# rate_limits: List of per-client rate limits (each entry applies to a specific IP/CIDR range).
 # Format: rate_limit: ip=<cidr> download=<kbps> upload=<kbps>
-{% for limit in rate_limits %}rate_limit: ip={{ limit.ip }} download={{ limit.download }} upload={{ limit.upload }}
+{% if rate_limits | default([]) | length > 0 %}
+{% for limit in rate_limits %}
+# Rate limit for {{ limit.ip | default('unknown_cidr') }}
+rate_limit: ip={{ limit.ip | default('0.0.0.0/0') }} download={{ limit.download | default(0) }} upload={{ limit.upload | default(0) }}
 {% endfor %}
+{% endif %}

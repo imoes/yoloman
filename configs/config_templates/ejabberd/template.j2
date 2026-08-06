@@ -1,98 +1,104 @@
-# Listen ports for XMPP traffic
-listen:
-{% for listener in listeners %}  -
-    port: {{ listener.port }}
-{% if listener.ip is defined %}    ip: "{{ listener.ip }}"
-{% endif %}    module: {{ listener.module }}
-{% if listener.options is defined %}    options:
-{% for opt_key, opt_val in listener.options | dict2items %}      {{ opt_key }}: {{ opt_val | tojson }}
-{% endfor %}    
-{% endif %}
-{% endfor %}
+#! /bin/sh
+# ==============================================================================
+# ejabberd Init Script Template
+# ==============================================================================
+# This script manages the ejabberd XMPP server daemon. It is generated from a
+# Jinja2 template to ensure variables are safely injected with defaults.
+#
+# Self-Documenting Fields:
+# - ejabberd_binary_dir : Directory containing the ejabberdctl binary
+# - ejabberd_user       : System user running the ejabberd process
+# - run_directory       : Path for PID files and runtime sockets
+# - short_description   : LSB header short summary
+# - description_line1   : LSB header first description line
+# - description_line2   : LSB header second description line
+# - chkconfig_description : chkconfig header description
+# ==============================================================================
 
-# Authentication configuration
-auth_method: {{ auth.method }}
-{% if auth.method == 'sql' %}
-sql_type: {{ auth.sql.type }}
-sql_host: "{{ auth.sql.host }}"
-sql_database: "{{ auth.sql.database }}"
-sql_username: "{{ auth.sql.username }}"
-sql_password: "{{ auth.sql.password }}"
-{% endif %}
-{% if auth.method == 'ldap' %}
-ldap_servers:
-{% for server in auth.ldap.servers %}  - "{{ server }}"
-{% endfor %}
-ldap_port: {{ auth.ldap.port }}
-ldap_userdn: "{{ auth.ldap.userdn }}"
-ldap_base: "{{ auth.ldap.base }}"
-ldap_password: "{{ auth.ldap.password }}"
-{% endif %}
+### BEGIN INIT INFO
+# Provides:          ejabberd
+# Required-Start:    $remote_fs $network $named $time
+# Required-Stop:     $remote_fs $network $named $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ short_description | default('Starts ejabberd XMPP server') }}
+# Description:       {{ description_line1 | default('Starts ejabberd XMPP server, an XMPP') }}
+#                    {{ description_line2 | default('compliant server written in Erlang.') }}
+### END INIT INFO
 
-# Domain(s) served by this node
-hosts:
-{% for host in hosts %}  - "{{ host }}"
-{% endfor %}
+# chkconfig: 2345 90 10
+# description: {{ chkconfig_description | default('ejabberd XMPP server') }}
 
-# Module loading and configuration
-modules:
-{% for module_name, module_config in modules | dict2items %}  {{ module_name }}:
-{% if module_config | length == 0 %}
-{% else %}
-{% for opt_key, opt_val in module_config | dict2items %}    {{ opt_key }}: {{ opt_val | tojson }}
-{% endfor %}
-{% endif %}
-{% endfor %}
+set -o errexit
 
-# Log file path (optional — use empty string for none)
-logpath: "{{ log.path | default('/var/log/ejabberd/ejabberd.log') }}"
-log_level: "{{ log.level | default('info') }}"
+. /lib/lsb/init-functions
 
-# Database and caching tuning
-max_fsm_queue: {{ limits.max_fsm_queue }}
-max_fsm_sessions: {{ limits.max_fsm_sessions }}
-queue_type: "{{ limits.queue_type }}"
+# Directory where ejabberdctl binary resides
+DIR={{ ejabberd_binary_dir | default('/usr/sbin') }}
+CTL="$DIR"/ejabberdctl
 
-# Cluster configuration (optional)
-{% if cluster.enabled %}
-cluster:
-  - node: "{{ cluster.node }}"
-{% if cluster.nodes is defined %}
-  - nodes:
-{% for node in cluster.nodes %}      - "{{ node }}"
-{% endfor %}
-{% endif %}
-{% if cluster.sql is defined %}
-  - sql:
-      pool_size: {{ cluster.sql.pool_size }}
-{% endif %}
-{% endif %}
+# System user under which ejabberd runs
+USER={{ ejabberd_user | default('ejabberd') }}
 
-# TLS/SSL certificate paths
-{% if tls.enabled %}
-tls_cert_dir: "{{ tls.cert_dir }}"
-{% endif %}
+# Runtime directory used by ejabberd for pid files and sockets
+EJABBERDRUN={{ run_directory | default('/run/ejabberd') }}
 
-# S2S (server-to-server) federation
-s2s_use_starttls: {{ s2s.use_starttls | lower }}
-s2s_timeout: {{ s2s.timeout }}
-{% if s2s.allow_domains is defined %}
-s2s_access: allow
-{% for domain in s2s.allow_domains %}s2s_allow_domains:
-  - "{{ domain }}"
-{% endfor %}
-{% endif %}
+# Check if the control binary exists and is executable
+test -x "$CTL" || {
+	log_daemon_msg "ERROR: ejabberd not found: $DIR"
+	exit 1
+}
 
-# Access control lists (ACLs)
-acl:
-{% for acl_name, acl_def in acl | dict2items %}  {{ acl_name }}:
-{% for item in acl_def %}    - {{ item | tojson }}
-{% endfor %}
-{% endfor %}
+# Create the runtime directory if it does not exist
+mkrundir()
+{
+	if [ ! -d $EJABBERDRUN ]; then
+		mkdir -p $EJABBERDRUN
+		if [ $? -ne 0 ]; then
+			log_daemon_msg -n " failed"
+			return
+		fi
+		chmod 0755 $EJABBERDRUN
+		chown {{ ejabberd_user | default('ejabberd') }}:{{ ejabberd_user | default('ejabberd') }} $EJABBERDRUN
+	fi
+}
 
-# Admin user list
-access:
-  'admin':
-{% for admin in admins %}    - 'allow':
-        - 'user': "{{ admin }}"
-{% endfor %}
+# Ensure standard system binaries are in PATH
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+case "$1" in
+  start)
+    test -x "$CTL" || exit 0
+    mkrundir
+    log_daemon_msg "Starting ejabberd..."
+    if ! /etc/init.d/ejabberd status > /dev/null; then
+	su - $USER -c "$CTL start"
+	su - $USER -c "$CTL started"
+    fi
+    log_daemon_msg "done."
+    ;;
+  stop)
+    test -x "$CTL" || exit 0
+    log_daemon_msg "Stopping ejabberd..."
+    if $CTL status >/dev/null || test $? = 1 ; then
+	su - $USER -c "$CTL stop"
+	su - $USER -c "$CTL stopped"
+    fi
+    log_daemon_msg "done."
+    ;;
+  status)
+    test -x "$CTL" || exit 0
+    log_daemon_msg "Getting ejabberd status..."
+    su - $USER -c "$CTL status"
+    ;;
+  force-reload|restart)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|force-reload|status}"
+    exit 3
+    ;;
+esac
+
+exit 0

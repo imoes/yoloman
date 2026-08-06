@@ -1,43 +1,81 @@
-# papd configuration file — controls AppleTalk PAP print server behavior
-# Listen address and port for AppleTalk PAP connections
-# Default: all interfaces, port 543 (standard PAP)
-ATPort = {{ listen_port }}
-ATAddress = {{ listen_address }}
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          papd
+# Required-Start:    $remote_fs $syslog atalkd
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start and stop papd daemon
+# Description:       Enables the PAP print server.
+### END INIT INFO
+#
+# netatalk      Netatalk 4.2.3 initscript
 
-# Enable or disable PAP service
-# If false, papd will not start any PAP listeners
-PAPActive = {{ pap_active }}
+set -e
 
-# Maximum number of concurrent print jobs per printer
-# Higher values allow more simultaneous jobs but consume more memory
-MaxJobs = {{ max_jobs }}
+. /lib/lsb/init-functions
 
-# Time (in seconds) a job may remain in queue before being purged
-# Set to 0 to disable automatic purging
-QueueTimeout = {{ queue_timeout }}
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DESC="PAP print server"
+NAME=papd
+SCRIPTNAME=/etc/init.d/$NAME
+DAEMON=/usr/sbin/$NAME
+PIDFILE=/var/lock/$NAME
 
-# Enable or disable logging to syslog
-# Set to true for production environments
-Syslog = {{ syslog_enabled }}
+# Guard to prevent execution if netatalk was removed.
+test -x $DAEMON || exit 0
 
-# Enable or disable debug logging (very verbose)
-Debug = {{ debug_enabled }}
+status(){
+    set +e
+    EXIT_CODE=`start-stop-daemon --status --exec $DAEMON; echo $?`
+    set -e
+    echo $EXIT_CODE
+}
 
-# Path to the printcap file used by papd
-# Must be readable and properly formatted for CUPS or lpd
-PrintCap = {{ printcap_path }}
+case "$1" in
+    start)
+        EXIT_CODE=`status`
+        if [ $EXIT_CODE -ne 0 ]; then
+            echo -n "Starting $NAME"
+            start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
+            echo "."
+        else
+            echo "$NAME is already running."
+        fi
+        ;;
 
-# Default print command template
-# {{job}} is substituted with the job ID; {{printer}} with the printer name
-DefaultCommand = {{ default_command }}
+    stop)
+        echo -n "Stopping $NAME"
+        start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+        echo "."
+        ;;
 
-# Per-printer configuration blocks
-# Each entry defines a printer and its PAP mapping
-{% for printer in printers %}
-# Printer: {{ printer.name }} — maps to AppleTalk name '{{ printer.at_name }}'
-{{ printer.name }}:{{ printer.at_name }}:{{ printer.queue_name }}:{{ printer.command | default('lp -d' + printer.queue_name) }}
-{% endfor %}
+    restart)
+        $0 force-reload
+        ;;
 
-# Optional: default printer (first listed in PrintCap or explicitly set)
-# If empty, first printer in PrintCap becomes default
-DefaultPrinter = {{ default_printer }}
+    force-reload)
+        echo -n "Restarting $NAME"
+        start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
+        echo -n "."
+        start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
+        echo -n "."
+        echo " Done."
+        ;;
+
+    status)
+        EXIT_CODE=`status`
+        if [ $EXIT_CODE -eq 0 ]; then
+            echo "$NAME is running."
+        elif [ $EXIT_CODE -eq 4 ]; then
+            echo "Could not access PID file for $NAME."
+        else
+            echo "$NAME is not running."
+        fi
+        exit $EXIT_CODE
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac

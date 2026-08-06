@@ -1,0 +1,60 @@
+{#
+  Debcraft Build Configuration Template
+  ================================
+  Generates a command-line argument file for the `debcraft` tool.
+  Each variable corresponds to a specific CLI flag.
+  Booleans are emitted as flags if true; strings/paths are emitted with values.
+#}
+
+# Debcraft configuration
+# Every line is a command-line argument translated to a config line
+
+{# Linux distribution to build in (e.g., debian:bullseye, ubuntu:jammy) #}
+{%- if (distribution | default('debian:sid')) is string %}
+--distribution {{ distribution | default('debian:sid') }}
+{%- endif %}
+
+{# Container command to use (podman or docker) #}
+{%- if (container_command | default('podman')) is string %}
+--container-command {{ container_command | default('podman') }}
+{%- endif %}
+
+{# Path for writing build files and artifacts (defaults to parent directory if omitted) #}
+{%- if (build_dirs_path | default('')) is string and build_dirs_path | default('') %}
+--build-dirs-path {{ build_dirs_path | default('') }}
+{%- endif %}
+
+{# Host architecture for cross builds (e.g., amd64, arm64, armhf) #}
+{%- if (host_architecture | default('')) is string and host_architecture | default('') %}
+--host-architecture {{ host_architecture | default('') }}
+{%- endif %}
+
+{# Skip source tarball creation to speed up builds (build mode only) #}
+{%- if skip_sources | default(false) | bool %}
+--skip-sources
+{%- endif %}
+
+{# Include binaries in release (e.g., for NEW upload) #}
+{%- if with_binaries | default(false) | bool %}
+--with-binaries
+{%- endif %}
+
+{# Force update of container base image before build #}
+{%- if pull | default(false) | bool %}
+--pull
+{%- endif %}
+
+{# Build inside a copy of the source directory #}
+{%- if copy | default(false) | bool %}
+--copy
+{%- endif %}
+
+{# Ensure clean sources before and after build #}
+{%- if clean | default(false) | bool %}
+--clean
+{%- endif %}
+
+{# Emit verbose debug information #}
+{%- if debug | default(false) | bool %}
+--debug
+{%- endif %}

@@ -1,39 +1,61 @@
 # iftop configuration file
-# Interface to capture traffic on
-interface: {{ interface }}
+# This file controls the behavior of the iftop traffic monitor tool.
+# Each setting is documented below with its source description and safe default values.
 
-# Network interface filter (BPF format)
-# e.g., 'port 80' to only show HTTP traffic
-bpf_filter: {{ bpf_filter }}
+# Network interface to monitor (e.g., eth0, wlp3s0).
+# Must be active and support packet capture.
+# Default: eth0
+interface: {{ (interface | default('eth0')) | string }}
 
-# Display mode: 'c' (default: cumulative bytes), 't' (total), 'b' (bytes per second)
-output_mode: {{ output_mode }}
+# Berkeley Packet Filter (BPF) expression to filter traffic.
+# Examples: 'host 192.168.1.1' or 'port 22'.
+# Leave empty to monitor all traffic.
+# Default: '' (empty string)
+# Note: The key 'filter_code' is used here to match the original template structure,
+# though standard iftop configs often use 'filter'. We preserve the original key name.
+filter_code: {{ (bpf_filter | default('')) | string }}
 
-# Number of hosts to display in the host list (top N)
-host_limit: {{ host_limit }}
+# Display mode for the host entries.
+# Options: 'two-line' (default), 'one-line-both', 'one-line-sent', 'one-line-received'.
+# Default: two-line
+line_display: {{ (output_mode | default('two-line')) | string }}
 
-# Log file path for continuous monitoring (disabled if empty)
-log_file: {{ log_file }}
+# Enable or disable reverse DNS lookups to display hostnames instead of raw IP addresses.
+# Mapped to a boolean lowercase value.
+# Default: True
+dns_resolution: {{ reverse_dns | default(true) | lower }}
 
-# Enable/disable reverse DNS lookups for IP addresses
-reverse_dns: {{ reverse_dns }}
+# Sort order for the host list.
+# Options: '2s', '10s' (default), '40s', 'source', 'destination'.
+# Default: 10s
+sort: {{ (sort_by | default('10s')) | string }}
 
-# DNS timeout (milliseconds) for reverse lookups
-dns_timeout: {{ dns_timeout }}
+# Enable bar graphs.
+# Disable for terminal compatibility or log files.
+# Mapped to `show-bars`.
+# Default: True
+show-bars: {{ color | default(true) | lower }}
 
-# Port mapping file path (custom port→service mappings)
-port_map_file: {{ port_map_file }}
+# List of IP addresses or substrings to exclude from display.
+# These are joined into a pipe-separated regex string for the `screen-filter` directive.
+# Default: [] (empty list, no filtering)
+# If the list is empty, the filter is effectively disabled or matches nothing.
+screen-filter: {{ ignore_hosts | default([]) | join('|') }}
 
-# Enable/disable sorting by traffic (0: source, 1: destination, 2: total)
-sort_by: {{ sort_by }}
+# Put the interface into promiscuous mode.
+# This allows counting traffic which does not pass directly through the specified interface.
+# Default: False
+promiscuous: {{ promiscuous | default(false) | lower }}
 
-# Enable/disable color output (ignored if no terminal)
-color: {{ color }}
+# Controls display of port numbers.
+# Options: 'off', 'source-only', 'destination-only', 'on'.
+# Default: off
+port_display: {{ (port_display | default('off')) | string }}
 
-# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
-log_level: {{ log_level }}
+# Use bytes for bandwidth display, rather than bits.
+# Default: False
+use_bytes: {{ use_bytes | default(false) | lower }}
 
-# List of hosts/IPs to ignore in display (matched as substring)
-ignore_hosts:
-{% for host in ignore_hosts %}  - {{ host }}
-{% endfor %}
+# Determines displaying of link-local IPv6 addresses.
+# Default: False
+link_local: {{ link_local | default(false) | lower }}

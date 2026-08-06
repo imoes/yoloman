@@ -1,6 +1,16 @@
-# Global syslog options
-option {{ global_options | join(' ') }}
+#
+# inetutils-syslogd configuration template
+#
+# This template configures the inetutils-syslogd daemon.
+# It primarily sets command-line options for the syslogd process.
+#
 
-# Facility/priority rules: facility.priority target
-{% for rule in rules %}{{ rule.facility }}.{{ rule.priority }}	{{ rule.target }}
-{% endfor %}
+# SYSLOGD_OPTS: Command-line options passed directly to syslogd.
+# Common examples:
+#   --no-forward : Disable forwarding to other hosts (default).
+#   -r           : Enable remote logging reception.
+#   -O /var/log/messages : Specify the main log file path.
+#   -u syslog    : Run as a specific user (if supported/needed).
+#
+# The value is wrapped in quotes to handle spaces and special characters correctly.
+SYSLOGD_OPTS="{{ syslogd_opts | default('--no-forward') }}"

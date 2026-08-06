@@ -1,0 +1,101 @@
+# GDU (Go Disk Usage) configuration file (YAML format)
+# This file is managed by Ansible. Do not edit manually.
+#
+# GDU is a fast disk usage analyzer. Configuration options control
+# scanning behavior, output formatting, and performance tuning.
+
+# Absolute or relative paths to ignore during scanning.
+# These directories are skipped entirely to speed up analysis.
+ignore-dirs: {% set _dirs = ignore_dirs | default(['/proc', '/dev', '/sys', '/run']) %}[{{ _dirs | join(', ') }}]
+
+# Path patterns to ignore using regular expressions.
+# Comma-separated list of regex patterns.
+ignore-dirs-pattern: {% set _patterns = ignore_dirs_pattern | default([]) %}[{{ _patterns | join(', ') }}]
+
+# Path to the log file for GDU output/logs.
+# Set to '/dev/null' to suppress logging.
+log-file: {{ log_file | default('/dev/null') }}
+
+# Maximum number of CPU cores to utilize during scanning.
+# Higher values speed up scanning on multi-core systems.
+max-cores: {{ max_cores | default(8) }}
+
+# Disable colorized output in the terminal.
+# Useful for piping output to files or non-TTY environments.
+no-color: {{ no_color | default(false) | ternary('true', 'false') }}
+
+# Do not cross filesystem boundaries (mount points).
+# Prevents scanning other mounted filesystems.
+no-cross: {{ no_cross | default(false) | ternary('true', 'false') }}
+
+# Ignore hidden directories (those starting with a dot '.').
+# Reduces noise in the output by skipping dotfiles/dotdirs.
+no-hidden: {{ no_hidden | default(false) | ternary('true', 'false') }}
+
+# Use sequential scanning mode.
+# Recommended for spinning HDDs to avoid excessive seek times.
+sequential: {{ sequential | default(false) | ternary('true', 'false') }}
+
+# Show apparent size (file content size) instead of disk usage (blocks).
+# Apparent size may differ from disk usage due to sparse files or compression.
+show-apparent-size: {{ show_apparent_size | default(false) | ternary('true', 'false') }}
+
+# Show the number of items (files/dirs) in each directory.
+# Only visible in non-interactive mode output.
+show-item-count: {{ show_item_count | default(false) | ternary('true', 'false') }}
+
+# Show the latest modification time (mtime) of items in a directory.
+# Only visible in non-interactive mode output.
+show-mtime: {{ show_mtime | default(false) | ternary('true', 'false') }}
+
+# Show relative size percentages in the output.
+show-relative-size: {{ show_relative_size | default(false) | ternary('true', 'false') }}
+
+# Use decimal SI prefixes (kB, MB, GB) instead of binary prefixes (KiB, MiB, GiB).
+si: {{ si | default(false) | ternary('true', 'false') }}
+
+# Disable Unicode symbols (e.g., blocks) for the size bar.
+# Use ASCII characters instead for broader compatibility.
+no-unicode: {{ no_unicode | default(false) | ternary('true', 'false') }}
+
+# Include files with a modification time no older than DURATION.
+# Example: '7d' for one week, '2h30m' for 2.5 hours.
+max-age: {{ max_age | default('') }}
+
+# Include files with a modification time at least DURATION old.
+# Example: '30d' for older than 30 days.
+min-age: {{ min_age | default('') }}
+
+# File extensions (types) to exclude from analysis.
+# Comma-separated list, e.g., 'tmp,log'.
+exclude-type: {% set _exts = exclude_type | default([]) %}[{{ _exts | join(', ') }}]
+
+# File extensions (types) to INCLUDE in analysis.
+# If specified, only these extensions are considered.
+include-type: {% set _exts = include_type | default([]) %}[{{ _exts | join(', ') }}]
+
+# Enable garbage collection during the analysis process.
+# May improve memory management on very large scans.
+enable-gc: {{ enable_gc | default(false) | ternary('true', 'false') }}
+
+# Enable Go profiling HTTP endpoint on localhost:6060.
+# Warning: Exposes debug/pprof data. Use only for debugging.
+enable-profiling: {{ enable_profiling | default(false) | ternary('true', 'false') }}
+
+# Force interactive TUI mode even if stdout is not a TTY.
+interactive: {{ interactive | default(false) | ternary('true', 'false') }}
+
+# Use an existing scan database instead of re-scanning the filesystem.
+# Speeds up subsequent runs if the filesystem hasn't changed significantly.
+read-from-storage: {{ read_from_storage | default(false) | ternary('true', 'false') }}
+
+# Reverse the sorting order in non-interactive mode (smallest to largest).
+# Normally largest items are listed first.
+reverse-sort: {{ reverse_sort | default(false) | ternary('true', 'false') }}
+
+# Sorting configuration for the output.
+sorting:
+  # Field to sort by: size, name, itemCount, or mtime.
+  by: {{ sorting_by | default('size') }}
+  # Sort order: desc (descending/largest first) or asc (ascending/smallest first).
+  order: {{ sorting_order | default('desc') }}

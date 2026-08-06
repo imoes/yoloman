@@ -1,46 +1,91 @@
-# Default timeout (seconds) for connections to upstream mirrors
-Timeout 30
+# =============================================================================
+# Approx Configuration Template
+# =============================================================================
+# Approx is an HTTP proxy cache for Debian package repositories. It stores
+# downloaded .deb files locally to speed up subsequent installations across
+# multiple hosts.
+#
+# This file is managed by Ansible. Do not edit manually.
+# =============================================================================
 
-# Maximum number of simultaneous connections to upstream
-MaxConnections 10
+# -----------------------------------------------------------------------------
+# Repository Mapping
+# -----------------------------------------------------------------------------
+# Define which Debian repositories Approx should cache.
+# Format: <label> <URL>
+# Example: debian http://ftp.debian.org/debian
+# See https://www.debian.org/mirror/list for mirror sites.
+# Uncomment and configure your desired repositories below.
+#debian		http://ftp.debian.org/debian
+#debian-security	http://security.debian.org/debian-security
 
-# Default prefix for cached archives (usually /var/cache/approx)
-Root {{ approx_cache_root }}
+# -----------------------------------------------------------------------------
+# General Cache Settings
+# -----------------------------------------------------------------------------
 
-# Enable/disable compression of downloaded files (gzip)
-{{ 'Compress' if compress_downloads else '#Compress' }}
+# $cache: Top-level directory where Approx stores cached Debian packages.
+# The directory must exist and be writable by the approx user.
+$cache		{{ approx_cache_root | default('/var/cache/approx') }}
 
-# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
-LogLev {{ log_level }}
+# $interval: Interval (in seconds) between cache refresh attempts.
+# Approx will periodically check for updated package lists based on this value.
+$interval	{{ approx_interval | default(60) }}
 
-# Local network(s) allowed to use this proxy (CIDR or IP)
-{% for net in allowed_networks %}Allow {{ net }}
-{% endfor %}
+# $max_rate: Maximum download rate limit.
+# Accepts values like '100k', '1m', or 'unlimited'.
+# Prevents Approx from saturating the network link.
+$max_rate	{{ approx_max_rate | default('unlimited') }}
 
-# Upstream Debian mirrors to use — each entry maps a suite/type to a mirror URL
-{% for mirror in mirrors %}{{ mirror.type | upper }} {{ mirror.suite }} {{ mirror.url }}
-{% endfor %}
+# $max_redirects: Maximum number of HTTP redirects to follow.
+# Limits the chain of redirects to prevent infinite loops or excessive hops.
+$max_redirects {{ approx_max_redirects | default(5) }}
 
-# Optional: Upstream proxy for outgoing HTTP/HTTPS traffic (if needed)
-{% if upstream_proxy %}Proxy {{ upstream_proxy }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# User and Group Permissions
+# -----------------------------------------------------------------------------
 
-# Optional: Local hostname to advertise in HTTP headers (for reverse proxy setups)
-{% if local_hostname %}Host {{ local_hostname }}
-{% endif %}
+# $user: User account under which the Approx daemon runs.
+# Ensure this user has read/write access to $cache.
+$user		{{ approx_user | default('approx') }}
 
-# Optional: Disable certain architectures to save disk space
-{% for arch in disabled_architectures %}NoArch {{ arch }}
-{% endfor %}
+# $group: Group account under which the Approx daemon runs.
+# Useful for granting group-based access to cache files.
+$group		{{ approx_group | default('approx') }}
 
-# Optional: Maximum age (in seconds) for stale cache entries before refresh
-{% if stale_age %}StaleAge {{ stale_age }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Logging Settings
+# -----------------------------------------------------------------------------
 
-# Optional: Cache size limit (in MB); 0 = unlimited
-{% if cache_size_limit_mb is defined %}MaxCache {{ cache_size_limit_mb }}
-{% endif %}
+# $syslog: Syslog facility to use for logging messages.
+# Common values: daemon, local0, local1, etc.
+$syslog	{{ approx_syslog | default('daemon') }}
 
-# Optional: Listen address(es) and port
-{% for addr in listen_addresses %}Listen {{ addr }}:{{ listen_port }}
-{% endfor %}
+# $verbose: Enable verbose logging output.
+# Useful for debugging connection issues or cache misses.
+$verbose	{{ approx_verbose | default(False) }}
+
+# $debug: Enable debug-level logging.
+# Produces extensive output; use only for troubleshooting.
+$debug		{{ approx_debug | default(False) }}
+
+# -----------------------------------------------------------------------------
+# Operational Behavior
+# -----------------------------------------------------------------------------
+
+# $pdiffs: Use pdiffs (patch diffs) when available.
+# If True, Approx uses .pdiff files to update package lists incrementally,
+# saving bandwidth and time compared to full downloads.
+$pdiffs	{{ approx_pdiffs | default(True) }}
+
+# $offline: If true, do not attempt network access.
+# Approx will serve only cached data and refuse to fetch new content.
+# Useful for air-gapped or maintenance modes.
+$offline	{{ approx_offline | default(False) }}
+
+# $max_wait: Maximum time (in seconds) to wait for a file lock.
+# Prevents Approx from hanging indefinitely if another instance holds a lock.
+$max_wait	{{ approx_max_wait | default(10) }}
+
+# $curl_path: Path to the curl binary.
+# Approx uses curl to perform HTTP downloads. Must be an absolute path.
+$curl_path	{{ approx_curl_path | default('/usr/bin/curl') }}

@@ -1,73 +1,67 @@
 {
   "start_enabled": {
     "type": "bool",
-    "default": true,
-    "description": "Whether to start the darkstat service on boot."
+    "default": "yes",
+    "description": "Whether to set START_DARKSTAT=yes in /etc/darkstat/init.cfg (controls if darkstat starts on boot)."
   },
   "interfaces": {
     "type": "list",
-    "default": [
-      "eth0"
-    ],
-    "items": {
-      "type": "string",
-      "description": "Network interface(s) to monitor (e.g., eth0, enp0s3, any)."
-    },
-    "description": "List of interfaces to capture traffic from. Use 'any' to capture from all interfaces."
+    "default": "-i eth0",
+    "description": "Interface(s) to capture from; each becomes a separate `-i <iface>` argument. Use 'any' for all interfaces."
   },
   "bind_address": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address for the web UI to listen on. Use '127.0.0.1' to restrict access to localhost."
+    "default": "-l 0.0.0.0",
+    "description": "IP address to bind to; becomes `-l <address>`."
   },
   "port": {
     "type": "number",
     "default": 667,
-    "description": "TCP port for the web interface. Must be accessible and non-privileged (>1024 recommended)."
+    "description": "TCP port for the web UI; becomes `-p <port>`."
   },
   "db_dir": {
     "type": "string",
     "default": "/var/lib/darkstat",
-    "description": "Directory where darkstat stores persistent data (hosts, services, etc.)."
+    "description": "Directory for chroot and DB persistence; used in --chroot $DIR."
   },
   "graph_dir": {
     "type": "string",
-    "default": "/var/lib/darkstat/graphs",
-    "description": "Directory to store daily graph data (if graphing is enabled)."
+    "default": "",
+    "description": "Directory for daily graph data. Not used directly in init script, but darkstat uses -g option if set."
   },
   "enable_graphing": {
     "type": "bool",
-    "default": true,
-    "description": "Enable generation of daily traffic graphs."
+    "default": false,
+    "description": "Enable graphing. Not used directly in init script, but darkstat uses -g option if set."
   },
   "graph_retention_days": {
     "type": "number",
-    "default": 30,
-    "description": "Number of days to retain daily graph data before rotation."
+    "default": 0,
+    "description": "Retention days for graphs. Not used directly in init script."
   },
   "max_hosts": {
     "type": "number",
-    "default": 1000,
-    "description": "Maximum number of unique hosts to track in memory and reports."
+    "default": 0,
+    "description": "Maximum hosts. Not used directly in init script; darkstat uses -m option if set."
   },
   "max_ports": {
     "type": "number",
-    "default": 1000,
-    "description": "Maximum number of TCP/UDP ports to track per host."
+    "default": 0,
+    "description": "Maximum ports per host. Not used directly in init script."
   },
   "enable_compression": {
     "type": "bool",
-    "default": true,
-    "description": "Enable HTTP compression (gzip) for web interface responses."
+    "default": false,
+    "description": "Enable compression. Not used directly in init script."
   },
   "enable_dns_lookups": {
     "type": "bool",
-    "default": false,
-    "description": "Enable reverse DNS lookups to resolve hostnames. May cause delays and increase load."
+    "default": true,
+    "description": "Enable reverse DNS lookups; becomes `-r` when true."
   },
   "extra_options": {
     "type": "string",
     "default": "",
-    "description": "Additional space-separated command-line options for darkstat (e.g., '--no-macs' or '--chroot /var/lib/darkstat')."
+    "description": "Additional darkstat options (e.g., '--no-macs', '--chroot')."
   }
 }

@@ -1,0 +1,39 @@
+# Configuration file for egg collection software (gcpeg)
+# This specifies the egg configuration information, the contact
+# information for its basket(s), and initial data acquisition parameters.
+
+# EGG <name> <id> <ip addr> <primbasket> <conntype> <connival> <url>
+# Defines an "Egg" device instance.
+# Fields:
+#   - basket.name: default='noosphere' desc='Name of the primary basket'
+#   - basket.ip_addr: default='128.112.35.133' desc='IP address of the basket'
+#   - conntype: default='PERM' desc='Connection type (PERM or DND)'
+#   - connival: default=1 desc='Connection interval in minutes'
+# Note: The egg's own name and ID are not in the schema.
+# For the primary configuration, the egg name is assumed to be the basket name,
+# and ID defaults to 0.
+EGG {{ (basket | default({})).name | default('noosphere') }} 0 {{ (basket | default({})).ip_addr | default('128.112.35.133') }} {{ (basket | default({})).name | default('noosphere') }} {{ conntype | default('PERM') }} {{ connival | default(1) }}
+
+# BASKET <name> <ip addr>
+# Defines a basket reachable by eggs.
+# Fields:
+#   - basket.name: default='noosphere' desc='Name of the primary basket'
+#   - basket.ip_addr: default='128.112.35.133' desc='IP address of the basket'
+BASKET {{ (basket | default({})).name | default('noosphere') }} {{ (basket | default({})).ip_addr | default('128.112.35.133') }}
+
+# PROTOCOL <samprec> <secrec> <recpkt> <trialsz>
+# Specifies the default data collection protocol.
+# Fields:
+#   - protocol.samples_per_record: default=10 desc='Samples per record (1-10, recommended 5-10)'
+#   - protocol.seconds_per_record: default=10 desc='Seconds per record (1-3000)'
+#   - protocol.records_per_packet: default=30 desc='Records per packet (1-60)'
+#   - protocol.bits_per_sample: default=200 desc='Bits per sample (32-255)'
+PROTOCOL {{ (protocol | default({})).samples_per_record | default(10) }} {{ (protocol | default({})).seconds_per_record | default(10) }} {{ (protocol | default({})).records_per_packet | default(30) }} {{ (protocol | default({})).bits_per_sample | default(200) }}
+
+# REG <type> <port> <baud>
+# Specifies the hardware device connection.
+# Fields:
+#   - hardware.type: default='ORION' desc='Hardware device type (e.g., PEAR, ORION)'
+#   - hardware.port: default=0 desc='Serial port number (e.g., 0 for /dev/ttyS0)'
+#   - hardware.baud: default=9600 desc='Baud rate for serial port'
+REG {{ (hardware | default({})).type | default('ORION') }} {{ (hardware | default({})).port | default(0) }} {{ (hardware | default({})).baud | default(9600) }}

@@ -1,0 +1,58 @@
+# =============================================================================
+# grokevt Configuration Template
+# =============================================================================
+# This file configures grokevt, a utility for extracting event log data from
+# Windows system files (SYSTEM, SOFTWARE, etc.) on Linux.
+# Reference: grokevt(7)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# base_dir
+# Root directory for grokevt configuration.
+# As documented in grokevt(7), all configuration files reside under this path.
+# -----------------------------------------------------------------------------
+base_dir: {{ base_dir | default('/usr/local/etc/grokevt') }}
+
+# -----------------------------------------------------------------------------
+# systems
+# List of Windows system configurations.
+# Each entry in this list represents a profile directory located under
+# 'systems/' within the base_dir.
+# Each object defines the paths required to access a specific Windows
+# installation's registry and system files.
+# -----------------------------------------------------------------------------
+systems:
+{% for system in systems | default([]) %}
+  # -----------------------------------------------------------------------
+  # System Profile Entry
+  # -----------------------------------------------------------------------
+  - name: {{ system.name | default('') }}
+    # Name/Identifier for this Windows system profile.
+
+    # -------------------------------------------------------------------
+    # Drive Mappings
+    # Defines how Windows drive letters map to local *NIX mount paths.
+    # per grokevt(7): keys are 'c:', 'd:', etc., values are mount points.
+    # -------------------------------------------------------------------
+{% for drive in system.drives | default([]) %}
+    # Drive letter {{ drive.letter | default('') }} maps to {{ drive.path | default('/') }}
+    drive_{{ drive.letter | default('unknown') }}: {{ drive.path | default('/') }}
+{% endfor %}
+
+    # -------------------------------------------------------------------
+    # systemroot
+    # The Windows %SystemRoot% directory path (case-insensitive).
+    # Must include the drive letter as it appears in Windows.
+    # per grokevt(7): e.g., 'C:\Windows' or 'C:\WINNT'
+    # -------------------------------------------------------------------
+    systemroot: {{ system.systemroot | default('C:\\Windows') }}
+
+    # -------------------------------------------------------------------
+    # registry_path
+    # The path to the SYSTEM registry hive on the local *NIX filesystem.
+    # This path must be case-sensitive and reside under the mapped %SystemRoot%.
+    # per grokevt(7): e.g., '/mnt/win/c/Windows/System32/config/SYSTEM'
+    # -------------------------------------------------------------------
+    registry_path: {{ system.registry_path | default('/mnt/win/c/Windows/System32/config/SYSTEM') }}
+
+{% endfor %}

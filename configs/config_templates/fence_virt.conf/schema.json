@@ -1,169 +1,235 @@
 {
   "multicast": {
     "type": "object",
-    "default": {
-      "address": "239.192.148.15",
-      "port": 1229,
-      "interface": "eth0"
-    },
-    "description": "Multicast group and interface used by fence_virtd to communicate with cluster nodes.",
-    "items": {
-      "address": {
-        "type": "string",
-        "default": "239.192.148.15",
-        "description": "Multicast IP address (must be in range 224.0.0.0\u2013239.255.255.255)."
-      },
-      "port": {
-        "type": "number",
-        "default": 1229,
-        "description": "UDP port for multicast communication (1\u201365535)."
-      },
-      "interface": {
-        "type": "string",
-        "default": "eth0",
-        "description": "Network interface to bind to (e.g., 'eth0', 'bond0')."
-      }
-    }
+    "default": null,
+    "description": "Global multicast settings \u2014 but per man page, this maps to listeners/multicast block. Keys like key_file, hash, auth, family belong inside the multicast listener block, not here. Address/port/interface are also in the multicast listener block. We keep this as a top-level variable for convenience but note the mapping in template comments."
+  },
+  "multicast.address": {
+    "type": "string",
+    "default": "225.0.0.12",
+    "description": "Multicast IP address to listen on (default: 225.0.0.12, must be in range 224.0.0.0\u2013239.255.255.255)."
+  },
+  "multicast.port": {
+    "type": "number",
+    "default": 1229,
+    "description": "Multicast UDP port (default: 1229)."
+  },
+  "multicast.interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface to listen on. Empty means all interfaces (default), but setting is strongly recommended for gateway hosts."
+  },
+  "multicast.key_file": {
+    "type": "string",
+    "default": "/etc/cluster/fence_xvm.key",
+    "description": "Path to the shared key file (default: /etc/cluster/fence_xvm.key)."
+  },
+  "multicast.hash": {
+    "type": "string",
+    "default": "sha256",
+    "description": "Weakest hashing algorithm allowed for client requests (default: sha256; could be sha1, sha512, or none).",
+    "enum": [
+      "sha1",
+      "sha256",
+      "sha512",
+      "none"
+    ]
+  },
+  "multicast.auth": {
+    "type": "string",
+    "default": "sha256",
+    "description": "Hashing algorithm for challenge-response authentication (default: sha256; could be sha1, sha512, or none).",
+    "enum": [
+      "sha1",
+      "sha256",
+      "sha512",
+      "none"
+    ]
+  },
+  "multicast.family": {
+    "type": "string",
+    "default": "ipv4",
+    "description": "IP family: 'ipv4' or 'ipv6' (default: ipv4).",
+    "enum": [
+      "ipv4",
+      "ipv6"
+    ]
   },
   "listeners": {
     "type": "list",
     "default": [
       {
-        "type": "libvirt",
-        "path": "/var/run/fence_virt.sock",
-        "mode": "0660"
+        "type": "multicast"
       }
     ],
-    "description": "List of listener endpoints for incoming fence requests. Common types: 'libvirt', 'kvm'.",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "libvirt",
-        "description": "Listener type ('libvirt' for libvirt daemon, 'kvm' for KVM-based fencing)."
-      },
-      "path": {
-        "type": "string",
-        "default": "/var/run/fence_virt.sock",
-        "description": "Socket path or device path (e.g., '/dev/kvm') for this listener."
-      },
-      "mode": {
-        "type": "string",
-        "default": "0660",
-        "description": "Octal file permissions for socket (e.g., '0660')."
-      },
-      "group": {
-        "type": "string",
-        "default": "qemu",
-        "description": "Group ownership of socket (optional)."
-      },
-      "user": {
-        "type": "string",
-        "default": "root",
-        "description": "User ownership of socket (optional)."
-      },
-      "timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Maximum seconds to wait for a connection response (optional)."
-      }
-    }
+    "description": "List of listener types (only one active at a time). Supported: 'multicast', 'serial', 'tcp', 'vsock'. This template supports only 'multicast' via listener_blocks."
   },
-  "auth": {
-    "type": "object",
-    "default": {
-      "type": "keyfile",
-      "keyfile": "/etc/fence_virt.key"
-    },
-    "description": "Authentication method for fence_virtd. Options: 'keyfile' (recommended for production), 'plain'.",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "keyfile",
-        "enum": [
-          "keyfile",
-          "plain"
-        ],
-        "description": "Authentication mechanism."
-      },
-      "keyfile": {
-        "type": "string",
-        "default": "/etc/fence_virt.key",
-        "description": "Path to the binary keyfile (required if type='keyfile')."
-      },
-      "credentials": {
-        "type": "string",
-        "default": "/etc/fence_virt/passwd",
-        "description": "Path to the plain-text credentials file (required if type='plain')."
-      }
-    }
-  },
-  "logging": {
-    "type": "object",
-    "default": {
-      "level": "info",
-      "file": "/var/log/fence_virtd.log"
-    },
-    "description": "Logging behavior for fence_virtd.",
-    "items": {
-      "level": {
-        "type": "string",
-        "default": "info",
-        "enum": [
-          "debug",
-          "info",
-          "warning",
-          "error"
-        ],
-        "description": "Minimum log level to emit."
-      },
-      "file": {
-        "type": "string",
-        "default": "/var/log/fence_virtd.log",
-        "description": "Log file path (use 'syslog' to log via rsyslog)."
-      }
-    }
-  },
-  "drivers": {
+  "listener_blocks": {
     "type": "list",
     "default": [
       {
-        "name": "libvirt",
-        "timeout": 30,
-        "retry": 3,
-        "retry_sleep": 5
+        "name": "multicast"
       }
     ],
-    "description": "Fence driver backends (e.g., libvirt, kvm). Typically one driver is enabled at a time.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "libvirt",
-        "enum": [
-          "libvirt",
-          "kvm"
-        ],
-        "description": "Driver name ('libvirt' uses libvirt daemon for VM control; 'kvm' uses direct KVM ioctls)."
-      },
-      "timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Timeout in seconds for driver operations (e.g., power-cycle)."
-      },
-      "retry": {
-        "type": "number",
-        "default": 3,
-        "description": "Number of times to retry failed operations."
-      },
-      "retry_sleep": {
-        "type": "number",
-        "default": 5,
-        "description": "Seconds to wait between retries."
-      },
-      "namespace": {
-        "type": "string",
-        "default": "",
-        "description": "Optional libvirt namespace (e.g., 'user-ns')."
+    "description": "Listener-specific configuration blocks \u2014 e.g., listeners/multicast {}, listeners/serial {}, etc."
+  },
+  "listener_blocks[].name": {
+    "type": "string",
+    "default": "multicast",
+    "description": "Listener name. Currently only 'multicast' supported by this template.",
+    "enum": [
+      "multicast",
+      "serial",
+      "tcp",
+      "vsock"
+    ]
+  },
+  "listener_blocks[].interface": {
+    "type": "string",
+    "default": "",
+    "description": "Interface to bind to for multicast listener."
+  },
+  "listener_blocks[].address": {
+    "type": "string",
+    "default": "225.0.0.12",
+    "description": "Multicast address to listen on."
+  },
+  "listener_blocks[].port": {
+    "type": "number",
+    "default": 1229,
+    "description": "Port to listen on."
+  },
+  "listener_blocks[].key_file": {
+    "type": "string",
+    "default": "/etc/cluster/fence_xvm.key",
+    "description": "Path to key file."
+  },
+  "listener_blocks[].hash": {
+    "type": "string",
+    "default": "sha256",
+    "description": "Minimum acceptable hash algorithm.",
+    "enum": [
+      "sha1",
+      "sha256",
+      "sha512",
+      "none"
+    ]
+  },
+  "listener_blocks[].auth": {
+    "type": "string",
+    "default": "sha256",
+    "description": "Authentication hash algorithm.",
+    "enum": [
+      "sha1",
+      "sha256",
+      "sha512",
+      "none"
+    ]
+  },
+  "listener_blocks[].family": {
+    "type": "string",
+    "default": "ipv4",
+    "description": "IP family.",
+    "enum": [
+      "ipv4",
+      "ipv6"
+    ]
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "libvirt"
       }
-    }
+    ],
+    "description": "Backend plugins for fence_virtd (renamed from 'drivers' to match manpage 'backends' section)."
+  },
+  "backends[].name": {
+    "type": "string",
+    "default": "libvirt",
+    "description": "Backend name ('libvirt' or 'cpg').",
+    "enum": [
+      "libvirt",
+      "cpg"
+    ]
+  },
+  "backends[].uri": {
+    "type": "string",
+    "default": "qemu:///system",
+    "description": "Libvirt URI (required for libvirt backend)."
+  },
+  "backends[].name_mode": {
+    "type": "string",
+    "default": "name",
+    "description": "Naming mode for VMs in cpg backend: 'name' (default, for compat) or 'uuid' (recommended for multi-host clusters).",
+    "enum": [
+      "name",
+      "uuid"
+    ]
+  },
+  "backends[].timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Operation timeout in seconds."
+  },
+  "backends[].retry": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries on failure."
+  },
+  "backends[].retry_sleep": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait between retries."
+  },
+  "backends[].namespace": {
+    "type": "string",
+    "default": "",
+    "description": "Optional libvirt namespace (used only with libvirt backend)."
+  },
+  "auth": {
+    "type": "object",
+    "default": null,
+    "description": "Authentication settings \u2014 maps to key_file in multicast listener block. The template places key_file at top-level 'auth' for convenience."
+  },
+  "auth.key_file": {
+    "type": "string",
+    "default": "/etc/cluster/fence_xvm.key",
+    "description": "Path to shared key file (required for secure communication with multicast listener)."
+  },
+  "logging": {
+    "type": "object",
+    "default": null,
+    "description": "Logging configuration \u2014 matches manpage but note: fence_virtd does not have a direct 'logging' section in the config file; logging is configured via command-line options or syslog."
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log level: 'debug', 'info', 'warning', 'error'."
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "/var/log/fence_virtd.log",
+    "description": "Log file path (use 'syslog' to log to syslog)."
+  },
+  "groups": {
+    "type": "list",
+    "default": [],
+    "description": "Static maps of VMs (per manpage 'groups' section). Any member may fence any other in the group."
+  },
+  "groups[].name": {
+    "type": "string",
+    "default": "",
+    "description": "Group name (optional, for readability)."
+  },
+  "groups[].ip": {
+    "type": "list",
+    "default": [],
+    "description": "Allowed IPs for fencing requests (e.g., for multicast). Each is an IP address string."
+  },
+  "groups[].uuid": {
+    "type": "list",
+    "default": [],
+    "description": "VM identifiers (UUIDs or names) in this group."
   }
 }

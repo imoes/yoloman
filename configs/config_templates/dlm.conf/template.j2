@@ -1,22 +1,47 @@
-# DLM configuration file — controls kernel device-mapper lock manager behavior
-# Global settings
+# DLM (Distributed Lock Manager) configuration file
+# Controls kernel device-mapper lock manager behavior for cluster coordination.
+# This template is self-documenting: every directive is preceded by its
+# schema description and safe defaults are enforced via Jinja2 defaults().
+
 [dlm]
-# Enable automatic cluster membership management (true/false)
+
+# Enable verbose debugging output for internal DLM operations.
+# Type: boolean
+# Default: False
 auto_debug={{ auto_debug | default(false) | lower }}
-# Log level: 0=quiet, 1=basic, 2=verbose, 3=debug
+
+# Verbosity level for logging: 0 = silent, 1 = basic info, 2 = verbose, 3 = debug.
+# Type: integer
+# Default: 1
 log_level={{ log_level | default(1) }}
-# Path to lockspace directory
+
+# Directory where DLM lockspace state files are stored.
+# Type: string
+# Default: '/run/lock/dlm'
 lockspace_dir={{ lockspace_dir | default('/run/lock/dlm') }}
-# Minimum number of seconds to wait for a lock request to complete before timing out
+
+# Maximum time in seconds to wait for a lock acquisition before considering it failed.
+# Type: integer
+# Default: 30
 lock_timeout={{ lock_timeout | default(30) }}
-# Enable communication with the kernel via netlink socket
+
+# Whether to use netlink socket for kernel communication: 'yes', 'no', or 'auto' (recommended).
+# Type: string
+# Default: 'auto'
 netlink_socket={{ netlink_socket | default('auto') }}
 
-# Optional: list of additional lockspaces to manage
-{% for ls in lockspaces %}
-[lockspace:{{ ls.name }}]
-# Enable reclaim of abandoned locks in this lockspace (true/false)
+# Optional: list of additional lockspaces to manage.
+# Defined by the 'lockspaces' schema field (list of dicts).
+{% for ls in lockspaces | default([]) %}
+[lockspace:{{ ls.name | default('unnamed') }}]
+
+# Enable reclaim of abandoned locks in this lockspace.
+# Type: boolean
+# Default: True
 reclaim_strict={{ ls.reclaim_strict | default(true) | lower }}
-# Number of threads to use for this lockspace
+
+# Number of threads to use for this lockspace.
+# Type: integer
+# Default: 1
 threads={{ ls.threads | default(1) }}
 {% endfor %}

@@ -1,58 +1,88 @@
-# /etc/afs.conf — Configuration for the kAFS client and AFS dynamic root mounter
-# Enable or disable the AFS client kernel module
-{% if enable_client | default(true) %}
+# ==============================================================================
+# /etc/afs.conf — Configuration for the kAFS (Kerberos-AFS) Client and Dynamic Root Mounter
+# ==============================================================================
+# This file configures the Linux kernel AFS client module (kafs.ko) and the
+# userspace dynamic root mounter for the Andrew File System.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [client] Section: Enable or disable the kafs kernel module loading
+# ------------------------------------------------------------------------------
+# enable_client: Whether to enable the kernel-based AFS client module (kafs.ko).
+#                Default: True
 [client]
+{% if enable_client | default(true) %}
 enabled = yes
 {% else %}
-[client]
 enabled = no
 {% endif %}
 
-# AFS cell name (e.g., 'example.com')
-cell = {{ cell_name }}
+# ------------------------------------------------------------------------------
+# Global Settings: Cell Identity and Cache Configuration
+# ------------------------------------------------------------------------------
+# cell_name: The canonical name of the AFS cell (e.g., 'cell.example.org').
+#            This identifies the administrative domain for token acquisition.
+#            Default: 'example.com'
+cell = {{ cell_name | default('example.com') }}
 
-# Path to the local AFS cache directory
-{% if cache_path %}
-cache_path = {{ cache_path }}
-{% else %}
-cache_path = /var/cache/afs
-{% endif %}
+# cache_path: Absolute path to the local cache directory used by the AFS client.
+#             The kAFS driver stores fetched file pages here to avoid redundant
+#             network I/O.
+#             Default: '/var/cache/afs'
+cache_path = {{ cache_path | default('/var/cache/afs') }}
 
-# Maximum size (in MiB) of the local cache
-{% if cache_size_mb %}
-cache_size_mb = {{ cache_size_mb }}
-{% else %}
-cache_size_mb = 256
-{% endif %}
+# cache_size_mb: Maximum cache size in mebibytes (MiB).
+#                Adjust based on available RAM and disk space. Larger caches
+#                improve performance for read-heavy workloads.
+#                Default: 256
+cache_size_mb = {{ cache_size_mb | default(256) }}
 
-# Number of cache cleaning threads (0 = auto-tune)
-{% if cache_threads %}
-cache_threads = {{ cache_threads }}
-{% else %}
-cache_threads = 2
-{% endif %}
+# cache_threads: Number of threads used for cache maintenance (e.g., cleaning,
+#                eviction). Setting to 0 allows the kernel to auto-tune.
+#                Default: 2
+cache_threads = {{ cache_threads | default(2) }}
 
-# AFS server hostnames for this cell — one per line
+# ------------------------------------------------------------------------------
+# [server] Section: AFS File Server Discovery
+# ------------------------------------------------------------------------------
+# servers: List of AFS file server hostnames or IP addresses for the cell.
+#          At least one server should be specified to allow the client to
+#          contact the Volume Location and Data servers for the cell.
+#          Default: [] (empty list)
 [server]
-{% for srv in servers %}server = {{ srv }}
+{% for srv in (servers | default([])) %}server = {{ srv }}
 {% endfor %}
 
-# Enable or disable the AFS dynamic root (for automatic mount of /afs/...)
-{% if enable_dynamic_root | default(true) %}
+# ------------------------------------------------------------------------------
+# [dynamic_root] Section: Automatic Mounting of the AFS Dynamic Root
+# ------------------------------------------------------------------------------
+# enable_dynamic_root: Whether to enable automatic mounting of the AFS dynamic
+#                      root at /afs (or a custom mount point). This allows users
+#                      to access AFS cells via the standard /afs/<cell> path
+#                      without manual mount commands.
+#                      Default: True
 [dynamic_root]
+{% if enable_dynamic_root | default(true) %}
 enabled = yes
 {% else %}
-[dynamic_root]
 enabled = no
 {% endif %}
 
-# Optional: custom mount point for dynamic root (default: /afs)
-{% if dynamic_root_mount_point %}
-mount_point = {{ dynamic_root_mount_point }}
+# dynamic_root_mount_point: Custom mount point for the AFS dynamic root.
+#                           If omitted, the default is /afs.
+#                           Default: '/afs'
+{% if dynamic_root_mount_point | default('/afs') != '/afs' %}
+mount_point = {{ dynamic_root_mount_point | default('/afs') }}
 {% endif %}
 
-# Optional: extra kernel module parameters passed to kafs.ko
-{% if kernel_params %}
+# ------------------------------------------------------------------------------
+# [kernel] Section: Kernel Module Parameters
+# ------------------------------------------------------------------------------
+# kernel_params: Optional space-separated kernel module parameters passed to
+#                kafs.ko when it is loaded (e.g., ['log_level=2', 'prefetch=1']).
+#                Use this for debugging or tuning low-level driver behavior.
+#                Default: [] (empty list)
+{% if kernel_params | default([]) | length > 0 %}
 [kernel]
-params = {{ kernel_params | join(' ') }}
+params = {{ kernel_params | default([]) | join(' ') }}
 {% endif %}

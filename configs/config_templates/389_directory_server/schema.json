@@ -64,15 +64,10 @@
     "default": "dc=example,dc=com",
     "description": "Suffix (base DN) for the directory tree (e.g., dc=example,dc=com)."
   },
-  "hostname": {
-    "type": "string",
-    "default": "localhost",
-    "description": "Server's hostname or FQDN. Used for internal identification."
-  },
   "root_password": {
     "type": "string",
     "default": "{SSHA}...",
-    ">{SSHA}...": "description: Encrypted root DN password (e.g., {SSHA}hash). Required for initial setup. In production, generate via dsconf or ldapmodify."
+    "description": "Encrypted root DN password (e.g., {SSHA}hash). Required for initial setup. In production, generate via dsconf or ldapmodify."
   },
   "backends": {
     "type": "list",
@@ -87,44 +82,7 @@
         "encryption_pbkdf2": null
       }
     ],
-    "description": "List of backend databases (suffixes). Each entry defines a database instance.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "userRoot",
-        "description": "Logical name of the backend (must be unique per instance)."
-      },
-      "suffix": {
-        "type": "string",
-        "default": "dc=example,dc=com",
-        "description": "LDAP suffix (base DN) for this backend."
-      },
-      "directory": {
-        "type": "string",
-        "default": "/var/lib/dirsrv/slapd-{{ instance }}/ldbm/database/userRoot",
-        "description": "Filesystem path to the backend database files."
-      },
-      "cache_size": {
-        "type": "number",
-        "default": 51200000,
-        "description": "Size of the entry cache (bytes). Default ~50 MB."
-      },
-      "encryption": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable encryption of backend files (requires FIPS mode on RHEL/CentOS)."
-      },
-      "encryption_cipher": {
-        "type": "string",
-        "default": null,
-        "description": "Cipher algorithm for backend encryption (e.g., AES256-CBC)."
-      },
-      "encryption_pbkdf2": {
-        "type": "string",
-        "default": null,
-        "description": "PBKDF2 hash function for encryption key derivation (e.g., SHA256)."
-      }
-    }
+    "description": "List of backend databases (suffixes). Each entry defines a database instance."
   },
   "replication_enabled": {
     "type": "bool",
@@ -154,49 +112,7 @@
   "replication_agreements": {
     "type": "list",
     "default": [],
-    "description": "List of replication agreements (for multi-master or hub/leaf setups).",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "to_{{ instance }}",
-        "description": "Unique name of the replication agreement."
-      },
-      "host": {
-        "type": "string",
-        "default": "replica.example.com",
-        "description": "Replication partner host."
-      },
-      "port": {
-        "type": "number",
-        "default": 389,
-        "description": "LDAP port on partner."
-      },
-      "bind_dn": {
-        "type": "string",
-        "default": "cn=replication manager,cn=config",
-        "description": "Bind DN for replication (must match on both sides)."
-      },
-      "bind_method": {
-        "type": "string",
-        "default": "simple",
-        "description": "Bind method: 'simple' or 'sslmap'."
-      },
-      "credentials": {
-        "type": "string",
-        "default": "secret",
-        "description": "Bind password (if bind_method is 'simple')."
-      },
-      "schedule": {
-        "type": "list",
-        "default": [],
-        "description": "Replication schedule (e.g., ['0000-2359 12345']). Empty = continuous."
-      },
-      "suffix": {
-        "type": "string",
-        "default": "dc=example,dc=com",
-        "description": "Suffix covered by this agreement."
-      }
-    }
+    "description": "List of replication agreements (for multi-master or hub/leaf setups)."
   },
   "encryption_enabled": {
     "type": "bool",
@@ -251,19 +167,7 @@
   "schemas": {
     "type": "list",
     "default": [],
-    "description": "Additional schema files to load (e.g., custom objectClasses).",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "custom_schema",
-        "description": "Logical name for the schema."
-      },
-      "file": {
-        "type": "string",
-        "default": "/etc/dirsrv/slapd-{{ instance }}/schema/99custom.ldif",
-        "description": "Path to the LDIF schema file."
-      }
-    }
+    "description": "Additional schema files to load (e.g., custom objectClasses)."
   },
   "enabled_plugins": {
     "type": "list",
@@ -285,56 +189,76 @@
         ]
       }
     ],
-    "description": "List of plugins to enable with configuration.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "password policy",
-        "description": "Plugin name (must be known to 389 DS)."
-      },
-      "path": {
-        "type": "string",
-        "default": null,
-        "description": "Path to the plugin shared library (if not built-in)."
-      },
-      "initfunc": {
-        "type": "string",
-        "default": "ppolicy_init",
-        "description": "Plugin initialization function symbol."
-      },
-      "type": {
-        "type": "string",
-        "default": "extendedop",
-        "description": "Plugin type: 'internalop', 'extendedop', 'preoperation', 'postoperation', 'betxn', etc."
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether plugin is active (true/false)."
-      },
-      "args": {
-        "type": "list",
-        "default": [],
-        "description": "Plugin-specific arguments (key-value pairs or bare strings).",
-        "items": {
-          "oneOf": [
-            {
-              "type": "object",
-              "properties": {
-                "key": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              }
-            },
-            {
-              "type": "string"
-            }
-          ]
-        }
-      }
-    }
+    "description": "List of plugins to enable with configuration."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Server's hostname or FQDN. Used for internal identification."
+  },
+  "backend_cache_size": {
+    "type": "number",
+    "default": 51200000,
+    "description": "Size of the entry cache (bytes)."
+  },
+  "backend_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable encryption of backend files (requires FIPS mode on RHEL/CentOS)."
+  },
+  "backend_encryption_cipher": {
+    "type": "string",
+    "default": null,
+    "description": "Cipher algorithm for backend encryption (e.g., AES256-CBC)."
+  },
+  "backend_encryption_pbkdf2": {
+    "type": "string",
+    "default": null,
+    "description": "PBKDF2 hash function for encryption key derivation (e.g., SHA256)."
+  },
+  "replica_bind_method": {
+    "type": "string",
+    "default": "simple",
+    "description": "Bind method: 'simple' or 'sslmap'."
+  },
+  "replica_schedule": {
+    "type": "list",
+    "default": [],
+    "description": "Replication schedule (e.g., ['0000-2359 12345']). Empty = continuous."
+  },
+  "schema_name": {
+    "type": "string",
+    "default": "custom_schema",
+    "description": "Logical name for the schema."
+  },
+  "schema_file": {
+    "type": "string",
+    "default": "/etc/dirsrv/slapd-{{ instance }}/schema/99custom.ldif",
+    "description": "Path to the LDIF schema file."
+  },
+  "plugin_path": {
+    "type": "string",
+    "default": null,
+    "description": "Path to the plugin shared library (if not built-in)."
+  },
+  "plugin_initfunc": {
+    "type": "string",
+    "default": "ppolicy_init",
+    "description": "Plugin initialization function symbol."
+  },
+  "plugin_type": {
+    "type": "string",
+    "default": "extendedop",
+    "description": "Plugin type: 'internalop', 'extendedop', 'preoperation', 'postoperation', 'betxn', etc."
+  },
+  "plugin_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether plugin is active (true/false)."
+  },
+  "plugin_args": {
+    "type": "list",
+    "default": [],
+    "description": "Plugin-specific arguments (key-value pairs or bare strings)."
   }
 }

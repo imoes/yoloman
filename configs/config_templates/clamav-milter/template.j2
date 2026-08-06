@@ -1,0 +1,33 @@
+{#
+  clamav-milter.conf.j2
+  =====================
+  Configuration file for ClamAV Milter.
+  
+  This template generates a self-documenting configuration file for the
+  clamav-milter service, which acts as a Sendmail/Postfix milter interface
+  for the Clam AntiVirus engine.
+  
+  Variables are sourced from the Ansible inventory or role defaults.
+  Every setting includes a comment derived from the schema description.
+#}
+
+{# User under which the milter runs #}
+User {{ User | default('clamav') }}
+
+{# Path to PID file #}
+PidFile {{ PidFile | default('/var/run/clamav/clamav-milter.pid') }}
+
+{# Socket specification (e.g., 'local:/path/to/socket' or 'inet:port@host') #}
+MilterSocket {{ MilterSocket | default('local:/var/run/clamav/clamav-milter.sock') }}
+
+{# Directory where virus database files are stored #}
+DataBaseDirectory {{ DataBaseDirectory | default('/var/run/clamav') }}
+
+{# Whether to run in foreground mode (must be 'true'/'yes'/'1' to enable) #}
+{# enum: [true, yes, 1, false, no, 0] #}
+Foreground {{ Foreground | default('no') }}
+
+{# Internal flag indicating example config is still active #}
+{# enum: [true, yes, 1, false, no, 0] #}
+{# If this remains 'true' or 'yes', it usually indicates the user has not customized the config #}
+Example {{ Example | default('') }}

@@ -1,138 +1,150 @@
-#Patroni configuration file — controls PostgreSQL instance behavior in a high-availability cluster
-#Path to the PostgreSQL configuration directory
-postgresql:
-  data_dir: {{ pg_data_dir }}
-  bin_dir: {{ pg_bin_dir }}
-  configuration_files:
-    postgresql.conf: {{ pg_config_file }}
-    pg_hba.conf: {{ pg_hba_file }}
-  use_slots: {{ replication_use_slots }}
-  use_pg_rewind: {{ replication_use_pg_rewind }}
-  parameters:
-{% for key, value in pg_params.items() %}    # PostgreSQL parameter: {{ key }}
-    {{ key | replace('_', ' ') | title | replace(' ', '_') }}: {{ value }}
-{% endfor %}  # Authentication and replication settings
-  authentication:
-    superuser:
-      username: {{ superuser_name }}
-      password: {{ superuser_password }}
-    replication:
-      username: {{ replicator_name }}
-      password: {{ replicator_password }}
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          patroni
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Patroni init script
+# Description:       Runners to orchestrate a high-availability PostgreSQL
+### END INIT INFO
 
-# Cluster definition — identifies the cluster and its scope in the DCS
-scope: {{ cluster_scope }}
-name: {{ node_name }}
+### BEGIN USER CONFIGURATION
 
-# DCS (Distributed Configuration Store) backend — determines which consensus service to use
-dcs:
-{% if dcs_type == 'zookeeper' %}
-  # ZooKeeper backend configuration
-  zookeeper:
-{% for host in dcs_hosts %}    # ZooKeeper host: {{ host }}
-    - host: {{ host }}
-{% endfor %}    username: {{ dcs_username }}
-    password: {{ dcs_password }}
-    use_ssl: {{ dcs_use_ssl }}
-{% elif dcs_type == 'etcd' %}
-  # etcd backend configuration
-  etcd:
-{% for host in dcs_hosts %}    # etcd endpoint: {{ host }}
-    host: {{ host }}
-{% endfor %}    username: {{ dcs_username }}
-    password: {{ dcs_password }}
-    use_ssl: {{ dcs_use_ssl }}
-    ca_path: {{ dcs_ca_path }}
-    cert_path: {{ dcs_cert_path }}
-    key_path: {{ dcs_key_path }}
-{% elif dcs_type == 'consul' %}
-  # Consul backend configuration
-  consul:
-    host: {{ dcs_hosts[0] }}
-    port: {{ dcs_port }}
-    token: {{ dcs_token }}
-    scheme: {{ dcs_scheme }}
-    verify_ssl: {{ dcs_verify_ssl }}
-{% elif dcs_type == 'kubernetes' %}
-  # Kubernetes backend configuration
-  kubernetes:
-    namespace: {{ k8s_namespace }}
-    labels:
-      app: patroni
-    # Optional: use pod annotations for service discovery
-    # pod_ip: {{ k8s_pod_ip }}
-    # port: {{ k8s_port }}
-    # use_endpoints: {{ k8s_use_endpoints }}
-{% else %}
-  # Generic DCS configuration — placeholder for custom setups
-  # ⚠️ Unsupported DCS backend — configure manually
-{% endif %}
+CONF="/etc/patroni/postgres.yml"
+LOGFILE="/var/log/patroni.log"
+USER="postgres"
+GROUP="postgres"
 
-# REST API — used for health checks, failover, and manual interventions
-restapi:
-  # Listen address for the Patroni HTTP API
-  listen: {{ restapi_listen }}
-  port: {{ restapi_port }}
-{% if restapi_use_ssl %}
-  # SSL/TLS configuration
-  ssl:
-    certfile: {{ restapi_certfile }}
-    keyfile: {{ restapi_keyfile }}
-{% endif %}
-  # Authentication for administrative REST endpoints
-  authentication:
-    username: {{ restapi_admin_user }}
-    password: {{ restapi_admin_password }}
+NAME=patroni
+PATRONI="/usr/bin/$NAME"
+PIDFILE="/var/run/$NAME.pid"
 
-# PostgreSQL lifecycle behavior
-bootstrap:
-  # Default configuration for new clusters
-  dcs:
-    ttl: {{ bootstrap_ttl }}
-    loop_wait: {{ bootstrap_loop_wait }}
-    retry_timeout: {{ bootstrap_retry_timeout }}
-    maximum_lag_on_failover: {{ bootstrap_max_lag }}
-    # Use synchronous replication during bootstrap
-    synchronous_mode: {{ bootstrap_sync_mode }}
-    # Primary start options for new clusters
-    postgresql:
-      use_pg_rewind: {{ replication_use_pg_rewind }}
-      use_slots: {{ replication_use_slots }}
-      parameters:
-        wal_level: replica
-        hot_standby: 'on'
-        wal_keep_size: 1GB
-        max_wal_senders: 10
-        max_replication_slots: 10
-{% if bootstrap_superuser %}
-      superuser:
-        username: {{ superuser_name }}
-        password: {{ superuser_password }}
-{% endif %}
-{% if bootstrap_replicator %}
-      replication:
-        username: {{ replicator_name }}
-        password: {{ replicator_password }}
-{% endif %}
-  # Initialize new cluster from existing backup
-  initdb:
-{% for key, value in bootstrap_initdb.items() %}    # initdb option: {{ key }}
-    {{ key | replace('_', '-') | replace('  ', '-') }}: {{ value }}
-{% endfor %}
-  pg_hba:
-{% for rule in bootstrap_pg_hba %}    # pg_hba.conf rule
-    - {{ rule }}
-{% endfor %}
+# Set this parameter, if you have several Postgres versions installed
+# POSTGRES_VERSION="9.4"
+POSTGRES_VERSION=""
 
-# Health check and monitoring
-watchdog:
-  # Use watchdog device (e.g., /dev/watchdog) for fencing
-  mode: {{ watchdog_mode }}  # allowed: off, automatic, mandatory
-  device: {{ watchdog_device }}
-  safety_margin: {{ watchdog_safety_margin }}
+### END USER CONFIGURATION
 
-# Optional: tags to control failover priority
-tags:
-  nofailover: {{ node_nofailover }}
-  noloadbalance: {{ node_noloadbalance }}
-  clonefrom: {{ node_clonefrom }}
+. /lib/lsb/init-functions
+
+# Loading this library for get_versions() function
+if test ! -e /usr/share/postgresql-common/init.d-functions; then
+  log_failure_msg "Probably postgresql-common does not installed."
+  exit 1
+else
+  . /usr/share/postgresql-common/init.d-functions
+fi
+
+# Is there Patroni executable?
+if test ! -e $PATRONI; then
+  log_failure_msg "Patroni executable $PATRONI does not exist."
+  exit 1
+fi
+
+# Is there Patroni configuration file?
+if test ! -e $CONF; then
+  log_failure_msg "Patroni configuration file $CONF does not exist."
+  exit 1
+fi
+
+# Create logfile if doesn't exist
+if test ! -e $LOGFILE; then
+  log_action_msg "Creating logfile for Patroni..."
+  touch $LOGFILE
+  chown $USER:$GROUP $LOGFILE
+fi
+
+prepare_pgpath() {
+  if [ "$POSTGRES_VERSION" != "" ]; then
+    if [ -x /usr/lib/postgresql/$POSTGRES_VERSION/bin/pg_ctl ]; then
+      PGPATH="/usr/lib/postgresql/$POSTGRES_VERSION/bin"
+    else
+      log_failure_msg "Postgres version incorrect, check POSTGRES_VERSION variable."
+      exit 0
+    fi
+  else
+    get_versions
+    if echo $versions | grep -q -e "\s"; then
+      log_warning_msg "You have several Postgres versions installed. Please, use POSTGRES_VERSION to define correct environment."
+    else
+      versions=`echo $versions | sed -e 's/^[ 	]*//'`
+      PGPATH="/usr/lib/postgresql/$versions/bin"
+    fi
+  fi
+}
+
+get_pid() {
+  if test -e $PIDFILE; then
+    PID=`cat $PIDFILE`
+    CHILDPID=`ps --ppid $PID -o %p --no-headers`
+  else
+    log_failure_msg "Could not find PID file. Patroni probably down."
+    exit 1
+  fi
+}
+
+
+case "$1" in
+  start)
+    prepare_pgpath
+    PGPATH=$PATH:$PGPATH
+    log_success_msg "Starting Patroni\n"
+    exec start-stop-daemon --start --quiet \
+        --background \
+        --pidfile $PIDFILE --make-pidfile \
+        --chuid $USER:$GROUP \
+        --chdir `eval echo ~$USER` \
+        --exec $PATRONI \
+        --startas /bin/sh -- \
+        -c "/usr/bin/env PATH=$PGPATH /usr/bin/python $PATRONI $CONF >> $LOGFILE 2>&1"
+    ;;
+
+  stop)
+    log_success_msg "Stopping Patroni"
+    get_pid
+    start-stop-daemon --stop --pid $CHILDPID
+    start-stop-daemon --stop --pidfile $PIDFILE --remove-pidfile --quiet
+    ;;
+
+  reload)
+    log_success_msg "Reloading Patroni configuration"
+    get_pid
+    kill -HUP $CHILDPID
+    ;;
+
+  force-reload)
+    log_success_msg "Rorce-reloading Patroni configuration"
+    get_pid
+    kill -HUP $CHILDPID
+    ;;
+
+  status)
+    get_pid
+    if start-stop-daemon -T --pid $CHILDPID; then
+      log_success_msg "Patroni is running\n"
+      exit 0
+    else
+      log_warning_msg "Patroni in not running\n"
+    fi
+    ;;
+
+  restart)
+    $0 stop
+    $0 start
+    ;;
+
+  *)
+    echo "Usage: /etc/init.d/$NAME {start|stop|restart|reload|force-reload|status}"
+    exit 1
+    ;;
+esac
+
+if [ $? -eq 0 ]; then
+        echo .
+        exit 0
+else
+        echo " failed"
+        exit 1
+fi

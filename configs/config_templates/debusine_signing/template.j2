@@ -1,43 +1,92 @@
-# Listen on the specified host and port
-bind_address: "{{ bind_address }}"
-port: {{ port }}
+# =============================================================================
+# debusine_signing - Configuration Template
+#
+# This template configures the debusine signing service. It defines network
+# binding, GPG keyring locations, worker processes, and signing policies.
+# All variables are drawn from the Ansible role variables; defaults are applied
+# where variables are undefined.
+# =============================================================================
 
-# Number of worker processes for handling signing requests
-workers: {{ workers }}
+# -----------------------------------------------------------------------------
+# Network Listener Configuration
+# -----------------------------------------------------------------------------
 
-# Path to the GPG keyring directory
-keyring_path: "{{ keyring_path }}"
+# IP address to bind the signing service listener to (e.g., '127.0.0.1' or '0.0.0.0')
+# Defaults to loopback only for security if not specified.
+bind_address: "{{ bind_address | default('127.0.0.1') }}"
 
-# Default key ID to use for signing (if not overridden per-request)
-default_key_id: "{{ default_key_id }}"
+# TCP port for the signing service HTTP API
+# Defaults to 8080 if not specified.
+port: {{ port | default(8080) }}
 
-# Timeout (in seconds) for signing operations
-timeout: {{ timeout }}
+# -----------------------------------------------------------------------------
+# Process and Concurrency Settings
+# -----------------------------------------------------------------------------
 
-# Enable debug logging
-# Set to `true` to emit verbose logs (for development/troubleshooting)
-debug: {{ debug }}
+# Number of worker processes to handle concurrent signing requests
+# Defaults to 4 if not specified.
+workers: {{ workers | default(4) }}
 
-# Allowed HMAC secret for request authentication (shared with upstream clients)
-# Leave empty to disable HMAC validation
-hmac_secret: "{{ hmac_secret }}"
+# -----------------------------------------------------------------------------
+# GPG Keyring Configuration
+# -----------------------------------------------------------------------------
 
-# List of trusted upstream client IPs/networks (CIDR notation)
-# Requests from non-trusted IPs will be rejected unless HMAC-validated
+# Path to the GPG keyring directory containing signing keys and trustdb
+# Defaults to /etc/debusine/keyring if not specified.
+keyring_path: "{{ keyring_path | default('/etc/debusine/keyring') }}"
+
+# GPG key ID (e.g., 'DEADBEEF') used by default if no key is specified per request
+# If empty, the service may select a default key or require explicit key_id per request.
+default_key_id: "{{ default_key_id | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Operation Limits and Security
+# -----------------------------------------------------------------------------
+
+# Maximum time (seconds) allowed for a signing operation before it times out
+# Defaults to 30 seconds if not specified.
+timeout: {{ timeout | default(30) }}
+
+# Enable verbose debug logging (set to `true` for troubleshooting)
+# Defaults to false (off) in production environments.
+debug: {{ debug | default(false) | lower }}
+
+# Shared secret for HMAC-based request authentication; empty string disables HMAC validation
+# If provided, clients must include this secret in their requests for validation.
+hmac_secret: "{{ hmac_secret | default('') }}"
+
+# List of IP ranges allowed to submit signing requests without HMAC validation
+# Requests from IPs not in this list are rejected unless HMAC validation is successful.
+# Defaults to loopback ranges (127.0.0.0/8, ::1/128) if not specified.
 trusted_clients:
-{% for client in trusted_clients %}  - "{{ client }}"
+{% for client in (trusted_clients | default(['127.0.0.0/8', '::1/128'])) %}  - "{{ client }}"
 {% endfor %}
 
-# Signing policies: which file types or patterns to sign automatically
+# -----------------------------------------------------------------------------
+# Signing Policies
+# -----------------------------------------------------------------------------
+
+# List of file pattern → signing key mappings for automatic signing.
+# Each policy defines which files to sign and which key to use.
+# Defaults to an empty list if not specified.
 signing_policies:
-{% for policy in signing_policies %}  - name: "{{ policy.name }}"
-    pattern: "{{ policy.pattern }}"
-    key_id: "{{ policy.key_id | default(default_key_id) }}"
+{% for policy in (signing_policies | default([])) %}
+  - name: "{{ policy.name | default('') }}"
+    pattern: "{{ policy.pattern | default('') }}"
+    # Use the policy-specific key_id if defined, otherwise fall back to the global default_key_id
+    key_id: "{{ policy.key_id | default(default_key_id | default('')) }}"
+    # Optional description for the policy
     description: "{{ policy.description | default('') }}"
 {% endfor %}
 
-# Log rotation: max log file size (in MB) before rotation
-log_max_size_mb: {{ log_max_size_mb }}
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
 
-# Number of rotated log files to retain
-log_rotate_count: {{ log_rotate_count }}
+# Maximum size (MB) of each log file before rotation
+# Defaults to 10 MB if not specified.
+log_max_size_mb: {{ log_max_size_mb | default(10) }}
+
+# Number of rotated log files to keep
+# Defaults to 5 if not specified.
+log_rotate_count: {{ log_rotate_count | default(5) }}

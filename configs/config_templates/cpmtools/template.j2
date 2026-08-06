@@ -1,0 +1,73 @@
+diskdef {{ diskdef_name | default('default') }}
+  # Sector length in bytes (standard is 128 for most CP/M disks)
+  seclen {{ seclen | default(128) }}
+
+  # Number of tracks on the disk (typically 77 for double-sided 8-inch or 40/41 for 5.25")
+  tracks {{ tracks | default(77) }}
+
+  # Sectors per track (typically 26 for 1.2MB 5.25" disks)
+  sectrk {{ sectrk | default(26) }}
+
+  # Block size in bytes for CP/M operations (usually 1024 or 512)
+  blocksize {{ blocksize | default(1024) }}
+
+  # Maximum number of directory entries (standard is 64)
+  maxdir {{ maxdir | default(64) }}
+
+  # Sector skew factor (0 means no skew, or use skewtab for custom layout)
+  skew {{ skew | default(6) }}
+
+  # Skew table: Comma-separated list of sector orders if skew needs fine control.
+  # Omitted if not provided.
+{% if (skewtab | default(None)) is not none %}
+  skewtab {{ skewtab | default(None) | tojson }}
+{% endif %}
+
+  # Boot track number (where the bootstrap loader resides, usually 2)
+  boottrk {{ boottrk | default(2) }}
+
+  # Operating system identifier (CP/M version or variant like "2.2", "3", "p2dos", "zsys")
+  os {{ os | default('2.2') }}
+
+  # libdsk format override: If set, forces a specific libdsk backend format.
+  # Omitted if not provided.
+{% if (libdsk_format | default(None)) is not none %}
+  libdsk:format {{ libdsk_format | default(None) | tojson }}
+{% endif %}
+
+  # Number of directory blocks: Overrides default directory space allocation.
+  # Omitted if not provided.
+{% if (dirblks | default(None)) is not none %}
+  dirblks {{ dirblks | default(None) | tojson }}
+{% endif %}
+
+  # Logical extents: 0 or 1, controls logical track extension behavior.
+  # Omitted if not provided.
+{% if (logicalextents | default(None)) is not none %}
+  logicalextents {{ logicalextents | default(None) | tojson }}
+{% endif %}
+
+  # Partition offset: Offset for the disk image start (e.g., "1000trk", "256KB").
+  # Omitted if not provided.
+{% if (offset | default(None)) is not none %}
+  offset {{ offset | default(None) | tojson }}
+{% endif %}
+
+  # Sides ordering: Defines how sides are interpreted (e.g., "alt" for alternating, "outout").
+  # Omitted if not provided.
+{% if (sides | default(None)) is not none %}
+  sides {{ sides | default(None) | tojson }}
+{% endif %}
+
+  # Data rate: Indicates drive data rate (e.g., "DD" for Double Density).
+  # Omitted if not provided.
+{% if (datarate | default(None)) is not none %}
+  datarate {{ datarate | default(None) | tojson }}
+{% endif %}
+
+  # FM/MFM format indicator: If "YES", uses FM encoding; otherwise defaults to MFM.
+  # Omitted if not provided.
+{% if (fm | default(None)) is not none %}
+  FM {{ fm | default(None) | tojson }}
+{% endif %}
+end

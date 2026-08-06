@@ -1,34 +1,6 @@
-# Listen on the specified address(es) for incoming NTP requests
-listen on {{ listen_addresses | join(', ') }}
+# /etc/default/openntpd
 
-# Allow clients from the specified network(s) to synchronize
-{% for network in allowed_networks %}
-{% if network.mask == 32 %}# Single host
-restrict {{ network.address }}
-{% else %}# Allow access for subnet
-restrict {{ network.address }} netmask {{ network.mask }}
-{% endif %}
-{% endfor %}
-
-# Define upstream NTP servers
-{% for server in servers %}
-server {{ server.hostname }} {% if server.iburst %}iburst{% endif %}
-{% endfor %}
-
-# Optional: Use local clock as a fallback if all servers are unreachable
-{% if fallback_to_local_clock %}driftfile /var/db/ntpd.drift
-{% if allow_local_clock %}# Allow this host to act as an NTP server even if unsynchronized
-restrict 127.0.0.1
-{% endif %}
-{% endif %}
-
-# Optional: Log verbosity (0=quiet, 1=minimal, 2=normal, 3=verbose)
-# Log level controls how much detail is written to syslog
-log level {{ log_level }}
-
-# Optional: Step clock on large offsets (>1s) without smearing
-{% if step_first %}step first {{ step_first_threshold | default(1.0) }}
-{% endif %}
-
-# Optional: Driftfile path (preserved across reboots)
-driftfile /var/db/ntpd.drift
+# Append '-s' to set the system time when starting in case the offset
+# between the local clock and the servers is more than 180 seconds.
+# For other options, see man ntpd(8).
+DAEMON_OPTS="-f {{ ntpd_config_path }}"

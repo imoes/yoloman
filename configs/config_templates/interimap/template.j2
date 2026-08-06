@@ -4,80 +4,85 @@
 # Global settings
 [global]
 # Path to the log file (leave empty for stderr only)
-log_file = {{ log_file }}
+log_file = {{ log_file | default('') }}
 
 # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level = {{ log_level }}
+log_level = {{ log_level | default('INFO') }}
 
 # Maximum number of parallel accounts to sync concurrently
-max_concurrent_accounts = {{ max_concurrent_accounts }}
+max_concurrent_accounts = {{ max_concurrent_accounts | default(3) }}
 
 # Maximum number of simultaneous connections per account
-max_connections_per_account = {{ max_connections_per_account }}
+max_connections_per_account = {{ max_connections_per_account | default(4) }}
 
 # Wait time (in seconds) before retrying a failed connection
-retry_delay = {{ retry_delay }}
+retry_delay = {{ retry_delay | default(5) }}
 
 # Enable/disable dry-run mode (no actual changes made to mailboxes)
-dry_run = {{ dry_run }}
+# Renders as 'true' or 'false' string
+dry_run = {{ dry_run | default(False) | ternary('true', 'false') }}
 
 # Enable/disable verbose debug output (includes raw IMAP traffic)
-verbose = {{ verbose }}
+# Renders as 'true' or 'false' string
+verbose = {{ verbose | default(False) | ternary('true', 'false') }}
 
 # Enable/disable QRESYNC support (required for efficient sync)
-qresync = {{ qresync }}
+# Renders as 'true' or 'false' string
+qresync = {{ qresync | default(True) | ternary('true', 'false') }}
 
 # Enable/disable UID validity validation (prevents data corruption on resync)
-validate_uidvalidity = {{ validate_uidvalidity }}
+# Renders as 'true' or 'false' string
+validate_uidvalidity = {{ validate_uidvalidity | default(True) | ternary('true', 'false') }}
 
 # Time window (in seconds) to retain temporary metadata state
-temp_state_ttl = {{ temp_state_ttl }}
+temp_state_ttl = {{ temp_state_ttl | default(600) }}
 
 # Path to the directory where temporary state is stored
-state_dir = {{ state_dir }}
+state_dir = {{ state_dir | default('/var/lib/interimap') }}
 
 # Optional: Path to a custom CA bundle for TLS verification
 tls_ca_bundle = {{ tls_ca_bundle | default('') }}
 
 # Account-specific sections
-{% for account in accounts %}
-[{{ account.name }}]
+{% for account in accounts | default([]) %}
+[{{ account.name | default('account_' ~ loop.index) }}]
 # Source IMAP server
-source_host = {{ account.source_host }}
-source_port = {{ account.source_port }}
-source_user = {{ account.source_user }}
+source_host = {{ account.source_host | default('') }}
+source_port = {{ account.source_port | default(143) }}
+source_user = {{ account.source_user | default('') }}
 # Secure connection mode: STARTTLS, SSL, or none
-source_use_ssl = {{ account.source_use_ssl }}
+source_use_ssl = {{ account.source_use_ssl | default('STARTTLS') }}
 # Use TLS (if available); required unless source_use_ssl is 'none'
-source_tls = {{ account.source_tls }}
+source_tls = {{ account.source_tls | default(True) | ternary('true', 'false') }}
 # Skip server certificate verification (⚠️ insecure — only for testing)
-source_skip_tls_verify = {{ account.source_skip_tls_verify }}
+source_skip_tls_verify = {{ account.source_skip_tls_verify | default(False) | ternary('true', 'false') }}
 
 # Destination IMAP server
-dest_host = {{ account.dest_host }}
-dest_port = {{ account.dest_port }}
-dest_user = {{ account.dest_user }}
+dest_host = {{ account.dest_host | default('') }}
+dest_port = {{ account.dest_port | default(143) }}
+dest_user = {{ account.dest_user | default('') }}
 # Secure connection mode: STARTTLS, SSL, or none
-dest_use_ssl = {{ account.dest_use_ssl }}
+dest_use_ssl = {{ account.dest_use_ssl | default('STARTTLS') }}
 # Use TLS (if available); required unless dest_use_ssl is 'none'
-dest_tls = {{ account.dest_tls }}
+dest_tls = {{ account.dest_tls | default(True) | ternary('true', 'false') }}
 # Skip server certificate verification (⚠️ insecure — only for testing)
-dest_skip_tls_verify = {{ account.dest_skip_tls_verify }}
+dest_skip_tls_verify = {{ account.dest_skip_tls_verify | default(False) | ternary('true', 'false') }}
 
 # Sync direction: 'both', 'source_to_dest', or 'dest_to_source'
-direction = {{ account.direction }}
+direction = {{ account.direction | default('both') }}
 
 # Optional: prefix to add to folder names on destination (e.g., for migration)
 folder_prefix = {{ account.folder_prefix | default('') }}
 
 # Optional: list of folder patterns to include/exclude (glob-style)
 # Format: '+' for include, '-' for exclude; patterns separated by commas
-folder_patterns = {{ account.folder_patterns | join(', ') if account.folder_patterns else '' }}
+# Renders empty string if the list is empty or undefined
+folder_patterns = {{ account.folder_patterns | default([]) | join(', ') }}
 
 # Optional: folder mapping (source→dest folder name mapping)
-{% if account.folder_mapping %}
-{% for src_folder, dst_folder in account.folder_mapping.items() %}
-folder_mapping_{{ loop.index }} = {{ src_folder }}:{{ dst_folder }}
+{% if account.folder_mapping is mapping and account.folder_mapping %}
+{% for src_folder, dst_folder in account.folder_mapping | dict2items %}
+folder_mapping_{{ loop.index }} = {{ src_folder.value }}:{{ dst_folder.value }}
 {% endfor %}
 {% endif %}
 

@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+# -*- perl -*-
+# Claws Mail Perl Filter Configuration
+# Generated via template
+use strict;
+
+# Global variables persist across messages
+$permanent = {{ permanent | default('') | default('') }};
+
+# Log verbosity (0=none, 1=manual, 2=actions, 3=matches)
+# Set once per session; default is 2 if not configured
+filter_log_verbosity({{ filter_log_verbosity | default(2) }});
+
+# --- Filter Rules ---
+# Each rule is a condition + optional action(s)
+# Actions are executed only if the condition evaluates to true
+
+{% for rule in rules %}
+# Rule: {{ rule.name | default('unnamed') }}
+{% if rule.condition == 'all' %}all{% else %}{{ rule.condition.type }}({{ rule.condition.args | join(', ') | indent(1) }}){% endif %}
+{% if rule.actions | length > 0 %}
+{% for action in rule.actions %}
+{% if action.type == 'move' or action.type == 'copy' %}{{ action.type }}({{ action.destination | tojson }}){% elif action.type == 'forward' or action.type == 'forward_as_attachment' or action.type == 'redirect' %}{{ action.type }}({{ action.account | default(0) | tojson }}, {{ action.email | tojson }}){% elif action.type == 'set_score' or action.type == 'change_score' %}{{ action.type }}({{ action.score | tojson }}){% elif action.type == 'unset_tag' or action.type == 'make_sure_folder_exists' or action.type == 'make_sure_tag_exists' %}{{ action.type }}({{ action.tag or action.identifier | tojson }}){% elif action.type == 'colorlabel' %}{{ action.type }}({{ action.color | tojson }}){% elif action.type == 'header' %}{{ action.type }}({{ action.field | tojson }}){% else %}{{ action.type }}{% endif %};
+{% endfor %}
+{% else %}stop;
+{% endif %}
+
+{% endfor %}
+
+# If no rule matched, pass to Claws Mail internal filtering engine
+# No explicit action needed — fallthrough is implicit

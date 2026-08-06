@@ -1,0 +1,49 @@
+{#
+  cowpatty - WPA/WPA2-PSK offline dictionary attack tool configuration.
+  This template generates the command-line arguments for a single cowpatty invocation.
+  Cowpatty does not use a traditional configuration file; instead, it accepts flags.
+  The variables below map directly to cowpatty's CLI options.
+#}
+
+# Path to dictionary/wordlist file for offline attack.
+# Required for standard dictionary attacks (maps to -f flag).
+# Parameter: wordlist_file
+{% if (wordlist_file | default('')) | length > 0 %}
+-f {{ wordlist_file | default('') | quote }}
+{% endif %}
+
+# Path to precomputed hash file (output of genpmk).
+# Mutually exclusive with capture_file. Do not use both -d and -r.
+# Maps to -d flag.
+# Parameter: hash_file
+{% if (hash_file | default('')) | length > 0 %}
+-d {{ hash_file | default('') | quote }}
+{% endif %}
+
+# Path to .cap packet capture file containing WPA handshakes.
+# Mutually exclusive with hash_file. Do not use both -r and -d.
+# Maps to -r flag.
+# Parameter: capture_file
+{% if (capture_file | default('')) | length > 0 %}
+-r {{ capture_file | default('') | quote }}
+{% endif %}
+
+# Target WPA SSID. Must match the ESSID in the capture or hash file.
+# Maps to -s flag.
+# Parameter: ssid
+{% if (ssid | default('')) | length > 0 %}
+-s {{ ssid | default('') | quote }}
+{% endif %}
+
+# Only verify presence of valid 4-way handshake frames; do not perform dictionary attack.
+# Maps to -c flag.
+# Parameter: check_only
+{% if check_only | default(false) %}
+-c
+{% endif %}
+
+# Verbosity level. 0 = quiet, 1 = standard, 2 = more verbose, etc.
+# Maps to repeated -v flags.
+# Parameter: verbose_level
+{% for _ in range(verbose_level | default(0)) %}-v
+{% endfor %}

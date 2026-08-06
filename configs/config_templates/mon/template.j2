@@ -1,48 +1,5 @@
-# Mon configuration file — global settings
-# Host groups definition
-{% for group in host_groups %}
-[{{ group.name }}]
-  type host
-  host {{ group.hosts | join(' ') }}
-{% if group.desc is defined %}  desc {{ group.desc }}{% endif %}
-{% endfor %}
+# Defaults for mon initscript
+# Created by Dario Minnucci <midget@debian.org>
 
-# Service definitions
-{% for service in services %}
-[{{ service.name | replace(' ', '_') }}]
-  type {{ service.type }}
-  host {{ service.host }}
-{% if service.interval is defined %}  interval {{ service.interval }}{% endif %}
-{% if service.timeout is defined %}  timeout {{ service.timeout }}{% endif %}
-{% if service.retry_interval is defined %}  retry_interval {{ service.retry_interval }}{% endif %}
-{% if service.max_attempts is defined %}  max_attempts {{ service.max_attempts }}{% endif %}
-{% if service.args is defined %}  args {{ service.args | join(' ') }}{% endif %}
-{% if service.alert is defined %}  alert {{ service.alert }}{% endif %}
-{% if service.escalate is defined %}  escalate {{ service.escalate }}{% endif %}
-{% endfor %}
-
-# Alert definitions
-{% for alert in alerts %}
-[{{ alert.name }}]
-  type {{ alert.type }}
-{% if alert.command is defined %}  command {{ alert.command }}{% endif %}
-{% if alert.email is defined %}  email {{ alert.email }}{% endif %}
-{% if alert.from is defined %}  from {{ alert.from }}{% endif %}
-{% if alert.subject is defined %}  subject {{ alert.subject }}{% endif %}
-{% if alert.to is defined %}  to {{ alert.to | join(', ') }}{% endif %}
-{% if alert.message is defined %}  message {{ alert.message }}{% endif %}
-{% if alert.logfile is defined %}  logfile {{ alert.logfile }}{% endif %}
-{% endfor %}
-
-# Mon daemon options
-monuser {{ mon_user }}
-mongroup {{ mon_group }}
-monhome {{ mon_home }}
-libdir {{ libdir }}
-logdir {{ logdir }}
-pidfile {{ pidfile }}
-{% if poll_interval is defined %}poll_interval {{ poll_interval }}{% endif %}
-{% if status_interval is defined %}status_interval {{ status_interval }}{% endif %}
-{% if enable_www is defined %}enable_www {{ enable_www | lower }}{% endif %}
-{% if www_port is defined %}www_port {{ www_port }}{% endif %}
-{% if www_auth is defined %}www_auth {{ www_auth }}{% endif %}
+# Daemon options
+DAEMON_OPTS="-f "

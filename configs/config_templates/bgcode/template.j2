@@ -1,0 +1,42 @@
+{# bgcode command-line configuration template #}
+{# This template generates the canonical CLI invocation for the bgcode utility. #}
+{# bgcode itself does not read a config file; this output is designed to be #}
+{# executed directly or passed as arguments to a wrapper script/container. #}
+{# #}
+{# Each variable is documented with its source schema description and a safe default. #}
+
+bgcode
+{# Checksum algorithm: 0 for none, 1 for CRC32 (default) #}
+{%- if checksum is defined %}
+    --checksum={{ checksum | default(1) }}
+{%- endif %}
+{# Compression for file metadata: 0=None (default), 1=Deflate, 2=Heatshrink_11_4, 3=Heatshrink_12_4 #}
+{%- if file_metadata_compression is defined %}
+    --file_metadata_compression={{ file_metadata_compression | default(0) }}
+{%- endif %}
+{# Compression for print metadata: 0=None (default), 1=Deflate, 2=Heatshrink_11_4, 3=Heatshrink_12_4 #}
+{%- if print_metadata_compression is defined %}
+    --print_metadata_compression={{ print_metadata_compression | default(0) }}
+{%- endif %}
+{# Compression for printer metadata: 0=None (default), 1=Deflate, 2=Heatshrink_11_4, 3=Heatshrink_12_4 #}
+{%- if printer_metadata_compression is defined %}
+    --printer_metadata_compression={{ printer_metadata_compression | default(0) }}
+{%- endif %}
+{# Compression for slicer metadata: 0=None (default), 1=Deflate, 2=Heatshrink_11_4, 3=Heatshrink_12_4 #}
+{%- if slicer_metadata_compression is defined %}
+    --slicer_metadata_compression={{ slicer_metadata_compression | default(0) }}
+{%- endif %}
+{# Compression for G-code: 0=None (default), 1=Deflate, 2=Heatshrink_11_4, 3=Heatshrink_12_4 #}
+{%- if gcode_compression is defined %}
+    --gcode_compression={{ gcode_compression | default(0) }}
+{%- endif %}
+{# Encoding for G-code: 0=None (default), 1=MeatPack, 2=MeatPackComments #}
+{%- if gcode_encoding is defined %}
+    --gcode_encoding={{ gcode_encoding | default(0) }}
+{%- endif %}
+{# Encoding for metadata: 0=INI (default) #}
+{%- if metadata_encoding is defined %}
+    --metadata_encoding={{ metadata_encoding | default(0) }}
+{%- endif %}
+{# Input file path. If omitted or empty, bgcode reads from stdin. #}
+    {{ input_file | default('', true) }}

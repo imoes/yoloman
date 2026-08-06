@@ -1,72 +1,15 @@
 {
+  "global_run_dir": "/run/proxsmtp",
   "global_pid_file": "/run/proxsmtp/proxsmtpd.pid",
   "global_log_file": "/var/log/proxsmtp/proxsmtpd.log",
   "global_log_level": "info",
-  "global_max_connections": 500,
+  "global_max_connections": 1000,
   "global_listen_addr": "0.0.0.0",
-  "global_listen_port": 587,
-  "tls_enabled": true,
-  "tls_cert_path": "/etc/proxsmtp/certs/proxsmtp.crt",
-  "tls_key_path": "/etc/proxsmtp/certs/proxsmtp.key",
-  "tls_ca_file": "/etc/proxsmtp/certs/ca-bundle.crt",
-  "backend_servers": [
-    {
-      "name": "primary-mx",
-      "address": "10.0.1.10",
-      "port": 25,
-      "tls": false,
-      "timeout": 60
-    },
-    {
-      "name": "backup-mx",
-      "address": "10.0.1.11",
-      "port": 25,
-      "tls": true,
-      "timeout": 30
-    }
-  ],
-  "acl_rules": [
-    {
-      "name": "block-external-spam",
-      "match_sender": [
-        "*@spam-domain.tld",
-        "spammer@example.net"
-      ],
-      "match_recipient": [],
-      "match_header": [
-        "X-Spam-Flag: YES"
-      ],
-      "action": "reject",
-      "reject_message": "Message rejected as spam"
-    },
-    {
-      "name": "rewrite-legacy",
-      "match_sender": [
-        "*.legacy.example.com"
-      ],
-      "match_recipient": [],
-      "action": "rewrite",
-      "rewrite_to": "legacy-forward@example.com"
-    }
-  ],
-  "relay_domains": [
-    {
-      "name": "internal",
-      "network": "10.0.0.0/8",
-      "auth_required": false
-    },
-    {
-      "name": "trusted-partner",
-      "domain": "partner.example.org",
-      "auth_required": true
-    }
-  ],
-  "auth_backend": {
-    "name": "ldap-users",
-    "type": "ldap",
-    "uri": "ldap://ldap.example.com",
-    "base_dn": "ou=users,dc=example,dc=com",
-    "bind_dn": "cn=proxsmtp,ou=services,dc=example,dc=com",
-    "bind_password": "secret123"
-  }
+  "global_listen_port": 25,
+  "tls_enabled": false,
+  "tls_cert_path": "/etc/proxsmtp/certs/server.crt",
+  "tls_key_path": "/etc/proxsmtp/certs/server.key",
+  "tls_ca_file": "",
+  "backend_servers": [],
+  "acl_rules": []
 }

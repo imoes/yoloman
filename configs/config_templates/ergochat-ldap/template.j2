@@ -1,0 +1,114 @@
+# Ergochat LDAP Plugin Configuration Template
+# This template configures the ergochat-ldap plugin for authentication and authorization via LDAP.
+# It supports both "single-bind" (bind as user) and "admin-bind" (bind as admin, then search) modes.
+#
+# Variables are drawn from the package schema. Defaults are provided inline to ensure safe rendering
+# even if upstream variables are undefined.
+
+# ---------------------------------------------------------------------------
+# Server Connection Settings
+# ---------------------------------------------------------------------------
+
+# LDAP server hostname
+# Default: ldap.forumsys.com
+# Type: string
+host: "{{ host | default('ldap.forumsys.com') }}"
+
+# LDAP server port
+# Default: 389
+# Type: integer
+port: {{ port | default(389) }}
+
+# LDAP connection timeout
+# Default: 30s
+# Type: string
+timeout: {{ timeout | default('30s') }}
+
+# ---------------------------------------------------------------------------
+# Authentication Mode: Single-Bind
+# ---------------------------------------------------------------------------
+# In "single-bind" mode, the plugin binds directly to the user's LDAP entry
+# using the password provided during login. The 'bind-dn' directive defines
+# the DN pattern. The '%s' placeholder is replaced by the username.
+# The 'bind_dn_suffix' provides the remaining DN components after 'uid=%s,'.
+
+# Suffix appended to 'uid=%s,' for single-bind mode bind-dn
+# Default: dc=example,dc=com
+# Type: string
+bind-dn: "uid=%s,{{ bind_dn_suffix | default('dc=example,dc=com') }}"
+
+# ---------------------------------------------------------------------------
+# Authentication Mode: Admin-Bind (Optional)
+# ---------------------------------------------------------------------------
+# Uncomment the block below to use "admin-bind" mode instead of single-bind.
+# In this mode, the plugin binds with an administrative DN first, then performs
+# a search to find the user's entry using a search filter.
+#
+# To enable, uncomment the following lines and adjust values as needed:
+#
+# Base DN for user search in admin-bind mode
+# Default: dc=example,dc=com
+# Type: string
+# search-base-dns:
+#     - "{{ admin_search_base_dn | default('dc=example,dc=com') }}"
+#
+# Admin DN to bind as in admin-bind mode
+# Default: cn=read-only-admin,dc=example,dc=com
+# Type: string
+# bind-dn: "{{ admin_bind_dn | default('cn=read-only-admin,dc=example,dc=com') }}"
+#
+# Password for admin-bind DN
+# Default: password
+# Type: string
+# bind-password: "{{ admin_bind_password | default('password') }}"
+#
+# Search filter to find the user entry (e.g., (uid=%s))
+# search-filter: "(uid=%s)"
+
+# ---------------------------------------------------------------------------
+# Authorization: Group Requirements
+# ---------------------------------------------------------------------------
+# The plugin can require users to belong to specific groups to allow login.
+# The 'require-groups' directive lists group DNs. A user must belong to at
+# least ONE of these groups (OR logic).
+#
+# To enable group requirements, uncomment the following block:
+#
+# Required group DN (example); add more via require-group_N variables if needed
+# Default: ou=mathematicians,dc=example,dc=com
+# Type: string (list of strings supported if schema allows, here rendered as list)
+# require-groups:
+#     - "{{ require_group_1 | default('ou=mathematicians,dc=example,dc=com') }}"
+
+# ---------------------------------------------------------------------------
+# Authorization: Group Search Configuration
+# ---------------------------------------------------------------------------
+# This section configures how the plugin searches for group membership.
+# It can use either a search filter against a base DN, or user attributes
+# (like Active Directory's 'memberOf').
+#
+# Base DN for group search
+# Default: dc=example,dc=com
+# Type: string
+# group-search-base-dns:
+#     - "{{ group_search_base_dn | default('dc=example,dc=com') }}"
+#
+# Group search filter for user DN lookup
+# group-search-filter: "(uniqueMember=%s)"
+#
+# Attribute in user entry that holds group memberships (e.g., 'memberOf')
+# Default: memberOf
+# Type: string
+# group-search-filter-user-attribute: "dn"
+
+# ---------------------------------------------------------------------------
+# Alternative: Group Membership via User Attributes (e.g., AD, OpenLDAP memberOf)
+# ---------------------------------------------------------------------------
+# Uncomment the block below to use user attributes for group membership testing
+# instead of explicit group searches. This overrides group-search-filter.
+#
+# User attribute used for group membership (e.g., 'memberOf' in AD)
+# Default: memberOf
+# Type: string
+# attributes:
+#     member-of: "{{ member_of_attribute | default('memberOf') }}"

@@ -1,0 +1,48 @@
+# doona service configuration
+# ---------------------------------------------------------
+# This template generates the command-line arguments for
+# the 'doona' fuzzing tool. Doona is a protocol fuzzing
+# framework that uses various modules to target services.
+# Each variable below maps to a specific command-line flag.
+# ---------------------------------------------------------
+
+# Mandatory: fuzzing module to use.
+# One of: DICT, FINGER, FTP, HTTP, HTTP_MORE, HTTP_SP, HTTP_WEBDAV, IMAP, IRC, LPD, NNTP, PJL, POP, PROXY, RTSP, SMT.
+# This defines the protocol and behavior of the fuzzer.
+-m {{ module | default('FTP') }}
+
+# Optional: Execute health check after every N fuzz cases.
+# Use 0 or omit to disable health checking between cases.
+{% if health_check_interval | default(0) != 0 %}-c {{ health_check_interval | default(0) }}{% endif %}
+
+# Optional: Target host to fuzz.
+# The hostname or IP address of the service to attack.
+{% if target | default('localhost') != 'localhost' %}-t {{ target | default('localhost') }}{% endif %}
+
+# Optional: Port to connect to.
+# Use 0 or omit to let the module determine the default port (e.g., FTP->21, HTTP->80).
+{% if port | default(0) != 0 %}-p {{ port | default(0) }}{% endif %}
+
+# Optional: Timeout in seconds after each test.
+# How long to wait for a response before considering the test failed or timed out.
+{% if timeout | default(2) != 2 %}-o {{ timeout | default(2) }}{% endif %}
+
+# Optional: Resume index (1-based).
+# Start fuzzing at this specific test case index. Use 0 or omit to start from the beginning (1).
+{% if resume_index | default(0) != 0 %}-r {{ resume_index | default(0) }}{% endif %}
+
+# Optional: Keep-alive mode.
+# If true, keep trying (restarting the fuzzing session) until the server passes a health check.
+{% if keep_alive | default(False) %}-k{% endif %}
+
+# Optional: Dump test case to stdout.
+# Outputs the current test case payload to standard output. Useful for debugging with -r.
+{% if dump_test_case | default(False) %}-d{% endif %}
+
+# Optional: Exit after N fuzz cases.
+# Limits the total number of test cases executed. Use 0 or omit to run indefinitely.
+{% if max_cases | default(0) != 0 %}-M {{ max_cases | default(0) }}{% endif %}
+
+# Optional: Additional per-module arguments.
+# A list of strings passed as-is to doona. Useful for module-specific flags not covered above.
+{% if module_args | default([]) | length > 0 %}{{ module_args | default([]) | join(' ') }}{% endif %}

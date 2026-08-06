@@ -1,0 +1,145 @@
+{#
+  ============================================================================
+  HiPerConTracer Configuration Template
+  ============================================================================
+  This template generates command-line arguments for the hipercontracer tool.
+  It is self-documenting: every option is preceded by a comment describing
+  its purpose and default value. Variables use Jinja2 `default()` filters to
+  ensure safe rendering even when the variable is undefined in the playbook.
+  ============================================================================
+#}
+
+{# Minimum logging level: 0=trace, 1=debug, 2=info, 3=warning, 4=error, 5=fatal #}
+{% set _loglevel = loglevel | default(2) %}
+-L {{ _loglevel }}
+
+{# Enable Ping service #}
+{% if ping | default(False) %}
+-P
+{% endif %}
+
+{# Enable Traceroute service #}
+{% if traceroute | default(False) %}
+-T
+{% endif %}
+
+{# Quiet mode (equivalent to loglevel=3) #}
+{% if quiet | default(False) %}
+-q
+{% endif %}
+
+{# Verbose mode (equivalent to loglevel=0) #}
+{% if verbose | default(False) %}
+-v
+{% endif %}
+
+{# User (name or UID) to run as after startup #}
+{% set _user = user | default('') %}
+{% if _user | length > 0 %}
+-U {{ _user }}
+{% endif %}
+
+{# Sources: List of source addresses/hostnames with optional traffic classes. #}
+{# Each item has 'address' (string) and 'traffic_classes' (list of strings/numbers). #}
+{% set _sources = sources | default([]) %}
+{% if _sources is iterable and _sources | length > 0 %}
+{% for source in _sources %}
+{% set _addr = source.address | default('') %}
+{% set _classes = source.traffic_classes | default([]) %}
+{% if _addr | length > 0 %}
+-S {{ _addr }}{% if _classes | length > 0 %},{{ _classes | join(',') }}{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Destinations: List of destination addresses/hostnames #}
+{% set _destinations = destinations | default([]) %}
+{% if _destinations is iterable and _destinations | length > 0 %}
+{% for destination in _destinations %}
+-D {{ destination | default('') }}
+{% endfor %}
+{% endif %}
+
+{# Limit number of measurement iterations (0 = run continuously) #}
+{% set _iterations = iterations | default(0) %}
+{% if _iterations != 0 %}
+--iterations {{ _iterations }}
+{% endif %}
+
+{# Traceroute interval in milliseconds (time between full destination rounds) #}
+{% set _traceroute_interval = traceroute_interval | default(0) %}
+{% if _traceroute_interval != 0 %}
+--tracerouteinterval {{ _traceroute_interval }}
+{% endif %}
+
+{# Traceroute duration (timeout per destination) in milliseconds #}
+{% set _traceroute_duration = traceroute_duration | default(0) %}
+{% if _traceroute_duration != 0 %}
+--tracerouteduration {{ _traceroute_duration }}
+{% endif %}
+
+{# Number of traceroute rounds to perform simultaneously #}
+{% set _traceroute_rounds = traceroute_rounds | default(1) %}
+{% if _traceroute_rounds != 1 %}
+--tracerouterounds {{ _traceroute_rounds }}
+{% endif %}
+
+{# Initial traceroute max TTL #}
+{% set _traceroute_initial_maxttl = traceroute_initial_maxttl | default(0) %}
+{% if _traceroute_initial_maxttl != 0 %}
+--tracerouteinitialmaxttl {{ _traceroute_initial_maxttl }}
+{% endif %}
+
+{# Final traceroute max TTL (when destination not reached) #}
+{% set _traceroute_final_maxttl = traceroute_final_maxttl | default(0) %}
+{% if _traceroute_final_maxttl != 0 %}
+--traceroutefinalmaxttl {{ _traceroute_final_maxttl }}
+{% endif %}
+
+{# Increment of max TTL when destination not reached #}
+{% set _traceroute_increment_maxttl = traceroute_increment_maxttl | default(0) %}
+{% if _traceroute_increment_maxttl != 0 %}
+--tracerouteincrementmaxttl {{ _traceroute_increment_maxttl }}
+{% endif %}
+
+{# Traceroute packet size in bytes (IP header + ICMP header + HiPerConTracer header + payload) #}
+{% set _traceroute_packet_size = traceroute_packet_size | default(0) %}
+{% if _traceroute_packet_size != 0 %}
+--traceroutepacketsize {{ _traceroute_packet_size }}
+{% endif %}
+
+{# Ping interval in milliseconds #}
+{% set _ping_interval = ping_interval | default(0) %}
+{% if _ping_interval != 0 %}
+--pinginterval {{ _ping_interval }}
+{% endif %}
+
+{# Ping expiration (timeout per destination) in milliseconds #}
+{% set _ping_expiration = ping_expiration | default(0) %}
+{% if _ping_expiration != 0 %}
+--pingexpiration {{ _ping_expiration }}
+{% endif %}
+
+{# Ping TTL value #}
+{% set _ping_ttl = ping_ttl | default(0) %}
+{% if _ping_ttl != 0 %}
+--pingttl {{ _ping_ttl }}
+{% endif %}
+
+{# Ping packet size in bytes (IP header + ICMP header + HiPerConTracer header + payload) #}
+{% set _ping_packet_size = ping_packet_size | default(0) %}
+{% if _ping_packet_size != 0 %}
+--pingpacketsize {{ _ping_packet_size }}
+{% endif %}
+
+{# Directory for storing results files #}
+{% set _results_directory = results_directory | default('') %}
+{% if _results_directory | length > 0 %}
+-R {{ _results_directory }}
+{% endif %}
+
+{# Length of results file transaction in seconds (start new file after this many seconds) #}
+{% set _results_transaction_length = results_transaction_length | default(0) %}
+{% if _results_transaction_length != 0 %}
+--resultstransactionlength {{ _results_transaction_length }}
+{% endif %}

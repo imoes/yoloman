@@ -1,0 +1,68 @@
+{# aespipe systemd service template
+   Self-documenting: every variable has a default and a comment explaining its source.
+   aespipe is a CLI tool for encrypting/decrypting data streams with AES.
+   It has no network bindings, no peer injection, and no external service dependencies.
+#}
+[Unit]
+{# description: Human-readable description of the service's purpose. Default: 'AES-encrypted archive pipeline'. #}
+Description=AES encryption/decryption pipe service for {{ description | default('AES-encrypted archive pipeline') }}
+After=network.target
+
+[Service]
+Type=oneshot
+{# bin_path: Path to the aespipe binary. Default: '/usr/bin/aespipe'. #}
+{# mode_args: Space-separated arguments: '-d' for decrypt, '-e' for encrypt. Default: '-e'. #}
+{# encryption_type: Encryption algorithm variant: AES128, AES192, or AES256. Default: 'AES128'. #}
+{# gpg_key_file: Path to GPG-encrypted key file. If non-empty, implies -K <file> mode. Default: ''. #}
+{# passphrase_source: Either '-P <file>' or '-p <fd>' (e.g., '-p3' for fd3), or empty. Default: ''. #}
+{# gpg_home: GPG home directory for public/private key lookups (implies -G <dir>). Default: ''. #}
+{# quiet_mode: Suppress write error warnings (implies -q). Default: False. #}
+{# verbose: Enable diagnostic output (implies -v). Default: False. #}
+{# wait_seconds: Seconds to wait before prompting for passphrase. Default: 0. #}
+{# passphrase_file: File path for -P option. Default: ''. #}
+{# passphrase_fd: File descriptor number for -p option. Default: 0. #}
+
+# Lock memory if ulimit -l allows it
+ExecStartPre=/bin/sh -c "ulimit -l unlimited 2>/dev/null || true"
+
+# Construct the aespipe command line
+# Note: indent() is used here only to visually separate optional arguments in the raw command string
+# if they are not handled by conditional logic. In a robust implementation, conditionals should be used
+# to avoid passing empty strings as arguments.
+ExecStart={{ bin_path | default('/usr/bin/aespipe') }} {{ mode_args | default('-e') }} {{ encryption_type | default('AES128') }} {{ gpg_key_file | default('') | indent(2, true) }} {{ passphrase_source | default('') | indent(2, true) }}
+
+# If passphrase file is used, ensure it is readable
+{% if passphrase_file | default('') != '' %}
+ExecStartPre=/bin/sh -c "test -r '{{ passphrase_file | default('') }}' || exit 1"
+{% endif %}
+
+# Set GPG environment if gpg_home is specified
+{% if gpg_home | default('') != '' %}
+Environment=GPG_HOMEDIR={{ gpg_home | default('') }}
+{% endif %}
+
+# Quiet mode suppresses stderr warnings and sends stdout to journal
+{% if quiet_mode | default(False) | bool %}
+StandardOutput=journal
+StandardError=journal
+{% endif %}
+
+# Verbose mode emits diagnostics to journal
+{% if verbose | default(False) | bool %}
+StandardOutput=journal
+StandardError=journal
+{% endif %}
+
+# Wait before prompting passphrase (if interactive)
+# Add a safety timeout based on the configured wait seconds
+{% if wait_seconds | default(0) | int > 0 %}
+TimeoutStartSec={{ wait_seconds | default(0) | int + 5 }}
+{% endif %}
+
+# Ensure passphrase input is handled correctly if not using GPG key file
+{% if not (gpg_key_file | default('')) and (passphrase_fd | default(0) | int != 0 or passphrase_file | default('') != '') %}
+StandardInput=none
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

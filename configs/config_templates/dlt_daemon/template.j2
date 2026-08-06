@@ -1,26 +1,177 @@
-# Enable or disable the DLT daemon
-{{ '# ' if not dlt_enabled else '' }}[General]
-{{ '# ' if not dlt_enabled else '' }}ApplicationLogging=1
-{{ '# ' if not dlt_enabled else '' }}ApplicationTrace=1
-{{ '# ' if not dlt_enabled else '' }}ContextLogging=1
-{{ '# ' if not dlt_enabled else '' }}ContextTrace=1
-{{ '# ' if not dlt_enabled else '' }}DefaultLogMode={{ dlt_default_log_mode }}
-{{ '# ' if not dlt_enabled else '' }}DefaultTraceStatus={{ dlt_default_trace_status }}
-{{ '# ' if not dlt_enabled else '' }}ConnectToLocalSocket={{ '1' if dlt_connect_to_local_socket else '0' }}
-{{ '# ' if not dlt_enabled else '' }}LocalSocketPath={{ dlt_local_socket_path }}
-{{ '# ' if not dlt_enabled else '' }}MessageHistorySize={{ dlt_message_history_size }}
-{{ '# ' if not dlt_enabled else '' }}LogFilePath={{ dlt_log_file_path }}
-{{ '# ' if not dlt_enabled else '' }}LogFileSize={{ dlt_log_file_size }}
-{{ '# ' if not dlt_enabled else '' }}LogLevel={{ dlt_log_level }}
+# ==============================================================================
+# DLT Daemon (Diagnostic Log and Trace) Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the ETSI DLT daemon.
+# It supports general settings, local socket communication, file-based logging,
+# network logging (TCP), and remote ECU connections.
+#
+# All variables are safely defaulted using schema definitions to prevent
+# render failures when values are omitted in the Ansible inventory.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [General] Section
+# ------------------------------------------------------------------------------
+
+# Whether the DLT daemon should be enabled (start automatically).
+# If false, the entire configuration is commented out.
+{% if dlt_enabled | default(True) %}
+[General]
+{% else %}
+# [General]
+{% endif %}
+
+# Application logging is always enabled in the standard configuration.
+# This enables the basic application log channel.
+{% if dlt_enabled | default(True) %}
+ApplicationLogging=1
+{% else %}
+# ApplicationLogging=1
+{% endif %}
+
+# Application trace logging is enabled by default.
+# This enables the trace log channel for detailed tracing.
+{% if dlt_enabled | default(True) %}
+ApplicationTrace=1
+{% else %}
+# ApplicationTrace=1
+{% endif %}
+
+# Context logging is enabled by default.
+# This enables logging of context messages (e.g., service start/stop).
+{% if dlt_enabled | default(True) %}
+ContextLogging=1
+{% else %}
+# ContextLogging=1
+{% endif %}
+
+# Context trace is enabled by default.
+# This enables tracing of context messages.
+{% if dlt_enabled | default(True) %}
+ContextTrace=1
+{% else %}
+# ContextTrace=1
+{% endif %}
+
+# Default log mode: 'buffered', 'streaming', or 'off'.
+# 'buffered' stores logs in memory before flushing; 'streaming' sends immediately.
+# 'off' disables logging entirely.
+{% if dlt_enabled | default(True) %}
+DefaultLogMode={{ dlt_default_log_mode | default('buffered') }}
+{% else %}
+# DefaultLogMode={{ dlt_default_log_mode | default('buffered') }}
+{% endif %}
+
+# Default trace status: 'enabled' or 'disabled'.
+# Controls whether trace messages are processed by default.
+{% if dlt_enabled | default(True) %}
+DefaultTraceStatus={{ dlt_default_trace_status | default('enabled') }}
+{% else %}
+# DefaultTraceStatus={{ dlt_default_trace_status | default('enabled') }}
+{% endif %}
+
+# If true, the daemon connects to the local DLT socket for logging.
+# Set to false to disable local socket usage.
+# Converted to 1 (true) or 0 (false) for the config format.
+{% if dlt_enabled | default(True) %}
+ConnectToLocalSocket={{ '1' if dlt_connect_to_local_socket | default(True) else '0' }}
+{% else %}
+# ConnectToLocalSocket={{ '1' if dlt_connect_to_local_socket | default(True) else '0' }}
+{% endif %}
+
+# Path to the local DLT socket used for communication.
+# Only used if ConnectToLocalSocket is enabled.
+{% if dlt_enabled | default(True) %}
+LocalSocketPath={{ dlt_local_socket_path | default('/tmp/dlt.sock') }}
+{% else %}
+# LocalSocketPath={{ dlt_local_socket_path | default('/tmp/dlt.sock') }}
+{% endif %}
+
+# Maximum number of messages kept in the in-memory history buffer.
+# Used for replaying logs to new clients.
+{% if dlt_enabled | default(True) %}
+MessageHistorySize={{ dlt_message_history_size | default(1000) }}
+{% else %}
+# MessageHistorySize={{ dlt_message_history_size | default(1000) }}
+{% endif %}
+
+# Directory where DLT log files are written when using file-based logging.
+{% if dlt_enabled | default(True) %}
+LogFilePath={{ dlt_log_file_path | default('/var/log/dlt/') }}
+{% else %}
+# LogFilePath={{ dlt_log_file_path | default('/var/log/dlt/') }}
+{% endif %}
+
+# Maximum size (in MB) per log file before rotation.
+{% if dlt_enabled | default(True) %}
+LogFileSize={{ dlt_log_file_size | default(10) }}
+{% else %}
+# LogFileSize={{ dlt_log_file_size | default(10) }}
+{% endif %}
+
+# Global minimum log level: 0 (fatal) to 7 (verbose).
+# Higher values result in more detailed logs.
+{% if dlt_enabled | default(True) %}
+LogLevel={{ dlt_log_level | default(7) }}
+{% else %}
+# LogLevel={{ dlt_log_level | default(7) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [Network] Section
+# ------------------------------------------------------------------------------
 
 # Network logging configuration (optional)
-{{ '# ' if not dlt_enabled else '' }}[Network]
-{{ '# ' if not dlt_enabled else '' }}EnableNetworkLogging={{ '1' if dlt_network_logging_enabled else '0' }}
-{{ '# ' if not dlt_enabled else '' }}NetworkLoggingPort={{ dlt_network_logging_port }}
-{{ '# ' if not dlt_enabled else '' }}NetworkLoggingInterface={{ dlt_network_logging_interface }}
+# Used to send logs over TCP to remote ECUs or central loggers.
+{% if dlt_enabled | default(True) %}
+[Network]
+{% else %}
+# [Network]
+{% endif %}
+
+# If true, enable DLT logging via network (TCP) to remote ECUs.
+# Requires NetworkLoggingPort to be set.
+{% if dlt_enabled | default(True) %}
+EnableNetworkLogging={{ '1' if dlt_network_logging_enabled | default(False) else '0' }}
+{% else %}
+# EnableNetworkLogging={{ '1' if dlt_network_logging_enabled | default(False) else '0' }}
+{% endif %}
+
+# Port used for DLT network logging (standard DLT port is 3490).
+{% if dlt_enabled | default(True) %}
+NetworkLoggingPort={{ dlt_network_logging_port | default(3490) }}
+{% else %}
+# NetworkLoggingPort={{ dlt_network_logging_port | default(3490) }}
+{% endif %}
+
+# Network interface to bind to for network logging (empty string = all interfaces).
+# If left empty, the daemon listens on all available interfaces.
+{% if dlt_enabled | default(True) %}
+NetworkLoggingInterface={{ dlt_network_logging_interface | default('') }}
+{% else %}
+# NetworkLoggingInterface={{ dlt_network_logging_interface | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [ECUList] Section
+# ------------------------------------------------------------------------------
 
 # ECUs to connect to in client mode (optional)
-{{ '# ' if not dlt_enabled else '' }}[ECUList]
-{% for item in dlt_ecu_list %}# {{ item.name }} — IP: {{ item.ip }}, Port: {{ item.port }}, Timeout (ms): {{ item.timeout_ms }}
-{{ '# ' if not dlt_enabled else '' }}{{ item.name }}={{ item.ip }}:{{ item.port }}:{{ item.timeout_ms }}
+# Each item defines a remote ECU endpoint for trace log aggregation.
+# Format: ECU_ID=IP:PORT:TIMEOUT_MS
+{% if dlt_enabled | default(True) %}
+[ECUList]
+{% else %}
+# [ECUList]
+{% endif %}
+
+# Iterate over the list of ECUs defined in the inventory.
+{% for ecu in (dlt_ecu_list | default([])) %}
+# ECU Entry: {{ ecu.name | default('unknown') }}
+# IP: {{ ecu.ip | default('0.0.0.0') }}, Port: {{ ecu.port | default(3490) }}, Timeout: {{ ecu.timeout_ms | default(0) }} ms
+{% if dlt_enabled | default(True) %}
+{{ ecu.name | default('unknown') }}={{ ecu.ip | default('0.0.0.0') }}:{{ ecu.port | default(3490) }}:{{ ecu.timeout_ms | default(0) }}
+{% else %}
+# {{ ecu.name | default('unknown') }}={{ ecu.ip | default('0.0.0.0') }}:{{ ecu.port | default(3490) }}:{{ ecu.timeout_ms | default(0) }}
+{% endif %}
 {% endfor %}

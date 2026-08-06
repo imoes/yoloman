@@ -1,0 +1,46 @@
+# ============================================================================
+# Docker Compose Specification Validation Configuration
+# ============================================================================
+# This file configures the behavior of `docker compose config` or the
+# compose-spec validator tool. It controls output format and validation
+# strictness/normalization steps.
+#
+# Fields:
+#   format: Output format for validation results (yaml|json). Default: yaml.
+#   no_consistency: Disable model consistency checking. Default: False.
+#   no_interpolation: Disable environment variable interpolation. Default: False.
+#   no_normalization: Disable compose model normalization. Default: False.
+#   no_path_resolution: Disable file path resolution. Default: False.
+# ============================================================================
+
+# Output format for validation results (yaml|json)
+# Set to 'json' if you need machine-parseable output; otherwise 'yaml' is default.
+{% if format | default('yaml') == 'json' %}
+-format json
+{% else %}
+-format yaml
+{% endif %}
+
+# Disable model consistency checking
+# When true, skips validation of logical consistency between services (e.g. ports, networks).
+{% if no_consistency | default(False) %}
+-no-consistency
+{% endif %}
+
+# Disable environment variable interpolation
+# When true, prevents the validator from expanding $VAR or ${VAR} in the compose file.
+{% if no_interpolation | default(False) %}
+-no-interpolation
+{% endif %}
+
+# Disable compose model normalization
+# When true, skips applying default values and structural normalization to the model.
+{% if no_normalization | default(False) %}
+-no-normalization
+{% endif %}
+
+# Disable file path resolution
+# When true, skips resolving relative file paths (e.g. for build contexts or volumes).
+{% if no_path_resolution | default(False) %}
+-no-path-resolution
+{% endif %}

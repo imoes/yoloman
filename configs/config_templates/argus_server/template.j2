@@ -1,73 +1,173 @@
-# Network interface to bind to for theArgus server
-host: {{ host }}
-# Port theArgus server listens on for incoming connections
-port: {{ port }}
-# Logging level: debug, info, warn, error
-log_level: {{ log_level }}
-# Directory where audit logs are stored
-log_dir: {{ log_dir }}
-# Enable or disable SSL/TLS for client connections
-ssl_enabled: {{ ssl_enabled }}
-{% if ssl_enabled %}
-# Path to SSL certificate file (required if ssl_enabled is true)
-ssl_cert: {{ ssl_cert }}
-# Path to SSL private key file (required if ssl_enabled is true)
-ssl_key: {{ ssl_key }}
+# ==============================================================================
+# Argus Server Configuration Template
+# ==============================================================================
+# This template configures the Argus server. All variables are sourced from
+# Ansible inventory/host vars. Missing variables fall back to schema defaults.
+# ==============================================================================
+
+# [Network] IP address (IPv4/IPv6) the Argus server binds to.
+# Use `0.0.0.0` to listen on all interfaces.
+host: {{ host | default('0.0.0.0') }}
+
+# [Network] TCP port number for the Argus API and management interface.
+port: {{ port | default(8080) }}
+
+# [Logging] Verbosity of logging: `debug`, `info`, `warn`, or `error`.
+log_level: {{ log_level | default('info') }}
+
+# [Logging] Absolute path to the directory where audit logs are written.
+log_dir: {{ log_dir | default('/var/log/argus') }}
+
+# [Security] Whether to enable TLS encryption for client connections.
+ssl_enabled: {{ ssl_enabled | default(false) }}
+
+{% if (ssl_enabled | default(false)) %}
+# [Security] Path to the SSL certificate file (PEM format).
+# Required if `ssl_enabled` is true.
+ssl_cert: {{ ssl_cert | default('/etc/argus/ssl/cert.pem') }}
+
+# [Security] Path to the SSL private key file (PEM format).
+# Required if `ssl_enabled` is true.
+ssl_key: {{ ssl_key | default('/etc/argus/ssl/key.pem') }}
 {% endif %}
-# Maximum number of concurrent client connections
-max_connections: {{ max_connections }}
-# Time in seconds to wait for idle client connections before closing
-idle_timeout: {{ idle_timeout }}
-# Database backend configuration
+
+# [Performance] Maximum number of simultaneous client connections the server accepts.
+max_connections: {{ max_connections | default(1000) }}
+
+# [Performance] Seconds of inactivity before a client connection is closed.
+idle_timeout: {{ idle_timeout | default(300) }}
+
+# ==============================================================================
+# Database Configuration
+# [Database] Database configuration for storing audit records.
+# Supports 'sqlite', 'postgresql', and potentially others depending on backend.
+# ==============================================================================
 [database]
-type: {{ db.type }}
-{% if db.type == 'sqlite' %}
-path: {{ db.path }}
-{% elif db.type == 'postgresql' %}
-host: {{ db.host }}
-port: {{ db.port }}
-name: {{ db.name }}
-user: {{ db.user }}
-{% if db.ssl_mode %}
-ssl_mode: {{ db.ssl_mode }}
+type: {{ (db | default({'type': 'sqlite', 'path': '/var/lib/argus/argus.db'})).type | default('sqlite') }}
+
+{% set db_cfg = db | default({'type': 'sqlite', 'path': '/var/lib/argus/argus.db'}) %}
+
+{% if (db_cfg.type | default('sqlite')) == 'sqlite' %}
+# [Database] Path to the SQLite database file.
+# Required when type is 'sqlite'.
+path: {{ db_cfg.path | default('/var/lib/argus/argus.db') }}
+
+{% elif (db_cfg.type | default('sqlite')) == 'postgresql' %}
+# [Database] Hostname or IP of the PostgreSQL server.
+# Required when type is 'postgresql'.
+host: {{ (db_cfg.host | default('localhost')) }}
+
+# [Database] Port of the PostgreSQL server.
+# Required when type is 'postgresql'.
+port: {{ (db_cfg.port | default(5432)) }}
+
+# [Database] Name of the database to connect to.
+# Required when type is 'postgresql'.
+name: {{ (db_cfg.name | default('argus')) }}
+
+# [Database] User to authenticate with PostgreSQL.
+# Required when type is 'postgresql'.
+user: {{ (db_cfg.user | default('argus')) }}
+
+# [Database] Password for the PostgreSQL user.
+# Required when type is 'postgresql'.
+password: {{ (db_cfg.password | default('')) }}
+
+# [Database] SSL mode for PostgreSQL connection (e.g., 'require', 'verify-full').
+ssl_mode: {{ (db_cfg.ssl_mode | default('prefer')) }}
+
+{% elif (db_cfg.type | default('sqlite')) == 'mysql' %}
+# [Database] Hostname or IP of the MySQL/MariaDB server.
+host: {{ (db_cfg.host | default('localhost')) }}
+
+# [Database] Port of the MySQL/MariaDB server.
+port: {{ (db_cfg.port | default(3306)) }}
+
+# [Database] Name of the database to connect to.
+name: {{ (db_cfg.name | default('argus')) }}
+
+# [Database] User to authenticate with MySQL.
+user: {{ (db_cfg.user | default('argus')) }}
+
+# [Database] Password for the MySQL user.
+password: {{ (db_cfg.password | default('')) }}
+
+{% elif (db_cfg.type | default('sqlite')) == 'mongodb' %}
+# [Database] Connection URI for MongoDB.
+# Note: Argus may expect a URI string here.
+uri: {{ (db_cfg.uri | default('mongodb://localhost:27017/argus')) }}
+
 {% endif %}
-{% endif %}
-# Audit rules — define per-protocol transaction logging rules
+
+# ==============================================================================
+# Audit Rules
+# [Audit] List of audit rules to define which transactions to capture and log.
+# Each rule is a mapping with 'name', 'enabled', 'protocol', etc.
+# ==============================================================================
 [audit_rules]
-{% for rule in audit_rules %}
-# Rule: {{ rule.name }} — {{ rule.description }}
-[rule:{{ rule.name }}]
-enabled: {{ rule.enabled }}
-protocol: {{ rule.protocol }}
-{% if rule.protocol == 'tcp' %}
-listen_ports: {{ rule.ports | join(', ') }}
+{% for rule in (audit_rules | default([])) %}
+# Rule: {{ rule.name | default('unnamed') }} — {{ rule.description | default('No description provided') }}
+[rule:{{ rule.name | default('unnamed') }}]
+enabled: {{ rule.enabled | default(true) }}
+protocol: {{ rule.protocol | default('tcp') }}
+
+{% if rule.protocol | default('tcp') == 'tcp' %}
+# [Audit] Comma-separated list of TCP ports to monitor for this rule.
+listen_ports: {{ rule.ports | default([]) | join(', ') }}
 {% endif %}
-{% if rule.filters %}
+
+{% if rule.filters is defined and rule.filters %}
+# [Audit] Filters applied to this rule.
 filters:
 {% for f in rule.filters %}  - {{ f }}
 {% endfor %}
 {% endif %}
-log_to: {{ rule.log_to }}
+
+# [Audit] Destination or method for logging (e.g., 'syslog', 'file').
+log_to: {{ rule.log_to | default('syslog') }}
+
 {% endfor %}
-# Alerting — define destinations for audit alerts
+
+# ==============================================================================
+# Alerting Configuration
+# [Alerts] Alerting settings for audit events.
+# ==============================================================================
 [alerts]
-email_enabled: {{ alerts.email_enabled }}
-{% if alerts.email_enabled %}
-smtp_server: {{ alerts.smtp_server }}
-smtp_port: {{ alerts.smtp_port }}
-from_addr: {{ alerts.from_addr }}
-to_addrs: {{ alerts.to_addrs | join(', ') }}
+# [Alerts] Whether to send audit alerts via email.
+email_enabled: {{ (alerts | default({})).email_enabled | default(false) }}
+
+{% if ((alerts | default({})).email_enabled | default(false)) %}
+# [Alerts] SMTP server hostname for sending alerts.
+smtp_server: {{ (alerts.smtp_server | default('localhost')) }}
+
+# [Alerts] SMTP server port (typically 587 for TLS, 465 for SSL).
+smtp_port: {{ (alerts.smtp_port | default(587)) }}
+
+# [Alerts] Sender email address for alerts.
+from_addr: {{ (alerts.from_addr | default('argus-alerts@example.com')) }}
+
+# [Alerts] List of recipient email addresses for alerts.
+to_addrs: {{ (alerts.to_addrs | default([])) | join(', ') }}
 {% endif %}
-webhook_enabled: {{ alerts.webhook_enabled }}
-{% if alerts.webhook_enabled %}
-{% for wh in alerts.webhooks %}
-[webhook:{{ wh.name }}]
-url: {{ wh.url }}
-method: {{ wh.method }}
-{% if wh.headers %}
+
+# [Alerts] Whether to send audit alerts to HTTP(S) webhooks.
+webhook_enabled: {{ (alerts | default({})).webhook_enabled | default(false) }}
+
+{% if ((alerts | default({})).webhook_enabled | default(false)) %}
+{% for wh in (alerts.webhooks | default([])) %}
+# Webhook: {{ wh.name | default('unnamed') }}
+[webhook:{{ wh.name | default('unnamed') }}]
+# [Alerts] URL of the webhook endpoint.
+url: {{ wh.url | default('') }}
+# [Alerts] HTTP method (e.g., 'POST', 'PUT').
+method: {{ wh.method | default('POST') }}
+
+{% if wh.headers is defined and wh.headers %}
+# [Alerts] Custom headers to include in webhook requests.
 headers:
-{% for k, v in wh.headers.items() %}  {{ k }}: {{ v }}
+{% for k, v in (wh.headers | default({})) | dict2items %}  {{ k.key }}: {{ v.value }}
 {% endfor %}
 {% endif %}
+
 {% endfor %}
 {% endif %}

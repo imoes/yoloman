@@ -1,42 +1,123 @@
-{# JSON config for Docker daemon #}
-{
-  {# Listen address for Docker API (REST) #}
-  "hosts": [{{ hosts | map('"{}"' | format) | join(', ') }}],
+{#
+  ============================================================================
+  Docker Daemon Configuration (/etc/docker/daemon.json)
+  ============================================================================
+  This template generates the JSON configuration file for the Docker daemon.
+  It is self-documenting: every configuration key is preceded by a comment
+  derived from the schema description.
 
-  {# Root directory for Docker data (images, containers, volumes, etc.) #}
-  "data-root": "{{ data_root }}",
+  Variables used in this template correspond exactly to the schema fields:
+  - hosts
+  - data_root
+  - storage_driver
+  - log_driver
+  - log_opts
+  - dns
+  - dns_search
+  - insecure_registries
+  - default_runtime
+  - runtimes
+  ============================================================================
+#}
+{#
+  List of addresses for the Docker daemon to listen on (e.g., tcp://0.0.0.0:2375, unix:///var/run/docker.sock).
+  Default: ['unix:///var/run/docker.sock']
+#}
+"hosts": [
+  {% set _hosts = hosts | default(['unix:///var/run/docker.sock']) %}
+  {% for h in _hosts %}
+  "{{ h }}"{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
 
-  {# Storage driver to use (e.g., overlay2, zfs, btrfs) #}
-  "storage-driver": "{{ storage_driver }}",
+{#
+  Path to the directory where Docker stores data (images, containers, volumes, etc.).
+  Default: '/var/lib/docker'
+#}
+"data-root": "{{ data_root | default('/var/lib/docker') }}",
 
-  {# Logging driver and options for containers #}
-  "log-driver": "{{ log_driver }}",
-  "log-opts": {
-    {{ log_opts | to_entries | map('  "{}": "{}"'.format | indent(2, true)) | join(',\n') }}
-  },
+{#
+  Storage driver to use for managing container layers (e.g., overlay2, vfs, btrfs).
+  Must be supported by the host filesystem.
+  Default: 'overlay2'
+#}
+"storage-driver": "{{ storage_driver | default('overlay2') }}",
 
-  {# DNS servers for containers #}
-  "dns": [{{ dns | map('"{}"' | format) | join(', ') }}],
+{#
+  Default logging driver for containers.
+  Default: 'json-file'
+#}
+"log-driver": "{{ log_driver | default('json-file') }}",
 
-  {# DNS search domains for containers #}
-  "dns-search": [{{ dns_search | map('"{}"' | format) | join(', ') }}],
+{#
+  Options for the default logging driver (e.g., max-size, max-file).
+  If null or empty, no specific options are set beyond defaults.
+  Default: None
+#}
+"log-opts": {
+  {% set _log_opts = log_opts | default(omit) %}
+  {% if _log_opts is defined %}
+  {% for k, v in _log_opts | dict2items %}
+  "{{ k }}": "{{ v }}"{% if not loop.last %},{% endif %}
 
-  {# Enable insecure registries (not recommended for production) #}
-  "insecure-registries": [{{ insecure_registries | map('"{}"' | format) | join(', ') }}],
+  {% endfor %}
+  {% endif %}
+},
 
-  {# Default runtime (usually "runc") #}
-  "default-runtime": "{{ default_runtime }}",
+{#
+  List of DNS servers for containers to use for name resolution.
+  Default: []
+#}
+"dns": [
+  {% set _dns = dns | default([]) %}
+  {% for d in _dns %}
+  "{{ d }}"{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
 
-  {# Runtimes for OCI-compliant runtimes (e.g., runsc, kata) #}
-  "runtimes": {
-    {{ runtimes | to_entries | map('  "{}": {\n    "path": "{}",\n    "args": {}'.format | indent(4, true)) | join(',\n') | replace('    ', '    ') }}
-  },
+{#
+  List of DNS search domains for containers.
+  Default: []
+#}
+"dns-search": [
+  {% set _dns_search = dns_search | default([]) %}
+  {% for d in _dns_search %}
+  "{{ d }}"{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
 
-  {# Enable Live Restore to keep containers running during daemon restarts #}
-  "live-restore": {{ live_restore | lower }},
+{#
+  List of private registry hostnames/IPs that are allowed to use HTTP or HTTPS
+  with untrusted certificates.
+  Default: []
+#}
+"insecure-registries": [
+  {% set _insecure = insecure_registries | default([]) %}
+  {% for r in _insecure %}
+  "{{ r }}"{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
 
-  {# Enable containerd snapshotter for image layering (v2 only) #}
-  "features": {
-    "containerd-snapshotter": {{ features_containerd_snapshotter | lower }}
-  }
+{#
+  Default OCI runtime to use for running containers.
+  Default: 'runc'
+#}
+"default-runtime": "{{ default_runtime | default('runc') }}",
+
+{#
+  Additional OCI-compliant runtimes available for use (e.g., 'runsc' for gVisor,
+  'kata' for Kata Containers). Each entry maps a name to its configuration object.
+  Default: None
+#}
+"runtimes": {
+  {% set _runtimes = runtimes | default(omit) %}
+  {% if _runtimes is defined %}
+  {% for name, config in _runtimes | dict2items %}
+  "{{ name }}": {
+    "path": "{{ config.path | default('') }}",
+    "args": {{ config.args | default([]) | tojson }}
+  }{% if not loop.last %},{% endif %}
+
+  {% endfor %}
+  {% endif %}
 }

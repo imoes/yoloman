@@ -1,49 +1,10 @@
-# gophernicus main configuration file
-# This file is processed on every startup by gophernicus
-# Listen on these addresses and ports (IPv4/IPv6)
-{{ 'HOST=' + host }}
-{{ 'PORT=' + port }}
+# Gophernicus configuration template.
+#
+# This template generates the command-line options for the gophernicus
+# Gopher server daemon. It is self-documenting: each option corresponds
+# to a field in the Ansible schema, with inline defaults and comments
+# explaining the purpose.
 
-# Base directory for gopher content (filesystem root)
-{{ 'GOPHER_ROOT=' + gopher_root }}
-
-# User and group to run as (drop privileges)
-{{ 'USER=' + user }}
-{{ 'GROUP=' + group }}
-
-# Enable or disable directory listing (index generation)
-{{ 'DIRECTORY_INDEX=' + ('yes' if directory_index else 'no') }}
-
-# Log to syslog (on) or to stderr (off)
-{{ 'SYSLOG=' + ('yes' if syslog else 'no') }}
-
-# Maximum number of concurrent connections
-{{ 'MAX_CONNECTIONS=' + max_connections }}
-
-# Maximum time a client may hold a connection (in seconds)
-{{ 'TIMEOUT=' + timeout }}
-
-# Default charset to advertise in Server: header
-{{ 'CHARSET=' + charset }}
-
-# Gophermap generation fallback (none, text, html)
-{{ 'GOPHERMAP_FALLBACK=' + gophermap_fallback }}
-
-# Prefix to prepend to all paths (useful for chroot or proxying)
-{{ 'PATH_PREFIX=' + path_prefix }}
-
-# Allow client IP logging (for access logs)
-{{ 'LOG_CLIENT_IP=' + ('yes' if log_client_ip else 'no') }}
-
-# MIME type overrides: list of extensions → types
-{% for ext, mime_type in mime_overrides.items() %}{{ 'MIME_' + ext | upper + '=' + mime_type }}
-{% endfor %}
-
-# Access control: IP/network allow/deny rules
-# Format: ACTION:IP_OR_NETWORK (e.g., ALLOW:192.168.0.0/16)
-{% for rule in access_rules %}{{ rule }}
-{% endfor %}
-
-# Virtual host mapping: HOST:ROOT (one per line)
-{% for vhost in virtual_hosts %}{{ vhost.host }}:{{ vhost.root }}
-{% endfor %}
+# The following variable sets the options used to invoke gophernicus.
+# Please see the man page for more details
+OPTIONS=-r {{ gopher_root | default('/srv/gopher') }}

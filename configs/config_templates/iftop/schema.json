@@ -11,56 +11,66 @@
   },
   "output_mode": {
     "type": "string",
-    "default": "c",
-    "description": "Units and display mode: 'c' (cumulative bytes), 't' (total bytes since start), 'b' (bytes per second). Choose based on your monitoring goals."
-  },
-  "host_limit": {
-    "type": "number",
-    "default": 20,
-    "description": "Maximum number of host connections to show in the top list. Increase for busy networks."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to append real-time logs (e.g., '/var/log/iftop.log'). Empty disables logging. Requires write permissions."
+    "default": "two-line",
+    "description": "Display mode for the host entries. Options: 'two-line' (default), 'one-line-both', 'one-line-sent', 'one-line-received'.",
+    "enum": [
+      "two-line",
+      "one-line-both",
+      "one-line-sent",
+      "one-line-received"
+    ]
   },
   "reverse_dns": {
     "type": "bool",
-    "default": false,
-    "description": "Enable or disable reverse DNS lookups to display hostnames instead of raw IP addresses. May add latency."
-  },
-  "dns_timeout": {
-    "type": "number",
-    "default": 5000,
-    "description": "Timeout in milliseconds for DNS lookups. Increase if name resolution fails on slow networks."
-  },
-  "port_map_file": {
-    "type": "string",
-    "default": "/etc/iftop/portmap",
-    "description": "Path to a file with custom service-to-port mappings (format: 'port service_name'). Required for non-standard services."
+    "default": true,
+    "description": "Enable or disable reverse DNS lookups to display hostnames instead of raw IP addresses. Default is yes."
   },
   "sort_by": {
-    "type": "number",
-    "default": 2,
-    "description": "Sort order for the host list: 0 (source), 1 (destination), 2 (total traffic). Choose based on your primary concern."
+    "type": "string",
+    "default": "10s",
+    "description": "Sort order for the host list. Options: '2s', '10s' (default), '40s', 'source', 'destination'.",
+    "enum": [
+      "2s",
+      "10s",
+      "40s",
+      "source",
+      "destination"
+    ]
   },
   "color": {
     "type": "bool",
     "default": true,
-    "description": "Enable colorized output (e.g., red for high traffic). Disable for terminal compatibility or log files."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 1,
-    "description": "Verbosity of diagnostic logging: 0 (quiet), 1 (normal), 2 (verbose), 3 (debug). Only effective if log_file is set."
+    "description": "Enable bar graphs. Disable for terminal compatibility or log files. Mapped to `show-bars`."
   },
   "ignore_hosts": {
     "type": "list",
     "default": [],
-    "description": "List of IP addresses or substrings to exclude from display. Useful for excluding monitoring traffic or local services.",
-    "items": {
-      "type": "string",
-      "description": "Host pattern (IP, hostname substring, or CIDR block like '192.168.1.0/24')"
-    }
+    "description": "List of IP addresses or substrings to exclude from display. Mapped to `screen-filter` (as pipe-separated regex) in config."
+  },
+  "promiscuous": {
+    "type": "bool",
+    "default": false,
+    "description": "Put the interface into promiscuous mode, so that traffic which does not pass directly through the specified interface is also counted."
+  },
+  "port_display": {
+    "type": "string",
+    "default": "off",
+    "description": "Controls display of port numbers. Options: 'off', 'source-only', 'destination-only', 'on'.",
+    "enum": [
+      "off",
+      "source-only",
+      "destination-only",
+      "on"
+    ]
+  },
+  "use_bytes": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bytes for bandwidth display, rather than bits."
+  },
+  "link_local": {
+    "type": "bool",
+    "default": false,
+    "description": "Determines displaying of link-local IPv6 addresses."
   }
 }

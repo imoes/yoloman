@@ -6,7 +6,7 @@
   },
   "pid_file": {
     "type": "string",
-    "default": "/run/osspd/osspd.pid",
+    "default": "/var/run/osspd.pid",
     "description": "Absolute path to the PID file for the daemon process"
   },
   "work_dir": {
@@ -30,12 +30,7 @@
       9002,
       9003
     ],
-    "description": "List of TCP ports for audio emulation (one per OSS device instance)",
-    "items": {
-      "type": "number",
-      "minimum": 1,
-      "maximum": 65535
-    }
+    "description": "List of TCP ports for audio emulation (one per OSS device instance)"
   },
   "max_clients": {
     "type": "number",
@@ -57,34 +52,16 @@
         "format": "S16_LE"
       }
     ],
-    "description": "List of OSS devices to emulate (e.g., /dev/dsp, /dev/mixer)",
-    "items": {
-      "device": {
-        "type": "string",
-        "default": "/dev/dsp",
-        "description": "OSS device path"
-      },
-      "channels": {
-        "type": "number",
-        "default": 2,
-        "description": "Number of channels (1=mono, 2=stereo)"
-      },
-      "sample_rate": {
-        "type": "number",
-        "default": 48000,
-        "description": "Default sample rate in Hz"
-      },
-      "format": {
-        "type": "string",
-        "default": "S16_LE",
-        "description": "Audio format: S16_LE, U16_LE, S24_LE, S32_LE, etc."
-      }
-    }
+    "description": "List of OSS devices to emulate (e.g., /dev/dsp, /dev/mixer)"
   },
   "backend_dsp": {
     "type": "string",
     "default": "alsa",
-    "description": "Backend DSP implementation: 'alsa', 'jack', 'pipewire', or empty to auto-detect"
+    "description": "Backend DSP implementation: 'alsa', 'jack', 'pipewire', or empty to auto-detect",
+    "enum": [
+      "alsa",
+      "jack"
+    ]
   },
   "alsa_device": {
     "type": "string",
@@ -129,16 +106,6 @@
   "device_mappings": {
     "type": "list",
     "default": [],
-    "description": "Optional mapping of OSS device paths to internal instance IDs",
-    "items": {
-      "oss_device": {
-        "type": "string",
-        "description": "OSS device path (e.g., '/dev/dsp0')"
-      },
-      "oss_instance": {
-        "type": "number",
-        "description": "Internal OSS instance number (0, 1, 2, ...)"
-      }
-    }
+    "description": "Optional mapping of OSS device paths to internal instance IDs"
   }
 }

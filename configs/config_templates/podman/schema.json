@@ -1,179 +1,22 @@
 {
-  "storage_driver": {
+  "cni_network_name": {
     "type": "string",
-    "default": "overlay",
-    "description": "Storage driver used for image and container layers. Common values: overlay, vfs, btrfs, zfs."
+    "default": "podman",
+    "description": "Name of the CNI network configuration (used by Podman)."
   },
-  "storage_config_path": {
+  "cni_bridge_name": {
     "type": "string",
-    "default": "~/.local/share/containers/storage",
-    "description": "Path to the directory where Podman stores image layers, containers, and volumes."
+    "default": "cni-podman0",
+    "description": "Name of the CNI bridge interface to create (e.g., cni-podman0)."
   },
-  "default_runtime": {
+  "cni_subnet": {
     "type": "string",
-    "default": "crun",
-    "description": "Default OCI runtime used to launch containers (e.g., runc, crun)."
+    "default": "10.88.0.0/16",
+    "description": "Subnet for the container network (CIDR notation)."
   },
-  "systemd_cgroup": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable systemd-managed cgroups for containers (required for systemd-based services)."
-  },
-  "log_level": {
+  "cni_gateway": {
     "type": "string",
-    "default": "warn",
-    "description": "Logging verbosity level for Podman operations."
-  },
-  "cni_config_file": {
-    "type": "string",
-    "default": "",
-    "description": "Optional path to a custom CNI network configuration file or directory (leave blank for default)."
-  },
-  "registries": {
-    "type": "list",
-    "default": [
-      {
-        "name": "docker.io",
-        "insecure": false,
-        "blocked": false
-      }
-    ],
-    "description": "List of registries to search when pulling images.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Registry hostname (e.g., docker.io, quay.io, registry.example.com)."
-      },
-      "insecure": {
-        "type": "boolean",
-        "default": false,
-        "description": "Allow connecting to this registry over HTTP (not HTTPS)."
-      },
-      "blocked": {
-        "type": "boolean",
-        "default": false,
-        "description": "Block pulling images from this registry."
-      },
-      "prefix": {
-        "type": "string",
-        "default": "",
-        "description": "Optional prefix for image name rewriting (e.g., 'library/' for docker.io)."
-      }
-    }
-  },
-  "default_namespace": {
-    "type": "string",
-    "default": "",
-    "description": "Default image namespace to use if none is specified (e.g., 'library')."
-  },
-  "default_tag": {
-    "type": "string",
-    "default": "latest",
-    "description": "Default tag to apply if none is specified."
-  },
-  "runtimes": {
-    "type": "object",
-    "default": {
-      "crun": {
-        "path": "/usr/bin/crun"
-      },
-      "runc": {
-        "path": "/usr/bin/runc"
-      }
-    },
-    "description": "Named runtime definitions (e.g., for alternative runtimes like 'kata', 'gvisor').",
-    "items": {
-      "type": "object",
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "Absolute path to the OCI runtime binary."
-        },
-        "args": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "description": "Optional list of arguments passed to the runtime."
-        },
-        "runtime_type": {
-          "type": "string",
-          "description": "Runtime type ('oci' or 'vm')."
-        }
-      }
-    }
-  },
-  "selinux_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable SELinux support for containers (Linux only)."
-  },
-  "default_volumes": {
-    "type": "list",
-    "default": [],
-    "description": "Named volume mounts to attach by default to new containers.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Volume name used in -v/--mount."
-      },
-      "path": {
-        "type": "string",
-        "description": "Host path or volume source."
-      }
-    }
-  },
-  "env": {
-    "type": "object",
-    "default": {},
-    "description": "Key-value pairs of environment variables automatically added to all containers."
-  },
-  "hooks": {
-    "type": "list",
-    "default": [],
-    "description": "Hooks to run before container start or after container stop.",
-    "items": {
-      "type": "string",
-      "enum": [
-        "prestart",
-        "poststop"
-      ],
-      "description": "Hook type."
-    },
-    "additionalProperties": {
-      "path": {
-        "type": "string",
-        "description": "Path to hook script."
-      },
-      "args": {
-        "type": "list",
-        "items": {
-          "type": "string"
-        },
-        "description": "Arguments passed to the hook script."
-      }
-    }
-  },
-  "netns": {
-    "type": "string",
-    "default": "private",
-    "description": "Default network namespace mode ('private', 'host', 'none', 'bridge')."
-  },
-  "dns": {
-    "type": "list",
-    "default": [
-      "8.8.8.8",
-      "1.1.1.1"
-    ],
-    "description": "List of DNS server IPs to configure inside containers.",
-    "items": {
-      "type": "string",
-      "format": "ipv4"
-    }
-  },
-  "userns_mode": {
-    "type": "string",
-    "default": "auto",
-    "description": "User namespace mode for rootless containers (e.g., 'auto', 'host', 'auto:1000:1')."
+    "default": "10.88.0.1",
+    "description": "Gateway IP address for the container subnet."
   }
 }

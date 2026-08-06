@@ -1,53 +1,104 @@
-{# ModemManager global configuration #}
+# ModemManager Configuration File
+#
+# This template generates a valid ModemManager configuration file (modemmanager.conf).
+# It documents every setting with comments derived from the schema descriptions.
+# All variables are safe: defaults are provided inline to prevent render failures.
+
 [main]
-{# Enable or disable ModemManager entirely #}
-Enabled={{ main_enabled }}
-{# Log level: 0=none, 1=ERR, 2=WARN, 3=INFO, 4=DEBUG #}
-LogLevel={{ main_log_level }}
-{# Log domains bitmask to filter logs by component #}
-LogDomains={{ main_log_domains }}
-{# Maximum time (in seconds) to wait for a modem to respond during initialization #}
-ModemTimeout={{ main_modem_timeout }}
-{# Maximum number of connection attempts per connection request #}
-MaxConnectionAttempts={{ main_max_connection_attempts }}
-{# Enable or disable plugin auto-loading #}
-PluginDir={{ main_plugin_dir }}
-{# List of allowed vendor IDs (hex, comma-separated) for whitelist mode #}
-AllowedVendorIds={{ main_allowed_vendor_ids | join(', ') }}
-{# List of forbidden vendor IDs (hex, comma-separated) for blacklist mode #}
-ForbiddenVendorIds={{ main_forbidden_vendor_ids | join(', ') }}
-{# List of allowed device IDs (hex, comma-separated) per vendor for whitelist mode #}
-AllowedDeviceIds={{ main_allowed_device_ids | join(', ') }}
-ForbiddenDeviceIds={{ main_forbidden_device_ids | join(', ') }}
-{# List of plugins to explicitly enable #}
-EnablePlugins={{ main_enable_plugins | join(', ') }}
-{# List of plugins to explicitly disable #}
-DisablePlugins={{ main_disable_plugins | join(', ') }}
+
+# Log verbosity: ERR, WARN, INFO, or DEBUG.
+LogLevel={{ main_log_level | default('INFO') }}
+
+# Bitmask for filtering log messages by domain (e.g., 0x00000001 = general, 0x00000002 = GSM, etc.).
+LogDomains={{ main_log_domains | default(0) }}
+
+# Path to ModemManager plugin directory.
+PluginDir={{ main_plugin_dir | default('') }}
+
+# Plugins to enable explicitly (e.g., ['mbim', 'qmi']). If non-empty, only these are loaded.
+# Outputs a comma-separated list.
+EnablePlugins={{ main_enable_plugins | default([]) | join(', ') }}
+
+# Plugins to disable explicitly (e.g., ['at']).
+# Outputs a comma-separated list.
+DisablePlugins={{ main_disable_plugins | default([]) | join(', ') }}
+
+# Specify which ports are probed and how: 'ALLOWLIST-ONLY' or 'STRICT'.
+FilterPolicy={{ main_filter_policy | default('') }}
+
+# Fully disable udev-based auto-scan looking for devices.
+NoAutoScan={{ main_no_auto_scan | default(false) | lower }}
+
+# Seconds to wait before giving up on modem initialization.
+ModemTimeout={{ main_modem_timeout | default(60) }}
+
+# Maximum attempts to connect to a modem before marking it failed.
+MaxConnectionAttempts={{ main_max_connection_attempts | default(3) }}
+
+# List of allowed hardware vendor IDs in hex (e.g., ['0x12d1']). Used only if vendor whitelist mode is active.
+AllowedVendorIds={{ main_allowed_vendor_ids | default([]) | join(', ') }}
+
+# List of forbidden hardware vendor IDs in hex. Overrides allowed list.
+ForbiddenVendorIds={{ main_forbidden_vendor_ids | default([]) | join(', ') }}
+
+# List of allowed hardware device IDs in hex, per vendor (space-separated hex vendor+device pairs like '12d1:1506').
+AllowedDeviceIds={{ main_allowed_device_ids | default([]) | join(', ') }}
+
+# List of forbidden hardware device IDs in hex. Overrides allowed list.
+ForbiddenDeviceIds={{ main_forbidden_device_ids | default([]) | join(', ') }}
 
 {# Per-modem configuration overrides #}
-{% for modem in modem_overrides %}[{{ modem.id }}]
-{# Optional comment describing this modem override #}
-{% if modem.comment %}# {{ modem.comment }}
-{% endif %}{# Enable this modem specifically (overrides global setting) #}
-Enabled={{ modem.enabled }}
-{# Hardware vendor ID (hex) #}
-HardwareVendor={{ modem.hardware_vendor | default('') }}
-{# Hardware model ID (hex) #}
-HardwareModel={{ modem.hardware_model | default('') }}
-{# Firmware revision #}
-HardwareRevision={{ modem.hardware_revision | default('') }}
-{# Firmware vendor (string) #}
-FirmwareVendor={{ modem.firmware_vendor | default('') }}
-{# Firmware model (string) #}
-FirmwareModel={{ modem.firmware_model | default('') }}
-{# Firmware revision (string) #}
-FirmwareRevision={{ modem.firmware_revision | default('') }}
-{# Port types to probe (comma-separated list of: at, qcdm, mbim, ncm, qmi, gobi, uim) #}
-PortTypes={{ modem.port_types | join(', ') | default('at, qcdm, mbim, ncm, qmi, gobi, uim') }}
-{# Force port scan (true/false) #}
-ScanPorts={{ modem.scan_ports | default('true') }}
-{# Disable generic SIM probing (true/false) #}
-NoSim={{ modem.no_sim | default('false') }}
-{# Disable PPP (true/false) #}
-NoPpp={{ modem.no_ppp | default('false') }}
+{% for modem_item in modem_overrides | default([]) %}
+{# Each item in modem_overrides is expected to be a mapping with 'id' as the section header key #}
+{# If the schema provides a flat list of overrides, we assume standard keys #}
+
+[{{ modem_item.modem_overrides_items | default('modem-override') }}]
+
+{# Optional human-readable description. #}
+{% if modem_item.comment | default('') %}
+# {{ modem_item.comment | default('') }}
+{% endif %}
+
+{# Enable this specific modem (overrides global Enabled setting). #}
+Enabled={{ modem_item.modem_overrides_items_enabled | default(true) | lower }}
+
+{# Unique ID for this override (e.g., 'modem-1', or filename-like). Used as section header.
+   Note: The section header above uses modem_overrides_items.
+   If specific hardware IDs are defined in this item, they go here. #}
+
+# Hardware vendor ID in hex (e.g., '0x12d1').
+HardwareVendor={{ modem_item.hardware_vendor | default('') }}
+
+# Hardware model ID in hex (e.g., '0x1506').
+HardwareModel={{ modem_item.hardware_model | default('') }}
+
+# Hardware revision string.
+HardwareRevision={{ modem_item.hardware_revision | default('') }}
+
+# Firmware vendor string.
+FirmwareVendor={{ modem_item.firmware_vendor | default('') }}
+
+# Firmware model string.
+FirmwareModel={{ modem_item.firmware_model | default('') }}
+
+# Firmware revision string.
+FirmwareRevision={{ modem_item.firmware_revision | default('') }}
+
+# Port types to probe, in order.
+PortTypes={{ modem_item.port_types | default(['at', 'qcdm', 'mbim', 'ncm', 'qmi', 'gobi', 'uim']) | join(', ') }}
+
+# Whether to scan all ports (true) or only those explicitly listed.
+ScanPorts={{ modem_item.scan_ports | default(true) | lower }}
+
+# Skip SIM probing for this modem.
+NoSim={{ modem_item.no_sim | default(false) | lower }}
+
+# Disable PPP (Point-to-Point Protocol) for this modem.
+NoPPP={{ modem_item.no_ppp | default(false) | lower }}
+
 {% endfor %}
+
+# Whether ModemManager service is enabled at startup.
+# Note: This is a package-level management flag, often handled by systemd,
+# but if the config file supports it, it is documented here.
+Removed={{ removed | default(true) }}

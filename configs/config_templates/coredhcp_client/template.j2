@@ -1,54 +1,102 @@
-# Listen address and port for incoming DHCP requests
-listen: {{ listen_addr }}:{{ listen_port }}
+# =========================================================================
+# CoreDHCP Client Configuration Template
+# =========================================================================
+# This template generates a YAML configuration file for the coredhcp_client
+# service. It is self-documenting: every directive is preceded by a comment
+# derived from its schema definition.
+#
+# Variables used here are drawn from the role's inputs and are given safe
+# defaults via Jinja2's `default` filter to prevent render failures if a
+# variable is undefined.
+# =========================================================================
 
-# Server address to forward requests to (if acting as relay)
-{% if server_address %}server: {{ server_address }}{% endif %}
+# Listen address and port for incoming DHCP requests.
+# listen_addr: IP address to listen on for incoming DHCP requests.
+# listen_port: UDP port to listen on for DHCP requests (standard DHCP is 67).
+listen: {{ (listen_addr | default('0.0.0.0')) }}:{{ (listen_port | default(67)) }}
 
-# Interface(s) to bind to (empty = all, or list of interface names)
-{% if interfaces | length > 0 %}interfaces:
-{% for iface in interfaces %}  - {{ iface }}
-{% endfor %}{% endif %}
-
-# Logging configuration
-log:
-  level: {{ log_level }}
-  format: {{ log_format }}
-  file: {{ log_file }}
-
-# Plugin configuration
-plugins:
-  # Request handlers
-{% for handler in request_handlers %}  - name: {{ handler.name }}
-{% if handler.options | length > 0 %}    options:
-{% for opt_key, opt_val in handler.options.items() %}      {{ opt_key }}: {{ opt_val | to_json }}
-{% endfor %}    {% endif %}{% if handler.params | length > 0 %}    params:
-{% for key, val in handler.params.items() %}      {{ key }}: {{ val | to_json }}
-{% endfor %}    {% endif %}
-{% endfor %}
-  # Response modifiers
-{% for modifier in response_modifiers %}  - name: {{ modifier.name }}
-{% if modifier.options | length > 0 %}    options:
-{% for opt_key, opt_val in modifier.options.items() %}      {{ opt_key }}: {{ opt_val | to_json }}
-{% endfor %}    {% endif %}{% if modifier.params | length > 0 %}    params:
-{% for key, val in modifier.params.items() %}      {{ key }}: {{ val | to_json }}
-{% endfor %}    {% endif %}
-{% endfor %}
-
-# Client identification strategy
-identity:
-  mode: {{ identity_mode }}
-{% if identity_mode == 'custom' and identity_custom_key %}  key: {{ identity_custom_key }}
+# Server address to forward requests to (if acting as relay).
+# server_address: DHCP server address to forward requests to (when operating in relay mode). Leave empty for standalone operation.
+{% set _server_address = server_address | default('') %}
+{% if _server_address %}
+server: {{ _server_address }}
 {% endif %}
 
-# Lease management
-leases:
-  database: {{ lease_db_path }}
-  persist: {{ persist_leases }}
-  ttl: {{ lease_ttl }}
+# Interface(s) to bind to (empty = all, or list of interface names).
+# interfaces: List of network interface names to bind to. If empty, all interfaces are used.
+{% set _interfaces = interfaces | default([]) %}
+{% if _interfaces | length > 0 %}
+interfaces:
+{% for iface in _interfaces %}  - {{ iface }}
+{% endfor %}
+{% endif %}
 
-# Optional: MAC-to-hostname mapping (for static mappings)
-{% if static_mappings | length > 0 %}static_mappings:
-{% for mapping in static_mappings %}  - mac: {{ mapping.mac }}
-    hostname: {{ mapping.hostname }}
-    ip: {{ mapping.ip }}
-{% endfor %}{% endif %}
+# Logging configuration.
+# log_level: Logging verbosity level: debug, info, warn, error, fatal.
+# log_format: Log output format: 'text' (human-readable) or 'json' (machine-parseable).
+# log_file: Path to log file. Empty string means standard output.
+log:
+  level: {{ log_level | default('info') }}
+  format: {{ log_format | default('text') }}
+  file: {{ log_file | default('') }}
+
+# Plugin configuration for request handling and response modification.
+plugins:
+  # Request handlers
+  # request_handlers: List of plugins that handle incoming DHCP requests (e.g., assign IP, log, validate).
+{% set _request_handlers = request_handlers | default([]) %}
+{% for handler in _request_handlers %}  - name: {{ handler.name | default('') }}
+{% set _handler_options = handler.options | default({}) %}
+{% if _handler_options | length > 0 %}    options:
+{% for opt_key, opt_val in _handler_options | dict2items %}      {{ opt_key }}: {{ opt_val | to_json }}
+{% endfor %}
+{% endif %}{% set _handler_params = handler.params | default({}) %}
+{% if _handler_params | length > 0 %}    params:
+{% for key, val in _handler_params | dict2items %}      {{ key }}: {{ val | to_json }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+  # Response modifiers
+  # response_modifiers: List of plugins that modify outgoing DHCP responses (e.g., vendor-class, options).
+{% set _response_modifiers = response_modifiers | default([]) %}
+{% for modifier in _response_modifiers %}  - name: {{ modifier.name | default('') }}
+{% set _mod_options = modifier.options | default({}) %}
+{% if _mod_options | length > 0 %}    options:
+{% for opt_key, opt_val in _mod_options | dict2items %}      {{ opt_key }}: {{ opt_val | to_json }}
+{% endfor %}
+{% endif %}{% set _mod_params = modifier.params | default({}) %}
+{% if _mod_params | length > 0 %}    params:
+{% for key, val in _mod_params | dict2items %}      {{ key }}: {{ val | to_json }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Client identification strategy.
+# identity_mode: How clients are identified: 'mac' (standard MAC-based), 'duid' (for DHCPv6), or 'custom' (uses a custom key).
+# identity_custom_key: DHCP option code to use as identity key (only if identity_mode = 'custom'). Example: '61' (Client Identifier).
+identity:
+  mode: {{ identity_mode | default('mac') }}
+{% set _identity_custom_key = identity_custom_key | default('') %}
+{% if (identity_mode | default('mac')) == 'custom' and _identity_custom_key %}  key: {{ _identity_custom_key }}
+{% endif %}
+
+# Lease management settings.
+# lease_db_path: File path for the persistent lease database.
+# persist_leases: Whether to persist leases to disk between restarts.
+# lease_ttl: Default lease duration in seconds (0 = infinite).
+leases:
+  database: {{ lease_db_path | default('/var/lib/coredhcp/leases.json') }}
+  persist: {{ persist_leases | default(True) | lower }}
+  ttl: {{ lease_ttl | default(86400) }}
+
+# Optional: MAC-to-hostname mapping (for static mappings).
+# static_mappings: List of static MAC-to-IP/hostname mappings for fixed clients.
+{% set _static_mappings = static_mappings | default([]) %}
+{% if _static_mappings | length > 0 %}
+static_mappings:
+{% for mapping in _static_mappings %}  - mac: {{ mapping.mac | default('') }}
+    hostname: {{ mapping.hostname | default('') }}
+    ip: {{ mapping.ip | default('') }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,58 @@
+#!/bin/sh
+
+# ============================================================================
+# acct: Process Accounting Initialization Script (Enriched)
+# ============================================================================
+# This script ensures the process accounting log directory exists, initializes
+# necessary log files with correct permissions, and invokes the savelog utility
+# to manage log rotation based on the configured retention days.
+# ============================================================================
+
+test -x /usr/sbin/accton || exit 0
+
+# Source defaults
+if [ -f /etc/default/acct ]
+then
+	. /etc/default/acct
+else
+	# ACCT_LOGGING: Number of days to retain old accounting logs (used by savelog -c)
+	# Default: 30
+	ACCT_LOGGING="{{ default_log_retention_days | default(30) }}"
+fi
+
+# Ensure the accounting log directory exists and is prepared
+# account_log_directory: Directory where accounting log files are stored
+# Default: /var/log/account
+{% set log_dir = account_log_directory | default('/var/log/account') %}
+
+if [ ! -d "{{ log_dir }}" ]; then
+    # Create the directory if it does not exist
+    mkdir -p "{{ log_dir }}"
+    
+    # Initialize the process accounting log file
+    touch "{{ log_dir }}/pacct"
+    
+    # Set strict permissions on accounting logs
+    # Only root and adm group members can read/write
+    chmod 0640 "{{ log_dir }}/pacct*"
+    
+    # Set ownership to root:adm
+    chown root:adm "{{ log_dir }}/pacct*"
+fi
+
+# Change to the log directory to ensure relative paths in savelog work correctly
+cd "{{ log_dir }}"
+
+# Rotate and compress old accounting logs
+# -g adm: Group owner for new logs
+# -m 0640: Permissions for new logs
+# -u root: User owner for new logs
+# -c "${ACCT_LOGGING}": Retain this many old log versions
+# "{{ log_dir }}/pacct": The log file to manage
+savelog -g adm -m 0640 -u root -c "${ACCT_LOGGING}" "{{ log_dir }}/pacct" > /dev/null
+
+# Restart the acct service to ensure new accounting settings take effect
+invoke-rc.d acct restart > /dev/null
+
+# This is needed because accton.c returns errno
+exit 0

@@ -1,0 +1,66 @@
+{# ============================================================================ #}
+{# bchunk configuration template #}
+{# Converts raw CD images (.bin/.cue) into individual track files (ISO, CDR, WAV). #}
+{# All variables are populated from the Ansible role's inventory or defaults.     #}
+{# ============================================================================ #}
+
+{# --- Input File Specifications --- #}
+{# Path to the raw CD image (.bin file). Required. #}
+image_bin = {{ image_bin | default('') }}
+
+{# Path to the TOC/track index file (.cue file). Required. #}
+image_cue = {{ image_cue | default('') }}
+
+{# Prefix for generated output filenames (e.g., 'track' → 'track01.iso', 'track01.cdr'). #}
+basename = {{ basename | default('track') }}
+
+{# --- Output Format Options --- #}
+{# Target output format: 'auto', 'iso', 'cdr', or 'wav'. When 'auto', inferred from input format. #}
+{% set fmt = output_format | default('auto') %}
+{% if fmt == 'auto' %}
+output_format = auto
+{% elif fmt == 'iso' %}
+output_format = iso
+{% elif fmt == 'cdr' %}
+output_format = cdr
+{% elif fmt == 'wav' %}
+output_format = wav
+{% else %}
+output_format = auto
+{% endif %}
+
+{# --- Mode Options --- #}
+{# Enable PlayStation mode: truncate MODE2/2352 tracks to 2336 bytes at offset 0 (instead of 2048 at offset 24). #}
+{% if psx_mode | default(False) | bool %}
+psx_mode = on
+{% else %}
+psx_mode = off
+{% endif %}
+
+{# Output MODE2/2352 tracks in raw format (2352 bytes from offset 0), suitable for MPEG/VCD. #}
+{% if raw_output | default(False) | bool %}
+raw_output = on
+{% else %}
+raw_output = off
+{% endif %}
+
+{# Swap byte order (endianness) of audio samples (for audio tracks only). #}
+{% if swap_audio_bytes | default(False) | bool %}
+swap_audio_bytes = on
+{% else %}
+swap_audio_bytes = off
+{% endif %}
+
+{# Enable verbose (debug) output messages. #}
+{% if verbose | default(False) | bool %}
+verbose = on
+{% else %}
+verbose = off
+{% endif %}
+
+{# Write audio tracks in WAV format (instead of .cdr). #}
+{% if wavedata | default(False) | bool %}
+wavedata = on
+{% else %}
+wavedata = off
+{% endif %}

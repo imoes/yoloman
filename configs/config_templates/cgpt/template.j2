@@ -1,0 +1,64 @@
+{# cgpt configuration for Chromium OS GPT manipulation #}
+# This template generates command-line arguments for the `cgpt` utility.
+# It iterates over configured drives and their partitions, emitting
+# the appropriate `-l`, `-t`, `-F`, `-P`, `-b`, `-s`, `-g`, `-S`, `-T`, `-a` flags.
+
+# List of GPT drives to configure with partitions and options.
+# Default: empty list.
+{% set drives_list = drives | default([]) %}
+
+{% for drive in drives_list %}
+{# Path to the drive (e.g., /dev/sda, /dev/mmcblk0) #}
+# GPT drive: {{ drive.device | default('') }}
+
+    # List of partitions for this drive.
+    # Default: empty list.
+    {% set partitions_list = drive.partitions | default([]) %}
+
+    {% for partition in partitions_list %}
+    {# Partition index (1-based) #}
+    # Partition {{ partition.index | default(0) }} on {{ drive.device | default('') }}
+
+        {# Partition label (string description) #}
+        {# If a label is provided (non-empty), emit the -l flag. #}
+        {% if partition.label | default('') != '' %}-l "{{ partition.label | default('') }}"{% endif %}
+
+        {# Partition type: 'data', 'kernel', 'rootfs', or a GUID #}
+        {# If a type is provided (non-empty), emit the -t flag. #}
+        {% if partition.type | default('') != '' %}-t {{ partition.type | default('') }}{% endif %}
+
+        {# List of flags (e.g., 'required', 'attempt_first') #}
+        {# If flags are provided, iterate and emit -F for each. #}
+        {% set flags_list = partition.flags | default([]) %}
+        {% if flags_list | length > 0 %}{% for flag in flags_list %}-F {{ flag | default('') }}{% endfor %}{% endif %}
+
+        {# Kernel partition priority (0 = disabled) #}
+        {# Emit -P only if priority is non-zero (0 is the default/disabled state). #}
+        {% if partition.priority | default(0) != 0 %}-P {{ partition.priority | default(0) }}{% endif %}
+
+        {# Starting sector (LBA) #}
+        {# Emit -b only if start is non-zero (0 is often default/start). #}
+        {% if partition.start | default(0) != 0 %}-b {{ partition.start | default(0) }}{% endif %}
+
+        {# Size in sectors #}
+        {# Emit -s only if size is non-zero. #}
+        {% if partition.size | default(0) != 0 %}-s {{ partition.size | default(0) }}{% endif %}
+
+        {# Partition GUID #}
+        {# Emit -g if a GUID is explicitly provided. #}
+        {% if partition.guid | default('') != '' %}-g {{ partition.guid | default('') }}{% endif %}
+
+        {# System flag: 0 = no, 1 = yes (e.g., for BIOS boot) #}
+        {# Emit -S only if the system flag is set to 1. #}
+        {% if partition.system | default(0) == 1 %}-S {{ partition.system | default(0) }}{% endif %}
+
+        {# Number of boot attempts remaining #}
+        {# Emit -T if tries is non-zero. #}
+        {% if partition.tries | default(0) != 0 %}-T {{ partition.tries | default(0) }}{% endif %}
+
+        {# Hexadecimal attributes string (e.g., '0x0000000000000000') #}
+        {# Emit -a if attributes are explicitly provided. #}
+        {% if partition.attributes | default('') != '' %}-a {{ partition.attributes | default('') }}{% endif %}
+
+    {% endfor %}
+{% endfor %}

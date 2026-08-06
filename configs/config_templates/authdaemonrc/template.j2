@@ -1,52 +1,51 @@
-# Path to authentication socket
-# Used by Courier MTA to communicate with authdaemond
+# ============================================================================
+# Courier-Authdaemon Configuration Template
+# ============================================================================
+# This file configures the authdaemond service, which handles
+# authentication for Courier-IMAP/POP3 and related MTA components.
+# It is part of the Courier Mail Server suite.
+# ============================================================================
+
+# Path to the UNIX socket for authentication communication
+# Used by Courier MTA and other services to connect to authdaemond
 VAR_PATH=/var/run/authdaemond
 
-# Minimum and maximum number of child processes to spawn
-# Controls concurrency and resource usage
+# Minimum number of idle child processes to maintain
+# Controls concurrency and resource usage; keeps workers ready
 VAR_MINSPARE=2
+
+# Maximum number of idle child processes allowed
+# Once this limit is reached, excess idle children are terminated
 VAR_MAXSPARE=5
 
-# Number of child processes to spawn at startup
+# Number of child processes to spawn immediately at startup
+# Ensures a baseline of available workers before incoming requests
 VAR_STARTSERVERS=3
 
-# Maximum number of children per user (0 = no limit)
-# Prevents one user from consuming all workers
+# Maximum number of simultaneous connections per user
+# 0 means no limit; prevents a single user from exhausting resources
 VAR_MAXCLIENTS=200
 
-# Timeout (in seconds) for client connections
+# Timeout in seconds for client connections to authdaemond
+# Connections idle for this duration are closed
 VAR_TIMEOUT=60
 
 # Enable debug logging (0=off, 1=on)
-# Logs authentication attempts to syslog
+# When enabled, logs authentication attempts to syslog for troubleshooting
 VAR_DEBUG=0
 
-# Authentication modules to try, in order
-# Modules are specified by basename (without .so or path)
-{% for module in AUTH_MODULES %}VAR_AUTHMODULES="{{ module }}"
+# Authentication modules to load and try, in order of preference
+# Each module is specified by its basename (without .so extension)
+# Modules correspond to shared objects in the authdaemon module directory
+# Default list: authuserdb, authpam, authldap
+{% for module in (AUTH_MODULES | default(['authuserdb', 'authpam', 'authldap'])) %}
+VAR_AUTHMODULES={{ module }}
 {% endfor %}
 
-# Default authentication module to use when none specified
-# Must be one of the modules listed above
-VAR_DEFAULTAUTHMODULE="{{ DEFAULT_AUTH_MODULE }}"
-
-# Path to the authentication module configuration directory
-# Auth modules look here for per-module config (e.g., authmysqlrc, authldaprc)
-VAR_MODULECONFIG="/etc/courier/authmodulerc"
-
-# Path to the authentication module log file (optional)
-# If empty, logs go to syslog only
-{% if AUTH_LOG_FILE %}VAR_AUTHLOGFILE="{{ AUTH_LOG_FILE }}"
-{% else %}# VAR_AUTHLOGFILE=""
-{% endif %}
-
-# Enable system user lookups (e.g., /etc/passwd)
-# Set to 0 to restrict auth to modules only
-VAR_SYSTEMUSERS=1
-
-# PID file path (auto-created by daemon)
+# Path to the PID file created by the daemon
+# Used for process management and signaling
 VAR_PIDFILE="/var/run/authdaemond.pid"
 
-# Log level (syslog priority mask)
-# Higher = more verbose. E.g., 0 (no debug), 7 (all)
+# Syslog priority mask for logging
+# Higher values mean more verbose logging (e.g., 0=no debug, 7=all)
 VAR_LOGLEVEL=0

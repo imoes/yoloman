@@ -1,0 +1,74 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          fancontrol
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Default-Start:    2 3 4 5
+# Default-Stop:
+# Short-Description: fancontrol
+# Description:       fan speed regulator
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+[ -f /etc/default/rcS ] && . /etc/default/rcS
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# Path to the fancontrol daemon executable.
+# Default: /usr/sbin/fancontrol
+DAEMON={{ (DAEMON is defined) | ternary(DAEMON, '/usr/sbin/fancontrol') }}
+
+DESC="fan speed regulator"
+NAME="fancontrol"
+
+# Path to the PID file used by fancontrol.
+# Default: /var/run/fancontrol.pid
+PIDFILE={{ (PIDFILE is defined) | ternary(PIDFILE, '/var/run/fancontrol.pid') }}
+
+# Path to the fancontrol configuration file.
+# Default: /etc/fancontrol
+CONF={{ (CONF is defined) | ternary(CONF, '/etc/fancontrol') }}
+
+test -x $DAEMON || exit 0
+
+case "$1" in
+  start)
+	if [ -f $CONF ] ; then
+		if $DAEMON --check $CONF 1>/dev/null 2>/dev/null ; then
+			log_daemon_msg "Starting $DESC" "$NAME"
+			start-stop-daemon --start --quiet --background --pidfile $PIDFILE --startas $DAEMON $CONF
+			log_end_msg $?
+		else
+			log_failure_msg "Not starting fancontrol, broken configuration file; please re-run pwmconfig."
+		fi
+	else
+		if [ "$VERBOSE" != no ]; then
+			log_warning_msg "Not starting fancontrol; run pwmconfig first."
+		fi
+	fi
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --oknodo --retry 30 --startas $DAEMON $CONF
+	ret=$?
+	rm -f $PIDFILE
+	log_end_msg $ret
+	;;
+  restart)
+	$0 stop
+	$0 start
+	;;
+  force-reload)
+	if start-stop-daemon --stop --test --quiet --pidfile $PIDFILE --startas $DAEMON $CONF ; then
+		$0 restart
+	fi
+	;;
+  status)
+	status_of_proc $DAEMON $NAME $CONF
+	;;
+  *)
+	log_success_msg "Usage: /etc/init.d/fancontrol {start|stop|restart|force-reload|status}"
+	exit 1
+	;;
+esac

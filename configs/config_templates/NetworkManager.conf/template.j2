@@ -1,25 +1,13 @@
-# [main] section — Controls global NetworkManager behavior and plugin selection
+# NetworkManager configuration file
+# This file controls the behavior of the NetworkManager daemon.
+# For documentation, see 'man NetworkManager.conf' or the NetworkManager man page.
+
 [main]
-{% if logging | length > 0 %}# [logging] section — Enables logging for specific domains and levels
-[logging]
-{% for entry in logging %}# Domain '{{ entry.domain }}': level = {{ entry.level }}
-{{ entry.domain }}={{ entry.level }}
-{% endfor %}{% endif %}
-# Keyfile plugin configuration — Controls managed interfaces and connection handling
-{% if keyfile is defined %}# keyfile: managed = true/false; unmanaged = list of interfaces
-keyfile.managed=true
-{% for iface in keyfile.unmanaged %}# Interface '{{ iface }}' is unmanaged
-keyfile.unmanaged={{ iface }}
-{% endfor %}{% endif %}
-# DNS plugin — Controls DNS resolution method (e.g., 'dnsmasq', 'systemd-resolved')
-{% if dns | length > 0 %}# dns: list of DNS plugin names
-{% for plugin in dns %}dns={{ plugin }}
-{% endfor %}{% endif %}
-# rc-manager — Controls how resolv.conf is managed ('file', 'symlink', 'networkd')
-rc-manager={{ rc_manager }}
-# dhcp — Controls DHCP client backend ('internal', 'dhcpcd', 'nettools')
-{% if dhcp is defined %}dhcp={{ dhcp }}{% endif %}
-# systemd-resolved integration — Enables/disables integration with systemd-resolved
-{% if systemd_resolved is defined %}systemd-resolved={{ systemd_resolved }}{% endif %}
-# no-auto-default — Prevents auto-creation of default wired connections
-{% if no_auto_default is defined %}no-auto-default={{ no_auto_default }}{% endif %}
+# plugins: Comma-separated list of plugins to load.
+# Common values: 'ifupdown,keyfile', 'keyfile', etc.
+plugins={{ plugins | default('ifupdown,keyfile') | string }}
+
+[ifupdown]
+# managed: If true, ifupdown interfaces are managed by NetworkManager.
+# Default is false (interfaces are NOT managed by NM).
+managed={{ ifupdown_managed | default(False) | string | lower }}

@@ -1,40 +1,18 @@
-#!/bin/sh
-# Enable/disable gpsd auto-start on boot
-START_GPSD={{ start_gpsd | lower }}
+# Configuration file for the gpsd daemon.
+# This file configures which GPS devices gpsd should monitor,
+# additional startup options, and Pulse-Per-Second (PPS) support.
 
-# GPS device(s) to monitor; space-separated list of device paths
-DEVICES="{{ devices | join(' ') }}"
+# List of serial device paths or network endpoints to monitor.
+# Defaults to the USB serial device '/dev/ttyUSB0'. Can be a list
+# of strings joined by spaces in the final config.
+DEVICES="{{ devices | default(['/dev/ttyUSB0']) | join(' ') }}"
 
-# Optional: additional serial options (e.g., '9600,8,N,1' for baud, bits, parity, stops)
-# Leave empty to autodetect
-SERIAL_OPTIONS="{{ serial_options }}"
+# Additional daemon flags passed to gpsd at startup.
+# Defaults to '-n' which enables immediate polling of devices.
+GPSD_OPTIONS="{{ gpsd_options | default('-n') }}"
 
-# Optional: extra daemon options (e.g., '-n' to poll devices on startup, '-b' for Bluetooth support)
-# See 'man gpsd' for details
-GPSD_OPTIONS="{{ gpsd_options }}"
-
-# Optional: default output format (e.g., 'json', 'nmea', 'aivdm')
-# Used when gpsd is queried without explicit format request
-# Leave empty to use default (usually json)
-OUTPUT_FORMAT="{{ output_format }}"
-
-# Optional: user/group under which gpsd runs (security best practice)
-# Defaults to 'gpsd' user if installed, otherwise 'nobody'
-USER="{{ user }}"
-GROUP="{{ group }}"
-
-# Optional: socket path (change only if needed for compatibility or chroot)
-# Standard path is /var/run/gpsd.sock
-SOCKET="{{ socket }}"
-
-# Optional: enable PPS (pulse-per-second) time discipline for NTP
-# Requires compatible hardware and kernel support
-PPS_ENABLE={{ pps_enable | lower }}
-
-# Optional: enable SHM (shared memory) export for low-latency client access
-# Clients (e.g., chrony) may use shm://0 for direct time data
-SHM_ENABLE={{ shm_enable | lower }}
-
-# Optional: comma-separated list of clients allowed to attach (e.g., 'ntp,chrony,gnss')
-# Leave empty to allow all clients
-ALLOWED_CLIENTS="{{ allowed_clients }}"
+# Enable automatic hot-plug detection for USB GPS devices via gpsdctl.
+# NOTE: The variable name 'USBAUTO' is legacy; setting it to 'true'
+# enables the auto-add/remove feature.
+# Defaults to 'false'.
+USBAUTO="{{ pps_enable | default(false) | ternary('true', 'false') }}"

@@ -1,0 +1,32 @@
+# /etc/apt/s3auth.conf
+# APT S3 transport authentication configuration.
+# This file configures the `apt-transport-s3` plugin to access S3-compatible
+# object storage backends for APT repositories.
+#
+# Security Note: This file contains credentials. Ensure file permissions
+# are restrictive (e.g., 600 or 640) to prevent unauthorized access.
+
+{# AccessKeyId: AWS access key ID for authentication; if omitted, IAM role credentials will be used. #}
+{% if AccessKeyId is defined and AccessKeyId | default('') != '' %}
+AccessKeyId = {{ AccessKeyId | default('') }}
+{% endif %}
+
+{# SecretAccessKey: AWS secret access key for authentication; if omitted, IAM role credentials will be used. #}
+{% if SecretAccessKey is defined and SecretAccessKey | default('') != '' %}
+SecretAccessKey = {{ SecretAccessKey | default('') }}
+{% endif %}
+
+{# Region: AWS region where the S3 bucket is hosted; required if not using IAM roles and no Endpoint is set. #}
+{% if Region is defined and Region | default('') != '' %}
+Region = '{{ Region | default('') }}'
+{% endif %}
+
+{# Endpoint: Custom S3-compatible endpoint (e.g., for DigitalOcean Spaces); if set, Region is ignored. #}
+{% if Endpoint is defined and Endpoint | default('') != '' %}
+Endpoint = '{{ Endpoint | default('') }}'
+{% endif %}
+
+{# PathStyle: Use path-style URLs (e.g., /bucket/key) instead of virtual-hosted-style (bucket.s3.region.amazonaws.com/key). Required for certain S3-compatible services. #}
+{% if PathStyle is defined %}
+PathStyle = {{ PathStyle | default(False) | capitalize }}
+{% endif %}

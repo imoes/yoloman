@@ -1,57 +1,75 @@
-# listen address and port for the DNS server (UDP/TCP)
-listen_addr: "{{ listen_addr }}"
-listen_port: {{ listen_port }}
+# Aardvark DNS configuration
+# Self-documenting: every directive is preceded by its schema description.
 
-# maximum UDP packet size (RFC 1035 recommends 512)
-max_udp_size: {{ max_udp_size }}
+# listen_addr: default='127.0.0.1'
+# desc='IP address to bind the DNS server to. Use 0.0.0.0 for all interfaces.'
+listen_addr: "{{ (listen_addr | default('127.0.0.1')) | string }}"
 
-# enable TCP fallback (required for large responses, DOH/DOQ)
-tcp_enabled: {{ tcp_enabled }}
+# listen_port: default=53
+# desc='Port to listen on for DNS queries.'
+listen_port: {{ (listen_port | default(53)) | int }}
 
-# upstream DNS servers to forward queries to
+# max_udp_size: default=4096
+# desc='Maximum UDP payload size (RFC 6891 EDNS0 buffer size). Set to 512 for strict compatibility.'
+max_udp_size: {{ (max_udp_size | default(4096)) | int }}
+
+# tcp_enabled: default=True
+# desc='Enable TCP support (required for DNS over TCP, large responses, and DoH/DoQ).'
+tcp_enabled: {{ (tcp_enabled | default(True)) | bool }}
+
+# upstream_servers: default=['1.1.1.1', '8.8.8.8']
+# desc='List of upstream DNS servers to forward queries to by default.'
 upstream_servers:
-{% for server in upstream_servers %}  - "{{ server }}"
+{% for server in (upstream_servers | default(['1.1.1.1', '8.8.8.8'])) %}  - "{{ server }}"
 {% endfor %}
 
-# domain → upstream servers mapping (split-horizon or per-domain routing)
-# Each entry specifies a domain suffix and optional fallback upstream servers
+# forward_zones: default=[]
+# desc='Domain-specific forwarding rules. Queries matching the domain suffix use the specified upstreams.'
 forward_zones:
-{% for zone in forward_zones %}  - domain: "{{ zone.domain }}"
+{% for zone in (forward_zones | default([])) %}  - domain: "{{ zone.domain }}"
     upstreams:
-{% for up in zone.upstreams | default([]) %}      - "{{ up }}"
+{% for up in (zone.upstreams | default([])) %}      - "{{ up }}"
 {% endfor %}
 {% endfor %}
 
-# local record overrides (static responses for specific domains)
-# Useful for internal services, containers, or development
+# local_records: default=[]
+# desc='Static DNS records served locally (bypass upstream). Useful for container hostnames or internal services.'
 local_records:
-{% for rec in local_records %}  - domain: "{{ rec.domain }}"
+{% for rec in (local_records | default([])) %}  - domain: "{{ rec.domain }}"
     type: "{{ rec.type }}"
     data: "{{ rec.data }}"
 {% endfor %}
 
-# TTL (in seconds) for cached and local responses
-default_ttl: {{ default_ttl }}
+# default_ttl: default=600
+# desc='Default TTL (seconds) for cacheable responses from local records or forwarders.'
+default_ttl: {{ (default_ttl | default(600)) | int }}
 
-# cache size (number of entries); 0 disables caching
-cache_size: {{ cache_size }}
+# cache_size: default=10000
+# desc='Maximum number of DNS cache entries. Set to 0 to disable caching.'
+cache_size: {{ (cache_size | default(10000)) | int }}
 
-# logging level: debug, info, warn, error
-log_level: "{{ log_level }}"
+# log_level: default='info'
+# desc='Verbosity of logs emitted to stderr or log_file.'
+log_level: "{{ (log_level | default('info')) | string }}"
 
-# file path for access logs (empty = stdout)
-log_file: "{{ log_file }}"
+# log_file: default=''
+# desc='Path to file where access logs are written. If empty, logs go to stdout.'
+log_file: "{{ (log_file | default('')) | string }}"
 
-# enable DNSSEC validation (requires upstream supporting DNSSEC)
-dnssec_enabled: {{ dnssec_enabled }}
+# dnssec_enabled: default=False
+# desc='Enable DNSSEC validation of responses. Requires upstream DNSSEC support.'
+dnssec_enabled: {{ (dnssec_enabled | default(False)) | bool }}
 
-# path to trusted anchor file (e.g., KSK-2017.json for ICANN root)
-trust_anchor_file: "{{ trust_anchor_file }}"
+# trust_anchor_file: default='/etc/aardvark-dns/root-ksk-2017.json'
+# desc='Path to DNSSEC trust anchor file (e.g., ICANN KSK-2017).'
+trust_anchor_file: "{{ (trust_anchor_file | default('/etc/aardvark-dns/root-ksk-2017.json')) | string }}"
 
-# enable EDNS Client Subnet (ECS) support
-dns_ecs_enabled: {{ dns_ecs_enabled }}
+# dns_ecs_enabled: default=False
+# desc="Enable EDNS Client Subnet (ECS) — allows upstream resolvers to see client's subnet for geo-aware responses."
+dns_ecs_enabled: {{ (dns_ecs_enabled | default(False)) | bool }}
 
-# optional: restrict queries to these networks (CIDR list)
+# allow_from: default=['0.0.0.0/0']
+# desc='List of allowed networks (CIDR) permitted to query this server.'
 allow_from:
-{% for cidr in allow_from %}  - "{{ cidr }}"
+{% for cidr in (allow_from | default(['0.0.0.0/0'])) %}  - "{{ cidr }}"
 {% endfor %}

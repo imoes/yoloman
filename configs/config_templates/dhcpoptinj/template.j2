@@ -1,0 +1,68 @@
+# =============================================================================
+# dhcpoptinj Configuration Template
+# =============================================================================
+# This file configures dhcpoptinj, a tool that injects DHCP options into packets
+# passing through a Netfilter queue.
+#
+# Syntax:
+#   - Boolean flags are written as their keyword name (e.g., `debug`) when true.
+#   - Key-value pairs use the format `key = value`.
+#   - Comments start with `#`.
+#   - CLI arguments override settings in this file.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# debug: Enable verbose debug output
+# Default: False
+# -----------------------------------------------------------------------------
+{% if debug | default(false) %}debug{% endif %}
+
+# -----------------------------------------------------------------------------
+# foreground: Run in foreground instead of background (daemon mode)
+# Default: False
+# -----------------------------------------------------------------------------
+{% if foreground | default(false) %}foreground{% endif %}
+
+# -----------------------------------------------------------------------------
+# forward_on_fail: Let unaltered packet pass through if option injection fails
+# Default: False
+# -----------------------------------------------------------------------------
+{% if forward_on_fail | default(false) %}forward-on-fail{% endif %}
+
+# -----------------------------------------------------------------------------
+# ignore_existing_opt: Proceed if an injected option already exists in the packet
+# Default: False
+# -----------------------------------------------------------------------------
+{% if ignore_existing_opt | default(false) %}ignore-existing-opt{% endif %}
+
+# -----------------------------------------------------------------------------
+# remove_existing_opt: Remove existing DHCP options of the same kind before injecting
+# Default: False
+# -----------------------------------------------------------------------------
+{% if remove_existing_opt | default(false) %}remove-existing-opt{% endif %}
+
+# -----------------------------------------------------------------------------
+# options: List of DHCP options to inject as hex strings.
+# Each item is a string of hex digits (option code + payload).
+# Length is auto-calculated by the tool.
+# Default: [] (empty list, no options injected)
+# -----------------------------------------------------------------------------
+{% for opt in (options | default([])) %}
+option = '{{ opt }}'
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# queue: Netfilter queue number to bind to.
+# This is a required setting. The tool will drop or fail if not set.
+# Default: 0
+# -----------------------------------------------------------------------------
+queue = {{ queue | default(0) }}
+
+# -----------------------------------------------------------------------------
+# pid_file: Path to write process PID file.
+# Only written to config if it differs from the default.
+# Default: /var/run/dhcpoptinj.pid
+# -----------------------------------------------------------------------------
+{% if pid_file | default('/var/run/dhcpoptinj.pid') != '/var/run/dhcpoptinj.pid' %}
+pid-file = {{ pid_file | default('/var/run/dhcpoptinj.pid') }}
+{% endif %}

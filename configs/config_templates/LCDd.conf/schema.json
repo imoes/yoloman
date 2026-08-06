@@ -7,84 +7,139 @@
   "server.host": {
     "type": "string",
     "default": "",
-    "description": "IP address or hostname to bind to. Leave empty to bind to all interfaces."
+    "description": "IP address or hostname to bind to. Mapped to the 'Bind' directive in LCDd.conf."
   },
-  "server.protocol": {
+  "server.driver": {
     "type": "string",
     "default": "hd44780",
-    "description": "Communication protocol to use. Common values: 'hd44780', 'curses', 'hid'."
+    "description": "Name of the LCD driver to load (e.g., 'hd44780', 'IOWarrior', 'sure_elec'). Note: The config directive is 'Driver', not 'Protocol'. The template incorrectly used 'Protocol' as the key name in the config, which is not a valid LCDd directive. Replaced with 'Driver'. The values_schema enum remains valid as it lists driver names.",
+    "enum": [
+      "bayrad",
+      "CFontz",
+      "CFontzPacket",
+      "curses",
+      "CwLnx",
+      "ea65",
+      "EyeboxOne",
+      "futaba",
+      "g15",
+      "glcd2usb",
+      "picolcdgfx",
+      "png",
+      "serdisplib",
+      "t6963",
+      "glcd",
+      "glcdlib",
+      "glk",
+      "hd44780",
+      "4bit",
+      "8bit",
+      "serialLpt",
+      "winamp",
+      "picanlcd",
+      "lcdserializer",
+      "los-panel",
+      "ezio",
+      "vdr-lcd",
+      "vdr-wakeup",
+      "pertelian",
+      "lis2",
+      "mplay",
+      "usblcd",
+      "bwctusb",
+      "lcd2usb",
+      "usbtiny",
+      "uss720",
+      "usb4all",
+      "ftdi",
+      "i2c",
+      "piplate",
+      "spi",
+      "pifacecad",
+      "ethlcd",
+      "raspberrypi",
+      "gpio",
+      "i2500vfd",
+      "icp_a106",
+      "imon",
+      "imonlcd",
+      "irtrans",
+      "IOWarrior",
+      "irman",
+      "joy",
+      "lb216",
+      "lcdm001",
+      "lcterm",
+      "linux_input",
+      "lirc",
+      "lis",
+      "MD8800",
+      "mdm166a",
+      "ms6931",
+      "mtc_s16209x",
+      "MtxOrb",
+      "mx5000",
+      "NoritakeVFD",
+      "Olimex_MOD_LCD1x9",
+      "rawserial",
+      "picolcd",
+      "pyramid",
+      "sdeclcd",
+      "sed1330",
+      "sed1520",
+      "serialPOS",
+      "serialVFD",
+      "shuttleVFD",
+      "sli",
+      "stv5730",
+      "SureElec",
+      "svga",
+      "text",
+      "tyan",
+      "ula200",
+      "vlsys_m428",
+      "yard2",
+      "xosd"
+    ]
   },
   "server.device": {
     "type": "string",
     "default": "/dev/lcd0",
     "description": "Path to the physical LCD device (e.g., /dev/lcd0, /dev/usb/lcd)."
   },
-  "server.driver": {
-    "type": "string",
-    "default": "hd44780",
-    "description": "Name of the LCD driver to load (e.g., 'hd44780', 'IOWarrior', 'sure_elec')."
+  "server.foreground": {
+    "type": "bool",
+    "default": false,
+    "description": "Run LCDd in the foreground. Overrides the -f command line option."
   },
-  "server.driver_settings_path": {
+  "server.wait_time": {
+    "type": "number",
+    "default": 2,
+    "description": "Time in seconds to pause at each screen. Overrides the -w command line option."
+  },
+  "server.report_to_syslog": {
+    "type": "number",
+    "default": 1,
+    "description": "Report messages to syslog (1) or stdout (0). Overrides the -s command line option."
+  },
+  "server.report_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Reporting level (0-5). Overrides the -r command line option."
+  },
+  "server.user": {
     "type": "string",
     "default": "",
-    "description": "Optional path to driver-specific configuration file or settings directory."
-  },
-  "server.backlight": {
-    "type": "string",
-    "default": "on",
-    "description": "Initial backlight state: 'on', 'off', or 'blink'. Some drivers accept numeric values (0\u20137)."
-  },
-  "server.screen_change_wait": {
-    "type": "number",
-    "default": 1000,
-    "description": "Time (milliseconds) to wait before switching to the next screen when multiple clients are active."
+    "description": "Run as user user. Overrides the -u command line option."
   },
   "drivers": {
     "type": "list",
     "default": [],
-    "description": "List of driver-specific configuration sections. Each element defines options for one driver.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Driver name matching the [section] header (e.g., 'hd44780', 'IOWarrior')."
-        },
-        "options": {
-          "type": "object",
-          "default": {},
-          "description": "Key-value pairs of driver-specific settings (e.g., {'Columns': '20', 'Rows': '4'})."
-        }
-      }
-    }
+    "description": "List of driver-specific configuration sections. Each element defines options for one driver."
   },
   "clients": {
     "type": "list",
     "default": [],
-    "description": "List of client definitions that may connect to LCDd. Each defines permissions and allowed screens.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Client name (used for logging and ACL checks)."
-        },
-        "group": {
-          "type": "string",
-          "default": "lcdproc",
-          "description": "Group name associated with the client for permission checks."
-        },
-        "screens": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "List of screen names this client is allowed to display (e.g., ['clock', 'uptime'])."
-        }
-      }
-    }
+    "description": "List of client definitions that may connect to LCDd. Each defines permissions and allowed screens."
   }
 }

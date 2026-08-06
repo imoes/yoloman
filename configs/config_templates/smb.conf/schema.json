@@ -12,7 +12,13 @@
   "security_mode": {
     "type": "string",
     "default": "user",
-    "description": "Security model: 'user' for local SMB user accounts, 'domain' for domain controller, 'ads' for Active Directory."
+    "description": "Security model: 'user' for local SMB user accounts, 'domain' for domain controller, 'ads' for Active Directory.",
+    "enum": [
+      "user",
+      "domain",
+      "ads",
+      "server"
+    ]
   },
   "passdb_backend": {
     "type": "string",
@@ -119,77 +125,11 @@
         "force_group": "%U"
       }
     ],
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "shared",
-        "description": "Share name (used in \\server\\share path)."
-      },
-      "path": {
-        "type": "string",
-        "default": "/srv/share",
-        "description": "Absolute filesystem path to share."
-      },
-      "description": {
-        "type": "string",
-        "default": "General shared folder",
-        "description": "Description shown in client browsing."
-      },
-      "browsable": {
-        "type": "boolean",
-        "default": true,
-        "description": "Whether the share appears in browse lists."
-      },
-      "read_only": {
-        "type": "boolean",
-        "default": true,
-        "description": "If true, users cannot write to the share (except write list members)."
-      },
-      "guest_ok": {
-        "type": "boolean",
-        "default": false,
-        "description": "If true, allow guest access (requires map to guest = Bad User/Password in [global])."
-      },
-      "valid_users": {
-        "type": "list",
-        "default": [],
-        "description": "List of allowed users/groups (e.g., ['alice', '@admins'])."
-      },
-      "write_list": {
-        "type": "list",
-        "default": [],
-        "description": "List of users/groups with write access when read_only=true."
-      },
-      "create_mask": {
-        "type": "string",
-        "default": "0644",
-        "description": "Octal mask for new files (e.g., '0644' = rw-r--r--)."
-      },
-      "directory_mask": {
-        "type": "string",
-        "default": "0755",
-        "description": "Octal mask for new directories (e.g., '0755' = rwxr-xr-x)."
-      },
-      "force_user": {
-        "type": "string",
-        "default": "",
-        "description": "System username to force for all file operations in this share. Use '%U' for connecting user."
-      },
-      "force_group": {
-        "type": "string",
-        "default": "",
-        "description": "System group to force for all file operations in this share. Use '%G' for user's primary group."
-      },
-      "vfs_objects": {
-        "type": "list",
-        "default": [],
-        "description": "List of VFS modules to load (e.g., ['acl_xattr', 'audit'])."
-      },
-      "vfs_options": {
-        "type": "object",
-        "default": {},
-        "description": "Key-value pairs of VFS module options (e.g., {'acl_xattr:ignore system acls': 'yes'})."
-      }
-    }
+    "description": "List of SMB shares to define. Each item describes a share block in smb.conf."
+  },
+  "nmbd_options": {
+    "type": "string",
+    "default": "",
+    "description": "Extra command-line options for nmbd (used in start-stop-daemon -D $NMBDOPTIONS)."
   }
 }

@@ -1,0 +1,172 @@
+{# ============================================================================
+   cbootimage BCT (Boot Configuration Table) Configuration Template
+   ============================================================================
+   This template generates a configuration file for cbootimage, a tool used to
+   create Boot Configuration Tables (BCT) for NVIDIA Tegra SoCs. The BCT defines
+   hardware-specific parameters for memory, clocks, boot devices, and secure boot.
+
+   This template is self-documenting: every variable has a default value and a
+   descriptive comment above its corresponding configuration directive.
+   ============================================================================ #}
+
+{# ---------------------------------------------------------------------------
+   Target SoC Identification
+   --------------------------------------------------------------------------- #}
+
+# Target Tegra SoC family identifier.
+# Supported values: 20 (Tegra20), 30 (Tegra30), 114 (Tegra114), 124 (Tegra124),
+# 132 (Tegra132), or 210 (Tegra210). Defaults to Tegra124.
+# Target SoC: tegra{{ target_device | default('124') }}
+
+{# ---------------------------------------------------------------------------
+   Debugging Options
+   --------------------------------------------------------------------------- #}
+
+# Enable debug output for cbootimage operations.
+# If true, adds a comment indicating debug mode is active.
+{% if debug | default(False) | bool %}# Debug mode enabled{% endif %}
+
+{# ---------------------------------------------------------------------------
+   ODM (Original Design Manufacturer) Data
+   --------------------------------------------------------------------------- #}
+
+# ODM-specific configuration data in hexadecimal format.
+# The '0x' prefix is automatically added when emitting this value.
+# Leave empty if no custom ODM data is required.
+{% if odm_data | default('') | trim %}# ODM data: 0x{{ odm_data | default('') | trim }}{% endif %}
+
+# ============================================================================
+# Boot Configuration Table (BCT) Settings
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Memory Initialization Code
+# ---------------------------------------------------------------------------
+
+# Offset or ID of the memory initialization code within the BCT structure.
+# Typically used for vendor-specific memory training routines.
+memory_init_code = {{ memory_init_code | default(0) }}
+
+# Size in bytes of the memory initialization code block.
+memory_init_code_size = {{ memory_init_code_size | default(0) }}
+
+# ============================================================================
+# Bootloader Image Parameters
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Bootloader Location and Size
+# ---------------------------------------------------------------------------
+
+# Starting physical address of the bootloader image in memory.
+# Defaults to 0x0 if not explicitly set.
+bootloader_start = {{ bootloader_start | default('0x0') }}
+
+# Size in bytes of the bootloader image.
+# Defaults to 0x0 if not explicitly set.
+bootloader_size = {{ bootloader_size | default('0x0') }}
+
+# ============================================================================
+# Memory Configuration
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Memory Type and Technology
+# ---------------------------------------------------------------------------
+
+# Type of memory used on the board (e.g., DDR3, LPDDR4, LPDDR3).
+# Defaults to DDR3.
+memory_type = {{ memory_type | default('DDR3') }}
+
+# Clock frequency of the memory interface in kilohertz (kHz).
+# Defaults to 300000 kHz (300 MHz).
+memory_clock_khz = {{ memory_clock_khz | default(300000) }}
+
+# Specific memory technology variant string.
+# Defaults to DDR3.
+memory_technology = {{ memory_technology | default('DDR3') }}
+
+# Memory addressing mode indicating rank configuration (e.g., 1R for single rank,
+# 2R for dual rank).
+# Defaults to 2R.
+memory_addressing = {{ memory_addressing | default('2R') }}
+
+# ============================================================================
+# Clock Configuration
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# CPU and EMC Clocks
+# ---------------------------------------------------------------------------
+
+# CPU clock frequency in kilohertz (kHz).
+# Defaults to 510000 kHz (510 MHz).
+cpu_clock_khz = {{ cpu_clock_khz | default(510000) }}
+
+# EMC (External Memory Controller) clock frequency in kilohertz (kHz).
+# Defaults to 300000 kHz (300 MHz).
+emc_clock_khz = {{ emc_clock_khz | default(300000) }}
+
+# ============================================================================
+# Boot Device Configuration
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Boot Source Selection
+# ---------------------------------------------------------------------------
+
+# Primary boot device type.
+# Supported values: 'emmc', 'sdmmc', 'spi', 'sata', etc.
+# Defaults to emmc.
+boot_device = {{ boot_device | default('emmc') }}
+
+{# Conditional: eMMC-specific partition settings #}
+{% if boot_device | default('emmc') == 'emmc' %}
+
+# eMMC Boot Partition
+# -------------------
+# Partition number on the eMMC device to boot from.
+# Defaults to partition 0.
+emmc_boot_partition = {{ emmc_boot_partition | default('0') }}
+
+# eMMC User Partition
+# -------------------
+# Partition number on the eMMC device used for general storage/rootfs.
+# Defaults to partition 1.
+emmc_user_partition = {{ emmc_user_partition | default('1') }}
+
+{% endif %}
+
+# ============================================================================
+# Boot Parameters
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Kernel Command Line
+# ---------------------------------------------------------------------------
+
+# Kernel command-line parameters passed to the bootloader (e.g., U-Boot) or
+# kernel directly. Used for configuring console, root device, and boot options.
+# If empty, no boot parameters line is emitted.
+{% set boot_params = boot_parameters | default('') | trim %}
+{% if boot_params %}boot_parameters = {{ boot_params }}
+# Boot args: {{ boot_params }}
+{% else %}boot_parameters =
+# No boot parameters specified
+{% endif %}
+
+# ============================================================================
+# Secure Boot Configuration
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Secure Boot Status
+# ---------------------------------------------------------------------------
+
+# Enable or disable Secure Boot for the Tegra SoC.
+# When enabled, the bootloader verifies signatures before execution.
+{% if secure_boot | default(False) | bool %}# Secure boot enabled
+secure_boot = 1
+{% else %}# Secure boot disabled
+secure_boot = 0
+{% endif %}

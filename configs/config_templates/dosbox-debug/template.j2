@@ -1,0 +1,59 @@
+# =============================================================================
+# DOSBox-Debug Configuration Template
+# =============================================================================
+# This template generates a DOSBox-compatible INI configuration file for the
+# "dosbox-debug" service package. It is self-documenting: every setting includes
+# its schema description as a comment, and all variables use safe defaults from
+# the package schema to prevent render errors when fields are omitted.
+#
+# Usage in Ansible:
+#   - Provide variables matching the field names (e.g., memsize, sblaster.type).
+#   - The template handles nested sub-sections via dot-notation variable names
+#     (e.g., render.frameskip maps to the [render] section's frameskip key).
+# =============================================================================
+
+[dosbox]
+# machine: Type of machine to emulate: hercules, cga, tandy, pcjr, ega, vgaonly, svga_s3 (default), svga_et3000, svga_et4000, svga_paradise, vesa_nolfb
+machine = {{ (machine | default('svga_s3')) | string }}
+
+# memsize: Amount of emulated memory in KB (typically 16384 for DOS applications)
+memsize = {{ (memsize | default(16384)) | string }}
+
+[render]
+# render.frameskip: Number of frames to skip to improve rendering performance
+frameskip = {{ ((render | default({})).frameskip | default(0)) | string }}
+
+# render.scaler: Graphical scaler to use (e.g., none, normal2x, hq2x, scale2x); see dosbox.conf for full list
+scaler = {{ ((render | default({})).scaler | default('none')) | string }}
+
+[cpu]
+# cpu.cycles: CPU cycle count (negative to slow down, positive to speed up); 'max' can be used for auto-detection
+cycles = {{ ((cpu | default({})).cycles | default(-1000)) | string }}
+
+# cpu.core: CPU core type: auto, normal, simple, full, dynamic, intx86
+core = {{ ((cpu | default({})).core | default('auto')) | string }}
+
+[sblaster]
+# sblaster.type: Sound Blaster type to emulate: sb1, sb2, sbpro1, sbpro2, sb16, none
+type = {{ ((sblaster | default({})).type | default('sb16')) | string }}
+
+# sblaster.base: Base I/O port for Sound Blaster
+base = {{ ((sblaster | default({})).base | default('220')) | string }}
+
+# sblaster.irq: IRQ line for Sound Blaster
+irq = {{ ((sblaster | default({})).irq | default('7')) | string }}
+
+# sblaster.dma: DMA channel for Sound Blaster
+dma = {{ ((sblaster | default({})).dma | default('1')) | string }}
+
+# sblaster.hdma: High DMA channel for Sound Blaster (for SB16)
+hdma = {{ ((sblaster | default({})).hdma | default('5')) | string }}
+
+[mixer]
+# mixer.nosound: Disable sound output entirely
+nosound = {{ ((mixer | default({})).nosound | default(false)) | string }}
+
+[autoexec]
+# autoexec.lines: List of commands to run in [autoexec] section on startup; one per line
+{% for line in (autoexec_lines | default([''])) %}{{ line }}
+{% endfor %}

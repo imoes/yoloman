@@ -1,60 +1,40 @@
+# =============================================================================
 # httpry daemon configuration
-# Enable packet capture mode (must run with root/cap_net_raw)
-# Set the network interface to capture from
-interface: {{ interface }}
+# =============================================================================
+# This file configures the httpry HTTP packet sniffer daemon.
+# httpry captures HTTP traffic on a specified network interface and logs it.
+# =============================================================================
 
-# Set the log directory for captured data
-log_dir: {{ log_dir }}
+# --- Network Interface ---
+# Network interface to capture traffic from (e.g., eth0, enp0s3).
+# Must have CAP_NET_RAW or root privileges to operate.
+interface: {{ interface | default('eth0') }}
 
-# Enable verbose logging
-verbose: {{ verbose }}
+# --- Logging ---
+# Directory where log files are written.
+# Ensure write permissions for the daemon user specified below.
+log_dir: {{ log_dir | default('/var/log/httpry') }}
 
-# Enable debug mode (implies verbose)
-debug: {{ debug }}
+# Enable verbose logging.
+# Recommended for troubleshooting; increases log detail.
+verbose: {{ verbose | default(False) | lower }}
 
-# Set the maximum number of concurrent connections to track
-max_connections: {{ max_connections }}
+# Output format for log entries.
+# Valid values: 'normal' (human-readable text), 'json', 'csv'.
+output_format: {{ output_format | default('normal') }}
 
-# Set the timeout (seconds) for idle connections
-timeout: {{ timeout }}
+# --- Privileges ---
+# System user to drop privileges to after startup.
+# Must exist on the system.
+user: {{ user | default('httpry') }}
 
-# Hostnames to exclude from logging (one per line)
-{% for host in exclude_hosts %}
-exclude_host: {{ host }}
-{% endfor %}
+# System group to drop privileges to after startup.
+# Must exist on the system.
+group: {{ group | default('httpry') }}
 
-# Enable/Disable logging of HTTP requests
-log_requests: {{ log_requests }}
+# --- Daemonization ---
+# Run as a background daemon (true) or foreground (false, e.g., for systemd).
+daemonize: {{ daemonize | default(True) | lower }}
 
-# Enable/Disable logging of HTTP responses
-log_responses: {{ log_responses }}
-
-# Enable/Disable logging of HTTP headers
-log_headers: {{ log_headers }}
-
-# Enable/Disable logging of HTTP bodies
-log_bodies: {{ log_bodies }}
-
-# Enable/Disable logging of HTTP cookies
-log_cookies: {{ log_cookies }}
-
-# Enable/Disable logging of user agents
-log_user_agents: {{ log_user_agents }}
-
-# Enable/Disable logging of referer headers
-log_referer: {{ log_referer }}
-
-# Enable/Disable logging of cookies in plaintext (insecure if sensitive cookies present)
-plaintext_cookies: {{ plaintext_cookies }}
-
-# Set the user to drop privileges to (must exist)
-user: {{ user }}
-
-# Set the group to drop privileges to (must exist)
-group: {{ group }}
-
-# Enable/Disable background daemonization
-daemonize: {{ daemonize }}
-
-# Path to PID file
-pid_file: {{ pid_file }}
+# Path to the PID file written by the daemon.
+pid_file: {{ pid_file | default('/var/run/httpry/httpry.pid') }}

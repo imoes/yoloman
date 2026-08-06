@@ -1,8 +1,37 @@
-# DHCP relay destinations (space-separated list of IP addresses or hostnames)
-DHCP_RELAY_DEST={{ destinations | join(' ') }}
+# =============================================================================
+# DHCP Helper Configuration Template
+# =============================================================================
+# This template configures the dhcp-helper daemon.
+# It defines which network interfaces to listen on, where to relay DHCP requests,
+# and any additional command-line options for the daemon.
+# =============================================================================
 
-# Interface(s) to listen on (space-separated)
-DHCP_RELAY_IFACES={{ interfaces | join(' ') }}
+# -----------------------------------------------------------------------------
+# DHCP Relay Destinations
+# Description: List of DHCP server addresses to which DHCP requests will be
+#              relayed. Each entry must be a valid IP address or resolvable
+#              hostname. The resulting value is a space-separated list.
+# Schema Default: [] (empty list)
+# -----------------------------------------------------------------------------
+# If 'destinations' is not defined or empty, this line will be empty.
+# Ensure at least one destination is configured for the relay to function.
+DHCP_RELAY_DEST={{ destinations | default([]) | join(' ') }}
 
-# Additional daemon options (e.g., -d for debug, -f for foreground)
-DHCP_RELAY_OPTS="{{ options }}"
+# -----------------------------------------------------------------------------
+# DHCP Helper Interfaces
+# Description: List of network interface names (e.g., eth0, br0) on which to
+#              listen for DHCP DISCOVER/OFFER/REQUEST/ACK messages.
+# Schema Default: [] (empty list)
+# -----------------------------------------------------------------------------
+# If 'interfaces' is not defined or empty, this line will be empty.
+# Ensure at least one interface is specified for the daemon to bind.
+DHCP_RELAY_IFACES={{ interfaces | default([]) | join(' ') }}
+
+# -----------------------------------------------------------------------------
+# Additional Daemon Options
+# Description: Additional command-line options passed to the dhcp-helper daemon
+#              (e.g., `-d` for debug mode, `-f` to run in foreground).
+# Schema Default: '' (empty string)
+# -----------------------------------------------------------------------------
+# Options are wrapped in quotes to preserve spaces within the argument string.
+DHCP_RELAY_OPTS="{{ options | default('') }}"

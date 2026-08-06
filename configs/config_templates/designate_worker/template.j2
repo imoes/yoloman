@@ -1,95 +1,110 @@
+# Designate Worker Configuration Template
+# Self-documenting Jinja2 template for OpenStack Designate Worker service.
+# Variables map 1:1 to schema fields. Defaults are inline to ensure
+# safe rendering even if a variable is omitted.
+
 [DEFAULT]
-# Logging configuration
-log_file = {{ log_file }}
-log_dir = {{ log_dir }}
+# Path to the log file for designate-worker.
+log_file = {{ log_file | default('/var/log/designate/designate-worker.log') }}
 
-# Verbosity and debug
-# Increase verbosity level for debugging (true/false)
-debug = {{ debug }}
-verbose = {{ verbose }}
+# Directory to store log files.
+log_dir = {{ log_dir | default('/var/log/designate') }}
 
-# Hostname and bind address
-# Hostname to identify this worker instance
-host = {{ host }}
+# Enable debug-level logging.
+debug = {{ debug | default(false) }}
 
-# RPC backend settings
-# Transport URL for message queue (e.g., rabbit, redis, or kombu)
-transport_url = {{ transport_url }}
+# Enable verbose logging output.
+verbose = {{ verbose | default(true) }}
 
-# Authentication settings
-# Auth URL for keystone authentication
-auth_url = {{ auth_url }}
-# Project domain name (Keystone v3+)
-project_domain_name = {{ project_domain_name }}
-# Project name for service user
-project_name = {{ project_name }}
-# User domain name
-user_domain_name = {{ user_domain_name }}
-# Service username
-username = {{ username }}
-# Password for service user
-password = {{ password }}
+# Hostname for this worker instance. Leave empty to auto-detect.
+host = {{ host | default('') }}
 
-# Worker-specific settings
-# Number of worker processes
-workers = {{ workers }}
-# Number of threads per worker
-threads = {{ threads }}
+# Message broker connection URL (e.g., RabbitMQ, Redis).
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
 
-# Periodic task interval (in seconds)
-# How often to run background maintenance tasks
-periodic_interval = {{ periodic_interval }}
+# Keystone authentication endpoint URL.
+auth_url = {{ auth_url | default('http://localhost:5000/v3') }}
 
-# Pool target configuration
-# Max concurrent outgoing DNS updates
-max_concurrent_updates = {{ max_concurrent_updates }}
+# Keystone project domain name for the service project.
+project_domain_name = {{ project_domain_name | default('Default') }}
 
-# Retry settings
-# Max attempts to retry failed DNS updates
-max_retries = {{ max_retries }}
+# Keystone project name under which the service runs.
+project_name = {{ project_name | default('service') }}
 
-# Zone export settings
-# Enable/disable zone exports to backup storage
-enabled_export = {{ enabled_export }}
-# Directory to store exported zone files
-export_dir = {{ export_dir }}
+# Keystone user domain name for the service user.
+user_domain_name = {{ user_domain_name | default('Default') }}
 
-# DNS backend settings
-# Default pool ID to assign to zones created by this worker
-# (usually set in centralized config, but can be overridden)
-default_pool_id = {{ default_pool_id }}
+# Keystone username for the Designate service.
+username = {{ username | default('designate') }}
+
+# Keystone password for the Designate service user (should be provided securely, e.g., via config file permissions or secrets manager).
+password = {{ password | default('') }}
+
+# Number of worker processes to spawn.
+workers = {{ workers | default(1) }}
+
+# Number of threads per worker process.
+threads = {{ threads | default(10) }}
+
+# Interval (in seconds) between periodic task runs (e.g., cleanup, zone sync).
+periodic_interval = {{ periodic_interval | default(60) }}
+
+# Maximum number of concurrent outgoing DNS update requests to DNS backends.
+max_concurrent_updates = {{ max_concurrent_updates | default(10) }}
+
+# Maximum retry attempts for failed DNS updates.
+max_retries = {{ max_retries | default(3) }}
+
+# Enable zone export to local files.
+enabled_export = {{ enabled_export | default(false) }}
+
+# Directory where zone export files are stored when enabled.
+export_dir = {{ export_dir | default('/var/lib/designate/exports') }}
+
+# ID of the default pool for zone assignments. Used when zone creation omits a pool ID.
+default_pool_id = {{ default_pool_id | default('default') }}
 
 [storage]
-# Backend for persistent storage (e.g., database)
-# SQLAlchemy connection string for database
-connection = {{ storage_connection }}
+# Database connection string for zone/pool data persistence.
+connection = {{ storage_connection | default('mysql+pymysql://designate:designate@localhost/designate?charset=utf8') }}
 
-# Optional database pool settings
-pool_size = {{ storage_pool_size }}
-pool_timeout = {{ storage_pool_timeout }}
+# Maximum number of database connections in the pool.
+pool_size = {{ storage_pool_size | default(10) }}
+
+# Timeout (seconds) for acquiring a connection from the pool.
+pool_timeout = {{ storage_pool_timeout | default(30) }}
 
 # Optional: Backend-specific configuration for external storage
-# (e.g., designate backend integration)
 [backend:bind9]
-# Example: BIND9 backend section (only if used)
-# Enabled only if bind9 is configured as backend
-enabled = {{ bind9_enabled }}
+# Enable BIND9 backend integration (if used).
+enabled = {{ bind9_enabled | default(false) }}
 
-# List of BIND9 servers to manage
-{% for server in bind9_servers %}# BIND9 server: {{ server.name }}
-[backend:bind9:{{ server.name }}]
-api_endpoint = {{ server.api_endpoint }}
-api_key = {{ server.api_key }}
-{% if server.md5_auth_key %}md5_auth_key = {{ server.md5_auth_key }}
-{% endif %}{% if server.tsig_key_name %}tsig_key_name = {{ server.tsig_key_name }}
-{% endif %}{% endfor %}
+# List of BIND9 DNS servers to manage (only needed if using BIND9 backend).
+# Each server is rendered as a separate subsection.
+{% for server in bind9_servers | default([]) %}
+# BIND9 server configuration for: {{ server.name | default('unknown') }}
+[backend:bind9:{{ server.name | default('server' + loop.index|string) }}]
+api_endpoint = {{ server.api_endpoint | default('') }}
+api_key = {{ server.api_key | default('') }}
+{% if server.md5_auth_key %}
+md5_auth_key = {{ server.md5_auth_key }}
+{% endif %}
+{% if server.tsig_key_name %}
+tsig_key_name = {{ server.tsig_key_name }}
+{% endif %}
+{% endfor %}
 
 [rpc_notifier]
-# Optional: Custom notifier backend for event dispatch
-# Enables sending DNS change notifications to external systems
-enabled = {{ notifier_enabled }}
-# List of notification endpoints
-{% for endpoint in notifier_endpoints %}[rpc_notifier:endpoint_{{ loop.index }}]
-backend = {{ endpoint.backend }}
-{% for key, value in endpoint.options.items() %}{{ key }} = {{ value }}
-{% endfor %}{% endfor %}
+# Enable custom event notifications (e.g., for external monitoring or audit).
+enabled = {{ notifier_enabled | default(false) }}
+
+# List of custom notifier endpoints with their configuration.
+{% for endpoint in notifier_endpoints | default([]) %}
+[rpc_notifier:endpoint_{{ loop.index }}]
+backend = {{ endpoint.backend | default('') }}
+
+# Optional endpoint configuration options
+{% for key, value in endpoint.options | default({}) | dict2items %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

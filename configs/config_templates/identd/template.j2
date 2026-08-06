@@ -1,66 +1,69 @@
 # /etc/ident2/ident2.conf
 # ident2 — Advanced Ident Daemon (RFC 1413)
+#
+# This configuration file controls the behavior of the ident2 daemon.
+# It listens for TCP connections on a specific port (default 113) and
+# responds to queries regarding the owner of a specific TCP port.
+#
+# Self-documenting: every variable reference uses the `default` filter
+# to ensure the template renders correctly even if a variable is undefined.
 
-# TCP port the daemon listens on; RFC 1413 standard is 113
-port = {{ port }}
+# TCP port the daemon listens on. RFC 1413 reserves port 113; change only if running behind a port-forward.
+port = {{ port | default(113) }}
 
-# IP address to bind to; 0.0.0.0 = all IPv4 interfaces
-address = {{ bind_address }}
+# IPv4 address to bind to. Use 0.0.0.0 for all interfaces or a specific address to restrict which NIC accepts connections.
+address = {{ bind_address | default('0.0.0.0') }}
 
-# Drop privileges to this user after binding to the privileged port
-user = {{ user }}
+# Unix user account the daemon drops to after binding. Must exist on the system; 'nobody' is a safe least-privilege choice.
+user = {{ user | default('nobody') }}
 
-# Drop privileges to this group after binding
-group = {{ group }}
+# Unix group the daemon drops to after binding. Pair with the user above; 'nogroup' grants no special filesystem access.
+group = {{ group | default('nogroup') }}
 
-# Write daemon PID here so init/systemd can supervise the process
-pidfile = {{ pid_file }}
+# Path where the daemon writes its PID on startup. Used by init systems and monitoring agents for process supervision.
+pidfile = {{ pid_file | default('/var/run/ident2.pid') }}
 
-# Close idle client connections after this many seconds
-timeout = {{ timeout }}
+# Seconds to wait for a client to complete an ident query. Lower values protect against slow-loris style connection exhaustion.
+timeout = {{ timeout | default(30) }}
 
-# Maximum simultaneous ident connections; excess are queued or dropped
-maxconnections = {{ max_connections }}
+# Maximum simultaneous in-flight ident connections. Size this to your busiest mail/IRC server's concurrency — 50–100 is typical.
+maxconnections = {{ max_connections | default(100) }}
 
-# OS type string embedded in every ident reply (RFC 1413 §2.7)
-os-type = {{ os_type }}
+# OS type token embedded in ident replies per RFC 1413 §2.7. Standard values are UNIX and OTHER; some clients require UNIX to parse the reply.
+os-type = {{ os_type | default('UNIX') }}
 
-# Log verbosity: error | warn | info | debug
-loglevel = {{ log_level }}
+# Log verbosity: error (quiet), warn, info (recommended for production), or debug (verbose, for troubleshooting only).
+loglevel = {{ log_level | default('info') }}
 
-{% if use_syslog %}
-# Route log output through syslog
+{% if use_syslog | default(true) %}
+# Route log output through syslog (recommended). Set false to log to a plain file instead; then set log_file.
 syslog = yes
 {% else %}
-# Write log output to this file when syslog is disabled
-logfile = {{ log_file }}
+# Absolute path to the log file used when use_syslog is false. The directory must be writable by the daemon user.
+logfile = {{ log_file | default('/var/log/ident2.log') }}
 {% endif %}
 
-# How to answer ident queries:
-#   real       — return the actual local username
-#   masquerade — return a fixed fake name (see masquerade-name below)
-#   noident    — return RFC NOIDENT for every query
-#   error      — return ERROR:UNKNOWN-ERROR
-mode = {{ response_mode }}
+# Controls what the daemon returns for a successful lookup. real = actual username; masquerade = a fixed fake name; noident = RFC NOIDENT; error = ERROR:UNKNOWN-ERROR
+mode = {{ response_mode | default('real') }}
 
-{% if response_mode == 'masquerade' %}
-# Username returned for all queries in masquerade mode
-masquerade-name = {{ masquerade_name }}
+{% if response_mode | default('real') == 'masquerade' %}
+# The fake username returned for every query when response_mode is masquerade. Ignored in all other modes.
+masquerade-name = {{ masquerade_name | default('UNKNOWN') }}
 {% endif %}
 
-# Open an IPv6 listener in addition to the IPv4 listener
-ipv6 = {{ 'yes' if enable_ipv6 else 'no' }}
+# Open an IPv6 listener alongside the IPv4 one. Required for dual-stack hosts that receive ident queries over IPv6.
+ipv6 = {{ 'yes' if enable_ipv6 | default(true) else 'no' }}
 
-{% if deny_rules %}
-# Deny ident queries from these networks (evaluated before allow rules)
-{% for rule in deny_rules %}
+{% if deny_rules | default([]) %}
+# Networks whose ident queries are rejected before any allow rule is evaluated. Use to block untrusted external ranges.
+{% for rule in deny_rules | default([]) %}
 deny = {{ rule.network }}
 {% endfor %}
 {% endif %}
 
-{% if allow_rules %}
-# Allow ident queries only from these networks; empty = allow all
-{% for rule in allow_rules %}
+{% if allow_rules | default([]) %}
+# Networks whose ident queries are explicitly allowed. An empty list permits all sources (after deny rules). Populate this to whitelist specific networks.
+{% for rule in allow_rules | default([]) %}
 allow = {{ rule.network }}
 {% endfor %}
 {% endif %}

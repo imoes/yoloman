@@ -1,29 +1,72 @@
-# Enable pump mode for distributed compilation
-{{ 'PUMP_ENABLE=true' if values.pump_enabled else '#PUMP_ENABLE=true' }}
+# =============================================================================
+# distcc_pump configuration template
+# =============================================================================
+# This file configures distcc's "pump" mode, which enables pre-processing and
+# caching of compilation units for faster distributed builds.
+# =============================================================================
 
-# Base directory for pump mode state and cache files
-PUMP_DIR={{ values.pump_dir }}
+# Enable pump mode for distributed compilation.
+# If disabled, distcc falls back to standard (non-pump) distributed compilation.
+# Valid values: true, false
+# Default: true
+{% if (pump_enabled | default(true)) | bool %}
+PUMP_ENABLE=true
+{% else %}
+PUMP_ENABLE=false
+{% endif %}
 
-# Maximum number of pump mode sessions (controls concurrency)
-{{ 'PUMP_MAX_SESSIONS=' + values.pump_max_sessions | string if values.pump_max_sessions is not none else '#PUMP_MAX_SESSIONS=4' }}
+# Base directory for pump mode state and cache files.
+# This directory must be writable by the distccd user.
+# Default: /var/cache/distcc/pump
+PUMP_DIR={{ pump_dir | default('/var/cache/distcc/pump') }}
 
-# Host(s) to use for pump mode; if empty, local-only pump session
-{{ 'PUMP_HOSTS=' + values.pump_hosts | join(',') if values.pump_hosts is not none and values.pump_hosts | length > 0 else '#PUMP_HOSTS=' }}
+# Maximum number of concurrent pump mode sessions.
+# Higher values allow more parallel jobs but increase resource usage.
+# Valid values: integer >= 0
+# Default: 4
+PUMP_MAX_SESSIONS={{ pump_max_sessions | default(4) }}
 
-# Path to the distccd binary (required for pump mode)
-{{ 'PUMP_BIN=' + values.pump_bin if values.pump_bin is not none else '#PUMP_BIN=/usr/bin/distccd' }}
+# Host(s) to use for pump mode; if empty, local-only pump session.
+# Each host should be in 'hostname' or 'hostname:port' format.
+# Comma-separated list.
+# Default: empty list (local only)
+{% if (pump_hosts | default([])) | length > 0 %}
+PUMP_HOSTS={{ pump_hosts | default([]) | join(',') }}
+{% else %}
+PUMP_HOSTS=
+{% endif %}
 
-# Extra arguments passed to distccd when started via pump mode
-{{ 'PUMP_ARGS=' + values.pump_args | join(' ') if values.pump_args is not none and values.pump_args | length > 0 else '#PUMP_ARGS=' }}
+# Timeout (in seconds) for pump session startup.
+# Maximum time to wait for a pump session to start before timing out.
+# Valid values: integer >= 0
+# Default: 30
+PUMP_STARTUP_TIMEOUT={{ pump_startup_timeout | default(30) }}
 
-# Timeout (in seconds) for pump session startup
-{{ 'PUMP_STARTUP_TIMEOUT=' + values.pump_startup_timeout | string if values.pump_startup_timeout is not none else '#PUMP_STARTUP_TIMEOUT=30' }}
+# Enable verbose logging for pump mode internals.
+# Helpful for debugging.
+# Valid values: true, false
+# Default: false
+{% if (pump_verbose | default(false)) | bool %}
+PUMP_VERBOSE=true
+{% else %}
+PUMP_VERBOSE=false
+{% endif %}
 
-# Enable verbose logging for pump mode
-{{ 'PUMP_VERBOSE=true' if values.pump_verbose else '#PUMP_VERBOSE=true' }}
+# Path to the pump mode log file.
+# If empty, logs go to syslog instead.
+# Default: empty (syslog)
+{% if (pump_log | default('')) | length > 0 %}
+PUMP_LOG={{ pump_log | default('') }}
+{% else %}
+PUMP_LOG=
+{% endif %}
 
-# Path to the pump mode log file (optional; leave empty for syslog)
-{{ 'PUMP_LOG=' + values.pump_log if values.pump_log is not none and values.pump_log != "" else '#PUMP_LOG=' }}
-
-# Enable/disables compression of data over pump sessions
-{{ 'PUMP_COMPRESS=true' if values.pump_compress else '#PUMP_COMPRESS=true' }}
+# Enable compression of data over pump sessions.
+# Reduces network usage at the cost of CPU.
+# Valid values: true, false
+# Default: true
+{% if (pump_compress | default(true)) | bool %}
+PUMP_COMPRESS=true
+{% else %}
+PUMP_COMPRESS=false
+{% endif %}

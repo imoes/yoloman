@@ -1,0 +1,60 @@
+# AppArmor profile for guestfish-tools binaries.
+#
+# This profile restricts the set of virt-* tools that are covered by the AppArmor policy.
+# The variable GUESTFS_TOOLS should contain a space-separated list of binary names.
+#
+# Variable: GUESTFS_TOOLS
+# Description: Space-separated list of guestfs-tools binaries covered by this AppArmor profile.
+# Default: virt-alignment-scan virt-builder virt-builder-repository virt-cat virt-customize virt-df virt-diff virt-drivers virt-edit virt-filesystems virt-format virt-get-kernel virt-index-validate virt-inspector virt-log virt-ls virt-make-fs virt-resize virt-sparsify virt-sysprep virt-tail virt-win-reg
+#
+# Note: In AppArmor profiles, variables are typically defined at the top level using @{VAR}.
+# When used as an Ansible variable, it is expanded during template rendering.
+
+@{GUESTFS_TOOLS} = {{ GUESTFS_TOOLS | default('virt-alignment-scan virt-builder virt-builder-repository virt-cat virt-customize virt-df virt-diff virt-drivers virt-edit virt-filesystems virt-format virt-get-kernel virt-index-validate virt-inspector virt-log virt-ls virt-make-fs virt-resize virt-sparsify virt-sysprep virt-tail virt-win-reg') }}
+
+abi <abi/3.0>,
+
+include <tunables/global>
+
+profile guestfs-tools /usr/bin/@{GUESTFS_TOOLS} {
+  include <abstractions/base>
+  include <abstractions/consoles>
+  include <abstractions/nameservice>
+
+  # Full access to filesystem (we don't know where images are)
+  /** mrwlk,
+  # ...and to run QEMU and any sort of helper without a profile
+  /** ix,
+  unix,
+
+  # These might be needed for disk images
+  capability dac_override,
+  capability dac_read_search,
+
+  # ...and to preserve ownership and device nodes as we untar supermin(1) appliances
+  capability chown,
+  capability fowner,
+  capability mknod,
+
+  # Receive any signal
+  signal (receive) peer=/usr/bin/@{GUESTFS_TOOLS},
+  signal (receive) peer=@{GUESTFS_TOOLS},
+
+  # Network using passt(1)
+  /usr/bin/passt Cx -> passt,
+  profile passt {
+    /usr/bin/passt r,
+
+    # passt needs to accept SIGTERM from any of the tools
+    signal (receive) set=("term") peer=/usr/bin/@{GUESTFS_TOOLS},
+    signal (receive) set=("term") peer=@{GUESTFS_TOOLS},
+
+    # Possible paths for socket and PID files (as user and as root)
+    owner @{run}/user/[0-9]*/libguestfs*/passt.sock rw,
+    owner @{run}/user/[0-9]*/libguestfs*/passt[0-9]*.pid rw,
+    owner /tmp/libguestfs*/passt.sock rw,
+    owner /tmp/libguestfs*/passt[0-9].pid rw,
+
+    include if exists <abstractions/passt>
+  }
+}

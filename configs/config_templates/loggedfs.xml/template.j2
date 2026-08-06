@@ -1,51 +1,73 @@
 <?xml version="1.0"?>
-<!-- loggedfs configuration file -->
+<!-- ================================================================= -->
+<!-- loggedfs.xml: Configuration for loggedfs filesystem event logger -->
+<!-- ================================================================= -->
+<!-- This file configures the loggedfs daemon to monitor filesystem -->
+<!-- events on a specific mount point and log them via syslog or a -->
+<!-- dedicated file. -->
+<!-- ================================================================= -->
 <config>
-  <!-- Mount point to observe (filesystem path) -->
-  <path>{{ mount_point }}</path>
+  <!-- mount_point: Root directory path to monitor for filesystem events -->
+  <!-- Default: /data -->
+  <path>{{ mount_point | default('/data') }}</path>
 
-  <!-- Logging backend type: syslog or file -->
-  <backend>{{ backend }}</backend>
+  <!-- backend: Logging destination type ('syslog' or 'file') -->
+  <!-- Default: syslog -->
+  <backend>{{ backend | default('syslog') }}</backend>
 
-  {% if backend == 'file' %}
-  <!-- Path to log file (used when backend is 'file') -->
-  <logfile>{{ log_file_path }}</logfile>
+  {# Conditional block: Only emit log file path if backend is 'file' #}
+  {% if backend | default('syslog') == 'file' %}
+  <!-- log_file_path: Path to the dedicated log file (only used if backend is 'file') -->
+  <!-- Default: /var/log/loggedfs.log -->
+  <logfile>{{ log_file_path | default('/var/log/loggedfs.log') }}</logfile>
   {% endif %}
 
-  <!-- Log level: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG -->
-  <verbose>{{ verbose }}</verbose>
+  <!-- verbose: Log verbosity level (0=ERROR, 1=WARN, 2=INFO, 3=DEBUG) -->
+  <!-- Default: 2 -->
+  <verbose>{{ verbose | default(2) }}</verbose>
 
-  <!-- Whether to log operations as JSON lines (true/false) -->
-  <json>{{ json_output }}</json>
+  <!-- json_output: Whether to emit each log entry as a structured JSON line (overrides prefix) -->
+  <!-- Default: False -->
+  <json>{{ json_output | default(False) }}</json>
 
-  <!-- Prefix to prepend to each log line (ignored when json=true) -->
-  <prefix>{{ log_prefix }}</prefix>
+  <!-- log_prefix: String prefix added before each log line (ignored if json_output is true) -->
+  <!-- Default: [loggedfs] -->
+  <prefix>{{ log_prefix | default('[loggedfs]') }}</prefix>
 
-  <!-- Maximum size in bytes of a single log file before rotation -->
-  <maxsize>{{ max_log_size }}</maxsize>
+  <!-- max_log_size: Maximum size in bytes for a single log file before rotation -->
+  <!-- Default: 104857600 (100 MB) -->
+  <maxsize>{{ max_log_size | default(104857600) }}</maxsize>
 
-  <!-- Maximum number of rotated log files to keep -->
-  <maxfiles>{{ max_log_files }}</maxfiles>
+  <!-- max_log_files: Maximum number of rotated log files to retain -->
+  <!-- Default: 5 -->
+  <maxfiles>{{ max_log_files | default(5) }}</maxfiles>
 
-  <!-- List of specific operations to log (all others ignored) -->
+  <!-- operations: List of filesystem operations to log -->
+  <!-- If omitted or empty, all operations are logged -->
+  <!-- Default: ['read', 'write', 'open', 'mkdir', 'rmdir', 'rename', 'unlink', 'chmod', 'chown'] -->
   <operations>
-    {% for op in log_operations %}
-    <!-- Log operation: {{ op }} -->
+    {# Iterate over the list of operations provided by the schema #}
+    {% for op in log_operations | default(['read', 'write', 'open', 'mkdir', 'rmdir', 'rename', 'unlink', 'chmod', 'chown']) %}
+    <!-- Operation to log: {{ op }} -->
     <op>{{ op }}</op>
     {% endfor %}
   </operations>
 
-  <!-- List of paths to exclude from logging (supports glob patterns) -->
+  <!-- exclude: List of path patterns (supports globs like * and ?) to exclude from logging -->
+  <!-- Default: ['/proc/*', '/sys/*', '/dev/*'] -->
   <exclude>
-    {% for pattern in exclude_paths %}
-    <!-- Exclude pattern: {{ pattern }} -->
+    {# Iterate over the list of exclude patterns provided by the schema #}
+    {% for pattern in exclude_paths | default(['/proc/*', '/sys/*', '/dev/*']) %}
+    <!-- Exclude path pattern: {{ pattern }} -->
     <path>{{ pattern }}</path>
     {% endfor %}
   </exclude>
 
-  <!-- Whether to follow symlinks when traversing directories -->
-  <follow_symlinks>{{ follow_symlinks }}</follow_symlinks>
+  <!-- follow_symlinks: Whether to follow symbolic links when monitoring directory trees -->
+  <!-- Default: False -->
+  <follow_symlinks>{{ follow_symlinks | default(False) }}</follow_symlinks>
 
-  <!-- Whether to log metadata changes (e.g., chmod, chown) -->
-  <log_metadata>{{ log_metadata }}</log_metadata>
+  <!-- log_metadata: Whether to log metadata changes (e.g., permissions, ownership, timestamps) -->
+  <!-- Default: True -->
+  <log_metadata>{{ log_metadata | default(True) }}</log_metadata>
 </config>

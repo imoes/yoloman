@@ -1,51 +1,81 @@
+# =============================================================================
+# google_oslogin_settings.conf - Enriched Jinja2 Template
+# =============================================================================
+# This template configures the Google OS Login daemon/client. It controls how
+# the system integrates with Google Compute Engine metadata services for user
+# authentication (SSH keys) and authorization (sudo/SSH access).
+#
+# All variables must be provided by the Ansible playbook/role vars. Defaults
+# are embedded in every variable reference to ensure idempotent rendering.
+# =============================================================================
+
+# [global] Section: Core OS Login behavior
 [global]
-# Enable or disable OS Login globally
-use_oslogin = {{ use_oslogin | lower }}
 
-# TTL (in seconds) for SSH public key cache
-ssh_public_key_cache_ttl = {{ ssh_public_key_cache_ttl }}
+# Enable or disable OS Login globally. When true, user and SSH key management
+# is handled by Google's OS Login service.
+use_oslogin = {{ use_oslogin | default(True) | lower }}
 
-# Enable or disable SSH key sync from Google metadata
-ssh_public_key_sync = {{ ssh_public_key_sync | lower }}
+# Time-to-live (in seconds) for cached SSH public keys. After this period, keys
+# are refreshed from metadata.
+ssh_public_key_cache_ttl = {{ ssh_public_key_cache_ttl | default(86400) }}
 
-# Enable or disable sudo access via OS Login
-sudoers_file = {{ sudoers_file }}
+# When enabled, SSH public keys are automatically synchronized from Google
+# Compute Engine metadata.
+ssh_public_key_sync = {{ ssh_public_key_sync | default(True) | lower }}
 
-# Enable or disable authorized keys file generation
-authorized_keys_file = {{ authorized_keys_file }}
+# Path to the sudoers configuration file used to grant sudo access to OS Login
+# users. Set to an empty string to disable sudo support.
+sudoers_file = {{ sudoers_file | default('/etc/sudoers.d/oslogin') }}
 
+# Path to the file where OS Login writes user-specific SSH public keys. Set to
+# an empty string to disable authorized_keys file generation.
+authorized_keys_file = {{ authorized_keys_file | default('/etc/oslogin/authorized_keys') }}
+
+# [sshd_config] Section: SSH Daemon integration settings
 [sshd_config]
-# Enable or disable OS Login integration with SSH daemon
-oslogin_enabled = {{ sshd_oslogin_enabled | lower }}
 
-# Key types to accept from metadata (comma-separated list)
-key_types = {{ sshd_key_types | join(', ') }}
+# When enabled, the SSH daemon integrates with OS Login to allow Google-managed
+# SSH access.
+oslogin_enabled = {{ sshd_oslogin_enabled | default(True) | lower }}
 
+# List of allowed SSH key types. Only keys matching these types will be accepted
+# from metadata.
+key_types = {{ sshd_key_types | default(['ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519', 'ssh-rsa']) | join(', ') }}
+
+# [cache] Section: Metadata caching behavior
 [cache]
-# Cache directory for OS Login metadata
-CacheDir = {{ cache_dir }}
 
-# Enable or disable caching
-UseCache = {{ cache_use_cache | lower }}
+# Directory used for caching OS Login metadata and configuration data.
+CacheDir = {{ cache_dir | default('/var/cache/oslogin') }}
 
-# Time-to-live for cached metadata in seconds
-CacheExpiration = {{ cache_expiration }}
+# When enabled, cached metadata is used instead of fetching fresh data
+# (subject to TTL).
+UseCache = {{ cache_use_cache | default(True) | lower }}
 
-# Enable or disable GPG verification of cache
-GPGVerify = {{ cache_gpg_verify | lower }}
+# Time in seconds after which cached metadata is considered stale and refreshed.
+CacheExpiration = {{ cache_expiration | default(300) }}
 
-# Number of retries when fetching metadata
-MetadataRetries = {{ metadata_retries }}
+# When enabled, cached metadata files are verified using GPG signatures before
+# use for security.
+GPGVerify = {{ cache_gpg_verify | default(True) | lower }}
 
-# Timeout in seconds for metadata fetch
-MetadataTimeout = {{ metadata_timeout }}
+# Number of retry attempts when fetching metadata from the metadata server.
+MetadataRetries = {{ metadata_retries | default(3) }}
 
-# Comma-separated list of metadata server hostnames (used in fallback)
-MetadataServers = {{ metadata_servers | join(', ') }}
+# Timeout (in seconds) for each metadata request attempt.
+MetadataTimeout = {{ metadata_timeout | default(10) }}
 
+# List of metadata server hostnames. Used for fallback in case the primary
+# server is unreachable.
+MetadataServers = {{ metadata_servers | default(['metadata.google.internal']) | join(', ') }}
+
+# [logging] Section: Logging configuration
 [logging]
-# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-LogLevel = {{ log_level }}
 
-# Path to log file (empty string disables file logging)
-LogFile = {{ log_file | default('') }}
+# Minimum logging level. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+LogLevel = {{ log_level | default('INFO') }}
+
+# Path to the log file. Set to an empty string to disable file logging and log
+# to stdout/stderr only.
+LogFile = {{ log_file | default('/var/log/oslogin.log') }}

@@ -1,0 +1,43 @@
+# Clevis LUKS binding configuration
+#
+# This template generates the [clevis] configuration section for binding
+# LUKS volumes to external trust mechanisms (Tang, TPM2, or SSS).
+
+# Enable Clevis LUKS binding configuration block.
+# default: false
+{% if (luks_binding | default({})).enabled | default(false) %}
+[luks]
+
+# Path to the LUKS device (e.g., /dev/sda). Required if luks_binding.enabled=true.
+# default: ''
+device = {{ (luks_binding | default({})).device | default('') }}
+
+# Optional: Tang binding
+# default: false
+{% if (luks_binding | default({})).tang_config.enabled | default(false) %}
+# URL of the Tang server (e.g., http://tang.example.com). Required if tang_config.enabled=true.
+# default: ''
+url = {{ (luks_binding | default({})).tang_config.url | default('') }}
+{% endif %}
+
+# Optional: thresholded SSS binding
+# default: false
+{% if (luks_binding | default({})).sss_config.enabled | default(false) %}
+# Minimum number of shards required to recover the secret (t in (t,n) SSS).
+# default: 1
+threshold = {{ (luks_binding | default({})).sss_config.threshold | default(1) }}
+
+# List of pin configurations to be used as SSS shards. Each pin must be of type 'tang' or 'tpm2'.
+# default: []
+{% for pin in (luks_binding | default({})).sss_config.pins | default([]) %}
+[pins.{{ (pin | default({})).type | default('') }}]
+{% if (pin | default({})).type | default('') == 'tang' %}
+# URL of the Tang server for this specific pin.
+{{ (pin | default({})).url | default('') }}
+{% elif (pin | default({})).type | default('') == 'tpm2' %}
+# TPM2 pin configuration (currently supports no specific directives in this schema).
+# If additional config keys are needed, they would appear here as `key = value`.
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endif %}

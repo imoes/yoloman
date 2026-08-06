@@ -1,0 +1,76 @@
+{# ============================================================================== #}
+{# FET (Free Timetabling) Configuration Template                                     #}
+{# ============================================================================== #}
+{# This template generates a configuration file for the FET timetabling solver.     #}
+{# FET is a free software package for automatic school timetabling.                 #}
+{# This configuration file allows external orchestration (e.g., Ansible, Docker)    #}
+{# to control solver parameters, I/O paths, and logging.                            #}
+{#                                                                                #}
+{# IMPORTANT: FET's native behavior is typically controlled via command-line flags. #}
+{# This YAML-like structure is a wrapper/convention for managing FET instances      #}
+{# within automated environments. Please verify the specific FET version's support  #}
+{# for this configuration format against the official documentation.                #}
+{# ============================================================================== #}
+
+# ------------------------------------------------------------------------------
+# Base Configuration
+# ------------------------------------------------------------------------------
+
+{# config_paths_root: Optional root directory prefix for config paths (e.g., for chrooted or containerized setups). #}
+{% if config_paths_root | default('') | length > 0 %}
+config_paths_root: {{ config_paths_root | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# I/O Handling
+# #}
+
+{# input_file: Input file path (relative to config root or absolute). #}
+input_file: {{ input_file | default('timetable.fet') }}
+
+{# output_directory: Directory to write output files to. #}
+output_directory: {{ output_directory | default('.') }}
+
+# ------------------------------------------------------------------------------
+# Solver Constraints & Behavior
+# ------------------------------------------------------------------------------
+
+{# max_iterations: Maximum solver iterations (0 = unlimited). Based on CLI flag -max_iterations. #}
+max_iterations: {{ max_iterations | default(0) }}
+
+{# max_time_minutes: Maximum solver time in minutes (0 = unlimited). Based on CLI flag -max_time_minutes. #}
+max_time_minutes: {{ max_time_minutes | default(0) }}
+
+{# random_seed: Random seed for reproducibility (0 = time-based). Based on CLI flag -random_seed. #}
+random_seed: {{ random_seed | default(0) }}
+
+{# allow_unassigned_activities: Allow unassigned activities in the timetable. Based on CLI flag -allow_unassigned. #}
+{# Note: FET typically treats boolean flags as 'true' if present. Here we render 'true'/'false' as strings. #}
+allow_unassigned_activities: {{ allow_unassigned_activities | default(false) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Output Formatting
+# ------------------------------------------------------------------------------
+
+{# output_format: Output format: 'fet', 'xml', 'html', 'ical', or 'csv'. Based on CLI flags -fet_output, -xml_output, etc. #}
+output_format: {{ output_format | default('fet') }}
+
+{# output_options: Key-value map of output-specific options (e.g., 'html_show_rooms': true). #}
+{# Each key must be a valid documented output option flag without the leading dashes. #}
+{% if output_options | default([]) | length > 0 %}
+output_options:
+  {% for opt, val in output_options | default([]) | dict2items %}
+  {# opt.key is the option name, opt.value is the option value #}
+  {{ opt.key }}: {{ val | default(true) | ternary('true', 'false') }}
+  {% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+{# log_level: Logging verbosity: 'debug', 'info', 'warning', 'error'. Based on CLI flag -verbose (mapped to levels). #}
+log_level: {{ log_level | default('info') }}
+
+{# log_file: Path to write log messages to (relative or absolute). Based on CLI flag -log_file. #}
+log_file: {{ log_file | default('fet.log') }}

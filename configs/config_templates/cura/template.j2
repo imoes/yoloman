@@ -1,0 +1,129 @@
+{# Cura configuration file for CLI/service usage (non-GUI mode) #}
+{# Note: Cura is primarily a GUI application; CLI options are extremely limited. #}
+{# This template generates a minimal config stub for headless operation where possible. #}
+[general]
+# Base configuration version
+version = {{ version | default(6) }}
+
+# Default quality profile (used if no printer-specific profile is loaded)
+default_quality_name = {{ default_quality_name | default('default') }}
+
+# Language locale (e.g., 'en_US', 'de_DE'); affects UI and messages
+locale = {{ locale | default('en_US') }}
+
+# Enable/Disable telemetry (0=disabled, 1=enabled)
+enable_telemetry = {{ enable_telemetry | default(false) | lower }}
+
+# Auto-check for updates (0=disabled, 1=enabled)
+check_for_updates = {{ check_for_updates | default(true) | lower }}
+
+# Default save directory for exported G-code
+save_path = {{ save_path | default('~/3D prints') }}
+
+# Plugins directory (for community plugins and extensions)
+plugins_path = {{ plugins_path | default('~/.local/share/cura/plugins') }}
+
+[extruders]
+# Default extruder count (typically 1 for basic printers)
+extruder_count = {{ extruder_count | default(1) }}
+
+[hardware]
+# Default print bed size (mm)
+bed_size_x = {{ bed_size_x | default(225) }}
+bed_size_y = {{ bed_size_y | default(225) }}
+
+# Heated bed (0=no, 1=yes)
+has_heated_bed = {{ has_heated_bed | default(true) | lower }}
+
+[profiles]
+# Default material type (e.g., 'pla', 'abs', 'petg')
+default_material = {{ default_material | default('pla') }}
+
+# Default layer height (mm)
+default_layer_height = {{ default_layer_height | default(0.1) }}
+
+# Default wall thickness (mm)
+default_wall_thickness = {{ default_wall_thickness | default(1.2) }}
+
+# Default infill density (%)
+default_infill_density = {{ default_infill_density | default(20) }}
+
+# Print speed (mm/s)
+default_print_speed = {{ default_print_speed | default(60) }}
+
+# Initial layer print speed (mm/s)
+default_initial_layer_print_speed = {{ default_initial_layer_print_speed | default(25) }}
+
+# Infill speed (mm/s)
+default_infill_speed = {{ default_infill_speed | default(50) }}
+
+# Wall speed (mm/s)
+default_wall_speed = {{ default_wall_speed | default(40) }}
+
+# Top/bottom speed (mm/s)
+default_top_bottom_speed = {{ default_top_bottom_speed | default(30) }}
+
+# Support extruder (0=primary, 1=secondary if dual extruder)
+default_support_extruder = {{ default_support_extruder | default(0) }}
+
+# Enable support structure
+enable_support = {{ enable_support | default(false) | lower }}
+
+# Support pattern ('grid', 'lines', 'triangles')
+support_pattern = {{ support_pattern | default('grid') }}
+
+# Support density (%)
+support_density = {{ support_density | default(15) }}
+
+# Support xy distance (mm)
+support_xy_distance = {{ support_xy_distance | default(0.8) }}
+
+# Support z distance (mm)
+support_z_distance = {{ support_z_distance | default(0.2) }}
+
+{# Per-extruder settings (applies only if extruder_count > 1) #}
+{% for i in range(1, extruder_count + 1) %}
+[extruder_{{ i }}]
+# Hotend temperature (°C) — typical PLA: 200°C, ABS: 230°C
+hotend_temp = {{ extruder_temps[i-1].hotend_temp | default(200) }}
+
+# Initial layer hotend temperature (°C)
+initial_layer_hotend_temp = {{ extruder_temps[i-1].initial_layer_hotend_temp | default(hotend_temp + 10) }}
+
+# Build plate temperature (°C) — typical PLA: 60°C, ABS: 100°C
+bed_temp = {{ extruder_temps[i-1].bed_temp | default(60) }}
+
+# Initial layer bed temperature (°C)
+initial_layer_bed_temp = {{ extruder_temps[i-1].initial_layer_bed_temp | default(bed_temp + 10) }}
+
+# Retraction distance (mm)
+retraction_distance = {{ extruder_temps[i-1].retraction_distance | default(4.5) }}
+
+# Retraction speed (mm/s)
+retraction_speed = {{ extruder_temps[i-1].retraction_speed | default(40) }}
+
+# Filament diameter (mm)
+filament_diameter = {{ extruder_temps[i-1].filament_diameter | default(1.75) }}
+
+# Flow ratio (%)
+flow_ratio = {{ extruder_temps[i-1].flow_ratio | default(1.0) }}
+{% endfor %}
+
+[cooling]
+# Minimum fan speed (%)
+minimum_fan_speed = {{ minimum_fan_speed | default(30) }}
+
+# Maximum fan speed (%)
+maximum_fan_speed = {{ maximum_fan_speed | default(100) }}
+
+# Fan speed threshold layer (first layers to ignore fan control)
+fan_speed_threshold_layer = {{ fan_speed_threshold_layer | default(2) }}
+
+# Minimum speed to keep fan running (to avoid stalling)
+cooler_min_fan_speed = {{ cooler_min_fan_speed | default(15) }}
+
+# Enable cooling fan for top layers
+enable_cooling_fan = {{ enable_cooling_fan | default(true) | lower }}
+
+# Fan speed at 50% print height (used in layer-dependent fan control)
+fan_speed_at_height_50 = {{ fan_speed_at_height_50 | default(70) }}

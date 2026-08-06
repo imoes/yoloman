@@ -1,194 +1,135 @@
 [DEFAULT]
-# The host IP address to bind the DHCP agent to (listen address)
-# Set to 0.0.0.0 to listen on all interfaces
-bind_host = {{ bind_host }}
+# IP address to bind the DHCP agent API server to. Use 0.0.0.0 to listen on all interfaces.
+bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# The port to bind the DHCP agent API server to
-# Set to 0 to disable the API server
-api_workers = {{ api_workers }}
+# Number of worker processes for the DHCP agent API server. Set to 0 to disable the API server.
+api_workers = {{ api_workers | default(1) }}
 
-# Maximum number of DHCP agents that can serve a given network
-maxdhcpdevices = {{ maxdhcpdevices }}
+# Maximum number of DHCP agents that can serve a given network. Increases fault tolerance but adds overhead.
+maxdhcpdevices = {{ maxdhcpdevices | default(16) }}
 
-# Enable or disable metadata proxy (required for instances to access metadata services)
-enable_isolated_metadata = {{ enable_isolated_metadata | string | lower }}
+# Enable metadata proxy for isolated networks (e.g., tenant networks without routers). Required for instance metadata access in such cases.
+enable_isolated_metadata = {{ enable_isolated_metadata | default(False) | string | lower }}
 
-# Enable or disable metadata proxy on shared networks
-enable_metadata_proxy = {{ enable_metadata_proxy | string | lower }}
+# Enable metadata proxy on shared networks. Allows instances to access the Neutron metadata service via a proxy.
+enable_metadata_proxy = {{ enable_metadata_proxy | default(True) | string | lower }}
 
-# Base directory for DHCP leases (used by dnsmasq)
-dhcp_leasefs = {{ dhcp_leasefs }}
+# Base directory for DHCP lease files managed by the agent.
+dhcp_leasefs = {{ dhcp_leasefs | default('/var/lib/neutron/dhcp') }}
 
-# Path to the dnsmasq lease file
-dhcp_leasefile = {{ dhcp_leasefile }}
+# Path to the shared dnsmasq leases file used for tracking DHCP assignments.
+dhcp_leasefile = {{ dhcp_leasefile | default('/var/lib/neutron/dhcp/leases') }}
 
-# DNS domain for instances (e.g., openstack.local)
-domain = {{ domain }}
+# DNS domain to assign to instances (e.g., openstack.local). Used for hostname resolution inside VMs.
+domain = {{ domain | default('openstack.local') }}
 
-# Enable or disable use of DHCP broadcast address
-# Set to True for compatibility with older clients
-dhcp_broadcast = {{ dhcp_broadcast | string | lower }}
+# Enable DHCP broadcast replies. Set to false for unicast-only environments (e.g., some cloud environments).
+dhcp_broadcast = {{ dhcp_broadcast | default(True) | string | lower }}
 
-# Enable or disable use of DNS in dnsmasq
-enable_dnsmasq_dns = {{ enable_dnsmasq_dns | string | lower }}
+# Enable DNS functionality in dnsmasq for instances. Disabling may break name resolution in VMs.
+enable_dnsmasq_dns = {{ enable_dnsmasq_dns | default(True) | string | lower }}
 
-# Enable or disable use of MTU setting in dnsmasq (requires dnsmasq >= 2.67)
-# Note: Some older dnsmasq versions do not support --mtu-set
-mtu_set = {{ mtu_set | string | lower }}
+# Enable --mtu-set in dnsmasq. Requires dnsmasq >= 2.67. Sets the interface MTU via DHCP.
+mtu_set = {{ mtu_set | default(False) | string | lower }}
 
-# DNS servers to provide to instances (list of IPs)
-# If empty, uses DNS servers from the subnet
-{% for dns_server in dns_servers %}dns_server = {{ dns_server }}{% endfor %}
+# List of DNS server IPs to provide to instances via DHCP. If empty, uses DNS servers configured on the subnet.
+{% for dns_server in dns_servers | default([]) %}dns_server = {{ dns_server }}
+{% endfor %}
 
-# Extra DHCP options to pass to dnsmasq
-# Format: tag:<tag>,<option>,<value>
-{% for extra_dhcp_opt in extra_dhcp_opts %}extra_dhcp_opt = {{ extra_dhcp_opt }}{% endfor %}
+# List of extra DHCP options to pass to dnsmasq. Useful for PXE boot, vendor-specific parameters, etc.
+{% for extra_dhcp_opt in extra_dhcp_opts | default([]) %}extra_dhcp_opt = {{ extra_dhcp_opt }}
+{% endfor %}
 
-# Path to the dnsmasq config directory (per-network configs)
-dnsmasq_config_dir = {{ dnsmasq_config_dir }}
+# Directory containing per-network dnsmasq configuration files. Allows per-subnet customization.
+dnsmasq_config_dir = {{ dnsmasq_config_dir | default('/etc/neutron/dnsmasq.d') }}
 
-# Enable or disable use of dnsmasq cache
-enable_dnsmasq_cache = {{ enable_dnsmasq_cache | string | lower }}
+# Enable DNS query caching in dnsmasq. Improves DNS resolution performance for repeated lookups.
+enable_dnsmasq_cache = {{ enable_dnsmasq_cache | default(True) | string | lower }}
 
-# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-log_level = {{ log_level }}
+# Logging verbosity level for the DHCP agent.
+log_level = {{ log_level | default('INFO') }}
 
-# Logging directory
-log_dir = {{ log_dir }}
+# Directory where log files are stored for the DHCP agent.
+log_dir = {{ log_dir | default('/var/log/neutron') }}
 
 [AGENT]
-# Periodic interval (seconds) to send heartbeats to the server
-# Set to 0 to disable heartbeats
-heartbeat_interval = {{ heartbeat_interval }}
+# Seconds between heartbeat messages sent to the Neutron server. Set to 0 to disable heartbeats (not recommended).
+heartbeat_interval = {{ heartbeat_interval | default(30) }}
 
-# DHCP driver to use (e.g., 'neutron.agent.linux.dnsmasq.Dnsmasq')
-dhcp_driver = {{ dhcp_driver }}
+# DHCP driver class to use for managing DHCP services (e.g., dnsmasq).
+dhcp_driver = {{ dhcp_driver | default('neutron.agent.linux.dnsmasq.Dnsmasq') }}
 
-# Enable or disable use of external DHCP (e.g., for multi-tenant isolated networks)
-use_external_dhcp = {{ use_external_dhcp | string | lower }}
+# Use external DHCP servers instead of Neutron-managed dnsmasq for certain networks (e.g., provider networks).
+use_external_dhcp = {{ use_external_dhcp | default(False) | string | lower }}
 
-# Metadata port used by instances to access metadata services
-metadata_port = {{ metadata_port }}
+# Port used by the metadata proxy to forward instance requests to the Neutron metadata service.
+metadata_port = {{ metadata_port | default(80) }}
 
-# Enable or disable use of gateway IP in DNS responses
-gateway_in_dns = {{ gateway_in_dns | string | lower }}
+# Include gateway (router) IP in DHCP responses as option 3.
+gateway_in_dns = {{ gateway_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of host routes in DNS responses
-host_routes_in_dns = {{ host_routes_in_dns | string | lower }}
+# Include host routes in DHCP responses as option 121 (classless static routes).
+host_routes_in_dns = {{ host_routes_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of DNS domain in responses
-domain_in_dns = {{ domain_in_dns | string | lower }}
+# Include domain name in DHCP responses as option 15.
+domain_in_dns = {{ domain_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of MTU in DNS responses
-mtu_in_dns = {{ mtu_in_dns | string | lower }}
+# Include interface MTU in DHCP responses as option 26. Requires dnsmasq >= 2.67.
+mtu_in_dns = {{ mtu_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of NTP servers in DNS responses
-ntp_servers_in_dns = {{ ntp_servers_in_dns | string | lower }}
+# Include NTP server IPs in DHCP responses as option 42.
+ntp_servers_in_dns = {{ ntp_servers_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of static routes in DNS responses
-static_routes_in_dns = {{ static_routes_in_dns | string | lower }}
+# Include static routes in DHCP responses as option 121 (alias of host_routes_in_dns).
+static_routes_in_dns = {{ static_routes_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of search domains in DNS responses
-search_domains_in_dns = {{ search_domains_in_dns | string | lower }}
+# Include lease time in DHCP responses.
+lease_time = {{ lease_time | default('86400') }}
 
-# Enable or disable use of lease time in DHCP responses
-lease_time = {{ lease_time }}
+# Include subnet mask in DHCP responses as option 1.
+subnet_mask_in_dns = {{ subnet_mask_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of subnet mask in DNS responses
-subnet_mask_in_dns = {{ subnet_mask_in_dns | string | lower }}
+# Include broadcast address in DHCP responses as option 28.
+broadcast_in_dns = {{ broadcast_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of broadcast address in DNS responses
-broadcast_in_dns = {{ broadcast_in_dns | string | lower }}
+# Alias for gateway_in_dns (include router as option 3).
+router_in_dns = {{ router_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of router option in DNS responses
-router_in_dns = {{ router_in_dns | string | lower }}
+# Include classless static routes (option 121) — modern replacement for option 33.
+classless_route_in_dns = {{ classless_route_in_dns | default(True) | string | lower }}
 
-# Enable or disable use of classless static route option in DNS responses
-classless_route_in_dns = {{ classless_route_in_dns | string | lower }}
+# Include vendor class identifier (option 60) — used for PXE boot device identification.
+vendor_class_in_dns = {{ vendor_class_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of vendor class option in DNS responses
-vendor_class_in_dns = {{ vendor_class_in_dns | string | lower }}
+# Include user class identifier (option 77) — for client-side classification.
+user_class_in_dns = {{ user_class_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of user class option in DNS responses
-user_class_in_dns = {{ user_class_in_dns | string | lower }}
+# Include firmware version (option 93) — for PXE boot device firmware info.
+firmware_in_dns = {{ firmware_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of firmware option in DNS responses
-firmware_in_dns = {{ firmware_in_dns | string | lower }}
+# Include location option (option 112) — for geolocation or rack-aware provisioning.
+location_in_dns = {{ location_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of location option in DNS responses
-location_in_dns = {{ location_in_dns | string | lower }}
+# Include vendor-specific information (option 43).
+vendor_specific_in_dns = {{ vendor_specific_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of vendor-specific info option in DNS responses
-vendor_specific_in_dns = {{ vendor_specific_in_dns | string | lower }}
+# Include netboot option (option 209) — for iPXE/HTTP boot support.
+netboot_in_dns = {{ netboot_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of netboot option in DNS responses
-netboot_in_dns = {{ netboot_in_dns | string | lower }}
+# Include PXE server option (option 66/67) — for legacy PXE boot servers.
+pxeserver_in_dns = {{ pxeserver_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of pxeserver option in DNS responses
-pxeserver_in_dns = {{ pxeserver_in_dns | string | lower }}
+# Alias for pxeserver_in_dns.
+pxeboot_in_dns = {{ pxeboot_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of pxeboot option in DNS responses
-pxeboot_in_dns = {{ pxeboot_in_dns | string | lower }}
+# Include TFTP server option — used for network boot.
+tftp_in_dns = {{ tftp_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of tftp option in DNS responses
-tftp_in_dns = {{ tftp_in_dns | string | lower }}
+# Include bootfile name (option 67).
+bootfile_in_dns = {{ bootfile_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of bootfile option in DNS responses
-bootfile_in_dns = {{ bootfile_in_dns | string | lower }}
+# Include init file name (option 50) — used for some bootloaders.
+initfile_in_dns = {{ initfile_in_dns | default(False) | string | lower }}
 
-# Enable or disable use of initfile option in DNS responses
-initfile_in_dns = {{ initfile_in_dns | string | lower }}
-
-# Enable or disable use of rootpath option in DNS responses
-rootpath_in_dns = {{ rootpath_in_dns | string | lower }}
-
-# Enable or disable use of gateway option in DNS responses
-gateway_in_dns = {{ gateway_in_dns | string | lower }}
-
-# Enable or disable use of dns option in DNS responses
-dns_in_dns = {{ dns_in_dns | string | lower }}
-
-# Enable or disable use of ntp option in DNS responses
-ntp_in_dns = {{ ntp_in_dns | string | lower }}
-
-# Enable or disable use of static route option in DNS responses
-static_route_in_dns = {{ static_route_in_dns | string | lower }}
-
-# Enable or disable use of classless static route option in DNS responses
-classless_route_in_dns = {{ classless_route_in_dns | string | lower }}
-
-# Enable or disable use of vendor class option in DNS responses
-vendor_class_in_dns = {{ vendor_class_in_dns | string | lower }}
-
-# Enable or disable use of user class option in DNS responses
-user_class_in_dns = {{ user_class_in_dns | string | lower }}
-
-# Enable or disable use of firmware option in DNS responses
-firmware_in_dns = {{ firmware_in_dns | string | lower }}
-
-# Enable or disable use of location option in DNS responses
-location_in_dns = {{ location_in_dns | string | lower }}
-
-# Enable or disable use of vendor-specific info option in DNS responses
-vendor_specific_in_dns = {{ vendor_specific_in_dns | string | lower }}
-
-# Enable or disable use of netboot option in DNS responses
-netboot_in_dns = {{ netboot_in_dns | string | lower }}
-
-# Enable or disable use of pxeserver option in DNS responses
-pxeserver_in_dns = {{ pxeserver_in_dns | string | lower }}
-
-# Enable or disable use of pxeboot option in DNS responses
-pxeboot_in_dns = {{ pxeboot_in_dns | string | lower }}
-
-# Enable or disable use of tftp option in DNS responses
-tftp_in_dns = {{ tftp_in_dns | string | lower }}
-
-# Enable or disable use of bootfile option in DNS responses
-bootfile_in_dns = {{ bootfile_in_dns | string | lower }}
-
-# Enable or disable use of initfile option in DNS responses
-initfile_in_dns = {{ initfile_in_dns | string | lower }}
-
-# Enable or disable use of rootpath option in DNS responses
-rootpath_in_dns = {{ rootpath_in_dns | string | lower }}
+# Include root path (option 17) — for diskless boot.
+rootpath_in_dns = {{ rootpath_in_dns | default(False) | string | lower }}

@@ -1,0 +1,181 @@
+{
+  "entries": {
+    "type": "list",
+    "default": [],
+    "description": "List of bgpq3 configuration entries, each representing one bgpq3 invocation and its parameters. At least one entry must be provided for meaningful output. Each entry maps to one bgpq3 invocation. All keys are optional except where noted; defaults follow bgpq3 defaults unless specified otherwise."
+  },
+  "entries[].cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Optional human-readable command-line summary (not used by bgpq3, for documentation only)."
+  },
+  "entries[].name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of generated entry (e.g., prefix-list name, policy-statement term, as-path-group). Required when generating named configurations."
+  },
+  "entries[].object": {
+    "type": "string",
+    "default": "",
+    "description": "BGP object(s) to expand: network prefix(es), ASN, as-set, or route-set (e.g., 'AS20597', '192.0.2.0/24', 'AS-SET-NAME')."
+  },
+  "entries[].asn": {
+    "type": "number",
+    "default": 0,
+    "description": "ASN to deny in case of empty prefix-list (OpenBGPD -a flag)."
+  },
+  "entries[].as_path_number": {
+    "type": "number",
+    "default": 0,
+    "description": "Number used to identify as-path access-list (Cisco), or group number (OpenBGPD -f/-G)."
+  },
+  "entries[].format": {
+    "type": "string",
+    "default": "cisco",
+    "description": "User-defined output format string (e.g., 'ipfw add pass all from %n/%l to any\\n'), implies -F.",
+    "enum": [
+      "cisco",
+      "openbgpd",
+      "bird",
+      "juniper",
+      "json",
+      "huawei",
+      "user-defined"
+    ]
+  },
+  "entries[].ird_host": {
+    "type": "string",
+    "default": "whois.radb.net",
+    "description": "IRRd host to query (bgpq3 -h)."
+  },
+  "entries[].ird_port": {
+    "type": "number",
+    "default": 43,
+    "description": "Port for IRRd host (bgpq3 -h[:port])."
+  },
+  "entries[].sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of IRR sources to use (bgpq3 -S), e.g., ['RADB', 'RIPE', 'APNIC']."
+  },
+  "entries[].max_prefix_len": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum prefix length to accept (bgpq3 -m). Default: 32 for IPv4, 128 for IPv6."
+  },
+  "entries[].min_prefix_len": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum prefix length to accept, i.e., allow more specific routes with length \u2265 len (bgpq3 -r)."
+  },
+  "entries[].allow_private_asn": {
+    "type": "bool",
+    "default": false,
+    "description": "Accept routes registered for private ASNs (bgpq3 -p)."
+  },
+  "entries[].transition_as": {
+    "type": "bool",
+    "default": false,
+    "description": "Accept routes registered for AS23456 (transition AS) (bgpq3 -2)."
+  },
+  "entries[].asn32_safe": {
+    "type": "bool",
+    "default": false,
+    "description": "Assume device supports 32-bit ASNs (bgpq3 -3)."
+  },
+  "entries[].ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Generate IPv6 prefix/access-lists (bgpq3 -6)."
+  },
+  "entries[].aggregate": {
+    "type": "bool",
+    "default": false,
+    "description": "Attempt to aggregate prefix-list entries (bgpq3 -A)."
+  },
+  "entries[].bird": {
+    "type": "bool",
+    "default": false,
+    "description": "Output in BIRD format (bgpq3 -b)."
+  },
+  "entries[].openbgpd": {
+    "type": "bool",
+    "default": false,
+    "description": "Output in OpenBGPD format (bgpq3 -B)."
+  },
+  "entries[].juniper": {
+    "type": "bool",
+    "default": false,
+    "description": "Output in Juniper format (bgpq3 -J)."
+  },
+  "entries[].nokia_sros_classic": {
+    "type": "bool",
+    "default": false,
+    "description": "Output for Nokia SR OS classic CLI (bgpq3 -N)."
+  },
+  "entries[].nokia_sros_md": {
+    "type": "bool",
+    "default": false,
+    "description": "Output for Nokia SR OS MD-CLI (bgpq3 -n)."
+  },
+  "entries[].huawei": {
+    "type": "bool",
+    "default": false,
+    "description": "Output for Huawei devices (bgpq3 -U)."
+  },
+  "entries[].cisco_xr": {
+    "type": "bool",
+    "default": false,
+    "description": "Output for Cisco IOS XR (bgpq3 -X)."
+  },
+  "entries[].asdot": {
+    "type": "bool",
+    "default": false,
+    "description": "Use asdot notation for Cisco as-path lists (bgpq3 -D)."
+  },
+  "entries[].sequence_numbers": {
+    "type": "bool",
+    "default": false,
+    "description": "Include sequence numbers in IOS-style prefix-lists (bgpq3 -s)."
+  },
+  "entries[].route_filter": {
+    "type": "bool",
+    "default": false,
+    "description": "Generate route-filters (Juniper) or prefix-sets (OpenBGPD/Nokia) (bgpq3 -E)."
+  },
+  "entries[].as_sets": {
+    "type": "bool",
+    "default": false,
+    "description": "Generate as-sets (OpenBGPD, BIRD, JSON) (bgpq3 -t)."
+  },
+  "entries[].z_route_filter_list": {
+    "type": "bool",
+    "default": false,
+    "description": "Generate JunOS 16.2+ route-filter-lists (bgpq3 -z)."
+  },
+  "entries[].max_as_path_len": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of ASNs in as-path string (bgpq3 -W, 0 = infinity)."
+  },
+  "entries[].recursion_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Limit recursion depth when expanding as-sets (bgpq3 -L)."
+  },
+  "entries[].extra_match": {
+    "type": "string",
+    "default": "",
+    "description": "Extra match condition for Juniper route-filters (bgpq3 -M)."
+  },
+  "entries[].asn_to_deny": {
+    "type": "number",
+    "default": 0,
+    "description": "ASN to deny when prefix-list is empty (OpenBGPD -a)."
+  },
+  "entries[].except_objects": {
+    "type": "list",
+    "default": [],
+    "description": "List of objects to exclude from expansion (bgpq3 EXCEPT OBJECTS)."
+  }
+}

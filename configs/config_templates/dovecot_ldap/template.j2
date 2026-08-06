@@ -1,34 +1,88 @@
-# LDAP server URI(s) — space- or comma-separated list of LDAP URLs
-uris = {{ uris | join(' ') }}
+# ===========================================================================
+# Dovecot LDAP Authentication Plugin Configuration
+# ===========================================================================
+# This template generates the dovecot-ldap.conf.ext configuration file.
+# It connects Dovecot to an LDAP/AD directory for user authentication and
+# mailbox location resolution.
+#
+# Variables expected from Ansible inventory/vars:
+#   - uris: List of LDAP server URIs.
+#   - base_dn: Default search base for users.
+#   - bind_dn: DN to bind as (service account).
+#   - bind_password: Password for bind_dn.
+#   - enable_tls: Boolean to enable TLS encryption.
+#   - ca_cert_path: Path to CA cert for verifying server.
+#   - extra_user_attrs: List of dicts defining custom attribute mappings.
+# ===========================================================================
 
-# LDAP base DN for searches
-base = {{ base_dn }}
+# -------------------------------------------------------------------------
+# Server Connection Settings
+# -------------------------------------------------------------------------
 
-# Scope of LDAP search: sub, one, base, or children
-scope = {{ search_scope }}
+# URI(s) of the LDAP server(s).
+# Supports comma-separated or space-separated list for failover.
+# Schema Field: uris (list)
+uris = {{ (uris | default(['ldap://localhost'])) | join(' ') }}
 
-# LDAP bind DN (if using authenticated bind)
-dn = {{ bind_dn | default('', true) }}
+# Base DN for user searches.
+# This is the starting point in the directory tree for finding user entries.
+# Schema Field: base_dn (string)
+base = {{ (base_dn | default('dc=example,dc=com')) | string }}
 
-# LDAP bind password (if using authenticated bind)
-dnpass = {{ bind_password | default('', true) }}
+# Search scope: 'sub' (subtree), 'one' (one level), 'base' (single entry),
+# or 'children' (children of base).
+# Schema Field: search_scope (string)
+scope = {{ (search_scope | default('sub')) | string }}
 
-# TLS: enable or not
-tls = {{ enable_tls | lower }}
+# DN used for binding to the LDAP server.
+# Leave empty for anonymous binds (not recommended for production).
+# Schema Field: bind_dn (string)
+dn = {{ (bind_dn | default('', true)) | string }}
 
-# TLS: CA certificate file path (optional)
-cacert = {{ ca_cert_path | default('', true) }}
+# Password for the bind DN.
+# Leave empty if anonymous bind is used.
+# Schema Field: bind_password (string)
+dnpass = {{ (bind_password | default('', true)) | string }}
 
-# TLS: client certificate file (optional)
-client_cert = {{ client_cert_path | default('', true) }}
+# Enable TLS/SSL encryption for the LDAP connection.
+# If true, ensures data in transit is encrypted.
+# Schema Field: enable_tls (boolean)
+tls = {{ enable_tls | default(False) | ternary('yes', 'no') }}
 
-# TLS: client key file (optional)
-client_key = {{ client_key_path | default('', true) }}
+# Path to the CA certificate file.
+# Required if 'tls' is enabled and you need to verify the server's certificate.
+# Schema Field: ca_cert_path (string)
+cacert = {{ (ca_cert_path | default('', true)) | string }}
 
-# LDAP filter for user lookup
-user_filter = {{ user_filter }}
+# Path to the client certificate file.
+# Required for mutual TLS (mTLS) authentication where the client proves its identity.
+# Schema Field: client_cert_path (string)
+client_cert = {{ (client_cert_path | default('', true)) | string }}
 
-# LDAP attribute mapping: local field = ldap_attr
+# Path to the client private key file.
+# Paired with client_cert for mTLS.
+# Schema Field: client_key_path (string)
+client_key = {{ (client_key_path | default('', true)) | string }}
+
+# Require certificate validation level: 'demand', 'allow', or 'never'.
+# 'demand' is the safest, requiring a valid signed certificate.
+# Schema Field: cert_requirement (string)
+cert_req = {{ (cert_requirement | default('demand')) | string }}
+
+# -------------------------------------------------------------------------
+# Authentication & User Lookup Settings
+# -------------------------------------------------------------------------
+
+# LDAP filter to locate the user entry.
+# '%u' is replaced by the username provided at login.
+# Schema Field: user_filter (string)
+user_filter = {{ (user_filter | default('(objectClass=posixAccount)')) | string }}
+
+# Attribute mapping for user data.
+# Maps LDAP attributes to Dovecot internal fields.
+# Format: dovecot_field=ldap_attr
+# Default mapping assumes standard POSIX/RFC2307 schema.
+# Schema Field: (Static defaults overridden by extra_user_attrs)
 user_attrs = \
   homeDirectory=home, \
   mailMessageStore=mail, \
@@ -37,66 +91,114 @@ user_attrs = \
   mailUser=maildrop, \
   mailQuota=mailQuota
 
-# LDAP attribute mapping for group lookups (optional)
-group_filter = {{ group_filter | default('', true) }}
+# Additional user attributes.
+# Iterate through the list of dicts provided in extra_user_attrs.
+# Each dict must have 'ldap_attr' and 'local_name'.
+# Schema Field: extra_user_attrs (list of dicts)
+{% for attr in (extra_user_attrs | default([])) %}
+user_attr{{ loop.index }} = {{ attr.ldap_attr }}={{ attr.local_name }}
+{% endfor %}
+
+# Password scheme used in LDAP (e.g., SSHA, MD5, CRYPT, PLAIN).
+# Tells Dovecot how to interpret the password hash stored in LDAP.
+# Schema Field: password_scheme (string)
+password_scheme = {{ (password_scheme | default('SSHA')) | string }}
+
+# Password lookup filter.
+# '%u' is username, '%p' is password (for testing/writing).
+# Schema Field: (Static)
+pass_filter = (uid=%u)
+
+# -------------------------------------------------------------------------
+# Group Lookup Settings
+# -------------------------------------------------------------------------
+
+# Base DN for group searches.
+# If empty, Dovecot falls back to the main 'base' setting.
+# Schema Field: group_base_dn (string)
+group_base = {{ (group_base_dn | default('', true)) | string }}
+
+# Search scope for group lookups.
+# Same values as the main 'scope': sub, one, base, children.
+# Schema Field: group_search_scope (string)
+group_scope = {{ (group_search_scope | default('sub')) | string }}
+
+# Filter for group entries.
+# Schema Field: (Static/Optional)
+group_filter = {{ (group_filter | default('', true)) | string }}
+
+# Attributes for group mapping.
+# Maps LDAP group attributes to Dovecot group fields.
 group_attrs = \
   cn=group, \
   memberUid=members
 
-# Password scheme used in LDAP (e.g., SSHA, MD5, PLAIN)
-pass_attrs = uid=userPassword
-pass_filter = (uid=%u)
+# -------------------------------------------------------------------------
+# Connection Behavior & Timeouts
+# -------------------------------------------------------------------------
 
-# Password scheme to use when authenticating (matches LDAP stored scheme)
-password_scheme = {{ password_scheme }}
+# Enable chasing LDAP referrals.
+# Useful in complex multi-domain Active Directory forests.
+# Schema Field: enable_referrals (boolean)
+referrals = {{ enable_referrals | default(False) | ternary('yes', 'no') }}
 
-# Iterate over additional user-specific attributes (e.g., custom fields)
-{% for attr in extra_user_attrs %}
-user_attr{{ loop.index }} = {{ attr.ldap_attr }}={{ attr.local_name }}{% endfor %}
+# Timeout in seconds for LDAP operations.
+# 0 means no limit.
+# Schema Field: ldap_timeout (integer)
+timelimit = {{ (ldap_timeout | default(60)) | int }}
 
-# Enable or disable LDAP referral chasing
-referrals = {{ enable_referrals | lower }}
+# Idle timeout in seconds.
+# Connections unused for this duration will be closed.
+# Schema Field: ldap_idle_timeout (integer)
+idle_timelimit = {{ (ldap_idle_timeout | default(300)) | int }}
 
-# Timeout (in seconds) for LDAP operations
-timelimit = {{ ldap_timeout }}
+# Delay in seconds before reconnecting after a failure.
+# Prevents tight reconnect loops.
+# Schema Field: ldap_reconnect_delay (integer)
+reconnect_delay = {{ (ldap_reconnect_delay | default(5)) | int }}
 
-# Idle timeout (in seconds) for LDAP connections
-idle_timelimit = {{ ldap_idle_timeout }}
+# Maximum number of pending LDAP operations per connection.
+# Controls concurrency limits.
+# Schema Field: max_pending_ops (integer)
+max_pending_ops = {{ (max_pending_ops | default(10)) | int }}
 
-# Reconnect retry delay (in seconds) after connection failure
-reconnect_delay = {{ ldap_reconnect_delay }}
+# -------------------------------------------------------------------------
+# Advanced Settings
+# -------------------------------------------------------------------------
 
-# Maximum number of parallel LDAP connections
-max_pending_ops = {{ max_pending_ops }}
-
-# Use LDAP v3 protocol (always true in modern setups)
+# Use LDAP v3 protocol.
+# Modern LDAP servers require v3; this is effectively a constant.
 version = 3
 
-# Start TLS (if not already using ldaps://)
-stls = {{ enable_starttls | lower }}
+# Explicitly enable STARTTLS.
+# Use this if 'uris' uses ldap:// but you want to upgrade to TLS via STARTTLS
+# rather than using ldaps:// directly.
+# Schema Field: enable_starttls (boolean)
+stls = {{ enable_starttls | default(False) | ternary('yes', 'no') }}
 
-# Require valid server certificate (only for TLS/ldaps)
-cert_req = {{ cert_requirement | default('demand', true) }}
+# Custom TLS cipher list.
+# Leave empty to use the system default.
+# Schema Field: tls_cipher_list (string)
+tls_cipher_list = {{ (tls_cipher_list | default('', true)) | string }}
 
-# LDAP base DN for group lookups (optional)
-group_base = {{ group_base_dn | default('', true) }}
+# Enable verbose debugging.
+# Output to Dovecot logs. Use only for troubleshooting.
+# Schema Field: enable_debug (boolean)
+debug = {{ enable_debug | default(False) | ternary('yes', 'no') }}
 
-# LDAP group scope
-group_scope = {{ group_search_scope | default('sub', true) }}
+# Filter for email alias expansion.
+# Used to map aliases to the primary user.
+# Schema Field: aliases_filter (string)
+aliases_filter = {{ (aliases_filter | default('', true)) | string }}
 
-# Enable LDAP debugging in Dovecot logs
-debug = {{ enable_debug | lower }}
-
-# TLS cipher list (optional, system default if omitted)
-tls_cipher_list = {{ tls_cipher_list | default('', true) }}
-
-# LDAP base DN for email alias expansion (optional)
-aliases_filter = {{ aliases_filter | default('', true) }}
+# Attributes for alias mapping.
 aliases_attrs = \
   rfc822MailMember=alias
 
-# Optional: LDAP SASL mechanism (e.g., GSSAPI)
-sasl_mech = {{ sasl_mech | default('', true) }}
+# SASL mechanism to use (e.g., GSSAPI for Kerberos).
+# Schema Field: sasl_mech (string)
+sasl_mech = {{ (sasl_mech | default('', true)) | string }}
 
-# Optional: SASL service name
-sasl_realm = {{ sasl_realm | default('', true) }}
+# SASL realm to use.
+# Schema Field: sasl_realm (string)
+sasl_realm = {{ (sasl_realm | default('', true)) | string }}

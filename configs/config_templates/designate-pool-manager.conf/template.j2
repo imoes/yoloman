@@ -1,64 +1,89 @@
+; Designate Pool Manager Configuration
+; Managed by Ansible - do not edit manually
+
 [DEFAULT]
-# Logging configuration
-log_file = {{ log_file }}
-log_dir = {{ log_dir }}
+; Path to the pool manager log file.
+log_file = {{ log_file | default('/var/log/designate/pool-manager.log') }}
 
-# Verbosity: debug, info, warning, error, critical
-log_level = {{ log_level }}
+; Directory to store log files.
+log_dir = {{ log_dir | default('/var/log/designate') }}
 
-# Pool management interval in seconds
-pool_interval = {{ pool_interval }}
+; Logging verbosity level (e.g., DEBUG, INFO, WARNING).
+log_level = {{ log_level | default('INFO') }}
+
+; Interval (in seconds) between pool health checks and status updates.
+pool_interval = {{ pool_interval | default(60) }}
 
 [pool_manager]
-# Enable pool manager service
-enabled = {{ enabled }}
+; Enable or disable the pool manager service.
+enabled = {{ enabled | default(true) }}
 
-# Number of worker processes
-workers = {{ workers }}
+; Number of worker processes for handling pool tasks.
+workers = {{ workers | default(2) }}
 
-# Redis connection string for coordination
-redis_host = {{ redis_host }}
-redis_port = {{ redis_port }}
-redis_password = {{ redis_password }}
+; Redis host for pool state coordination.
+redis_host = {{ redis_host | default('127.0.0.1') }}
 
-# List of pools to manage
-{% for pool in pools %}
+; Redis port for pool state coordination.
+redis_port = {{ redis_port | default(6379) }}
+
+; Password for Redis authentication (leave empty if none).
+redis_password = {{ redis_password | default('') }}
+
+; List of DNS pools to manage. Each pool defines a set of nameservers, targets, and health checks.
+{% for pool in (pools | default([])) %}
 [pool:{{ pool.name }}]
-# Pool: {{ pool.description }}
-provider_driver = {{ pool.provider_driver }}
-description = {{ pool.description }}
+; Description for pool {{ pool.name }}.
+description = {{ pool.description | default('') }}
 
-# DNS nameservers for this pool
-{% for nameserver in pool.nameservers %}
-nameserver_{{ loop.index0 }}_host = {{ nameserver.host }}
-nameserver_{{ loop.index0 }}_port = {{ nameserver.port }}
+; Provider driver for pool {{ pool.name }}.
+provider_driver = {{ pool.provider_driver | default('') }}
+
+; DNS nameservers for this pool
+{% for nameserver in (pool.nameservers | default([])) %}
+nameserver_{{ loop.index0 }}_host = {{ nameserver.host | default('') }}
+nameserver_{{ loop.index0 }}_port = {{ nameserver.port | default(53) }}
 {% endfor %}
 
-# Target DNS providers
-{% for target in pool.targets %}
+; Target DNS providers
+{% for target in (pool.targets | default([])) %}
 [target:{{ loop.index0 }}]
-type = {{ target.type }}
-# {{ target.description }}
-host = {{ target.host }}
-port = {{ target.port }}
-{% if target.options %}
-{% for key, value in target.options.items() %}
+; Type of target provider.
+type = {{ target.type | default('') }}
+; Description for target {{ loop.index0 }}.
+description = {{ target.description | default('') }}
+; Host of the target provider.
+host = {{ target.host | default('') }}
+; Port of the target provider.
+port = {{ target.port | default(53) }}
+; Options for the target provider
+{% if target.options is mapping %}
+{% for key, value in target.options | dict2items %}
 option_{{ key }} = {{ value }}
 {% endfor %}
 {% endif %}
 {% endfor %}
 
-# Health check configuration
-healthcheck_domain = {{ pool.healthcheck_domain }}
-healthcheck_path = {{ pool.healthcheck_path }}
+; Domain for health check of this pool.
+healthcheck_domain = {{ pool.healthcheck_domain | default('') }}
+; Path for health check of this pool.
+healthcheck_path = {{ pool.healthcheck_path | default('') }}
+
 {% endfor %}
 
 [designate]
-# Keystone endpoint for authentication
-auth_uri = {{ designate.auth_uri }}
-auth_type = {{ designate.auth_type }}
-project_name = {{ designate.project_name }}
-username = {{ designate.username }}
-password = {{ designate.password }}
-user_domain_name = {{ designate.user_domain_name }}
-project_domain_name = {{ designate.project_domain_name }}
+; Keystone authentication credentials for connecting to Designate API.
+; Keystone endpoint for authentication
+auth_uri = {{ (designate | default({})).auth_uri | default('') }}
+; Authentication type for Keystone.
+auth_type = {{ (designate | default({})).auth_type | default('') }}
+; Keystone project name.
+project_name = {{ (designate | default({})).project_name | default('') }}
+; Keystone username.
+username = {{ (designate | default({})).username | default('') }}
+; Keystone password.
+password = {{ (designate | default({})).password | default('') }}
+; Keystone user domain name.
+user_domain_name = {{ (designate | default({})).user_domain_name | default('') }}
+; Keystone project domain name.
+project_domain_name = {{ (designate | default({})).project_domain_name | default('') }}

@@ -1,0 +1,121 @@
+# ==============================================================================
+# Brotli Command-Line Configuration Template
+# ==============================================================================
+# This template generates configuration entries for the `brotli` command-line tool.
+# Each entry in `brotli.entries` corresponds to a single `brotli` invocation.
+# The output is intended to be used as a script, a config file consumed by a wrapper,
+# or documentation.
+#
+# Schema Fields:
+#   brotli.entries: List of dictionaries, each describing one `brotli` command.
+#     Each dict may contain:
+#       - description (str): Human-readable description of the command's purpose.
+#       - command (str): One of 'compress', 'decompress', 'test'. Controls base flags.
+#       - quality (int): Compression quality (0-11). Mapped to -q flag.
+#       - window (int): Block size modulus. Mapped to -w flag.
+#       - dictionary (str): Path to custom dictionary. Mapped to -D flag.
+#       - suffix (str): Custom output suffix. Mapped to -S flag.
+#       - stdout (bool): If true, force output to stdout (-c).
+#       - force (bool): If true, overwrite output files (-f).
+#       - rm (bool): If true, remove input files after successful compression (-j).
+#       - keep (bool): If true, keep input files (-k).
+#       - copy_stat (bool): If false, do not copy file status (-n). If true, copies (default).
+#       - verbose (bool): If true, enable verbose output (-v).
+#       - input_file (str): Path to the input file.
+#       - output_file (str): Path to the output file. Mapped to -o flag.
+#
+# Note: Boolean flags are additive where logical. If `copy_stat` is explicitly false,
+# the `-n` flag is emitted. If `stdout` is true, `-c` is emitted.
+# ==============================================================================
+
+{# Iterate over each command entry defined in the schema #}
+{# brotli.entries defaults to an empty list to prevent undefined variable errors #}
+{% for entry in (brotli | default({})).entries | default([]) %}
+    {# Emit the description as a comment for self-documentation #}
+    {# entry.description defaults to an empty string if not provided #}
+# Command: {{ entry.description | default('') }}
+
+    {# Determine the base command and specific mode flags #}
+    {# entry.command defaults to empty string if not provided #}
+{% if entry.command | default('') == 'compress' %}
+brotli
+{% elif entry.command | default('') == 'decompress' %}
+brotli --decompress
+{% elif entry.command | default('') == 'test' %}
+brotli --test
+{% endif %}
+
+    {# Compression Quality: Maps to -q <value> #}
+    {# entry.quality is an integer, optional. Defaults to omitting the flag if not set. #}
+{% if entry.quality is defined %}
+-q {{ entry.quality }}
+{% endif %}
+
+    {# Block Size Modulus: Maps to -w <value> #}
+    {# entry.window is an integer, optional. Defaults to omitting the flag if not set. #}
+{% if entry.window is defined %}
+-w {{ entry.window }}
+{% endif %}
+
+    {# Custom Dictionary: Maps to -D <path> #}
+    {# entry.dictionary is a string, optional. Defaults to omitting the flag if not set. #}
+{% if entry.dictionary is defined %}
+-D {{ entry.dictionary }}
+{% endif %}
+
+    {# Output Suffix: Maps to -S <suffix> #}
+    {# entry.suffix is a string, optional. Defaults to omitting the flag if not set. #}
+{% if entry.suffix is defined %}
+-S {{ entry.suffix }}
+{% endif %}
+
+    {# Force Output to Stdout: Maps to -c if entry.stdout is True #}
+    {# entry.stdout is a boolean, optional. Defaults to False/undefined #}
+{% if entry.stdout is defined and entry.stdout %}
+-c
+{% endif %}
+
+    {# Force Overwrite: Maps to -f if entry.force is True #}
+    {# entry.force is a boolean, optional #}
+{% if entry.force is defined and entry.force %}
+-f
+{% endif %}
+
+    {# Remove Input Files: Maps to -j if entry.rm is True #}
+    {# entry.rm is a boolean, optional #}
+{% if entry.rm is defined and entry.rm %}
+-j
+{% endif %}
+
+    {# Keep Input Files: Maps to -k if entry.keep is True #}
+    {# entry.keep is a boolean, optional #}
+{% if entry.keep is defined and entry.keep %}
+-k
+{% endif %}
+
+    {# Do Not Copy File Status: Maps to -n if entry.copy_stat is False #}
+    {# entry.copy_stat is a boolean, optional.
+       If explicitly set to false, we add -n. If true or undefined, default behavior applies (no flag). #}
+{% if entry.copy_stat is defined and not entry.copy_stat %}
+-n
+{% endif %}
+
+    {# Verbose Output: Maps to -v if entry.verbose is True #}
+    {# entry.verbose is a boolean, optional #}
+{% if entry.verbose is defined and entry.verbose %}
+-v
+{% endif %}
+
+    {# Input File Path #}
+    {# entry.input_file is a string, optional #}
+{% if entry.input_file is defined %}
+{{ entry.input_file }}
+{% endif %}
+
+    {# Output File Path: Maps to -o <path> #}
+    {# entry.output_file is a string, optional #}
+{% if entry.output_file is defined %}
+-o {{ entry.output_file }}
+{% endif %}
+
+{% endfor %}

@@ -1,0 +1,121 @@
+{# ============================================================================== #}
+{# BleachBit CLI Configuration Template                                             #}
+{# Self-documenting: every option maps to a schema field with inline defaults.     #}
+{# Use this template inside an Ansible role to generate bleachbit command arguments #}
+{# or a simplified config file for execution.                                       #}
+{# ============================================================================== #}
+
+{# --------------------------------------------------------- #}
+{# cleaners: List of BleachBit cleaners to execute           #}
+{# Default: []                                               #}
+{# Description: Must match documented cleaner names from     #}
+{# `bleachbit -l` output. Empty list means no cleaners.      #}
+{# --------------------------------------------------------- #}
+{% set cleaners = cleaners | default([], true) %}
+{% if cleaners | length > 0 %}
+# Cleaners to execute (see `bleachbit -l` for available names)
+{% for cleaner in cleaners %}-c {{ cleaner }}
+{% endfor %}
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# preview: Preview files to be deleted                      #}
+{# Default: False                                            #}
+{# Description: If true, BleachBit lists what would be       #}
+{# deleted without actually removing files.                  #}
+{# --------------------------------------------------------- #}
+{% set preview = preview | default(false, true) %}
+{% if preview %}
+# Preview mode: list files that would be deleted
+--preview
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# overwrite: Overwrite files before deleting                #}
+{# Default: False                                            #}
+{# Description: If true, file contents are overwritten with  #}
+{# random data before deletion to prevent recovery.          #}
+{# --------------------------------------------------------- #}
+{% set overwrite = overwrite | default(false, true) %}
+{% if overwrite %}
+# Overwrite file contents before deletion for security
+--overwrite
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# shred_paths: Specific files/directories to securely shred #}
+{# Default: []                                               #}
+{# Description: List of absolute paths to files or           #}
+{# directories that should be securely shredded (overwritten #}
+{# and then deleted).                                      #}
+{# --------------------------------------------------------- #}
+{% set shred_paths = shred_paths | default([], true) %}
+{% if shred_paths | length > 0 %}
+# Securely shred these specific files/directories
+{% for path in shred_paths %}-s {{ path }}
+{% endfor %}
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# wipe_free_space_paths: Filesystems to wipe free space on  #}
+{# Default: []                                               #}
+{# Description: List of filesystem mount points (or raw      #}
+{# device paths) where free (deleted but not overwritten)    #}
+{# space should be wiped with random data.                   #}
+{# --------------------------------------------------------- #}
+{% set wipe_free_space_paths = wipe_free_space_paths | default([], true) %}
+{% if wipe_free_space_paths | length > 0 %}
+# Wipe free space on these filesystems/paths
+{% for path in wipe_free_space_paths %}-w {{ path }}
+{% endfor %}
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# debug_log: Path to debug log file                         #}
+{# Default: ''                                               #}
+{# Description: Optional absolute path to a file where       #}
+{# BleachBit writes detailed debug messages. Empty string    #}
+{# disables logging to file.                                 #}
+{# --------------------------------------------------------- #}
+{% set debug_log = debug_log | default('', true) %}
+{% if debug_log | length > 0 %}
+# Write debug messages to this log file
+--debug-log={{ debug_log }}
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# debug: Enable verbose debug logging                       #}
+{# Default: False                                            #}
+{# Description: If true, prints verbose debugging            #}
+{# information to stdout/stderr during execution.            #}
+{# --------------------------------------------------------- #}
+{% set debug = debug | default(false, true) %}
+{% if debug %}
+# Enable verbose debug logging to stdout
+--debug
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# use_preset: Use preset options from GUI                   #}
+{# Default: False                                            #}
+{# Description: If true, BleachBit applies preset            #}
+{# configurations saved via the graphical interface          #}
+{# instead of defaults or command-line options.              #}
+{# --------------------------------------------------------- #}
+{% set use_preset = use_preset | default(false, true) %}
+{% if use_preset %}
+# Apply saved preset options from the GUI
+--preset
+{% endif %}
+
+{# --------------------------------------------------------- #}
+{# launch_gui: Launch the graphical interface                #}
+{# Default: False                                            #}
+{# Description: If true, starts BleachBit's GUI window       #}
+{# instead of running in CLI (headless) mode.                #}
+{# --------------------------------------------------------- #}
+{% set launch_gui = launch_gui | default(false, true) %}
+{% if launch_gui %}
+# Launch the graphical user interface instead of CLI
+--gui
+{% endif %}

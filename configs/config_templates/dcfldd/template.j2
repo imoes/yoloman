@@ -1,0 +1,206 @@
+{# ============================================================================== #}
+{# dcfldd Command-Line Configuration Template                                       #}
+{# This template generates a single-line (or concatenated) command-line invocation   #}
+{# for the `dcfldd` utility. It is designed to be self-documenting by including     #}
+{# schema descriptions as comments preceding each directive.                        #}
+{#                                                                                #}
+{# Variables are accessed directly from the Ansible inventory/vars namespace.       #}
+{# All variables use `.default()` to ensure safe rendering with sensible fallbacks. #}
+{# ============================================================================== #}
+
+{% set _vars = vars | default({}) %}
+
+{# Input file path (e.g., /dev/sdb). The source device or file to read from. #}
+{% set _input_file = _vars.input_file | default('') %}
+{% if _input_file %}if={{ _input_file }}{% endif %}
+
+{# ============================================================================== #}
+{# Output Files (of=)                                                           #}
+{# List of output configurations. Each item defines a target output file or pipe  #}
+{# command with optional settings like splitting, hashing, and verification.      #}
+{# Multiple outputs are comma-separated in the `of=` argument.                    #}
+{# ============================================================================== #}
+{% set _outputs = _vars.outputs | default([]) %}
+{% if _outputs | length > 0 %}of=
+{% for out in _outputs %}    {{ out.path | default('') }}{% if not loop.last %},{% endif %}
+{% endfor %}
+{% endif %}
+
+{# ============================================================================== #}
+{# Block Sizes                                                                    #}
+{# These control how much data is read/written at once.                           #}
+{# ============================================================================== #}
+
+{# Block size (ibs=obs=) in bytes. Default: 32768 (32 KiB). Used if specific ibs/obs are not set. #}
+{% set _block_size = _vars.block_size | default(32768) %}
+{% if _block_size > 0 %}bs={{ _block_size }}{% endif %}
+
+{# Input block size in bytes (ibs=). Overrides block_size if set. #}
+{% set _input_block_size = _vars.input_block_size | default(0) %}
+{% if _input_block_size > 0 %}ibs={{ _input_block_size }}{% endif %}
+
+{# Output block size in bytes (obs=). Overrides block_size if set. #}
+{% set _output_block_size = _vars.output_block_size | default(0) %}
+{% if _output_block_size > 0 %}obs={{ _output_block_size }}{% endif %}
+
+{# ============================================================================== #}
+{# Conversion Options (conv=)                                                     #}
+{# List of conversion keywords (e.g., ["noerror", "sync", "ascii"]).              #}
+{# Valid values: ascii, ebcdic, ibm, block, unblock, lcase, notrunc, ucase, sync, #}
+{# noerror, swab. Comma-separated in the final argument.                          #}
+{# ============================================================================== #}
+{% set _conv = _vars.conv | default([]) %}
+{% if _conv | length > 0 %}conv={{ _conv | join(',') }}{% endif %}
+
+{# ============================================================================== #}
+{# Block Counting / Limiting                                                      #}
+{# Restricts the amount of data copied.                                           #}
+{# ============================================================================== #}
+
+{# Number of input blocks to copy (count=). #}
+{% set _count_blocks = _vars.count_blocks | default(0) %}
+{% if _count_blocks > 0 %}count={{ _count_blocks }}{% endif %}
+
+{# Number of bytes to copy (limit=). Alternative to count=. #}
+{% set _limit_bytes = _vars.limit_bytes | default(0) %}
+{% if _limit_bytes > 0 %}limit={{ _limit_bytes }}{% endif %}
+
+{# ============================================================================== #}
+{# Skipping                                                                       #}
+{# Controls skipping input or output blocks.                                      #}
+{# ============================================================================== #}
+
+{# Number of input blocks to skip (skip=). #}
+{% set _skip_blocks = _vars.skip_blocks | default(0) %}
+{% if _skip_blocks > 0 %}skip={{ _skip_blocks }}{% endif %}
+
+{# Number of output blocks to skip (seek=). #}
+{% set _seek_blocks = _vars.seek_blocks | default(0) %}
+{% if _seek_blocks > 0 %}seek={{ _seek_blocks }}{% endif %}
+
+{# ============================================================================== #}
+{# Error Handling                                                                 #}
+{# Configuration for error logging and error resilience.                          #}
+{# ============================================================================== #}
+
+{# File to receive error messages (errlog=). #}
+{% set _errlog_file = _vars.errlog_file | default('') %}
+{% if _errlog_file %}errlog={{ _errlog_file }}{% endif %}
+
+{# ============================================================================== #}
+{# Hashing                                                                        #}
+{# Computes cryptographic hashes during the copy process.                         #}
+{# Supports parallel computation of multiple algorithms.                          #}
+{# ============================================================================== #}
+
+{# List of hash algorithms to compute in parallel (hash=). Supported: md5, sha1, sha256, sha384, sha512. #}
+{% set _hash_algos = _vars.hash_algorithms | default([]) %}
+{% if _hash_algos | length > 0 %}hash={{ _hash_algos | join(',') }}{% endif %}
+
+{# Hash Log Files for each algorithm #}
+{% for algo in _hash_algos %}
+    {# Determine the log file variable name dynamically based on algorithm #}
+    {% set log_var = algo | lower + '_file' %}
+    {% set log_val = _vars[log_var] | default('') %}
+    {% if log_val %}
+{{ algo | lower }}log={{ log_val }}{% endif %}
+{% endfor %}
+
+{# ============================================================================== #}
+{# Hash Windowing                                                                 #}
+{# Configures size-limited hashing (hashwindow=) and output formatting.           #}
+{# ============================================================================== #}
+
+{# Hash window size in bytes (hashwindow=). If zero, disabled. #}
+{% set _hash_window_bytes = _vars.hash_window_bytes | default(0) %}
+{% if _hash_window_bytes > 0 %}hashwindow={{ _hash_window_bytes }}{% endif %}
+
+{# When to compute hash (hashconv=). Valid: "before", "after". #}
+{% set _hashconv_mode = _vars.hashconv_mode | default('before') %}
+{% if _hashconv_mode %}hashconv={{ _hashconv_mode }}{% endif %}
+
+{# Format string for hashwindow output (hashformat=). #}
+{% set _hashformat = _vars.hashformat | default('#window_start# - #window_end#: #hash#') %}
+{% if _hashformat %}hashformat="{{ _hashformat }}"{% endif %}
+
+{# Format string for final hash (totalhashformat=). #}
+{% set _totalhashformat = _vars.totalhashformat | default('Total (#algorithm#): #hash#') %}
+{% if _totalhashformat %}totalhashformat="{{ _totalhashformat }}"{% endif %}
+
+{# ============================================================================== #}
+{# Status Output                                                                  #}
+{# Controls the display of progress information.                                  #}
+{# ============================================================================== #}
+
+{# Whether to show continual status output (status=). #}
+{% set _status = _vars.status | default(True) %}
+{% if _status is boolean %}status={{ 'on' if _status else 'off' }}{% endif %}
+
+{# Update status every N blocks (statusinterval=). #}
+{% set _status_interval = _vars.status_interval_blocks | default(256) %}
+{% if _status_interval > 0 %}statusinterval={{ _status_interval }}{% endif %}
+
+{# ============================================================================== #}
+{# Size Probing                                                                   #}
+{# Determines how the source size is determined.                                  #}
+{# ============================================================================== #}
+
+{# Size probing method (sizeprobe=). Valid: "if", "of", or a numeric BYTES value. #}
+{% set _sizeprobe = _vars.sizeprobe_mode | default('if') %}
+{% if _sizeprobe %}sizeprobe={{ _sizeprobe }}{% endif %}
+
+{# ============================================================================== #}
+{# Split Output                                                                   #}
+{# Splits output files into smaller chunks.                                       #}
+{# ============================================================================== #}
+{% for out in _outputs %}
+    {# Split output files into this many bytes (split=). #}
+    {% if out.split_bytes is defined %}split={{ out.split_bytes }}{% endif %}
+
+    {# Format for split filenames (splitformat=). #}
+    {% if out.split_format is defined %}splitformat={{ out.split_format }}{% endif %}
+{% endfor %}
+
+{# ============================================================================== #}
+{# Verification                                                                   #}
+{# Verifies data integrity by comparing against a reference file.                 #}
+{# ============================================================================== #}
+
+{# File to verify against (vf=). #}
+{% set _verify_file = _vars.verify_file | default('') %}
+{% if _verify_file %}vf={{ _verify_file }}{% endif %}
+
+{# File for verify output (verifylog=). #}
+{% set _verifylog_file = _vars.verifylog_file | default('') %}
+{% if _verifylog_file %}verifylog={{ _verifylog_file }}{% endif %}
+
+{# ============================================================================== #}
+{# Pattern Input                                                                  #}
+{# Special input patterns for testing or specific data manipulation.              #}
+{# ============================================================================== #}
+
+{# Hex pattern input (pattern=, single byte). #}
+{% set _pattern = _vars.pattern | default('') %}
+{% if _pattern %}pattern={{ _pattern }}{% endif %}
+
+{# Text pattern input (textpattern=, single char). #}
+{% set _textpattern = _vars.textpattern | default('') %}
+{% if _textpattern %}textpattern={{ _textpattern }}{% endif %}
+
+{# ============================================================================== #}
+{# Output to Command (of:=)                                                       #}
+{# Redirects output to an external command via pipe.                              #}
+{# ============================================================================== #}
+{% for out in _outputs %}
+    {# Pipe command to execute for output (of:=). #}
+    {% if out.pipe_command is defined %}of:={{ out.pipe_command | join(' ') }}{% endif %}
+{% endfor %}
+
+{# ============================================================================== #}
+{# Diff Write                                                                     #}
+{# Writes differences to a separate file.                                         #}
+{# ============================================================================== #}
+{% for out in _outputs %}
+    {# Whether to write diffs (diffwr=). #}
+    {% if out.diff_write is defined %}diffwr={{ 'on' if out.diff_write else 'off' }}{% endif %}
+{% endfor %}

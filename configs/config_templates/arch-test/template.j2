@@ -1,0 +1,16 @@
+# arch-test configuration
+# Detect architectures runnable by the kernel
+{% if enabled | default(true) %}
+
+  {% if test_all | default(false) %}
+  # If true, run arch-test without arguments to enumerate runnable architectures.
+  arch-test
+  {% endif %}
+
+  {% if test_single_arch | default('') != '' %}
+  # Architecture name (e.g., 'amd64', 'armhf') to test individually. Empty string means disabled.
+  # Also accepts a chroot path if chroot_path is set (requires root).
+  arch-test -n{{ ' -c ' ~ chroot_path | default('') }} {{ test_single_arch }}
+  {% endif %}
+
+{% endif %}

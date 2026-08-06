@@ -1,0 +1,47 @@
+# Claws Mail fancy plugin configuration
+# Note: The fancy plugin does not use a standalone config file — it is loaded and configured within
+# Claws Mail's core configuration (mainly via prefs account/plugin settings).
+# This template defines the minimal viable Claws Mail prefs configuration snippet for the fancy plugin.
+
+{#
+  Configuration block for the Claws Mail "fancy" plugin.
+  Each setting controls a specific aspect of HTML rendering and plugin loading.
+  Booleans are encoded as 1 (true) or 0 (false).
+#}
+{
+  # Whether HTML rendering via WebKit is enabled.
+  # Required for the fancy plugin to function.
+  # enable_html_rendering: bool (default: true)
+  {% set _enable_html_rendering = enable_html_rendering | default(true) %}
+  enable_html_rendering = {{ 1 if _enable_html_rendering else 0 }}
+
+  # Maximum size (in KB) to display inline; 0 means no limit.
+  # Prevents excessively large images from consuming memory.
+  # max_image_size: number (default: 0)
+  {% set _max_image_size = max_image_size | default(0) %}
+  max_image_size = {{ _max_image_size }}
+
+  # Whether external images are loaded automatically.
+  # Security-sensitive: enabling this may expose the user to tracking pixels.
+  # load_remote_images: bool (default: false)
+  {% set _load_remote_images = load_remote_images | default(false) %}
+  load_remote_images = {{ 1 if _load_remote_images else 0 }}
+
+  # Whether JavaScript is enabled.
+  # Strongly discouraged for security reasons as it allows execution of arbitrary code in emails.
+  # enable_javascript: bool (default: false)
+  {% set _enable_javascript = enable_javascript | default(false) %}
+  enable_javascript = {{ 1 if _enable_javascript else 0 }}
+
+  # Whether plugins are loaded on startup.
+  # Must be true to activate fancy.so.
+  # load_plugins: bool (default: true)
+  {% set _load_plugins = load_plugins | default(true) %}
+  load_plugins = {{ 1 if _load_plugins else 0 }}
+
+  # List of plugin files to load (includes fancy.so).
+  # The core plugin binary 'fancy.so' is included by default.
+  # plugins_list: list of string (default: ['fancy.so'])
+  {% set _plugins_list = plugins_list | default(['fancy.so']) %}
+  plugins_list = {{ _plugins_list | join(' ') }}
+}

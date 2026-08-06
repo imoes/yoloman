@@ -1,0 +1,49 @@
+# extsmail configuration file
+# This file configures extsmail, a local delivery agent that uses external commands
+# for message delivery. It supports queuing, canonicalization, and detailed logging.
+#
+# See extsmail.conf(5) for a complete description of each directive.
+
+# [spool_directory] Directory where extsmail queues messages before delivery.
+spool_directory = {{ spool_directory | default('/var/spool/extmail') }}
+
+# [external_command] Shell command to invoke for delivering each message.
+# The command must accept the message on stdin and accept -f for the sender address.
+external_command = {{ external_command | default('') | quote }}
+
+# [max_retries] Maximum number of delivery attempts for a queued message.
+max_retries = {{ max_retries | default(5) }}
+
+# [retry_interval] Seconds to wait between delivery attempts for a message.
+retry_interval = {{ retry_interval | default(300) }}
+
+# [timeout] Timeout in seconds for execution of the external_command.
+timeout = {{ timeout | default(600) }}
+
+# [log_facility] Syslog facility to use (e.g., MAIL, LOCAL0).
+log_facility = {{ log_facility | default('MAIL') }}
+
+# [debug_level] Debug verbosity level: 0 (none), 1 (normal), 2 (verbose).
+debug_level = {{ debug_level | default(0) }}
+
+# [always_bcc] Email address to which all messages will be BCC'd (optional).
+always_bcc = {{ always_bcc | default('') }}
+
+# [sender_canonical] Regular expression and replacement for canonicalizing the sender address.
+# Format: /pattern/replacement/
+sender_canonical = {{ sender_canonical | default('') }}
+
+# [recipient_canonical] Regular expression and replacement for canonicalizing recipient addresses.
+# Format: /pattern/replacement/
+recipient_canonical = {{ recipient_canonical | default('') }}
+
+# [queue_only] If true, only queue messages and do not attempt immediate delivery.
+queue_only = {{ queue_only | default(false) | ternary('true', 'false') }}
+
+# [externals] List of external command override mappings based on conditions.
+# Each item specifies a pattern (condition) and a command to execute.
+{% for item in externals | default([]) %}
+# External command override for pattern: {{ item.pattern | default('') }}
+pattern = {{ item.pattern | default('') }}
+command = {{ item.command | default('') | quote }}
+{% endfor %}

@@ -1,0 +1,39 @@
+# Command-line defaults for hexcurse
+# This file defines default arguments passed to the hexcurse binary.
+# Each variable uses 'default(...)' to ensure safe rendering even if
+# the role does not provide a value for that field.
+
+{# args.address_format: Address display format: "hex" or "decimal".
+   When "decimal", the -a flag is enabled.
+   Default: hex #}
+{% if (args | default({})).address_format | default('hex') == 'decimal' %}
+-a
+{% endif %}
+
+{# args.chars_per_line: Number of characters per line in hex display
+   (1 to terminal width). When absent or invalid, defaults to full
+   terminal width.
+   Default: 16 #}
+{% if (args | default({})).chars_per_line is defined %}
+-r {{ (args | default({})).chars_per_line | default(16) }}
+{% endif %}
+
+{# args.output_file: Default output file for save operations.
+   If empty, no -o flag is emitted.
+   Default: '' #}
+{% set _out = (args | default({})).output_file | default('') %}
+{% if _out is defined and _out != '' %}
+-o {{ _out }}
+{% endif %}
+
+{# args.input_file: Input file to open on startup.
+   If empty, no input is opened initially.
+   Default: '' #}
+{# args.input_flag: Whether to prefix input_file with -i (required
+   only when input_file is not the last argument).
+   Default: true #}
+{% set _inp = (args | default({})).input_file | default('') %}
+{% if _inp is defined and _inp != '' %}
+{% set _flag = (args | default({})).input_flag | default(true) %}
+{% if _flag %}-i {% endif %}{{ _inp }}
+{% endif %}

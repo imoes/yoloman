@@ -1,74 +1,178 @@
-# Automatically generated Conky configuration — do not edit directly
-# Basic settings
-template_use_utf8 = {{ values.use_utf8 | lower }}
-template_text_alignment = "{{ values.text_alignment }}"
-template_gap_x = {{ values.gap_x }}
-template_gap_y = {{ values.gap_y }}
-template_minimum_width = {{ values.minimum_width }}
-template_minimum_height = {{ values.minimum_height }}
+# ==============================================================================
+# Conky Configuration
+# Self-documenting Jinja2 template for the conky_std package.
+# This file generates a conky.conf compatible configuration.
+# All variables default to schema-defined values if not provided by Ansible.
+# ==============================================================================
 
-# Window & display
-background = {{ values.background | lower }}
-out_to_console = {{ values.out_to_console | lower }}
-out_to_stderr = {{ values.out_to_stderr | lower }}
-extra_newline = {{ values.extra_newline | lower }}
+# ------------------------------------------------------------------------------
+# Basic Display Settings
+# ------------------------------------------------------------------------------
 
-# Font
-template_font = "{{ values.font.name }}:size={{ values.font.size }};{{ values.font.extra }}"
+# Use UTF-8 encoding for all text rendering.
+# Schema: use_utf8 (bool, default=True)
+use_utf8 = {{ (use_utf8 | default(True)) | lower }}
 
-# Color scheme
+# Alignment of text within the Conky window (left, center, right).
+# Schema: text_alignment (str, default='left')
+text_alignment = "{{ (text_alignment | default('left')) | lower }}"
+
+# Horizontal gap (in pixels) between the Conky window and the screen edge.
+# Schema: gap_x (int, default=5)
+gap_x = {{ (gap_x | default(5)) }}
+
+# Vertical gap (in pixels) between the Conky window and the screen edge.
+# Schema: gap_y (int, default=5)
+gap_y = {{ (gap_y | default(5)) }}
+
+# Minimum width of the Conky window in pixels.
+# Schema: minimum_width (int, default=200)
+minimum_width = {{ (minimum_width | default(200)) }}
+
+# Minimum height of the Conky window in pixels.
+# Schema: minimum_height (int, default=100)
+minimum_height = {{ (minimum_height | default(100)) }}
+
+# ------------------------------------------------------------------------------
+# Background & Output Behavior
+# ------------------------------------------------------------------------------
+
+# Run Conky as a background daemon (detach from shell).
+# Schema: background (bool, default=False)
+background = {{ (background | default(False)) | lower }}
+
+# Output to standard output (console) instead of drawing a GUI window.
+# Schema: out_to_console (bool, default=False)
+out_to_console = {{ (out_to_console | default(False)) | lower }}
+
+# Send output errors to standard error stream.
+# Schema: out_to_stderr (bool, default=False)
+out_to_stderr = {{ (out_to_stderr | default(False)) | lower }}
+
+# ------------------------------------------------------------------------------
+# Font Configuration
+# ------------------------------------------------------------------------------
+
+# Font configuration string for text rendering.
+# Expected format: "FontName:size;extra_properties"
+# Schema: font (str, default='DejaVu Sans Mono:10')
+font = "{{ (font | default('DejaVu Sans Mono:10')) }}"
+
+# ------------------------------------------------------------------------------
+# Color Palette
+# ------------------------------------------------------------------------------
+
+# Named color palette used in template_text.
+# Schema: colors (list of dicts, default=[{'name': 'color1', 'value': '#888888'}, ...])
+# Note: Conky uses specific color naming (color1, color2, etc.).
+{% set default_colors = [{'name': 'color1', 'value': '#888888'}, {'name': 'color2', 'value': '#aaaaaa'}, {'name': 'color3', 'value': '#ffffff'}] %}
+{% set color_list = colors | default(default_colors) %}
+
 template_colors = [
-{% for color in values.colors %}  "{{ color.name }}" = "{{ color.value }}",
+{% for color in color_list %}  "{{ color.name }}" = "{{ color.value }}",
 {% endfor %}]
 
-template_default_color = "{{ values.default_color }}"
+# Default color used when no specific color is specified in the text body.
+# Schema: default_color (str, default='#ffffff')
+template_default_color = "{{ (default_color | default('#ffffff')) }}"
 
-# Update interval (in seconds)
-template_update_interval = {{ values.update_interval }}
+# ------------------------------------------------------------------------------
+# Update Interval
+# ------------------------------------------------------------------------------
 
-# Disk monitor
-template_draw_borders = {{ values.draw_borders | lower }}
-template_draw_graph_borders = {{ values.draw_graph_borders | lower }}
-template_draw_outline = {{ values.draw_outline | lower }}
-template_draw_shades = {{ values.draw_shades | lower }}
+# Refresh rate in seconds for UI updates.
+# Schema: update_interval (float, default=1.0)
+template_update_interval = {{ (update_interval | default(1.0)) }}
 
-# Text alignment and spacing
-template_text_alignment = "{{ values.text_alignment }}"
-template_text_buffer = {{ values.text_buffer }}
+# ------------------------------------------------------------------------------
+# Visual Enhancements
+# ------------------------------------------------------------------------------
 
-# Process monitoring
-template_max_user_text = {{ values.max_user_text }}
-template_text_size = {{ values.text_size }}
+# Draw borders around text sections.
+# Schema: draw_borders (bool, default=False)
+template_draw_borders = {{ (draw_borders | default(False)) | lower }}
 
-# Network interfaces
-template_interfaces = [{{ values.network_interfaces | map('quote') | join(', ') }}]
+# Draw borders around graphs.
+# Schema: draw_graph_borders (bool, default=True)
+template_draw_graph_borders = {{ (draw_graph_borders | default(True)) | lower }}
 
-# Disk devices to monitor
-template_disk_devices = [{{ values.disk_devices | map('quote') | join(', ') }}]
+# Enable drop shadows behind text for better readability.
+# Schema: draw_shades (bool, default=True)
+template_draw_shades = {{ (draw_shades | default(True)) | lower }}
 
-# CPU usage graph settings
-template_cpu_avg_samples = {{ values.cpu_avg_samples }}
+# ------------------------------------------------------------------------------
+# Text Buffering & Sizing
+# ------------------------------------------------------------------------------
 
-# Temperature units: 'c' or 'f'
-template_temperature_unit = "{{ values.temperature_unit }}"
+# Size of internal text buffer in bytes.
+# Schema: text_buffer (int, default=1024)
+template_text_buffer = {{ (text_buffer | default(1024)) }}
 
-# Time formatting (strftime compatible)
-template_time_format = "{{ values.time_format }}"
+# Maximum size (in bytes) of user-defined text sections (user_text_blocks).
+# Schema: max_user_text (int, default=16384)
+template_max_user_text = {{ (max_user_text | default(16384)) }}
 
-# System information display sections
-template_top_name = "{{ values.top_name }}"
-template_top_exe = "{{ values.top_exe }}"
-template_top_mem = "{{ values.top_mem }}"
-template_top_cpu = "{{ values.top_cpu }}"
-template_top_io = "{{ values.top_io }}"
-template_top_time = "{{ values.top_time }}"
+# Height (in pixels) of the Conky text area.
+# Schema: text_size (int, default=400)
+template_text_size = {{ (text_size | default(400)) }}
 
-# Custom user-defined text blocks
-{% for block in values.user_text_blocks %}
+# ------------------------------------------------------------------------------
+# Network Monitoring
+# ------------------------------------------------------------------------------
+
+# List of network interfaces to monitor for traffic statistics.
+# Schema: network_interfaces (list, default=['eth0', 'wlan0'])
+{% set interfaces = network_interfaces | default(['eth0', 'wlan0']) %}
+template_interfaces = [{{ interfaces | map('quote') | join(', ') }}]
+
+# ------------------------------------------------------------------------------
+# Disk Monitoring
+# ------------------------------------------------------------------------------
+
+# List of mount points or disk devices to display disk usage for.
+# Schema: disk_devices (list, default=['/', '/home'])
+{% set disks = disk_devices | default(['/', '/home']) %}
+template_disk_devices = [{{ disks | map('quote') | join(', ') }}]
+
+# ------------------------------------------------------------------------------
+# CPU & Temperature
+# ------------------------------------------------------------------------------
+
+# Number of samples used to average CPU usage graphs (smoothing).
+# Schema: cpu_avg_samples (int, default=2)
+template_cpu_avg_samples = {{ (cpu_avg_samples | default(2)) }}
+
+# Temperature unit: 'c' (Celsius) or 'f' (Fahrenheit).
+# Schema: temperature_unit (str, default='c')
+template_temperature_unit = "{{ (temperature_unit | default('c')) | lower }}"
+
+# ------------------------------------------------------------------------------
+# Time Formatting
+# ------------------------------------------------------------------------------
+
+# strftime-compatible format string for time display.
+# Schema: time_format (str, default='%a %b %d %H:%M:%S %Z %Y')
+template_time_format = "{{ (time_format | default('%a %b %d %H:%M:%S %Z %Y')) }}"
+
+# ------------------------------------------------------------------------------
+# Custom User Text Blocks
+# ------------------------------------------------------------------------------
+
+# Array of custom text blocks inserted into the configuration.
+# Each block has a 'name' (identifier) and 'text' (content).
+# Schema: user_text_blocks (list, default=[])
+{% for block in (user_text_blocks | default([])) %}
 {{ block.name }} = "{{ block.text }}"
 {% endfor %}
 
-# Main UI layout: start of body section
+# ------------------------------------------------------------------------------
+# Main UI Layout / Body Text
+# ------------------------------------------------------------------------------
+
+# Main multi-line Conky text body using Conky’s built-in variable syntax (e.g., ${...}).
+# This section defines the actual dashboard content.
+# Schema: body_text (str, default='${color1}System: ${color2}${nodename}...')
+# Note: The raw Conky variables are preserved here.
 template_text = [[
-{{ values.body_text | indent(2) }}
+{{ (body_text | default('${color1}System: ${color2}${nodename}  ${color1}Uptime: ${color2}${uptime}\\n${color1}CPU: ${color2}${cpu cpu0}% ${color1}RAM: ${color2}${memperc}%\\n${color1}Disk: ${color2}${fs_used /}/${fs_size /} ${color1}Net: ${color2}${upspeed eth0}')) | indent(2) }}
 ]]

@@ -1,36 +1,99 @@
-# /etc/default/tftpd-hpa — TFTP server configuration for hpa-tftpd
-# Enables secure, minimal TFTP service for network boot (PXE) and device provisioning
+#!/bin/sh
 
-# Location of TFTP root directory (all files must be under this path)
-TFTP_DIRECTORY="{{ tftp_root }}"
+### BEGIN INIT INFO
+# Provides:		tftpd-hpa
+# Required-Start:	$local_fs $remote_fs $syslog $network
+# Required-Stop:	$local_fs $remote_fs $syslog $network
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	HPA's tftp server
+# Description:		Trivial File Transfer Protocol (TFTP) is a file transfer
+#			protocol, mainly to serve boot images over the network
+#			to other machines (PXE).
+### END INIT INFO
 
-# User under which tftpd runs (for privilege dropping)
-TFTP_USER="{{ tftp_user }}"
+PATH="/sbin:/bin:/usr/sbin:/usr/bin"
+DAEMON="/usr/sbin/in.tftpd"
 
-# Address and port the server listens on (e.g., "0.0.0.0:69" or "127.0.0.1:69")
-TFTP_ADDRESS="{{ tftp_address }}:{{ tftp_port }}"
+test -x "$DAEMON" || exit 0
 
-# Extra options passed to in.tftpd
-# Use space-separated flags; common: --secure (no writes), --verbose, --progress, --timeout
-TFTP_OPTIONS="{{ tftp_options }}"
+NAME="in.tftpd"
+DESC="HPA's tftpd"
+PIDFILE="/var/run/tftpd-hpa.pid"
+DEFAULTS="/etc/default/tftpd-hpa"
 
-# Enable IPv6? Set to 'yes' to allow IPv6 sockets (default: no)
-{% if tftp_ipv6_enabled %}
-TFTP_OPTIONS="{{ tftp_options }} --ipv6"
-{% else %}
-# (IPv6 disabled)
-{% endif %}
+set -e
 
-# Optional: Set umask for created files (e.g., 022 for world-readable, 007 for group-only)
-{% if tftp_umask is defined %}
-UMASK="{{ tftp_umask }}"
-{% else %}
-# (no UMASK set — uses system default)
-{% endif %}
+[ -r "$DEFAULTS" ] && . "$DEFAULTS"
 
-# Optional: Enable TFTP server debug logging (to syslog, level: debug)
-{% if tftp_debug %}
-TFTP_OPTIONS="{{ tftp_options }} --debug"
-{% else %}
-# (debug logging disabled)
-{% endif %}
+. /lib/lsb/init-functions
+
+
+do_start()
+{
+	# Ensure --secure and multiple server directories are not used at the
+	# same time
+	if [ "$(echo $TFTP_DIRECTORY | wc -w)" -ge 2 ] && \
+	   echo $TFTP_OPTIONS | grep -qs secure
+	then
+		echo
+		echo "When --secure is specified, exactly one directory can be specified."
+		echo "Please correct your $DEFAULTS."
+		exit 1
+	fi
+
+	# Ensure server directories exist
+	for d in $TFTP_DIRECTORY
+	do
+		if [ ! -d "$d" ]
+		then
+			echo "$d missing, aborting."
+			exit 1
+		fi
+	done
+
+	start-stop-daemon --start --quiet --oknodo --exec $DAEMON -- \
+		--listen --user $TFTP_USERNAME --address $TFTP_ADDRESS \
+		$TFTP_OPTIONS $TFTP_DIRECTORY
+}
+
+do_stop ()
+{
+	start-stop-daemon --stop --quiet --oknodo --name $NAME
+}
+
+do_reload ()
+{
+	start-stop-daemon --stop --quiet --oknodo --name $NAME --signal 1
+}
+
+case "$1" in
+	start)
+		log_daemon_msg "Starting $DESC" "$NAME"
+		do_start
+		log_end_msg $?
+		;;
+
+	stop)
+		log_daemon_msg "Stopping $DESC" "$NAME"
+		do_stop
+		log_end_msg $?
+		;;
+
+	restart|force-reload)
+		log_daemon_msg "Restarting $DESC" "$NAME"
+		do_stop
+		sleep 1
+		do_start
+		log_end_msg $?
+		;;
+
+	status)
+		status_of_proc $DAEMON $NAME
+		;;
+
+	*)
+		echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+		exit 3
+		;;
+esac

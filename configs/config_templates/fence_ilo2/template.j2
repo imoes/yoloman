@@ -1,37 +1,80 @@
-# iLO2 fence agent configuration
-# This file is sourced by fence_ilo2 via fence.agents(7)
-# Site-specific credentials and connection parameters must be set below
+# =============================================================================
+# fence_ilo2 Configuration Template
+# =============================================================================
+# Self-documenting Jinja2 template for generating fence_ilo2 configuration.
+# This file is parsed by the fence_ilo2 agent (part of pcs/cluster suite)
+# to manage out-of-band hardware via HP iLO2 interfaces.
+#
+# All variables use schema defaults to ensure safe rendering even if omitted.
+# =============================================================================
 
-# Hostname or IP address of the iLO2 interface
-hostname = {{ hostname }}
+# -----------------------------------------------------------------------------
+# [Global] IP address or hostname of the iLO2 management interface.
+# Schema: hostname (string, default: 'ilo2.example.com')
+# -----------------------------------------------------------------------------
+hostname = {{ hostname | default('ilo2.example.com') }}
 
-# iLO2 username with admin privileges (e.g., ' Administrator')
-login = {{ login }}
+# -----------------------------------------------------------------------------
+# [Global] iLO2 username with sufficient privileges.
+# Schema: login (string, default: 'Administrator')
+# -----------------------------------------------------------------------------
+login = {{ login | default('Administrator') }}
 
-# iLO2 password (securely managed — prefer environment variable or keyring)
-password = {{ password }}
+# -----------------------------------------------------------------------------
+# [Global] iLO2 password for the login user.
+# NOTE: In production, this should be empty ('') and passed via environment
+# variables or external secret stores (e.g., HashiCorp Vault, Ansible vault).
+# Schema: password (string, default: '')
+# -----------------------------------------------------------------------------
+password = {{ password | default('') }}
 
-# Optional: Port used for iLO2 web service (default: 443 for HTTPS)
-port = {{ port }}
+# -----------------------------------------------------------------------------
+# [Global] TCP port for the iLO2 HTTPS service.
+# Schema: port (integer, default: 443)
+# -----------------------------------------------------------------------------
+port = {{ port | default(443) }}
 
-# Optional: SSL/TLS options (0=disabled, 1=enabled, 2=verify peer cert)
-ssl = {{ ssl }}
+# -----------------------------------------------------------------------------
+# [Global] SSL/TLS mode.
+#   0 = Disabled (not recommended)
+#   1 = Enabled (default, no certificate verification)
+#   2 = Verify certificate (strict)
+# Schema: ssl (integer, default: 1)
+# -----------------------------------------------------------------------------
+ssl = {{ ssl | default(1) }}
 
-# Optional: Timeout (in seconds) for connection and operation
-login_timeout = {{ login_timeout }}
+# -----------------------------------------------------------------------------
+# [Global] Maximum seconds to wait for iLO2 login connection to complete.
+# Schema: login_timeout (integer, default: 10)
+# -----------------------------------------------------------------------------
+login_timeout = {{ login_timeout | default(10) }}
 
-# Optional: Command timeout (in seconds)
-command_timeout = {{ command_timeout }}
+# -----------------------------------------------------------------------------
+# [Global] Maximum seconds to wait for a fencing command (off/on/reboot).
+# Schema: command_timeout (integer, default: 30)
+# -----------------------------------------------------------------------------
+command_timeout = {{ command_timeout | default(30) }}
 
-# Optional: Power retry behavior (number of retries on failure)
-power_wait = {{ power_wait }}
+# -----------------------------------------------------------------------------
+# [Global] Seconds to wait between power state changes before retrying.
+# Helps avoid race conditions with iLO2 power management cycles.
+# Schema: power_wait (integer, default: 5)
+# -----------------------------------------------------------------------------
+power_wait = {{ power_wait | default(5) }}
 
-# Optional: List of additional devices (for multi-node clusters)
-# Each item: hostname, login, password (passwords should be secured separately in production)
-{% for device in devices %}
+# -----------------------------------------------------------------------------
+# [Global] Additional iLO2 devices for multi-node clusters.
+# Each entry defines a separate fenced target.
+# Schema: devices (list of objects, default: [])
+# -----------------------------------------------------------------------------
+{% for device in devices | default([]) %}
+# -----------------------------------------------------------------------------
+# [Device] Configuration for iLO2 device: {{ device.name | default('unnamed') }}
+# Fields: hostname, login, password
+# -----------------------------------------------------------------------------
 device {{ device.name | default('unnamed') }} {
-  hostname = {{ device.hostname }}
-  login    = {{ device.login }}
-  password = {{ device.password }}
+  hostname = {{ device.hostname | default('') }}
+  login    = {{ device.login | default('Administrator') }}
+  password = {{ device.password | default('') }}
 }
 {% endfor %}

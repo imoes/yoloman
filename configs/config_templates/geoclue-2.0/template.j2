@@ -1,0 +1,204 @@
+# ============================================================================
+# Geoclue 2.0 Configuration
+# ============================================================================
+# This template manages the geoclue-2.0 service configuration.
+# Geoclue provides location services to applications.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Agent Configuration
+# ----------------------------------------------------------------------------
+[agent]
+
+# Semicolon-separated list of desktop IDs (without .desktop part) of allowed agents.
+# Agents listed here are recognized and authorized for location access.
+whitelist={{ agent_whitelist | default('geoclue-demo-agent;gnome-shell;io.elementary.desktop.agent-geoclue2;sm.puri.Phosh;lipstick') }}
+
+# ----------------------------------------------------------------------------
+# Network NMEA Source Configuration
+# ----------------------------------------------------------------------------
+[network-nmea]
+
+# Fetch location from NMEA sources on local network.
+# NMEA (National Marine Electronics Association) data is commonly used by GPS devices.
+enable={{ network_nmea_enable | default(True) }}
+
+# use aa nmea unix socket as the data source
+# nmea-socket=/var/run/gps-share.sock
+
+# ----------------------------------------------------------------------------
+# 3G Source Configuration
+# ----------------------------------------------------------------------------
+[3g]
+
+# Enable 3G source.
+# Allows Geoclue to use cellular network triangulation for location.
+enable={{ enable_3g | default(True) }}
+
+# ----------------------------------------------------------------------------
+# CDMA Source Configuration
+# ----------------------------------------------------------------------------
+[cdma]
+
+# Enable CDMA source.
+# Allows Geoclue to use CDMA cellular network triangulation for location.
+enable={{ enable_cdma | default(True) }}
+
+# ----------------------------------------------------------------------------
+# Modem-GPS Source Configuration
+# ----------------------------------------------------------------------------
+[modem-gps]
+
+# Enable Modem-GPS source.
+# Allows Geoclue to use hardware GPS receivers connected via modems.
+enable={{ enable_modem_gps | default(True) }}
+
+# ----------------------------------------------------------------------------
+# WiFi Source Configuration
+# ----------------------------------------------------------------------------
+[wifi]
+
+# Enable WiFi source.
+# If this source and the static source below are both disabled a GeoIP-only
+# source will be used instead.
+enable={{ enable_wifi | default(True) }}
+
+# URL to a WiFi geolocation service compatible with the Ichnaea API
+# (https://ichnaea.readthedocs.io/en/latest/api/geolocate.html).
+# An API key can be set by using the 'key' URL parameter.
+#url=https://example.com/v1/geolocate?key=YOUR_KEY
+
+# To use the Google geolocation service, uncomment this URL
+# while changing YOUR_KEY to your Google API key.
+#
+# WARNING: Please make sure that you are complying with the Google's ToS and
+#          policies if you uncomment this:
+#
+# https://developers.google.com/maps/documentation/geolocation/policies
+#
+#url=https://www.googleapis.com/geolocation/v1/geolocate?key=YOUR_KEY
+
+# URL to a WiFi geolocation service compatible with the Ichnaea API.
+# Leave empty to disable custom URL.
+#url={{ wifi_geolocation_url | default('') }}
+
+# Submit data to WiFi geolocation service.
+# If set to true, geoclue will automatically submit network data
+# each time it gets a GPS lock.
+#
+# Currently, only Modem-GPS or Network NMEA sources are supported as providers
+# of a location to submit (one at a time).
+# If Modem-GPS source is enabled above it will be the exclusive provider
+# (regardless whether the system is actually equipped with such modem),
+# otherwise Network NMEA source will be considered.
+#
+submit-data={{ wifi_submit_data | default(False) }}
+
+# URL to submit data to a WiFi geolocation service with an Ichnaea compatible API
+# (https://ichnaea.readthedocs.io/en/latest/api/geosubmit2.html).
+# Leave empty to disable submission URL.
+#submission-url={{ wifi_submit_data_url | default('') }}
+
+# A nickname to submit network data with. If empty, omitted from the submission.
+# Otherwise, must be 2 to 32 characters long. Defaults to "geoclue".
+submission-nick={{ wifi_submission_nick | default('geoclue') }}
+
+# ----------------------------------------------------------------------------
+# Compass Source Configuration
+# ----------------------------------------------------------------------------
+[compass]
+
+# Enable Compass.
+# Allows Geoclue to use device magnetometer/compass sensors for orientation.
+enable={{ enable_compass | default(True) }}
+
+# ----------------------------------------------------------------------------
+# Static Source Configuration
+# ----------------------------------------------------------------------------
+#
+# This source reads location from "geolocation" file in /etc - please
+# consult geoclue(5) man page for the format description of this file.
+[static-source]
+
+# Enable the static source.
+# If you make use of this source, you probably should disable other location
+# sources in this file so they won't override the configured static location.
+enable={{ enable_static_source | default(True) }}
+
+# ----------------------------------------------------------------------------
+# Application Configuration
+# ----------------------------------------------------------------------------
+#
+# NOTE: Having an entry here for an application with allowed=true means that
+#       geoclue will not ask agent to authorize the application. This is to
+#       ensure that applications with built-in authorization mechanism (e.g web
+#       browsers) do not have to be bound to agents.
+#
+#       If your application is denied access to location information and your
+#       operating system doesn't provide any mechanism to change that, it is
+#       likely a bug in your operation system (or geoclue). The solution is to
+#       report the issue with all details, rather than adding your application
+#       to this list.
+#
+# Format:
+#
+# # Desktop ID of application without .desktop part
+# [random-app]
+#
+# # Allowed access to location information?
+# allowed=true|false
+#
+# # Is application a system component?
+# system=true|false
+#
+# # List of UIDs of all users for which this application is allowed location
+# # info access, separate by ';'. Keep it empty for allowing it for all users.
+# users=
+
+# GNOME Datetime Panel
+[gnome-datetime-panel]
+# gnome-datetime-panel: allowed access?
+allowed={{ app_gnome_datetime_panel_allowed | default(True) }}
+# gnome-datetime-panel: system component?
+system={{ app_gnome_datetime_panel_system | default(True) }}
+# gnome-datetime-panel: semicolon-separated list of allowed UIDs. Empty means all users.
+users={{ app_gnome_datetime_panel_users | default('') }}
+
+# GNOME Color Panel
+[gnome-color-panel]
+# gnome-color-panel: allowed access?
+allowed={{ app_gnome_color_panel_allowed | default(True) }}
+# gnome-color-panel: system component?
+system={{ app_gnome_color_panel_system | default(True) }}
+# gnome-color-panel: semicolon-separated list of allowed UIDs. Empty means all users.
+users={{ app_gnome_color_panel_users | default('') }}
+
+# GNOME Shell
+[org.gnome.Shell]
+# org.gnome.Shell: allowed access?
+allowed={{ app_gnome_shell_allowed | default(True) }}
+# org.gnome.Shell: system component?
+system={{ app_gnome_shell_system | default(True) }}
+# org.gnome.Shell: semicolon-separated list of allowed UIDs. Empty means all users.
+users={{ app_gnome_shell_users | default('') }}
+
+# Elementary Desktop Agent
+[io.elementary.desktop.agent-geoclue2]
+# io.elementary.desktop.agent-geoclue2: allowed access?
+allowed={{ app_elementary_agent_allowed | default(True) }}
+# io.elementary.desktop.agent-geoclue2: system component?
+system={{ app_elementary_agent_system | default(True) }}
+# io.elementary.desktop.agent-geoclue2: semicolon-separated list of allowed UIDs. Empty means all users.
+users={{ app_elementary_agent_users | default('') }}
+
+# Purism Phosh Desktop Agent
+[sm.puri.Phosh]
+allowed=true
+system=true
+users=
+
+# Lipstick (MeeGo/Harmattan) Agent
+[lipstick]
+allowed=true
+system=true
+users=

@@ -1,45 +1,6 @@
-# Configuration for openfortivpn — VPN client for Fortinet SSL VPN gateways
-# Gateway address (hostname or IP)
-gateway = {{ gateway }}
-# Username for authentication
-username = {{ username }}
-# Password — if not provided via CLI or keyring, leave empty and use secure input
-{% if password is defined %}password = {{ password }}{% else %}password ={% endif %}
-# realm for multi-tenant gateways (optional)
-{% if realm is defined %}realm = {{ realm }}{% else %}realm ={% endif %}
-# Use system trusted CA certificates (recommended for production)
-ca-file = {{ ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
-# Client certificate (for certificate-based auth, optional)
-{% if client_cert is defined %}cert-file = {{ client_cert }}{% else %}cert-file ={% endif %}
-# Private key for client cert (if cert-based auth is used)
-{% if client_key is defined %}key-file = {{ client_key }}{% else %}key-file ={% endif %}
-# Disable certificate validation (insecure — use only for testing)
-{% if no_verify_ssl %}no-verify-cert = true{% else %}no-verify-cert = false{% endif %}
-# Set local IP address (optional; if omitted, obtained via DHCP)
-{% if local_ip %}local-ip = {{ local_ip }}{% endif %}
-# Set netmask for local IP (e.g., 255.255.255.0)
-{% if local_netmask %}local-netmask = {{ local_netmask }}{% endif %}
-# Set default gateway (if omitted, VPN becomes default route)
-{% if default_gateway is false %}set-routes = false{% elif default_gateway is true %}set-routes = true{% else %}set-routes = {% if set_routes is defined %}{{ 'true' if set_routes else 'false' }}{% else %}true{% endif %}{% endif %}
-# Add routes for these subnets (comma-separated, or leave blank for none)
-{% if add_routes is defined and add_routes | length > 0 %}add-route = {{ add_routes | join('\nadd-route = ') }}{% endif %}
-# Exclude these subnets from the tunnel (split tunneling)
-{% if exclude_routes is defined and exclude_routes | length > 0 %}remove-route = {{ exclude_routes | join('\nremove-route = ') }}{% endif %}
-# DNS servers to push (optional)
-{% if dns_servers is defined and dns_servers | length > 0 %}dns = {{ dns_servers | join('\ndns = ') }}{% endif %}
-# Proxy server (format: host:port; supports http/socks5)
-{% if proxy_host %}proxy = {{ proxy_host }}:{{ proxy_port | default(8080) }}{% else %}proxy ={% endif %}
-# Proxy authentication (optional)
-{% if proxy_username %}proxy-user = {{ proxy_username }}{% if proxy_password %}:{{ proxy_password }}{% endif %}{% else %}proxy-user ={% endif %}
-# Set PPP MTU (default 1400, adjust if needed for path MTU)
-{% if ppp_mtu is defined %}ppp-mtu = {{ ppp_mtu }}{% else %}ppp-mtu = 1400{% endif %}
-# Require trusted server cert (fallback to insecure if false)
-{% if trusted_cert %}trusted-cert = {{ trusted_cert }}{% else %}trusted-cert ={% endif %}
-# Interface name for the VPN (default: ppp0)
-{% if interface %}ifname = {{ interface }}{% else %}ifname = ppp0{% endif %}
-# Run script after connecting (e.g., for logging or firewall rules)
-{% if post_up %}post-up = {{ post_up }}{% else %}post-up ={% endif %}
-# Run script before disconnecting
-{% if pre_down %}pre-down = {{ pre_down }}{% else %}pre-down ={% endif %}
-# Idle timeout in seconds (disconnect after no traffic; 0 = disabled)
-{% if idle_timeout is defined %}idle-timeout = {{ idle_timeout }}{% else %}idle-timeout = 0{% endif %}
+### configuration file for openfortivpn, see man openfortivpn(1) ###
+
+# host = {{ gateway }}
+# port = 443
+# username = {{ username }}
+# password = {{ password }}

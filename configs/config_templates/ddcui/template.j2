@@ -1,0 +1,140 @@
+# ==============================================================================
+# ddcui Command-Line Configuration
+# ==============================================================================
+# This template generates command-line arguments for ddcui, a tool to control
+# DDC/CI enabled monitors. Each section corresponds to a field in the `ddcui`
+# Ansible variable mapping. All values are safely defaulted to ensure idempotent
+# rendering even if upstream variables are missing.
+# ==============================================================================
+
+{% if ddcui is defined %}
+
+# ------------------------------------------------------------------------------
+# Feature Set Configuration
+# ------------------------------------------------------------------------------
+# Initial feature set to show. Valid values: MCCS, MANUFACTURER, COLOR, CUSTOM.
+# Controls which monitor features are initially visible/enabled in the UI.
+# Default: MCCS
+{% set feature_set = ddcui.feature_set | default('MCCS') %}
+{% if feature_set %}
+{{ '--feature-set ' ~ feature_set }}
+{% endif %}
+
+# Custom Features for CUSTOM feature set
+# List of feature codes (hex strings) for CUSTOM feature set.
+# Codes must be 2-char hex, optionally prefixed with 'x' or suffixed with 'h'.
+# Example: '10', 'x11', '12h'. Only relevant if feature_set is CUSTOM.
+# Default: [] (empty list)
+{% set custom_features = ddcui.custom_features | default([]) %}
+{% if custom_features | length > 0 %}
+{% for feat in custom_features %}
+{{ '--custom-feature-set ' ~ feat }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Capability & Display Filters
+# ------------------------------------------------------------------------------
+# Restrict features to those in the capabilities string.
+# Applies when feature_set is MCCS, COLOR, or MANUFACTURER.
+# Default: False
+{% if ddcui.only_capabilities is defined and ddcui.only_capabilities %}
+{{ '--only-capabilities' }}
+{% endif %}
+
+# Always include features found in the capabilities string.
+# Applies when feature_set is MCCS.
+# Default: False
+{% if ddcui.all_capabilities is defined and ddcui.all_capabilities %}
+{{ '--all-capabilities' }}
+{% endif %}
+
+# Display unsupported features in the feature set.
+# Default: False
+{% if ddcui.show_unsupported is defined and ddcui.show_unsupported %}
+{{ '--show-unsupported' }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Non-Continuous Values Source
+# ------------------------------------------------------------------------------
+# Source of values shown in the drop-down for Non-Continuous features.
+# Valid: MCCS, CAPABILITIES, BOTH.
+# Default: '' (empty string)
+{% set nc_source = ddcui.nc_values_source | default('') %}
+{% if nc_source %}
+{{ '--nc-values-source ' ~ nc_source }}
+{% endif %}
+
+# Always use values from latest MCCS version.
+# Default: False
+{% if ddcui.use_latest_nc_values is defined and ddcui.use_latest_nc_values %}
+{{ '--use-latest-nc-values' }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# UI Customization
+# ------------------------------------------------------------------------------
+# Model name as specified in the monitor's EDID and shown on the toolbar.
+# Default: '' (empty string)
+{% set model = ddcui.model | default('') %}
+{% if model %}
+{{ '--model ' ~ model }}
+{% endif %}
+
+# Qt style name (e.g., 'Fusion', 'Windows').
+# List available styles via ddcui --styles.
+# Default: '' (empty string)
+{% set style = ddcui.style | default('') %}
+{% if style %}
+{{ '--style ' ~ style }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Error Reporting
+# ------------------------------------------------------------------------------
+# Report DDC protocol and data errors to the terminal.
+# Default: False
+{% if ddcui.ddc_errors_to_terminal is defined and ddcui.ddc_errors_to_terminal %}
+{{ '--ddc-errors-to-terminal' }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Tracing / Debugging
+# ------------------------------------------------------------------------------
+# List of trace group names to trace. May be specified more than once.
+# Default: [] (empty list)
+{% set trace_groups = ddcui.trace_groups | default([]) %}
+{% for group in trace_groups %}
+{{ '--trace ' ~ group }}
+{% endfor %}
+
+# List of filenames (simple-file-name) to trace. May be specified more than once.
+# Default: [] (empty list)
+{% set trace_files = ddcui.trace_files | default([]) %}
+{% for file in trace_files %}
+{{ '--trcfile ' ~ file }}
+{% endfor %}
+
+# List of function names to trace. May be specified more than once.
+# Default: [] (empty list)
+{% set trace_functions = ddcui.trace_functions | default([]) %}
+{% for func in trace_functions %}
+{{ '--trcfunc ' ~ func }}
+{% endfor %}
+
+# Prefix trace messages with timestamp.
+# Default: False
+{% if ddcui.timestamp is defined and ddcui.timestamp %}
+{{ '--timestamp' }}
+{% endif %}
+
+# Prefix trace messages with thread id.
+# Default: False
+{% if ddcui.thread_id is defined and ddcui.thread_id %}
+{{ '--thread-id' }}
+{% endif %}
+
+{% else %}
+# ddcui configuration block is not defined; no arguments generated.
+{% endif %}

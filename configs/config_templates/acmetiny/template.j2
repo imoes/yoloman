@@ -1,36 +1,58 @@
-# Path to the account private key (RSA, 4096-bit recommended)
-account_key: {{ account_key_path }}
+# ============================================================================
+# acmetiny Configuration Template
+# ============================================================================
+# This file configures the 'acmetiny' utility, a minimal ACME client used for
+# obtaining and renewing TLS certificates (typically from Let's Encrypt).
+#
+# Self-documenting: Every variable below corresponds to a schema field.
+# Defaults are embedded inline to ensure safe rendering even if variables
+# are omitted in the Ansible play.
+# ============================================================================
 
-# Path to the domain CSR or domain config (relative to script directory or absolute)
-domain_csr: {{ domain_csr_path }}
+# Absolute path to the RSA account private key (4096-bit recommended).
+# Must be generated once and reused for all renewals.
+account_key: {{ (account_key_path | default('/etc/acme-tiny/account_key.pem')) }}
 
-# ACME CA endpoint (Let's Encrypt production or staging)
-acme_directory: {{ acme_directory_url }}
+# Absolute or relative path to the certificate signing request (CSR) file
+# for your domains. If not provided, the 'domains' list is used instead
+# to generate a CSR on the fly.
+domain_csr: {{ (domain_csr_path | default('/etc/acme-tiny/domain.csr')) }}
 
-# Base directory for ACME challenge files (must be web-accessible)
-challenge_path: {{ challenge_path }}
+# ACME CA directory URL.
+# Use 'https://acme-staging-v02.api.letsencrypt.org/directory' for testing
+# to avoid production rate limits.
+acme_directory: {{ (acme_directory_url | default('https://acme-v02.api.letsencrypt.org/directory')) }}
 
-# Webroot path (where `.well-known/acme-challenge` is served from)
-webroot_path: {{ webroot_path }}
+# File system path where ACME challenge files will be written and served from.
+# This must match the web server's configuration for the `.well-known` location.
+challenge_path: {{ (challenge_path | default('/var/www/.well-known/acme-challenge')) }}
 
-# Minimum number of days before certificate expiry to renew
-renew_before_days: {{ renew_before_days }}
+# Web server's document root directory.
+# The `.well-known/acme-challenge` subpath must be publicly accessible from here.
+webroot_path: {{ (webroot_path | default('/var/www')) }}
 
-# Number of retries for ACME challenge validation
-challenge_retries: {{ challenge_retries }}
+# Renew certificates if they expire within this many days.
+# Lower values increase renewals, higher values risk expiry.
+renew_before_days: {{ (renew_before_days | default(30)) }}
 
-# Delay (in seconds) between retries
-challenge_retry_delay: {{ challenge_retry_delay }}
+# Number of times to retry the ACME challenge validation before failing.
+challenge_retries: {{ (challenge_retries | default(3)) }}
 
-# Command to run after successful certificate issuance (optional)
-# {{ post_hook_comment }}
-{% if post_hook_cmd %}
-post_hook: {{ post_hook_cmd }}
-{% endif %}
+# Seconds to wait between challenge validation retries.
+challenge_retry_delay: {{ (challenge_retry_delay | default(5)) }}
 
-# List of domains to manage (used only if domain_csr is not specified)
-{% if domains %}
+# Placeholder for comment explaining post_hook usage.
+# post_hook_comment: {{ (post_hook_comment | default('Note: post_hook command must be valid shell code and handle errors gracefully.')) }}
+
+# Shell command to run after successful certificate issuance
+# (e.g., to reload web server). Leave empty to skip.
+post_hook_cmd: {{ (post_hook_cmd | default('')) }}
+
+# List of primary domains (CN) to include in the certificate.
+# Use this only if 'domain_csr' is not provided.
+{% if domains is defined and domains is iterable %}
 domains:
-{% for domain in domains %}  - {{ domain.name }}{% if domain.alt_names %} # alt_names: {{ domain.alt_names | join(', ') }}{% endif %}
+{% for domain in domains %}
+  - {{ domain | default('') }}
 {% endfor %}
 {% endif %}

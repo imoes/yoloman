@@ -1,61 +1,132 @@
-# Allow remote printers from other hosts to be discovered locally
-{{ 'BrowseRemoteProtocols' }} {{ browse_remote_protocols | join(', ') }}
+# cups-browsed configuration file
+#
+# This template generates the configuration for the cups-browsed daemon.
+# It handles automatic discovery and installation of remote CUPS printers.
 
-# Local network browsing protocols (e.g., 'cups dnssd' for mDNS/DNS-SD and CUPS browsing)
-{{ 'BrowseLocalProtocols' }} {{ browse_local_protocols | join(', ') }}
+# ==========================================================================
+# Discovery Protocols
+# ==========================================================================
 
-# Default time (in seconds) to keep a discovered printer in the queue list after last use
-{{ 'TimeOut' }} {{ timeout }}
+# Protocols used to browse for remote printers (e.g., 'cups', 'ipp', 'https').
+# Use 'all' to enable all supported protocols.
+# Default: ['cups']
+BrowseRemoteProtocols {{ browse_remote_protocols | default(['cups']) | join(', ') }}
 
-# Maximum number of printer queues to keep (0 = unlimited)
-{{ 'MaxQueuedPrinters' }} {{ max_queued_printers }}
+# Protocols used to browse for local printers (e.g., 'cups', 'dnssd' for mDNS/DNS-SD).
+# Default: ['cups', 'dnssd']
+BrowseLocalProtocols {{ browse_local_protocols | default(['cups', 'dnssd']) | join(', ') }}
 
-# Whether to automatically create local queues for discovered printers
-{{ 'CreateRemoteIPPQueue' }} {{ create_remote_ipp_queue }}
+# ==========================================================================
+# Queue Management
+# ==========================================================================
 
-# Whether to create queues for PPD-less (IPP) printers
-{{ 'CreateIPPPrinter' }} {{ create_ipp_printer }}
+# Number of seconds after which a discovered printer queue is removed if unused.
+# Default: 300
+TimeOut {{ timeout | default(300) }}
 
-# Whether to create queues for DNS-SD/Bonjour printers (implies CreateRemoteIPPQueue for CUPS/IPP)
-{{ 'CreateIPPPrinter' if create_ipp_printer else 'CreateRemoteIPPQueue' }} {{ 'Yes' if create_remote_ipp_queue else 'No' }}
+# Maximum number of printer queues to keep.
+# Set to 0 for unlimited.
+# Default: 0
+MaxQueuedPrinters {{ max_queued_printers | default(0) }}
 
-# Hostname for this CUPS server (used in queue naming, etc.)
-{{ 'ServerName' }} {{ server_name }}
+# ==========================================================================
+# Printer Creation Rules
+# ==========================================================================
 
-# Listen address(es) for cups-browsed — use 'localhost' for local-only, or '*' for all interfaces
-{{ 'Listen' }} {{ listen_address }}
+# Whether to create local CUPS printer queues for remote IPP/HTTP printers discovered via CUPS browsing.
+# Default: True
+CreateRemoteIPPQueue {{ create_remote_ipp_queue | default(True) | lower }}
 
-# Port for local HTTP admin interface (set to 0 to disable)
-{{ 'Port' }} {{ port }}
+# Whether to create queues for DNS-SD/Bonjour-discovered IPP printers (including driverless).
+# Default: True
+CreateIPPPrinter {{ create_ipp_printer | default(True) | lower }}
 
-# Enable debugging (0=none, 1=minimal, 2=verbose)
-{{ 'DebugLogging' }} {{ debug_logging }}
+# ==========================================================================
+# Server Identification
+# ==========================================================================
 
-# Pattern of printer names to ignore (regex, case-insensitive)
-{{ 'Filter' }} {{ filter_pattern | default('') }}
+# Hostname used to identify this CUPS server in queue names and logs.
+# Default: 'localhost'
+ServerName {{ server_name | default('localhost') }}
 
-# Whether to use DNS-SD (Bonjour/mDNS) for discovery
-{{ 'BrowseDNSSD' }} {{ browse_dnssd }}
+# Network address cups-browsed should listen on.
+# Examples: 'localhost', '*', '127.0.0.1', '::1'.
+# Default: 'localhost'
+Listen {{ listen_address | default('localhost') }}
 
-# Whether to allow auto-installation of drivers (if available via driverless IPP)
-{{ 'AutoInstall' }} {{ auto_install }}
+# ==========================================================================
+# Logging
+# ==========================================================================
 
-# Default printer attributes: resolution (DPI), media size, etc.
-{% for attr in default_attrs %}{{ attr.key }} {{ attr.value }}
+# Debug log verbosity: 0 = none, 1 = minimal, 2 = verbose.
+# Default: 0
+DebugLogging {{ debug_logging | default(0) }}
+
+# ==========================================================================
+# Filtering
+# ==========================================================================
+
+# Regex pattern for printer names to exclude (ignored if empty).
+# Default: ''
+Filter {{ filter_pattern | default('') }}
+
+# ==========================================================================
+# Service Discovery
+# ==========================================================================
+
+# Enable DNS-SD/Bonjour service discovery (required for mDNS printer discovery).
+# Default: True
+BrowseDNSSD {{ browse_dnssd | default(True) | lower }}
+
+# ==========================================================================
+# Driver Installation
+# ==========================================================================
+
+# Whether to automatically install drivers (if available) for discovered printers via driverless IPP.
+# Default: True
+AutoInstall {{ auto_install | default(True) | lower }}
+
+# Default printer attributes (e.g., resolution, media size).
+# Each item is a key/value pair.
+# Default: []
+{% for attr in default_attrs | default([]) %}{{ attr.key }} {{ attr.value }}
 {% endfor %}
 
-# Whitelist/blacklist of specific printers or domains (regex per line)
-{% for rule in printer_rules %}{{ rule.mode }} {{ rule.pattern }}
+# Whitelist/blacklist rules for specific printers or domains.
+# Regex per line. Order matters — first match wins.
+# Each rule should have 'mode' (allow/deny) and 'pattern'.
+# Default: []
+{% for rule in printer_rules | default([]) %}{{ rule.mode }} {{ rule.pattern }}
 {% endfor %}
 
-# Maximum number of concurrent HTTP connections to remote printers
-{{ 'MaxConnections' }} {{ max_connections }}
+# ==========================================================================
+# Network Performance
+# ==========================================================================
 
-# Enable IPv6 support
-{{ 'IPv6' }} {{ ipv6 }}
+# Maximum number of simultaneous HTTP connections to remote printers.
+# Default: 10
+MaxConnections {{ max_connections | default(10) }}
 
-# Time between discovery attempts (in seconds)
-{{ 'DiscoveryTime' }} {{ discovery_time }}
+# ==========================================================================
+# Network Protocols
+# ==========================================================================
 
-# Path to PPD search directories (colon-separated)
-{{ 'PPDSearch' }} {{ ppd_search | join(':') }}
+# Enable IPv6 support for service discovery and IPP communication.
+# Default: False
+IPv6 {{ ipv6 | default(False) | lower }}
+
+# ==========================================================================
+# Scan Intervals
+# ==========================================================================
+
+# Interval (seconds) between full discovery scans of the network.
+# Default: 120
+DiscoveryTime {{ discovery_time | default(120) }}
+
+# ==========================================================================
+# PPD Search Paths
+# ==========================================================================
+
+# Colon-separated list of directories to search for PPD files when installing drivers.
+# Default: ['/usr/share/cups/ppd', '/usr/local/share/cups/ppd']
+PPDSearch {{ ppd_search | default(['/usr/share/cups/ppd', '/usr/local/share/cups/ppd']) | join(':') }}

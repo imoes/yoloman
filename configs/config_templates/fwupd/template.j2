@@ -1,97 +1,121 @@
-# Enable or disable the firmware update daemon
-Enabled={{ enabled }}
+# fwupd configuration file (fwupd.conf)
+#
+# This template is self-documenting. Each directive is preceded by a comment
+# describing its purpose, derived from the schema definition.
+# Variables use the |default() filter to ensure safe rendering even if the
+# variable is undefined in the Ansible host context.
 
-# Directory where firmware updates are staged
-StagingDir={{ staging_dir }}
+# Whether the fwupd daemon should start automatically.
+Enabled={{ enabled | default(True) }}
 
-# Directory for cached firmware metadata
-CacheDir={{ cache_dir }}
+# Directory where firmware images are staged before installation.
+StagingDir={{ staging_dir | default('/var/lib/fwupd/staging') }}
 
-# Directory for plugin logs and diagnostics
-LogDir={{ log_dir }}
+# Directory for cached firmware metadata and checksums.
+CacheDir={{ cache_dir | default('/var/cache/fwupd') }}
 
-# Directory for firmware blobs (if not using system firmware repos)
-# {# Note: typically left blank; fwupd fetches firmware from upstream repos #}
-FirmwareDir={{ firmware_dir }}
+# Directory for daemon and plugin logs.
+LogDir={{ log_dir | default('/var/log/fwupd') }}
 
-# List of firmware release channels
-{% for channel in firmware_channels %}# Firmware release channel: {{ channel.name }}
+# Optional local directory to serve firmware files from (leave blank to use
+# remote repos like LVFS). If blank, fwupd will not load any local firmware
+# directory.
+FirmwareDir={{ firmware_dir | default('') }}
+
+# Configure firmware update channels. Each channel maps to a remote metadata
+# feed. The loop iterates over the list of channel dictionaries defined in
+# the schema.
+{% for channel in firmware_channels | default([{'name': 'stable', 'remote': 'https://fwupd.org/lvfs/firmware.xml.gz'}, {'name': 'testing', 'remote': 'https://fwupd.org/lvfs/firmware-testing.xml.gz'}, {'name': 'unstable', 'remote': 'https://fwupd.org/lvfs/firmware-unstable.xml.gz'}]) %}
+# Firmware release channel: {{ channel.name }}
 {% if channel.name == 'stable' %}RemoteStable={{ channel.remote }}
 {% elif channel.name == 'testing' %}RemoteTesting={{ channel.remote }}
 {% elif channel.name == 'unstable' %}RemoteUnstable={{ channel.remote }}
-{% endif %}{% endfor %}
+{% endif %}
+{% endfor %}
 
-# Show firmware version in GUI notifications (if supported by frontend)
-ShowVersionInGUI={{ show_version_in_gui }}
+# Whether firmware versions should appear in GUI update notifications.
+ShowVersionInGUI={{ show_version_in_gui | default(True) }}
 
-# Enable or disable firmware verification (required for secure updates)
-{% if firmware_verification %}FirmwareVerification=true
+# Require verified firmware signatures. Enabling is strongly recommended for
+# security to prevent installation of tampered or malicious firmware.
+{% if firmware_verification | default(True) %}FirmwareVerification=true
 {% else %}FirmwareVerification=false
 {% endif %}
 
-# Minimum battery percentage required to allow updates (0 = no limit)
-MinPower={{ min_power }}
+# Minimum battery percentage (0–100) required to proceed with firmware updates.
+# Set to 0 to disable this check.
+MinPower={{ min_power | default(10) }}
 
-# Minimum battery time remaining (seconds) required for updates (0 = no limit)
-MinTime={{ min_time }}
+# Minimum time remaining on battery (seconds) before updates are allowed.
+# Set to 0 to disable this check.
+MinTime={{ min_time | default(0) }}
 
-# Maximum number of concurrent update attempts
-MaxAttempts={{ max_attempts }}
+# Maximum number of retry attempts for a failed firmware update.
+MaxAttempts={{ max_attempts | default(3) }}
 
-# Delay (seconds) before retrying failed updates
-RetryDelay={{ retry_delay }}
+# Seconds to wait before retrying a failed update.
+RetryDelay={{ retry_delay | default(10) }}
 
-# Enable or disable automatic background updates
-{% if automatic_background_updates %}AutomaticBackgroundUpdates=true
+# Enable automatic background update checks and installations (when system is
+# idle).
+{% if automatic_background_updates | default(True) %}AutomaticBackgroundUpdates=true
 {% else %}AutomaticBackgroundUpdates=false
 {% endif %}
 
-# Enable or disable automatic power-screen update suppression
-{% if suppress_power_screen %}SuppressPowerScreen=true
+# Suppress power-saving features (e.g., screen blanking) during long-running
+# firmware updates to prevent sleep/hibernation during critical flashes.
+{% if suppress_power_screen | default(True) %}SuppressPowerScreen=true
 {% else %}SuppressPowerScreen=false
 {% endif %}
 
-# List of device flags to ignore (e.g., for known-bad firmware)
-{% for flag in ignored_device_flags %}IgnoreDeviceFlags={{ flag }}
+# List of device flags to ignore (useful for known-bad firmware scenarios).
+{% for flag in ignored_device_flags | default([]) %}
+IgnoreDeviceFlags={{ flag }}
 {% endfor %}
 
-# List of device GIds to ignore (full hardware IDs)
-{% for gId in ignored_device_gids %}IgnoreDevice={{ gId }}
+# List of hardware device IDs to completely skip during updates.
+{% for gId in ignored_device_gids | default([]) %}
+IgnoreDevice={{ gId }}
 {% endfor %}
 
-# Enable or disable debug logging
-{% if debug_logging %}Debug=true
+# Enable verbose debug logging (for troubleshooting only). Should not be
+# enabled in production environments.
+{% if debug_logging | default(False) %}Debug=true
 {% else %}Debug=false
 {% endif %}
 
-# Logging verbosity (0=error, 1=warning, 2=info, 3=debug)
-LogLevel={{ log_level }}
+# Verbosity level: 0=error, 1=warning, 2=info, 3=debug.
+LogLevel={{ log_level | default(2) }}
 
-# Enable or disable local metadata signing (advanced)
-{% if local_metadata_signing %}LocalMetadataSigning=true
+# Use local signing keys for firmware metadata (advanced; not needed for
+# LVFS). Only enable if managing custom firmware repositories.
+{% if local_metadata_signing | default(False) %}LocalMetadataSigning=true
 {% else %}LocalMetadataSigning=false
 {% endif %}
 
-# Path to local metadata signing key (if enabled)
-LocalMetadataKey={{ local_metadata_key }}
+# Path to private signing key (required if local_metadata_signing=true).
+LocalMetadataKey={{ local_metadata_key | default('') }}
 
-# Enable or disable LVFS testing (for firmware developers)
-{% if lvfs_testing %}LVFSTesting=true
+# Enable testing firmware from LVFS (Linux Vendor Firmware Service). Usually
+# disabled in production.
+{% if lvfs_testing | default(False) %}LVFSTesting=true
 {% else %}LVFSTesting=false
 {% endif %}
 
-# Maximum firmware size (bytes); 0 = no limit
-MaxFirmwareSize={{ max_firmware_size }}
+# Maximum firmware file size (bytes) allowed for download. 0 = no limit.
+# Recommend ≤1073741824 (1 GiB) to prevent abuse or accidental large downloads.
+MaxFirmwareSize={{ max_firmware_size | default(0) }}
 
-# Enable or disable device re-enumeration after update
-{% if device_reenumerate %}DeviceReenumerate=true
+# Re-enumerate device (trigger USB/HID reprobe) after firmware update if
+# needed.
+{% if device_reenumerate | default(True) %}DeviceReenumerate=true
 {% else %}DeviceReenumerate=false
 {% endif %}
 
-# Enable or disable offline updates (used in OEM imaging flows)
-{% if offline_updates %}OfflineUpdates=true
+# Enable offline update mode (for OEM imaging, pre-installation in initramfs).
+{% if offline_updates | default(False) %}OfflineUpdates=true
 {% else %}OfflineUpdates=false
 {% endif %}
 
-# Path to offline update lock file (if offline updates enabled)
-OfflineUpdateLockFile={{ offline_update_lock_file }}
+# Lock file path used to prevent concurrent offline update attempts.
+OfflineUpdateLockFile={{ offline_update_lock_file | default('/run/fwupd/offline-update.lock') }}

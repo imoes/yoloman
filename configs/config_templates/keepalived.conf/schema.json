@@ -7,11 +7,11 @@
   "state": {
     "type": "string",
     "default": "MASTER",
-    "allowed_values": [
+    "description": "Initial state: MASTER (primary) or BACKUP (standby).",
+    "enum": [
       "MASTER",
       "BACKUP"
-    ],
-    "description": "Initial state: MASTER (primary) or BACKUP (standby)."
+    ]
   },
   "interface": {
     "type": "string",
@@ -21,258 +21,51 @@
   "vrid": {
     "type": "number",
     "default": 51,
-    "minimum": 1,
-    "maximum": 255,
     "description": "Virtual Router ID (1\u2013255); must be unique per LAN segment."
   },
   "priority": {
     "type": "number",
     "default": 100,
-    "minimum": 1,
-    "maximum": 255,
     "description": "Priority (higher = more preferred); MASTER usually has highest."
   },
   "advert_int": {
     "type": "number",
     "default": 1,
-    "minimum": 1,
     "description": "Advertisement interval in seconds (VRRP heartbeat frequency)."
   },
   "authentication": {
     "type": "object",
     "default": null,
-    "description": "Optional VRRP authentication block (simple or password auth).",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "PASS",
-        "allowed_values": [
-          "PASS",
-          "AH"
-        ],
-        "description": "Auth type: 'PASS' (password) or 'AH' (IPsec)."
-      },
-      "pass": {
-        "type": "string",
-        "default": "",
-        "description": "Password for PASS auth (max 8 chars); empty disables auth block."
-      }
-    }
+    "description": "Optional VRRP authentication block (simple or password auth). Note: Non-compliant with modern VRRP standards."
   },
   "virtual_ipaddress": {
     "type": "list",
     "default": [],
-    "description": "List of VIPs (IPv4 or IPv6) assigned to the instance (e.g., ['192.168.1.100/24', 'fd2001:db8::1/64']).",
-    "items": "string"
-  },
-  "virtual_ipaddress_dev": {
-    "type": "list",
-    "default": [],
-    "description": "List of VIPs excluded from kernel routes (used with notify scripts, e.g., ['10.0.0.100/32 dev eth0 scope host']).",
-    "items": "string"
+    "description": "List of VIPs (IPv4 or IPv6) assigned to the instance (e.g., ['192.168.1.100/24', 'fd2001:db8::1/64'])."
   },
   "preempt_delay": {
     "type": "number",
     "default": null,
-    "minimum": 0,
     "description": "Seconds to delay preemption after startup (0 = no delay)."
   },
-  "notify_script": {
+  "notify_master": {
     "type": "string",
     "default": null,
-    "description": "Path to script run on state transition (takes role, priority, state as args)."
+    "description": "Path to script to run on transition to MASTER state."
   },
-  "garp_master_delay": {
-    "type": "number",
-    "default": 0,
-    "minimum": 0,
-    "description": "Seconds to delay sending GARP (Gratuitous ARP) after becoming MASTER."
+  "notify_backup": {
+    "type": "string",
+    "default": null,
+    "description": "Path to script to run on transition to BACKUP state."
   },
-  "garp_master_refresh": {
-    "type": "number",
-    "default": 0,
-    "minimum": 0,
-    "description": "Interval (seconds) to re-send GARP after MASTER transition (0 = disabled)."
+  "notify_fault": {
+    "type": "string",
+    "default": null,
+    "description": "Path to script to run on transition to FAULT state."
   },
   "virtual_server": {
     "type": "list",
     "default": [],
-    "description": "List of virtual servers (LVS NAT/DR/TUN mode load-balancing configs).",
-    "items": {
-      "ip": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "Virtual server IP (e.g., 192.168.1.10)."
-      },
-      "port": {
-        "type": "number",
-        "default": 80,
-        "minimum": 1,
-        "maximum": 65535,
-        "description": "Virtual server port."
-      },
-      "delay_loop": {
-        "type": "number",
-        "default": 10,
-        "minimum": 1,
-        "description": "Interval (seconds) between health checks for real servers."
-      },
-      "lb_algo": {
-        "type": "string",
-        "default": "rr",
-        "allowed_values": [
-          "rr",
-          "wrr",
-          "lc",
-          "wlc",
-          "lblc",
-          "lblcr",
-          "dh",
-          "sh",
-          "sed",
-          "nq"
-        ],
-        "description": "Load balancing algorithm (e.g., rr = round robin)."
-      },
-      "lb_kind": {
-        "type": "string",
-        "default": "NAT",
-        "allowed_values": [
-          "NAT",
-          "DR",
-          "TUN"
-        ],
-        "description": "LVS forwarding method."
-      },
-      "protocol": {
-        "type": "string",
-        "default": "TCP",
-        "allowed_values": [
-          "TCP",
-          "UDP",
-          "SCTP"
-        ],
-        "description": "Protocol to balance (defaults to TCP if omitted)."
-      },
-      "persistence": {
-        "type": "number",
-        "default": null,
-        "minimum": 0,
-        "description": "Persistence timeout in seconds (0 = no persistence)."
-      },
-      "sorry_server": {
-        "type": "object",
-        "default": null,
-        "description": "Fallback real server used when all real servers are down.",
-        "items": {
-          "ip": {
-            "type": "string",
-            "default": "127.0.0.1"
-          },
-          "port": {
-            "type": "number",
-            "default": 80
-          }
-        }
-      },
-      "real_server": {
-        "type": "list",
-        "default": [],
-        "description": "List of real servers backing the virtual server.",
-        "items": {
-          "ip": {
-            "type": "string",
-            "default": "10.0.0.1",
-            "description": "Real server IP address."
-          },
-          "port": {
-            "type": "number",
-            "default": 80,
-            "minimum": 1,
-            "maximum": 65535,
-            "description": "Real server port to probe."
-          },
-          "weight": {
-            "type": "number",
-            "default": 1,
-            "minimum": 0,
-            "description": "Weight (for weighted algorithms like wrr/wlc)."
-          },
-          "notify_up": {
-            "type": "string",
-            "default": null,
-            "description": "Command/script to run when this real server becomes healthy."
-          },
-          "notify_down": {
-            "type": "string",
-            "default": null,
-            "description": "Command/script to run when this real server becomes unhealthy."
-          },
-          "HTTP_GET": {
-            "type": "object",
-            "default": null,
-            "description": "HTTP health check method (one of multiple check types).",
-            "items": {
-              "urls": {
-                "type": "list",
-                "default": [],
-                "description": "List of URLs to probe.",
-                "items": {
-                  "path": {},
-                  "type": "string",
-                  "default": "/health",
-                  "description": "Path to probe (e.g., '/')."
-                },
-                "status_code": {
-                  "type": "number",
-                  "default": 200,
-                  "minimum": 1,
-                  "maximum": 599,
-                  "description": "Expected HTTP status code (optional; defaults to 200)."
-                }
-              }
-            },
-            "connect_timeout": {
-              "type": "number",
-              "default": 3,
-              "minimum": 1,
-              "description": "TCP connect timeout (seconds) per health check."
-            },
-            "retry": {
-              "type": "number",
-              "default": 3,
-              "minimum": 0,
-              "description": "Number of retries on failed checks before marking down."
-            },
-            "delay_before_retry": {
-              "type": "number",
-              "default": 1,
-              "minimum": 0,
-              "description": "Seconds to wait between retries."
-            }
-          }
-        },
-        "TCP_CHECK": {
-          "type": "object",
-          "default": null,
-          "description": "TCP connect-only health check (simple alternative to HTTP_GET).",
-          "items": {
-            "connect_timeout": {
-              "type": "number",
-              "default": 3,
-              "minimum": 1,
-              "description": "TCP connect timeout (seconds)."
-            },
-            "port": {
-              "type": "number",
-              "default": null,
-              "minimum": 1,
-              "maximum": 65535,
-              "description": "Port to connect to (defaults to real_server port if omitted)."
-            }
-          }
-        }
-      }
-    }
+    "description": "List of virtual servers (LVS NAT/DR/TUN mode load-balancing configs)."
   }
 }

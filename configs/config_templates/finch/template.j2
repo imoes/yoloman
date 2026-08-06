@@ -1,0 +1,76 @@
+[Finch]
+# Directory for Finch config files instead of default ~/.purple
+config_dir = {{ config_dir | default('~/.purple') }}
+
+[general]
+# Enable/disable shadow effects in window decorations
+shadow = {{ (general | default({})).shadow | default(false) | int }}
+# Enable experimental mouse support (0 = disabled, 1 = enabled)
+mouse = {{ (general | default({})).mouse | default(false) | int }}
+# Use custom window manager shared object (path to .so file)
+wm = {{ (general | default({})).wm | default('') }}
+# Remember window positions by title on startup (0 = disabled, 1 = enabled)
+remember_position = {{ (general | default({})).remember_position | default(true) | int }}
+# Use borderless one-line high buttons
+small_button = {{ (general | default({})).small_button | default(false) | int }}
+
+# Workspace definitions
+# Each item in the workspaces list defines a [Workspace-N] section
+{% for workspace in workspaces | default([]) %}[Workspace-{{ loop.index }}]
+# Display name of the workspace
+name = {{ workspace.name | default('') }}
+# Semicolon-separated list of window *names* to place in this workspace
+window_names = {{ workspace.window_names | default([]) | join(';') }}
+# Semicolon-separated list of window *titles* (substrings) to place here
+window_titles = {{ workspace.window_titles | default([]) | join(';') }}
+
+{% endfor %}
+[colors]
+# Define named colors using RGB values in [0,1000];R;G;B format
+# Colors are defined as a mapping of color-name -> RGB-string
+{% for item in (colors | default({})) | dict2items %}{{ item.key }} = {{ item.value | default('0;0;0') }}
+{% endfor %}
+
+[colorpairs]
+# Define named color pairs in foreground;background format
+# Color pairs are defined as a mapping of pair-name -> "foreground;background"
+{% for item in (colorpairs | default({})) | dict2items %}{{ item.key }} = {{ item.value | default('white;black') }}
+{% endfor %}
+
+[GntEntry::remap]
+# Remap GntEntry key bindings
+# Mapping of key-sequence -> target-action
+{% for key, target in (entry_remap | default({})) | dict2items %}{{ key }} = {{ target | default('') }}
+{% endfor %}
+
+[GntButton::remap]
+# Remap GntButton key bindings
+# Mapping of key-sequence -> target-action
+{% for key, target in (button_remap | default({})) | dict2items %}{{ key }} = {{ target | default('') }}
+{% endfor %}
+
+# Widget-specific key bindings
+# Mapping of widget-name -> { key-sequence: action }
+{% for widget, bindings in (widget_bindings | default({})) | dict2items %}[{{ widget }}::binding]
+{% for binding in bindings | default([]) %}{{ binding.keys | default('') }} = {{ binding.actions | default('focus-next') }}
+{% endfor %}
+{% endfor %}
+
+[buddylist::menu]
+# Menu key bindings for buddylist window
+# Mapping of key-sequence -> menu-action
+{% for key, action in (buddylist_menu | default({})) | dict2items %}{{ key }} = {{ action | default('send-im') }}
+{% endfor %}
+
+[GntWM::binding]
+# Window manager action bindings
+# Mapping of key-sequence -> wm-action
+{% for key, action in (wm_bindings | default({})) | dict2items %}{{ key }} = {{ action | default('window-next') }}
+{% endfor %}
+
+# Window manager-specific key bindings
+# Mapping of wm-name -> { key-sequence: action }
+{% for wm_name, bindings in (wm_specific_bindings | default({})) | dict2items %}[{{ wm_name }}::binding]
+{% for binding in bindings | default([]) %}{{ binding.keys | default('') }} = {{ binding.actions | default('window-next') }}
+{% endfor %}
+{% endfor %}

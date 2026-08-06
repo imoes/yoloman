@@ -1,0 +1,197 @@
+# =============================================================================
+# conmon configuration template
+# =============================================================================
+# Conmon is a conMonitor for OCI runtime processes. This template generates
+# the systemd unit [Service] section or command-line arguments for conmon.
+#
+# Self-documenting: Every variable reference includes its schema default and
+# description as a comment above the corresponding directive.
+# =============================================================================
+
+[Service]
+Type=simple
+
+# =============================================================================
+# Core Identification & OCI Bundle
+# =============================================================================
+
+# conmon API version to use (e.g., v1, v2).
+--api-version {{ api_version | default('v1') }} \
+
+# Location of the OCI Bundle path for the container.
+--bundle {{ bundle | default('') }} \
+
+# Container identification string.
+--cid {{ container_id | default('') }} \
+
+# =============================================================================
+# Exec Mode Configuration
+# =============================================================================
+
+# Whether to run in exec mode.
+{% if exec_mode | default(false) %}
+    # In exec mode, specify whether to attach to the exec session.
+    # Attach to an exec session (used only if exec_mode=true).
+    --exec \
+    --exec-attach {{ exec_attach | default(false) | lower }} \
+
+    # Path to process spec for exec (used only if exec_mode=true).
+    --exec-process-spec {{ exec_process_spec | default('/dev/null') }} \
+{% endif %}
+
+# =============================================================================
+# Exit Handling Configuration
+# =============================================================================
+
+# Path to program to execute on container termination.
+{% if exit_command | default('') %}
+    # Additional arguments for exit_command; list of strings.
+    --exit-command {{ exit_command | default('') }} \
+{% for arg in exit_command_args | default([]) %}
+    --exit-command-arg {{ arg }} \
+{% endfor %}
+
+    # Delay (seconds) before invoking exit_command.
+    --exit-delay {{ exit_delay | default(0) }} \
+
+    # Directory where exit files are written.
+    --exit-dir {{ exit_dir | default('/var/run/exit') }} \
+{% endif %}
+
+# =============================================================================
+# Standard I/O Configuration
+# =============================================================================
+
+# Open stdin pipe regardless of terminal presence.
+{% if stdin_open | default(false) %}
+    --stdin \
+{% endif %}
+
+# Leave stdin open after client disconnects.
+{% if leave_stdin_open | default(false) %}
+    --leave-stdin-open \
+{% endif %}
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Log verbosity (e.g., debug, info, warn, error); empty = no debug logging.
+{% if log_level | default('info') %}
+    --log-level {{ log_level | default('info') }} \
+{% endif %}
+
+# Path to log file for container stdout/stderr.
+{% if log_path | default('') %}
+    --log-path {{ log_path | default('') }} \
+{% endif %}
+
+# Maximum log file size in bytes; -1 = unlimited.
+{% if log_size_max is defined %}
+    --log-size-max {{ log_size_max | default(-1) }} \
+{% endif %}
+
+# Additional tag to prepend to log lines.
+{% if log_tag | default('') %}
+    --log-tag {{ log_tag | default('') }} \
+{% endif %}
+
+# =============================================================================
+# Container Identification & Persistence
+# =============================================================================
+
+# Container name for identification.
+--name {{ container_name | default('') }} \
+
+# Create a new session keyring for the container.
+{% if not new_keyring | default(true) %}
+    --no-new-keyring \
+{% endif %}
+
+# Use pivot_root for container filesystem.
+{% if not pivot_root | default(true) %}
+    --no-pivot \
+{% endif %}
+
+# Manually call sync on logs after shutdown.
+{% if not sync_log | default(true) %}
+    --no-sync-log \
+{% endif %}
+
+# Persistent directory for container data.
+{% if persist_dir | default('') %}
+    --persist-dir {{ persist_dir | default('') }} \
+{% endif %}
+
+# PID file for initial container process.
+{% if container_pidfile | default('') %}
+    --container-pidfile {{ container_pidfile | default('') }} \
+{% endif %}
+
+# PID file for the conmon process.
+{% if conmon_pidfile | default('/run/conmon.pid') %}
+    --conmon-pidfile {{ conmon_pidfile | default('/run/conmon.pid') }} \
+{% endif %}
+
+# =============================================================================
+# Runtime Configuration
+# =============================================================================
+
+# OCI runtime to use (e.g., runc, crun).
+{% if runtime | default('crun') %}
+    --runtime {{ runtime | default('crun') }} \
+{% endif %}
+
+# Replace listen PID if set for oci-runtime pid.
+{% if replace_listen_pid is defined %}
+    --replace-listen-pid {{ replace_listen_pid | default(0) }} \
+{% endif %}
+
+# Restore container from checkpoint.
+{% if restore | default(false) %}
+    --restore \
+    # Runtime arguments passed to restore command; list of strings.
+{% for arg in restore_args | default([]) %}
+    --runtime-arg {{ arg }} \
+{% endfor %}
+{% endif %}
+
+# Use systemd cgroup manager instead of cgroupfs.
+{% if systemd_cgroup | default(false) %}
+    --systemd-cgroup \
+{% endif %}
+
+# Directory for container attach sockets.
+{% if socket_dir_path | default('/run/conmon') %}
+    --socket-dir-path {{ socket_dir_path | default('/run/conmon') }} \
+{% endif %}
+
+# Keep main conmon process as child (single fork only).
+{% if sync_mode | default(false) %}
+    --sync \
+{% endif %}
+
+# Log to syslog (use with cgroupfs).
+{% if syslog | default(false) %}
+    --syslog \
+{% endif %}
+
+# Allocate a pseudo-TTY.
+{% if terminal | default(false) %}
+    --terminal \
+{% endif %}
+
+# Container timeout in seconds; -1 = no timeout.
+{% if timeout is defined %}
+    --timeout {{ timeout | default(-1) }} \
+{% endif %}
+
+# Container UUID (override bundle UUID).
+{% if cuuid | default('') %}
+    --cuuid {{ cuuid | default('') }} \
+{% endif %}
+
+# Additional options passed to runtime; list of strings.
+{% for opt in runtime_opts | default([]) %}
+    --runtime-opt {{ opt }} \
+{% endfor %}

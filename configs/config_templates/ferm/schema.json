@@ -1,142 +1,55 @@
 {
-  "input_interfaces": {
-    "type": "list",
-    "default": [
-      "eth0"
-    ],
-    "description": "List of network interfaces to treat as input interfaces (e.g., 'eth0', 'ens160'). Required for interface-based rules and logging.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "output_interfaces": {
-    "type": "list",
-    "default": [
-      "eth0"
-    ],
-    "description": "List of network interfaces to treat as output interfaces.",
-    "items": {
-      "type": "string"
-    }
-  },
   "default_input_policy": {
     "type": "string",
     "default": "DROP",
-    "description": "Default policy for incoming traffic on the INPUT chain. Choose 'DROP' (secure) or 'ACCEPT' (permissive)."
+    "description": "Default policy for incoming traffic on the INPUT chain. Choose 'DROP' (secure) or 'ACCEPT' (permissive). Enum: ACCEPT, DROP.",
+    "enum": [
+      "DROP",
+      "ACCEPT",
+      "REJECT",
+      "RETURN",
+      "LOG"
+    ]
   },
   "default_output_policy": {
     "type": "string",
     "default": "ACCEPT",
-    "description": "Default policy for outgoing traffic on the OUTPUT chain. 'ACCEPT' is typical for servers; 'DROP' increases security."
+    "description": "Default policy for outgoing traffic on the OUTPUT chain. 'ACCEPT' is typical for servers; 'DROP' increases security. Enum: ACCEPT, DROP.",
+    "enum": [
+      "DROP",
+      "ACCEPT",
+      "REJECT",
+      "RETURN",
+      "LOG"
+    ]
   },
   "default_forward_policy": {
     "type": "string",
     "default": "DROP",
-    "description": "Default policy for forwarded traffic (used in router/NAT setups). 'DROP' is recommended unless routing is required."
-  },
-  "kernel_modules": {
-    "type": "list",
-    "default": [
-      "ip_conntrack"
-    ],
-    "description": "List of kernel modules to pre-load (e.g., 'ip_conntrack', 'nf_conntrack'). Required for stateful inspection.",
-    "items": {
-      "type": "string"
-    }
+    "description": "Default policy for forwarded traffic (used in router/NAT setups). 'DROP' is recommended unless routing is required. Enum: ACCEPT, DROP.",
+    "enum": [
+      "DROP",
+      "ACCEPT",
+      "REJECT",
+      "RETURN",
+      "LOG"
+    ]
   },
   "icmp_allow": {
     "type": "bool",
     "default": true,
     "description": "If true, allow incoming ICMP echo-request (ping) and echo-reply. Enable for diagnostics; disable for stricter security."
   },
-  "ssh_rules": {
-    "type": "list",
-    "default": [
-      {
-        "description": "Allow SSH from internal networks only",
-        "source": "10.0.0.0/8",
-        "port": 22
-      }
-    ],
-    "description": "List of rules defining SSH access. Each rule specifies the source network/CIDR, optional custom port, and description.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable note about this SSH rule (e.g., 'Allow SSH from office network')"
-        },
-        "source": {
-          "type": "string",
-          "default": "0/0",
-          "description": "Source IP/network in CIDR or dotted notation (e.g., '192.168.1.0/24', '10.0.0.0/8')"
-        },
-        "port": {
-          "type": "number",
-          "default": 22,
-          "description": "SSH port number (typically 22, but may be changed for security hardening)"
-        }
-      }
-    }
-  },
-  "http_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, allow HTTP (TCP 80) and HTTPS (TCP 443) from all sources. Disable for non-web services."
-  },
-  "services": {
-    "type": "list",
-    "default": [
-      {
-        "name": "PostgreSQL",
-        "protocol": "tcp",
-        "ports": [
-          5432
-        ],
-        "allowed_sources": "10.0.0.0/8"
-      },
-      {
-        "name": "DNS (UDP)",
-        "protocol": "udp",
-        "ports": [
-          53
-        ],
-        "allowed_sources": "127.0.0.1"
-      }
-    ],
-    "description": "Custom services to expose. Each entry defines name, protocol, list of ports, and optionally allowed source networks.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Service name for documentation (e.g., 'Redis', 'MongoDB')"
-        },
-        "protocol": {
-          "type": "string",
-          "default": "tcp",
-          "description": "Protocol: 'tcp' or 'udp'",
-          "enum": [
-            "tcp",
-            "udp"
-          ]
-        },
-        "ports": {
-          "type": "list",
-          "default": [],
-          "description": "List of port numbers to open for this service",
-          "items": {
-            "type": "number"
-          }
-        },
-        "allowed_sources": {
-          "type": "string",
-          "default": "0/0",
-          "description": "Source network/CIDR allowed to connect (e.g., '10.0.0.0/8', '192.168.0.0/16'). Use '0/0' for any."
-        }
-      }
-    }
+  "icmp_accept_rule": {
+    "type": "string",
+    "default": "ACCEPT",
+    "description": "The firewall rule applied to ICMP traffic. 'ACCEPT' allows pings, 'DROP' blocks them.",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "LOG"
+    ]
   }
 }

@@ -1,226 +1,32 @@
 {
   "node": {
     "type": "object",
-    "description": "Node identity \u2014 unique identifier and cryptographic private key",
-    "properties": {
-      "id": {
-        "type": "string",
-        "default": "",
-        "description": "Unique 16-character hex ID of this node (e.g., 'a1b2c3d4e5f6a7b8')"
-      },
-      "private_key": {
-        "type": "string",
-        "default": "",
-        "description": "Base64-encoded Curve25519 private key (32 bytes, ed25519 compatible)"
-      }
-    }
+    "description": "Node identity \u2014 unique identifier and cryptographic private key"
   },
   "network": {
     "type": "object",
-    "description": "Overlay network identity and addressing",
-    "properties": {
-      "name": {
-        "type": "string",
-        "default": "default",
-        "description": "Mesh name \u2014 all nodes in the same VPN must share this name"
-      },
-      "subnet": {
-        "type": "string",
-        "default": "10.99.0.0/16",
-        "description": "IPv4 CIDR for the virtual LAN (must be non-RFC1918, non-overlapping)"
-      },
-      "ipv6_subnet": {
-        "type": "string",
-        "default": "",
-        "description": "IPv6 CIDR for the virtual LAN (leave empty to disable IPv6)"
-      }
-    }
+    "description": "Overlay network identity and addressing"
   },
   "discovery": {
     "type": "object",
-    "description": "How the node discovers other peers in the mesh",
-    "properties": {
-      "method": {
-        "type": "string",
-        "default": "static",
-        "enum": [
-          "static",
-          "mdns",
-          "bootstrap"
-        ],
-        "description": "Discovery method: static (hard-coded peers), mdns (local multicast), or bootstrap (central server)"
-      },
-      "peers": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "object",
-          "description": "A known peer in static mode",
-          "properties": {
-            "id": {
-              "type": "string",
-              "default": "",
-              "description": "Peer\u2019s 16-character hex ID"
-            },
-            "host": {
-              "type": "string",
-              "default": "",
-              "description": "Peer\u2019s public hostname or IP"
-            },
-            "port": {
-              "type": "number",
-              "default": 47000,
-              "minimum": 1,
-              "maximum": 65535,
-              "description": "Peer\u2019s listening port"
-            }
-          }
-        },
-        "description": "List of static peer entries (used only when method = 'static')"
-      },
-      "bootstrap_servers": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "string",
-          "pattern": "^https?://",
-          "description": "Bootstrap server URL (e.g., 'https://bootstrap.opengnb.example.com')"
-        },
-        "description": "List of bootstrap server URLs (used only when method = 'bootstrap')"
-      },
-      "mdns_service": {
-        "type": "string",
-        "default": "_opengnb._tcp.local",
-        "description": "mDNS service name suffix (used only when method = 'mdns')"
-      }
-    }
+    "description": "How the node discovers other peers in the mesh"
   },
   "transport": {
     "type": "object",
-    "description": "Network transport settings",
-    "properties": {
-      "listeners": {
-        "type": "list",
-        "default": [
-          {
-            "host": "0.0.0.0",
-            "port": 47000
-          }
-        ],
-        "items": {
-          "type": "object",
-          "properties": {
-            "host": {
-              "type": "string",
-              "default": "0.0.0.0",
-              "description": "Interface IP to bind to (e.g., '0.0.0.0', '::')"
-            },
-            "port": {
-              "type": "number",
-              "default": 47000,
-              "minimum": 1,
-              "maximum": 65535,
-              "description": "UDP port to listen on"
-            }
-          }
-        },
-        "description": "Addresses and ports to bind to for incoming connections"
-      },
-      "ext_ip": {
-        "type": "string",
-        "default": "",
-        "description": "Public IP to advertise (leave empty to auto-detect, e.g., via STUN)"
-      },
-      "stun_server": {
-        "type": "string",
-        "default": "stun.l.google.com:19302",
-        "description": "STUN server for NAT traversal (empty string to disable)"
-      }
-    }
+    "description": "Network transport settings"
   },
-  "security": {
-    "type": "object",
-    "description": "Cryptographic and transport security settings",
-    "properties": {
-      "salt": {
-        "type": "string",
-        "pattern": "^[0-9a-fA-F]{64}$",
-        "default": "",
-        "description": "64-character hex salt used for key derivation (must be identical across all peers)"
-      },
-      "cipher": {
-        "type": "string",
-        "default": "",
-        "enum": [
-          "",
-          "aes-256-gcm",
-          "chacha20-poly1305"
-        ],
-        "description": "Cipher suite (empty = default, currently aes-256-gcm)"
-      },
-      "mtu_discovery": {
-        "type": "boolean",
-        "default": true,
-        "description": "Enable Path MTU discovery (recommended for most deployments)"
-      },
-      "handshake_timeout": {
-        "type": "number",
-        "default": 10,
-        "minimum": 1,
-        "maximum": 60,
-        "description": "Maximum seconds to wait for a handshake (after which peer is dropped)"
-      }
-    }
-  },
-  "logging": {
-    "type": "object",
-    "description": "Logging and diagnostics",
-    "properties": {
-      "level": {
-        "type": "string",
-        "default": "info",
-        "enum": [
-          "debug",
-          "info",
-          "warn",
-          "error"
-        ],
-        "description": "Minimum log level to record"
-      },
-      "file": {
-        "type": "string",
-        "default": "",
-        "description": "Path to write logs (e.g., '/var/log/opengnb/opengnb.log'); empty = log only to stderr"
-      },
-      "max_size_mb": {
-        "type": "number",
-        "default": 10,
-        "minimum": 0,
-        "description": "Maximum size (MB) per log file before rotation (0 = no rotation)"
-      },
-      "max_files": {
-        "type": "number",
-        "default": 5,
-        "minimum": 1,
-        "maximum": 100,
-        "description": "Number of old log files to retain"
-      }
-    }
-  },
-  "experimental": {
-    "type": "object",
-    "description": "Experimental features \u2014 enable only if you understand the implications",
-    "properties": {
-      "mesh_routing": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable full-mesh shortest-path routing (Dijkstra); otherwise only direct peers are used"
-      },
-      "gossip_topology": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable topology gossip; increases bandwidth but improves convergence"
-      }
-    }
+  "network.public_index_nodes": {
+    "type": "list",
+    "default": [
+      [
+        "101.32.178.3",
+        9001
+      ],
+      [
+        "45.78.14.231",
+        9001
+      ]
+    ],
+    "description": "List of public index nodes, each item is [host: str, port: int]. Used only when no custom index node is configured."
   }
 }

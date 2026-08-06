@@ -1,0 +1,32 @@
+# Claws Mail Dillo Viewer Plugin Configuration
+#
+# This file configures the runtime behavior of the Claws Mail Dillo HTML viewer plugin.
+# Note: The official man page (claws-mail-dillo-viewer(7)) primarily describes loading the
+# plugin via the GUI. However, this configuration file allows for advanced runtime
+# customization such as binary paths, security policies, and startup arguments.
+
+# Enable the Claws Mail Dillo plugin to render HTML messages.
+# When enabled, the plugin intercepts HTML content and opens it in the Dillo browser.
+# Default: False
+enabled = {{ dillo_enabled | default(false) | lower }}
+
+# Absolute path to the Dillo browser executable.
+# The plugin will attempt to execute this binary to render web content.
+# Ensure this path exists and is executable by the Claws Mail process.
+# Default: /usr/bin/dillo
+dillo_binary = {{ dillo_binary | default('/usr/bin/dillo') | string }}
+
+# Allow Dillo to fetch remote URLs (e.g., images, scripts, stylesheets).
+# Disabled by default for security reasons to prevent remote content execution
+# or tracking without explicit user consent. Enabling this may expose the user
+# to security risks associated with arbitrary web content.
+# Default: False
+fetch_remote_urls = {{ fetch_remote_urls | default(false) | lower }}
+
+# List of command-line arguments to pass to Dillo on startup.
+# Use this to customize Dillo's behavior (e.g., window size, UI tweaks).
+# Example: ['--geometry=800x600', '--no-remote']
+# Default: []
+{% if dillo_args | default([]) | length > 0 %}
+dillo_args = {{ dillo_args | default([]) | join(' ') }}
+{% endif %}

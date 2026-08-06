@@ -1,140 +1,240 @@
+# ==============================================================================
 # Kannel SMS Gateway Configuration File
-# Generated template - {{ title | default('Kannel Configuration') }}
+# This is a self-documenting Jinja2 template for Kannel (Bearerbox + SMSbox).
+# Every variable uses an inline default to ensure safe rendering.
+# ==============================================================================
 
-# Core group: Main gateway settings
+# ==============================================================================
+# Core Group: Main gateway settings
+# ==============================================================================
+# Kannel core group. All global settings belong here.
 group = "core"
-# The SMS Center connection type: smpp, http, smpp-emulator, etc.
+
+# SMSC interface type: 'smpp' (most common), 'http', 'smpp-emulator', 'file-smsc', etc.
 smsc = "{{ core_smsc | default('smpp') }}"
-# Hostname or IP of the SMS Center
+
+# Hostname or IP address of the SMSC server (SMS Center).
 smsc-host = "{{ core_smsc_host | default('localhost') }}"
-# Port for SMPP/HTTP connection to SMS Center
+
+# Port number for SMPP (default 2775), HTTP (e.g., 8080), etc.
 smsc-port = {{ core_smsc_port | default(2775) }}
-# System ID (SMPP) or username (HTTP) for authentication
+
+# System ID (SMPP) or username (HTTP) for SMSC authentication.
 smsc-username = "{{ core_smsc_username | default('kannel') }}"
-# Password for SMS Center authentication
+
+# Password for SMSC authentication (never use default in production).
 smsc-password = "{{ core_smsc_password | default('kannel') }}"
-# Connection type: 'sms' for SMS only, 'smsc' for full SMPP
+
+# SMSC connection mode: 'sms' (SMS only), 'smsc' (SMPP transceiver), 'emulator' (testing).
 smsc-type = "{{ core_smsc_type | default('sms') }}"
-# Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+
+# Log verbosity: 0 (none), 1 (errors), 2 (warnings), 3 (info), 4 (debug).
 log-level = {{ core_log_level | default(1) }}
-# Log file path (use 'stdout' for console)
+
+# Path to the main Kannel log file. Use 'stdout' to log to console.
 log-file = "{{ core_log_file | default('/var/log/kannel/kannel.log') }}"
-# PID file path
+
+# Path to the PID file for the Kannel process.
 pidfile = "{{ core_pidfile | default('/var/run/kannel/kannel.pid') }}"
 
-# Admin interface settings
-{% if admin_enabled %}
-# Admin group: Web-based management and monitoring
-{% if admin_enabled == True %}
+# ==============================================================================
+# Admin Group: Web-based management and monitoring
+# ==============================================================================
+# Enable the Kannel admin web interface for monitoring and control.
+{% if admin_enabled | default(True) %}
 group = "admin"
+
+# Port for the admin interface (e.g., http://localhost:13000).
 admin-port = {{ admin_port | default(13000) }}
+
+# Username for admin interface authentication.
 admin-username = "{{ admin_username | default('admin') }}"
+
+# Password for admin interface (MUST be changed in production).
 admin-password = "{{ admin_password | default('kannel') }}"
-{% if admin_accept_ip %}
-# Accept connections only from these IPs (comma-separated list)
-admin-allow-ip = {{ admin_accept_ip | join(', ') }}
-{% endif %}
-{% endif %}
+
+# List of allowed IP addresses for admin interface access (CIDR not supported).
+{% for ip in admin_accept_ip | default([]) %}
+admin-allow-ip = "{{ ip }}"
+{% endfor %}
 {% endif %}
 
+# ==============================================================================
 # SMS Delivery Report Settings
-{% if sms_delivery_report_enabled %}
-# Enable delivery reports
-sms-delivery-report = "{{ 'yes' if sms_delivery_report_enabled else 'no' }}"
+# ==============================================================================
+# Enable SMS delivery reports (DLR) to track message status.
+# 'yes' or 'no'.
+{% if sms_delivery_report_enabled | default(False) %}
+sms-delivery-report = "yes"
 {% endif %}
 
-# DLR (Delivery Report) storage backend
-{% if dlr_backend %}
-# DLR backend: db, memory, or file
-{% if dlr_backend == 'db' %}
+# ==============================================================================
+# DLR (Delivery Report) Storage Backend
+# ==============================================================================
+# Select the backend for storing delivery reports.
+# 'memory' is fast but ephemeral; 'db' is persistent.
+{% if dlr_backend | default('memory') == 'db' %}
+# Database-backed DLR storage
 group = "sms-dlr-db"
+
+# Database type if using DLR database backend (e.g., 'mysql', 'postgres').
 dlr-db-type = "{{ dlr_db_type | default('mysql') }}"
+
+# Hostname or IP of the DLR database server.
 dlr-db-host = "{{ dlr_db_host | default('localhost') }}"
+
+# Port of the DLR database server.
 dlr-db-port = {{ dlr_db_port | default(3306) }}
+
+# Database user for DLR storage.
 dlr-db-user = "{{ dlr_db_user | default('kannel') }}"
+
+# Password for DLR database user (empty = no password).
 dlr-db-password = "{{ dlr_db_password | default('') }}"
+
+# Name of the DLR database.
 dlr-db-name = "{{ dlr_db_name | default('kannel') }}"
+
+# Name of the DLR table.
 dlr-db-table = "{{ dlr_db_table | default('dlr') }}"
 {% else %}
-# Default: in-memory DLR storage
+# In-memory DLR storage (default)
 group = "sms-dlr"
-dlr-backend = "{{ dlr_backend | default('memory') }}"
-{% endif %}
+dlr-backend = "memory"
 {% endif %}
 
-# Bearerbox groups (one for each SMSC link)
-{% for link in bearerbox_links %}
+# ==============================================================================
+# Bearerbox Groups: SMSC Links
+# ==============================================================================
+# List of SMSC link configurations (one group per SMSC connection).
+{% for link in bearerbox_links | default([]) %}
 # SMSC link group {{ loop.index }}
 group = "smsc"
+
+# SMSC connection type for this link
 smsc = "{{ link.smsc_type | default('smpp') }}"
+
+# Hostname or IP of the SMSC
 smsc-host = "{{ link.smsc_host | default('localhost') }}"
+
+# Port for the SMSC connection
 smsc-port = {{ link.smsc_port | default(2775) }}
+
+# Username for SMSC authentication
 smsc-username = "{{ link.smsc_username | default('') }}"
+
+# Password for SMSC authentication
 smsc-password = "{{ link.smsc_password | default('') }}"
+
+# Unique ID for this SMSC link (must match in smsbox if used)
 smsc-id = "{{ link.smsc_id | default('smsc' + loop.index|string) }}"
+
+# Connection mode: 'sms' or 'smsc' (transceiver)
 smsc-type = "{{ link.smsc_type | default('sms') }}"
-{% if link.transceiver_mode %}
+
+# Transceiver mode (optional)
+{% if link.transceiver_mode is defined %}
 transceiver-mode = "{{ link.transceiver_mode }}"
 {% endif %}
-{% if link.max_smsc_connections %}
+
+# Maximum number of SMSC connections (optional)
+{% if link.max_smsc_connections is defined %}
 max-smsc-connections = {{ link.max_smsc_connections | default(1) }}
 {% endif %}
-{% if link.connect_timeout %}
+
+# Connect timeout in seconds (optional)
+{% if link.connect_timeout is defined %}
 connect-timeout = {{ link.connect_timeout | default(30) }}
 {% endif %}
-{% if link.keepalive %}
+
+# Keepalive interval in seconds (optional)
+{% if link.keepalive is defined %}
 keepalive = {{ link.keepalive | default(30) }}
 {% endif %}
-{% if link.reconnect_delay %}
+
+# Delay before reconnection in seconds (optional)
+{% if link.reconnect_delay is defined %}
 reconnect-delay = {{ link.reconnect_delay | default(10) }}
 {% endif %}
-{% if link.smsc_ready_timeout %}
+
+# Timeout waiting for SMSC ready signal (optional)
+{% if link.smsc_ready_timeout is defined %}
 smsc-ready-timeout = {{ link.smsc_ready_timeout | default(60) }}
 {% endif %}
-{% if link.log_level %}
+
+# Log level for this specific SMSC link (optional)
+{% if link.log_level is defined %}
 log-level = {{ link.log_level | default(1) }}
 {% endif %}
 {% endfor %}
 
-# Box groups: wapbox, smsbox, dlrbox (only needed for specific deployments)
-{% if smsbox_enabled %}
-# SMS Box group: handles SMS submission from applications
-{% if smsbox_enabled == True %}
+# ==============================================================================
+# Box Groups: SMS Box (HTTP API for sending SMS)
+# ==============================================================================
+# Enable the SMS Box to accept SMS submissions via HTTP API.
+{% if smsbox_enabled | default(False) %}
 group = "smsbox"
+
+# SMS Center ID to use (must match a bearerbox_link.smsc_id).
+# Note: The schema field is 'smsbox_id' (instance ID), but Kannel uses 'smsbox-id' for the group identifier.
+# If 'smsbox_id' is not set, defaults to 'smsbox1'.
 smsbox-id = "{{ smsbox_id | default('smsbox1') }}"
+
+# HTTP port for SMS Box (e.g., http://localhost:13001/cgi-bin/sendsms).
 smsbox-port = {{ smsbox_port | default(13001) }}
+
+# Host to bind SMS Box (e.g., 0.0.0.0 for all interfaces).
 smsbox-host = "{{ smsbox_host | default('localhost') }}"
-# Path to SMS submission script (optional)
-{% if smsbox_smsc %}
-smsc-id = "{{ smsbox_smsc | default('smsc1') }}"
+
+# SMS center ID to use (must match a bearerbox_link.smsc_id).
+# Optional: restricts this SMS box to a specific SMSC.
+{% if smsbox_smsc | default('') %}
+smsc-id = "{{ smsbox_smsc | default('') }}"
 {% endif %}
-# Rate limiting
+
+# Maximum SMS messages allowed per HTTP connection.
 max-sms-per-connection = {{ smsbox_max_sms_per_connection | default(50) }}
+
+# Log verbosity for the SMS Box.
 smsbox-log-level = {{ smsbox_log_level | default(1) }}
 {% endif %}
-{% endif %}
 
-# Group for SMS center fallback/relay
-{% if relay_enabled %}
-# SMS Relay group: allows message relaying between SMSCs
-{% if relay_enabled == True %}
+# ==============================================================================
+# Relay Group: SMS Relay Mode
+# ==============================================================================
+# Enable SMS relay mode for interconnecting Kannel instances.
+{% if relay_enabled | default(False) %}
 group = "sms-relay"
+
+# Port for SMS relay communication.
 relay-port = {{ relay_port | default(13010) }}
 {% endif %}
-{% endif %}
 
-# Group for SMS sending from files (file-smsc)
-{% for file_source in file_smsc_sources %}
+# ==============================================================================
+# File-based SMS Sources (File SMS-C)
+# ==============================================================================
+# List of file-based SMS sources for batch SMS injection.
+{% for file_source in file_smsc_sources | default([]) %}
 # File-based SMS source {{ loop.index }}
 group = "smsc"
 smsc = "file-smsc"
+
+# Directory where incoming SMS files are spooled.
 smsc-file-spool = "{{ file_source.spool_dir | default('/var/spool/kannel/smsc' + loop.index|string) }}"
+
+# Directory for successfully processed files.
 smsc-file-done = "{{ file_source.done_dir | default(file_source.spool_dir + '/done') }}"
+
+# Directory for failed files.
 smsc-file-failed = "{{ file_source.failed_dir | default(file_source.spool_dir + '/failed') }}"
-{% if file_source.charset %}
+
+# Character set for the files (optional).
+{% if file_source.charset is defined %}
 smsc-file-charset = "{{ file_source.charset }}"
 {% endif %}
-{% if file_source.log_level %}
+
+# Log level for this file source (optional).
+{% if file_source.log_level is defined %}
 log-level = {{ file_source.log_level }}
 {% endif %}
 {% endfor %}

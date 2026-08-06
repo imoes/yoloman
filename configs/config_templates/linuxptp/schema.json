@@ -1,58 +1,8 @@
 {
-  "transport_specific": {
-    "type": "string",
-    "default": "0x00",
-    "description": "Transport-specific header byte in hexadecimal (e.g., '0x00' for Ethernet)."
-  },
-  "log_level": {
+  "twoStepFlag": {
     "type": "number",
-    "default": 3,
-    "description": "Global logging verbosity (0=debug to 7=emerg). Lower numbers = more verbose."
-  },
-  "domain_number": {
-    "type": "number",
-    "default": 0,
-    "description": "PTP domain number (0\u2013127). Must match between master and slave devices."
-  },
-  "clock_identity": {
-    "type": "string",
-    "default": null,
-    "description": "16-character hexadecimal clock identity. If omitted, auto-derived from MAC."
-  },
-  "slave_only": {
-    "type": "boolean",
-    "default": false,
-    "description": "Run in slave-only mode (no clock selection, never master)."
-  },
-  "interface_name": {
-    "type": "string",
-    "default": "eth0",
-    "description": "Primary network interface to use for PTP (required if no `interfaces` list)."
-  },
-  "master_only": {
-    "type": "boolean",
-    "default": false,
-    "description": "Run as master-only (never become slave)."
-  },
-  "announce_interval": {
-    "type": "number",
-    "default": 0,
-    "description": "Interval between ANNOUNCE messages in seconds (default 0 = standard 2^0 = 1s)."
-  },
-  "sync_interval": {
-    "type": "number",
-    "default": 0,
-    "description": "Interval between SYNC messages in seconds (default 0 = standard 2^0 = 1s)."
-  },
-  "delay_req_interval": {
-    "type": "number",
-    "default": 0,
-    "description": "Interval between delay request messages in seconds (default 0 = standard 2^0 = 1s)."
-  },
-  "path_delay_threshold": {
-    "type": "number",
-    "default": 0,
-    "description": "Path delay asymmetry threshold in nanoseconds (0 = disabled)."
+    "default": 1,
+    "description": "Two-step flag. If 1, the clock uses two-step timestamps (separate FollowUp message)."
   },
   "priority1": {
     "type": "number",
@@ -64,56 +14,34 @@
     "default": 128,
     "description": "Clock priority 2 (0\u2013255); used if priority1 values tie. Lower = higher priority."
   },
-  "hw_timestamping": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable hardware timestamping (recommended for sub-\u03bcs accuracy)."
-  },
-  "use_kernel_timestamps": {
-    "type": "boolean",
-    "default": false,
-    "description": "Use kernel timestamps instead of userspace timestamps (if supported)."
-  },
-  "interfaces": {
-    "type": "list",
-    "default": [],
-    "description": "List of additional interfaces to configure (overrides global defaults per interface).",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Interface name (e.g., 'eth1'). Required per entry."
-      },
-      "transport_specific": {
-        "type": "string",
-        "default": "0x00",
-        "description": "Per-interface transport-specific byte."
-      },
-      "log_level": {
-        "type": "number",
-        "default": null,
-        "description": "Per-interface log level (if omitted, falls back to global `log_level`)."
-      },
-      "delay_req_interval": {
-        "type": "number",
-        "default": null,
-        "description": "Per-interface delay request interval in seconds (falls back to global if omitted)."
-      },
-      "timestamping": {
-        "type": "string",
-        "default": null,
-        "description": "Override timestamping method: 'hardware', 'software', 'legacy'."
-      }
-    }
-  },
-  "qos_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable optional QoS/DSCP configuration for PTP packets."
-  },
-  "ptp_dst_dscp": {
+  "domainNumber": {
     "type": "number",
-    "default": 46,
-    "description": "DSCP value (0\u201363) for PTP packet prioritization (e.g., 46 = EF class)."
+    "default": 0,
+    "description": "PTP domain number (0\u2013127). Must match between master and slave devices."
+  },
+  "logAnnounceInterval": {
+    "type": "number",
+    "default": 1,
+    "description": "Log2 of the interval between ANNOUNCE messages (default 1s)."
+  },
+  "logSyncInterval": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 of the interval between SYNC messages (default 2^0 = 1s)."
+  },
+  "logMinDelayReqInterval": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 of the minimum interval between delay request messages (default 2^0 = 1s)."
+  },
+  "logging_level": {
+    "type": "number",
+    "default": 6,
+    "description": "Global logging verbosity (0=debug to 7=emerg). Lower numbers = more verbose."
+  },
+  "transportSpecific": {
+    "type": "string",
+    "default": "0x0",
+    "description": "Transport-specific header byte in hexadecimal (e.g., '0x0' for Ethernet)."
   }
 }

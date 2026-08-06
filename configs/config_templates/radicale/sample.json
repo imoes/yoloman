@@ -5,14 +5,20 @@
     ],
     "port": 5232,
     "ssl": {
-      "enabled": false
+      "enabled": false,
+      "certificate": "/etc/ssl/certs/radicale.pem",
+      "key": "/etc/ssl/private/radicale.key"
     },
     "debug": false
   },
   "auth": {
-    "type": "htpasswd",
+    "type": "None",
     "htpasswd_filename": "/etc/radicale/users",
-    "htpasswd_encryption": "bcrypt"
+    "htpasswd_encryption": "bcrypt",
+    "ldap_url": "ldap://localhost",
+    "ldap_base": "ou=users,dc=example,dc=com",
+    "ldap_bind_user": "cn=admin,dc=example,dc=com",
+    "ldap_bind_password": ""
   },
   "storage": {
     "type": "filesystem",
@@ -22,17 +28,9 @@
     }
   },
   "rights": {
-    "type": "owner_only"
-  },
-  "logging": {
-    "level": "INFO",
-    "file": "/var/log/radicale/radicale.log"
-  },
-  "headers": {
-    "Access-Control-Allow-Origin": "*",
-    "X-Frame-Options": "DENY"
-  },
-  "types": {
-    "default": "text/calendar; charset=utf-8"
+    "type": "owner_only",
+    "from_file": {
+      "path": "/etc/radicale/rights"
+    }
   }
 }

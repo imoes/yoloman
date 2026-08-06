@@ -1,0 +1,111 @@
+# grepmail configuration file
+# One directive per line; empty lines and lines starting with '#' are comments
+# All directives are optional unless otherwise constrained by grepmail behavior.
+# This file is self-documenting: every directive is preceded by a comment
+# describing its purpose and the corresponding grepmail command-line flag.
+
+{# Search pattern(s) #}
+{# patterns - List of regex patterns to match in messages. At least one pattern or one of -d/-s/-u/-E must be provided. #}
+{# If patterns is not set or is empty, grepmail will wait for stdin or use default behavior if other constraints apply. #}
+{% if patterns is defined and patterns | length > 0 %}
+{# One pattern per line. These are treated as extended regular expressions. #}
+{% for p in patterns %}{{ p }}
+{% endfor %}
+{% endif %}
+
+{# Mailbox paths #}
+{# mailboxes - List of mailbox paths or directories to search. If empty, stdin is used. #}
+{# Supports compressed mailboxes (gzip/bzip2/lzip/xz). #}
+{% if mailboxes is defined and mailboxes | length > 0 %}
+{# One mailbox path per line. Can be individual files or directories containing mailboxes. #}
+{% for m in mailboxes %}{{ m }}
+{% endfor %}
+{% endif %}
+
+{# Output options #}
+{# output_header_only - Print only headers, not body. Equivalent to -H. #}
+{% if output_header_only is defined and output_header_only %}-H{% endif %}
+
+{# output_body_only - Print only body, not headers. Equivalent to -b. #}
+{% if output_body_only is defined and output_body_only %}-b{% endif %}
+
+{# output_minimal_headers - Print minimal headers (From, Date, Subject) + body. Equivalent to -B. #}
+{% if output_minimal_headers is defined and output_minimal_headers %}-B{% endif %}
+
+{# output_quiet - Suppress non-fatal warnings. Equivalent to -q. #}
+{% if output_quiet is defined and output_quiet %}-q{% endif %}
+
+{# output_report - Print filenames with match counts. Equivalent to -r. #}
+{% if output_report is defined and output_report %}-r{% endif %}
+
+{# output_filenames_only - Print only filenames containing matches. Equivalent to -l. #}
+{% if output_filenames_only is defined and output_filenames_only %}-l{% endif %}
+
+{# output_line_numbers - Prefix output lines with file:line number. Equivalent to -n. #}
+{% if output_line_numbers is defined and output_line_numbers %}-n{% endif %}
+
+{# output_unique - Output only unique messages by Message-ID. Equivalent to -u. #}
+{% if output_unique is defined and output_unique %}-u{% endif %}
+
+{# output_invert - Invert match (print non-matching messages). Equivalent to -v. #}
+{% if output_invert is defined and output_invert %}-v{% endif %}
+
+{# output_mailfolder - Add X-Mailfolder header to output messages. Equivalent to -m. #}
+{% if output_mailfolder is defined and output_mailfolder %}-m{% endif %}
+
+{# Search scope #}
+{# search_case_insensitive - Perform case-insensitive matching. Equivalent to -i. #}
+{% if search_case_insensitive is defined and search_case_insensitive %}-i{% endif %}
+
+{# search_word_boundary - Match only at word boundaries. Equivalent to -w. #}
+{% if search_word_boundary is defined and search_word_boundary %}-w{% endif %}
+
+{# search_ignore_signature - Ignore the signature part of messages (everything after '-- '). Equivalent to -S. #}
+{% if search_ignore_signature is defined and search_ignore_signature %}-S{% endif %}
+
+{# search_ignore_mime_attachments - Ignore non-text MIME parts. Equivalent to -M. #}
+{% if search_ignore_mime_attachments is defined and search_ignore_mime_attachments %}-M{% endif %}
+
+{# search_force - Force processing of all files as mailboxes. Equivalent to -F. #}
+{% if search_force is defined and search_force %}-F{% endif %}
+
+{# search_follow_links - Follow symbolic links. Implies -R. Equivalent to -L. #}
+{% if search_follow_links is defined and search_follow_links %}-L{% endif %}
+
+{# Header/body search restrictions #}
+{# search_header_pattern - Match only in headers. Equivalent to -h. #}
+{# Note: search_header_pattern is distinct from search_header_pattern below; this is the flag to restrict scope. #}
+{% if search_header_pattern is defined and search_header_pattern %}-h{% endif %}
+
+{# Status header filter #}
+{# status_flags - Filter by Status: header flags (e.g., 'ar' for read and answered). Order/case-insensitive. Equivalent to -j. #}
+{% if status_flags is defined and status_flags %}-j {{ status_flags }}{% endif %}
+
+{# Date filter #}
+{# date_spec - Date specification for filtering. Supports 'today', 'yesterday', '5/18/93', 'before/after since <date>', 'between <d> and <d>'. Equivalent to -d. #}
+{% if date_spec is defined and date_spec %}-d {{ date_spec }}{% endif %}
+
+{# Size filter #}
+{# size_spec - Size constraint: '=N', '<N', '<=N', '>N', '>=N', or 'A-B'. Includes header. Equivalent to -s. #}
+{% if size_spec is defined and size_spec %}-s {{ size_spec }}{% endif %}
+
+{# Complex expression #}
+{# expression - Complex search expression using Perl syntax over $email, $email_header, $email_body. Equivalent to -E. #}
+{# Incompatible with -b, -h, -e, -i, -M, -S, -Y. #}
+{% if expression is defined and expression %}-E {{ expression }}{% endif %}
+
+{# Custom signature separator #}
+{# signature_pattern - Regular expression to detect signature separator (default: '^-- $'). Equivalent to -X. #}
+{% if signature_pattern is defined and signature_pattern %}-X {{ signature_pattern }}{% endif %}
+
+{# Header search pattern (procmail-style) #}
+{# header_search_pattern - Header search pattern with procmail expansion support (^TO:, ^FROM_DAEMON:, ^FROM_MAILER:). Implies -h. Equivalent to -Y. #}
+{% if header_search_pattern is defined and header_search_pattern %}-Y {{ header_search_pattern }}{% endif %}
+
+{# Cache file location #}
+{# cache_file - Path to cache file (default: $HOME/.grepmail-cache). Equivalent to -C. #}
+{% if cache_file is defined and cache_file %}-C {{ cache_file }}{% endif %}
+
+{# Debug mode #}
+{# debug - Enable debug mode. Equivalent to -D. #}
+{% if debug is defined and debug %}-D{% endif %}

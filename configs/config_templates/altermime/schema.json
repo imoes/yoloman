@@ -1,6 +1,6 @@
 {
   "enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable or disable MIME scanning and modification."
   },
@@ -29,51 +29,45 @@
     "default": [],
     "description": "List of MIME replacement rules (e.g., for inserting disclaimers or replacing unsafe HTML).",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Rule name (for documentation only)."
-        },
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether this rule is active."
-        },
-        "type": {
-          "type": "string",
-          "default": "text/html",
-          "description": "MIME type pattern (e.g., text/html, text/plain); may use 're:' prefix for regex."
-        },
-        "pattern": {
-          "type": "string",
-          "default": "text/html",
-          "description": "Pattern to match against MIME types (supports globs or regex if prefixed with 're:')."
-        },
-        "text": {
-          "type": "string",
-          "default": "",
-          "description": "Replacement text (supports escape sequences like \\n and \\t)."
-        },
-        "headers": {
-          "type": "list",
-          "default": [],
-          "description": "Optional list of custom headers to prepend.",
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string",
-                "default": "",
-                "description": "Header name (e.g., 'X-Disclaimer')"
-              },
-              "value": {
-                "type": "string",
-                "default": "",
-                "description": "Header value (may use \\n, \\t)."
-              }
-            }
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Rule name (for documentation only)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this rule is active."
+      },
+      "type": {
+        "type": "string",
+        "default": "text/html",
+        "description": "MIME type pattern (e.g., text/html, text/plain); may use 're:' prefix for regex."
+      },
+      "pattern": {
+        "type": "string",
+        "default": "text/html",
+        "description": "Pattern to match against MIME types (supports globs or regex if prefixed with 're:')."
+      },
+      "text": {
+        "type": "string",
+        "default": "",
+        "description": "Replacement text (supports escape sequences like \\n and \\t)."
+      },
+      "headers": {
+        "type": "list",
+        "default": [],
+        "description": "Optional list of custom headers to prepend.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Header name (e.g., 'X-Disclaimer')"
+          },
+          "value": {
+            "type": "string",
+            "default": "",
+            "description": "Header value (may use \\n, \\t)."
           }
         }
       }
@@ -128,49 +122,46 @@
     "default": [],
     "description": "External filter commands (e.g., ClamAV, custom scanners).",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Filter name (e.g., 'clamav')."
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Filter name (e.g., 'clamav')."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable this filter."
+      },
+      "command": {
+        "type": "string",
+        "default": "",
+        "description": "Full path and arguments to run the filter (stdin \u2192 filter \u2192 stdout)."
+      },
+      "input_types": {
+        "type": "list",
+        "default": [
+          "*"
+        ],
+        "items": {
+          "type": "string"
         },
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable this filter."
-        },
-        "command": {
-          "type": "string",
-          "default": "",
-          "description": "Full path and arguments to run the filter (stdin \u2192 filter \u2192 stdout)."
-        },
-        "input_types": {
-          "type": "list",
-          "default": [
-            "*"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "description": "Comma-separated list of MIME types this filter processes; '*' means all."
-        },
-        "action": {
-          "type": "string",
-          "enum": [
-            "pass",
-            "quarantine",
-            "reject",
-            "replace"
-          ],
-          "default": "pass",
-          "description": "Action to take on match: pass (no change), quarantine, reject, or replace."
-        },
-        "replacement_text": {
-          "type": "string",
-          "default": "",
-          "description": "Text to insert if action=replace (supports \\n, \\t)."
-        }
+        "description": "Comma-separated list of MIME types this filter processes; '*' means all."
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "pass",
+          "quarantine",
+          "reject",
+          "replace"
+        ],
+        "default": "pass",
+        "description": "Action to take on match: pass (no change), quarantine, reject, or replace."
+      },
+      "replacement_text": {
+        "type": "string",
+        "default": "",
+        "description": "Text to insert if action=replace (supports \\n, \\t)."
       }
     }
   },
@@ -179,28 +170,25 @@
     "default": [],
     "description": "Override MIME type assignments (e.g., treat .js as text/plain for safety).",
     "items": {
-      "type": "object",
-      "fields": {
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable this override."
-        },
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description of the override."
-        },
-        "source_type": {
-          "type": "string",
-          "default": "",
-          "description": "Original MIME type to override (e.g., 'application/javascript')."
-        },
-        "target_type": {
-          "type": "string",
-          "default": "",
-          "description": "Replacement MIME type (e.g., 'text/plain')."
-        }
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable this override."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of the override."
+      },
+      "source_type": {
+        "type": "string",
+        "default": "",
+        "description": "Original MIME type to override (e.g., 'application/javascript')."
+      },
+      "target_type": {
+        "type": "string",
+        "default": "",
+        "description": "Replacement MIME type (e.g., 'text/plain')."
       }
     }
   },

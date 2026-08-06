@@ -1,0 +1,138 @@
+{
+  "inbound_dir": {
+    "type": "string",
+    "default": "/var/lib/crashmail/inbound",
+    "description": "Directory containing inbound .pkt files to be tossed."
+  },
+  "outbound_dir": {
+    "type": "string",
+    "default": "/var/lib/crashmail/outbound",
+    "description": "Directory where outgoing messages are placed."
+  },
+  "areas_dir": {
+    "type": "string",
+    "default": "/var/lib/crashmail/areas",
+    "description": "Top-level directory where message areas (JAM/MSG) are stored."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/crashmail.log",
+    "description": "Path to log file, or 'syslog' to use system logging (Linux-specific)."
+  },
+  "areas": {
+    "type": "list",
+    "default": [],
+    "description": "List of default message areas to configure. Each entry defines type, path, and optional auto-add parameters."
+  },
+  "areas.items": {
+    "type": "object",
+    "description": "A single message area configuration."
+  },
+  "areas.items.name": {
+    "type": "string",
+    "default": "unnamed",
+    "description": "Identifier for the area (used in comments only)."
+  },
+  "areas.items.type": {
+    "type": "string",
+    "default": "msg",
+    "description": "Message base format: 'jam' or 'msg'.",
+    "enum": [
+      "jam",
+      "msg"
+    ]
+  },
+  "areas.items.path": {
+    "type": "string",
+    "default": "/var/lib/crashmail/areas/unnamed",
+    "description": "Filesystem path to the message area."
+  },
+  "areas.items.auto_add": {
+    "type": "object",
+    "default": null,
+    "description": "Optional auto-add configuration for MSG/JAM areas."
+  },
+  "areas.items.auto_add.use_8dot3": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, use %8 path format (Linux: 8-digit serial numbers); overrides path_format if true."
+  },
+  "areas.items.auto_add.path_format": {
+    "type": "string",
+    "default": "",
+    "description": "Custom format string for auto-add (e.g. %A-%Y); ignored if use_8dot3 is true."
+  },
+  "links": {
+    "type": "list",
+    "default": [],
+    "description": "List of linked nodes (FTN addresses)."
+  },
+  "links.items": {
+    "type": "object",
+    "description": "One linked node."
+  },
+  "links.items.node": {
+    "type": "string",
+    "default": "0",
+    "description": "FTN node number (e.g. '2:5020/1234')."
+  },
+  "links.items.address": {
+    "type": "string",
+    "default": "",
+    "description": "Address string to send mail to for this node (e.g. 'fido net')."
+  },
+  "links.items.options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional link options (e.g. 'SECURE' or 'COMPRESS')."
+  },
+  "system_name": {
+    "type": "string",
+    "default": "My CrashMail System",
+    "description": "Name of the FTS-0001 system (SYSTM field)."
+  },
+  "system_location": {
+    "type": "string",
+    "default": "Earth",
+    "description": "Physical location of the system (SYSTM field)."
+  },
+  "sysop_name": {
+    "type": "string",
+    "default": "SysAdmin",
+    "description": "Sysop name (SYSTM field)."
+  },
+  "sysop_phone": {
+    "type": "string",
+    "default": "",
+    "description": "Sysop phone number (SYSTM field)."
+  },
+  "sysop_email": {
+    "type": "string",
+    "default": "sysop@example.com",
+    "description": "Sysop email address (SYSTM field)."
+  },
+  "remote_passwords": {
+    "type": "list",
+    "default": [],
+    "description": "Passwords for remote nodes, used when sending INFO/LIST/QUERY messages."
+  },
+  "remote_passwords.items": {
+    "type": "object",
+    "description": "One remote node password."
+  },
+  "remote_passwords.items.node": {
+    "type": "string",
+    "default": "0",
+    "description": "FTN node number (e.g. '2:5020/1234')."
+  },
+  "remote_passwords.items.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password used for that node."
+  },
+  "security_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "If false, enables NOSECURITY mode (process packets without security checks)."
+  }
+}

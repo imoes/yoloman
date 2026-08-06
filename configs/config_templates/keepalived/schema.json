@@ -1,355 +1,85 @@
 {
+  "daemon_args": {
+    "type": "string",
+    "default": "",
+    "description": "Command-line arguments to pass to keepalived daemon",
+    "enum": [
+      "--all",
+      "-B",
+      "--bfd_pid=FILE",
+      "-b",
+      "--config-id id",
+      "-i",
+      "--config-test[=FILE]",
+      "-t",
+      "--core-dump",
+      "-m",
+      "--core-dump-pattern[=PATTERN]",
+      "-M",
+      "--debug[=debug-options]",
+      "--debug",
+      "-d",
+      "--dump-conf",
+      "--flush-log-file",
+      "-C",
+      "--check",
+      "-c",
+      "--checkers_pid=FILE",
+      "--dont-fork",
+      "-n",
+      "--dont-release-ipvs",
+      "-I",
+      "--dont-release-vrrp",
+      "-V",
+      "--dont-respawn",
+      "-R",
+      "--all-config",
+      "-e",
+      "--genhash",
+      "-T",
+      "-g",
+      "--log-file=FILE",
+      "--ignore-sigint",
+      "-l",
+      "--log-console",
+      "-D",
+      "--log-detail",
+      "-S",
+      "--log-facility={0-7|local{0-7}|user|daemon}",
+      "-G",
+      "--no-syslog",
+      "--no-mem-check",
+      "--perf[={all|run|end}]",
+      "--perf",
+      "--pid=FILE",
+      "-p",
+      "--release-vips",
+      "-X",
+      "-r",
+      "--vrrp_pid=FILE",
+      "--signum=PATTERN",
+      "--signum",
+      "--snmp",
+      "-x",
+      "--snmp-agent-socket=FILE",
+      "-A",
+      "--umask=NUMBER",
+      "-u",
+      "-v",
+      "--version",
+      "-P",
+      "--vrrp",
+      "-h",
+      "--help",
+      "-a",
+      "--address-monitoring",
+      "-s",
+      "--namespace=NAME"
+    ]
+  },
   "vrrp_instances": {
     "type": "list",
     "default": [],
-    "description": "List of VRRP instances for IP failover and redundancy",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name for this VRRP instance"
-        },
-        "state": {
-          "type": "string",
-          "default": "MASTER",
-          "description": "Initial state: MASTER or BACKUP"
-        },
-        "interface": {
-          "type": "string",
-          "default": "eth0",
-          "description": "Network interface to bind to"
-        },
-        "virtual_router_id": {
-          "type": "number",
-          "default": 51,
-          "description": "VRID (0\u2013255); must be unique per VRRP domain"
-        },
-        "priority": {
-          "type": "number",
-          "default": 100,
-          "description": "Instance priority (0\u2013255); higher = more likely to become MASTER"
-        },
-        "advert_int": {
-          "type": "number",
-          "default": 1,
-          "description": "VRRP advertisement interval in seconds"
-        },
-        "vips": {
-          "type": "list",
-          "default": [],
-          "description": "List of virtual IP addresses (CIDR optional)",
-          "items": {
-            "type": "object",
-            "fields": {
-              "address": {
-                "type": "string",
-                "default": "",
-                "description": "Virtual IP address (e.g., 192.168.1.100 or 192.168.1.100/24)"
-              },
-              "dev": {
-                "type": "string",
-                "default": "",
-                "description": "Bind VIP to specific interface (e.g., eth0)"
-              },
-              "scope": {
-                "type": "string",
-                "default": "",
-                "description": "IP scope (e.g., host, link, global)"
-              }
-            }
-          }
-        },
-        "authentication": {
-          "type": "object",
-          "default": {
-            "enabled": false
-          },
-          "description": "VRRP authentication (pre-shared key)",
-          "fields": {
-            "enabled": {
-              "type": "bool",
-              "default": false,
-              "description": "Enable VRRP authentication"
-            },
-            "type": {
-              "type": "string",
-              "default": "PASS",
-              "description": "Auth type: PASS (password) or AH (IPsec)"
-            },
-            "password": {
-              "type": "string",
-              "default": "",
-              "description": "Pre-shared secret (max 8 chars; not for production use)",
-              "sensitive": true
-            }
-          }
-        },
-        "track_scripts": {
-          "type": "list",
-          "default": [],
-          "description": "List of named vrrp_script names to monitor",
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string",
-                "default": "",
-                "description": "Name of vrrp_script (must match definition)"
-              },
-              "weight": {
-                "type": "number",
-                "default": 0,
-                "description": "Priority weight when script fails (positive or negative)"
-              }
-            }
-          }
-        },
-        "preempt": {
-          "type": "bool",
-          "default": true,
-          "description": "Allow this node to reclaim MASTER if it recovers (higher priority)"
-        },
-        "nopreempt": {
-          "type": "bool",
-          "default": false,
-          "description": "Non-preemptive mode \u2014 once BACKUP, always BACKUP"
-        },
-        "garp_master_delay": {
-          "type": "number",
-          "default": 5,
-          "description": "Delay (seconds) before sending gratuitous ARP after MASTER transition"
-        },
-        "smtp_alert": {
-          "type": "bool",
-          "default": false,
-          "description": "Send email alerts on VRRP state changes"
-        },
-        "notify_master": {
-          "type": "string",
-          "default": "",
-          "description": "Command to run when instance becomes MASTER"
-        },
-        "notify_backup": {
-          "type": "string",
-          "default": "",
-          "description": "Command to run when instance becomes BACKUP"
-        },
-        "notify_fault": {
-          "type": "string",
-          "default": "",
-          "description": "Command to run when instance enters FAULT state"
-        },
-        "use_vmac": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable use of a Virtual MAC (required for some multi-path setups)"
-        },
-        "vmac_iface": {
-          "type": "string",
-          "default": "",
-          "description": "Custom interface name for VMAC (e.g., vmac0); otherwise auto-generated"
-        },
-        "dns_redirect": {
-          "type": "bool",
-          "default": false,
-          "description": "Enable DNS reply redirect to VIP"
-        },
-        "track_interface": {
-          "type": "list",
-          "default": [],
-          "description": "Monitor additional interfaces; fail if any fail",
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string",
-                "default": "",
-                "description": "Interface name (e.g., eth1)"
-              },
-              "weight": {
-                "type": "number",
-                "default": 0,
-                "description": "Priority weight on failure"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "lvs_virtual_servers": {
-    "type": "list",
-    "default": [],
-    "description": "LVS virtual server definitions (IP:port + scheduling)",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Descriptive name (used for logging, not config)"
-        },
-        "ip": {
-          "type": "string",
-          "default": "",
-          "description": "Virtual server IP"
-        },
-        "port": {
-          "type": "number",
-          "default": 80,
-          "description": "Virtual server port (0 for firewall-marked services)"
-        },
-        "lb_algo": {
-          "type": "string",
-          "default": "wlc",
-          "description": "Load balancing algorithm (e.g., rr, wrr, lc, wlc, lblc)"
-        },
-        "lb_kind": {
-          "type": "string",
-          "default": "NAT",
-          "description": "LVS forwarding method: NAT, DR, or TUN"
-        },
-        "protocol": {
-          "type": "string",
-          "default": "TCP",
-          "description": "Protocol: TCP, UDP, or SCTP"
-        },
-        "delay_loop": {
-          "type": "number",
-          "default": 2,
-          "description": "Interval (seconds) between health checks of real servers"
-        },
-        "real_servers": {
-          "type": "list",
-          "default": [],
-          "description": "Real (backend) servers",
-          "items": {
-            "type": "object",
-            "fields": {
-              "ip": {
-                "type": "string",
-                "default": "",
-                "description": "Real server IP"
-              },
-              "port": {
-                "type": "number",
-                "default": 80,
-                "description": "Real server port"
-              },
-              "weight": {
-                "type": "number",
-                "default": 1,
-                "description": "Server weight (for weighted scheduling)"
-              },
-              "inhibit_on_failure": {
-                "type": "bool",
-                "default": false,
-                "description": "Inhibit (disable) sending traffic to this server on failure"
-              },
-              "tcp_check": {
-                "type": "object",
-                "default": {},
-                "description": "TCP port check health method",
-                "fields": {
-                  "port": {},
-                  "connect_timeout": {},
-                  "connect_retries": {}
-                }
-              },
-              "http_get": {
-                "type": "object",
-                "default": {},
-                "description": "HTTP health check",
-                "fields": {
-                  "url": {},
-                  "connect_timeout": {}
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "global_definitions": {
-    "type": "string",
-    "default": "# Global definitions\nglobal_defs {\n  notification_email { admin@example.com }\n  notification_email_from keepalived@example.com\n  smtp_server 127.0.0.1\n  smtp_connect_timeout 30\n}\n",
-    "description": "Global settings (notifications, timeouts); leave default unless customizing"
-  },
-  "scripts": {
-    "type": "list",
-    "default": [],
-    "description": "VRRP scripts for custom health checks",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique script name (referenced in track_script)"
-        },
-        "cmd": {
-          "type": "string",
-          "default": "",
-          "description": "Command to run (e.g., '/usr/local/bin/health.sh')"
-        },
-        "interval": {
-          "type": "number",
-          "default": 5,
-          "description": "Run interval in seconds"
-        },
-        "timeout": {
-          "type": "number",
-          "default": 3,
-          "description": "Script timeout in seconds before aborting"
-        },
-        "weight": {
-          "type": "number",
-          "default": 0,
-          "description": "Priority adjustment if script fails (positive or negative)"
-        },
-        "initial_weight": {
-          "type": "number",
-          "default": 0,
-          "description": "Initial priority weight for this script"
-        }
-      }
-    }
-  },
-  "lvs_sync_daemon": {
-    "type": "object",
-    "default": {
-      "enabled": false
-    },
-    "description": "Enable LVS sync daemon for HA of LVS state (mirroring)",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable LVS sync daemon"
-      },
-      "interface": {
-        "type": "string",
-        "default": "eth0",
-        "description": "Interface for sync traffic"
-      },
-      "syncid": {
-        "type": "number",
-        "default": 0,
-        "description": "Sync ID (must match across cluster)"
-      },
-      "mcast_group": {
-        "type": "string",
-        "default": "224.0.0.81",
-        "description": "Multicast group IP for LVS sync traffic"
-      },
-      "mcast_port": {
-        "type": "number",
-        "default": 5432,
-        "description": "Multicast UDP port"
-      }
-    }
+    "description": "List of VRRP instances for IP failover and redundancy"
   }
 }

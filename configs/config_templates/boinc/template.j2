@@ -1,0 +1,119 @@
+# =============================================================================
+# BOINC Client Configuration
+# =============================================================================
+# This file controls the behavior of the BOINC client.
+# Each directive corresponds to a schema field.
+# Variables use defaults to ensure the template is safe to render even if
+# specific variables are not provided in the playbook context.
+# =============================================================================
+
+# allow_remote_gui_rpc (bool): Allow GUI RPC connections from remote hosts.
+# Default: False
+allow_remote_gui_rpc {{ allow_remote_gui_rpc | default(False) | ternary('1', '0') }}
+
+# gui_rpc_port (int): Port for GUI RPC connections.
+# Default: 31416
+gui_rpc_port {{ gui_rpc_port | default(31416) }}
+
+# no_gpus (bool): Do not detect or use GPUs.
+# Default: False
+no_gpus {{ no_gpus | default(False) | ternary('1', '0') }}
+
+# no_info_fetch (bool): Do not fetch project list or client version info from boinc.berkeley.edu.
+# Default: False
+no_info_fetch {{ no_info_fetch | default(False) | ternary('1', '0') }}
+
+# skip_cpu_benchmarks (bool): Skip running CPU benchmarks on startup.
+# Default: False
+skip_cpu_benchmarks {{ skip_cpu_benchmarks | default(False) | ternary('1', '0') }}
+
+# start_delay (int): Delay starting apps by N seconds.
+# Default: 0
+start_delay {{ start_delay | default(0) }}
+
+# file_xfer_giveup_period (int): Give up on file transfers after N seconds (0 = use default).
+# Default: 0
+file_xfer_giveup_period {{ file_xfer_giveup_period | default(0) }}
+
+# master_fetch_interval (int): Limit the period between project master file download retries (seconds).
+# Default: 0
+master_fetch_interval {{ master_fetch_interval | default(0) }}
+
+# sched_retry_delay_min (int): Minimum retry delay for project RPCs (seconds).
+# Default: 0
+sched_retry_delay_min {{ sched_retry_delay_min | default(0) }}
+
+# sched_retry_delay_max (int): Maximum retry delay for project RPCs (seconds).
+# Default: 0
+sched_retry_delay_max {{ sched_retry_delay_max | default(0) }}
+
+# pers_retry_delay_min (int): Minimum retry delay for persistent file transfers (seconds).
+# Default: 0
+pers_retry_delay_min {{ pers_retry_delay_min | default(0) }}
+
+# pers_retry_delay_max (int): Maximum retry delay for persistent file transfers (seconds).
+# Default: 0
+pers_retry_delay_max {{ pers_retry_delay_max | default(0) }}
+
+# pers_giveup (int): Give-up time for persistent file transfer errors (seconds).
+# Default: 0
+pers_giveup {{ pers_giveup | default(0) }}
+
+# retry_cap (int): Limit maximum exponential backoff time (seconds).
+# Default: 0
+retry_cap {{ retry_cap | default(0) }}
+
+# unsigned_apps_ok (bool): Allow execution of unsigned applications (for testing only).
+# Default: False
+unsigned_apps_ok {{ unsigned_apps_ok | default(False) | ternary('1', '0') }}
+
+# redirect_io (bool): Redirect stdout and stderr to log files (stdoutdae.txt, stderrdae.txt).
+# Default: False
+redirect_io {{ redirect_io | default(False) | ternary('1', '0') }}
+
+# allow_multiple_clients (bool): Allow more than one client instance per host.
+# Default: False
+allow_multiple_clients {{ allow_multiple_clients | default(False) | ternary('1', '0') }}
+
+# abort_jobs_on_exit (bool): Abort and report running tasks when client exits.
+# Default: False
+abort_jobs_on_exit {{ abort_jobs_on_exit | default(False) | ternary('1', '0') }}
+
+# no_priority_change (bool): Do not adjust application process priority.
+# Default: False
+no_priority_change {{ no_priority_change | default(False) | ternary('1', '0') }}
+
+# no_gui_rpc (bool): Do not create GUI RPC socket; disable remote control.
+# Default: False
+no_gui_rpc {{ no_gui_rpc | default(False) | ternary('1', '0') }}
+
+# fetch_minimal_work (bool): Fetch only 1 task per device at a time.
+# Default: False
+fetch_minimal_work {{ fetch_minimal_work | default(False) | ternary('1', '0') }}
+
+# check_all_logins (bool): Include remote logins in idle detection.
+# Default: False
+check_all_logins {{ check_all_logins | default(False) | ternary('1', '0') }}
+
+# =============================================================================
+# Projects Configuration
+# =============================================================================
+# List of projects to attach to at startup.
+# Each item must contain 'url' and 'authenticator'.
+# Default: [] (empty list)
+{% for project in (projects | default([], true)) %}
+# Project URL: {{ project.url | default('') }}
+# Authenticator: {{ project.authenticator | default('') }}
+project_url {{ project.url | default('') }}
+project_authenticator {{ project.authenticator | default('') }}
+{% endfor %}
+
+# =============================================================================
+# Extra Options
+# =============================================================================
+# List of additional command-line-like directives not covered above.
+# Each item is a string to append as-is.
+# Default: [] (empty list)
+{% for option in (extra_options | default([], true)) %}
+{{ option }}
+{% endfor %}

@@ -1,119 +1,67 @@
 {
-  "host": {
+  "log_file": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "Hostname or IP address to bind the BDII service to (e.g., '0.0.0.0' for all interfaces)."
+    "default": "/var/log/bdii/bdii-update.log",
+    "description": "Path to the BDII update log file."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/bdii/bdii-update.pid",
+    "description": "Path to the PID file for the BDII update process."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "ERROR",
+    "description": "Verbosity level for logging (e.g., DEBUG, INFO, ERROR)."
+  },
+  "ldif_dir": {
+    "type": "string",
+    "default": "/var/lib/bdii/gip/ldif",
+    "description": "Directory containing LDIF files used by GIP updates."
+  },
+  "provider_dir": {
+    "type": "string",
+    "default": "/var/lib/bdii/gip/provider",
+    "description": "Directory with GIP provider scripts."
+  },
+  "plugin_dir": {
+    "type": "string",
+    "default": "/var/lib/bdii/gip/plugin",
+    "description": "Directory with GIP plugin scripts."
   },
   "port": {
     "type": "number",
     "default": 2170,
     "description": "LDAP port for incoming queries (standard BDII port is 2170)."
   },
+  "breathe_time": {
+    "type": "number",
+    "default": 120,
+    "description": "Time in seconds to wait after an update cycle completes before allowing the next update."
+  },
+  "read_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Read timeout in seconds for LDAP connections."
+  },
+  "archive_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size of the archive directory in MB. 0 means no limit."
+  },
+  "delete_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Delay in seconds before deleting old archive files."
+  },
+  "user": {
+    "type": "string",
+    "default": "openldap",
+    "description": "System user under which the BDII service runs."
+  },
   "database_dir": {
     "type": "string",
     "default": "/var/lib/bdii",
     "description": "Directory where BDII stores its Berkeley DB files."
-  },
-  "tmp_dir": {
-    "type": "string",
-    "default": "/var/lib/bdii/tmp",
-    "description": "Directory for temporary files and runtime logs."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of simultaneous client connections allowed."
-  },
-  "threads": {
-    "type": "number",
-    "default": 4,
-    "description": "Number of worker threads to handle LDAP operations."
-  },
-  "gip_enable": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable or disable periodic updates from local Grid Information Providers (GIPs)."
-  },
-  "gip_update_interval": {
-    "type": "number",
-    "default": 300,
-    "description": "Interval (in seconds) between GIP refresh cycles. Set to 0 to disable periodic updates."
-  },
-  "include_files": {
-    "type": "list",
-    "default": [],
-    "description": "List of additional config files or scripts to include at startup (space-separated in config, list in values)."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 3,
-    "description": "Verbosity level: 0 (quiet) to 4 (debug). Level 3 (info) is typical for production."
-  },
-  "suffix": {
-    "type": "string",
-    "default": "Mds-Vo-name=local,O=Grid",
-    "description": "LDAP suffix for the BDII directory (usually site-specific, often includes VO or site name)."
-  },
-  "root_dn": {
-    "type": "string",
-    "default": "cn=Manager,Mds-Vo-name=local,O=Grid",
-    "description": "Root Distinguished Name (DN) for directory administration."
-  },
-  "root_pw": {
-    "type": "string",
-    "default": "secret",
-    "description": "Password for the root DN. Use strong password in production. Set to 'none' to allow anonymous binds (not recommended)."
-  },
-  "acls": {
-    "type": "list",
-    "default": [
-      "access to attrs=userPassword,shadowLastChange by dn.regex,\"cn=Manager,.\" write by anonymous auth by self write by * none",
-      "access to * by dn.regex,\"cn=Manager,.\" write by * read"
-    ],
-    "items": {
-      "type": "string",
-      "description": "An LDAP access control line. Format: 'access to [what] by [who] [permissions]'."
-    },
-    "description": "List of ACL rules controlling access to directory entries and attributes."
-  },
-  "backend": {
-    "type": "string",
-    "default": "bdb",
-    "description": "Backend database type ('bdb' or 'hdb'). 'bdb' is standard for BDII."
-  },
-  "tls_enable": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS/SSL for encrypted connections to the BDII service."
-  },
-  "tls_cert_file": {
-    "type": "string",
-    "default": "/etc/bdii/certs/bdii.crt",
-    "description": "Path to the server certificate (PEM format) for TLS."
-  },
-  "tls_cert_key_file": {
-    "type": "string",
-    "default": "/etc/bdii/certs/bdii.key",
-    "description": "Path to the server private key (PEM format) for TLS."
-  },
-  "tls_ca_cert_file": {
-    "type": "string",
-    "default": "",
-    "description": "Optional path to a CA certificate bundle for verifying client certificates (empty string = disabled client auth)."
-  },
-  "schemas": {
-    "type": "list",
-    "default": [
-      "core.ldif",
-      "cosine.ldif",
-      "nis.ldif",
-      "inetorgperson.ldif",
-      "glue.ldif"
-    ],
-    "items": {
-      "type": "string",
-      "description": "LDAP schema file name to load (e.g., 'glue.ldif', 'glue2.ldif')."
-    },
-    "description": "List of schema files to load at startup. Required schemas for GRID info services are typically included by default."
   }
 }

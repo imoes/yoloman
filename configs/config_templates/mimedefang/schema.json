@@ -44,10 +44,7 @@
     "default": [
       "/usr/lib/perl5/site_perl"
     ],
-    "description": "List of directories containing Perl modules used by mimedefang filters.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of directories containing Perl modules used by mimedefang filters."
   },
   "action_replace_subject_prefix": {
     "type": "string",
@@ -77,7 +74,16 @@
   "log_facility": {
     "type": "string",
     "default": "mail",
-    "description": "Syslog facility to use (e.g., mail, local0)."
+    "description": "Syslog facility to use (e.g., mail, local0).",
+    "enum": [
+      "daemon",
+      "mail",
+      "news",
+      "security",
+      "syslog",
+      "user",
+      "local4"
+    ]
   },
   "log_level": {
     "type": "number",
@@ -97,89 +103,19 @@
   "filters": {
     "type": "list",
     "default": [],
-    "description": "List of custom filter definitions to load.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique name for the filter."
-      },
-      "type": {
-        "type": "string",
-        "enum": [
-          "message",
-          "recipient"
-        ],
-        "description": "Whether the filter applies to the whole message or individual recipients."
-      },
-      "path": {
-        "type": "string",
-        "description": "Path to the Perl filter script or module."
-      },
-      "args": {
-        "type": "list",
-        "items": {
-          "type": "string"
-        },
-        "optional": true,
-        "description": "Optional space-separated arguments passed to the filter script."
-      }
-    }
+    "description": "List of custom filter definitions to load."
   },
   "whitelist_dir": {
     "type": "string",
-    "optional": true,
     "description": "Directory containing whitelisted sender addresses (one per line)."
   },
   "blacklist_dir": {
     "type": "string",
-    "optional": true,
     "description": "Directory containing blacklisted sender addresses (one per line)."
   },
   "block_executables": {
     "type": "bool",
     "default": true,
-    "description": "Automatically block messages containing executable file types."
-  },
-  "block_executable_extensions": {
-    "type": "list",
-    "default": [
-      "exe",
-      "bat",
-      "com",
-      "pif",
-      "scr",
-      "cmd",
-      "reg",
-      "msi",
-      "vbs",
-      "js",
-      "wsf",
-      "jse",
-      "ps1"
-    ],
-    "description": "List of file extensions considered executable and to be blocked.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "use_spamassassin": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable SpamAssassin integration."
-  },
-  "spamassassin_socket": {
-    "type": "string",
-    "optional": true,
-    "description": "Path to SpamAssassin's spamd socket (e.g., unix:/var/run/spamd.sock)."
-  },
-  "spamassassin_user": {
-    "type": "string",
-    "default": "spamd",
-    "description": "Unix user under which spamd runs."
-  },
-  "spamassassin_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Timeout in seconds for SpamAssassin checks."
+    "description": "Automatically block messages containing executable files."
   }
 }

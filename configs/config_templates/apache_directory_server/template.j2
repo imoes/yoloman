@@ -1,67 +1,153 @@
-# Apache Directory Server configuration file (apacheds.conf)
-# This file configures the core JVM and server options for Apache Directory Server.
-# IMPORTANT: This is a JVM argument file, not an LDAP configuration file (e.g., for partitions, schema, etc.).
-# For LDAP/DS configuration (e.g., partitions, LDAP ports), use the LDIF-based config under /var/lib/apacheds/instances/default/.
+# ============================================================================
+# Apache Directory Server (ApacheDS) JVM and Service Configuration
+# ============================================================================
+#
+# This file configures the core JVM options and service-level parameters
+# for Apache Directory Server. It is NOT the LDAP schema/partition
+# configuration (which lives in LDIF files under the instance directory).
+#
+# Each directive below is mapped to an Ansible variable. If a variable
+# is not defined in the playbook/role, the schema default is used
+# (see `| default(...)` filters).
+#
+# ============================================================================
 
-# JVM heap size — minimum and maximum heap size in MB
--Xms{{ jvm_heap_min_mb }}M
--Xmx{{ jvm_heap_max_mb }}M
+# --------------------------------------------------------------------------
+# JVM Heap Sizing
+# --------------------------------------------------------------------------
+# Initial heap size (in MB) for the Apache Directory Server JVM.
+# Increase for larger directories (>100k entries).
+-Xms{{ jvm_heap_min_mb | default(256) }}M
 
-# Garbage collection tuning — use G1GC for better latency
+# Maximum heap size (in MB) for the JVM.
+# Must be ≥ initial heap; set based on available system RAM and directory size.
+-Xmx{{ jvm_heap_max_mb | default(1024) }}M
+
+# --------------------------------------------------------------------------
+# Garbage Collection Tuning
+# --------------------------------------------------------------------------
+# Use G1GC garbage collector for better latency with larger heaps.
 -XX:+UseG1GC
 
-# GC logging — enable GC logs for troubleshooting (optional)
-{% if enable_gc_logging %}-Xloggc:{{ gc_log_path }}
+# --------------------------------------------------------------------------
+# Garbage Collection Logging
+# --------------------------------------------------------------------------
+# Enable detailed garbage collection logging for performance analysis
+# and troubleshooting. Disabled by default.
+{% if enable_gc_logging | default(False) %}
+# GC log file path (only used if GC logging is enabled).
+-Xloggc:{{ gc_log_path | default('/var/log/apacheds/gc.log') }}
 -XX:+PrintGCDetails
 -XX:+PrintGCDateStamps
+# Log rotation: keep 5 files, 10MB each.
 -XX:+UseGCLogFileRotation
 -XX:NumberOfGCLogFiles=5
 -XX:GCLogFileSize=10M
 {% endif %}
 
-# Directory Server working directory
--Dapacheds.dir={{ instance_dir }}
+# --------------------------------------------------------------------------
+# Directory Server Working Directory
+# --------------------------------------------------------------------------
+# Root directory containing one or more Apache Directory Server instances.
+-Dapacheds.dir={{ instance_dir | default('/var/lib/apacheds') }}
 
-# Service instance name (must match instance directory name under apacheds.dir)
--Dinstance.uid={{ instance_uid }}
+# --------------------------------------------------------------------------
+# Service Instance Name
+# --------------------------------------------------------------------------
+# Name of the instance directory under `instance_dir` (e.g.,
+# /var/lib/apacheds/instances/default). Must match the physical folder name.
+-Dinstance.uid={{ instance_uid | default('default') }}
 
-# Log level — adjust for production (INFO is recommended; DEBUG for diagnostics)
--Dlog.level={{ log_level }}
+# --------------------------------------------------------------------------
+# Logging Verbosity
+# --------------------------------------------------------------------------
+# Logging verbosity level: OFF, ERROR, WARN, INFO, DEBUG, or TRACE.
+# Use DEBUG only for diagnostics due to performance impact.
+-Dlog.level={{ log_level | default('INFO') }}
 
-# Bind address for the LDAP service (0.0.0.0 = all interfaces)
--Dldap.port={{ ldap_port }}
--Dldap.internet.address={{ ldap_bind_address }}
+# --------------------------------------------------------------------------
+# LDAP Service Binding (Unencrypted)
+# --------------------------------------------------------------------------
+# TCP port on which the unencrypted LDAP service listens.
+# Standard port is 389, but 10389 is the default for apacheds.
+-Dldap.port={{ ldap_port | default(10389) }}
 
-# LDAPS (LDAP over SSL/TLS) — disable if not needed
-{% if enable_ldaps %}-Dldaps.port={{ ldaps_port }}
--Dldaps.internet.address={{ ldaps_bind_address }}
+# IP address (or hostname) to bind the LDAP service to.
+# Use '127.0.0.1' for local-only access, or a specific interface IP for production.
+-Dldap.internet.address={{ ldap_bind_address | default('0.0.0.0') }}
+
+# --------------------------------------------------------------------------
+# LDAPS Service Binding (Encrypted)
+# --------------------------------------------------------------------------
+# LDAPS (LDAP over SSL/TLS) — disable if not needed.
+# Requires keystore configuration in the instance's config.
+{% if enable_ldaps | default(False) %}
+# TCP port for LDAPS (used only if LDAPS is enabled).
+-Dldaps.port={{ ldaps_port | default(10636) }}
+
+# IP address for LDAPS binding (used only if LDAPS is enabled).
+-Dldaps.internet.address={{ ldaps_bind_address | default('0.0.0.0') }}
 {% endif %}
 
-# JNDI provider URL for embedded LDAP (used by some tools)
--Djava.naming.provider.url=ldap://{{ ldap_bind_address }}:{{ ldap_port }}
+# --------------------------------------------------------------------------
+# JNDI Provider URL
+# --------------------------------------------------------------------------
+# JNDI provider URL for embedded LDAP (used by some tools).
+# Dynamically reflects the configured LDAP bind address and port.
+-Djava.naming.provider.url=ldap://{{ ldap_bind_address | default('0.0.0.0') }}:{{ ldap_port | default(10389) }}
 
-# RMI management port (optional; often disabled in production for security)
-{% if enable_rmi %}-Drmi.port={{ rmi_port }}
+# --------------------------------------------------------------------------
+# RMI Management Port (JMX)
+# --------------------------------------------------------------------------
+# RMI port for JMX monitoring (used only if RMI is enabled).
+# Not recommended in production due to security risks.
+{% if enable_rmi | default(False) %}
+-Drmi.port={{ rmi_port | default(16891) }}
 {% endif %}
 
-# Enable debug flags (e.g., for kerberos troubleshooting)
-{% if enable_debug %}-Dcom.sun.management.debug=true
+# --------------------------------------------------------------------------
+# Debug Flags
+# --------------------------------------------------------------------------
+# Enable low-level JVM and Kerberos debug flags (useful for troubleshooting
+# authentication issues). Disabled by default.
+{% if enable_debug | default(False) %}
+-Dcom.sun.management.debug=true
 -Dsun.security.krb5.debug=true
 {% endif %}
 
-# Additional system properties (free-form, one per line)
-{% for prop in extra_system_properties %}-D{{ prop.key }}={{ prop.value }}
+# --------------------------------------------------------------------------
+# Additional JVM System Properties
+# --------------------------------------------------------------------------
+# Additional JVM system properties in `key=value` format
+# (e.g., for custom environment overrides).
+# Provided as a list of mappings: [{'key': '...', 'value': '...'}]
+{% for prop in extra_system_properties | default([]) %}
+-D{{ prop.key }}={{ prop.value }}
 {% endfor %}
 
-# JVM tuning: thread stack size (adjust only if needed for deep recursion)
--Xss{{ thread_stack_size_kb }}k
+# --------------------------------------------------------------------------
+# Thread Stack Size
+# --------------------------------------------------------------------------
+# Thread stack size in KB. Increase only if encountering stack overflow errors.
+-Xss{{ thread_stack_size_kb | default(256) }}k
 
-# JVM tuning: disable biased locking for high-contention workloads (optional)
-{% if disable_biased_locking %}-XX:-UseBiasedLocking
+# --------------------------------------------------------------------------
+# Biased Locking
+# --------------------------------------------------------------------------
+# Disable biased locking in the JVM. Useful for high-contention
+# multi-threaded workloads (rarely needed).
+{% if disable_biased_locking | default(False) %}
+-XX:-UseBiasedLocking
 {% endif %}
 
-# Classpath — do not modify unless absolutely necessary
--cp {{ classpath }}
+# --------------------------------------------------------------------------
+# Classpath
+# --------------------------------------------------------------------------
+# JVM classpath. Usually should not be changed unless custom libraries are added.
+-cp {{ classpath | default('/usr/share/apacheds/lib/*') }}
 
-# Main class to launch
+# --------------------------------------------------------------------------
+# Main Class
+# --------------------------------------------------------------------------
+# Main class to launch the Apache Directory Server.
 org.apache.directory.server.App

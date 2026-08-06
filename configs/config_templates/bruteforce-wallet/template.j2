@@ -1,0 +1,36 @@
+# bruteforce-wallet configuration
+# One parameter per line; empty lines and lines starting with '#' are ignored
+# Parameters not specified use their documented defaults
+
+# Prefix to prepend to generated passwords (default: empty)
+beginning {{ (values | default({})).beginning | default('') }}
+
+# Suffix to append to generated passwords (default: empty)
+end {{ (values | default({})).end | default('') }}
+
+# Path to file with one password per line (enables dictionary mode)
+{% if (values | default({})).dictionary_file | default('') | length > 0 %}dictionary {{ (values | default({})).dictionary_file | default('') }}
+{% endif %}
+
+# Minimum password length (including beginning and end), >= 0
+min_length {{ (values | default({})).min_length | default(1) }}
+
+# Maximum password length (including beginning and end), >= min_length
+max_length {{ (values | default({})).max_length | default(8) }}
+
+# Character set for exhaustive brute-force mode
+charset {{ (values | default({})).charset | default('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') }}
+
+# Number of worker threads (>= 1)
+threads {{ (values | default({})).threads | default(1) }}
+
+# Print progress info every n seconds (0 disables periodic output)
+{% if (values | default({})).verbose_interval | default(0) > 0 %}verbose {{ (values | default({})).verbose_interval | default(0) }}
+{% endif %}
+
+# Path to file used to save/restore session state
+{% if (values | default({})).state_file | default('') | length > 0 %}state {{ (values | default({})).state_file | default('') }}
+{% endif %}
+
+# Path to encrypted wallet file to attack (required)
+{{ (values | default({})).wallet_file | default('') }}

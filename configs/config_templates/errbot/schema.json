@@ -1,0 +1,42 @@
+{
+  "variable_path_config": {
+    "type": "string",
+    "default": "/etc/errbot/config-template.py",
+    "description": "The default path to the configuration file as specified in the header comment."
+  },
+  "variable_botname": {
+    "type": "string",
+    "default": "Errbot",
+    "description": "The display name of the bot."
+  },
+  "variable_backend": {
+    "type": "string",
+    "default": "IRC",
+    "description": "The chat backend to use (e.g., IRC, XMPP, Slack, Telegram, Discord)."
+  },
+  "variable_bot_address_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "The hostname or IP address for the bot connection (used by IRC backend)."
+  },
+  "variable_bot_address_port": {
+    "type": "number",
+    "default": 6667,
+    "description": "The port number for the bot connection (used by IRC backend)."
+  },
+  "variable_bot_jid": {
+    "type": "string",
+    "default": "errbot@localhost",
+    "description": "The Jabber ID for the bot (used by XMPP backend)."
+  },
+  "variable_bot_password": {
+    "type": "string",
+    "default": "changeme",
+    "description": "The password for the bot's JID (used by XMPP backend)."
+  },
+  "variable_bot_administrators": {
+    "type": "string",
+    "default": "admin@localhost",
+    "description": "A comma-separated string of administrator identifiers. Note: In the actual Python config, this should be a Python list. Here we parametrize the string representation for simplicity, but ideally this should be rendered as a list. However, per constraints, we replace literal values. If the default is a list, we must preserve the list structure. Let's assume the default config has `['admin@localhost']`. We need to handle lists carefully. Since we can't use loops, we replace the whole value if it's a simple scalar-like representation or keep the list syntax if possible. The prompt says 'Replace ONLY site-specific literal values'. If the default is `['admin@localhost']`, replacing it with a single variable breaks the list syntax unless the variable itself contains the brackets. Let's look at the real default config structure for Errbot.\n\nReal default config usually looks like:\nBOT_ADMINISTRATORS = ['admin@localhost']\n\nIf I replace it with {{ variable_bot_administrators }}, the result is BOT_ADMINISTRATORS = ['admin@localhost'] only if the default value in sample_values is \"['admin@localhost']\". This is a bit hacky but fits the \"no loops\" constraint. Alternatively, I can define the variable as the list representation string.\n\nLet's refine the schema for lists to be strings containing the python list syntax if necessary, or just accept that for lists, the template might need to be:\nBOT_ADMINISTRATORS = {{ variable_bot_administrators }}\nwhere variable_bot_administrators defaults to \"['admin@localhost']\".\n\nLet's stick to the simplest interpretation: replace the literal value. If the literal value is a list, the variable must represent the whole list expression.\n\nLet's re-evaluate `variable_bot_rooms`. Default is usually an empty list or a list of rooms.\n\nLet's adjust the template to be more robust. I will assume the provided "
+  }
+}

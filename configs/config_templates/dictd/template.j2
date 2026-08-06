@@ -1,0 +1,38 @@
+# /etc/dictd/dictd.conf
+#
+# =============================================================================
+# Self-documenting Jinja2 template for dictd
+# =============================================================================
+# This template generates a valid dictd configuration file.
+# It is safe to reuse in an Ansible role.
+#
+# Available variables (from schema):
+#   - listen_to:     IP address (and optionally port) for dictd to listen on.
+#   - db_list_path:  Path to the file listing available dictionary databases.
+#
+# =============================================================================
+
+# Site section here:
+global {
+    # IP address (and optionally port) for dictd to listen on. Default is localhost-only.
+    listen_to {{ listen_to | default('127.0.0.1') }}
+
+    # bind to local interfacea only
+}
+
+# Access section here:
+access {
+    # Allow access from localhost
+    allow localhost
+    # Allow access from 127.0.0.1
+    allow 127.0.0.1
+    # this allows access only from local host
+    # Allow access from inetd server
+    allow inetd
+}
+
+# Database section here:
+# Path to the file listing available dictionary databases to include.
+include {{ db_list_path | default('/var/lib/dictd/db.list') }}
+
+# User section here:

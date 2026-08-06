@@ -1,6 +1,6 @@
 {
   "debug": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable verbose debug logging to stdout."
   },
@@ -22,32 +22,34 @@
   "log_level": {
     "type": "string",
     "default": "info",
-    "description": "Logging verbosity. Recommended: `info` for production; `debug` only for troubleshooting."
+    "description": "Logging verbosity. Recommended: `info` for production; `debug` only for troubleshooting.",
+    "enum": [
+      "debug",
+      "info",
+      "error"
+    ]
   },
   "services": {
     "type": "list",
     "default": [],
     "description": "List of notification services (URLs) to use for sending alerts.",
     "items": {
-      "type": "object",
-      "fields": {
-        "url": {
-          "type": "string",
-          "description": "Full Apprise URL (e.g., `discord://token@webhook`, `mailgun://key@domain`, etc.). See https://github.com/caronc/apprise#supported-notifications"
+      "url": {
+        "type": "string",
+        "description": "Full Apprise URL (e.g., `discord://token@webhook`, `mailgun://key@domain`, etc.). See https://github.com/caronc/apprise#supported-notifications"
+      },
+      "tags": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "tags": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Optional tags to group or target this service."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description for documentation."
-        }
+        "default": [],
+        "description": "Optional tags to group or target this service."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description for documentation."
       }
     }
   },
@@ -61,21 +63,18 @@
     "default": [],
     "description": "Advanced: Custom YAML-based service definitions (e.g., for plugins or extended config).",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Service name/key (used as YAML key)."
-        },
-        "config": {
-          "type": "object",
-          "description": "Key-value config for the inline service."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Description for documentation."
-        }
+      "name": {
+        "type": "string",
+        "description": "Service name/key (used as YAML key)."
+      },
+      "config": {
+        "type": "object",
+        "description": "Key-value config for the inline service."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Description for documentation."
       }
     }
   },
@@ -95,7 +94,7 @@
     }
   },
   "disable_ssl_verification": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Disable SSL/TLS certificate verification (\u26a0\ufe0f insecure \u2014 only for testing)."
   }

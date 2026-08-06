@@ -1,54 +1,140 @@
-# Configuration for Evolution Data Server (EDS)
-# This file controls the behavior of the Evolution Data Server daemon.
-# See 'man evolution-data-server' for detailed documentation.
+# =============================================================================
+# Evolution Data Server (EDS) Configuration
+# =============================================================================
+# This template configures the Evolution Data Server daemon. It manages CalDAV,
+# CardDAV, Addressbook, Calendar, Tasks, and Mail backends.
+#
+# Self-documenting: Every directive below is preceded by a comment explaining
+# the field's purpose and source from the Ansible variable schema.
+# =============================================================================
 
-# Base directories for user data and cache
-{{ base_directory }}
+# -----------------------------------------------------------------------------
+# Base directories
+# -----------------------------------------------------------------------------
 
-# Runtime directory for sockets and PID files
-{{ runtime_directory }}
+# Root directory where EDS stores user data files, calendars, and addressbooks.
+# Default: /var/lib/evolution-data-server
+base_directory={{ base_directory | default('/var/lib/evolution-data-server') }}
 
+# Directory for runtime files such as sockets, PID files, and locks.
+# Default: /run/evolution-data-server
+runtime_directory={{ runtime_directory | default('/run/evolution-data-server') }}
+
+# -----------------------------------------------------------------------------
 # Network settings: listen on specific addresses
-# Set to empty string to listen on all interfaces
-{% if bind_address %}bind_address={{ bind_address }}{% endif %}
+# -----------------------------------------------------------------------------
 
-# TCP port for CalDAV/CardDAV services
-{% if caldav_port %}caldav_port={{ caldav_port }}{% endif %}
-{% if carddav_port %}carddav_port={{ carddav_port }}{% endif %}
+# IP address to bind CalDAV/CardDAV services to (empty = all interfaces).
+# Default: '' (all interfaces)
+bind_address={{ bind_address | default('') }}
 
-# Enable/disable services
-{% if enable_addressbook %}addressbook={{ 'true' if enable_addressbook else 'false' }}{% endif %}
-{% if enable_calendar %}calendar={{ 'true' if enable_calendar else 'false' }}{% endif %}
-{% if enable_tasks %}tasks={{ 'true' if enable_tasks else 'false' }}{% endif %}
-{% if enable_mail %}mail={{ 'true' if enable_mail else 'false' }}{% endif %}
+# -----------------------------------------------------------------------------
+# CalDAV/CardDAV TCP ports
+# -----------------------------------------------------------------------------
 
-# Backend-specific configuration
-{% for backend in backends %}# Backend: {{ backend.name }}
-{{ backend.name }}_type={{ backend.type }}
-{% if backend.uri %}{{ backend.name }}_uri={{ backend.uri }}{% endif %}
-{% if backend.user %}{{ backend.name }}_user={{ backend.user }}{% endif %}
-{% if backend.password %}{{ backend.name }}_password={{ backend.password }}{% endif %}
-{% if backend.ssl %}{{ backend.name }}_ssl={{ 'true' if backend.ssl else 'false' }}{% endif %}
-{% if backend.starttls %}{{ backend.name }}_starttls={{ 'true' if backend.starttls else 'false' }}{% endif %}
+# TCP port for CalDAV service (default 8009). Set to 0 to disable.
+# Default: 8009
+caldav_port={{ caldav_port | default(8009) }}
+
+# TCP port for CardDAV service (default 8008). Set to 0 to disable.
+# Default: 8008
+carddav_port={{ carddav_port | default(8008) }}
+
+# -----------------------------------------------------------------------------
+# Service Enable/Disable switches
+# -----------------------------------------------------------------------------
+
+# Enable the addressbook service.
+# Default: True
+addressbook={{ enable_addressbook | default(true) | lower }}
+
+# Enable the calendar service.
+# Default: True
+calendar={{ enable_calendar | default(true) | lower }}
+
+# Enable the tasks (to-do list) service.
+# Default: True
+tasks={{ enable_tasks | default(true) | lower }}
+
+# Enable the mail (IMAP/SMTP) backend (may require separate mail backend config).
+# Default: True
+mail={{ enable_mail | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Remote Backend Configuration
+# -----------------------------------------------------------------------------
+
+# List of remote backends (e.g., IMAP, LDAP, WebDAV) for data sources.
+# Each backend in the list should define: name, type, uri, user, password,
+# ssl, starttls.
+{% for backend in backends | default([]) %}
+{% set bname = backend.name | default('unnamed') %}
+# Backend: {{ bname }}
+{{ bname }}_type={{ backend.type | default('') }}
+{% if backend.uri is defined and backend.uri %}{{ bname }}_uri={{ backend.uri }}{% endif %}
+{% if backend.user is defined and backend.user %}{{ bname }}_user={{ backend.user }}{% endif %}
+{% if backend.password is defined and backend.password %}{{ bname }}_password={{ backend.password }}{% endif %}
+{% if backend.ssl is defined %}{{ bname }}_ssl={{ backend.ssl | lower }}{% endif %}
+{% if backend.starttls is defined %}{{ bname }}_starttls={{ backend.starttls | lower }}{% endif %}
 {% endfor %}
 
-# Resource limits
-{% if max_connections %}max_connections={{ max_connections }}{% endif %}
-{% if max_cached_connections %}max_cached_connections={{ max_cached_connections }}{% endif %}
-{% if query_timeout %}query_timeout={{ query_timeout }}{% endif %}
+# -----------------------------------------------------------------------------
+# Resource Limits
+# -----------------------------------------------------------------------------
 
-# Logging configuration
-{% if log_level %}log_level={{ log_level }}{% endif %}
-{% if log_file %}log_file={{ log_file }}{% endif %}
+# Maximum number of concurrent client connections allowed.
+# Default: 100
+max_connections={{ max_connections | default(100) }}
 
-# Security settings
-{% if require_ssl %}require_ssl={{ 'true' if require_ssl else 'false' }}{% endif %}
-{% if ssl_cert_file %}ssl_cert_file={{ ssl_cert_file }}{% endif %}
-{% if ssl_key_file %}ssl_key_file={{ ssl_key_file }}{% endif %}
-{% if ssl_ca_file %}ssl_ca_file={{ ssl_ca_file }}{% endif %}
+# Maximum number of idle backend connections to keep in cache.
+# Default: 20
+max_cached_connections={{ max_cached_connections | default(20) }}
 
-# Authentication backends (optional overrides)
-{% for auth_backend in auth_backends %}# Auth backend: {{ auth_backend.name }}
-{% if auth_backend.module %}{{ auth_backend.name }}_module={{ auth_backend.module }}{% endif %}
-{% if auth_backend.method %}{{ auth_backend.name }}_method={{ auth_backend.method }}{% endif %}
+# Timeout in seconds for backend queries before aborting.
+# Default: 30
+query_timeout={{ query_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Verbosity of logs: 'none', 'fatal', 'critical', 'warning', 'info', 'debug'.
+# Default: info
+log_level={{ log_level | default('info') }}
+
+# Path to log file (set to empty string for syslog/stdout).
+# Default: /var/log/evolution-data-server.log
+log_file={{ log_file | default('/var/log/evolution-data-server.log') }}
+
+# -----------------------------------------------------------------------------
+# Security / SSL Settings
+# -----------------------------------------------------------------------------
+
+# Require SSL/TLS for all remote client connections.
+# Default: True
+require_ssl={{ require_ssl | default(true) | lower }}
+
+# Path to SSL certificate file (PEM format).
+# Default: /etc/ssl/certs/evolution-data-server.crt
+ssl_cert_file={{ ssl_cert_file | default('/etc/ssl/certs/evolution-data-server.crt') }}
+
+# Path to SSL private key file (PEM format).
+# Default: /etc/ssl/private/evolution-data-server.key
+ssl_key_file={{ ssl_key_file | default('/etc/ssl/private/evolution-data-server.key') }}
+
+# Path to CA certificate bundle for client verification (optional).
+# Default: /etc/ssl/certs/ca-certificates.crt
+ssl_ca_file={{ ssl_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# -----------------------------------------------------------------------------
+# Authentication Backends (Advanced)
+# -----------------------------------------------------------------------------
+
+# Custom authentication module definitions.
+# Each entry may define: name, module, method.
+{% for auth_backend in auth_backends | default([]) %}
+{% set aname = auth_backend.name | default('unnamed') %}
+# Auth backend: {{ aname }}
+{% if auth_backend.module is defined and auth_backend.module %}{{ aname }}_module={{ auth_backend.module }}{% endif %}
+{% if auth_backend.method is defined and auth_backend.method %}{{ aname }}_method={{ auth_backend.method }}{% endif %}
 {% endfor %}

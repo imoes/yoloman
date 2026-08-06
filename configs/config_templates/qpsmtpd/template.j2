@@ -1,75 +1,111 @@
-# Enable logging to syslog or a file
-{% if config.log_to_file %}
-log/file {{ config.log_file }}
-{% else %}
-log/syslog
-{% endif %}
+#!/bin/sh
 
-# Set the listening address and port
-{% for listener in config.listeners %}
-listen {{ listener.address }} {{ listener.port }}
-{% endfor %}
+### BEGIN INIT INFO
+# Provides: qpsmtpd
+# Required-Start: $local_fs $remote_fs $network $named
+# Should-Start: $syslog $mail-transport-agent clamav-daemon spamassassin
+# Required-Stop: $local_fs $remote_fs $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Start and stop the qpsmtpd SMTP daemon
+# Description: Qpsmtpd is an SMTP daemon which acts as a frontend
+#    for a mail transport system.
+### END INIT INFO
 
-# Maximum number of connections per IP
-maxconnections {{ config.max_connections_per_ip }}
+set -e
 
-# Timeout for connections (seconds)
-timeout {{ config.timeout }}
+. /lib/lsb/init-functions
 
-# Authentication backends (e.g., SQL, PAM, passwd file)
-{% for auth_backend in config.auth_backends %}
-auth/{{ auth_backend.type }} {{ auth_backend.config_file }}
-{% endfor %}
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
 
-# Plugins to enable, in order
-{% for plugin in config.plugins %}
-{% if plugin.enabled | default(true) %}plugin {{ plugin.name }}{% if plugin.options %} {{ plugin.options | join(' ') }}{% endif %}{% endif %}
-{% endfor %}
 
-# SpamAssassin integration
-{% if config.spamassassin.enabled %}
-plugin spamassassin port {{ config.spamassassin.port }} timeout {{ config.spamassassin.timeout }}
-{% endif %}
+PORT="{{ port }}"
+RUNAS="{{ runas }}"
+NICE=""
+INTERFACES=""
+LISTEN=""
+ENABLED="{{ enabled }}"
+SERVER="forkserver"
+EXTRA_ARGS=""
 
-# RBL (real-time blacklist) checks
-{% if config.rbl.enabled %}
-plugin rbl rbl {{ config.rbl.server }}
-{% endif %}
+[ -f "/etc/qpsmtpd/debconf-settings" ] && . "/etc/qpsmtpd/debconf-settings"
 
-# TLS/SSL configuration
-{% if config.tls.enabled %}
-tls_cert {{ config.tls.cert_file }}
-tls_key {{ config.tls.key_file }}
-{% if config.tls.ciphers %}tls_ciphers {{ config.tls.ciphers }}{% endif %}
-{% endif %}
+[ -x "/usr/bin/qpsmtpd-$SERVER" ] || exit 0
 
-# Vpopmail integration for virtual domains
-{% if config.vpopmail.enabled %}
-plugin vpopmail vpopmail_dir {{ config.vpopmail.vpopmail_dir }}
-{% endif %}
+[ "$ENABLED" = "true" -o "$ENABLED" = "1" ] || exit 0
 
-# Greylisting settings
-{% if config.greylisting.enabled %}
-plugin greylisting delay {{ config.greylisting.delay }} whitelist_time {{ config.greylisting.whitelist_time }}
-{% endif %}
+if [ "x$INTERFACES" != "x" ] ; then
+	LISTEN=`echo "$INTERFACES" | \
+		perl -pe 's/(\S+)/--listen-address $1/g'`
+fi
 
-# Rate limiting per IP
-{% if config.rate_limit.enabled %}
-plugin rate limit seconds {{ config.rate_limit.seconds }} max_per_second {{ config.rate_limit.max_per_second }}
-{% endif %}
+qpsmtpd_start()
+{
+	export QPSMTPD_CONFIG="/etc/qpsmtpd"
+	if [ ! -d "/var/run/qpsmtpd" ] ; then
+		mkdir -p /var/run/qpsmtpd
+		chown $RUNAS:adm /var/run/qpsmtpd
+		chmod 2755 /var/run/qpsmtpd
+	fi
+	start-stop-daemon --quiet --start \
+		--exec /usr/bin/qpsmtpd-$SERVER -- \
+		--port $PORT --user $RUNAS \
+		--pid-file /var/run/qpsmtpd/qpsmtpd.pid \
+		$LISTEN --detach $EXTRA_ARGS
+}
 
-# Allow specific IPs to bypass certain checks
-{% for whitelist_entry in config.whitelist %}
-{% if whitelist_entry.reason %}# {{ whitelist_entry.reason }}{% endif %}
-whitelist {{ whitelist_entry.ip }}
-{% endfor %}
+qpsmtpd_stop()
+{
+	# qpsmtpd is a perl script, and s-s-d's --exec option
+	# would look at the interpreter path rather than the script.  More
+	# seriously, however, --exec compares devices/inodes rather than
+	# executable paths, so --exec will break every time the perl package
+	# is upgraded (see Debian Bug#337942).  So, --exec isn't used at all.
+	start-stop-daemon --quiet --stop --retry 4 --oknodo \
+		--pidfile /var/run/qpsmtpd/qpsmtpd.pid \
+		--user "$RUNAS"
+}
 
-# Default action for rejected mail
-{% if config.reject_action == 'bounce' %}
-reject_action bounce
-{% else %}
-reject_action 550 Rejected
-{% endif %}
+qpsmtpd_status()
+{
+	echo -n "Checking status of qpsmtpd: "
+	if [ -f "/var/run/qpsmtpd/qpsmtpd.pid" ] ; then
+		if start-stop-daemon --quiet --stop --signal 0 \
+		       --pidfile /var/run/qpsmtpd/qpsmtpd.pid ; then
+			echo "running"
+			exit 0
+		else
+			echo "not running, stale PID file"
+			exit 1
+		fi
+	else
+		echo "not running"
+		exit 3
+	fi
+}
 
-# Queue backend (e.g., qmail-queue, maildrop)
-queue {{ config.queue }}
+case "$1" in
+	start)
+		echo -n "Starting qpsmtpd: "
+		qpsmtpd_start
+		echo "qpsmtpd-$SERVER."
+		;;
+	stop)
+		echo -n "Stopping qpsmtpd: "
+		qpsmtpd_stop
+		echo "qpsmtpd-$SERVER."
+		;;
+	restart|reload|force-reload)
+		qpsmtpd_stop
+		qpsmtpd_start
+		;;
+	status)
+		qpsmtpd_status
+		;;
+	*)
+		echo "usage: $0 {start|stop|restart|status}"
+		exit 1
+		;;
+esac
+
+exit 0

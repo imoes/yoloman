@@ -1,0 +1,78 @@
+{# GT5 (Grand Tree 5) Configuration Template #}
+{# This template generates command-line arguments and environment variable exports for the `gt5` tool. #}
+{# It is designed to be reusable within Ansible roles. #}
+
+{# Global Flags #}
+
+# debug: Turn on debug mode: generate HTML files without running a browser (see --debug).
+# Default: False
+{% if debug | default(False) %}--debug{% endif %}
+
+# cut_at: Do not show files/directories below this percent (0.01–30) of their parents (see --cut-at).
+# Default: 0.1
+{% if cut_at is defined %}--cut-at {{ cut_at | default(0.1) }}{% endif %}
+
+# diff_dir: Directory to store/read du-logs for diffing (see --diff-dir).
+# Default: '~/.gt5-diffs/'
+{% if diff_dir is defined %}--diff-dir {{ diff_dir | default('~/.gt5-diffs/') }}{% endif %}
+
+# max_depth: Do not show anything below this directory depth (see --max-depth).
+# Default: 5
+{% if max_depth is defined %}--max-depth {{ max_depth | default(5) }}{% endif %}
+
+# max_lines: Only consider this many largest entries from du output (see --max-lines).
+# Default: None (no limit)
+{% if max_lines is defined %}--max-lines {{ max_lines | default(None) }}{% endif %}
+
+# save_state: Force saving current state, overwriting previous --discard (see --save-state).
+# Default: False
+{% if save_state | default(False) %}--save-state{% endif %}
+
+# no_diffs: Disable history/diffing (e.g., for /tmp) (see --no-diffs).
+# Default: False
+{% if no_diffs | default(False) %}--no-diffs{% endif %}
+
+# link_files: Insert file links in HTML for browser access (see --link-files).
+# Default: False
+{% if link_files | default(False) %}--link-files{% endif %}
+
+# discard: Do not save current state, allow re-diffing later (see --discard).
+# Default: False
+{% if discard | default(False) %}--discard{% endif %}
+
+# with_mounts: Call du without -x (i.e., include mounted filesystems) (see --with-mounts).
+# Default: False
+{% if with_mounts | default(False) %}--with-mounts{% endif %}
+
+# verbose: Display messages during execution (see --verbose).
+# Default: False
+{% if verbose | default(False) %}--verbose{% endif %}
+
+# help: Display brief help and exit (see --help).
+# Default: False
+{% if help | default(False) %}--help{% endif %}
+
+# Environment Variable Exports #
+
+# browser: Force use of this textbrowser (GT5_BROWSER env var; see ENVIRONMENT).
+# Default: 'links'
+# Note: Only emitted if the variable is explicitly defined in the context.
+{% if browser is defined %}export GT5_BROWSER={{ browser | default('links') }}{% endif %}
+
+# charset: Force HTML charset instead of deriving from $LANG (GT5_CHARSET env var).
+# Default: None (auto-detect)
+# Note: Only emitted if the variable is explicitly defined in the context.
+{% if charset is defined %}export GT5_CHARSET={{ charset | default(None) }}{% endif %}
+
+# debug_dir: Directory for gt5.debug* output when --debug is set (GT5_DEBUG_DIR env var).
+# Default: None
+# Note: Only emitted if the variable is explicitly defined in the context.
+{% if debug_dir is defined %}export GT5_DEBUG_DIR={{ debug_dir | default(None) }}{% endif %}
+
+# Positional Arguments #
+
+# command_args: Positional arguments (directories or files) passed to gt5 (e.g., paths to directories or pregenerated du logs).
+# Default: [] (empty list)
+{% if command_args is defined and command_args | length > 0 %}# Positional arguments (dirs or files)
+{% for arg in command_args %}{{ arg }}
+{% endfor %}{% endif %}

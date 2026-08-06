@@ -1,31 +1,47 @@
-# Load the ejabberd_mod_logsession module
+# ==============================================================================
+# ejabberd_mod_logsession configuration
+# ==============================================================================
+# This block configures the `mod_logsession` module for ejabberd.
+# It controls how and when user session activity (connect/disconnect/auth) is logged.
+
 modules:
   mod_logsession:
-    # Path to the log file where session events will be written
-    # Supports strftime formatting (e.g., %Y-%m-%d) for daily rotation
-    log_dir: "{{ log_dir }}"
+    # Directory where session log files are written.
+    # May include strftime patterns like %Y-%m-%d for per-day logs.
+    # Default: /var/log/ejabberd
+    log_dir: "{{ log_dir | default('/var/log/ejabberd') }}"
 
-    # Log format: available placeholders are {user}, {resource}, {ip}, {timestamp}, {action}
-    # {action} = 'open', 'close', 'authenticated'
-    log_format: "{{ log_format }}"
+    # Format string for each log entry.
+    # Available placeholders: {user}, {resource}, {ip}, {timestamp}, {action}.
+    # Default: {timestamp} [{action}] {user}@{resource} from {ip}
+    log_format: "{{ log_format | default('{timestamp} [{action}] {user}@{resource} from {ip}') }}"
 
-    # Maximum size (in bytes) per log file before rotation
-    # 0 = no rotation (append to same file)
-    max_size: {{ max_size }}
+    # Maximum size (in bytes) per log file.
+    # Set to 0 to disable rotation.
+    # Default: 10485760
+    max_size: {{ max_size | default(10485760) }}
 
-    # Number of rotated log files to keep
-    max_files: {{ max_files }}
+    # Number of rotated log files to retain.
+    # Ignored if max_size is 0.
+    # Default: 7
+    max_files: {{ max_files | default(7) }}
 
-    # Whether to log session openings (true/false)
-    log_open: {{ log_open }}
+    # Log when a client opens a new session (connects).
+    # Default: true
+    log_open: {{ log_open | default(true) }}
 
-    # Whether to log session closures (true/false)
-    log_close: {{ log_close }}
+    # Log when a client closes its session (disconnects).
+    # Default: true
+    log_close: {{ log_close | default(true) }}
 
-    # Whether to log authentication events (true/false)
-    log_auth: {{ log_auth }}
+    # Log when a user successfully authenticates.
+    # Warning: may expose sensitive info.
+    # Default: false
+    log_auth: {{ log_auth | default(false) }}
 
-    # Optional: list of hosts for which to enable logging (if omitted, logs all hosts)
+    # Optional: list of XMPP hosts (domains) to log sessions for.
+    # If empty or omitted, log sessions for all configured hosts.
     hosts:
-{% for host in log_hosts %}      - "{{ host }}"
+{% for host in (log_hosts | default([])) %}
+      - "{{ host }}"
 {% endfor %}

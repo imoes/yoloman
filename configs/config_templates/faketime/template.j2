@@ -1,0 +1,70 @@
+# ==============================================================================
+# faketime Configuration Template
+# ==============================================================================
+# This template generates a script or configuration snippet that invokes
+# the 'faketime' utility to manipulate system time for specific commands.
+# It is designed to be idempotent and self-documenting based on the provided
+# schema fields: 'enabled' and 'commands'.
+# ==============================================================================
+
+# --- Global Switch ---
+# Description: Whether faketime commands should be included in the output
+# Default: true
+{% if enabled | default(true) | bool %}
+
+# --- Command Definitions ---
+# Description: List of faketime command definitions to include in the config file.
+# Each item in this list configures a single command invocation with
+# specific timestamp, program, and behavioral flags.
+{% for cmd in commands | default([]) %}
+
+    # ------------------------------------------------------------------------
+    # Command Entry: {{ loop.index }}
+    # ------------------------------------------------------------------------
+    # Program: {{ cmd.program | default('unknown') }}
+    # Description: {{ cmd.description | default('No description provided') | trim }}
+    # Timestamp: {{ cmd.timestamp | default([]) | join(' ') }}
+    # ------------------------------------------------------------------------
+
+    # Construct the faketime command line with optional flags:
+    # faketime <timestamp> [flags] <program> [args]
+
+    # Base command
+    faketime {{ cmd.timestamp | default([]) | join(' ') }} \
+      \
+      {# -m: Enable multi-threaded mode for the faked time #}
+      {% if cmd.multithreaded | default(false) | bool %}-m \
+      {% endif %}\
+      \
+      {# -p <pid>: Specify a PID to fake time for (if applicable) #}
+      {% if cmd.pid | default(none) is not none %}-p {{ cmd.pid }} \
+      {% endif %}\
+      \
+      {# --exclude-monotonic: Prevent faking monotonic clocks #}
+      {% if cmd.exclude_monotonic | default(false) | bool %}--exclude-monotonic \
+      {% endif %}\
+      \
+      {# --disable-shm: Disable shared memory optimization #}
+      {% if cmd.disable_shm | default(false) | bool %}--disable-shm \
+      {% endif %}\
+      \
+      {# --date-prog <prog>: Specify the date program to use #}
+      {% if cmd.date_prog | default(none) is not none %}--date-prog {{ cmd.date_prog }} \
+      {% endif %}\
+      \
+      {# -f: Use advanced date format #}
+      {% if cmd.use_advanced_format | default(false) | bool %}-f \
+      {% endif %}\
+      \
+      # The program to execute
+      {{ cmd.program }} \
+      \
+      # Arguments for the program
+      {% for arg in cmd.args | default([]) %}
+      {{ arg }} \
+      {% endfor %}
+
+{% endfor %}
+{% else %}
+# faketime is disabled in configuration; no commands generated.
+{% endif %}

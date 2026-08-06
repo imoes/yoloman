@@ -6,113 +6,12 @@
   },
   "rules_file": {
     "type": "string",
-    "default": "/etc/blockdomains/rules.txt",
-    "description": "Absolute path to the file containing domain blocking rules (one rule per line)."
-  },
-  "allowlist_file": {
-    "type": "string",
-    "default": "/etc/blockdomains/allowlist.txt",
-    "description": "Absolute path to the file containing domain patterns that should never be blocked."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Logging verbosity level: 'debug', 'info', 'warn', or 'error'."
+    "default": "/etc/blockdomains/blocked/*.acl",
+    "description": "Absolute path to the directory containing domain blocking rules (one rule per line)."
   },
   "log_file": {
     "type": "string",
-    "default": "/var/log/blockdomains/blockdomains.log",
+    "default": "/var/log/blockdomains.log",
     "description": "Path to the log file. Leave empty to log to stderr instead."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 10000,
-    "description": "Maximum number of concurrent HTTP/SSL connections the agent will inspect."
-  },
-  "connection_timeout_ms": {
-    "type": "number",
-    "default": 5000,
-    "description": "Timeout in milliseconds for establishing connections during inspection."
-  },
-  "use_system_dns": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, use system DNS resolution; if false, use the custom DNS servers list."
-  },
-  "custom_dns": {
-    "type": "list",
-    "default": [],
-    "description": "List of custom DNS server addresses (format: 'IP:port'). Only used when use_system_dns is false.",
-    "items": {
-      "type": "string",
-      "description": "DNS server address, e.g., '8.8.8.8:53' or '[2001:4860:4860::8888]:53'"
-    }
-  },
-  "tls_inspection": {
-    "type": "string",
-    "default": "disabled",
-    "description": "Whether to enable TLS inspection: 'enabled' or 'disabled'. When enabled, a CA cert/key must be provided."
-  },
-  "tls_ca_cert": {
-    "type": "string",
-    "default": "/etc/blockdomains/ca.crt",
-    "description": "Path to the CA certificate for TLS inspection (PEM format). Required if TLS inspection is enabled."
-  },
-  "tls_ca_key": {
-    "type": "string",
-    "default": "/etc/blockdomains/ca.key",
-    "description": "Path to the CA private key for TLS inspection (PEM format). Required if TLS inspection is enabled."
-  },
-  "rate_limit_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of rate-limiting rules to apply per source IP pattern (regex or CIDR).",
-    "items": {
-      "type": "object",
-      "description": "Rate limit rule for a specific IP pattern.",
-      "fields": {
-        "ip_pattern": {
-          "type": "string",
-          "default": "",
-          "description": "IP pattern (e.g., '192.168.1.0/24' or '10.0.0.*')."
-        },
-        "requests_per_second": {
-          "type": "number",
-          "default": 10,
-          "description": "Maximum requests per second allowed for this pattern."
-        }
-      }
-    }
-  },
-  "blocked_headers": {
-    "type": "list",
-    "default": [],
-    "description": "List of HTTP headers to block. Headers are matched case-insensitively.",
-    "items": {
-      "type": "object",
-      "description": "Header blocking rule.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Header name to block (e.g., 'X-Tracking-ID')."
-        },
-        "match_type": {
-          "type": "string",
-          "default": "exact",
-          "description": "Match strategy: 'exact' for full match, 'prefix' to block any header starting with the name."
-        }
-      }
-    }
-  },
-  "blocked_user_agents": {
-    "type": "list",
-    "default": [],
-    "description": "List of regular expressions to match against User-Agent headers. Matching agents will be blocked.",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "Regex pattern for User-Agent string (e.g., 'bot.*crawler')."
-    }
   }
 }

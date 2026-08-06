@@ -2,103 +2,56 @@
   "state_directory": {
     "type": "string",
     "default": "/var/lib/certmonger",
-    "description": "Directory where certmonger stores persistent state (certificates, keys, request metadata). Must be writable by the certmonger daemon."
+    "description": "Directory where certmonger stores its state data."
   },
   "tmp_directory": {
     "type": "string",
     "default": "/var/tmp/certmonger",
-    "description": "Directory for temporary files (e.g., CSRs, certificate chains). Should be cleared on reboot."
+    "description": "Directory used for temporary files during certificate operations."
   },
   "log_directory": {
     "type": "string",
     "default": "/var/log/certmonger",
-    "description": "Directory for log files. Set to empty string (\"\") to disable file logging."
+    "description": "Directory where certmonger log files are stored."
   },
   "log_level": {
     "type": "number",
     "default": 3,
-    "description": "Verbosity of logging: 0=none, 1=errors only, 2=warnings, 3=info (recommended), 4=debug. Higher levels increase disk usage and reduce performance."
+    "description": "Logging verbosity level."
   },
   "max_pending_requests": {
     "type": "number",
     "default": 100,
-    "description": "Maximum number of concurrent certificate requests (e.g., from enrollment or renewal). Increase if you experience 'too many pending' errors."
+    "description": "Maximum number of pending certificate requests."
   },
   "ca_cache_ttl": {
     "type": "number",
     "default": 86400,
-    "description": "How long (in seconds) to cache CA metadata (e.g., certificate chains, OCSP status). Set to 0 to disable caching (not recommended)."
+    "description": "Time-to-live for CA cache entries in seconds."
   },
   "max_ca_retries": {
     "type": "number",
     "default": 3,
-    "description": "Maximum number of retry attempts when contacting a CA. Set to 0 to retry indefinitely (e.g., for offline CAs)."
+    "description": "Maximum number of retries when contacting a CA."
   },
   "ca_retry_delay": {
     "type": "number",
     "default": 10,
-    "description": "Delay (in seconds) between consecutive CA contact retries. Increasing this helps avoid overwhelming slow or rate-limited CAs."
+    "description": "Delay in seconds between CA retry attempts."
   },
   "start_renewer_daemon": {
     "type": "bool",
     "default": true,
-    "description": "Whether to auto-start background renewal daemons for services (e.g., HTTP-based OCSP responders). Disable only in headless or containerized environments."
+    "description": "Whether to start the renewer daemon automatically."
   },
   "helpers_directory": {
     "type": "string",
     "default": "/usr/libexec/certmonger",
-    "description": "Path to the directory containing CA helper scripts (e.g., for NSS, Apache, Nginx). Must match the installed certmonger package."
-  },
-  "ca_types": {
-    "type": "list",
-    "default": [
-      {
-        "name": "nss",
-        "binary": "nss",
-        "description": "Supports local NSS databases (used by 389 Directory Server, Firefox, etc.)"
-      },
-      {
-        "name": "openldap",
-        "binary": "openldap",
-        "description": "For OpenLDAP/Sun Directory Server integration"
-      },
-      {
-        "name": "http",
-        "binary": "http",
-        "args": "http://localhost:8080/ca/ee/ca",
-        "description": "Generic HTTP/JSON-based CA (e.g., Dogtag PKI, EJBCA)"
-      },
-      {
-        "name": "pki",
-        "binary": "pki",
-        "args": "https://pki.example.com:8443/ca",
-        "description": "Dogtag PKI (FreeIPA) CA backend"
-      }
-    ],
-    "description": "List of CA types certmonger can interact with. Each item defines a CA type name, helper binary, and optional command-line arguments.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique identifier for the CA type (e.g., 'nss', 'http', 'pki')"
-      },
-      "binary": {
-        "type": "string",
-        "description": "Helper binary or script (must exist in helpers_directory) used to manage this CA type."
-      },
-      "args": {
-        "type": "string",
-        "default": "",
-        "description": "Optional command-line arguments passed to the helper binary (e.g., CA URL). Leave empty if not needed."
-      },
-      "description": {
-        "type": "string",
-        "description": "Human-readable description used for documentation (not parsed)."
-      }
-    }
+    "description": "Directory containing helper scripts for certificate operations."
   },
   "cache_ca_profiles": {
     "type": "bool",
     "default": false,
-    "description": "Whether to cache CA profile names (e.g., 'subCA', 'serverAuth'). Only affects some CA types (e.g., Dogtag)."
+    "description": "Whether to cache CA profiles."
   }
 }

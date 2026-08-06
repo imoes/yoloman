@@ -1,0 +1,47 @@
+# ==============================================================================
+# fstrcmp Command Configuration Template
+# ==============================================================================
+# This template generates configuration entries for invoking `fstrcmp` (fast string
+# comparison) with specific modes and argument patterns.
+#
+# Schema Field: `commands`
+# Description: List of command usage patterns for fstrcmp with specific modes
+#              and arguments. Each entry describes a scenario where fstrcmp is
+#              invoked with particular options.
+#
+# Supported fstrcmp Modes (derived from standard utility options):
+#   - pair:       Compare two strings/files (default behavior)
+#   - all:        Compare all strings against all others (pairwise)
+#   - best:       Select the best match from a list for each query string
+#   - byte:       Compare as raw byte sequences
+#   - string:     Compare as multi-byte strings (default in some contexts)
+#
+# Note: This is a metadata/configuration template. It does not execute fstrcmp
+#       but defines how it SHOULD be invoked in automation or documentation.
+# ==============================================================================
+
+{% for item in commands | default([]) %}
+# --------------------------------------------------------------------------
+# Command Pattern Entry
+# Schema Field: commands[{{ loop.index0 }}]
+# Description: {{ item.description | default('fstrcmp command pattern') }}
+# --------------------------------------------------------------------------
+# The mode defines the comparison strategy used by fstrcmp.
+# Valid values typically: pair, all, best, byte, string, etc.
+mode: {{ item.mode | default('pair') }}
+
+# Human-readable description of this specific usage pattern.
+description: "{{ item.description | default('') }}"
+
+# Arguments to pass to the fstrcmp executable for this pattern.
+# If args is empty or not defined, no additional arguments are included.
+{% if item.args is defined and item.args is iterable and not (item.args is mapping) %}
+args:
+{% for arg in item.args %}  - "{{ arg }}"
+{% endfor %}
+{% elif item.args is none %}
+# args: (empty)
+{% else %}
+# args: (not defined)
+{% endif %}
+{% endfor %}

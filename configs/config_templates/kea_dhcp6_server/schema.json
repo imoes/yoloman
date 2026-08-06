@@ -101,149 +101,137 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "number",
-          "default": 1,
-          "description": "Unique subnet identifier (1\u20134294967295)"
-        },
-        "subnet": {
-          "type": "string",
-          "default": "2001:db8:1::/64",
-          "description": "IPv6 subnet in CIDR notation"
-        },
-        "pools": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "object",
-            "fields": {
-              "pool": {
-                "type": "string",
-                "default": "2001:db8:1::1 - 2001:db8:1::ffff",
-                "description": "IPv6 address range or single address in pool (e.g., '2001:db8:1::10 - 2001:db8:1::ff')"
-              }
-            }
+      "id": {
+        "type": "number",
+        "default": 1,
+        "description": "Unique subnet identifier (1\u20134294967295)"
+      },
+      "subnet": {
+        "type": "string",
+        "default": "2001:db8:1::/64",
+        "description": "IPv6 subnet in CIDR notation"
+      },
+      "pools": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "pool": {
+            "type": "string",
+            "default": "2001:db8:1::1 - 2001:db8:1::ffff",
+            "description": "IPv6 address range or single address in pool (e.g., '2001:db8:1::10 - 2001:db8:1::ff')"
           }
-        },
-        "option_data": {
-          "type": "list",
-          "default": [
-            {
-              "name": "dns-servers",
-              "data": "2001:db8::1,2001:db8::2"
-            },
-            {
-              "name": "domain-search",
-              "data": "example.com"
-            }
-          ],
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string",
-                "default": "dns-servers",
-                "description": "Option name per RFC 8415 or IANA registry (e.g., 'dns-servers')"
-              },
-              "data": {
-                "type": "string",
-                "default": "",
-                "description": "Option value as string (e.g., comma-separated IPs for dns-servers)"
-              },
-              "code": {
-                "type": "number",
-                "default": null,
-                "description": "Option code (numeric override if not using name)"
-              },
-              "space": {
-                "type": "string",
-                "default": "dhcp6",
-                "description": "Option space (usually 'dhcp6')"
-              },
-              "csv_format": {
-                "type": "bool",
-                "default": true,
-                "description": "If true, interpret data as CSV format"
-              }
-            }
-          }
-        },
-        "reservation_mode": {
-          "type": "string",
-          "default": "out-of-pool",
-          "description": "How to handle reservations: 'disabled', 'global', 'out-of-pool', 'all'"
-        },
-        "reservations": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "object",
-            "fields": {
-              "hostname": {
-                "type": "string",
-                "default": "",
-                "description": "Reserved hostname"
-              },
-              "ip_address": {
-                "type": "string",
-                "default": "",
-                "description": "Reserved IPv6 address"
-              },
-              "du_id": {
-                "type": "string",
-                "default": "",
-                "description": "DUID (hex string without 0x prefix) of the client device unit"
-              },
-              "client_id": {
-                "type": "string",
-                "default": "",
-                "description": "Optional client DUID"
-              },
-              "hw_address": {
-                "type": "string",
-                "default": "",
-                "description": "Optional link-layer address (e.g., 'aa:bb:cc:dd:ee:ff')"
-              }
-            }
-          }
-        },
-        "preferred_lifetime": {
-          "type": "number",
-          "default": 3600,
-          "description": "Preferred lifetime (seconds) for addresses in this subnet"
-        },
-        "valid_lifetime": {
-          "type": "number",
-          "default": 7200,
-          "description": "Valid lifetime (seconds) for addresses"
-        },
-        "min_valid_lifetime": {
-          "type": "number",
-          "default": 0,
-          "description": "Minimum acceptable valid lifetime override"
-        },
-        "max_valid_lifetime": {
-          "type": "number",
-          "default": 0,
-          "description": "Maximum acceptable valid lifetime override"
-        },
-        "declined_leases_detection": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable detection and logging of declined addresses (e.g., NAK'd by client)"
-        },
-        "cache_threshold": {
-          "type": "number",
-          "default": 0.0,
-          "description": "Cache threshold (0.0\u20131.0) before flushing leases; 0 disables caching"
-        },
-        "cache_max_age": {
-          "type": "number",
-          "default": 0,
-          "description": "Max age (seconds) for cached entries; 0 means unlimited"
         }
+      },
+      "option_data": {
+        "type": "list",
+        "default": [
+          {
+            "name": "dns-servers",
+            "data": "2001:db8::1,2001:db8::2"
+          },
+          {
+            "name": "domain-search",
+            "data": "example.com"
+          }
+        ],
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "dns-servers",
+            "description": "Option name per RFC 8415 or IANA registry (e.g., 'dns-servers')"
+          },
+          "data": {
+            "type": "string",
+            "default": "",
+            "description": "Option value as string (e.g., comma-separated IPs for dns-servers)"
+          },
+          "code": {
+            "type": "number",
+            "default": null,
+            "description": "Option code (numeric override if not using name)"
+          },
+          "space": {
+            "type": "string",
+            "default": "dhcp6",
+            "description": "Option space (usually 'dhcp6')"
+          },
+          "csv_format": {
+            "type": "bool",
+            "default": true,
+            "description": "If true, interpret data as CSV format"
+          }
+        }
+      },
+      "reservation_mode": {
+        "type": "string",
+        "default": "out-of-pool",
+        "description": "How to handle reservations: 'disabled', 'global', 'out-of-pool', 'all'"
+      },
+      "reservations": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "hostname": {
+            "type": "string",
+            "default": "",
+            "description": "Reserved hostname"
+          },
+          "ip_address": {
+            "type": "string",
+            "default": "",
+            "description": "Reserved IPv6 address"
+          },
+          "du_id": {
+            "type": "string",
+            "default": "",
+            "description": "DUID (hex string without 0x prefix) of the client device unit"
+          },
+          "client_id": {
+            "type": "string",
+            "default": "",
+            "description": "Optional client DUID"
+          },
+          "hw_address": {
+            "type": "string",
+            "default": "",
+            "description": "Optional link-layer address (e.g., 'aa:bb:cc:dd:ee:ff')"
+          }
+        }
+      },
+      "preferred_lifetime": {
+        "type": "number",
+        "default": 3600,
+        "description": "Preferred lifetime (seconds) for addresses in this subnet"
+      },
+      "valid_lifetime": {
+        "type": "number",
+        "default": 7200,
+        "description": "Valid lifetime (seconds) for addresses"
+      },
+      "min_valid_lifetime": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum acceptable valid lifetime override"
+      },
+      "max_valid_lifetime": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum acceptable valid lifetime override"
+      },
+      "declined_leases_detection": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable detection and logging of declined addresses (e.g., NAK'd by client)"
+      },
+      "cache_threshold": {
+        "type": "number",
+        "default": 0.0,
+        "description": "Cache threshold (0.0\u20131.0) before flushing leases; 0 disables caching"
+      },
+      "cache_max_age": {
+        "type": "number",
+        "default": 0,
+        "description": "Max age (seconds) for cached entries; 0 means unlimited"
       }
     },
     "description": "List of IPv6 subnets to serve"
@@ -272,45 +260,39 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "default",
-          "description": "Region name (used in zone selection)"
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Region name (used in zone selection)"
+      },
+      "dns_server_ips": {
+        "type": "list",
+        "default": [
+          "127.0.0.1"
+        ],
+        "items": {
+          "type": "string"
         },
-        "dns_server_ips": {
-          "type": "list",
-          "default": [
-            "127.0.0.1"
-          ],
-          "items": {
-            "type": "string"
+        "description": "IP addresses of authoritative DNS servers"
+      },
+      "tsig_keys": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "dhcp6_key",
+            "description": "TSIG key name (e.g., 'dhcp6_key.example.com')"
           },
-          "description": "IP addresses of authoritative DNS servers"
-        },
-        "tsig_keys": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string",
-                "default": "dhcp6_key",
-                "description": "TSIG key name (e.g., 'dhcp6_key.example.com')"
-              },
-              "algorithm": {
-                "type": "string",
-                "default": "hmac-sha256",
-                "description": "TSIG algorithm (e.g., hmac-sha256, hmac-sha1)"
-              },
-              "secret": {
-                "type": "string",
-                "default": "",
-                "description": "Base64-encoded TSIG secret"
-              }
-            }
+          "algorithm": {
+            "type": "string",
+            "default": "hmac-sha256",
+            "description": "TSIG algorithm (e.g., hmac-sha256, hmac-sha1)"
+          },
+          "secret": {
+            "type": "string",
+            "default": "",
+            "description": "Base64-encoded TSIG secret"
           }
         }
       }
@@ -321,18 +303,15 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "fields": {
-        "library": {
-          "type": "string",
-          "default": "",
-          "description": "Path to hook library (e.g., '/usr/lib/kea/hooks/libdhcp_lease_cmds.so')"
-        },
-        "parameters": {
-          "type": "string",
-          "default": "{}",
-          "description": "JSON string of parameters to pass to the hook library"
-        }
+      "library": {
+        "type": "string",
+        "default": "",
+        "description": "Path to hook library (e.g., '/usr/lib/kea/hooks/libdhcp_lease_cmds.so')"
+      },
+      "parameters": {
+        "type": "string",
+        "default": "{}",
+        "description": "JSON string of parameters to pass to the hook library"
       }
     },
     "description": "List of hook libraries to load at startup (e.g., for lease commands)"

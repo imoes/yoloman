@@ -1,0 +1,132 @@
+# ==============================================================================
+# dfrs Configuration File
+# ==============================================================================
+# This configuration file drives the `dfrs` utility (a filesystem usage reporter
+# similar to `df` but with enhanced formatting). It is read as a shell script
+# environment where each variable corresponds to a command-line flag or option.
+#
+# To customize dfrs behavior via Ansible, map the variables below to the
+# `dfrs_*` environment variables or export them in the service unit.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# columns
+# --------------------------------------------------------------------------
+# desc='List of columns to display; valid values: filesystem, type, bar, used,
+#       used_percentage, available, available_percentage, capacity, mounted_on'
+# default=['filesystem', 'bar', 'used', 'available', 'capacity', 'mounted_on']
+# This option determines which information fields are printed for each file system.
+# If undefined, the standard default column set is used.
+{% if columns is defined %}
+DFRS_COLUMNS="{{ columns | join(',') }}"
+{% else %}
+DFRS_COLUMNS="filesystem,bar,used,available,capacity,mounted_on"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# all
+# --------------------------------------------------------------------------
+# desc='Show all file systems (equivalent to -aa)'
+# default=False
+# When enabled, displays all file systems, including duplicates and empty ones.
+# Takes precedence over `more` if both are true.
+{% if all | default(False) | bool %}
+DFRS_ALL="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# more
+# --------------------------------------------------------------------------
+# desc='Show more file systems (equivalent to -a)'
+# default=False
+# When enabled, displays more file systems than the default filtering.
+# Only effective if `all` is not already true.
+{% if all | default(False) | bool is not true and more | default(False) | bool %}
+DFRS_MORE="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# human_readable
+# --------------------------------------------------------------------------
+# desc='Print sizes in powers of 1024 (equivalent to -h)'
+# default=True
+# When enabled, output sizes are displayed in human-readable format (e.g., 1K, 234M, 2G).
+# Takes precedence over `si` if both are true.
+{% if human_readable | default(True) | bool %}
+DFRS_HUMAN_READABLE="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# si
+# --------------------------------------------------------------------------
+# desc='Print sizes in powers of 1000 (equivalent to -H)'
+# default=False
+# When enabled, output sizes are displayed in SI units (powers of 1000, e.g., 1K, 234M, 2G).
+# Only effective if `human_readable` is not true.
+{% if human_readable | default(True) | bool is not true and si | default(False) | bool %}
+DFRS_SI="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# inodes
+# --------------------------------------------------------------------------
+# desc='Show inode usage instead of block usage (equivalent to -i)'
+# default=False
+# When enabled, displays inode statistics rather than block usage statistics.
+{% if inodes | default(False) | bool %}
+DFRS_INODES="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# total
+# --------------------------------------------------------------------------
+# desc='Produce and show a grand total line (equivalent to --total)'
+# default=False
+# When enabled, adds a final line summarizing the totals for all listed file systems.
+{% if total | default(False) | bool %}
+DFRS_TOTAL="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# local
+# --------------------------------------------------------------------------
+# desc='Limit listing to local file systems (equivalent to -l)'
+# default=False
+# When enabled, filters out network and virtual file systems (e.g., NFS, tmpfs).
+{% if local | default(False) | bool %}
+DFRS_LOCAL="1"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# color
+# --------------------------------------------------------------------------
+# desc="When to colorize output; must be 'auto', 'always', or 'never'"
+# default='auto'
+# Controls whether colored output is used. Options: 'auto' (detect tty), 'always', 'never'.
+{% if color is defined %}
+DFRS_COLOR="{{ color }}"
+{% else %}
+DFRS_COLOR="auto"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# mounts_file
+# --------------------------------------------------------------------------
+# desc='Path to mount info file (e.g., /proc/mounts)'
+# default=''
+# Overrides the default path to the mount information source (typically /proc/mounts
+# or /etc/fstab). If empty, the system default is used.
+{% if mounts_file is defined and mounts_file | length > 0 %}
+DFRS_MOUNTS="{{ mounts_file }}"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# no_aliases
+# --------------------------------------------------------------------------
+# desc='Disable filesystem shorthand alias resolution (e.g., LVM)'
+# default=False
+# When enabled, disables the resolution of filesystem type aliases (such as LVM or md).
+# Useful for seeing raw device types.
+{% if no_aliases | default(False) | bool %}
+DFRS_NO_ALIASES="1"
+{% endif %}

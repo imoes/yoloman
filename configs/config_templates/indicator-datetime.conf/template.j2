@@ -1,40 +1,50 @@
-# Enable the indicator-datetime service
-enabled: {{ enabled }}
+# Enable the datetime indicator service.
+# When false, the indicator does not start or display any time information.
+enabled: {{ enabled | default(true) | lower }}
 
-# Timezone to use (e.g., 'America/New_York' or 'UTC')
-timezone: {{ timezone }}
+# Timezone identifier to use for all date/time rendering.
+# Examples: 'Europe/London', 'America/Los_Angeles', 'UTC'.
+timezone: {{ timezone | default('UTC') }}
 
-# Format for date display in the panel (strftime-compatible)
-format_date: '{{ format_date }}'
+# strftime format string for the date shown in the panel.
+# Example: '%A, %B %d' yields 'Monday, January 01'.
+format_date: '{{ format_date | default("%a, %b %d") }}'
 
-# Format for time display in the panel (strftime-compatible)
-format_time: '{{ format_time }}'
+# strftime format string for the time shown in the panel.
+# Example: '%I:%M %p' yields '02:30 PM'.
+format_time: '{{ format_time | default("%H:%M") }}'
 
-# Whether to show seconds in the time display
-show_seconds: {{ show_seconds }}
+# Whether to display seconds in the time field (e.g., HH:MM:SS).
+show_seconds: {{ show_seconds | default(false) | lower }}
 
-# Whether to display a 24-hour clock
-show_24h: {{ show_24h }}
+# Use 24-hour time format instead of 12-hour AM/PM.
+show_24h: {{ show_24h | default(true) | lower }}
 
-# Whether to automatically detect and apply locale settings
-auto_locale: {{ auto_locale }}
+# Automatically set date/time formats based on the system locale.
+# When true, format_date and format_time may be overridden by locale detection.
+auto_locale: {{ auto_locale | default(true) | lower }}
 
-# List of additional date/time formats for custom display (e.g., secondary clock)
+# Additional custom date/time formats for secondary clocks or special contexts.
+# Each entry must have 'type' (a label/identifier) and 'pattern' (strftime string).
 formats:
-{% for fmt in formats %}  - type: '{{ fmt.type }}'
+{% for fmt in formats | default([], true) %}  - type: '{{ fmt.type }}'
     pattern: '{{ fmt.pattern }}'
 {% endfor %}
 
-# Path to custom calendar file (for holidays, events, etc.)
-calendar_file: {{ calendar_file }}
+# Optional path to a custom ICS or vCard calendar file for holidays/events.
+# Leave empty to disable calendar integration.
+calendar_file: {{ calendar_file | default('') }}
 
-# Whether to enable event notifications from calendar
-event_notifications: {{ event_notifications }}
+# Show notifications for upcoming calendar events.
+# Requires calendar_file to be set and valid.
+event_notifications: {{ event_notifications | default(false) | lower }}
 
-# Path to custom font file (optional; for locale-specific glyphs)
-font_path: {{ font_path }}
+# Optional path to a TrueType font file for rendering locale-specific glyphs.
+# Useful for CJK, Arabic, or other non-Latin scripts. Leave empty for system default.
+font_path: {{ font_path | default('') }}
 
-# List of custom holidays (ISO 8601 date strings or names like 'Easter')
+# List of holidays to highlight in the calendar.
+# Accepts ISO dates ('YYYY-MM-DD') or recognized names ('Easter', 'Christmas').
 holidays:
-{% for holiday in holidays %}  - {{ holiday | quote }}
+{% for holiday in holidays | default([], true) %}  - {{ holiday | quote }}
 {% endfor %}

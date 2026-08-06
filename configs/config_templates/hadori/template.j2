@@ -1,0 +1,43 @@
+# Configuration for hadori(1): hardlink identical files
+#
+# This template generates a configuration block for the `hadori` utility,
+# which identifies and replaces duplicate files with hardlinks to save disk space.
+#
+# Fields:
+#   paths: List of directories/files to process.
+#   ignore_mtime: Ignore modification time when comparing files.
+#   dry_run: Perform a trial run without making changes.
+#   verbose: Print which files get linked.
+#   debug: Print detailed debug info.
+#   stdin: Read arguments from stdin instead of command line.
+
+{% for entry in (paths | default([{'path': '.'}])) -%}
+# Path to scan for hardlinkable files.
+# Default: '.'
+path = {{ entry.path | default('.') }}
+
+# Whether to scan subdirectories recursively.
+# Default: true
+recursive = {{ entry.recursive | default(true) | lower }}
+
+{% endfor %}
+
+# Ignore modification time when comparing files (matches --no-time).
+# Default: false
+ignore_mtime = {{ ignore_mtime | default(false) | lower }}
+
+# Perform a trial run without making changes (matches --dry-run).
+# Default: false
+dry_run = {{ dry_run | default(false) | lower }}
+
+# Print which files get linked (matches --verbose).
+# Default: false
+verbose = {{ verbose | default(false) | lower }}
+
+# Print detailed debug info on examined files (matches --debug).
+# Default: false
+debug = {{ debug | default(false) | lower }}
+
+# Read arguments (paths) from stdin instead of command line arguments.
+# Default: false
+stdin = {{ stdin | default(false) | lower }}

@@ -1,0 +1,144 @@
+# =============================================================================
+# dwdiff configuration template
+# =============================================================================
+# This file configures `dwdiff`, a word-level diff tool.
+# All settings are optional; omitted settings fall back to dwdiff defaults.
+# The variable `values` is expected to be a dictionary mapping field names
+# to their desired values. If `values` is undefined, empty, or a field is
+# missing from it, the template emits the field's schema default behavior
+# (i.e. nothing is written for that option).
+# =============================================================================
+
+[default]
+
+# Use locale-dependent punctuation characters as delimiters (e.g., [default] section: `punctuation`)
+# Default: False (punctuation is NOT used as delimiters by default)
+{% if (values | default({})).punctuation | default(false) %}punctuation
+{% endif %}
+
+# List of single characters to use as delimiters (e.g., [default] section: `delimiters ",.!?"`)
+# Default: [] (empty list — no custom delimiters)
+{% set delims = (values | default({})).delimiters | default([]) %}
+{% if delims | length > 0 %}delimiters "{{ delims | join(' ') }}"
+{% endif %}
+
+# List of characters to treat as whitespace (e.g., [default] section: `white-space " \t"`)
+# Default: [] (empty list — no custom whitespace characters)
+{% set ws = (values | default({})).white_space | default([]) %}
+{% if ws | length > 0 %}white-space "{{ ws | join(' ') }}"
+{% endif %}
+
+# String to mark beginning of deleted text (default: '[-')
+# Default: '[-'
+{% set sd = (values | default({})).start_delete | default('[-') %}
+{% if sd is string and sd != '' %}start-delete "{{ sd }}"
+{% endif %}
+
+# String to mark end of deleted text (default: '-]')
+# Default: '-]'
+{% set std = (values | default({})).stop_delete | default('-]') %}
+{% if std is string and std != '' %}stop-delete "{{ std }}"
+{% endif %}
+
+# String to mark beginning of inserted text (default: '{+')
+# Default: '{+'
+{% set si = (values | default({})).start_insert | default('{+') %}
+{% if si is string and si != '' %}start-insert "{{ si }}"
+{% endif %}
+
+# String to mark end of inserted text (default: '+}')
+# Default: '+}'
+{% set sti = (values | default({})).stop_insert | default('+}') %}
+{% if sti is string and sti != '' %}stop-insert "{{ sti }}"
+{% endif %}
+
+# Minimum width for line numbers; 0 = disable (e.g., 5 for `line-numbers 5`)
+# Default: 0 (disabled)
+{% set ln = (values | default({})).line_numbers | default(0) %}
+{% if ln is number and ln > 0 %}line-numbers {{ ln }}
+{% endif %}
+
+# Number of context lines to show around changes (0 = disable)
+# Default: 0 (disabled)
+{% set ctx = (values | default({})).context | default(0) %}
+{% if ctx is number and ctx > 0 %}context {{ ctx }}
+{% endif %}
+
+# Number of words to use for context-aware matching (0 = disable, default: 1)
+# Default: 1
+{% set mc = (values | default({})).match_context | default(1) %}
+{% if mc is number and mc > 0 %}match-context {{ mc }}
+{% endif %}
+
+# Suppress printing of deleted words
+# Default: False
+{% if (values | default({})).no_deleted | default(false) %}no-deleted
+{% endif %}
+
+# Suppress printing of inserted words
+# Default: False
+{% if (values | default({})).no_inserted | default(false) %}no-inserted
+{% endif %}
+
+# Suppress printing of common words
+# Default: False
+{% if (values | default({})).no_common | default(false) %}no-common
+{% endif %}
+
+# Print word statistics at end
+# Default: False
+{% if (values | default({})).statistics | default(false) %}statistics
+{% endif %}
+
+# Ignore case differences
+# Default: False
+{% if (values | default({})).ignore_case | default(false) %}ignore-case
+{% endif %}
+
+# Ignore character formatting differences (Unicode compatibility decomposition)
+# Default: False
+{% if (values | default({})).ignore_formatting | default(false) %}ignore-formatting
+{% endif %}
+
+# Color specification string (e.g., 'red,green' or 'bright_red,blue:bold')
+# Default: '' (no custom color spec)
+{% set cs = (values | default({})).color_spec | default('') %}
+{% if cs is string and cs != '' %}color {{ cs }}
+{% endif %}
+
+# Use overstriking (bold/underscore) for terminal output
+# Default: False
+{% if (values | default({})).printer | default(false) %}printer
+{% endif %}
+
+# Overstrike deleted whitespace for `less(1)` compatibility
+# Default: False
+{% if (values | default({})).less_mode | default(false) %}less-mode
+{% endif %}
+
+# Marker for paragraph separators between blocks of whitespace-only changes
+# Default: '--'
+{% set ps = (values | default({})).paragraph_separator | default('--') %}
+{% if ps is string and ps != '' %}paragraph-separator "{{ ps }}"
+{% endif %}
+
+# Repeat delimiters at line boundaries when changes cross newlines
+# Default: False
+{% if (values | default({})).repeat_markers | default(false) %}repeat-markers
+{% endif %}
+
+# Produce wdiff-compatible output format
+# Default: False
+{% if (values | default({})).wdiff_output | default(false) %}wdiff-output
+{% endif %}
+
+# Diff algorithm: 'best', 'normal', or 'fast'
+# Default: 'normal'
+{% set algo = (values | default({})).algorithm | default('normal') %}
+{% if algo is string and algo != '' %}algorithm {{ algo }}
+{% endif %}
+
+# Aggregate close changes (reduces post-processing)
+# Default: False
+{% if (values | default({})).aggregate_changes | default(false) %}aggregate-changes
+{% endif %}

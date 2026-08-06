@@ -1,0 +1,43 @@
+# ==============================================================================
+# ftpcopy Configuration Template
+# ==============================================================================
+# This file configures `ftpcopy` mirror jobs. Each job block represents a single
+# FTP synchronization task defined by a host, remote directory, and local directory.
+#
+# Schema Reference:
+#   jobs (list): List of mirror jobs. Each item is a map with keys:
+#     - host (string, required): The FTP server hostname or IP address.
+#     - remote_dir (string, required): The remote directory path on the FTP server.
+#     - local_dir (string, optional): The local directory to mirror into. Defaults to '.'.
+#     - options (list, optional): List of arbitrary option strings to pass to the ftpcopy command.
+# ==============================================================================
+
+{% for job in (jobs | default([])) %}
+# ==============================================================================
+# Mirror Job Configuration
+# Each iteration defines a single FTP synchronization task.
+# ==============================================================================
+
+# host: The FTP server hostname or IP address to mirror from.
+# Maps from the 'ftp' capability's 'host' role.
+host {{ (job | default({})).host | default('') }}
+
+# remote_dir: The remote directory path on the FTP server to sync.
+# Required by the schema; defaults to '/' if missing.
+remote_dir {{ (job | default({})).remote_dir | default('/') }}
+
+# local_dir: The local directory on the host to mirror into.
+# Optional; defaults to '.' if missing.
+local_dir {{ (job | default({})).local_dir | default('.') }}
+
+# options: Additional command-line options for this specific job.
+# Iterates over the optional list of strings.
+{% for option in ((job | default({})).options | default([])) %}
+# Option argument: {{ option }}
+{{ option }}
+{% endfor %}
+
+{% endfor %}
+
+# If no jobs are defined, the configuration remains empty.
+# To enable mirroring, populate the 'jobs' list in the Ansible variables.

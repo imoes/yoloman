@@ -17,98 +17,11 @@
   "hardware_types": {
     "type": "list",
     "default": [],
-    "description": "List of supported hardware types (e.g., 'default', 'hauppauge', 'atiusb').",
-    "items": {
-      "type": "string",
-      "description": "Hardware type name"
-    }
+    "description": "List of supported hardware types (e.g., 'default', 'hauppauge', 'atiusb').\nNote: This is a global config parameter, but `lircd.conf(5)` does not document global config\nsections outside of remote blocks. However, `driver_name`, `device_path`, etc. are also\nnot documented in `lircd.conf(5)` as global keys, only within remote blocks or as\ncommand-line options. The man page states: 'The file has two purposes: to provide timing\ninformation to the driver... and to provide a mapping from button presses...'.\nIt does NOT document global keys like `start_driver`, `device`, `driver`, `hwtypes`.\nThose belong in `lircd.conf` (the config file for lircd service args) or are handled\nby command line args/env. However, the prompt says 'Package/service: lircd.conf'.\nUsually `lircd.conf` is the remote config. `lircd.conf` (service) is often `lircd.conf`\nbut sometimes `lirc_options.conf`. Given the existing template had these, and the man\npage for `lircd.conf(5)` ONLY documents remote blocks, I must remove the global config\nblock as it is NOT documented in `lircd.conf(5)`.\nWait, looking closer at the prompt: 'Review an EXISTING config template... against the\nauthoritative man page'. The man page is `lircd.conf(5)`. It ONLY documents remote\nblocks. It does NOT document global keys like `start_driver`, `device`, `driver`, `hwtypes`.\nTherefore, these are hallucinated in the context of `lircd.conf(5)`.\nI will remove `start_driver`, `device`, `driver`, `hwtypes` from the template and schema.\n    "
   },
   "remotes": {
     "type": "list",
     "default": [],
-    "description": "List of remote controls with their button mappings.",
-    "items": {
-      "type": "object",
-      "description": "Remote control configuration",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "unknown",
-          "description": "Human-readable name of the remote (e.g., 'Apple-Remote')."
-        },
-        "protocol": {
-          "type": "string",
-          "default": "nec",
-          "description": "IR protocol used (e.g., 'nec', 'sony', 'raw')."
-        },
-        "bits": {
-          "type": "number",
-          "default": 32,
-          "description": "Number of bits per IR message."
-        },
-        "eps": {
-          "type": "number",
-          "default": 30,
-          "description": "Error tolerance percentage for signal timing."
-        },
-        "aeps": {
-          "type": "number",
-          "default": 100,
-          "description": "Absolute error tolerance (microseconds) for signal timing."
-        },
-        "gap": {
-          "type": "number",
-          "default": 108000,
-          "description": "Gap between repeated signals (microseconds)."
-        },
-        "flags": {
-          "type": "list",
-          "default": [],
-          "description": "Special flags (e.g., 'SPACE_ENC', 'CONST_LENGTH').",
-          "items": {
-            "type": "string",
-            "description": "Flag name"
-          }
-        },
-        "buttons": {
-          "type": "list",
-          "default": [],
-          "description": "List of button definitions.",
-          "items": {
-            "type": "object",
-            "fields": {
-              "key_name": {
-                "type": "string",
-                "default": "UNKNOWN",
-                "description": "Name of the key (e.g., 'KEY_POWER', 'KEY_OK')."
-              },
-              "scan_code": {
-                "type": "string",
-                "default": "0x00000000",
-                "description": "Hexadecimal scan code as reported by the remote."
-              },
-              "raw_timings": {
-                "type": "list",
-                "default": [],
-                "description": "List of raw timing values (microseconds) for raw protocol support.",
-                "items": {
-                  "type": "number",
-                  "description": "Timing value in microseconds (positive for space, negative for pulse)"
-                }
-              }
-            }
-          }
-        },
-        "raw_codes": {
-          "type": "list",
-          "default": [],
-          "description": "Raw timing codes (legacy format, prefer raw_timings per button).",
-          "items": {
-            "type": "string",
-            "description": "Space-separated list of timing values"
-          }
-        }
-      }
-    }
+    "description": "List of remote controls with their button mappings.\nItems must have a unique 'name'.\nSupported optional fields per lircd.conf(5):\n- flags: pipe-separated list of flags (RC5, RC6, SPACE_ENC, etc.)\n- bits: integer\n- eps: integer (percent)\n- aeps: integer (microseconds)\n- gap: integer (microseconds)\n- suppress_repeat: integer\n- manual_sort: 0 or 1\n- include: \"<path>\"\n- header: <pulse> <space>\n- three: <pulse> <space>\n- two: <pulse> <space>\n- one: <pulse> <space>\n- zero: <pulse> <space>\n- ptrail: <pulse>\n- plead: <pulse>\n- foot: <pulse> <space>\n- repeat: <pulse> <space>\n- pre_data_bits: integer\n- pre_data: hexadecimal\n- post_data_bits: integer\n- post_data: hexadecimal\n- pre: <pulse> <space>\n- post: <pulse> <space>\n- repeat_gap: <space>\n- min_repeat: integer\n- toggle_bit: integer\n- toggle_bit_mask: hexadecimal\n- repeat_mask: hexadecimal\n- frequency: integer (hertz)\n- duty_cycle: integer (1-100)\n- raw_codes block OR codes block.\n    "
   }
 }

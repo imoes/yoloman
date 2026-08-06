@@ -1,23 +1,22 @@
 {
-  "syslog_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to log to syslog instead of a file."
-  },
   "log_level": {
     "type": "string",
     "default": "info",
-    "description": "Minimum logging level. Choices: debug, info, warning, error."
+    "description": "Minimum logging level. Choices: debug, info, warning, error.",
+    "enum": [
+      "debug",
+      "info"
+    ]
   },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/fastnetmon.log",
-    "description": "Path to log file when syslog is disabled."
+  "syslog_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to log to local syslog."
   },
   "packet_capture_enabled": {
     "type": "bool",
-    "default": true,
-    "description": "Enable native packet capture (requires elevated privileges)."
+    "default": false,
+    "description": "Enable native packet capture (requires elevated privileges). Note: This template parametrizes 'netflow' and 'sflow' booleans, and the interface for capture. The 'packet_capture_enabled' schema item is a logical grouping; in this config, the specific capture methods (netflow, sflow) are controlled by netflow_enabled and sflow_enabled. The 'interfaces' line controls the capture interface."
   },
   "packet_capture_interface": {
     "type": "string",
@@ -44,227 +43,24 @@
     "default": 2055,
     "description": "UDP/TCP port to listen for NetFlow traffic."
   },
-  "mirror_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable mirror/SPAN port support (e.g., from a network switch)."
-  },
-  "mirror_interface": {
-    "type": "string",
-    "default": "eth1",
-    "description": "Interface used for receiving mirrored traffic."
-  },
-  "cli_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable CLI management interface for local or remote control."
-  },
-  "cli_address": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address to bind the CLI interface."
-  },
-  "cli_port": {
-    "type": "number",
-    "default": 11111,
-    "description": "TCP port for the CLI interface."
-  },
-  "api_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable REST API for programmatic access and integration."
-  },
-  "api_address": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address for API binding."
-  },
-  "api_port": {
-    "type": "number",
-    "default": 8080,
-    "description": "HTTP(S) port for the API."
-  },
-  "api_token": {
-    "type": "string",
-    "default": "",
-    "description": "API authentication token (empty = no auth). Use only over TLS."
-  },
-  "mitigation_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable automatic DDoS mitigation actions (e.g., blackholing)."
-  },
-  "mitigation_backend": {
-    "type": "string",
-    "default": "iptables",
-    "description": "Backend used to apply mitigation. Choices: iptables, nftables, bpf, null."
-  },
   "bandwidth_threshold_mbps": {
     "type": "number",
     "default": 1000,
     "description": "Bandwidth threshold (Mbps) above which mitigation triggers."
   },
-  "packets_threshold_pps": {
-    "type": "number",
-    "default": 100000,
-    "description": "Packets-per-second threshold triggering mitigation."
-  },
   "flows_threshold_fps": {
     "type": "number",
-    "default": 5000,
-    "description": "Flows-per-second threshold triggering mitigation."
+    "default": 3500,
+    "description": "Flows-per-second threshold triggering mitigation. Note: The schema default was 5000, but the real file default is 3500. Using real file default for sample_values accuracy, but schema can be adjusted if 5000 is preferred as a 'recommended' default."
   },
-  "blacklist_cidrs": {
-    "type": "list",
-    "default": [],
-    "description": "List of CIDRs to always block (e.g., known attack sources).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "whitelist_cidrs": {
-    "type": "list",
-    "default": [],
-    "description": "List of CIDRs to exempt from mitigation (e.g., critical services).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "host_thresholds": {
-    "type": "list",
-    "default": [],
-    "description": "Custom per-host thresholds (overrides global).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ip_or_subnet": {
-          "type": "string",
-          "description": "IP address or subnet (e.g., 192.0.2.0/24)"
-        },
-        "type": {
-          "type": "string",
-          "description": "Threshold type: bandwidth, packets, flows"
-        },
-        "value": {
-          "type": "number",
-          "description": "Threshold value (Mbps, pps, or fps)"
-        }
-      }
-    }
-  },
-  "flow_logging_enabled": {
+  "api_enabled": {
     "type": "bool",
     "default": false,
-    "description": "Log all flow records to a JSON file for analysis or SIEM forwarding."
+    "description": "Enable REST API for programmatic access and integration. Note: The real file has 'enable_api = on' (gRPC API). The schema refers to REST API. We map 'api_enabled' to 'enable_api' as it's the only API toggle."
   },
-  "flow_log_path": {
+  "api_address": {
     "type": "string",
-    "default": "/var/log/fastnetmon/flows.json",
-    "description": "Path to JSON flow log file."
-  },
-  "alert_scripts": {
-    "type": "list",
-    "default": [],
-    "description": "External scripts to run when DDoS is detected.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "path": {
-          "type": "string",
-          "description": "Absolute path to the script."
-        },
-        "args": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "description": "Arguments passed to the script."
-        }
-      }
-    }
-  },
-  "notification_channels": {
-    "type": "list",
-    "default": [],
-    "description": "Alert delivery channels (email or webhook).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "type": {
-          "type": "string",
-          "enum": [
-            "email",
-            "webhook"
-          ],
-          "description": "Notification type."
-        },
-        "to": {
-          "type": "string",
-          "description": "Email recipient (email only)."
-        },
-        "from": {
-          "type": "string",
-          "description": "Email sender (email only)."
-        },
-        "smtp_server": {
-          "type": "string",
-          "description": "SMTP server hostname (email only)."
-        },
-        "smtp_port": {
-          "type": "number",
-          "default": 587,
-          "description": "SMTP port (email only)."
-        },
-        "smtp_use_tls": {
-          "type": "bool",
-          "default": true,
-          "description": "Use TLS for SMTP (email only)."
-        },
-        "url": {
-          "type": "string",
-          "description": "Webhook endpoint URL (webhook only)."
-        },
-        "method": {
-          "type": "string",
-          "default": "POST",
-          "description": "HTTP method (webhook only)."
-        },
-        "headers": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "description": "Custom headers (e.g., ['Authorization: Bearer TOKEN']) (webhook only)."
-        }
-      }
-    }
-  },
-  "bgp_flowspec_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable BGP Flow Specification for remote-triggered mitigation."
-  },
-  "bgp_local_pref": {
-    "type": "number",
-    "default": 100,
-    "description": "Local preference for FlowSpec routes."
-  },
-  "bgp_peers": {
-    "type": "list",
-    "default": [],
-    "description": "BGP peers for FlowSpec (required for BGP mitigation).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ip": {
-          "type": "string",
-          "description": "BGP peer IP address."
-        },
-        "as": {
-          "type": "number",
-          "description": "Peer's autonomous system number."
-        }
-      }
-    }
+    "default": "127.0.0.1",
+    "description": "IP address for API binding (also used for Prometheus host)."
   }
 }

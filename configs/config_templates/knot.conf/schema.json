@@ -37,7 +37,15 @@
   "log_level": {
     "type": "string",
     "default": "notice",
-    "description": "Verbosity of logging. Choose from: critical, error, warning, notice, info, debug."
+    "description": "Verbosity of logging. Choose from: critical, error, warning, notice, info, debug.",
+    "enum": [
+      "critical",
+      "error",
+      "warning",
+      "notice",
+      "info",
+      "debug"
+    ]
   },
   "servers": {
     "type": "list",
@@ -56,33 +64,30 @@
       }
     ],
     "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "string",
-          "default": "",
-          "description": "Unique identifier for this server instance (used internally)."
-        },
-        "listen": {
-          "type": "string",
-          "default": "0.0.0.0",
-          "description": "IP address to bind to (e.g., 0.0.0.0 for all IPv4, :: for all IPv6)."
-        },
-        "port": {
-          "type": "number",
-          "default": 53,
-          "description": "Port number to listen on (standard DNS port: 53)."
-        },
-        "protocol": {
-          "type": "string",
-          "default": "udp/tcp",
-          "description": "Protocol(s) to serve: 'udp', 'tcp', or 'udp/tcp'."
-        },
-        "interface": {
-          "type": "string",
-          "default": "",
-          "description": "Optional network interface name to bind to (e.g., eth0). If omitted, uses all interfaces matching 'listen'."
-        }
+      "id": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for this server instance (used internally)."
+      },
+      "listen": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind to (e.g., 0.0.0.0 for all IPv4, :: for all IPv6)."
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Port number to listen on (standard DNS port: 53)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "udp/tcp",
+        "description": "Protocol(s) to serve: 'udp', 'tcp', or 'udp/tcp'."
+      },
+      "interface": {
+        "type": "string",
+        "default": "",
+        "description": "Optional network interface name to bind to (e.g., eth0). If omitted, uses all interfaces matching 'listen'."
       }
     },
     "description": "List of network endpoints (interfaces/ports/protocols) KNOT will listen on."
@@ -98,34 +103,31 @@
       }
     ],
     "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "string",
-          "default": "",
-          "description": "Unique identifier for this ACL."
-        },
-        "address": {
-          "type": "string",
-          "default": "",
-          "description": "CIDR list of allowed/denied addresses (comma-separated, e.g., 192.168.0.0/16, 10.0.0.0/8)."
-        },
-        "action": {
-          "type": "string",
-          "default": "allow",
-          "description": "Action for matching traffic: 'allow', 'refuse', 'deny', or 'notify'.",
-          "enum": [
-            "allow",
-            "refuse",
-            "deny",
-            "notify"
-          ]
-        },
-        "log": {
-          "type": "boolean",
-          "default": false,
-          "description": "If true, log rejected requests matching this ACL."
-        }
+      "id": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for this ACL."
+      },
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "CIDR list of allowed/denied addresses (comma-separated, e.g., 192.168.0.0/16, 10.0.0.0/8)."
+      },
+      "action": {
+        "type": "string",
+        "default": "allow",
+        "description": "Action for matching traffic: 'allow', 'refuse', 'deny', or 'notify'.",
+        "enum": [
+          "allow",
+          "refuse",
+          "deny",
+          "notify"
+        ]
+      },
+      "log": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, log rejected requests matching this ACL."
       }
     },
     "description": "Access control lists to govern which clients can query or transfer zones."
@@ -143,57 +145,54 @@
       }
     ],
     "items": {
-      "type": "object",
-      "fields": {
-        "domain": {
-          "type": "string",
-          "default": "",
-          "description": "Zone\u2019s domain name (e.g., example.com). Required."
-        },
-        "file": {
-          "type": "string",
-          "default": "",
-          "description": "Zone file path relative to zonefile-dir (e.g., example.com.zone). Required for master zones."
-        },
-        "notify": {
-          "type": "boolean",
-          "default": false,
-          "description": "If true, send AXFR notifies to configured masters/secondaries."
-        },
-        "axfr": {
-          "type": "string",
-          "default": "allow",
-          "description": "AXFR access: 'allow', 'refuse', or ACL ID (e.g., 'localnet').",
-          "enum": [
-            "allow",
-            "refuse"
-          ]
-        },
-        "masters": {
-          "type": "string",
-          "default": "",
-          "description": "Comma-separated list of master server IPs for slave zones (e.g., '192.0.2.1,192.0.2.2')."
-        },
-        "journal": {
-          "type": "boolean",
-          "default": true,
-          "description": "If true, use journal file for zone changes (required for incremental zone transfers)."
-        },
-        "dnssec": {
-          "type": "boolean",
-          "default": false,
-          "description": "If true, enable DNSSEC for this zone."
-        },
-        "dnssec_signing": {
-          "type": "string",
-          "default": "auto",
-          "description": "DNSSEC signing mode: 'auto', 'manual', or 'off'.",
-          "enum": [
-            "auto",
-            "manual",
-            "off"
-          ]
-        }
+      "domain": {
+        "type": "string",
+        "default": "",
+        "description": "Zone\u2019s domain name (e.g., example.com). Required."
+      },
+      "file": {
+        "type": "string",
+        "default": "",
+        "description": "Zone file path relative to zonefile-dir (e.g., example.com.zone). Required for master zones."
+      },
+      "notify": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, send AXFR notifies to configured masters/secondaries."
+      },
+      "axfr": {
+        "type": "string",
+        "default": "allow",
+        "description": "AXFR access: 'allow', 'refuse', or ACL ID (e.g., 'localnet').",
+        "enum": [
+          "allow",
+          "refuse"
+        ]
+      },
+      "masters": {
+        "type": "string",
+        "default": "",
+        "description": "Comma-separated list of master server IPs for slave zones (e.g., '192.0.2.1,192.0.2.2')."
+      },
+      "journal": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, use journal file for zone changes (required for incremental zone transfers)."
+      },
+      "dnssec": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, enable DNSSEC for this zone."
+      },
+      "dnssec_signing": {
+        "type": "string",
+        "default": "auto",
+        "description": "DNSSEC signing mode: 'auto', 'manual', or 'off'.",
+        "enum": [
+          "auto",
+          "manual",
+          "off"
+        ]
       }
     },
     "description": "List of zones managed by this KNOT instance. At least one zone is required."
@@ -202,46 +201,43 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "string",
-          "default": "",
-          "description": "Policy identifier (used in zone config via key-policy: <id>)."
-        },
-        "algorithm": {
-          "type": "string",
-          "default": "ECDSAP256SHA256",
-          "description": "DNSSEC algorithm (e.g., RSASHA256, ECDSAP256SHA256).",
-          "enum": [
-            "RSASHA256",
-            "RSASHA512",
-            "ECDSAP256SHA256",
-            "ECDSAP384SHA384",
-            "ED25519",
-            "ED448"
-          ]
-        },
-        "size": {
-          "type": "number",
-          "default": 0,
-          "description": "Key size in bits (0 means use default for algorithm; e.g., 2048 for RSASHA256)."
-        },
-        "ttl": {
-          "type": "number",
-          "default": 3600,
-          "description": "TTL for DNSKEY and DS records in seconds."
-        },
-        "lifetime": {
-          "type": "number",
-          "default": 0,
-          "description": "Key validity period in seconds (0 = no automatic rollover)."
-        },
-        "replay_protection": {
-          "type": "boolean",
-          "default": true,
-          "description": "If true, enable replay protection for DNSKEY RRSIGs."
-        }
+      "id": {
+        "type": "string",
+        "default": "",
+        "description": "Policy identifier (used in zone config via key-policy: <id>)."
+      },
+      "algorithm": {
+        "type": "string",
+        "default": "ECDSAP256SHA256",
+        "description": "DNSSEC algorithm (e.g., RSASHA256, ECDSAP256SHA256).",
+        "enum": [
+          "RSASHA256",
+          "RSASHA512",
+          "ECDSAP256SHA256",
+          "ECDSAP384SHA384",
+          "ED25519",
+          "ED448"
+        ]
+      },
+      "size": {
+        "type": "number",
+        "default": 0,
+        "description": "Key size in bits (0 means use default for algorithm; e.g., 2048 for RSASHA256)."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 3600,
+        "description": "TTL for DNSKEY and DS records in seconds."
+      },
+      "lifetime": {
+        "type": "number",
+        "default": 0,
+        "description": "Key validity period in seconds (0 = no automatic rollover)."
+      },
+      "replay_protection": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, enable replay protection for DNSKEY RRSIGs."
       }
     },
     "description": "DNSSEC key policies used for automatic key management. Required only for signed zones."
@@ -250,33 +246,30 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "string",
-          "default": "",
-          "description": "Remote identifier (used in ACLs, zone masters, etc.)."
-        },
-        "address": {
-          "type": "string",
-          "default": "",
-          "description": "IP address of remote server (required)."
-        },
-        "port": {
-          "type": "number",
-          "default": 53,
-          "description": "Remote server port (default 53)."
-        },
-        "protocol": {
-          "type": "string",
-          "default": "udp/tcp",
-          "description": "Protocol: 'udp', 'tcp', or 'udp/tcp'.",
-          "enum": [
-            "udp",
-            "tcp",
-            "udp/tcp"
-          ]
-        }
+      "id": {
+        "type": "string",
+        "default": "",
+        "description": "Remote identifier (used in ACLs, zone masters, etc.)."
+      },
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of remote server (required)."
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Remote server port (default 53)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "udp/tcp",
+        "description": "Protocol: 'udp', 'tcp', or 'udp/tcp'.",
+        "enum": [
+          "udp",
+          "tcp",
+          "udp/tcp"
+        ]
       }
     },
     "description": "List of remote servers (e.g., for forwarding, master/secondary relations, or recursion)."

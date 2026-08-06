@@ -1,64 +1,50 @@
-# lpd.conf - LPRng printer spooler configuration
-# Global settings controlling daemon behavior
+#!/bin/sh
+#
+# source:
+#   $Source: /var/cvs/hosts/quoininc/smoke/etc/cron.daily/lprng,v $
+#
+# revision:
+#   @(#) $Id: lprng,v 1.1 1998/01/11 02:19:10 jplejacq Exp $
+#
+# copyright:
+#   Copyright (C) 1997 Jean Pierre LeJacq <jplejacq@quoininc.com>
+#
+# description:
+#   Host configuration of cron daily program for lprng.
+#
+#   Reports warnings or errors using the syslog facility.  If there
+#   are no errors, removes junk files older than a day.
 
-# Enable debug logging to stderr (useful for troubleshooting)
-Debug: {{ debug | lower }}
+test -x /usr/sbin/checkpc || exit 0
+test -e /etc/printcap || exit 0
 
-# Path to spool directory where print jobs and status files are stored
-SpoolDir: {{ spool_dir }}
+# filter defining what errors to look for:
+CS_WARN="Warning"
+CS_ERROR="lp\:  Need to fix"
 
-# User account under which lpd runs (usually 'lp')
-User: {{ lpd_user }}
+CS_DENY="${CS_WARN}|${CS_ERROR}"
 
-# Maximum number of simultaneous print jobs per queue
-MaxJobs: {{ max_jobs }}
 
-# Maximum size (in bytes) for a single print job; 0 = unlimited
-MaxJobSize: {{ max_job_size }}
+# filter defining which errors you'll accept:
+CS_LOCK_OWN="Warning - owner/group of ./var/lock. are 0/0, not 7/7"
+CS_LOCK_PERM="Warning - permissions of ./var/lock. are 041777, not 042700"
+CS_MISS_LOCKFILE="Warning -   LPD Lockfile .* does not exist!"
 
-# Time (in seconds) to wait before giving up on a printer that fails to respond
-RemotePrinterConnectTimeout: {{ remote_printer_connect_timeout }}
+CS_ALLOW="${CS_LOCK_OWN}|${CS_LOCK_PERM}|$CS_MISS_LOCKFILE"
 
-# Hostname to bind lpd to (empty or '*' = all interfaces)
-BindAddr: {{ bind_addr | default('*') }}
 
-# Port to listen on (default: 515)
-Port: {{ port }}
+# main:
 
-# Enable/disable support for LPR protocol over IPv6
-IPv6: {{ ipv6 | lower }}
+  if [ -x /usr/sbin/checkpc ]
+  then
 
-# Enable/disable support for LPRng's extended protocols (e.g., LPD+ for job control)
-Extended: {{ extended | lower }}
+    /usr/sbin/checkpc | grep -E "${CS_DENY}" | grep -q -v -E "${CS_ALLOW}" ; RV=$?
+    if [ "$RV" = "0" ]
+    then
+      /usr/bin/logger -p "lpr.err" -t "lpd" "cron.daily found errors, run checkpc for details."
+    else
+      /usr/sbin/checkpc -r -A 1D
+    fi
+  fi
 
-# Enable/disable print job logging to syslog
-LogJob: {{ log_job | lower }}
-
-# Logging level for lpd (0–7; higher = more verbose)
-LogLevel: {{ log_level }}
-
-# List of printers managed by this lpd instance
-# Each printer block defines queue, device, backend, and options
-{% for printer in printers %}
-# Printer: {{ printer.name }} - {{ printer.comment | default('No comment') }}
-{{ printer.name }}:dev={{ printer.device }},backend={{ printer.backend | default('') }},filter={{ printer.filter | default('') }}{% if printer.options %},{% for opt in printer.options %}{{ opt }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
-{% if printer.auth_required %}
-# Authentication required for this queue (e.g., 'user' or 'none')
-Auth:{{ printer.name }}:user
-{% endif %}
-{% endfor %}
-
-# Optional default printer (used if no destination specified)
-# Uncomment to set a default queue
-{% if default_printer %}
-# Default queue for unspecified jobs
-DefaultQueue: {{ default_printer }}
-{% endif %}
-
-# Access control: allow/deny hosts or networks
-{% for rule in access_rules %}
-# Access control: {{ rule.action | upper }} {{ rule.source }}
-{% if rule.action == 'allow' %}Allow{{ rule.source }}
-{% elif rule.action == 'deny' %}Deny{{ rule.source }}
-{% endif %}
-{% endfor %}
+exit 0

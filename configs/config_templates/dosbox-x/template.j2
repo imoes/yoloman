@@ -1,0 +1,73 @@
+; ============================================================================
+; DOSBox-X Configuration Template
+; ============================================================================
+; This file configures the DOSBox-X emulator.
+; ============================================================================
+
+[sdl]
+; ============================================================================
+; SDL render output backend (e.g., surface, opengl, openglshaders, ttf, sdl2, xvid).
+; See DOSBox-X docs for full list.
+; ============================================================================
+output = {{ output | default('surface') }}
+
+[render]
+; ============================================================================
+; Enable aspect ratio correction for rendering.
+; ============================================================================
+aspect = {{ render_aspect | default(false) | ternary('true', 'false') }}
+
+[vga]
+; ============================================================================
+; Emulated video adapter/machine type (e.g., vgaonly, svga_s3, pc98, cga, ega, tandy).
+; Must match documented valid choices.
+; ============================================================================
+machine = {{ machine | default('svga_s3') }}
+
+[cpu]
+; ============================================================================
+; CPU core type (auto, normal, full, dynamic, simple). See DOSBox-X documentation.
+; ============================================================================
+core = {{ cpu_core | default('auto') }}
+
+; ============================================================================
+; Emulated CPU cycles (auto, fixed, mixed). If numeric, must be integer percentage (e.g., '7500').
+; ============================================================================
+cycles = {{ cpu_cycles | default('auto') }}
+
+[autoexec]
+; ============================================================================
+; Commands executed at startup (one per line).
+; ============================================================================
+{% for line in autoexec_lines | default([]) %}{{ line }}
+{% endfor %}
+
+[mixer]
+; ============================================================================
+; Disable internal DOS mixer (useful for avoiding audio conflicts).
+; ============================================================================
+nomixer = {{ mixer_nomixer | default(false) | ternary('true', 'false') }}
+
+[midi]
+; ============================================================================
+; MIDI output device (none, mt32, OPL2, OPL3, generic).
+; ============================================================================
+mididevice = {{ midi_device | default('mt32') }}
+
+[ipx]
+; ============================================================================
+; Enable IPX networking support.
+; ============================================================================
+ipx = {{ ipx_enabled | default(false) | ternary('true', 'false') }}
+
+[serial]
+; ============================================================================
+; Serial port 1 configuration: none, real, direct, pipe.
+; ============================================================================
+serial1 = {{ serial1_type | default('none') }}
+
+[parallel]
+; ============================================================================
+; Parallel port 1 configuration: none, direct, lpt1.
+; ============================================================================
+parallel1 = {{ parallel1_type | default('none') }}

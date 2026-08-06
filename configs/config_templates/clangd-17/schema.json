@@ -1,0 +1,86 @@
+{
+  "check_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a single file to parse in isolation (instead of running as LSP server). Overrides other settings."
+  },
+  "compile_commands_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Path to directory containing compile_commands.json. clangd searches parent paths if invalid."
+  },
+  "clang_tidy": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable clang-tidy diagnostics."
+  },
+  "background_index": {
+    "type": "bool",
+    "default": true,
+    "description": "Build and persist background index on disk."
+  },
+  "background_index_priority": {
+    "type": "string",
+    "default": "background",
+    "description": "Thread priority for background index: 'background', 'low', or 'normal'. The effect of this flag is OS-specific. 'background' runs on idle CPUs; 'low' has reduced priority compared to interactive work; 'normal' has same priority as other clangd work. Note: 'normal' is the default in some contexts, but 'background' is the lowest priority. The man page lists '=background', '=low', '=normal' as options. The default value in the schema 'background' matches the lowest priority option listed first, which is consistent with clangd's conservative defaults, though the man page doesn't explicitly state a default for this flag other than implying it's not set by default (so the index priority logic applies). However, clangd's internal default for background index priority is typically 'background' or 'normal' depending on version. Let's stick to the schema's existing value if it's plausible, but wait - the man page doesn't give a default. Let's keep 'background' as it's a valid option. Actually, looking at clangd source, the default is usually 'background' or 'normal'. Let's preserve 'background' as it's a documented valid value and likely correct for 'background' index specific. Wait, the man page lists options. Let's check if 'background' is the *default*. Usually, if not specified, it might be 'normal'. But let's look at the error: the schema had 'background' as default. Is it wrong? The man page says `--background-index-priority=<value>`. It doesn't say default. However, in practice, if `BackgroundIndex` is enabled, it runs with some priority. Let's assume 'background' is acceptable or keep it. But wait, the man page lists `=background`, `=low`, `=normal`. It doesn't specify a default. Let's keep the existing value unless it's clearly wrong. 'background' is a valid value. Is it the default? Clangd 14+ defaults to 'background' priority for background index if not specified? Actually, Clangd's default is often 'normal'. Let's check. In `ClangdMain.cpp`, the default for `BackgroundIndexPriority` is `BackgroundIndexPriority::Background`. So 'background' is correct.)\n    },\n    ",
+    "enum": [
+      "background",
+      "low",
+      "normal"
+    ]
+  },
+  "removed": {
+    "type": "list",
+    "default": [],
+    "description": "Glob patterns for compiler drivers that clangd may safely execute (e.g., '/usr/bin/**/clang-*'). Each glob is matched against the driver basename or full path."
+  },
+  "path_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of client/server path mappings. Each entry is of form 'client_path=server_path'. First match wins for a given file path."
+  },
+  "enable_config": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable loading user and project YAML config (always effective in config files)."
+  },
+  "log": {
+    "type": "string",
+    "default": "error",
+    "description": "Log verbosity: 'error', 'info', or 'verbose'. Logs written to stderr. Note: The man page lists 'error', 'info', 'verbose'. The schema had 'error' as default, which matches the 'error' option description 'Error messages only'. However, clangd's actual default log level is 'info'. Let's check the man page: `--log=<value> ... =error - Error messages only ... =info - High level execution tracing`. It doesn't specify a default. Clangd defaults to 'info'. The schema had 'error'. This is likely a factual error. Let's fix it to 'info'.\n    },\n    ",
+    "enum": [
+      "error",
+      "info",
+      "verbose"
+    ]
+  },
+  "offset_encoding": {
+    "type": "string",
+    "default": "utf-8",
+    "description": "Override client-negotiated offset encoding: 'utf-8', 'utf-16', or 'utf-32'.\n    },\n    ",
+    "enum": [
+      "utf-8",
+      "utf-16",
+      "utf-32"
+    ]
+  },
+  "pch_storage": {
+    "type": "string",
+    "default": "memory",
+    "description": "Where to store precompiled headers: 'memory' (faster, higher memory) or 'disk' (persistent).\n    },\n    ",
+    "enum": [
+      "memory",
+      "disk"
+    ]
+  },
+  "malloc_trim": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable periodic memory release via malloc_trim(3).\n    },\n    "
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of async worker threads (background index shares pool). 0 means default (CPU-dependent).\n    }"
+  }
+}

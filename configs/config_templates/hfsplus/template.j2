@@ -1,0 +1,31 @@
+{# ============================================================================== #}
+{# hfsplus(7) configuration template                                                #}
+{# Manages HFS+ volume mounting and filesystem checks using hpmount/hpumount/hpfsck #}
+{# This file is self-documenting: every directive is preceded by its schema comment #}
+{# ============================================================================== #}
+
+{# --- Mounts --- #}
+{# List of HFS+ volumes to mount using hpmount(1); each item specifies device, #}
+{# mountpoint, and optionally options. All fields are required unless stated. #}
+{%- for item in hfsplus_mounts | default([]) %}
+{# Mount {{ item.volume | default('unknown') }} to {{ item.mountpoint }} #}
+{%- if item.options is defined and item.options %}
+hpmount {{ item.device | default('') }} {{ item.mountpoint | default('') }} {{ item.options | join(' ') }}
+{%- else %}
+hpmount {{ item.device | default('') }} {{ item.mountpoint | default('') }}
+{%- endif %}
+{%- endfor %}
+
+{# --- Unmounts --- #}
+{# If true, run hpumount -a to unmount all HFS+ volumes during shutdown or cleanup. #}
+{%- if hfsplus_unmount_all | default(false) %}
+hpumount -a
+{%- endif %}
+
+{# --- Pre-mount Check --- #}
+{# If true, run hpfsck(1) on the device before mounting any HFS+ volume. #}
+{%- if hfsplus_check_before_mount | default(false) %}
+{# Device node to check with hpfsck if hfsplus_check_before_mount is enabled. #}
+{# Ignored otherwise. #}
+hpfsck {{ hfsplus_device | default('/dev/sdX') }}
+{%- endif %}

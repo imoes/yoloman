@@ -1,63 +1,94 @@
-# Jabber Multi-User Conference (MUC) component configuration
-# Hostname and XMPP domain for this MUC component
-jid: {{ jid }}
+# ==============================================================================
+# Jabber Multi-User Conference (MUC) Component Configuration
+# ==============================================================================
+# This template generates the configuration for a MUC (Multi-User Chat) component
+# within an XMPP/Jabber infrastructure. It manages room creation, occupancy limits,
+# authentication, and logging.
+# ==============================================================================
 
-# Network port to listen for client (component) connections
-port: {{ port }}
+# -- JID and Network Configuration --
 
-# Secret shared secret used to authenticate this component to the server
-secret: {{ secret }}
+# JID (Jabber ID) of the MUC component; must be unique within the XMPP domain.
+jid: {{ (jid | default('muc.example.com')) | string }}
 
-# Path to log file (or 'stdout', 'stderr' for console logging)
-log: {{ log }}
+# Port number for component-to-server communication (commonly 5347).
+port: {{ (port | default(5347)) | int }}
 
-# Logging level: 'info', 'debug', 'warn', 'error', 'critical'
-log_level: {{ log_level }}
+# -- Authentication & Security --
 
-# Maximum number of occupants allowed per room
-max_occupants: {{ max_occupants }}
+# Secret shared secret used to authenticate this component to the Jabber server.
+# Must be strong and kept confidential.
+secret: {{ (secret | default('')) | string }}
 
-# Minimum password length for password-protected rooms
-min_password_length: {{ min_password_length }}
+# -- Logging Configuration --
 
-# Allow room creation without requiring ownership (true = open registration)
-allow_open_registration: {{ allow_open_registration | lower }}
+# Path to log file. Use 'stdout' or 'stderr' for console logging.
+log: {{ (log | default('/var/log/jabber/muc.log')) | string }}
 
-# List of room configuration presets (key: value pairs as YAML-like config blocks)
-{% for preset in room_presets %}
-preset {{ preset.name }}:
+# Minimum log level; options: debug, info, warn, error, critical.
+log_level: {{ (log_level | default('info')) | string }}
+
+# -- Room Behavior Defaults --
+
+# Default maximum number of users allowed per MUC room.
+max_occupants: {{ (max_occupants | default(100)) | int }}
+
+# Minimum length required for passwords on password-protected rooms.
+min_password_length: {{ (min_password_length | default(6)) | int }}
+
+# If true, users may create rooms without requiring pre-registration or admin approval.
+allow_open_registration: {{ (allow_open_registration | default(True)) | lower }}
+
+# -- Room Presets --
+# List of named room presets to configure different room behavior profiles.
+# Each preset defines specific behaviors for rooms created with that profile.
+{% for preset in (room_presets | default([])) %}
+preset {{ (preset.name | default('')) | string }}:
   # Enable persistent storage for rooms using this preset
-  persistent: {{ preset.persistent | lower }}
+  persistent: {{ (preset.persistent | default(False)) | lower }}
   # Maximum occupants for rooms of this preset type
-  max_occupants: {{ preset.max_occupants | default(max_occupants) }}
+  max_occupants: {{ (preset.max_occupants | default(max_occupants | default(100))) | int }}
   # Whether room titles are required
-  title_required: {{ preset.title_required | default(false) | lower }}
+  title_required: {{ (preset.title_required | default(False)) | lower }}
   # List of services (JIDs) allowed to send announcements to rooms using this preset
-  {% if preset.announcement_services %}
+  {% if preset.announcement_services is defined and preset.announcement_services %}
   announcement_services: {{ preset.announcement_services | join(', ') }}
   {% endif %}
 {% endfor %}
 
-# Optional: restrict room creation to users from specific domains
-{% if allowed_domains %}
-allowed_domains: {{ allowed_domains | join(', ') }}
+# -- Domain Restrictions --
+
+# Optional: List of XMPP domains whose users may create rooms.
+# Empty = allow all.
+{% if (allowed_domains | default([])) | length > 0 %}
+allowed_domains: {{ allowed_domains | default([]) | join(', ') }}
 {% endif %}
 
-# Optional: disable specific room features
-{% if disabled_features %}
+# -- Feature Control --
+
+# Optional: List of MUC features to disable (e.g., 'muc_public', 'muc_passwordprotected').
+# See XEP-0045 for feature names.
+{% if (disabled_features | default([])) | length > 0 %}
 # Disable features: 'muc_public', 'muc_open', 'muc_membersonly', 'muc_passwordprotected', 'muc_moderated', 'muc_nonanonymous', 'muc_semianonymous', 'muc_unmoderated'
-disabled_features: {{ disabled_features | join(', ') }}
+disabled_features: {{ disabled_features | default([]) | join(', ') }}
 {% endif %}
 
-# Optional: custom namespace prefix (e.g., 'muc', 'conference')
-namespace_prefix: {{ namespace_prefix }}
+# -- Namespace Configuration --
 
-# Optional: SSL/TLS settings for internal component-to-server communication (if used)
-{% if ssl %}
+# XMPP namespace prefix for room JIDs (e.g., 'muc' → rooms at 'room@muc.example.com').
+namespace_prefix: {{ (namespace_prefix | default('muc')) | string }}
+
+# -- SSL/TLS Configuration --
+
+# Optional: SSL/TLS settings for internal component-to-server communication (if used).
+{% if ssl is defined and ssl %}
 ssl:
-  cert: {{ ssl.cert }}
-  key: {{ ssl.key }}
-{% if ssl.ca_cert %}
-  ca_cert: {{ ssl.ca_cert }}
-{% endif %}
+  # Path to the SSL certificate file
+  cert: {{ (ssl.cert | default('')) | string }}
+  # Path to the SSL private key file
+  key: {{ (ssl.key | default('')) | string }}
+  {% if ssl.ca_cert is defined and ssl.ca_cert %}
+  # Path to the CA certificate bundle for verifying the server
+  ca_cert: {{ ssl.ca_cert | default('') | string }}
+  {% endif %}
 {% endif %}

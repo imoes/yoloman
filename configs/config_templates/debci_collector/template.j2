@@ -1,51 +1,110 @@
-# DebCI Collector Daemon configuration
-# Listen address and port for the collector HTTP endpoint
-bind: {{ bind_host }}:{{ bind_port }}
+# DebCI Collector Daemon configuration file
+#
+# This configuration file controls the behavior of the debci-collector service.
+# It defines network binding, storage queues, logging, SSL/TLS settings,
+# database connectivity, and health check endpoints.
+#
+# All variables are safely defaulted using Jinja2 `default` filters to prevent
+# rendering errors if Ansible variables are undefined.
 
-# Path to the queue directory where incoming build results are stored
-queue_dir: {{ queue_dir }}
+# =============================================================================
+# Network Binding
+# =============================================================================
 
-# Maximum size (in bytes) for a single job result payload
-max_payload_size: {{ max_payload_size }}
+# Network interface IP address the collector HTTP server binds to.
+# Default: 0.0.0.0 (all interfaces)
+bind: {{ bind_host | default('0.0.0.0') }}:{{ bind_port | default(9100) }}
 
-# Maximum number of concurrent HTTP handlers
-max_workers: {{ max_workers }}
+# =============================================================================
+# Storage and Queues
+# =============================================================================
 
-# Enable HTTPS (requires valid certificate and key)
-use_ssl: {{ use_ssl }}
-{% if use_ssl %}
-# SSL certificate file
-ssl_cert: {{ ssl_cert }}
-# SSL private key file
-ssl_key: {{ ssl_key }}
+# Absolute path to the directory where incoming job results are staged before processing.
+# Default: /var/lib/debci/collector/queue
+queue_dir: {{ queue_dir | default('/var/lib/debci/collector/queue') }}
+
+# Maximum allowed size (in bytes) for a single job result payload (e.g., build log).
+# Default: 10485760 (10 MB)
+max_payload_size: {{ max_payload_size | default(10485760) }}
+
+# Time (in seconds) after which archived job results are eligible for deletion from the queue directory.
+# Default: 604800 (7 days)
+archive_ttl: {{ archive_ttl | default(604800) }}
+
+# =============================================================================
+# Concurrency
+# =============================================================================
+
+# Maximum number of concurrent HTTP request handlers (workers).
+# Default: 16
+max_workers: {{ max_workers | default(16) }}
+
+# =============================================================================
+# SSL/TLS Configuration
+# =============================================================================
+
+# If true, enables HTTPS using the specified certificate and key.
+# Default: false
+use_ssl: {{ use_ssl | default(false) | lower }}
+
+{% if use_ssl | default(false) | bool %}
+# SSL certificate file path (only used if use_ssl is true).
+# Default: /etc/debci/ssl/cert.pem
+ssl_cert: {{ ssl_cert | default('/etc/debci/ssl/cert.pem') }}
+
+# SSL private key file path (only used if use_ssl is true).
+# Default: /etc/debci/ssl/key.pem
+ssl_key: {{ ssl_key | default('/etc/debci/ssl/key.pem') }}
 {% endif %}
 
-# Log level: debug, info, warning, error, critical
-log_level: {{ log_level }}
+# =============================================================================
+# Logging
+# =============================================================================
 
-# Path to log file (empty string disables file logging)
-log_file: {{ log_file }}
+# Verbosity of logging output. Options: debug, info, warning, error, critical.
+# Default: info
+log_level: {{ log_level | default('info') }}
 
-# List of trusted upstream collector hosts (for cluster federation)
-# Each entry is a hostname:port pair
-{% for upstream in upstream_collectors %}
-upstream: {{ upstream.host }}:{{ upstream.port }}
+# Absolute path to the log file. Set to empty string ('') to disable file logging (stdout only).
+# Default: /var/log/debci/collector.log
+log_file: {{ log_file | default('/var/log/debci/collector.log') }}
+
+# =============================================================================
+# Upstream Federation
+# =============================================================================
+
+# List of upstream DebCI collector endpoints to which this collector may forward results.
+# Each entry is expected to be a string in "host:port" format.
+# Default: empty list
+{% for upstream in upstream_collectors | default([]) %}
+upstream: {{ upstream }}
 {% endfor %}
 
-# Enable automatic job result forwarding to upstream collectors
-forward_results: {{ forward_results }}
+# If true, automatically forwards completed job results to all configured upstream collectors.
+# Default: false
+forward_results: {{ forward_results | default(false) | lower }}
 
-# Time-to-live (in seconds) for archived job results in queue_dir
-archive_ttl: {{ archive_ttl }}
+# =============================================================================
+# Database Persistence
+# =============================================================================
 
-# Database connection string (e.g., PostgreSQL URI)
-db_uri: {{ db_uri }}
+# Database connection URI for metadata storage (e.g., PostgreSQL connection string).
+# This string typically contains the host, port, database name, user, and password.
+# Default: postgresql://debci:password@localhost/debci_collector
+db_uri: {{ db_uri | default('postgresql://debci:password@localhost/debci_collector') }}
 
-# Enable database persistence for job metadata
-use_db: {{ use_db }}
+# If true, persists job metadata in the configured database instead of using filesystem-only storage.
+# Default: true
+use_db: {{ use_db | default(true) | lower }}
 
-# Minimum time (in seconds) between health checks
-health_check_interval: {{ health_check_interval }}
+# =============================================================================
+# Health Checks
+# =============================================================================
 
-# HTTP endpoint path for health checks
-health_check_path: {{ health_check_path }}
+# Minimum interval (in seconds) between internal health checks for collector subsystems.
+# Default: 30
+health_check_interval: {{ health_check_interval | default(30) }}
+
+# HTTP path exposed for external health check requests (e.g., by Kubernetes liveness probes).
+# Default: /healthz
+health_check_path: {{ health_check_path | default('/healthz') }}

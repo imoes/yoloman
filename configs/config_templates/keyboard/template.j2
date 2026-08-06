@@ -1,43 +1,27 @@
-{# Keyboard layout mapping for BRLTTY (Braille Terminal) #}
-{# Defines how physical keyboard keys map to braille commands and characters #}
-# Keyboard Table File (KTI) format
-# Line-based: each line is a key-value pair or comment
-# Supported: # comments, key=action, key=character, and repeated key mappings
+{# ============================================================================ #}
+{# console-setup / keyboard configuration template                              #}
+{# Self-documenting: every variable reference includes its schema default.      #}
+{# Format: KEY = VALUE (space around '=' is optional in the config file)        #}
+{# ============================================================================ #}
 
-# Default keyboard type (e.g., 'usb', 'serial', 'bluetooth', 'at' etc.)
-keyboardType = {{ keyboard_type }}
+# Specifies the XKB keyboard model name. Default: pc105 on most platforms.
+XKBMODEL={{ xkbmodel | default('pc105') }}
 
-# Number of braille cells (dots) per cell (typically 6 or 8)
-numBrailleDots = {{ num_braille_dots }}
+# Specifies the XKB keyboard layout name. This is usually the country or language
+# type of the keyboard. Default: us on most platforms.
+XKBLAYOUT={{ xkblayout | default('us') }}
 
-# Braille character encoding (usually 'utf-8', 'braille', or 'ascii')
-encoding = {{ encoding }}
+# Specifies the XKB keyboard variant components. Default: not set (empty string).
+XKBVARIANT={{ xkbvariant | default('') }}
 
-# Map physical key combinations to braille dot patterns
-{% for mapping in braille_dot_mappings %}
-{{ mapping.key }} = dot{{ mapping.dots | join(',') }}
-{% endfor %}
+# Specifies the XKB keyboard option components. Options usually relate to the
+# behavior of the special keys. Default: not set (empty string).
+XKBOPTIONS={{ xkboptions | default('') }}
 
-# Map physical keys to special braille commands (e.g., navigation, cursor movement)
-{% for cmd in command_mappings %}
-{{ cmd.key }} = {{ cmd.command }}
-{% endfor %}
+# Determines the behavior of <BackSpace> and <Delete> keys on the console.
+# Allowed values: bs, del, guess. Default: guess.
+BACKSPACE={{ backspace | default('guess') }}
 
-# Map physical keys to direct character output (e.g., alphanumeric keys)
-{% for char_map in character_mappings %}
-{{ char_map.key }} = {{ char_map.char }}
-{% endfor %}
-
-# Optional: define modifier behavior (e.g., 'shift', 'ctrl')
-{% if modifier_definitions %}
-{% for mod in modifier_definitions %}
-{{ mod.name }} = {{ mod.keys | join(' ') }}
-{% endfor %}
-{% endif %}
-
-# Optional: key repeat delay (ms) and rate (ms) — affects typing behavior
-keyRepeatDelay = {{ key_repeat_delay }}
-keyRepeatRate = {{ key_repeat_rate }}
-
-# Optional: enable/disable auto-learn (teaching mode)
-autoLearn = {{ auto_learn | lower }}
+# Usually this variable will be unset but if you don't want to use a XKB layout
+# on the console, you can specify an alternative keymap here.
+KMAP={{ kmap | default('') }}

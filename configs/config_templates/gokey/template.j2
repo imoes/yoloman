@@ -1,0 +1,60 @@
+{# ============================================================================= #}
+{# gokey configuration template                                                    #}
+{# Self-documenting: every directive is preceded by its schema description.        #}
+{# Variables use explicit defaults to ensure safe rendering when undefined.        #}
+{# ============================================================================= #}
+
+{# master_password_file: Path to file containing the master password; secure     #}
+{# alternative to embedding master_password in the config.                       #}
+{% set _mpf = master_password_file | default('') %}
+{% if _mpf | length > 0 %}
+MasterPasswordFile {{ _mpf }}
+{% endif %}
+
+{# master_password: Master password (insecure if stored in config);              #}
+{# prefer master_password_file.                                                  #}
+{% set _mp = master_password | default('') %}
+{% if _mpf | length == 0 and _mp | length > 0 %}
+MasterPassword {{ _mp }}
+{% endif %}
+
+{# realm: Realm string (e.g., resource URL or usage identifier) used to derive  #}
+{# the password/key.                                                             #}
+{% set _realm = realm | default('') %}
+{% if _realm | length > 0 %}
+Realm {{ _realm }}
+{% endif %}
+
+{# seed_file: Path to encrypted seed file (used instead of master password as    #}
+{# entropy source for higher-entropy keys.                                       #}
+{% set _sf = seed_file | default('') %}
+{% if _sf | length > 0 %}
+SeedFile {{ _sf }}
+{% endif %}
+
+{# skip_bytes: Number of bytes to skip when reading seed file.                   #}
+{% set _sb = skip_bytes | default(0) %}
+{% if _sb > 0 %}
+SkipBytes {{ _sb }}
+{% endif %}
+
+{# output_path: Path to write output; default is stdout if empty.                #}
+{% set _op = output_path | default('') %}
+{% if _op | length > 0 %}
+OutputPath {{ _op }}
+{% endif %}
+
+{# key_type: Requested output type: pass, seed, raw, ec256, ec384, ec521,       #}
+{# rsa2048, rsa4096, x25519, ed25519.                                           #}
+{% set _kt = key_type | default('pass') %}
+KeyType {{ _kt }}
+
+{# length: Password length (for pass type) or number of bytes (for raw type).    #}
+{% set _len = length | default(10) %}
+Length {{ _len }}
+
+{# unsafe_mode: If true, allow generating keys without a seed file (not          #}
+{# recommended for security).                                                    #}
+{% if unsafe_mode | default(False) | bool %}
+Unsafe
+{% endif %}

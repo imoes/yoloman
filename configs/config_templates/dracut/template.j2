@@ -1,0 +1,54 @@
+#!/bin/sh
+# Dracut initramfs generation wrapper script (Debian maintainer style).
+#
+# This script is generated from an Ansible Jinja2 template.
+# Variables are sourced from the Ansible inventory/vars, with safe defaults
+# applied via the `default` filter to prevent undefined variable errors.
+
+# Kernel version for which the initramfs is being generated.
+# Passed as the first argument to the script.
+version="{{ version | default('') }}"
+
+# Directory where the initramfs image is written.
+# Defaults to /boot, but may be overridden by the second script argument (kernel image path).
+bootdir="{{ bootdir | default('/boot') }}"
+
+# If set to 'No', the script exits early. Used to skip initramfs generation for
+# custom kernels that don’t need an initramfs.
+INITRD="{{ INITRD | default('Yes') }}"
+
+# Debian maintainer script parameters.
+# Used to prevent re-generation outside of 'configure' phase.
+DEB_MAINT_PARAMS="{{ DEB_MAINT_PARAMS | default('') }}"
+
+[ -x /usr/bin/dracut ] || exit 0
+
+# passing the kernel version is required
+[ -z "${version}" ] && exit 0
+
+# exit if custom kernel does not need an initramfs
+[ "$INITRD" = 'No' ] && exit 0
+
+# absolute file name of kernel image may be passed as a second argument;
+# create the dracut in the same directory
+if [ -n "$2" ]; then
+	bootdir=$(dirname "$2")
+fi
+
+# avoid running multiple times
+if [ -n "$DEB_MAINT_PARAMS" ]; then
+        eval set -- "$DEB_MAINT_PARAMS"
+        if [ -z "$1" ] || [ "$1" != "configure" ]; then
+                exit 0
+        fi
+fi
+
+# check if modules.dep already exists. If not create it
+# maybe this problem could also be solved via Debian triggers
+if [ ! -f $bootdir/../lib/modules/$version/modules.dep ]; then
+    depmod -a -F $bootdir/System.map-$version $version
+fi
+
+# we're good - create initramfs
+echo "dracut: Generating $bootdir/initrd.img-${version}"
+dracut -q --force $bootdir/initrd.img-${version} "${version}" >&2

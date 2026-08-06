@@ -1,0 +1,85 @@
+# Hashcash configuration file
+# Managed by Ansible - do not edit manually
+#
+# This file controls the default behavior of the hashcash stamping and
+# verification tools. See `hashcash --help` for detailed flag descriptions.
+
+# Path to double-spend database file.
+# This file stores hashes of previously issued stamps to prevent reuse.
+database: {{ (hashcash | default({})).database | default('database.sdb') }}
+
+# Default expiry period for stamps; units: s, m, h, d, M, y. 0 = forever.
+# When a stamp expires, it is considered invalid.
+expiry: {{ (hashcash | default({})).expiry | default('28d') }}
+
+# Grace period in seconds for clock skew during stamp verification.
+# Allows for slight differences in system clocks between minting and verification.
+grace: {{ (hashcash | default({})).grace | default(172800) }}
+
+# Default minimum bits of preimage required for stamp validation.
+# Higher values make stamps harder to compute (more CPU-intensive).
+# 0 disables the bit check entirely.
+bits: {{ (hashcash | default({})).bits | default(20) }}
+
+# Time field width in minted stamps: 6=YYMMDD, 10=YYMMDDhhmm, 12=YYMMDDhhmmss.
+# Controls the precision of the timestamp embedded in the stamp.
+time_width: {{ (hashcash | default({})).time_width | default(6) }}
+
+# Purge interval in seconds; 0=purge on every access, -1=never purge.
+# Determines how often the database file is cleaned up of expired stamps.
+purge_interval: {{ (hashcash | default({})).purge_interval | default(86400) }}
+
+# If true, purge unexpired stamps during purge operations.
+# Use with caution as this may remove valid stamps.
+purge_unexpired: {{ (hashcash | default({})).purge_unexpired | default(false) }}
+
+# List of resource-specific policies. Each entry can override expiry and bits per resource.
+# Use this to set stricter or looser rules for specific domains or addresses.
+resources:
+{% for item in (hashcash | default({})).resources | default([]) %}
+  - resource: {{ item.resource | default('email') }}
+    # Optional custom expiry period for this resource; inherits global if empty.
+    expiry: {{ item.expiry | default('') }}
+    # Optional custom minimum bits for this resource; inherits global if 0.
+    bits: {{ item.bits | default(0) }}
+{% endfor %}
+
+# If true, do not canonicalize resources to lower case during comparison.
+# Enforces case-sensitive matching for resource names.
+case_sensitive_resources: {{ (hashcash | default({})).case_sensitive_resources | default(false) }}
+
+# If true, use wildcard (not regex) matching for resources during verification.
+# Wildcards support simple patterns like `*` and `?`.
+use_wildcards: {{ (hashcash | default({})).use_wildcards | default(true) }}
+
+# If true, suppress informational output (only output required by flags).
+# Reduces log noise during stamp generation or verification.
+quiet: {{ (hashcash | default({})).quiet | default(false) }}
+
+# If true, output 'X-Hashcash: ' prefix when minting or parsing email headers.
+# Useful when embedding stamps directly into email MIME headers.
+x_header: {{ (hashcash | default({})).x_header | default(false) }}
+
+# If true, print minting progress (iterations, percentage done).
+# Helpful for monitoring long-running stamp generation processes.
+progress: {{ (hashcash | default({})).progress | default(false) }}
+
+# If positive, add a random amount (0 to this value) of seconds to stamp creation time
+# to hide exact time of minting.
+time_fuzz_seconds: {{ (hashcash | default({})).time_fuzz_seconds | default(0) }}
+
+# If true, accept stamps even if not fully checked (implies -y flag behavior).
+# Reduces verification thoroughness for performance.
+accept_partially_checked: {{ (hashcash | default({})).accept_partially_checked | default(false) }}
+
+# Stamp compression level: 0=fastest, 1=compressed, 2=high compression.
+# Higher compression may reduce stamp size at the cost of verification speed.
+compression: {{ (hashcash | default({})).compression | default(0) }}
+
+# Select hashcash minting core (0=auto, 1-9=specific core).
+# Allows pinning to specific CPU cores or allowing the system to choose.
+core: {{ (hashcash | default({})).core | default(0) }}
+
+# If true, use UTC (GMT) for time inputs/outputs; false = local time.
+# Ensures consistent time handling across different timezones.
+utc_time: {{ (hashcash | default({})).utc_time | default(true) }}

@@ -1,108 +1,197 @@
-#!/bin/bash
-# Main configuration file for ldapscripts
-# Source this file to set environment variables used by ldapscripts
+# =============================================================================
+# ldapscripts configuration template
+# =============================================================================
+# This file configures the ldapscripts suite (adduser, addgroup, etc.)
+# to interact with an LDAP directory. It uses a simple shell-variable format.
+#
+# Self-documenting: every configurable variable is preceded by a comment
+# explaining its purpose and default value.
+# =============================================================================
 
-# Base DN for LDAP operations
-BASE_DN="{{ base_dn }}"
+# LDAP server URI.
+# Use 'ldap://' for unencrypted or 'ldaps://' for SSL/TLS. Include port if non-standard.
+SERVER="{{ (ldap_uri | default('ldap://localhost')) | string }}"
 
-# LDAP server URI (e.g., ldap://localhost:389 or ldaps://ldap.example.com:636)
-LDAP_URI="{{ ldap_uri }}"
+# =============================================================================
+# Directory Suffixes (DN Scope)
+# =============================================================================
 
-# Bind DN for administrative access
-ADMIN_DN="{{ admin_dn }}"
+# LDAP base DN (Distinguished Name) for directory root.
+# All LDAP operations will be scoped under this DN.
+# Example: dc=example,dc=com
+SUFFIX="{{ (base_dn | default('dc=example,dc=com')) | string }}"
 
-# Bind password for admin DN (preferably stored in a secure file)
-ADMIN_PASSWD="{{ admin_password }}"
+# Groups OU (Organizational Unit).
+# Just under $SUFFIX. Used for group entries.
+GSUFFIX="ou=Groups"
 
-# Password hashing algorithm (e.g., SSHA, SHA, MD5)
-# Used when creating new users/groups
-HASH_PW="{{ hash_password }}"
+# Users OU (Organizational Unit).
+# Just under $SUFFIX. Used for user entries.
+USUFFIX="ou=Users"
 
-# Default shell for new Unix users
-DEFAULT_SHELL="{{ default_shell }}"
+# Machines OU (Organizational Unit).
+# Just under $SUFFIX. Used for computer/host entries.
+MSUFFIX="ou=Machines"
 
-# Default home directory base path
-DEFAULT_HOME="{{ default_home }}"
+# =============================================================================
+# Authentication Configuration
+# =============================================================================
 
-# Default UID number start
-# New users get UIDs starting from this value
-DEFAULT_UID_START="{{ default_uid_start }}"
+# Authentication type.
+# If empty, use simple authentication (Bind DN + Password).
+# If set, use the value as an SASL authentication mechanism (e.g., GSSAPI).
+SASLAUTH=""
 
-# Default GID number start
-# New groups get GIDs starting from this value
-DEFAULT_GID_START="{{ default_gid_start }}"
+# Simple authentication parameters.
+# The following BIND* parameters are ignored if SASLAUTH is set.
 
-# Default user password expiry (in days, 0 = never)
-# Set to 0 to disable password aging
-DEFAULT_PWD_MAX_AGE="{{ default_pwd_max_age }}"
+# BINDDN: DN of the LDAP administrative user.
+# Must have sufficient privileges to add/delete/modify users and groups.
+BINDDN="{{ (admin_dn | default('cn=Manager,dc=example,dc=com')) | string }}"
 
-# Default user password minimum age (in days)
-DEFAULT_PWD_MIN_AGE="{{ default_pwd_min_age }}"
+# BINDPWDFILE: Path to file containing raw password for admin user (BINDDN).
+# Must be readable only by ldapscripts (mode 600 recommended).
+# Create it with: echo -n 'secret' > $BINDPWDFILE
+BINDPWDFILE="{{ (admin_password_file | default('/etc/ldapscripts/ldapscripts.passwd')) | string }}"
 
-# Default user password warning period (in days)
-DEFAULT_PWD_WARN="{{ default_pwd_warn }}"
+# =============================================================================
+# ID Management
+# =============================================================================
 
-# Default user account inactivity period (in days after password expiry)
-DEFAULT_INACTIVITY="{{ default_inactivity }}"
+# Start GID (Group ID) number.
+# Starting GID number for new group accounts if no entry found in LDAP.
+# Aligns with system GID conventions.
+GIDSTART="{{ default_gid_start | default(10000) }}"
 
-# Default user account expiry date (in YYYY-MM-DD format, empty = never)
-DEFAULT_ACCOUNT_EXPIRE="{{ default_account_expire }}"
+# Start UID (User ID) number.
+# Starting UID number for new user accounts if no entry found in LDAP.
+# Should match system UID policy (e.g., ≥ 1000 for regular users).
+UIDSTART="{{ default_uid_start | default(10000) }}"
 
-# LDAP user object classes to use (space-separated list)
-USER_OBJECTCLASS="{{ user_objectclass }}"
+# Start MID (Machine ID) number.
+# Starting UID for machine accounts.
+MIDSTART="20000"
 
-# LDAP group object classes to use (space-separated list)
-GROUP_OBJECTCLASS="{{ group_objectclass }}"
+# =============================================================================
+# Group Configuration
+# =============================================================================
 
-# Default primary group for new users (CN of group, not DN)
-DEFAULT_GROUP="{{ default_group }}"
+# Group ObjectClass.
+# Space-separated list of LDAP object classes for new groups.
+# Possible values : posixGroup, groupOfNames, groupOfUniqueNames (case-sensitive !)
+# Warning : when using groupOf*, be sure to be compliant with RFC 2307bis.
+GCLASS="{{ (group_objectclass | default('posixGroup')) | string }}"
 
-# Path to ldapadd binary
-LDAPADD_BIN="{{ ldapadd_bin }}"
+# =============================================================================
+# User Configuration
+# =============================================================================
 
-# Path to ldapdelete binary
-LDAPDELETE_BIN="{{ ldapdelete_bin }}"
+# Default login shell.
+# Default login shell assigned to new Unix users.
+USHELL="{{ (default_shell | default('/bin/sh')) | string }}"
 
-# Path to ldapmodify binary
-LDAPMODIFY_BIN="{{ ldapmodify_bin }}"
+# Home directory base path.
+# Base path for user home directories.
+# Full paths will be constructed as <base_path>/<username>.
+UHOMES="{{ (default_home | default('/home')) | string }}/%u"
 
-# Path to ldappasswd binary
-LDAPPASSWD_BIN="{{ ldappasswd_bin }}"
+# CREATEHOMES.
+# Create home directories and set rights ?
+# Accepts "yes" or "no".
+CREATEHOMES="no"
 
-# Path to ldapsearch binary
-LDAPSEARCH_BIN="{{ ldapsearch_bin }}"
+# =============================================================================
+# Password Generation
+# =============================================================================
 
-# Path to ldapcompare binary (optional, if used)
-LDAPCOMPARE_BIN="{{ ldapcompare_bin }}"
+# PASSWORDGEN.
+# Command-line used to generate a password for added users.
+# Special value "<ask>" will ask for a password interactively.
+PASSWORDGEN="pwgen"
 
-# Enable verbose mode (set to 1 for yes, 0 for no)
-VERBOSE="{{ verbose }}"
+# =============================================================================
+# Password Recording (Audit/Log)
+# =============================================================================
 
-# Enable debug mode (set to 1 for yes, 0 for no)
-DEBUG="{{ debug }}"
+# RECORDPASSWORDS.
+# Set to "yes" to keep trace of generated passwords.
+RECORDPASSWORDS="no"
 
-# Optional: Additional LDAP options for all commands (e.g., -H for alternate URI)
-LDAP_OPTS="{{ ldap_opts }}"
+# PASSWORDFILE.
+# Path to log generated passwords.
+PASSWORDFILE="/var/log/ldapscripts_passwd.log"
 
-# Optional: Path to file containing admin password (overrides ADMIN_PASSWD if set)
-ADMIN_PASSWD_FILE="{{ admin_password_file }}"
+# =============================================================================
+# Logging Configuration
+# =============================================================================
 
-# Optional: SSL/TLS settings
-# Enable STARTTLS (set to 1 for yes, 0 for no)
-STARTTLS="{{ starttls }}"
+# LOGTOFILE.
+# Enable logging to a local file.
+LOGTOFILE="yes"
 
-# CA certificate file for SSL verification (if using ldaps)
-CA_CERT_FILE="{{ ca_cert_file }}"
+# LOGFILE.
+# Path to the log file.
+LOGFILE="/var/log/ldapscripts.log"
 
-# Client certificate file for SSL (if required by server)
-CLIENT_CERT_FILE="{{ client_cert_file }}"
+# LOGTOSYSLOG.
+# Enable logging to syslog.
+LOGTOSYSLOG="no"
 
-# Client key file for SSL (if required by server)
-CLIENT_KEY_FILE="{{ client_key_file }}"
+# SYSLOGFACILITY.
+# Syslog facility to use when LOGTOSYSLOG is yes.
+SYSLOGFACILITY="local4"
 
-# List of additional group mappings (e.g., sudoers, dialout, etc.)
-# Each entry: CN|GIDNumber|MemberAttribute
-# Example: sudo|1001|member
-{% for group_map in group_mappings %}
-GROUP_MAPPING_{{ loop.index }}="{{ group_map.cn }}|{{ group_map.gid }}|{{ group_map.member_attr }}"
-{% endfor %}
+# SYSLOGLEVEL.
+# Syslog level to use.
+SYSLOGLEVEL="info"
+
+# =============================================================================
+# Binary Paths
+# =============================================================================
+
+# OpenLDAP client commands.
+# Full paths to the necessary LDAP utilities.
+
+LDAPSEARCHBIN="{{ (ldapsearch_bin | default('/usr/bin/ldapsearch')) | string }}"
+LDAPADDBIN="{{ (ldapadd_bin | default('/usr/bin/ldapadd')) | string }}"
+LDAPDELETEBIN="{{ (ldapdelete_bin | default('/usr/bin/ldapdelete')) | string }}"
+LDAPMODIFYBIN="{{ (ldapmodify_bin | default('/usr/bin/ldapmodify')) | string }}"
+LDAPMODRDNBIN="/usr/bin/ldapmodrdn"
+LDAPPASSWDBIN="{{ (ldappasswd_bin | default('/usr/bin/ldappasswd')) | string }}"
+
+# =============================================================================
+# Additional Options
+# =============================================================================
+
+# LDAPBINOPTS.
+# OpenLDAP client common additional options.
+LDAPBINOPTS=""
+
+# LDAPSEARCHOPTS.
+# OpenLDAP ldapsearch-specific additional options.
+LDAPSEARCHOPTS="-o ldif-wrap=no"
+
+# =============================================================================
+# Getent Commands
+# =============================================================================
+
+# Getent command to use.
+# Leave blank for auto-guess.
+GETENTPWCMD=""
+GETENTGRCMD=""
+
+# =============================================================================
+# Custom LDIF Templates
+# =============================================================================
+
+# GTEMPLATE.
+# Specify custom LDIF template for groups.
+GTEMPLATE=""
+
+# UTTEMPLATE.
+# Specify custom LDIF template for users.
+UTEMPLATE=""
+
+# MTEMPLATE.
+# Specify custom LDIF template for machines.
+MTEMPLATE=""

@@ -1,0 +1,23 @@
+# gtkhash configuration file
+# This file is read by the GTK+ interface to configure default hash algorithms and settings.
+# It is generated from an Ansible role's schema. All variables use .default() to ensure
+# safe rendering even if the variable is undefined in the Ansible playbook context.
+
+[Settings]
+
+# Default hash algorithms to display in the GUI, space-separated.
+# Must be a subset of: MD5, SHA1, SHA256, SHA512, RIPEMD, HAVAL, TIGER, WHIRLPOOL.
+# The list is joined with spaces for this INI-style format.
+SupportedHashes = {{ (supported_hashes | default(['MD5', 'SHA1', 'SHA256', 'SHA512'])) | join(' ') }}
+
+# Enable/disable automatic checksum generation on file drop.
+# A boolean value converted to lowercase string 'true' or 'false' for INI compatibility.
+AutoGenerate = {{ auto_generate | default(false) | ternary('true', 'false') }}
+
+# Show/hide advanced algorithms in UI (e.g., HAVAL, TIGER, WHIRLPOOL).
+# When true, less common algorithms are exposed in the graphical interface.
+ShowAdvanced = {{ show_advanced | default(true) | ternary('true', 'false') }}
+
+# Enable verbose output in terminal mode (used when invoked via CLI).
+# Useful for debugging CLI invocations of gtkhash.
+Verbose = {{ verbose | default(false) | ternary('true', 'false') }}

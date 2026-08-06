@@ -1,0 +1,76 @@
+{
+  "entries": {
+    "type": "list",
+    "description": "List of birthday/event entries and directives; supports comments, &include directives, and event definitions with optional type and flags. Each entry is a dictionary with optional keys: comment, directive, event. Only one of comment/directive/event may be present per entry. Empty entries are not allowed. See 'entries.items' for structure details below."
+  },
+  "entries.items": {
+    "type": "object",
+    "default": null,
+    "description": "A single entry \u2014 either a comment (starting with #), an &include directive, or an event line (name=date[ type][ options...]). Exactly one of comment/directive/event must be present. The others must be omitted or null/empty. See flat fields below for allowed keys and types."
+  },
+  "entries.items.comment": {
+    "type": "string",
+    "default": "",
+    "description": "Text to emit as a comment line (prefixed with '# '). Empty string means no comment."
+  },
+  "entries.items.directive": {
+    "type": "object",
+    "default": null,
+    "description": "An &include directive. Must have name='include' and path to the included file."
+  },
+  "entries.items.directive.items": {
+    "type": "object",
+    "default": null,
+    "description": "Flat directive structure: must include 'name'='include' and 'path' (absolute, no ~)."
+  },
+  "entries.items.directive.items.name": {
+    "type": "string",
+    "default": "include",
+    "description": "Directive name; only 'include' is supported by the program."
+  },
+  "entries.items.directive.items.path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute filesystem path of the file to include. Must not use ~ notation."
+  },
+  "entries.items.event": {
+    "type": "object",
+    "default": null,
+    "description": "A birthday/anniversary/event line: name=date[ type][ options...]"
+  },
+  "entries.items.event.items": {
+    "type": "object",
+    "default": null,
+    "description": "Event fields. Only 'name', 'date', 'type', and 'options' are used by birthday(1)."
+  },
+  "entries.items.event.items.name": {
+    "type": "string",
+    "default": "bd",
+    "description": "Name of person or event.",
+    "enum": [
+      "bd",
+      "ann",
+      "ev"
+    ]
+  },
+  "entries.items.event.items.date": {
+    "type": "string",
+    "default": "",
+    "description": "Date in DD/MM, DD/MM/YY, or DD/MM/YYYY format. YY is deprecated and assumed 19xx."
+  },
+  "entries.items.event.items.type": {
+    "type": "string",
+    "default": "bd",
+    "description": "Event type: 'bd' (birthday), 'ann' (anniversary), or 'ev' (event). Defaults to 'bd' if omitted.",
+    "enum": [
+      "bd",
+      "ann",
+      "ev"
+    ]
+  },
+  "entries.items.event.items.options": {
+    "type": "list",
+    "default": [],
+    "description": "List of option flags, e.g. ['wn', '21'] or ['todate', '31/12/2025'], 'fordays', '5', etc. May be empty."
+  }
+}

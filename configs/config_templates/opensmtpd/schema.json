@@ -14,199 +14,26 @@
         "tls": true
       }
     ],
-    "description": "SMTP listeners (interface, port, TLS, hostname). Each entry defines where SMTP is accepted.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Listener name (for documentation only)"
-        },
-        "interface": {
-          "type": "string",
-          "default": "127.0.0.1",
-          "description": "IP address or interface name to bind to"
-        },
-        "port": {
-          "type": "number",
-          "default": 25,
-          "description": "SMTP port (e.g. 25 for incoming, 587 for submission)"
-        },
-        "tls": {
-          "type": "bool",
-          "default": false,
-          "description": "Enable TLS on this listener (e.g. for port 587)"
-        },
-        "hostname": {
-          "type": "string",
-          "default": "",
-          "description": "Optional hostname to advertise in EHLO (e.g. mail.example.com)"
-        }
-      }
-    }
+    "description": "SMTP listeners (interface, port, TLS, hostname). Each entry defines where SMTP is accepted."
   },
   "domains": {
     "type": "list",
     "default": [],
-    "description": "Domains this MTA is authoritative for. Required if not using automatic domain detection.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Domain name (e.g. example.com)"
-        }
-      }
-    }
+    "description": "Domains this MTA is authoritative for. Required if not using automatic domain detection."
   },
   "tables": {
     "type": "list",
     "default": [],
-    "description": "Static or dynamic lookup tables (aliases, mailboxes, authentication, etc.).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Table name (e.g. aliases, vdomains)"
-        },
-        "type": {
-          "type": "string",
-          "default": "file",
-          "description": "Table type: file, db, ldap, etc."
-        },
-        "source": {
-          "type": "string",
-          "default": "",
-          "description": "Path or URI to table data (e.g. /etc/aliases, sqlite:///etc/mail.db)"
-        }
-      }
-    }
+    "description": "Static or dynamic lookup tables (aliases, mailboxes, authentication, etc.)."
   },
   "routes": {
     "type": "list",
     "default": [],
-    "description": "Custom mail routing rules. Each rule defines WHEN to accept mail and WHAT action to take.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Rule name (for documentation)"
-        },
-        "condition": {
-          "type": "string",
-          "default": "",
-          "description": "Optional condition line (e.g., 'from any', 'from local', 'from authenticated')"
-        },
-        "action": {
-          "type": "string",
-          "default": "",
-          "description": "Action name (must be defined elsewhere)"
-        },
-        "match": {
-          "type": "bool",
-          "default": false,
-          "description": "Include 'match' keyword"
-        },
-        "from": {
-          "type": "list",
-          "default": [],
-          "description": "Sender addresses/domains to match"
-        },
-        "to": {
-          "type": "list",
-          "default": [],
-          "description": "Recipient addresses/domains to match"
-        },
-        "for_type": {
-          "type": "string",
-          "default": "domain",
-          "description": "Destination type: domain, user, mailbox"
-        },
-        "destination": {
-          "type": "string",
-          "default": "",
-          "description": "Target: local mailbox path, LMTP socket, or relay host"
-        }
-      }
-    }
+    "description": "Custom mail routing rules. Each rule defines WHEN to accept mail and WHAT action to take."
   },
   "default_domain": {
     "type": "string",
     "default": "localhost",
     "description": "Primary local domain for default routing (fallback if no domains/routing defined)."
-  },
-  "relay_hosts": {
-    "type": "list",
-    "default": [],
-    "description": "Upstream mail servers (MTAs) to relay outbound mail through. First entry used.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "tls": {
-    "type": "object",
-    "default": {
-      "enabled": false
-    },
-    "description": "TLS configuration for inbound/outbound encrypted mail.",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable TLS globally"
-      },
-      "certificate": {
-        "type": "string",
-        "default": "/etc/ssl/certs/smtpd.crt",
-        "description": "Path to TLS certificate chain (PEM)"
-      },
-      "key": {
-        "type": "string",
-        "default": "/etc/ssl/private/smtpd.key",
-        "description": "Path to TLS private key (PEM)"
-      },
-      "ciphers": {
-        "type": "string",
-        "default": "",
-        "description": "Optional cipher list (e.g. 'HIGH:!aNULL:!MD5')"
-      }
-    }
-  },
-  "rate_limit": {
-    "type": "object",
-    "default": {
-      "enabled": false,
-      "connections": 100,
-      "period": "second"
-    },
-    "description": "Rate-limiting for incoming SMTP connections.",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable rate limiting"
-      },
-      "connections": {
-        "type": "number",
-        "default": 100,
-        "description": "Max connections per period"
-      },
-      "period": {
-        "type": "string",
-        "default": "second",
-        "description": "Time unit: second, minute, hour"
-      }
-    }
-  },
-  "log_level": {
-    "type": "string",
-    "default": "error",
-    "description": "SMTP log verbosity: verbose, info, error, or fatal."
   }
 }

@@ -1,53 +1,93 @@
-# Daemon user and group for ipp-usb
-User {{ daemon_user }}
-Group {{ daemon_group }}
+# ==============================================================================
+# ipp-usb configuration template
+# ==============================================================================
+# ipp-usb is a daemon that provides IPP-over-USB support for printers connected
+# via USB. This configuration file controls daemon behavior, network access,
+# USB device handling, and service discovery.
+# ==============================================================================
 
-# Listening port for the HTTP interface (0 = disable HTTP, use Unix socket only)
-Port {{ http_port }}
+# --- Daemon Privileges ---
 
-# Enable or disable HTTPS (requires TLS certificates)
-HTTPS {{ enable_https | string | lower }}
+# System user account under which the ipp-usb daemon runs (must exist).
+User {{ (daemon_user | default('ipp-usb')) | string }}
 
-# Path to SSL certificate (used only if HTTPS is enabled)
-SSLCertificateFile {{ ssl_cert_file }}
+# System group for the ipp-usb daemon’s file permissions and access rights.
+Group {{ (daemon_group | default('ipp-usb')) | string }}
 
-# Path to SSL private key (used only if HTTPS is enabled)
-SSLPrivateKeyFile {{ ssl_key_file }}
+# --- Network Interface ---
 
-# Timeout for USB device detection and communication (seconds)
-Timeout {{ device_timeout }}
+# HTTP port for the ipp-usb daemon. Set to 0 to disable HTTP and use Unix socket only.
+Port {{ (http_port | default(0)) | int }}
 
-# Maximum number of concurrent devices to support
-MaxDevices {{ max_devices }}
+# Enable HTTPS instead of HTTP (requires valid TLS certificate and key).
+HTTPS {{ (enable_https | default(False)) | ternary('true', 'false') }}
 
-# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
-LogLevel {{ log_level }}
+# Path to the SSL/TLS certificate file (PEM format), used only if HTTPS is enabled.
+SSLCertificateFile {{ (ssl_cert_file | default('/etc/ipp-usb/cert.pem')) | string }}
 
-# Enable debug logging (overrides LogLevel if true)
-Debug {{ debug_logging | string | lower }}
+# Path to the SSL/TLS private key file (PEM format), used only if HTTPS is enabled.
+SSLPrivateKeyFile {{ (ssl_key_file | default('/etc/ipp-usb/privkey.pem')) | string }}
 
-# Paths where ipp-usb looks for backend drivers (colon-separated list)
-BackendPaths {{ backend_paths | join(':') }}
+# --- Device Handling ---
 
-# Unix socket path (if HTTP port is 0 or to complement HTTP)
-Listen {{ unix_socket_path }}
+# Maximum seconds to wait for a USB device to respond during detection or data transfer.
+Timeout {{ (device_timeout | default(30)) | int }}
 
-# Allow remote clients (if true, binds to all interfaces)
-AllowRemote {{ allow_remote | string | lower }}
+# Maximum number of USB printers that may be handled simultaneously.
+MaxDevices {{ (max_devices | default(10)) | int }}
 
-# List of allowed remote hosts/networks (ignored if AllowRemote is false)
-{% for host in allowed_hosts %}Allow {{ host }}{% endfor %}
+# Preserve original device naming (e.g., /dev/usb/lp0) or use stable names (e.g., by-id/by-path).
+# When true, uses udev symlinks for persistent device paths.
+StableNames {{ (stable_names | default(True)) | ternary('true', 'false') }}
 
-# List of denied remote hosts/networks (takes precedence over Allow)
-{% for host in denied_hosts %}Deny {{ host }}{% endfor %}
+# --- Logging ---
 
-# Preserve original device naming (e.g., /dev/usb/lp0) or use stable names (e.g., by-id/by-path)
-StableNames {{ stable_names | string | lower }}
+# Verbosity of logging output (lower levels = more verbose).
+# Valid values: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL.
+LogLevel {{ (log_level | default('INFO')) | upper | trim }}
 
-# EnableBonjour {{ enable_bonjour | string | lower }}
+# Enable high-volume debug logging. Overrides LogLevel when true.
+Debug {{ (debug_logging | default(False)) | ternary('true', 'false') }}
 
-# Service name advertised via mDNS (only if Bonjour is enabled)
-BonjourServiceName {{ bonjour_service_name }}
+# --- Backend Configuration ---
 
-# Extra arguments passed to the ipp-usb backend on startup
-{% for arg in extra_backend_args %}# {{ arg }}{% endfor %}
+# Search paths (colon-separated in rendered config) for backend helper executables.
+BackendPaths {{ (backend_paths | default(['/usr/libexec/ipp-usb', '/usr/lib/ipp-usb'])) | join(':') }}
+
+# Optional space-separated arguments passed to the backend on startup (for advanced tuning).
+# These are commented out in the config to avoid execution unless explicitly enabled.
+# To activate, uncomment the lines below.
+{% for arg in (extra_backend_args | default([])) %}
+# {{ arg | trim }}
+{% endfor %}
+
+# --- Local Communication ---
+
+# Path to the Unix domain socket for local client communication.
+# Used by local CUPS instances to communicate with the daemon.
+Listen {{ (unix_socket_path | default('/run/ipp-usb/ipp-usb.sock')) | string }}
+
+# --- Remote Access Control ---
+
+# Allow network clients (e.g., CUPS remote servers) to use the ipp-usb service.
+# When enabled, the daemon binds to network interfaces instead of only the local socket.
+AllowRemote {{ (allow_remote | default(False)) | ternary('true', 'false') }}
+
+# List of hostnames or CIDR networks allowed to connect when AllowRemote is enabled.
+{% for host in (allowed_hosts | default(['localhost', '127.0.0.1'])) %}
+Allow {{ host | string | trim }}
+{% endfor %}
+
+# List of hostnames or CIDR networks explicitly denied, overriding any Allow rules.
+{% for host in (denied_hosts | default([])) %}
+Deny {{ host | string | trim }}
+{% endfor %}
+
+# --- Service Discovery ---
+
+# Advertise ipp-usb services via mDNS (Bonjour). Requires Avahi or compatible daemon.
+# When enabled, the service becomes discoverable by network clients without manual configuration.
+Bonjour {{ (enable_bonjour | default(True)) | ternary('true', 'false') }}
+
+# Human-readable service name advertised in mDNS for discovery.
+BonjourServiceName {{ (bonjour_service_name | default('IPP over USB')) | string }}

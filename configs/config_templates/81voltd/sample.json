@@ -1,0 +1,43 @@
+{
+  "service_user": "81voltd",
+  "service_group": "81voltd",
+  "working_directory": "/var/lib/81voltd",
+  "executable": "/usr/bin/81voltd",
+  "args": [
+    "-config",
+    "/etc/81voltd/config.yaml"
+  ],
+  "environment": [
+    "LOG_LEVEL=info",
+    "DATA_DIR=/data/81voltd"
+  ],
+  "restart_policy": "on-failure",
+  "restart_retries": 5,
+  "log_directory": "/var/log/81voltd",
+  "log_file_pattern": "81voltd-%Y%m%d.log",
+  "readiness_probe": "/usr/bin/81voltd --check-ready",
+  "liveness_probe": "/usr/bin/81voltd --check-alive",
+  "port": [
+    8181,
+    8443
+  ],
+  "memory_limit": "1G",
+  "cpu_limit": "0.5",
+  "dependencies": [
+    "redis",
+    "postgresql"
+  ],
+  "mounts": [
+    {
+      "source": "/etc/81voltd",
+      "destination": "/etc/81voltd",
+      "options": "ro"
+    },
+    {
+      "source": "/data/81voltd",
+      "destination": "/data",
+      "options": "rw"
+    }
+  ],
+  "health_check_interval": 30
+}

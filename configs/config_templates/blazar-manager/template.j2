@@ -1,0 +1,322 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          blazar-manager
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs
+# Default-Start:      2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: OpenStack Blazar Manager
+# Description:       OpenStack Blazar Manager serves as the core logic engine
+#                    for resource reservation in OpenStack (Nova). It manages
+#                    leases for instances, networks, and volumes.
+### END INIT INFO
+
+# Author: Thomas Goirand <zigo@debian.or>
+# OpenStack Project name. Used for constructing paths, PID files, log directories,
+# and the default system user/group if not explicitly overridden.
+DESC="OpenStack Blazar Manager (blizar-manager)"
+PROJECT_NAME={{ project_name | default('blazar') }}
+NAME=${PROJECT_NAME}-manager
+
+# RabbitMQ Messaging Process Name.
+# Sets the environment variable for oslo.messaging to identify this service's
+# messaging tags/queues, helping with monitoring and debugging in a shared broker.
+export OS_OSLO_MESSAGING_RABBIT__PROCESSNAME={{ process_name | default('blazar-manager') }}
+
+#!/bin/sh
+# The content after this line comes from openstack-pkg-tools
+# and has been automatically added to a .init.in script, which
+# contains only the descriptive part for the daemon. Everything
+# else is standardized as a single unique script.
+
+# Author: Thomas Goirand <zigo@debian.org>
+# Author: Ondřej Nový <novy@ondrej.org>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+# UWSGI Configuration Block:
+# If UWSGI variables are set, this block configures the web gateway for Blazar API.
+# Blazar typically uses WSGI for its REST API endpoints.
+if [ -n "${UWSGI_PORT}" ] && [ -n "${UWSGI_INI_PATH}" ] && [ -n "${UWSGI_INI_APP}" ] ; then
+	# Check if the UWSGI application config file exists.
+	# If not, skip UWSGI setup and fall back to direct daemon execution.
+	if ! [ -f "${UWSGI_INI_APP}" ] ; then
+		exit 0
+	fi
+
+	# SSL/TLS Certificate Discovery:
+	# Tries to find private key and certificate for HTTPS configuration.
+	# Priority: /etc/${PROJECT_NAME}/ssl/private/ for key, then puppet cert or public dir for cert.
+	if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
+		KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
+	fi
+
+	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
+		# This is needed for puppet...
+		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
+	else
+		if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
+			CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
+		fi
+	fi
+
+	# Daemon Binary Selection:
+	# Searches for the available uwsgi-python binary based on Python version.
+	# This ensures compatibility across different Debian/Ubuntu releases.
+	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
+		if [ -x /usr/bin/uwsgi_python${i} ] ; then
+			DAEMON=/usr/bin/uwsgi_python${i}
+		fi
+	done
+
+	# Network Binding Configuration:
+	# Attempts to read bind IP and port from a configuration file using pkgos_inifile.
+	# This supports dynamic binding configurations managed by external tools.
+	if [ -n "${UWSGI_BIND_CONFIG_FILE}" ] && [ -r "${UWSGI_BIND_CONFIG_FILE}" ] && [ -n "${UWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${UWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
+		. /usr/share/openstack-pkg-tools/pkgos_func
+		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_IP_DIRECTIVE}
+	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_BIND_IP=${RET}
+		fi
+		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}
+	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_PORT=${RET}
+		fi
+
+		# Worker Process Calculation:
+		# Reads the number of workers from config. If missing, defaults to nproc / 2.
+		if [ -n "${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
+			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
+		        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				UWSGI_PROCESSES=" --processes ${RET}"
+			else
+				# If we can't find the directive in the config file,
+				# we fallback to the number of thread / 2.
+				UWSGI_PROCESSES=" --processes "$(( $(nproc) / 2 ))
+			fi
+		fi
+
+		# Multi-port Handling for Swift-like setups:
+		# If the config file is for swift object-server, it may require multiple ports.
+		if [ "${UWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
+			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} devices
+			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				DEVICES_PATH=${RET}
+				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
+				COUNT=0
+				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
+					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
+					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
+					COUNT=$(( ${COUNT} + 1 ))
+				done
+			fi
+		fi
+	else
+		UWSGI_BIND_IP=""
+	fi
+
+	# Final Daemon Arguments Construction:
+	# Combines bind parameters, SSL settings, and worker counts into DAEMON_ARGS.
+	if [ -n "${BIND_PARAMS}" ] ; then
+		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
+	else
+		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
+			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
+		else
+			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
+		fi
+	fi
+
+	DAEMON_ARGS="${DAEMON_ARGS} --ini ${UWSGI_INI_PATH}"
+	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
+	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
+fi
+
+# Default Daemon Path:
+# If UWSGI was not used (or failed), the default Blazar Manager binary is selected.
+if [ -z "${DAEMON}" ] ; then
+	DAEMON=/usr/bin/${NAME}
+fi
+
+# PID File Location:
+# Standard location for the process ID file, ensuring proper process management.
+PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
+
+# Script Name Default:
+# Used for status and help messages. Defaults to the init.d path.
+if [ -z "${SCRIPTNAME}" ] ; then
+	SCRIPTNAME=/etc/init.d/${NAME}
+fi
+
+# System User/Group:
+# The user and group under which the daemon runs. Defaults to the project name.
+# Crucial for file permission and security isolation.
+if [ -z "${SYSTEM_USER}" ] ; then
+	SYSTEM_USER=${PROJECT_NAME}
+fi
+if [ -z "${SYSTEM_GROUP}" ] ; then
+	SYSTEM_GROUP=${PROJECT_NAME}
+fi
+
+# Chuid Argument:
+# Passed to start-stop-daemon to switch identity. Only needed if not running as root.
+if [ "${SYSTEM_USER}" != "root" ] ; then
+	STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
+fi
+
+# Configuration File Path:
+# The main Blazar configuration file. Defaults to /etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
+if [ -z "${CONFIG_FILE}" ] ; then
+	CONFIG_FILE=/etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
+fi
+
+# Log File Location:
+# Where the daemon writes its logs.
+LOGFILE=/var/log/${PROJECT_NAME}/${NAME}.log
+
+# Logfile Daemon Argument:
+# Conditionally adds the --log-file argument if not handled by UWSGI or syslog.
+if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
+	DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
+fi
+
+# Exit if the package is not installed
+[ -x $DAEMON ] || exit 0
+
+# Directory Creation and Permissions:
+# If running as root, creates necessary directories and sets ownership.
+if [ `whoami` = "root" ] ; then
+	for i in lock run cache ; do
+		mkdir -p /var/$i/${PROJECT_NAME}
+		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
+	done
+fi
+
+# This defines support functions which we use later on
+. /lib/lsb/init-functions
+
+RET=0
+
+# Manage log options: logfile and/or syslog, depending on user's choosing
+# Reads global and local defaults to determine logging behavior.
+[ -r /etc/default/openstack ] && . /etc/default/openstack
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
+if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
+	[ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
+fi
+
+do_start() {
+	start-stop-daemon \
+		--start \
+		--quiet \
+		--background ${STARTDAEMON_CHUID} \
+		--make-pidfile --pidfile ${PIDFILE} \
+		--chdir /var/lib/${PROJECT_NAME} \
+		--startas $DAEMON \
+		--test > /dev/null \
+		|| return 1
+	if [ -n "${PYARGV}" ] ; then
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/${PROJECT_NAME} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS --pyargv "${PYARGV}" \
+			|| return 2
+	else
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/${PROJECT_NAME} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS \
+			|| return 2
+	fi
+}
+
+do_stop() {
+	start-stop-daemon \
+		--stop \
+		--quiet \
+		--retry=TERM/30/KILL/5 \
+		--pidfile $PIDFILE
+	RETVAL=$?
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+do_systemd_start() {
+	# Set umask to ensure log files are created with 0644 mode bits
+	# Note we can't set 0026 to have files 0640, because that's going
+	# to be in use in for example neutron-dhcp-agent, which makes it
+	# so it wont be able to read /var/lib/neutron/external/pids/*.pid.haproxy
+	# and then fail hardly. However, 0022 is enough, since the log
+	# folders are owned by <project>:adm, so users don't have access
+	# to it unless they are on the adm group, which is what we want.
+	umask 0022
+	if [ -n "${PYARGV}" ] ; then
+		exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
+	else
+		exec $DAEMON $DAEMON_ARGS
+	fi
+}
+
+case "$1" in
+start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+status)
+	status_of_proc "$DAEMON" "$NAME"
+	RET=$?
+;;
+systemd-start)
+	do_systemd_start
+;;  
+show-args)
+	if [ -n "${PYARGV}" ] ; then
+		echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}\"
+	else
+		echo $DAEMON $DAEMON_ARGS
+	fi
+;;
+restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1)
+			do_start
+			case $? in
+				0) log_end_msg 0 ; RET=$? ;;
+				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
+				*) log_end_msg 1 ; RET=$? ;; # Failed to start
+			esac
+		;;
+		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
+	esac
+;;
+*)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
+	RET=3
+;;
+esac
+
+exit $RET

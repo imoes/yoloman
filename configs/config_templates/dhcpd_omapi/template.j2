@@ -1,34 +1,86 @@
-# OMAPI configuration — enables remote administration via OMAPI
-# This key is used for authenticated dynamic DNS updates and remote management
-# Define the OMAPI port and key for secure access
-# The OMAPI port to listen on (default: 7911)
-port {{ omapi_port }};
+# ==============================================================================
+# ISC DHCP Server - OMAPI Configuration Template
+# ==============================================================================
+# This template configures the Open Management Protocol Interface (OMAPI)
+# for the ISC DHCP server. OMAPI allows external tools (like omshell or
+# dynamic DNS update scripts) to manage the DHCP lease database remotely.
+#
+# IMPORTANT:
+# - The `omapi_key` defined here MUST match the key referenced in the main
+#   dhcpd.conf (via the `omapi-key` directive).
+# - The secret must be securely generated and shared with clients.
+# - Access control lists (allow/deny) restrict which hosts can talk to OMAPI.
 
-# Define the OMAPI authentication key
-key {{ omapi_key_name }} {
-  algorithm {{ omapi_key_algorithm }};
-  secret "{{ omapi_key_secret }}";
+# ------------------------------------------------------------------------------
+# Port Configuration
+# ------------------------------------------------------------------------------
+# omapi_port: Port number on which the OMAPI server listens for connections.
+# Must match client/tool configuration (e.g., 'omshell').
+# Default: 7911
+# ------------------------------------------------------------------------------
+port {{ (omapi_port | default(7911)) }};
+
+# ------------------------------------------------------------------------------
+# Authentication Key Definition
+# ------------------------------------------------------------------------------
+# Define the OMAPI authentication key block.
+# The key name must match the name used in the main dhcpd.conf 'omapi-key' directive.
+
+# omapi_key_name: Identifier name for the OMAPI authentication key.
+# Used in the 'omapi-key' directive and must match client key references.
+# Default: 'ddns_key'
+# ------------------------------------------------------------------------------
+key {{ (omapi_key_name | default('ddns_key')) }} {
+
+    # omapi_key_algorithm: Cryptographic algorithm for the OMAPI authentication key.
+    # Common values: 'hmac-sha256', 'hmac-sha512', 'hmac-sha384', 'hmac-sha224'.
+    # Default: 'hmac-sha256'
+    # ------------------------------------------------------------------------------
+    algorithm {{ (omapi_key_algorithm | default('hmac-sha256')) }};
+
+    # omapi_key_secret: Base64-encoded secret used for OMAPI authentication.
+    # Must be a secure, randomly generated value.
+    # Default: '' (Empty string indicates missing secret; ensure this is set!)
+    # ------------------------------------------------------------------------------
+    secret "{{ (omapi_key_secret | default('')) }}";
 };
 
-# Enable OMAPI server
-# This stanza enables the OMAPI server for remote management
-omapi-key {{ omapi_key_name }};
+# ------------------------------------------------------------------------------
+# Enable OMAPI Server
+# ------------------------------------------------------------------------------
+# omapi-key: Specifies the name of the key defined above that the server should use.
+# This enables the OMAPI server functionality.
+# ------------------------------------------------------------------------------
+omapi-key {{ (omapi_key_name | default('ddns_key')) }};
 
-# Optional: OMAPI access control (allow/deny statements)
-{% if omapi_allow_list | length > 0 %}
+# ------------------------------------------------------------------------------
+# Access Control: Allow List
+# ------------------------------------------------------------------------------
+# omapi_allow_list: List of allowed IP addresses or CIDR ranges permitted to
+# connect to the OMAPI server. If empty, no explicit allow rules are generated
+# (behavior depends on global DHCP 'allow' directives).
+# Default: []
+# ------------------------------------------------------------------------------
+{% if omapi_allow_list is defined and omapi_allow_list | length > 0 %}
 # Allow OMAPI connections only from these hosts
 {% for host in omapi_allow_list %}
 allow {{ host | default('') }};
 {% endfor %}
 {% endif %}
 
-# Optional: OMAPI deny list (explicit deny rules)
-{% if omapi_deny_list | length > 0 %}
+# ------------------------------------------------------------------------------
+# Access Control: Deny List
+# ------------------------------------------------------------------------------
+# omapi_deny_list: List of IP addresses or CIDR ranges explicitly denied access
+# to the OMAPI server. Deny rules typically take precedence over allow rules.
+# Default: []
+# ------------------------------------------------------------------------------
+{% if omapi_deny_list is defined and omapi_deny_list | length > 0 %}
 # Explicitly deny OMAPI connections from these hosts
 {% for host in omapi_deny_list %}
 deny {{ host | default('') }};
 {% endfor %}
 {% endif %}
 
-# Standard DHCP configuration remains outside OMAPI scope — OMAPI only manages live updates
+# Standard DHCP configuration remains outside OMAPI scope — OMAPI only manages live updates.
 # (This template focuses only on the OMAPI-specific directives.)

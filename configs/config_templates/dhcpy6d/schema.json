@@ -2,139 +2,16 @@
   "interface": {
     "type": "string",
     "default": "eth0",
-    "description": "Network interface the server binds to for DHCPv6 traffic."
+    "description": "Interface to listen to multicast DHCPv6 traffic"
   },
-  "listen_address": {
+  "sqlite_volatile_path": {
     "type": "string",
-    "default": "ff02::1:2",
-    "description": "Multicast or unicast IPv6 address to listen on (e.g., link-local FF02::1:2 for DHCPv6 server discovery)."
-  },
-  "port": {
-    "type": "number",
-    "default": 546,
-    "description": "UDP port to listen on (standard DHCPv6 port: 546)."
-  },
-  "syslog": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable logging to the system syslog daemon."
-  },
-  "max_requests": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum concurrent DHCP requests to handle; 0 means unlimited."
-  },
-  "config_dir": {
-    "type": "string",
-    "default": "/etc/dhcpy6d/clients",
-    "description": "Directory containing per-client configuration files (e.g., hostname, static assignments)."
-  },
-  "mac_lookup": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable lookup of client identity from MAC address (used for MAC-aware classification)."
-  },
-  "ldap_url": {
-    "type": "string",
-    "default": "",
-    "description": "LDAP URI to query MAC-to-identity mappings; leave empty to disable LDAP."
-  },
-  "ldap_bind_dn": {
-    "type": "string",
-    "default": "",
-    "description": "DN to bind as when connecting to LDAP (required if LDAP is enabled and anonymous binds disallowed)."
-  },
-  "ldap_bind_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for LDAP bind; prefer using `ldap_bind_secret_file` instead."
-  },
-  "ldap_bind_secret_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to a file containing the LDAP bind password (must be readable only by dhcpy6d user)."
-  },
-  "ldap_mac_attr": {
-    "type": "string",
-    "default": "macAddress",
-    "description": "LDAP attribute name containing MAC addresses (e.g., 'macAddress' or 'dhcpClientIdentifier')."
-  },
-  "default_lease_time": {
-    "type": "number",
-    "default": 3600,
-    "description": "Default lease duration in seconds for assigned IPv6 addresses."
-  },
-  "max_lease_time": {
-    "type": "number",
-    "default": 7200,
-    "description": "Maximum lease duration allowed (clients cannot request longer)."
-  },
-  "dns_servers": {
-    "type": "list",
-    "default": [
-      "2001:4860:4860::8888",
-      "2001:4860:4860::8844"
-    ],
-    "description": "List of IPv6 DNS servers to advertise to clients."
-  },
-  "domain_search": {
-    "type": "list",
-    "default": [
-      "example.com"
-    ],
-    "description": "List of DNS domain search suffixes to advertise."
-  },
-  "ntp_servers": {
-    "type": "list",
-    "default": [],
-    "description": "Optional list of NTP servers to advertise (IPv6 addresses)."
-  },
-  "pools": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Human-readable name for this address pool."
-        },
-        "prefix": {
-          "type": "string",
-          "description": "IPv6 prefix (CIDR notation) for this pool, e.g., '2001:db8:1::/64'."
-        },
-        "start": {
-          "type": "string",
-          "description": "First IPv6 address in the usable range (inclusive), e.g., '2001:db8:1::10'."
-        },
-        "end": {
-          "type": "string",
-          "description": "Last IPv6 address in the usable range (inclusive), e.g., '2001:db8:1::ff'."
-        },
-        "static_reservations": {
-          "type": "object",
-          "description": "Map of MAC addresses (colon-separated, lowercase) to static IPv6 addresses for reserved clients.",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "description": "List of IPv6 address pools to serve. Each pool defines a range and optional static reservations."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+    "default": "/var/lib/dhcpy6d/volatile.sqlite",
+    "description": "Path to the SQLite database for volatile (lease/LLIP-MAC mapping) data"
   },
   "log_file": {
     "type": "string",
     "default": "/var/log/dhcpy6d.log",
-    "description": "Path to the primary log file; empty string disables file logging."
-  },
-  "db_dsn": {
-    "type": "string",
-    "default": "",
-    "description": "Database DSN for persistent lease storage (e.g., 'sqlite:////var/lib/dhcpy6d/dhcpy6d.db'); empty = in-memory only."
+    "description": "Path to the log file"
   }
 }

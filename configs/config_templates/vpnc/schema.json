@@ -22,7 +22,12 @@
   "ike_authmode": {
     "type": "string",
     "default": "psk",
-    "description": "IKE authentication mode. Only 'psk' is typically used for vpnc."
+    "description": "IKE authentication mode. Only 'psk' is typically used for vpnc.",
+    "enum": [
+      "psk",
+      "cert",
+      "hybrid"
+    ]
   },
   "ike_encryption": {
     "type": "string",
@@ -92,31 +97,11 @@
   "routes": {
     "type": "list",
     "default": [],
-    "items": {
-      "network": {
-        "type": "string",
-        "description": "IPv4 network address for the route (e.g., 10.0.0.0)."
-      },
-      "netmask": {
-        "type": "string",
-        "description": "IPv4 netmask (e.g., 255.255.255.0 or CIDR-like 24 \u2014 vpnc expects full netmask)."
-      }
-    },
     "description": "List of subnets to route through the VPN. Each route creates a Subnet directive."
   },
   "no_nat": {
     "type": "list",
     "default": [],
-    "items": {
-      "network": {
-        "type": "string",
-        "description": "IPv4 network address to exclude from tunnel (e.g., 192.168.1.0)."
-      },
-      "netmask": {
-        "type": "string",
-        "description": "IPv4 netmask for the no-NAT range."
-      }
-    },
     "description": "List of subnets to reach *directly* (not via VPN). Creates No NAT directives."
   },
   "xauth_username": {
@@ -132,16 +117,6 @@
   "proxy_arp": {
     "type": "string",
     "default": "on",
-    "description": "Enable proxy ARP on the interface (on/off). Required for bridging scenarios."
-  },
-  "debug": {
-    "type": "string",
-    "default": "off",
-    "description": "Enable verbose debug output (on/off)."
-  },
-  "script": {
-    "type": "string",
-    "default": "",
-    "description": "Path to script to execute after connection setup (e.g., /etc/vpnc/vpnc-script)."
+    "description": "Enable proxy ARP on the VPN interface."
   }
 }

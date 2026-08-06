@@ -1,127 +1,22 @@
 {
-  "max_connections": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of simultaneous rsync connections allowed server-wide."
-  },
-  "log_file": {
+  "rsync_enable": {
     "type": "string",
-    "default": "/var/log/rsyncd.log",
-    "description": "Path to the log file for rsync daemon messages. Set to stdout for console logging (not recommended for production daemons)."
+    "default": "false",
+    "description": "Whether to enable rsync daemon mode via init.d. Allowed values: \"true\", \"false\", \"inetd\".",
+    "enum": [
+      "false",
+      "true",
+      "inetd"
+    ]
   },
-  "syslog_facility": {
+  "rsync_opts": {
     "type": "string",
-    "default": "daemon",
-    "description": "Syslog facility to use when logging. Common values: daemon, local0 through local7."
+    "default": "",
+    "description": "Extra command-line options for rsync daemon (e.g., '--address=127.0.0.1 --port=873')."
   },
-  "modules": {
-    "type": "list",
-    "default": [],
-    "description": "List of rsync export modules (directories) to make available for transfer.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "path": {
-          "type": "string",
-          "default": "",
-          "description": "Absolute filesystem path to the directory to export via this module."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description of this module shown to rsync clients."
-        },
-        "read_only": {
-          "type": "bool",
-          "default": true,
-          "description": "If true, clients cannot write or modify files in this module."
-        },
-        "write_only": {
-          "type": "bool",
-          "default": false,
-          "description": "If true, clients can only write (not read) files. Set only for upload-only endpoints."
-        },
-        "list": {
-          "type": "bool",
-          "default": true,
-          "description": "If true, this module appears in the module list when a client lists available exports."
-        },
-        "max_connections": {
-          "type": "number",
-          "default": 0,
-          "description": "Per-module max connections. If 0, uses the global max_connections value."
-        },
-        "users": {
-          "type": "list",
-          "default": [],
-          "description": "List of allowed usernames (must exist on server). Leave empty to disable user restriction (not recommended)."
-        },
-        "groups": {
-          "type": "list",
-          "default": [],
-          "description": "List of allowed group names (GIDs) for file access permissions."
-        },
-        "owner": {
-          "type": "string",
-          "default": "",
-          "description": "Username (UID) to assign as owner to all files uploaded. Use only if necessary (e.g., for web serving)."
-        },
-        "file_permissions": {
-          "type": "string",
-          "default": "preserve",
-          "description": "How to handle file permissions: 'preserve' (default), 'force', or 'ignore'."
-        },
-        "lock_file": {
-          "type": "string",
-          "default": "",
-          "description": "Path to a per-module lock file (prevents concurrent writes)."
-        },
-        "max_size": {
-          "type": "number",
-          "default": 0,
-          "description": "Maximum file size (in bytes) allowed for transfer in this module. 0 = unlimited."
-        },
-        "exclude": {
-          "type": "list",
-          "default": [],
-          "description": "List of glob/regex patterns to exclude during transfers (relative to module path)."
-        },
-        "include": {
-          "type": "list",
-          "default": [],
-          "description": "List of glob/regex patterns to explicitly include (override excludes)."
-        },
-        "auth_realm": {
-          "type": "string",
-          "default": "",
-          "description": "Authentication realm name (used in MD5 challenge for rsync auth)."
-        },
-        "secrets_file": {
-          "type": "string",
-          "default": "",
-          "description": "Path to the secrets file containing username:password (or MD5 hashes) for authentication."
-        },
-        "hide_dot_files": {
-          "type": "bool",
-          "default": true,
-          "description": "If true, dotfiles (e.g., .git) are hidden from listing and default syncs."
-        },
-        "use_chroot": {
-          "type": "bool",
-          "default": true,
-          "description": "If true, use chroot() to isolate this module\u2019s process (strongly recommended for security)."
-        },
-        "timeout": {
-          "type": "number",
-          "default": 300,
-          "description": "Idle timeout (seconds) before disconnecting inactive clients."
-        },
-        "transfer_rate": {
-          "type": "number",
-          "default": 0,
-          "description": "Maximum transfer rate (KB/s) for clients using this module. 0 = unlimited."
-        }
-      }
-    }
+  "rsync_nice": {
+    "type": "string",
+    "default": "",
+    "description": "Nice level (0\u201319) for rsync daemon; empty string leaves it unset."
   }
 }

@@ -1,50 +1,139 @@
-# Core configuration for lomiri-history-service
-# Defines database connection, retention, cache, and worker settings
-# These values control how the service stores, retrieves, and purges history events
+# ==============================================================================
+# Lomiri History Service Configuration
+# ==============================================================================
+# This file controls the behavior of the history-service, managing event storage,
+# retrieval, caching, retention policies, and logging.
+# ==============================================================================
 
-{{ '# Database backend configuration' | comment() }}
+# ------------------------------------------------------------------------------
+# Database Backend Configuration
+# ------------------------------------------------------------------------------
+# Defines which database engine to use for storing history events and the
+# connection details required to reach it. Note: SQLite does not require
+# host/port/password.
+# ------------------------------------------------------------------------------
 [database]
-engine = {{ db_engine }}
-host = {{ db_host }}
-port = {{ db_port }}
-name = {{ db_name }}
-user = {{ db_user }}
-password = {{ db_password }}
+# Database engine to use (e.g., 'sqlite', 'postgresql', 'mysql')
+# Defaults to 'sqlite' for local, zero-configuration storage.
+engine = {{ db_engine | default('sqlite') | lower }}
 
-{{ '# Cache configuration for frequent lookups' | comment() }}
+# Database server hostname or IP address (ignored for SQLite)
+# Use this when db_engine is 'postgresql', 'mysql', or 'mariadb'.
+host = {{ db_host | default('localhost') }}
+
+# Database server port
+# Default is 5432 for PostgreSQL. Adjust if using MySQL (3306) or others.
+port = {{ db_port | default(5432) }}
+
+# Name of the database to use
+# The specific database instance where history data is stored.
+name = {{ db_name | default('history') }}
+
+# Database user for authentication
+# The user account used to connect to the database.
+user = {{ db_user | default('history') }}
+
+# Password for the database user (leave empty for SQLite or trust-based auth)
+# Provide a secure password for remote database connections.
+password = {{ db_password | default('') }}
+
+# ------------------------------------------------------------------------------
+# Cache Configuration for Frequent Lookups
+# ------------------------------------------------------------------------------
+# Controls how recently accessed history entries are cached in memory to
+# improve read performance and reduce database load.
+# ------------------------------------------------------------------------------
 [cache]
-enabled = {{ cache_enabled }}
-ttl_seconds = {{ cache_ttl_seconds }}
-max_size = {{ cache_max_size }}
+# Enable caching of recent history lookups
+# Set to true to allow in-memory caching of query results.
+enabled = {{ cache_enabled | default(true) }}
 
-{{ '# Threading and concurrency tuning' | comment() }}
+# How long cached entries remain valid (seconds)
+# Defines the Time-To-Live (TTL) for cache entries before they are evicted.
+ttl_seconds = {{ cache_ttl_seconds | default(300) }}
+
+# Maximum number of entries in the cache
+# The upper limit of cacheable items to prevent excessive memory usage.
+max_size = {{ cache_max_size | default(10000) }}
+
+# ------------------------------------------------------------------------------
+# Threading and Concurrency Tuning
+# ------------------------------------------------------------------------------
+# Adjusts the background worker pool responsible for processing history events.
+# ------------------------------------------------------------------------------
 [worker]
-threads = {{ worker_threads }}
-max_tasks = {{ worker_max_tasks }}
+# Number of worker threads for background processing
+# Determines how many concurrent threads handle event ingestion and processing.
+threads = {{ worker_threads | default(4) }}
 
-{{ '# Retention policy: how long to keep history entries' | comment() }}
+# Maximum number of concurrent tasks per worker
+# Limits the queue depth per worker to prevent memory exhaustion during spikes.
+max_tasks = {{ worker_max_tasks | default(20) }}
+
+# ------------------------------------------------------------------------------
+# Retention Policy: How Long to Keep History Entries
+# ------------------------------------------------------------------------------
+# Defines automatic cleanup rules for old history data to manage disk usage.
+# ------------------------------------------------------------------------------
 [retention]
-max_age_days = {{ retention_max_age_days }}
-batch_size = {{ retention_batch_size }}
+# Maximum age (in days) for history entries before automatic deletion
+# Entries older than this value will be removed by the retention worker.
+max_age_days = {{ retention_max_age_days | default(90) }}
 
-{{ '# Event filtering and sanitization' | comment() }}
+# Number of entries to process per retention cleanup batch
+# Controls the granularity of deletion jobs to avoid locking the database.
+batch_size = {{ retention_batch_size | default(1000) }}
+
+# ------------------------------------------------------------------------------
+# Event Filtering and Sanitization
+# ------------------------------------------------------------------------------
+# Filters out specific types of events or sources to reduce noise and storage.
+# ------------------------------------------------------------------------------
 [filter]
 # Exclude events from specific sources (e.g., internal system components)
-ignore_sources = [{% for src in ignore_sources %} "{{ src }}"{% if not loop.last %},{% endif %}{% endfor %}]
-# Minimum event age (seconds) before processing (prevents race conditions)
-min_age_seconds = {{ filter_min_age_seconds }}
+# List of source identifiers to ignore entirely.
+ignore_sources = [{% for src in (ignore_sources | default(['systemd', 'lomiri-indicator-datetime'])) %} "{{ src }}"{% if not loop.last %}, {% endif %}{% endfor %}]
 
-{{ '# Logging verbosity: debug, info, warning, error' | comment() }}
+# Minimum age (seconds) an event must have before it's processed
+# Prevents processing of out-of-order events that haven't stabilized yet.
+min_age_seconds = {{ filter_min_age_seconds | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Logging Verbosity
+# ------------------------------------------------------------------------------
+# Configuration for service logging, including file rotation and severity levels.
+# ------------------------------------------------------------------------------
 [logging]
-level = {{ log_level }}
-file = {{ log_file }}
-max_size_mb = {{ log_max_size_mb }}
-max_files = {{ log_max_files }}
+# Minimum log level to record (debug, info, warning, error)
+# Controls the verbosity of the output; lower levels produce more logs.
+level = {{ log_level | default('info') | lower }}
 
-{{ '# Optional: Enable/disable features' | comment() }}
+# Path to the service log file
+# The absolute path where the service writes its operational logs.
+file = {{ log_file | default('/var/log/lomiri/history-service.log') }}
+
+# Maximum size of each log file before rotation (MB)
+# Once the log file reaches this size, it is rotated.
+max_size_mb = {{ log_max_size_mb | default(50) }}
+
+# Number of rotated log files to retain
+# How many old log files are kept on disk before the oldest are deleted.
+max_files = {{ log_max_files | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Optional: Enable/Disable Features
+# ------------------------------------------------------------------------------
+# Toggles optional functionality such as deduplication and remote synchronization.
+# ------------------------------------------------------------------------------
 [features]
-# Enable deduplication of events by hash
-enable_dedup = {{ enable_dedup }}
-# Enable real-time sync to external storage (e.g., cloud backup)
-enable_remote_sync = {{ enable_remote_sync }}
-remote_sync_url = {{ remote_sync_url }}
+# Enable event deduplication using content hash
+# Prevents storing duplicate events by comparing content hashes.
+enable_dedup = {{ enable_dedup | default(true) }}
+
+# Enable real-time sync of history entries to a remote service
+# When enabled, events are pushed to the remote_sync_url endpoint.
+enable_remote_sync = {{ enable_remote_sync | default(false) }}
+
+# URL of the remote sync endpoint (requires enable_remote_sync=true)
+# The HTTPS URL to which history entries are synchronized.
+remote_sync_url = {{ remote_sync_url | default('') }}

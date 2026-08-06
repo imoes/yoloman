@@ -1,77 +1,18 @@
-#!/bin/sh
-# Start script for dqcache DNS/DNSCurve recursive server
-# Sets environment variables and launches dqcache with specified options
+# Base directory for chroot jail where dqcache runs in isolation
+# dqcache runs chrooted in the directory specified
+# by the $ROOT environment variable
+ROOT="{{ chroot_dir | default('/var/lib/dqcache/root') }}"
 
-# Directory where dqcache binaries and runtime files live
-export DQCACHE_ROOT={{ config_root }}
+# IP address(es) dqcache listens on for incoming DNS queries
+# dqcache listens for incoming UDP packets and TCP connections
+# addressed to port 53 of $IP. Typically $IP is 127.0.0.1,
+# but it can also be an externally accessible IP address
+#
+IP="{{ listen_addresses | default('127.0.0.1') }}"
 
-# User to run dqcache as (security hardening)
-export DQCACHE_USER={{ run_user }}
-
-# Directory for runtime state (PID file, logs if separate)
-export DQCACHE_RUNDIR={{ run_dir }}
-
-# Path to the configuration directory (contains trusted keys, etc.)
-export DQCACHE_CONFD={{ config_dir }}
-
-# Cache size in bytes (default: 512 MiB)
-export DQCACHE_CACHESIZE={{ cache_size }}
-
-# Maximum number of concurrent connections
-export DQCACHE_MAXCONN={{ max_connections }}
-
-# Local IP addresses to bind to for DNS queries
-export DQCACHE_LISTEN={{ listen_addresses | join(',') }}
-
-# DNS port (default: 53)
-export DQCACHE_PORT={{ listen_port }}
-
-# DNSCurve support: enable (on/off)
-export DQCACHE_DNSCURVE={{ dnscurve_enabled }}
-
-{% if dnscurve_enabled %}
-# DNSCurve: curve key file (public/private pair)
-export DQCACHE_DNSCURVEKEY={{ dnscurve_keyfile }}
-
-# DNSCurve: curve public key of the server (for client auth; optional)
-export DQCACHE_DNSCURVEPUB={{ dnscurve_pubkey }}
-
-# DNSCurve: enable client authentication (on/off)
-export DQCACHE_DNSCURVEAUTH={{ dnscurve_auth_enabled }}
-{% endif %}
-
-# Log level: 0 (quiet) to 9 (verbose)
-export DQCACHE_LOGLEVEL={{ log_level }}
-
-# Enable recursion (on/off) — always on for recursive resolvers
-export DQCACHE_RECURSIVE={{ recursion_enabled }}
-
-# Forward DNS queries to upstream resolvers (comma-separated IP:port)
-{% if upstream_servers %}
-export DQCACHE_FORWARD={{ upstream_servers | join(',') }}
-{% else %}
-export DQCACHE_FORWARD=
-{% endif %}
-
-# Optional: timeout for upstream queries (ms)
-export DQCACHE_TIMEOUT={{ upstream_timeout_ms }}
-
-# Optional: maximum depth of recursive query chain
-export DQCACHE_MAXDEPTH={{ max_query_depth }}
-
-# Optional: disable EDNS0 support (on/off)
-export DQCACHE_NOEDNS={{ edns_disabled }}
-
-# Optional: disable DNSSEC validation (on/off)
-export DQCACHE_NODESEC={{ dnssec_disabled }}
-
-# Optional: chroot directory (empty string to disable)
-export DQCACHE_CHROOT={{ chroot_dir | default('', true) }}
-
-# Launch dqcache daemon (with optional foreground mode for debug)
-{% if debug_mode %}
-export DQCACHE_FOREGROUND=1
-exec dqcache
-{% else %}
-exec dqcache
-{% endif %}
+# Fixed-size cache in bytes (typically 10000000 = 10MB)
+# dqcache uses a fixed-size cache,
+# as controlled by the $CACHESIZE environment variable.
+# Typically $CACHESIZE is 10000000 (10MB).
+#
+CACHESIZE="{{ cache_size_small | default(10000000) }}"

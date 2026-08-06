@@ -1,0 +1,116 @@
+# glmark2-es2-wayland wrapper script / configuration
+# This template generates the command-line execution configuration for glmark2-es2-wayland.
+# It is self-documenting: every variable usage includes its schema description as a comment.
+
+{% set _command_args = command_args | default([]) %}
+{% set _benchmark = benchmark | default([]) %}
+{% set _benchmark_file = benchmark_file | default([]) %}
+{% set _validate = validate | default(False) %}
+{% set _data_path = data_path | default('') %}
+{% set _frame_end = frame_end | default('default') %}
+{% set _swap_mode = swap_mode | default('default') %}
+{% set _off_screen = off_screen | default(False) %}
+{% set _visual_config = visual_config | default('') %}
+{% set _reuse_context = reuse_context | default(False) %}
+{% set _size = size | default('800x600') %}
+{% set _fullscreen = fullscreen | default(False) %}
+{% set _results = results | default('fps') %}
+{% set _results_file = results_file | default('csv') %}
+{% set _winsys_options = winsys_options | default('') %}
+{% set _list_scenes = list_scenes | default(False) %}
+{% set _show_all_options = show_all_options | default(False) %}
+{% set _run_forever = run_forever | default(False) %}
+{% set _annotate = annotate | default(False) %}
+{% set _debug = debug | default(False) %}
+{% set _version = version | default(False) %}
+{% set _help = help | default(False) %}
+
+# List of command-line arguments to pass to glmark2-es2-wayland.
+# Each item must be a string matching a valid CLI option or argument.
+{% for arg in _command_args %}{{ arg }}
+{% endfor %}
+
+# Benchmark specifications (e.g., 'shading:duration=5.0') to use with '-b'.
+# May include default-option prefixes starting with ':'.
+{% for bench in _benchmark %}-b {{ bench }}
+{% endfor %}
+
+# List of paths to benchmark description files to use with '--benchmark-file'.
+{% for bf in _benchmark_file %}--benchmark-file {{ bf }}
+{% endfor %}
+
+# If true, run a quick output validation test instead of benchmarks (adds '--validate').
+{% if _validate %}--validate
+{% endif %}
+
+# Path to glmark2 models, shaders and textures (maps to '--data-path').
+{% if _data_path %}--data-path {{ _data_path }}
+{% endif %}
+
+# Frame ending method: 'default', 'none', 'swap', 'finish', or 'readpixels' (maps to '--frame-end').
+{% if _frame_end and _frame_end != 'default' %}--frame-end {{ _frame_end }}
+{% endif %}
+
+# Frame swap mode: 'default', 'immediate', 'mailbox', or 'fifo' (maps to '--swap-mode').
+{% if _swap_mode and _swap_mode != 'default' %}--swap-mode {{ _swap_mode }}
+{% endif %}
+
+# If true, render to an off-screen surface (adds '--off-screen').
+{% if _off_screen %}--off-screen
+{% endif %}
+
+# Visual configuration string (e.g., 'id=0:red=8:green=8:blue=8:alpha=0:buffer=1') (maps to '--visual-config').
+{% if _visual_config %}--visual-config {{ _visual_config }}
+{% endif %}
+
+# If true, use a single context for all scenes (adds '--reuse-context').
+{% if _reuse_context %}--reuse-context
+{% endif %}
+
+# Window size WxH, e.g., '1920x1080', or '-1x-1' for fullscreen (maps to '-s/--size').
+{% if _size %}-s {{ _size }}
+{% endif %}
+
+# If true, run in fullscreen mode (adds '--fullscreen', overrides --size).
+{% if _fullscreen %}--fullscreen
+{% endif %}
+
+# Colon-separated list of result types: 'fps', 'cpu', or 'shader' (maps to '--results').
+{% if _results %}--results {{ _results }}
+{% endif %}
+
+# Path to file to save results (maps to '--results-file'). Extension determines format (e.g., '.csv', '.xml').
+{% if _results_file %}--results-file {{ _results_file }}
+{% endif %}
+
+# Colon-separated window system options, e.g., 'gl-api=es2' (maps to '--winsys-options').
+{% if _winsys_options %}--winsys-options {{ _winsys_options }}
+{% endif %}
+
+# If true, display available scenes and their options (adds '-l/--list-scenes').
+{% if _list_scenes %}-l
+{% endif %}
+
+# If true, show all scene option values used (adds '--show-all-options').
+{% if _show_all_options %}--show-all-options
+{% endif %}
+
+# If true, run indefinitely looping through benchmarks (adds '--run-forever').
+{% if _run_forever %}--run-forever
+{% endif %}
+
+# If true, annotate with on-screen info (adds '--annotate').
+{% if _annotate %}--annotate
+{% endif %}
+
+# If true, display debug messages (adds '-d/--debug').
+{% if _debug %}-d
+{% endif %}
+
+# If true, display version (adds '--version').
+{% if _version %}--version
+{% endif %}
+
+# If true, display help (adds '-h/--help').
+{% if _help %}-h
+{% endif %}

@@ -1,0 +1,83 @@
+# gdbmtool configuration file
+# This template is self-documenting. Every directive is preceded by
+# the schema description for that field.
+# Variables are loaded from ~/.gdbmtoolrc or .gdbmtoolrc in the current directory.
+# All variables use `| default(...)` to ensure safe rendering even if undefined.
+
+# Whether to ask for confirmation before destructive operations
+confirm {{ confirm | default(true) }}
+
+# Primary prompt string (supports %f, %p, %P, %_, %v, %%)
+ps1 {{ ps1 | default('%p> ') }}
+
+# Secondary prompt string (for multi-line commands)
+ps2 {{ ps2 | default('> ') }}
+
+# Field delimiter for structured data output (cannot be unset)
+delim1 {{ delim1 | default(',') }}
+
+# Array item delimiter for structured data output (cannot be unset)
+delim2 {{ delim2 | default(',') }}
+
+# Pager command to use (e.g., 'less -R'); unset if empty
+{% if pager | default('') != '' %}
+pager {{ pager | default('') }}
+{% endif %}
+
+# Suppress welcome banner at startup
+{% if quiet | default(false) %}
+quiet true
+{% endif %}
+
+# Open mode: one of 'newdb', 'wrcreat'/'rw', 'reader'/'readonly'
+{% if open_mode | default('rw') != 'rw' %}
+open {{ open_mode | default('rw') }}
+{% endif %}
+{# Note: 'rw' is the default and does not require an 'open' directive. #}
+
+# Block size in bytes (0 = use default)
+{% if blocksize | default(0) != 0 %}
+blocksize {{ blocksize | default(0) }}
+{% endif %}
+
+# Bucket cache size (0 = use default)
+{% if cachesize | default(0) != 0 %}
+cachesize {{ cachesize | default(0) }}
+{% endif %}
+
+# Octal file mode for newly created database files
+{% if filemode | default('0644') != '0644' %}
+filemode {{ filemode | default('0644') }}
+{% endif %}
+
+# Enable file locking
+{% if lock | default(true) %}
+lock true
+{% else %}
+lock false
+{% endif %}
+
+# Use memory-mapped I/O
+{% if mmap | default(true) %}
+mmap true
+{% else %}
+mmap false
+{% endif %}
+
+# Merge adjacent free blocks (true/false); null = leave unset
+{% if coalesce is not none %}
+coalesce {{ coalesce | default('') }}
+{% endif %}
+
+# Enable central free block pool (true/false); null = leave unset
+{% if centfree is not none %}
+centfree {{ centfree | default('') }}
+{% endif %}
+
+# List of structured data type definitions (key or content).
+# Each define has type and members list.
+{% for def in defines | default([]) %}
+define {{ def.type | default('key') }} {
+{% for member in def.members | default([]) %}  {{ member.type | default('string') }} {{ member.name | default('') }}{% if member.size is defined %}[{{ member.size }}]{% endif %}{% if member.offset is defined %}  offset {{ member.offset }}{% endif %}{% if member.pad is defined %}  pad {{ member.pad }}{% endif %}
+{% endfor %}}
+{% endfor %}

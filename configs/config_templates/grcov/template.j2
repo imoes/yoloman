@@ -1,0 +1,114 @@
+# grcov command-line arguments template
+# Self-documenting: every option is annotated with its schema description and default value.
+# Variables use the exact schema field names. All references include safe defaults.
+
+# paths: List of input paths (files/directories) to analyze for coverage data.
+{% for path in (paths | default([])) %}{{ path }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# output_types: List of output formats. Supported: html, coveralls, lcov, covdir, coveralls+, ade, files, markdown, cobertura, cobertura-pretty.
+--output-types {{ (output_types | default(['lcov'])) | join(',') }}
+
+# output_path: Output path — a single file for one output type, a directory for multiple.
+{% if (output_path | default('')) %}-o {{ output_path | default('') }}{% endif %}
+
+# source_dir: Root directory of source files.
+{% if (source_dir | default('')) %}-s {{ source_dir | default('') }}{% endif %}
+
+# prefix_dir: Prefix path to remove from file paths in coverage report.
+{% if (prefix_dir | default('')) %}-p {{ prefix_dir | default('') }}{% endif %}
+
+# binary_path: Path to the compiled binary used to generate coverage data.
+{% if (binary_path | default('')) %}-b {{ binary_path | default('') }}{% endif %}
+
+# llvm_path: Path to LLVM bin directory (e.g., /usr/lib/llvm-14/bin).
+{% if (llvm_path | default('')) %}--llvm-path {{ llvm_path | default('') }}{% endif %}
+
+# filter: Filter files: 'covered' or 'uncovered'.
+{% if (filter | default('')) %}--filter {{ filter | default('') }}{% endif %}
+
+# ignore: List of glob patterns to exclude from coverage analysis.
+{% for pattern in (ignore | default([])) %}--ignore {{ pattern }}{% endfor %}
+
+# keep_only: List of glob patterns — only files matching these are included.
+{% for pattern in (keep_only | default([])) %}--keep-only {{ pattern }}{% endfor %}
+
+# path_mapping: Path mapping rule in format 'from:to'.
+{% if (path_mapping | default('')) %}--path-mapping {{ path_mapping | default('') }}{% endif %}
+
+# branch: Enable parsing of branch coverage data.
+{% if (branch | default(False)) %}--branch{% endif %}
+
+# ignore_not_existing: Ignore source files that don't exist on disk.
+{% if (ignore_not_existing | default(False)) %}--ignore-not-existing{% endif %}
+
+# llvm: Optimize parsing for LLVM-generated coverage data only.
+{% if (llvm | default(False)) %}--llvm{% endif %}
+
+# token: Coveralls repository token (required for 'coveralls' and 'coveralls+' output types).
+{% if (token | default('')) %}--token {{ token | default('') }}{% endif %}
+
+# commit_sha: Git commit SHA corresponding to the coverage data.
+{% if (commit_sha | default('')) %}--commit-sha {{ commit_sha | default('') }}{% endif %}
+
+# service_name: CI service name (e.g., 'github-actions', 'travis-ci').
+{% if (service_name | default('')) %}--service-name {{ service_name | default('') }}{% endif %}
+
+# service_number: CI service build or run number.
+{% if (service_number | default('')) %}--service-number {{ service_number | default('') }}{% endif %}
+
+# service_job_id: CI service job ID.
+{% if (service_job_id | default('')) %}--service-job-id {{ service_job_id | default('') }}{% endif %}
+
+# service_pull_request: CI service pull request number.
+{% if (service_pull_request | default('')) %}--service-pull-request {{ service_pull_request | default('') }}{% endif %}
+
+# service_flag_name: Flag name for Coveralls parallel builds.
+{% if (service_flag_name | default('')) %}--service-flag-name {{ service_flag_name | default('') }}{% endif %}
+
+# parallel: Enable parallel build mode for Coveralls.
+{% if (parallel | default(False)) %}--parallel{% endif %}
+
+# threads: Number of threads to use for processing.
+--threads {{ (threads | default(1)) }}
+
+# precision: Decimal precision for coverage percentages in output reports.
+--precision {{ (precision | default(2)) }}
+
+# vcs_branch: VCS branch name for Coveralls report.
+{% if (vcs_branch | default('')) %}--vcs-branch {{ vcs_branch | default('') }}{% endif %}
+
+# log: Log file path, or 'stdout'/'stderr'.
+--log {{ (log | default('stderr')) }}
+
+# log_level: Log level: OFF, ERROR, WARN, INFO, DEBUG, TRACE.
+--log-level {{ (log_level | default('ERROR')) }}
+
+# excl_line: Regex marker to exclude lines from line coverage analysis.
+{% if (excl_line | default('')) %}--excl-line {{ excl_line | default('') }}{% endif %}
+
+# excl_start: Regex marking start of excluded section for line coverage.
+{% if (excl_start | default('')) %}--excl-start {{ excl_start | default('') }}{% endif %}
+
+# excl_stop: Regex marking end of excluded section for line coverage.
+{% if (excl_stop | default('')) %}--excl-stop {{ excl_stop | default('') }}{% endif %}
+
+# excl_br_line: Regex marker to exclude lines from branch coverage analysis.
+{% if (excl_br_line | default('')) %}--excl-br-line {{ excl_br_line | default('') }}{% endif %}
+
+# excl_br_start: Regex marking start of excluded section for branch coverage.
+{% if (excl_br_start | default('')) %}--excl-br-start {{ excl_br_start | default('') }}{% endif %}
+
+# excl_br_stop: Regex marking end of excluded section for branch coverage.
+{% if (excl_br_stop | default('')) %}--excl-br-stop {{ excl_br_stop | default('') }}{% endif %}
+
+# no_demangle: Disable symbol demangling.
+{% if (no_demangle | default(False)) %}--no-demangle{% endif %}
+
+# output_config_file: Path to write output configuration file (used internally).
+{% if (output_config_file | default('')) %}--output-config-file {{ output_config_file | default('') }}{% endif %}
+
+# sort_output_types: List of output types to sort files lexicographically for.
+{% if (sort_output_types | default(['markdown'])) %}--sort-output-types {{ (sort_output_types | default(['markdown'])) | join(',') }}{% endif %}
+
+# guess_directory_when_missing: Guess directory structure when missing in coverage data.
+{% if (guess_directory_when_missing | default(False)) %}--guess-directory-when-missing{% endif %}

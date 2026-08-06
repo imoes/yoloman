@@ -1,114 +1,95 @@
-# Interface configuration block
-interface {{ interface_name }}
-{
-{% if send_advertisements | default(true) %}
-  # Advertise this interface
-  AdvSendAdvert on;
-{% else %}
-  AdvSendAdvert off;
-{% endif %}
+#! /bin/sh
 
-  # Minimum time between advertisements
-  AdvMinInterval {{ min_interval | default(3) }};
-{% if max_interval is defined and max_interval != min_interval %}
-  # Maximum time between advertisements
-  AdvMaxInterval {{ max_interval }};
-{% endif %}
+### BEGIN INIT INFO
+# Provides:          radvd
+# Required-Start:    $syslog $remote_fs $network
+# Required-Stop:     $syslog $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Router Advertising Daemon
+### END INIT INFO
 
-  # Default hop limit for packets
-  AdvHopLimit {{ hop_limit | default(64) }};
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/radvd
+NAME=radvd
+DESC=radvd
+CONFIG=/etc/radvd.conf
+PIDDIR=/var/run/radvd
+PIDFILE=$PIDDIR/radvd.pid
+OPTIONS="-u radvd -p $PIDFILE"
+PROC_SYS_IP6_FORWARDING=/proc/sys/net/ipv6/conf/all/forwarding
 
-  # Prefix configuration
-  AdvPrefixList
-  {
-{% for prefix in prefixes %}
-    # Prefix: {{ prefix.prefix }} (valid: {{ prefix.valid_lifetime }}s, preferred: {{ prefix.preferred_lifetime }}s)
-    {
-      AdvLifetime {{ prefix.valid_lifetime | default(86400) }};
-      AdvPreferredLifetime {{ prefix.preferred_lifetime | default(14400) }};
-      AdvOnLink {{ 'on' if prefix.onlink | default(true) else 'off' }};
-      AdvAutonomous {{ 'on' if prefix.autonomous | default(true) else 'off' }};
-{% if prefix.router_address | default(false) %}
-      AdvRouterAddress on;
-{% endif %}
-{% if prefix.prefix | default('') | length > 0 %}
-      {% if prefix.prefix | count('.') > 0 %}
-      # IPv4 prefix — note: radvd is IPv6-only, but some distros support IPv4 via NDP extension
-      # This is nonstandard and usually not recommended. Use only if needed.
-      # IPv4: {{ prefix.prefix }}/{{ prefix.prefix_length | default(24) }}
-      # Ignored by standard radvd; treat as comment
-      # IPv4Prefix {{ prefix.prefix }}/{{ prefix.prefix_length | default(24) }};
-      {% else %}
-      # IPv6 prefix
-      Prefix {{ prefix.prefix }}
-      {
-        AdvMaskLength {{ prefix.prefix_length | default(64) }};
-      };
-      {% endif %}
-{% endif %}
-    };
-{% endfor %}
-  };
+. /lib/lsb/init-functions
 
-{% if route_descriptors is defined and route_descriptors | length > 0 %}
-  # Route information configuration
-  AdvRouteList
-  {
-{% for route in route_descriptors %}
-    # Route to {{ route.destination }} via {{ route.router_address | default('self') }}
-    {
-      AdvLifetime {{ route.lifetime | default(30) }};
-      RoutePreference {{ route.preference | default(0) | string | lower }};
-{% if route.prefix | default('') | length > 0 %}
-      RouteDestination {{ route.prefix }}/{{ route.prefix_length | default(64) }};
-{% endif %}
-{% if route.router_address | default('') | length > 0 %}
-      AdvRouterAddr on;
-{% endif %}
-    };
-{% endfor %}
-  };
-{% endif %}
+test -x $DAEMON || exit 0
+test -f /etc/default/radvd && . /etc/default/radvd
 
-{% if rdnss_list is defined and rdnss_list | length > 0 %}
-  # Recursive DNS Server configuration
-  AdvRDNSSList
-  {
-{% for rdnss in rdnss_list %}
-    {
-      AdvRDNSSLifetime {{ rdnss.lifetime | default(3600) }};
-      RDNSS {{ rdnss.address }};
-    };
-{% endfor %}
-  };
-{% endif %}
+set -e
 
-{% if dnssl_list is defined and dnssl_list | length > 0 %}
-  # DNS Search List configuration
-  AdvDNSSLList
-  {
-{% for dnssl in dnssl_list %}
-    {
-      AdvDNSSLLifetime {{ dnssl.lifetime | default(3600) }};
-      DNSSL {{ dnssl.domain }};
-    };
-{% endfor %}
-  };
-{% endif %}
+# Check for IPv6 support in kernel
+if [ "$(uname -s)" != "GNU/kFreeBSD" ]; then
+  if test \! -e /proc/sys/net/ipv6; then
+    echo "IPv6 support must be enabled in the kernel for $DESC to work."
+    exit
+  fi
+fi
 
-{% if managed_config | default(false) %}
-  # Managed address configuration (DHCPv6)
-  AdvManagedFlag on;
-{% endif %}
+chkconfig() {
+  if [ "$(uname -s)" != "GNU/kFreeBSD" ]; then
+    if [ ! -e $CONFIG -o ! -s $CONFIG ]; then
+        echo ""
+	echo "* $CONFIG does not exist or is empty."
+	echo "* See /usr/share/doc/radvd/README.Debian"
+	echo "* radvd will *not* be started."
+	exit 0
+    elif [ ! -e $PROC_SYS_IP6_FORWARDING -o \
+	"$(cat $PROC_SYS_IP6_FORWARDING)" = "0" ]; then
+        echo ""
+	echo "* IPv6 forwarding seems to be disabled."
+	echo "* See /usr/share/doc/radvd/README.Debian"
+	echo "* radvd will *not* be started."
+	exit 0
+    fi
+  fi
+}
 
-{% if other_config | default(false) %}
-  # Other configuration (e.g., via DHCPv6 options)
-  AdvOtherConfigFlag on;
-{% endif %}
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	chkconfig
 
-{% if link_mtu is defined %}
-  # Advertised MTU
-  AdvLinkMTU {{ link_mtu }};
-{% endif %}
+	# Anything under /var/run can go away on reboot
+	[ -e $PIDDIR ] || install -d -o radvd -g root -m 4755 $PIDDIR
 
-};
+	if ! start-stop-daemon --oknodo --start --pidfile $PIDFILE \
+		--exec $DAEMON -- $OPTIONS; then
+	  echo "failed." && exit 1
+	fi
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --oknodo --stop --pidfile $PIDFILE \
+		--exec $DAEMON
+	echo "$NAME."
+	;;
+  reload|force-reload)
+	echo "Reloading $DESC configuration files."
+	start-stop-daemon --stop --signal HUP --quiet --pidfile \
+	    $PIDFILE --exec $DAEMON
+	;;
+  restart)
+	invoke-rc.d $NAME stop
+	invoke-rc.d $NAME start
+	;;
+  status)
+        status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+        ;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

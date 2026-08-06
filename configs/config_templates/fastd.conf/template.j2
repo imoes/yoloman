@@ -1,66 +1,106 @@
-# fastd configuration file — manages VPN peers, protocols, and interface settings
+# fastd configuration file
+# This template generates a self-documenting fastd (Fast Daemon) configuration.
+# fastd is a secure, lightweight VPN daemon that creates TAP/TUN interfaces.
 
-# Interface name for the VPN tunnel
-interface = "{{ interface }}"
+# Name of the TAP interface to create.
+# Default: 'fastd0'
+interface = "{{ interface | default('fastd0') }}"
 
-# Operating mode: client, server, or hybrid
-mode = "{{ mode }}"
+# Operational mode: client (outgoing only), server (incoming only), or hybrid (both).
+# Default: 'server'
+mode = "{{ mode | default('server') }}"
 
-# Method used for peer authentication and key exchange
-method = "{{ method }}"
+# Authentication and key exchange method.
+# Default: 'handshake'
+method = "{{ method | default('handshake') }}"
 
-# Path to the directory containing peer public keys (for 'manual' or 'password' method)
-{% if peers_dir is defined %}peers_dir = "{{ peers_dir }}"{% endif %}
+# Directory containing peer public key files.
+# Required for 'manual' and 'password' methods.
+# Default: '/etc/fastd/peers'
+peers_dir = "{{ peers_dir | default('/etc/fastd/peers') }}"
 
-# Path to the file containing pre-shared keys (for 'psk' method)
-{% if pre_shared_key_file is defined %}pre_shared_key_file = "{{ pre_shared_key_file }}"{% endif %}
+# Path to file with pre-shared keys.
+# Required for 'psk' method.
+# Default: '/etc/fastd/pre_shared_keys.txt'
+pre_shared_key_file = "{{ pre_shared_key_file | default('/etc/fastd/pre_shared_keys.txt') }}"
 
-# Path to the directory containing peer secret keys (for 'handshake' method)
-{% if secrets_dir is defined %}secrets_dir = "{{ secrets_dir }}"{% endif %}
+# Directory containing secret key files.
+# Required for 'handshake' method.
+# Default: '/etc/fastd/secrets'
+secrets_dir = "{{ secrets_dir | default('/etc/fastd/secrets') }}"
 
-# Optional: local IP address to bind to (e.g., for bind_address)
-{% if bind_address is defined %}bind_address = "{{ bind_address }}"{% endif %}
+# Local IP address to bind the UDP socket.
+# Empty string means bind to all interfaces.
+# Default: ''
+bind_address = "{{ bind_address | default('') }}"
 
-# Optional: UDP port to listen on (only in server/hybrid mode)
-{% if port is defined %}port = {{ port }}{% endif %}
+# UDP port to listen on.
+# Only used in server/hybrid mode.
+# Default: 9696
+port = {{ port | default(9696) }}
 
-# Optional: upper MTU for the tunnel interface
-{% if mtu is defined %}mtu = {{ mtu }}{% endif %}
+# Maximum transmission unit for the VPN interface.
+# Default: 1426
+mtu = {{ mtu | default(1426) }}
 
-# Optional: log level: debug, info, notice, warning, error, critical, alert, emergency
-{% if log_level is defined %}log_level = "{{ log_level }}"{% endif %}
+# Verbosity of logging output.
+# Levels: debug, info, notice, warning, error, critical, alert, emergency.
+# Default: 'notice'
+log_level = "{{ log_level | default('notice') }}"
 
-# Optional: runtime user to drop privileges to
-{% if user is defined %}user = "{{ user }}"{% endif %}
+# System user to drop privileges to after startup.
+# Default: 'fastd'
+user = "{{ user | default('fastd') }}"
 
-# Optional: runtime group to drop privileges to
-{% if group is defined %}group = "{{ group }}"{% endif %}
+# System group to drop privileges to after startup.
+# Default: 'fastd'
+group = "{{ group | default('fastd') }}"
 
-# Optional: DNS servers to push to peers (only in server/hybrid mode)
-{% if dns_servers is defined %}dns_servers = [{{ dns_servers | map('quote') | join(', ') }}]{% endif %}
+# List of DNS servers to push to connecting peers.
+# Only used in server/hybrid mode.
+# Default: []
+{% if dns_servers | default([]) | length > 0 %}
+dns_servers = [{{ dns_servers | default([]) | map('quote') | join(', ') }}]
+{% endif %}
 
-# Optional: Allowed IP ranges for peers (only in server/hybrid mode)
-{% if allowed_ips is defined %}allowed_ips = [{{ allowed_ips | map('quote') | join(', ') }}]{% endif %}
+# List of allowed IP subnets for peer traffic.
+# Only used in server/hybrid mode.
+# Default: ['10.255.0.0/24']
+{% if allowed_ips | default(['10.255.0.0/24']) | length > 0 %}
+allowed_ips = [{{ allowed_ips | default(['10.255.0.0/24']) | map('quote') | join(', ') }}]
+{% endif %}
 
-# Optional: Keep-alive interval in seconds (0 disables keep-alive)
-{% if keepalive_interval is defined %}keepalive_interval = {{ keepalive_interval }}{% endif %}
+# Seconds between keep-alive packets.
+# 0 disables keep-alive.
+# Default: 10
+keepalive_interval = {{ keepalive_interval | default(10) }}
 
-# Optional: Handshake timeout in seconds
-{% if handshake_timeout is defined %}handshake_timeout = {{ handshake_timeout }}{% endif %}
+# Seconds to wait before aborting a handshake.
+# Default: 60
+handshake_timeout = {{ handshake_timeout | default(60) }}
 
-# Optional: Peer-specific configuration blocks
-{% for peer in peers %}# Peer: {{ peer.name }} — configured with ID {{ peer.id }}
+# List of trusted peers with static configuration.
+{% for peer in peers | default([]) %}
+# Peer block for ID: {{ peer.id }}
+# Public key of the peer
 ["{{ peer.id }}"]
-  # Public key of the peer
   public_key = "{{ peer.public_key }}"
 
   # Optional: Fixed IP address assigned to this peer
-  {% if peer.ip is defined %}ip = "{{ peer.ip }}"{% endif %}
+  {% if peer.ip is defined %}
+  ip = "{{ peer.ip }}"
+  {% endif %}
 
-  # Optional: Hostname or IP:port for outgoing connections (only in client/hybrid mode)
-  {% if peer.address is defined %}address = "{{ peer.address }}"{% endif %}
+  # Optional: Hostname or IP:port for outgoing connections
+  # Only in client/hybrid mode
+  {% if peer.address is defined %}
+  address = "{{ peer.address }}"
+  {% endif %}
 
-  # Optional: Pre-shared key for this peer (for 'psk' method)
-  {% if peer.psk is defined %}pre_shared_key = "{{ peer.psk }}"{% endif %}
+  # Optional: Pre-shared key for this peer
+  # Only for 'psk' method
+  {% if peer.psk is defined %}
+  pre_shared_key = "{{ peer.psk }}"
+  {% endif %}
 
 {% endfor %}

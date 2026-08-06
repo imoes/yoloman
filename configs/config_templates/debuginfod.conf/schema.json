@@ -1,144 +1,128 @@
 {
   "base_cache_dir": {
     "type": "string",
-    "default": "/var/cache/debuginfod",
+    "default": {
+      "value": "/var/cache/debuginfod"
+    },
     "description": "Root directory for storing cached debug information files (object files, debug sections, etc.)"
   },
   "executable_cache_dir": {
     "type": "string",
-    "default": "/var/lib/debuginfod",
+    "default": {
+      "value": "/var/lib/debuginfod"
+    },
     "description": "Directory where downloaded debuginfo packages are extracted and stored as executables for linking"
   },
   "upstream_debuginfods": {
     "type": "list",
-    "default": [],
-    "description": "List of HTTP(S) URLs pointing to upstream debuginfod servers to query for debuginfo",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": []
+    },
+    "description": "List of HTTP(S) URLs pointing to upstream debuginfod servers to query for debuginfo"
   },
   "port": {
     "type": "number",
-    "default": 8002,
+    "default": {
+      "value": 8002
+    },
     "description": "TCP port on which the debuginfod HTTP server listens"
   },
   "bind_address": {
     "type": "string",
-    "default": "127.0.0.1",
+    "default": {
+      "value": "127.0.0.1"
+    },
     "description": "IP address to bind the server to (e.g., '127.0.0.1' for localhost only, '' for all interfaces)"
   },
   "max_workers": {
     "type": "number",
-    "default": 16,
-    "description": "Maximum number of worker threads to handle incoming requests"
+    "default": {
+      "value": 16
+    },
+    "description": "Maximum number of scanner threads to handle incoming requests"
   },
   "cache_size_limit": {
     "type": "number",
-    "default": 10737418240,
+    "default": {
+      "value": 10737418240
+    },
     "description": "Maximum total size (in bytes) of the debuginfo cache; 0 means unlimited"
   },
   "cache_ttl": {
     "type": "number",
-    "default": 604800,
+    "default": {
+      "value": 604800
+    },
     "description": "Time (in seconds) after which cached debuginfo is considered stale and evicted; 0 means never expire"
-  },
-  "compress_cache": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable or disable compression of cached debuginfo files using Zstandard (zstd)"
   },
   "prune_cache": {
     "type": "bool",
-    "default": true,
+    "default": {
+      "value": true
+    },
     "description": "Automatically prune old and unused debuginfo entries from the cache"
   },
   "proxy_url": {
     "type": "string",
-    "default": "",
+    "default": {
+      "value": ""
+    },
     "description": "HTTP(S) proxy URL for outgoing requests (e.g., 'http://proxy.example.com:3128'); empty = direct"
   },
   "cacert_path": {
     "type": "string",
-    "default": "",
+    "default": {
+      "value": ""
+    },
     "description": "Path to custom CA certificate bundle for TLS; empty uses system trust store"
   },
   "tls_verify": {
     "type": "bool",
-    "default": true,
+    "default": {
+      "value": true
+    },
     "description": "Enforce strict TLS certificate verification for upstream connections"
   },
   "upstream_auth_users": {
     "type": "list",
-    "default": [],
-    "description": "List of credentials for authenticating to upstream debuginfod servers using HTTP Basic Auth",
-    "items": {
-      "type": "object",
-      "fields": {
-        "username": {
-          "type": "string",
-          "description": "Username for upstream Basic Auth"
-        },
-        "password": {
-          "type": "string",
-          "description": "Password for upstream Basic Auth"
-        }
-      }
-    }
+    "default": {
+      "value": []
+    },
+    "description": "List of credentials for authenticating to upstream debuginfod servers using HTTP Basic Auth"
   },
   "metrics_enabled": {
     "type": "bool",
-    "default": true,
+    "default": {
+      "value": true
+    },
     "description": "Expose a Prometheus-compatible metrics endpoint at /metrics"
   },
   "verbose": {
     "type": "bool",
-    "default": false,
+    "default": {
+      "value": false
+    },
     "description": "Enable verbose (debug-level) logging"
   },
   "log_file": {
     "type": "string",
-    "default": "",
+    "default": {
+      "value": ""
+    },
     "description": "Path to write log output; empty means write to stderr"
   },
   "max_downloads_per_client": {
     "type": "number",
-    "default": 8,
+    "default": {
+      "value": 8
+    },
     "description": "Maximum number of concurrent downloads allowed per client IP"
   },
   "max_upstream_connections": {
     "type": "number",
-    "default": 64,
+    "default": {
+      "value": 64
+    },
     "description": "Maximum number of simultaneous connections to upstream debuginfod servers"
-  },
-  "upstream_connection_ttl": {
-    "type": "number",
-    "default": 300,
-    "description": "Time (seconds) to keep an idle upstream connection open in the pool"
-  },
-  "supported_protocols": {
-    "type": "list",
-    "default": [
-      "v1",
-      "v2"
-    ],
-    "description": "List of debuginfod API versions to support (typically 'v1' and/or 'v2')",
-    "items": {
-      "type": "string"
-    }
-  },
-  "compress_responses": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable gzip compression for HTTP responses (unless client explicitly disables via Accept-Encoding)"
-  },
-  "upstream_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum time (seconds) to wait for upstream HTTP requests before timing out"
-  },
-  "upstream_keepalive": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable HTTP keep-alive for upstream connections to reduce latency"
   }
 }

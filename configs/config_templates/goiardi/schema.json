@@ -1,27 +1,7 @@
 {
-  "environment": {
-    "type": "string",
-    "default": "production",
-    "description": "Deployment environment name (e.g., 'production' or 'staging')."
-  },
-  "verbose": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable verbose logging (includes trace-level details)."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Minimum log level to emit."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to the log file; leave empty to log to stderr only."
-  },
   "web_addr": {
     "type": "string",
-    "default": "0.0.0.0",
+    "default": "127.0.0.1",
     "description": "IP address to bind the web server to (e.g., '127.0.0.1', '::')."
   },
   "web_port": {
@@ -29,45 +9,27 @@
     "default": 4545,
     "description": "Port number for the Chef API server."
   },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Minimum log level to emit. Options are 'debug', 'info', 'warning', 'error', and 'critical'. May be specified on the command line with one or more -V flags.",
+    "enum": [
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "critical"
+    ]
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/goiardi/goiardi.log",
+    "description": "Path to the log file; leave empty to log to stdout/stderr only."
+  },
   "use_ssl": {
     "type": "boolean",
-    "default": true,
-    "description": "Enable TLS/SSL for secure Chef API communication."
-  },
-  "ssl_cert_file": {
-    "type": "string",
-    "default": "/etc/goiardi/certs/server.crt",
-    "description": "Path to the server TLS certificate file (PEM format)."
-  },
-  "ssl_key_file": {
-    "type": "string",
-    "default": "/etc/goiardi/certs/server.key",
-    "description": "Path to the server TLS private key file (PEM format)."
-  },
-  "client_cert_verify": {
-    "type": "boolean",
     "default": false,
-    "description": "Enforce mutual TLS (mTLS) by verifying client certificates."
-  },
-  "client_ca_cert_file": {
-    "type": "string",
-    "default": "/etc/goiardi/certs/ca.crt",
-    "description": "Path to the CA certificate for validating client certs (required if mTLS is enabled)."
-  },
-  "data_dir": {
-    "type": "string",
-    "default": "/var/lib/goiardi",
-    "description": "Directory for persistent data storage (nodes, cookbooks, etc.)."
-  },
-  "db_backend": {
-    "type": "string",
-    "default": "sqlite",
-    "description": "Database backend to use for storing Chef data."
-  },
-  "sqlite_file": {
-    "type": "string",
-    "default": "/var/lib/goiardi/goiardi.db",
-    "description": "Path to the SQLite database file (only used if db_backend=sqlite)."
+    "description": "Enable TLS/SSL for secure Chef API communication."
   },
   "mysql_host": {
     "type": "string",
@@ -81,23 +43,18 @@
   },
   "mysql_db": {
     "type": "string",
-    "default": "goiardi",
+    "default": "goiardi_test",
     "description": "MySQL database name."
   },
   "mysql_user": {
     "type": "string",
-    "default": "goiardi",
+    "default": "foo",
     "description": "MySQL username."
   },
   "mysql_password": {
     "type": "string",
-    "default": "",
+    "default": "s3kr1t",
     "description": "MySQL password (leave empty to use socket auth or keyring)."
-  },
-  "mysql_max_open_conns": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of open MySQL connections."
   },
   "postgresql_host": {
     "type": "string",
@@ -111,171 +68,17 @@
   },
   "postgresql_db": {
     "type": "string",
-    "default": "goiardi",
+    "default": "mydb",
     "description": "PostgreSQL database name."
   },
   "postgresql_user": {
     "type": "string",
-    "default": "goiardi",
+    "default": "foo",
     "description": "PostgreSQL username."
   },
   "postgresql_password": {
     "type": "string",
-    "default": "",
+    "default": "s3kr1t",
     "description": "PostgreSQL password."
-  },
-  "postgresql_max_open_conns": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of open PostgreSQL connections."
-  },
-  "chef_zero_compat": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable compatibility mode for Chef Zero clients (e.g., older knife-zero)."
-  },
-  "enable_search": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable built-in full-text search for nodes, roles, etc."
-  },
-  "worker_count": {
-    "type": "number",
-    "default": 8,
-    "description": "Number of goroutines handling concurrent I/O-bound operations (e.g., uploads, DB queries)."
-  },
-  "max_concurrent_uploads": {
-    "type": "number",
-    "default": 16,
-    "description": "Maximum number of simultaneous cookbook or file uploads."
-  },
-  "webhooks": {
-    "type": "list",
-    "default": [],
-    "description": "List of webhook configurations to emit events (e.g., node change notifications).",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique webhook name (e.g., 'pagerduty', 'slack')"
-      },
-      "url": {
-        "type": "string",
-        "description": "Webhook endpoint URL (e.g., 'https://events.pagerduty.com/v2/enqueue')"
-      },
-      "enabled": {
-        "type": "boolean",
-        "description": "Enable/disable this webhook"
-      },
-      "method": {
-        "type": "string",
-        "default": "POST",
-        "enum": [
-          "POST",
-          "PUT"
-        ],
-        "description": "HTTP method for the webhook request"
-      },
-      "headers": {
-        "type": "list",
-        "default": [],
-        "description": "List of HTTP headers as key-value pairs (e.g., [{'Content-Type': 'application/json'}])"
-      }
-    }
-  },
-  "default_node_attributes": {
-    "type": "object",
-    "default": {},
-    "description": "Default attributes to apply to all new nodes (nested keys allowed)."
-  },
-  "enable_cors": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable Cross-Origin Resource Sharing (CORS) for browser clients."
-  },
-  "cors_origins": {
-    "type": "list",
-    "default": [
-      "*"
-    ],
-    "description": "List of allowed CORS origins (supports wildcards like '*.example.com')."
-  },
-  "cors_credentials": {
-    "type": "boolean",
-    "default": false,
-    "description": "Allow credentials (cookies, auth headers) in CORS requests."
-  },
-  "idle_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Seconds before idle HTTP connections are closed."
-  },
-  "max_request_body_size": {
-    "type": "number",
-    "default": 104857600,
-    "description": "Maximum allowed request body size (in bytes)."
-  },
-  "gzip_responses": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable gzip compression for responses."
-  },
-  "enable_metrics": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable Prometheus-compatible metrics at /metrics endpoint."
-  },
-  "metrics_token": {
-    "type": "string",
-    "default": "",
-    "description": "Authentication token required to access /metrics (optional but recommended)."
-  },
-  "server_version_string": {
-    "type": "string",
-    "default": "goiardi",
-    "description": "Version string returned in the 'Server' HTTP header (useful for hiding internal details)."
-  },
-  "node_attribute_whitelist_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable whitelist mode to restrict which node attributes clients may set."
-  },
-  "node_attribute_whitelist": {
-    "type": "list",
-    "default": [
-      "automatic",
-      "ohai_time",
-      "chef_packages"
-    ],
-    "description": "List of allowed node attribute namespaces (e.g., 'automatic', 'automatic/kernel')."
-  },
-  "enable_chef_vault": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable Chef Vault support for encrypted data bags."
-  },
-  "enable_audit_logging": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable request auditing (all Chef API calls logged to audit_log_file)."
-  },
-  "audit_log_file": {
-    "type": "string",
-    "default": "/var/log/goiardi/audit.log",
-    "description": "Path to the audit log file (used only if audit logging is enabled)."
-  },
-  "enable_run_list_expansion": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable recursive run-list expansion for roles and environments."
-  },
-  "knife_zero_compat": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable legacy compatibility with knife-zero (e.g., bootstrap command behavior)."
-  },
-  "enable_key_rotation": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable support for client key rotation via the chef-client run."
   }
 }

@@ -1,75 +1,111 @@
-[core]
-# Network interface that ConnMan should ignore (e.g., for manual control)
-# Set to 'any' to ignore all interfaces, or a comma-separated list of interface names
-# Default: empty (no interfaces ignored)
-# Format: InterfaceName, anotherInterface, ...
-# Example: eth0, virbr0
-# IgnoredInterfaces = eth0,virbr0
+#!/bin/sh
 
-# Set to true to enable offline mode (no network access, only local services)
-# Default: false
-# OfflineMode = false
+# Connection Manager service init script.
+# This script manages the lifecycle of the `connmand` daemon, handling start, stop, restart,
+# and status checks. It sources default configurations and sets up runtime state directories
+# as needed.
+#
+# Variables:
+#   DAEMON    : Path to the connmand executable.
+#   DESC      : Human-readable description of the service.
+#   NAME      : Service name identifier.
+#   DAEMON_OPTS: Additional command-line arguments passed to the daemon.
 
-# Name of the network technology to prioritize (e.g., ethernet, wifi, gsm, cdma)
-# Used only when multiple technologies offer connectivity; higher priority technologies are preferred
-# Default: empty (use built-in priority order)
-# TechnologyOrder = wifi,ethernet
+### BEGIN INIT INFO
+# Provides:       connman
+# Required-Start: $remote_fs $syslog dbus
+# Required-Stop:  $remote_fs $syslog dbus
+# Default-Start:  2 3 4 5
+# Default-Stop:   0 1 6
+# Short-Description: Connection Manager
+### END INIT INFO
 
-# Set to true to prevent automatic reconnection attempts after disconnection
-# Useful in kiosk or embedded use-cases where connection is manually controlled
-# Default: false
-# ManualConnect = false
 
-# Set to true to disable automatic connection to known networks
-# User must explicitly connect to each network (e.g., for privacy-sensitive setups)
-# Default: false
-# AutoConnect = true
+# Path to the connmand daemon executable.
+# Default: /usr/sbin/connmand
+DAEMON={{ DAEMON | default('/usr/sbin/connmand') }}
 
-# Set to true to allow Wi-Fi to automatically scan and connect to known networks when in range
-# Disable if Wi-Fi scanning causes excessive power drain or interference
-# Default: true
-# AutoConnectEnabled = true
+# Description of the service.
+# Default: Connection Manager
+DESC="{{ DESC | default('Connection Manager') }}"
 
-[wifi]
-# Enable or disable Wi-Fi radio globally
-# Set to false to permanently disable Wi-Fi (overrides per-network settings)
-# Default: true
-# Enabled = true
+# Name of the service.
+# Default: connman
+NAME={{ NAME | default('connman') }}
 
-# Set to true to allow the device to enter low-power state when idle (e.g., suspend Wi-Fi scanning)
-# May delay reconnection; useful for battery-powered devices
-# Default: true
-# PowerSaving = true
+# Source LSB init functions for standard logging and status commands.
+. /lib/lsb/init-functions
 
-# Set to true to enable random MAC address generation for Wi-Fi scans/connections (for privacy)
-# Note: may break some networks that rely on device ID (e.g., MAC filtering)
-# Default: false
-# RandomizeMAC = true
+# Source default configuration file if it exists.
+# This allows external overrides or environment-specific settings.
+# Default config path: /etc/default/connman
+CONNMAN_DEFAULT_CONFIG={{ CONNMAN_DEFAULT_CONFIG | default('/etc/default/connman') }}
+if [ -f {{ CONNMAN_DEFAULT_CONFIG | default('/etc/default/connman') }} ] ; then
+	. {{ CONNMAN_DEFAULT_CONFIG | default('/etc/default/connman') }}
+fi
 
-# Set to true to enable Wi-Fi Direct support (e.g., for peer-to-peer connections)
-# Requires hardware and driver support
-# Default: true
-# WFD = true
+# Setup runtime state directory for resolv.conf symlink.
+# Connman uses this directory to store the generated resolv.conf symlink.
+# Default state dir: /run/connman
+RUN_STATE_DIR={{ RUN_STATE_DIR | default('/run/connman') }}
 
-[ethernet]
-# Enable or disable Ethernet technology globally
-# Set to false to disable all wired connections (e.g., headless embedded systems)
-# Default: true
-# Enabled = true
+# Check if the user wants to manage the resolv.conf symlink.
+# This is a legacy check; modern setups might handle this differently.
+# If the variable CONNMAN_RUNSTATEDIR_RESOLVCONF is not "no", we proceed.
+if [ "CONNMAN_RUNSTATEDIR_RESOLVCONF" != "no" ] ; then
+    mkdir -p {{ RUN_STATE_DIR | default('/run/connman') }}
+    ln -sf {{ RUN_STATE_DIR | default('/run/connman') }}/resolv.conf /etc/
+fi
 
-[offlinemode]
-# Set to true to automatically enter offline mode when no networks are known or reachable
-# Prevents continuous connection attempts in unreachable environments
-# Default: false
-# Enable = false
+do_start() {
+	start-stop-daemon --start --oknodo --exec $DAEMON -- $DAEMON_OPTS
+}
 
-[proxysvc]
-# Enable or disable the system proxy service (used for transparent proxy support)
-# Only needed if you use system-wide HTTP/HTTPS proxies
-# Default: true
-# Enabled = true
+do_stop() {
+	start-stop-daemon --stop --oknodo --quiet --exec $DAEMON
+}
 
-# Set to true to enable PAC (Proxy Auto-Configuration) support
-# Requires a valid PAC URL in Proxy configuration
-# Default: true
-# PAC = true
+get_pid() {
+	[ -n "$1" ] || return 0
+	[ -S /run/dbus/system_bus_socket ] || return 0
+
+	dbus-send --system --dest=org.freedesktop.DBus --print-reply \
+		/org/freedesktop/DBus org.freedesktop.DBus.GetConnectionUnixProcessID \
+		string:$1 2>/dev/null | awk '/uint32/ {print $2}'
+}
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC"
+	do_start
+	log_end_msg $?
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC"
+	do_stop
+	log_end_msg $?
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	log_end_msg $?
+	;;
+  status)
+	pid=$(get_pid net.connman)
+	if [ -n "$pid" ]; then
+		log_success_msg "$NAME is running"
+		return 0
+	else
+		log_failure_msg "$NAME is not running"
+		return 3 # LSB exit code for "program is not running"
+	fi
+	;;
+  *)
+	log_success_msg "Usage: $0 {start|stop|status|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

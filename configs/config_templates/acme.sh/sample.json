@@ -1,0 +1,53 @@
+{
+  "config_home": "/etc/acme.sh/config",
+  "cert_home": "/etc/acme.sh/certs",
+  "domains": [
+    {
+      "name": "example.com",
+      "challenge_method": "http",
+      "webroot": "/var/www/example.com/html",
+      "account_email": "admin@example.com",
+      "cert_file": "/etc/ssl/certs/example.com.crt",
+      "key_file": "/etc/ssl/private/example.com.key",
+      "ca_file": "/etc/ssl/certs/lets-encrypt-r3.crt",
+      "fullchain_file": "/etc/ssl/certs/example.com.fullchain.crt",
+      "reloadcmd": "systemctl reload nginx",
+      "server": "https://acme.zerossl.com/v2/DV90",
+      "days": 60,
+      "preferred_chain": "ISRG Root X1",
+      "log": "/var/log/acme.sh/example.com.log",
+      "debug": 1,
+      "ocsp": true,
+      "auto_upgrade": false,
+      "notify_level": 1,
+      "notify_mode": 1,
+      "notify_hook": "mail"
+    },
+    {
+      "name": "example.org",
+      "challenge_method": "dns",
+      "dns_manual": true,
+      "ecc": true,
+      "keylength": "ec-384",
+      "pre_hook": "/usr/local/bin/backup-dns.sh",
+      "post_hook": "/usr/local/bin/restore-dns.sh",
+      "deploy_hook": "deploy_nginx",
+      "staging": false,
+      "force": true,
+      "no_cron": true,
+      "no_profile": true
+    },
+    {
+      "name": "*.sub.example.net",
+      "challenge_method": "dns",
+      "dns_hook": "dns_cloudflare",
+      "account_key": "/etc/acme.sh/keys/account.key",
+      "account_keylength": "4096",
+      "eab_kid": "123456-abcdef",
+      "eab_hmac_key": "aGVsbG8gd29ybGQ=",
+      "dnssleep": 120,
+      "valid_to": "2027-01-01T00:00:00Z",
+      "valid_from": "2025-01-01T00:00:00Z"
+    }
+  ]
+}

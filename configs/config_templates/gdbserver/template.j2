@@ -1,40 +1,64 @@
-# GDB Remote Server configuration
-# Launch gdbserver with a listening address and optionally a debuggee process
-# Usage: gdbserver [OPTIONS] <host:port> <program> [args...]
-# OR:    gdbserver [OPTIONS] --multi <host:port>
+# GDB Remote Server configuration file
+# ================================
+# This template configures `gdbserver`, the GNU Debugger remote server.
+# It allows a local or remote debugger (gdb) to connect to a target process
+# for debugging purposes.
+#
+# Variables used:
+#   - host: Address to bind the listener.
+#   - port: Port number for the listener.
+#   - extended_remote: Mode of operation (extended remote protocol).
+#   - attach_pid: PID to attach to instead of exec-ing a new program.
+#   - processes: List of processes for multi-mode debugging.
+#   - extra_args: Additional CLI flags for gdbserver.
 
-# Bind to this host (IP or hostname); use '0.0.0.0' for all interfaces
-host: {{ host }}
+# IP address or hostname to bind the gdbserver to.
+# Use '0.0.0.0' to listen on all interfaces (not recommended for untrusted networks).
+# Default: '127.0.0.1'
+bind_address: {{ host | default('127.0.0.1') }}
 
-# TCP port to listen on
-port: {{ port }}
+# TCP port number for gdbserver to listen on.
+# Must be between 1 and 65535.
+# Default: 2345
+port: {{ port | default(2345) }}
 
-# Enable extended remote protocol (recommended for most clients)
-extended_remote: {{ extended_remote | default(false) | lower }}
+# Enable extended-remote mode.
+# Allows the debugger to attach/detach without restarting the target.
+# Recommended for most debugging scenarios.
+# Default: True
+extended_remote: {{ extended_remote | default(true) | lower }}
 
-# Enable remote debugging without spawning a new process (attach to existing PID)
-attach_pid: {{ attach_pid | default(null) }}
+# Process ID (PID) to attach to instead of launching a new program.
+# If set, the 'program' argument is ignored.
+# Set to null or omit to launch a new program.
+# Note: Using 'omit' as a string value in a YAML key-value pair is invalid;
+# we conditionally emit the key only if a value is provided.
+{% if attach_pid is defined and attach_pid is not none %}
+attach_pid: {{ attach_pid | default(omit) }}
+{% endif %}
 
-# Command to invoke gdbserver; typically not overridden, but included for completeness
-command: gdbserver
-
-# List of processes to debug (for --multi mode or static launch configuration)
-{% if processes %}
-# Debug these processes (only in multi-mode or pre-spawn scenarios)
+# List of processes to manage or attach to in multi-mode (for advanced orchestration).
+# Each entry specifies a process by name and optional PID.
+# Default: [] (empty list)
+{% if processes is defined and processes is iterable and (processes | length) > 0 %}
+processes:
 {% for proc in processes %}
-# Process: {{ proc.name | default('unnamed') }} (PID: {{ proc.pid | default('N/A') }})
-process:
+  # Process: {{ proc.name | default('unnamed') }}
+  # PID: {{ proc.pid | default('auto') }}
   - name: {{ proc.name | default('unnamed') }}
-    pid: {{ proc.pid | default(null) | int(0) }}
+{%   if proc.pid is defined and proc.pid is not none %}
+    pid: {{ proc.pid | default(omit) }}
+{%   endif %}
 {% endfor %}
 {% endif %}
 
-# Optional: extra command-line arguments (e.g., --no-stop, --wrapper, etc.)
-{% if extra_args %}
-# Pass these extra arguments directly to gdbserver
-{% for arg in extra_args %}
-# Arg: {{ arg }}
+# Optional: extra command-line arguments to pass directly to gdbserver.
+# Examples: '--no-stop' (do not stop at entry), '--wrapper' (use an interpreter).
+# Default: [] (empty list)
+{% if extra_args is defined and extra_args is iterable and (extra_args | length) > 0 %}
 extra_args:
+{% for arg in extra_args %}
+  # Arg: {{ arg }}
   - {{ arg }}
 {% endfor %}
 {% endif %}

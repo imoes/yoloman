@@ -1,48 +1,13 @@
-# BSD lpd line printer spooler configuration file
-# Global settings: logging, printcap path, and daemon behavior
-# (No per-queue defaults — queues defined explicitly below)
+#! /bin/sh
 
-# Maximum number of jobs per queue before refusing
-maxjobs: {{ max_jobs | default(20) }}
+DAEMON=/usr/sbin/lpd
 
-# Path to the printcap database file
-printcap: {{ printcap_path | default('/etc/printcap') }}
+# Make sure the lpr package is installed (use pac because lprng doesn't have it
+test -f /usr/sbin/pac || exit 0
 
-# Enable/Disable logging of print jobs to syslog
-# (Set to `yes` to enable logging)
-logjob: {{ log_job | default('yes') }}
+savelog -u lp -g adm -m 0640 -n -q -t /var/log/lp-acct
+savelog -u lp -g adm -m 0640 -n -q -t /var/log/lp-errs
 
-# Hostname(s) allowed to submit print jobs (comma-separated)
-# Leave blank to allow any host (not recommended for production)
-hostenters: {{ hosts_allowed | default('') }}
-
-# Default spool directory root (usually /var/spool/lpd)
-spooldir: {{ spool_root | default('/var/spool/lpd') }}
-
-# Timeout (seconds) for printer connection attempts
-conn_timeout: {{ conn_timeout | default(30) }}
-
-# Timeout (seconds) for job write attempts
-write_timeout: {{ write_timeout | default(600) }}
-
-# Maximum retries for failed jobs
-max_retries: {{ max_retries | default(5) }}
-
-# Enable/Disable automatic restart of lpd daemon on crash
-# (Not typically used; set to `yes` only if managed by a supervisor like daemontools)
-daemon_restart: {{ daemon_restart | default('no') }}
-
-# Per-queue configuration
-{% for queue in queues %}
-# Queue: {{ queue.name }} — {{ queue.description | default('Printer queue') }}
-{{ queue.name }}:
-    :lp={{ queue.lpd_path }}:
-    :sd={{ queue.spool_dir | default(spool_root + '/' + queue.name) }}:
-    :if={{ queue.filter_path | default('/usr/libexec/lpr/lpif') }}:
-    :af={{ queue.accounting_file | default(queue.spool_dir + '/accounting') }}:
-    :mx={{ queue.max_jobs | default(0) }}:
-    :sh:
-    :rm={{ queue.remote_host | default('') }}:
-    :rp={{ queue.remote_queue | default('') }}:
-    :lb:
-{% endfor %}
+if /sbin/start-stop-daemon --quiet --stop --signal 0 --exec $DAEMON; then
+	/etc/init.d/lpd restart >/dev/null
+fi

@@ -1,8 +1,57 @@
-# Auto-mount master map - mounts directories on-demand when accessed
-# Format: mount_point map_file [options]
-{% for mount in mounts %}{{ mount.point }} {{ mount.map }}{% if mount.options %} {{ mount.options | join(', ') }}{% endif %}
+# ==============================================================================
+# Autofs Configuration
+# ==============================================================================
+#
+# This template configures the autofs service. Autofs is an automounter for Linux
+# that mounts filesystems on demand (lazy mounting). It uses "maps" (direct or indirect)
+# to define what to mount where.
+#
+# Variables used:
+#   mounts: List of direct mount entries (dict/list of objects).
+#   enable_misc: Boolean. If true, enables indirect mounting under /misc.
+#   options: String. Additional command-line options for the automount daemon.
+#
+# ==============================================================================
+
+# --- Main Configuration File (auto.master) ---
+#
+# The auto.master file defines the master map. It lists mount points and the
+# corresponding map files or inline maps to use.
+#
+# Format: <mount_point> <map_file_or_inline_map> <optional_options>
+
+{% if mounts is defined and mounts | length > 0 %}
+# Direct mount entries provided by the role
+{% for mount in mounts %}
+# {{ mount.get('description', 'Direct mount entry') }}
+# Mount Point: {{ mount.get('mount_point', mount.get('key', '/auto/direct')) }}
+# Map Source: {{ mount.get('map', '/etc/auto.direct') }}
+# Options: {{ mount.get('options', '') }}
+{{ mount.get('mount_point', mount.get('key', '/auto/direct')) }} {{ mount.get('map', '/etc/auto.direct') }} {{ mount.get('options', '') }}
 {% endfor %}
-# The special map '-' enables indirect mounts via /etc/auto.misc
-# Uncomment the next line to enable indirect mounts under /misc
-{% if enable_misc %}- /etc/auto.misc
+{% else %}
+# No direct mount entries defined.
+{% endif %}
+
+{% if enable_misc | default(False) | bool %}
+# --------------------------------------------------------------------------
+# Indirect mount: /misc
+# --------------------------------------------------------------------------
+# Enables indirect mounting under /misc using the system default auto.misc map.
+# This is commonly used for removable media (CDROM, floppies, USB).
+#
+# See /etc/auto.misc for the specific mount definitions.
+/misc -fstype=autofs,program=/usr/lib/samba/smbscript /etc/auto.misc
+{% endif %}
+
+# --- Daemon Options (auto.conf or command line) ---
+#
+# These options are passed to the automount daemon (automount).
+# They control logging, timeout behavior, and debugging.
+
+{% set opts = options | default('') %}
+{% if opts %}
+# Additional automount daemon options
+# Example: --verbose --debug
+automount_opts="{{ opts }}"
 {% endif %}

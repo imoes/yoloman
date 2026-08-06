@@ -1,18 +1,13 @@
 [main]
-# The maximum number of devices that can be enrolled simultaneously
-# (per user session); set to 0 for unlimited
-MaxDevices={{ max_devices }}
+# Maximum number of fingerprint devices that can be enrolled per user at the same time.
+# Set to 0 for unlimited.
+MaxDevices={{ max_devices | default(1) }}
 
-# Enable or disable verbose logging (true/false)
-LogLevel={{ log_level }}
+# Absolute or relative path for storing fingerprint templates.
+# If empty, uses the default XDG-based location.
+DataStore={{ data_store | default('') }}
 
-# Path to the directory where fingerprint data is stored
-# (per-user storage; relative to $XDG_RUNTIME_DIR or absolute)
-DataStore={{ data_store }}
-
-# List of enabled drivers (in order of preference); empty means auto-select
-{% for driver in drivers %}Driver={{ driver }}
-{% endfor %}
-
-# Timeout (in seconds) for device enumeration
-Timeout={{ timeout }}
+# Ordered list of fingerprint drivers to use.
+# Leave empty to let fprintd auto-select drivers.
+{% for driver in drivers | default([]) %}
+Driver={{ driver }}{% endfor %}

@@ -1,39 +1,71 @@
-[# hdapsd main configuration file #]
+# hdapsd configuration file
+# This configuration controls the Hard Drive Active Protection System daemon (hdapsd).
+# It protects mechanical hard drives from shock and vibration by parking heads when necessary.
 
 [hdaps]
-# Device to monitor for acceleration changes
-{% if device_path %}device = {{ device_path }}{% else %}device = /dev/input/event0{% endif %}
 
-# Sensitivity threshold for detecting motion (0–100, higher = more sensitive)
-sensitivity = {{ sensitivity }}
+# List of block devices to protect (e.g. 'sda', 'hda').
+# Can be specified multiple times in the array.
+# Defaults to 'sda' if not provided.
+device = {{ devices | default(['sda']) | join(', ') }}
 
-# Enable or disable the daemon (0 = off, 1 = on)
-enabled = {{ enabled | int }}
+# Sensitivity threshold for detecting motion.
+# Higher values mean less sensitive to movement.
+# Default is 15.
+sensitivity = {{ sensitivity | default(15) }}
 
-# Hysteresis (backoff) in milliseconds to avoid rapid toggling
-hysteresis = {{ hysteresis }}
+# Enable adaptive threshold.
+# Automatic increase in sensitivity threshold when built-in keyboard/mouse are used.
+# Corresponds to the --adaptive flag.
+# 1 = enabled, 0 = disabled.
+adaptive = {{ adaptive | default(false) | ternary(1, 0) }}
 
-# Log level: 0 = none, 1 = error, 2 = warn, 3 = info, 4 = debug
-loglevel = {{ loglevel }}
+# Force unloading heads even if kernel thinks different (on pre ATA7 drives).
+# Corresponds to the --force flag.
+# 1 = enabled, 0 = disabled.
+force = {{ force | default(false) | ternary(1, 0) }}
 
-# Command to execute when laptop is moved (e.g., 'sync; echo 1 > /sys/block/sda/device/force_unit_access')
-protect_cmd = {{ protect_cmd | quote }}
+# Autodetect drives as rotational, even if kernel thinks they are not.
+# Corresponds to the --force-rotational flag.
+# 1 = enabled, 0 = disabled.
+force_rotational = {{ force_rotational | default(false) | ternary(1, 0) }}
 
-# Command to execute when laptop is stationary again
-relax_cmd = {{ relax_cmd | quote }}
+# Run the process in the background (daemonize).
+# Corresponds to the --background flag.
+# 1 = enabled, 0 = disabled.
+background = {{ background | default(false) | ternary(1, 0) }}
 
-# Sample interval in milliseconds between acceleration readings
-sample_interval = {{ sample_interval }}
+# Don't actually park the drive (test mode).
+# Corresponds to the --dry-run flag.
+# 1 = enabled, 0 = disabled.
+dry_run = {{ dry_run | default(false) | ternary(1, 0) }}
 
-# Minimum movement magnitude (raw units) to trigger protection
-min_move = {{ min_move }}
+# Force use of sysfs interface to accelerometer.
+# Corresponds to the --poll-sysfs flag.
+# 1 = enabled, 0 = disabled.
+poll_sysfs = {{ poll_sysfs | default(false) | ternary(1, 0) }}
 
-[debounce]
-# Number of consecutive samples above threshold before triggering protection
-raise_count = {{ raise_count }}
+# Uses the hardware fall detection logic instead of the software one.
+# Options --sensitivity and --adaptive have no effect in this mode.
+# Corresponds to the --hardware-logic flag.
+# 1 = enabled, 0 = disabled.
+hardware_logic = {{ hardware_logic | default(false) | ternary(1, 0) }}
 
-# Number of consecutive samples below threshold before releasing protection
-fall_count = {{ fall_count }}
+# Uses the software fall detection logic even if the hardware one is available.
+# Corresponds to the --software-logic flag.
+# 1 = enabled, 0 = disabled.
+software_logic = {{ software_logic | default(false) | ternary(1, 0) }}
 
-# Per-axis filtering: comma-separated list of axes to monitor
-{% if axes %}axes = {{ axes | join(', ') }}{% else %}axes = x, y{% endif %}
+# Don't blink the LEDs when a shock is detected.
+# Corresponds to the --no-leds flag.
+# 1 = enabled, 0 = disabled.
+no_leds = {{ no_leds | default(false) | ternary(1, 0) }}
+
+# Log to syslog instead of stdout/stderr.
+# Corresponds to the --syslog flag.
+# 1 = enabled, 0 = disabled.
+syslog = {{ syslog | default(false) | ternary(1, 0) }}
+
+# PID file location when running in background.
+# Defaults to /var/run/hdapsd.pid if --pidfile is not specified.
+pidfile = {{ pidfile | default('/var/run/hdapsd.pid') }}

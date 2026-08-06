@@ -1,0 +1,287 @@
+# ============================================================================
+# dvipng Command-Line Arguments Template
+# ============================================================================
+# This template generates the command-line arguments for `dvipng`, a utility
+# that converts DVI files to PNG or GIF images.
+#
+# It is designed to be consumed by an Ansible task such as `shell`, `command`,
+# or `script` that executes `dvipng` with these arguments.
+#
+# Variables are sourced from the role's variables, with safe defaults provided
+# for every field to prevent rendering errors if a variable is undefined.
+# ============================================================================
+
+# -------------------------------------------------------------------------
+# Output Configuration
+# -------------------------------------------------------------------------
+
+# Output filename pattern (must contain %d or %0Nd for page number)
+# Default: 'png'
+-o {{ output_file | default('png') }}
+
+# Output resolution in DPI (dots per inch)
+# Default: 120
+-D {{ resolution_dpi | default(120) }}
+
+# Background color in TeX \special syntax, or 'Transparent'
+# Default: 'transparent'
+-bg {{ bg_color | default('transparent') }}
+
+# Foreground color in TeX \special syntax
+# Default: '' (empty)
+-fg {{ fg_color | default('') }}
+
+# Transparent border width in pixels (nonzero only with --bg Transparent)
+# Default: 0
+{% set _border_width = border_width | default(0) %}
+{% set _border_color = border_color | default('') %}
+# Fallback border color (for viewers lacking alpha transparency)
+# Default: '' (empty)
+{% if _border_color %}
+-bd {{ _border_width }} {{ _border_color }}
+{% else %}
+-bd {{ _border_width }}
+{% endif %}
+
+# Force palette (256-color) output
+# Default: False
+{% if palette | default(False) %}
+--palette
+{% endif %}
+
+# Force truecolor output
+# Default: False
+{% if truecolor | default(False) %}
+--truecolor
+{% endif %}
+
+# Output GIF instead of PNG (uses dvigif binary)
+# Default: False
+{% if gif_format | default(False) %}
+--gif
+{% endif %}
+
+# -------------------------------------------------------------------------
+# Input Configuration
+# -------------------------------------------------------------------------
+
+# Input DVI filename
+# Default: '' (empty, must be provided)
+{% set _input_file = input_file | default('') %}
+{% if _input_file %}
+{{ _input_file }}
+{% endif %}
+
+# -------------------------------------------------------------------------
+# Page Selection
+# -------------------------------------------------------------------------
+
+# List of page ranges to process; each item has 'start'/'end' or 'page' key. Only 'start'/'end' supported by dvipng -pp syntax in template; 'page' handled individually.
+# Default: []
+{% set _pages = pages | default([]) %}
+{% for _page_item in _pages %}
+{% if _page_item.start is defined and _page_item.end is defined and (_page_item.start | int) != 0 or (_page_item.end | int) != 0 %}
+# Page range: {{ _page_item.start }} to {{ _page_item.end }}
+-pp {{ _page_item.start }}-{{ _page_item.end }}
+{% elif _page_item.page is defined and _page_item.page %}
+{% if _page_item.page == 'first' %}
+# First page
+-p 1
+{% elif _page_item.page == 'last' %}
+# Last page
+-l 99999
+{% else %}
+# Specific page {{ _page_item.page }}
+-p {{ _page_item.page }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# First TeX page number to render (TeX \count0)
+# Default: 0
+{% set _page_first = page_first | default(0) %}
+{% if _page_first != 0 %}
+-p {{ _page_first }}
+{% endif %}
+
+# Last TeX page number to render (TeX \count0)
+# Default: 0
+{% set _page_last = page_last | default(0) %}
+{% if _page_last != 0 %}
+-l {{ _page_last }}
+{% endif %}
+
+# First physical (absolute) page number to render
+# Default: 0
+{% set _page_first_physical = page_first_physical | default(0) %}
+{% if _page_first_physical != 0 %}
+-p={{ _page_first_physical }}
+{% endif %}
+
+# Last physical (absolute) page number to render
+# Default: 0
+{% set _page_last_physical = page_last_physical | default(0) %}
+{% if _page_last_physical != 0 %}
+-l={{ _page_last_physical }}
+{% endif %}
+
+# -------------------------------------------------------------------------
+# Rendering Options
+# -------------------------------------------------------------------------
+
+# Base DPI for bitmapped (PK) fonts (required with --mode)
+# Default: 0
+{% set _dpi_mode = dpi_mode | default(0) %}
+{% if _dpi_mode != 0 %}
+--bdpi {{ _dpi_mode }}
+{% endif %}
+
+# Metafont device mode (e.g., 'laserjet')
+# Default: '' (empty)
+{% set _mode = mode | default('') %}
+{% if _mode %}
+--mode {{ _mode }}
+{% endif %}
+
+# Antialiasing quality (num; yields num*num+1 levels)
+# Default: 4
+-Q {{ quality | default(4) }}
+
+# Gamma correction factor for antialiasing palette
+# Default: 1.0
+--gamma {{ gamma | default(1.0) }}
+
+# PNG compression level (0-9)
+# Default: 1
+-z {{ png_compression | default(1) }}
+
+# Origin offset as x,y dimension pair. Must specify x and y.
+# Default: None (empty)
+{% set _origin_offset = origin_offset | default(None) %}
+{% if _origin_offset is mapping %}
+{% set _oo_x = (_origin_offset.x | default('')) %}
+{% set _oo_y = (_origin_offset.y | default('')) %}
+{% if _oo_x and _oo_y %}
+# Origin offset: {{ _oo_x }},{{ _oo_y }}
+-O {{ _oo_x }},{{ _oo_y }}
+{% endif %}
+{% endif %}
+
+# Bounding box size: 'bbox', 'tight', or 'hsize,vsize'
+# Default: 'bbox'
+-T {{ image_size | default('bbox') }}
+
+# -------------------------------------------------------------------------
+# Processing Behavior
+# -------------------------------------------------------------------------
+
+# Wait for more input at end-of-file (--follow)
+# Default: False
+{% if follow_input | default(False) %}
+--follow
+{% endif %}
+
+# Enable verbose output
+# Default: False
+{% if verbose | default(False) %}
+-v
+{% endif %}
+
+# Suppress non-error output
+# Default: False
+{% if quiet | default(False) %}
+-q
+{% endif %}
+
+# Debug level; -1 for maximum
+# Default: 0
+{% set _debug_flags = debug_flags | default(0) %}
+{% if _debug_flags != 0 %}
+-d {{ _debug_flags }}
+{% endif %}
+
+# Disable automatic PK font generation (mktexpk)
+# Default: False
+{% if no_gf | default(False) %}
+-M
+{% endif %}
+
+# Disable internal GhostScript call for PostScript
+# Default: False
+{% if no_gs | default(False) %}
+--nogs
+{% endif %}
+
+# Disable -dSAFER for GhostScript
+# Default: False
+{% if no_safeguard | default(False) %}
+--nogssafer
+{% endif %}
+
+# Disable raw PostScript rendering
+# Default: False
+{% if no_rawps | default(False) %}
+--norawps
+{% endif %}
+
+# FreeType font rendering settings.
+# freetype_enabled=True enables FreeType (--freetype).
+# freetype_disabled=True disables FreeType (--freetype0).
+# freetype_enabled defaults to True, freetype_disabled defaults to False.
+{% if freetype_disabled | default(False) %}
+# Disable FreeType font rendering
+--freetype0
+{% elif freetype_enabled | default(True) %}
+# Enable FreeType font rendering
+--freetype
+{% endif %}
+
+# Report image height (requires preview.sty with 'active')
+# Default: False
+{% if report_height | default(False) %}
+--height
+{% endif %}
+
+# Report image depth (requires preview.sty with 'active')
+# Default: False
+{% if report_depth | default(False) %}
+--depth
+{% endif %}
+
+# Report image width
+# Default: False
+{% if report_width | default(False) %}
+--width
+{% endif %}
+
+# Use TeX page numbers in output filenames
+# Default: False
+{% if dvinum | default(False) %}
+--dvinum
+{% endif %}
+
+# Page order reversal.
+# reverse_pages_default=True means forward is default (no -r needed).
+# reverse_pages=True overrides to reverse order (-r).
+# reverse_pages=False respects default.
+{% set _reverse_pages = reverse_pages | default(False) %}
+{% set _reverse_pages_default = reverse_pages_default | default(True) %}
+{% if _reverse_pages %}
+# Reverse page order
+-r
+{% elif not _reverse_pages_default %}
+# Explicit forward order (non-default)
+-r0
+{% endif %}
+
+# Strict mode: exit on warning
+# Default: False
+# Picky mode: report warnings only on failure (--picky)
+# Default: False
+{% if strict | default(False) %}
+# Exit on warning
+--strict
+{% elif picky | default(False) %}
+# Report warnings only on failure
+--picky
+{% endif %}

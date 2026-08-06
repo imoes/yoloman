@@ -2,7 +2,11 @@
   "default_policy_in": {
     "type": "string",
     "default": "drop",
-    "description": "Default policy for incoming traffic: 'drop', 'reject', or 'drop with log'."
+    "description": "Default policy for incoming traffic: 'drop', 'reject', or 'drop with log'.",
+    "enum": [
+      "drop",
+      "reject"
+    ]
   },
   "default_policy_out": {
     "type": "string",
@@ -38,71 +42,65 @@
       }
     ],
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Interface name (e.g., eth0, lan)."
-        },
-        "direction": {
-          "type": "string",
-          "default": "inout",
-          "description": "Traffic direction: 'in', 'out', or 'inout'."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Optional human-readable description of this interface rule."
-        },
-        "mode": {
-          "type": "string",
-          "default": "router",
-          "description": "FireHOL mode: 'router', 'transparent', 'standalone', 'client', or 'server'."
-        },
-        "policy": {
-          "type": "string",
-          "default": "client",
-          "description": "FireHOL policy: 'client' (allow established outbound) or 'server' (allow inbound only if explicitly defined)."
-        },
-        "routed": {
-          "type": "bool",
-          "default": true,
-          "description": "Allow routed traffic through this interface?"
-        },
-        "dns": {
-          "type": "bool",
-          "default": true,
-          "description": "Allow DNS queries through this interface?"
-        },
-        "http": {
-          "type": "bool",
-          "default": false,
-          "description": "Allow HTTP (port 80) inbound on this interface?"
-        },
-        "https": {
-          "type": "bool",
-          "default": false,
-          "description": "Allow HTTPS (port 443) inbound on this interface?"
-        },
-        "services": {
-          "type": "list",
-          "default": [],
-          "description": "List of custom or built-in services to allow/deny.",
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string",
-                "default": "",
-                "description": "Service name (e.g., ssh, http, ftp, or a custom name defined under 'services')."
-              },
-              "action": {
-                "type": "string",
-                "default": "accept",
-                "description": "Action: 'accept' or 'drop'."
-              }
-            }
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Interface name (e.g., eth0, lan)."
+      },
+      "direction": {
+        "type": "string",
+        "default": "inout",
+        "description": "Traffic direction: 'in', 'out', or 'inout'."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of this interface rule."
+      },
+      "mode": {
+        "type": "string",
+        "default": "router",
+        "description": "FireHOL mode: 'router', 'transparent', 'standalone', 'client', or 'server'."
+      },
+      "policy": {
+        "type": "string",
+        "default": "client",
+        "description": "FireHOL policy: 'client' (allow established outbound) or 'server' (allow inbound only if explicitly defined)."
+      },
+      "routed": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow routed traffic through this interface?"
+      },
+      "dns": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow DNS queries through this interface?"
+      },
+      "http": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow HTTP (port 80) inbound on this interface?"
+      },
+      "https": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow HTTPS (port 443) inbound on this interface?"
+      },
+      "services": {
+        "type": "list",
+        "default": [],
+        "description": "List of custom or built-in services to allow/deny.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Service name (e.g., ssh, http, ftp, or a custom name defined under 'services')."
+          },
+          "action": {
+            "type": "string",
+            "default": "accept",
+            "description": "Action: 'accept' or 'drop'."
           }
         }
       }
@@ -113,36 +111,33 @@
     "default": [],
     "description": "List of custom server/service definitions (used when built-in service names are insufficient).",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique service identifier (e.g., custom-web)."
-        },
-        "protocol": {
-          "type": "string",
-          "default": "tcp",
-          "description": "Protocol: 'tcp' or 'udp'."
-        },
-        "ports": {
-          "type": "list",
-          "default": [],
-          "description": "List of port numbers or ranges (e.g., ['8080', '9000-9100']).",
-          "items": {
-            "type": "string"
-          }
-        },
-        "src": {
-          "type": "string",
-          "default": "any",
-          "description": "Source restriction: 'any' or CIDR (e.g., '192.168.1.0/24')."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Optional description for this service rule."
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique service identifier (e.g., custom-web)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "description": "Protocol: 'tcp' or 'udp'."
+      },
+      "ports": {
+        "type": "list",
+        "default": [],
+        "description": "List of port numbers or ranges (e.g., ['8080', '9000-9100']).",
+        "items": {
+          "type": "string"
         }
+      },
+      "src": {
+        "type": "string",
+        "default": "any",
+        "description": "Source restriction: 'any' or CIDR (e.g., '192.168.1.0/24')."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional description for this service rule."
       }
     }
   },
@@ -151,30 +146,27 @@
     "default": [],
     "description": "IP sets for efficient IP or network blocking/allowing.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Name of the IP set (must be alphanumeric and underscores only)."
-        },
-        "type": {
-          "type": "string",
-          "default": "hash:ip",
-          "description": "IP set type: 'hash:ip', 'hash:net', 'hash:ip,port', etc."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Optional description."
-        },
-        "entries": {
-          "type": "list",
-          "default": [],
-          "description": "IPs or networks to add to the set (e.g., ['10.0.0.1', '192.168.1.0/24']).",
-          "items": {
-            "type": "string"
-          }
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the IP set (must be alphanumeric and underscores only)."
+      },
+      "type": {
+        "type": "string",
+        "default": "hash:ip",
+        "description": "IP set type: 'hash:ip', 'hash:net', 'hash:ip,port', etc."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional description."
+      },
+      "entries": {
+        "type": "list",
+        "default": [],
+        "description": "IPs or networks to add to the set (e.g., ['10.0.0.1', '192.168.1.0/24']).",
+        "items": {
+          "type": "string"
         }
       }
     }

@@ -1,100 +1,12 @@
 {
-  "email": {
+  "acme_challenge_path_prefix": {
     "type": "string",
-    "default": "",
-    "description": "Email address for Let's Encrypt account registration (used for expiry and recovery). Optional but recommended."
+    "default": "/.well-known/acme-challenge/",
+    "description": "URL path prefix for ACME HTTP-01 challenge responses. Must match Let's Encrypt requirement."
   },
-  "target": {
+  "acme_challenge_dir": {
     "type": "string",
-    "default": "https://acme-v02.api.letsencrypt.org/directory",
-    "description": "ACME server URL. Use the staging URL for testing to avoid rate limits."
-  },
-  "renew_threshold": {
-    "type": "number",
-    "default": 2592000,
-    "description": "Minimum remaining validity (in seconds) required before triggering renewal. Default: 30 days."
-  },
-  "timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Maximum time (in seconds) to wait for external operations (e.g., HTTP/DNS challenge verification)."
-  },
-  "dns_retry_limit": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of attempts to verify DNS record propagation before giving up."
-  },
-  "use_http_challenge": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable HTTP-01 challenge (requires public HTTP access to /.well-known/acme-challenge/)."
-  },
-  "use_dns_challenge": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable DNS-01 challenge (required for wildcard certificates or when HTTP is unavailable)."
-  },
-  "use_tls_alpn_challenge": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS-ALPN-01 challenge (requires service to support ALPN on port 443)."
-  },
-  "private_key_type": {
-    "type": "string",
-    "default": "rsa",
-    "description": "Type of private key to generate for new certificates: rsa, ec256, or ec384."
-  },
-  "private_key_size": {
-    "type": "number",
-    "default": 2048,
-    "description": "RSA key size (ignored if privateKeyType is ec256/ec384)."
-  },
-  "dns_provider": {
-    "type": "object",
-    "default": null,
-    "description": "DNS provider configuration (required only if useDNSChallenge is true).",
-    "items": {
-      "name": {
-        "type": "string",
-        "enum": [
-          "cloudflare",
-          "digitalocean",
-          "route53",
-          "gcp",
-          "aws",
-          "azure",
-          "linode",
-          "rfc2136"
-        ],
-        "description": "Supported DNS provider name."
-      },
-      "config": {
-        "type": "object",
-        "default": {},
-        "description": "Provider-specific credentials/configuration (e.g., API tokens, keys)."
-      }
-    }
-  },
-  "certs": {
-    "type": "list",
-    "default": [],
-    "description": "List of certificate groups. Each group requests a single certificate covering the listed domains.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Human-readable name for the certificate group (for documentation)."
-      },
-      "domains": {
-        "type": "list",
-        "default": [],
-        "description": "List of domain names to include in this certificate (CN + SANs). Must include at least one FQDN.",
-        "items": {
-          "type": "string",
-          "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*$",
-          "description": "A fully qualified domain name (FQDN)."
-        }
-      }
-    }
+    "default": "/run/acme/acme-challenge",
+    "description": "Absolute filesystem path where ACME HTTP-01 challenge files are written."
   }
 }

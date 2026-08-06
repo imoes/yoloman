@@ -1,29 +1,62 @@
-# STONITH block device (SBD) fence agent configuration
-# This file defines SBD parameters for use by fence_sbd in cluster environments
-# Must be readable by root and fenced daemon
+# ==============================================================================
+# fence_sbd (STONITH Block Device) Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the fence_sbd agent.
+# It manages the shared disk-based fencing mechanism used in Pacemaker/Corosync
+# clusters.
+#
+# SELF-DOCUMENTATION: Every parameter below corresponds to a schema field.
+# Defaults are embedded via Jinja2 'default' filters to ensure safe rendering
+# even if the variable is undefined in the Ansible inventory.
+# ==============================================================================
 
-# Path to the SBD device(s) used for fencing (block devices or loopback files)
+# Path to the SBD device(s) used for fencing.
+# Description: List of block devices or loopback files used by SBD for message passing and disk locking.
+#              Must be shared across all cluster nodes. Use colon separators.
+# Schema: sbd_devices (list, default=[])
+{% if sbd_devices is defined and sbd_devices %}
 SBD_DEVICE="{{ sbd_devices | join(':') }}"
+{% else %}
+# No SBD devices configured. Ensure at least one shared block device is assigned to 'sbd_devices'.
+SBD_DEVICE=""
+{% endif %}
 
-# Enable SBD daemon for local node fencing (on/off)
-SBDDaemon="{{ sbd_daemon_enabled | lower }}"
+# Enable SBD daemon for local node fencing.
+# Description: Enable the SBD daemon to run on this node (required for local fencing).
+#              Set to false only if using external SBD (rare).
+# Schema: sbd_daemon_enabled (bool, default=True)
+SBDDaemon="{{ sbd_daemon_enabled | default(True) | lower }}"
 
-# Time in seconds to wait for a node to respond before triggering fence (must be >= 1)
+# Time in seconds to wait for a node to respond before triggering fence.
+# Description: Time in seconds the node waits for a response from other nodes before initiating STONITH.
+#              Must be ≥ 1 and ≥ 2 × SBDWatchdogTimeout.
+# Schema: sbd_timeout (int, default=10)
 SBDTimeout="{{ sbd_timeout | default(10) }}"
 
-# Time in seconds between watchdog pings (must be < SBDTimeout / 2)
+# Time in seconds between watchdog pings.
+# Description: Time in seconds between watchdog pings. Must be less than half of SBDTimeout to allow time for recovery attempts.
+# Schema: sbd_watchdog_timeout (int, default=5)
 SBDWatchdogTimeout="{{ sbd_watchdog_timeout | default(5) }}"
 
-# Number of messages that can be lost before triggering fence
+# Number of messages that can be lost before triggering fence.
+# Description: Number of consecutive missed messages allowed before the node is considered dead and fenced.
+# Schema: sbd_num_messages (int, default=3)
 SBDNumMessages="{{ sbd_num_messages | default(3) }}"
 
-# Delay in seconds before starting SBD daemon after boot (helps with slow storage)
+# Delay in seconds before starting SBD daemon after boot.
+# Description: Seconds to delay SBD daemon start after boot (useful if storage devices take time to appear).
+# Schema: sbd_start_delay (int, default=0)
 SBDStartDelay="{{ sbd_start_delay | default(0) }}"
 
-# Enable verbose logging (on/off)
-SBDDebug="{{ sbd_debug | lower }}"
+# Enable verbose logging.
+# Description: Enable verbose debug logging to system logs. Set to true only for troubleshooting.
+# Schema: sbd_debug (bool, default=False)
+SBDDebug="{{ sbd_debug | default(False) | lower }}"
 
-# Optional: additional options passed directly to fence_sbd
-# (e.g., -z for zero-length message mode, -p for partition mode)
-{% if sbd_extra_options %}# Extra options for fence_sbd
-SBDExtraOptions="{{ sbd_extra_options }}"{% endif %}
+# Optional: Additional command-line options passed directly to fence_sbd.
+# Description: Additional command-line options to pass to fence_sbd (e.g., '-z' for zero-length mode or '-p' for partitioned mode).
+#              Leave empty unless required.
+# Schema: sbd_extra_options (string, default='')
+{% if sbd_extra_options is defined and sbd_extra_options | trim %}
+SBDExtraOptions="{{ sbd_extra_options }}"
+{% endif %}

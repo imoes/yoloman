@@ -1,74 +1,91 @@
-# 464XLAT/SIIT-DC Network Translation Daemon (clatd) configuration
-# Global operation mode: 'clat' (464XLAT CLAT mode), 'er' (SIIT-DC Edge Relay mode), or 'both'
-mode = {{ mode }}
+# clatd(8) configuration file
+# This file configures clatd (Client-side Translator for IPv6 to IPv4).
+# It controls the TUN interface, routing, DNS64/PREF64 behavior, and IPv4 connectivity checks.
+# For per-interface configurations, use /etc/clatd/INTERFACE.conf.
 
-# Path to the PID file
-pidfile = {{ pidfile }}
+### Network device control
+# Tun interface name. Defaults to 'tun0' if left empty or unspecified.
+# Schema: tun_name (str, default='tun0')
+clat-dev={{ tun_name | default('tun0') }}
 
-# Log level: 0=error,1=warn,2=info,3=debug,4=trace
-loglevel = {{ loglevel }}
+# PLAT-facing network device (e.g., eth0). If empty, clatd attempts auto-detection.
+# Schema: plat_dev (str, default='')
+plat-dev={{ plat_dev | default('') }}
 
-# IPv4 address assigned to the CLAT interface (required in clat mode)
-{% if 'clat' in mode or mode == 'both' %}
-clat_ipv4 = {{ clat_ipv4 }}
-{% endif %}
+### IPv4 connectivity check parameters
+# If enabled (1), clatd exits if an IPv4 default route already exists to prevent conflicts.
+# 0=disabled, 1=enabled.
+# Schema: v4_conncheck_enable (int, default=1)
+v4-conncheck-enable={{ v4_conncheck_enable | default(1) }}
 
-# IPv6 address of the BR (464XLAT Border Relay) or relay prefix (SIIT-DC)
-{% if 'clat' in mode or mode == 'both' %}
-br_ipv6 = {{ br_ipv6 }}
-{% endif %}
+# Delay in seconds before performing the IPv4 connectivity check.
+# Schema: v4_conncheck_delay (int, default=10)
+v4-conncheck-delay={{ v4_conncheck_delay | default(10) }}
 
-# IPv4 prefix for the ER (SIIT-DC Edge Relay) – e.g., 192.0.0.0/24
-{% if 'er' in mode or mode == 'both' %}
-er_ipv4_prefix = {{ er_ipv4_prefix }}
-{% endif %}
+### Kernel IPv6 forwarding settings
+# Enable kernel IPv6 forwarding required for CLAT operation.
+# 0=disabled, 1=enabled.
+# Schema: forwarding_enable (int, default=1)
+forwarding-enable={{ forwarding_enable | default(1) }}
 
-# IPv6 address of the ER's external interface (SIIT-DC)
-{% if 'er' in mode or mode == 'both' %}
-er_ipv6_ext = {{ er_ipv6_ext }}
-{% endif %}
+### Addressing configuration
+# IPv4 address to assign to the internal CLAT interface.
+# Must be within 192.0.0.0/24 per RFC 6877.
+# Schema: clat_ipv4 (str, default='192.0.0.1')
+clat-v4-addr={{ clat_ipv4 | default('192.0.0.1') }}
 
-# IPv4 address of the ER's internal interface (SIIT-DC)
-{% if 'er' in mode or mode == 'both' %}
-er_ipv4_int = {{ er_ipv4_int }}
-{% endif %}
+# IPv4 address for the ER (External Router) internal-facing interface.
+# Used for downstream IPv4 clients.
+# Schema: er_ipv4_int (str, default='192.0.0.2')
+tayga-v4-addr={{ er_ipv4_int | default('192.0.0.2') }}
 
-# MTU for the CLAT/Tun interface (0 = auto-detect)
-mtu = {{ mtu }}
+# clat-v6-addr=shared
+# route-table=0xc1a7
 
-# DNS suffix appended to IPv4-embedded IPv6 queries (e.g., "v4v6.example.com")
-dns_suffix = {{ dns_suffix }}
+### PLAT prefix and DNS64 configuration
+# List of custom DNS server addresses (IPv4 or IPv6) to override system defaults.
+# If empty, the system resolver's DNS servers are used.
+# Schema: dns_servers (list, default=[])
+dns64-servers={{ dns_servers | default([]) | join(' ') }}
 
-# Optional: custom DNS servers to use (list of IPv4 or IPv6 addresses)
-{% if dns_servers | length > 0 %}
-dns_servers = {{ dns_servers | join(', ') }}
-{% endif %}
+# plat-prefix=
+# plat-fallback-prefix=
 
-# Optional: additional search domains
-{% if search_domains | length > 0 %}
-search_domains = {{ search_domains | join(', ') }}
-{% endif %}
+### IPv4 default route parameters
+# v4-defaultroute-enable=1
+# v4-defaultroute-replace=0
+# v4-defaultroute-metric=2048
 
-# Rate limit: max packets per second (0 = unlimited)
-rate_limit_pps = {{ rate_limit_pps }}
+# MTU for the IPv4 default route.
+# 0 means auto-detect (recommended).
+# Schema: mtu (int, default=0)
+v4-defaultroute-mtu={{ mtu | default(0) }}
 
-# Enable strict mode (drop malformed packets, enforce RFC compliance)
-strict_mode = {{ strict_mode }}
+# v4-defaultroute-advmss=0
 
-# Tun interface name (optional; defaults to 'tun0')
-{% if tun_name %}
-tun_name = {{ tun_name }}
-{% endif %}
+### Script hooks
+# script-up=
+# script-down=
 
-# Optional: user/group to drop privileges to
-{% if run_as_user %}
-run_as_user = {{ run_as_user }}
-{% endif %}
-{% if run_as_group %}
-run_as_group = {{ run_as_group }}
-{% endif %}
+### Logging configuration
+# quiet=0
+# debug={{ loglevel | default(0) }}
+# Note: loglevel is passed via CLI arguments to the service,
+# not directly configured in this specific config file section.
+# 0=error, 1=warn, 2=info, 3=debug, 4=trace.
+# Schema: loglevel (int, default=0)
+debug={{ loglevel | default(0) }}
 
-# Optional: extra syscalls allowed (comma-separated list)
-{% if extra_syscalls | length > 0 %}
-extra_syscalls = {{ extra_syscalls | join(', ') }}
-{% endif %}
+### Override implementation details
+# ctmark=
+# proxynd-enable=
+
+### Override conffile
+# tayga-conffile=
+
+### Override commands
+# cmd-ip=ip
+# cmd-networkctl=networkctl
+# cmd-nft=nft
+# cmd-tayga=tayga
+# cmd-ufw=ufw

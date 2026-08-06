@@ -1,0 +1,29 @@
+{# a2jmidid configuration for ALSA-to-JACK MIDI bridge #}
+{# Run as a service under systemd #}
+
+[Unit]
+Description=ALSA-to-JACK MIDI bridge daemon
+Documentation=man:a2jmidid(1)
+After=jackd.service
+Wants=jackd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/a2jmidid -e
+Restart=on-failure
+
+# Run as unprivileged user (recommended for security)
+User={{ service_user }}
+Group={{ service_group }}
+
+# Hardening: restrict capabilities and namespaces
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ReadWritePaths=/run/a2jmidid
+
+[Install]
+WantedBy=multi-user.target

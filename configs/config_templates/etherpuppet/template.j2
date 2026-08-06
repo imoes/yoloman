@@ -1,0 +1,77 @@
+# Etherpuppet Configuration Template
+# This file configures the etherpuppet service, which tunnels Ethernet frames over TCP.
+# It supports two modes: 'master' (creates a virtual TUN/TAP interface and initiates connections)
+# and 'slave' (listens for incoming connections and bridges traffic to a physical interface).
+
+# --- Mode Selection ---
+
+# Enable master mode to create a virtual interface and connect out to a remote slave.
+# When false, the service runs in slave mode, listening for connections from a master.
+{% if master | default(False) %}
+# Master Mode: Creating virtual interface, connecting to remote slave.
+{% else %}
+# Slave Mode: Exposing local physical interface to a remote master.
+{% endif %}
+
+# --- Connection Settings ---
+
+# TCP port to listen on when acting as a slave.
+# Set to 0 to disable listening (effectively disabling slave mode functionality).
+# Only used when master is false.
+{% if listen_port | default(0) != 0 %}
+-s {{ listen_port | default(0) }}
+{% endif %}
+
+# Remote host:port to connect to as a master.
+# This defines the destination for the tunnel when running in master mode.
+# Example: '192.168.1.10:9999'
+{% if connect_to | default('') %}
+-c {{ connect_to | default('') }}
+{% endif %}
+
+# --- Interface Settings ---
+
+# Name of the physical Ethernet interface to capture/forward traffic from.
+# Required for slave mode to know which physical interface to bridge.
+# Example: 'eth0'
+{% if interface | default('') %}
+-i {{ interface | default('') }}
+{% endif %}
+
+# Name of the virtual TUN/TAP interface to create in master mode.
+# This is the interface that will appear on the master host for applications to use.
+# Example: 'tun0'
+{% if virtual_iface | default('') %}
+-I {{ virtual_iface | default('') }}
+{% endif %}
+
+# --- BPF (Berkeley Packet Filter) Settings ---
+
+# If true (default), enable BPF filtering to optimize traffic.
+# Set to false to disable BPF filtering entirely (equivalent to -B).
+{% if not use_bpf | default(True) %}
+-B
+{% endif %}
+
+# If true, use the SSH_CONNECTION environment variable to automatically build a BPF filter.
+# This is useful for tunneling SSH sessions without manual filter rules.
+# Equivalent to -S.
+{% if use_ssh_filter | default(False) %}
+-S
+{% endif %}
+
+# Manual BPF filter specification string.
+# Allows fine-grained control over what traffic is tunneled.
+# Example: 'src:10.0.0.1:22,dst:192.168.1.1:22'
+# Used with the -M flag.
+{% if bpf_filter | default('') %}
+-M {{ bpf_filter | default('') }}
+{% endif %}
+
+# --- Interface Parameter Copying ---
+
+# If true (default), copy real interface parameters (like MTU) to the virtual interface.
+# Set to false to prevent this behavior (equivalent to -C).
+{% if not copy_params | default(True) %}
+-C
+{% endif %}

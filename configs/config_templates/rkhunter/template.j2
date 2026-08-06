@@ -1,115 +1,44 @@
-# /etc/rkhunter.conf
-# Rootkit Hunter configuration file
+#!/bin/sh
 
-# Directory for temporary files created during scanning
-TMPDIR={{ tmpdir }}
+RKHUNTER={{ installdir }}/bin/rkhunter
 
-# Directory containing rkhunter signature and whitelist databases
-DBDIR={{ dbdir }}
+test -x $RKHUNTER || exit 0
 
-# Directory containing rkhunter helper scripts
-SCRIPTDIR={{ scriptdir }}
+# source our config
+. /etc/default/rkhunter
 
-# Base installation prefix of rkhunter (parent of bin/, share/, etc.)
-INSTALLDIR={{ installdir }}
+if [ -z "$NICE" ]; then
+    NICE=0
+fi
 
-# Full path to the rkhunter log file
-LOGFILE={{ logfile }}
+if [ -z "$RUN_CHECK_ON_BATTERY" ]; then
+    RUN_CHECK_ON_BATTERY="false"
+fi
 
-# Append to the log file instead of overwriting on each run (1=append, 0=overwrite)
-APPEND_LOG={{ append_log }}
+# Do not run daily check if running on battery except if explicitely allowed
+case "$RUN_CHECK_ON_BATTERY" in
+    [NnFf]*)
+        if [ -x /usr/bin/on_ac_power ]; then
+            on_ac_power >/dev/null 2>&1
+            [ $? -eq 1 ] && exit 0
+        fi
+esac
 
-# Copy the log to TMPDIR when errors are detected (1=yes, 0=no)
-COPY_LOG_ON_ERROR={{ copy_log_on_error }}
-
-# Seconds to wait for a lock file to clear before aborting
-LOCK_TIMEOUT={{ lock_timeout }}
-
-# Print a message when a stale lock file is found at startup (1=yes, 0=no)
-SHOW_LOCK_MSGS={{ show_lock_msgs }}
-
-# Automatically download an updated mirrors list on each run (1=yes, 0=no)
-UPDATE_MIRRORS={{ update_mirrors }}
-
-# Which mirrors to contact for updates: 0=any, 1=local only, 2=remote only
-MIRRORS_MODE={{ mirrors_mode }}
-
-# External download command for database updates; empty string = auto-detect wget/curl
-WEB_CMD="{{ web_cmd }}"
-
-# Email address to receive warning reports; leave empty to disable email notifications
-MAIL-ON-WARNING={{ mail_on_warning }}
-
-# Shell command used to deliver the warning email; rkhunter pipes the report body to stdin
-MAIL_CMD={{ mail_cmd }}
-
-# Package manager for installed-file property verification (DPKG, RPM, NONE, etc.)
-PKGMGR={{ pkgmgr }}
-
-# Suppress package manager warnings about files absent from the package database (1=suppress, 0=show)
-PKGMGR_NO_WARNINGS={{ pkgmgr_no_warnings }}
-
-# Scan mode for /dev: THOROUGH inspects every file, LAZY skips non-device files
-SCAN_MODE_DEV={{ scan_mode_dev }}
-
-# Rootkit scan depth: THOROUGH for more complete detection, LAZY for faster runs
-SCANROOTKITMODE={{ scanrootkitmode }}
-
-# Tests to pass to the unhide tool: sys (syscall table), proc (/proc namespace), or both
-UNHIDE_TESTS={{ unhide_tests }}
-
-{% if disable_tests %}
-# Space-separated list of built-in rkhunter test names to skip on this host
-DISABLE_TESTS={{ disable_tests | join(' ') }}
-{% endif %}
-
-# File that provides the OS distribution version string for version-specific checks
-OS_VERSION_FILE={{ os_version_file }}
-
-# Path to the shadow/password file inspected for suspicious account entries
-PASSWORD_FILE={{ password_file }}
-
-# Path to the group file inspected for suspicious group entries
-GROUP_FILE={{ group_file }}
-
-# Path to the syslog daemon configuration file
-SYSLOG_CONFIG_FILE={{ syslog_config_file }}
-
-# Space-separated list of directories searched for system startup scripts
-STARTUP_PATHS={{ startup_paths | join(' ') }}
-
-# Space-separated port specs excluded from open-port checks (format: TCP:<port> or UDP:<port>)
-PORT_WHITELIST="{{ port_whitelist | join(' ') }}"
-
-{% for dir in allow_hidden_dirs %}
-# Allow this hidden directory (dot-prefixed name) to exist without raising an alert
-ALLOWHIDDENDIR={{ dir }}
-{% endfor %}
-{% for file in allow_hidden_files %}
-# Allow this hidden file (dot-prefixed name) to exist without raising an alert
-ALLOWHIDDENFILE={{ file }}
-{% endfor %}
-{% for file in allow_dev_files %}
-# Allow this file under /dev to exist without raising an alert
-ALLOWDEVFILE={{ file }}
-{% endfor %}
-{% for script in script_whitelist %}
-# Exempt this script path from world-writable and other script-based alerts
-SCRIPTWHITELIST={{ script }}
-{% endfor %}
-{% for entry in rtkt_file_whitelist %}
-# Suppress the rootkit file-presence alert for this specific path
-RTKT_FILE_WHITELIST={{ entry }}
-{% endfor %}
-{% for dir in rtkt_dir_whitelist %}
-# Suppress the rootkit directory-presence alert for this specific path
-RTKT_DIR_WHITELIST={{ dir }}
-{% endfor %}
-{% for lib in shared_lib_whitelist %}
-# Allow this shared library to appear in /etc/ld.so.preload without alerting
-SHARED_LIB_WHITELIST={{ lib }}
-{% endfor %}
-{% for app in app_whitelist %}
-# Whitelist this application at a specific installed version (format: name:version)
-APP_WHITELIST={{ app }}
-{% endfor %}
+case "$CRON_DAILY_RUN" in
+    [YyTt]*)
+        OUTFILE=`mktemp` || exit 1
+        /usr/bin/nice -n $NICE $RKHUNTER --cronjob --report-warnings-only --appendlog > $OUTFILE
+        if [ -s "$OUTFILE" -a -n "$REPORT_EMAIL" ]; then
+          (
+            echo "Subject: [rkhunter] $(hostname) - Daily report"
+            echo "To: $REPORT_EMAIL"
+            echo ""
+            cat $OUTFILE
+          ) | /usr/sbin/sendmail $REPORT_EMAIL
+        fi
+        rm -f $OUTFILE
+        ;;
+      *)
+       exit 0
+       ;;
+esac

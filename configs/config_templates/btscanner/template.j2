@@ -1,0 +1,115 @@
+{#
+  btscanner configuration template
+  --------------------------------
+  btscanner is a Bluetooth device scanner. This file generates an XML
+  configuration (DTD-styled) describing file paths, scan ranges, and
+  feature flags for the scanner.
+
+  This template is self-documenting: every directive is preceded by
+  a comment derived from the schema field description.
+#}
+
+<!--
+ * btscanner.dtd - Configuration for btscanner Bluetooth device scanner
+-->
+
+<!--
+ * files: the list of config/resource files
+ * Defines paths for logging, OUI database, and persistent store.
+-->
+<files>
+  <!--
+   * log: the log file
+   * Path to the log file
+  -->
+  <log>{{ log_file | default('/var/log/btscanner.log') }}</log>
+
+  <!--
+   * oui: the oui database
+   * Path to the OUI database file
+  -->
+  <oui>{{ oui_file | default('/usr/share/btscanner/oui.txt') }}</oui>
+
+  <!--
+   * store: where the store the details of found items
+   * Path to the store file where discovered device details are saved
+  -->
+  <store>{{ store_file | default('/var/lib/btscanner/store.db') }}</store>
+</files>
+
+<!--
+ * rangedef. for each range address, tell the slave what to do.
+ * needs start and end range. with
+ * Defines one or more scan ranges with specific checks.
+-->
+<rangedef>
+  <!--
+   * Define a single scan range block.
+   * start: Start MAC address of the scan range
+   * end:   End MAC address of the scan range
+  -->
+  {% if (rangedef_start | default('')) or (rangedef_end | default('')) %}
+  <rangedef start="{{ rangedef_start | default('') }}" end="{{ rangedef_end | default('') }}">
+    <!--
+     * vulnerabilities list
+     * Comma-separated list of vulnerability checks to perform for the range
+    -->
+    <vulnerabilities>{{ vulnerabilities | default('') }}</vulnerabilities>
+
+    <!--
+     * name flag
+     * Whether to query and record device names
+    -->
+    {% if name | default(False) %}
+    <name/>
+    {% endif %}
+
+    <!--
+     * hci flag
+     * Whether to query HCI information
+    -->
+    {% if hci | default(False) %}
+    <hci/>
+    {% endif %}
+
+    <!--
+     * rssi flag
+     * Whether to query RSSI values
+    -->
+    {% if rssi | default(False) %}
+    <rssi/>
+    {% endif %}
+
+    <!--
+     * lq flag
+     * Whether to query link quality
+    -->
+    {% if lq | default(False) %}
+    <lq/>
+    {% endif %}
+
+    <!--
+     * txpwr flag
+     * Whether to query transmit power
+    -->
+    {% if txpwr | default(False) %}
+    <txpwr/>
+    {% endif %}
+
+    <!--
+     * sdp flag
+     * Whether to perform SDP service discovery
+    -->
+    {% if sdp | default(False) %}
+    <sdp/>
+    {% endif %}
+
+  </rangedef>
+  {% else %}
+  <!--
+   * No scan range defined.
+   * Either rangedef_start and rangedef_end are empty/unset,
+   * or the user intends to configure ranges via other means.
+  -->
+  {% endif %}
+</rangedef>

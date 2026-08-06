@@ -1,0 +1,38 @@
+# ==============================================================================
+# doas(5) configuration file
+#
+# This file is managed by Ansible. Manual changes will be overwritten.
+#
+# Syntax:
+#   rule action [target] as [user] [options] command
+#
+# Actions: permit, permit nopass, deny, deny nopass, reject, reject nopass
+# Targets: %group, username, * (anyone)
+# Users: %group, username, * (root)
+# Options: nopass, keepenv, env, setenv, persist, log, cmd
+# Commands: /absolute/path/to/binary or shell glob patterns
+# ==============================================================================
+# rules: List of authorization rules; each rule defines who may run what as whom with which options. One rule per line in the config file. Order matters.
+{% for rule in (rules | default([])) %}
+# {{ loop.index }}. Authorization Rule
+# Description: Defines an authorization policy. Determines who (target) may run
+# which command (command) as which user (user) and with what constraints (options).
+# action: The action to take (e.g., permit, deny, reject). Defaults to 'permit'.
+# ident: The target identifier (username or %group).
+# targets: Alias/alias list for the target user/group.
+# options: List of options for the rule (nopass, keepenv, etc.).
+# commands: List of command paths to allow.
+# Determine the action, defaulting to 'permit' if not specified.
+{% set action = rule.action | default('permit') %}
+{{ action }}\
+# ident: The user or group to authorize (e.g., 'alice', '%wheel').
+{% if rule.ident %} {{ rule.ident }}{% endif %}\
+# targets: Additional target specifications (users/groups).
+{% if rule.targets %} as {{ rule.targets | join(', ') }}{% endif %}\
+# options: Configuration options like nopass, keepenv, log, etc.
+{% if rule.options %} {% for opt in rule.options %}{% if opt == 'nopass' %} nopass{% endif %}{% if opt == 'keepenv' %} keepenv{% endif %}{% if opt == 'env' %} env{% endif %}{% if opt == 'setenv' %} setenv{% endif %}{% if opt == 'persist' %} persist{% endif %}{% if opt == 'log' %} log{% endif %}{% if opt == 'cmd' %} cmd{% endif %}{% endfor %}{% endif %}\
+# commands: The command(s) allowed to be run. Defaults to /bin/echo if none provided (useful for testing/empty rules).
+{% if rule.commands %} {{ rule.commands | join(' ') }}{% else %} /bin/echo{% endif %}
+{% endfor %}
+
+# End of doas configuration

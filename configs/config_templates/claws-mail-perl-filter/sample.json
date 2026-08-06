@@ -1,0 +1,86 @@
+{
+  "permanent": "# initialized once",
+  "filter_log_verbosity": 3,
+  "rules": [
+    {
+      "name": "Mark as read if from known list",
+      "condition": {
+        "type": "matchcase",
+        "args": [
+          "from",
+          "claws-mail-users-admin@lists.sourceforge.net"
+        ]
+      },
+      "actions": [
+        {
+          "type": "mark_as_read"
+        },
+        {
+          "type": "move",
+          "destination": "#mh/mail/MailLists/Claws Mail/user"
+        }
+      ]
+    },
+    {
+      "name": "SpamAssassin high-score filter",
+      "condition": {
+        "type": "test",
+        "args": [
+          "spamc -c < %F"
+        ]
+      },
+      "actions": [
+        {
+          "type": "execute",
+          "args": [
+            "spamc -L ham"
+          ]
+        },
+        {
+          "type": "move",
+          "destination": "#mh/mail/Spam"
+        }
+      ]
+    },
+    {
+      "name": "Forward flagged messages",
+      "condition": {
+        "type": "marked"
+      },
+      "actions": [
+        {
+          "type": "forward",
+          "account": 1,
+          "email": "backup@example.com"
+        }
+      ]
+    },
+    {
+      "name": "Set score for tagged messages",
+      "condition": {
+        "type": "tagged"
+      },
+      "actions": [
+        {
+          "type": "set_score",
+          "score": 5
+        }
+      ]
+    },
+    {
+      "name": "Default: log manual message",
+      "condition": {
+        "type": "manual"
+      },
+      "actions": [
+        {
+          "type": "filter_log",
+          "args": [
+            "LOG_MANUAL",
+            "Manual filter run triggered"
+          ]
+        }
+      ]
+    }
+  ]
+}

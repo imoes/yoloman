@@ -3,56 +3,58 @@
 <!-- This file is managed by the globus-gram-job-manager-sge package -->
 <!-- Do not edit manually; use the Globus configuration tools instead -->
 <GridManagerConfig>
-  <!-- Service name and description for GRAM job manager -->
-  <ServiceName>{{ service_name }}</ServiceName>
-  <ServiceDescription>{{ service_description }}</ServiceDescription>
+  <!-- Service name identifier used by GRAM for this job manager instance -->
+  <ServiceName>{{ service_name | default('globus-gridftp') }}</ServiceName>
 
-  <!-- Grid Engine queue to use for job submission -->
-  <Queue>{{ queue }}</Queue>
+  <!-- Human-readable description of this job manager service -->
+  <ServiceDescription>{{ service_description | default('Grid Engine Job Manager for Globus GRAM') }}</ServiceDescription>
 
-  <!-- Path to Grid Engine's qsub command -->
-  <QsubPath>{{ qsub_path }}</QsubPath>
+  <!-- Default Grid Engine queue to which jobs will be submitted -->
+  <Queue>{{ queue | default('all.q') }}</Queue>
 
-  <!-- Path to Grid Engine's qstat command -->
-  <QstatPath>{{ qstat_path }}</QstatPath>
+  <!-- Absolute path to the Grid Engine qsub command -->
+  <QsubPath>{{ qsub_path | default('/usr/bin/qsub') }}</QsubPath>
 
-  <!-- Path to Grid Engine's qdel command -->
-  <QdelPath>{{ qdel_path }}</QdelPath>
+  <!-- Absolute path to the Grid Engine qstat command -->
+  <QstatPath>{{ qstat_path | default('/usr/bin/qstat') }}</QstatPath>
 
-  <!-- Path to Grid Engine's qacct command for job accounting -->
-  <QacctPath>{{ qacct_path }}</QacctPath>
+  <!-- Absolute path to the Grid Engine qdel command -->
+  <QdelPath>{{ qdel_path | default('/usr/bin/qdel') }}</QdelPath>
 
-  <!-- Maximum number of jobs that can be managed concurrently -->
-  <MaxJobs>{{ max_jobs }}</MaxJobs>
+  <!-- Absolute path to the Grid Engine qacct command for job accounting -->
+  <QacctPath>{{ qacct_path | default('/usr/bin/qacct') }}</QacctPath>
 
-  <!-- Path to the working directory for job staging (must be writable by globus user) -->
-  <WorkDir>{{ work_dir }}</WorkDir>
+  <!-- Maximum number of jobs that this manager will handle concurrently -->
+  <MaxJobs>{{ max_jobs | default(1000) }}</MaxJobs>
 
-  <!-- Enable or disable email notifications for job state changes -->
-  <NotifyEnabled>{{ notify_enabled | lower }}</NotifyEnabled>
+  <!-- Directory used for temporary job staging and state files. Must be owned by the globus user -->
+  <WorkDir>{{ work_dir | default('/var/lib/globus/gridengine_jobs') }}</WorkDir>
 
-  <!-- Email address to send notifications to (if notify_enabled is true) -->
-  <NotifyEmail>{{ notify_email }}</NotifyEmail>
+  <!-- Whether to send email notifications on job completion or failure (true/false) -->
+  <NotifyEnabled>{{ notify_enabled | default(False) | lower }}</NotifyEnabled>
 
-  <!-- Optional environment variables to pass to Grid Engine jobs (list of key=value pairs) -->
+  <!-- Email address to receive job status notifications (only used if notify_enabled is true) -->
+  <NotifyEmail>{{ notify_email | default('') }}</NotifyEmail>
+
+  <!-- List of environment variables to inject into every Grid Engine job (list of mappings with name/value) -->
   <Environment>
-{% for env in environment_vars %}    <Env name="{{ env.name }}">{{ env.value }}</Env>
-{% endfor %  </Environment>
+{% for env in environment_vars | default([]) %}    <Env name="{{ env.name }}">{{ env.value }}</Env>
+{% endfor %}  </Environment>
 
-  <!-- Grid Engine project (accounting project) to use for jobs (optional, may be empty) -->
-  <Project>{{ project }}</Project>
+  <!-- Grid Engine accounting project name (e.g., for billing or quota). Leave empty to omit -->
+  <Project>{{ project | default('') }}</Project>
 
-  <!-- Default resource request limits for Grid Engine jobs (can be overridden per job) -->
+  <!-- List of default Grid Engine resource limits to apply to jobs (e.g., h_vmem, h_rt) -->
   <ResourceLimits>
-{% for limit in resource_limits %}    <Limit name="{{ limit.name }}">{{ limit.value }}</Limit>
-{% endfor %  </ResourceLimits>
+{% for limit in resource_limits | default([]) %}    <Limit name="{{ limit.name }}">{{ limit.value }}</Limit>
+{% endfor %}  </ResourceLimits>
 
-  <!-- Path to the Grid Engine admin user (typically root or sgoadmin) for privileged commands -->
-  <AdminUser>{{ admin_user }}</AdminUser>
+  <!-- System user with permissions to run Grid Engine admin commands (e.g., qmod, qconf) -->
+  <AdminUser>{{ admin_user | default('root') }}</AdminUser>
 
-  <!-- Enable or disable SGE resource usage monitoring (e.g., via qhost) -->
-  <MonitoringEnabled>{{ monitoring_enabled | lower }}</MonitoringEnabled>
+  <!-- Whether to enable real-time cluster resource monitoring via qhost (true/false) -->
+  <MonitoringEnabled>{{ monitoring_enabled | default(False) | lower }}</MonitoringEnabled>
 
-  <!-- Path to qhost command for monitoring -->
-  <QhostPath>{{ qhost_path }}</QhostPath>
+  <!-- Absolute path to the Grid Engine qhost command (only used if monitoring_enabled is true) -->
+  <QhostPath>{{ qhost_path | default('/usr/bin/qhost') }}</QhostPath>
 </GridManagerConfig>

@@ -1,0 +1,41 @@
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+# This script is the SysV init wrapper for courier-ldap.
+# It sources the standard Debian init framework and checks for the
+# existence of the Courier LDAP alias configuration file before starting the daemon.
+
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          courier-ldap
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      slapd
+# Default-Start:     2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: Courier LDAP alias server
+### END INIT INFO
+
+# Author: Ondřej Surý <ondrej@debian.org>
+
+# The path to the courierldapaliasd binary.
+DAEMON=/usr/sbin/courierldapaliasd
+
+# Human-readable description of the service.
+DESC="Courier LDAP alias server"
+
+# Path to the Courier LDAP alias configuration file.
+# Defined via the schema field 'conffile' with default '/etc/courier/ldapaliasrc'.
+# This variable controls which configuration file the daemon reads at startup.
+CONFFILE={{ conffile | default('/etc/courier/ldapaliasrc') }}
+
+# Check if the configuration file exists.
+# If the file is present, allow the service to start; otherwise, skip start.
+if test -f "$CONFFILE"; then
+    DO_START=yes
+else
+    DO_START=no
+fi
+
+. /usr/lib/courier/init-d-script-courier

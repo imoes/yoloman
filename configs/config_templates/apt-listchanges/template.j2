@@ -1,0 +1,33 @@
+# =============================================================================
+# apt-listchanges configuration template
+#
+# This template generates an apt configuration drop-in to integrate
+# apt-listchanges, which notifies users about package changes during upgrades.
+#
+# Schema Fields Reference:
+# - apt_listchanges_pre_install_cmd: Command executed before package installation.
+# - apt_listchanges_version: Output format version (usually '2').
+# - apt_listchanges_info_fd: File descriptor for informational output.
+# - apt_listchanges_etc_main: Main config filename relative to DPkg::Etc.
+# - apt_listchanges_etc_parts: Directory for snippet configs relative to DPkg::Etc.
+# =============================================================================
+
+# Command to run before installing packages, typically the apt-listchanges invocation.
+# Default: /usr/bin/apt-listchanges --apt || test $? -lt 10
+DPkg::Pre-Install-Pkgs { "{{ apt_listchanges_pre_install_cmd | default('/usr/bin/apt-listchanges --apt || test $? -lt 10') }}"; };
+
+# Version of apt-listchanges output format to use.
+# Default: 2
+DPkg::Tools::Options::/usr/bin/apt-listchanges::Version "{{ apt_listchanges_version | default('2') }}";
+
+# File descriptor number for info output from apt-listchanges.
+# Default: 20
+DPkg::Tools::Options::/usr/bin/apt-listchanges::InfoFD "{{ apt_listchanges_info_fd | default('20') }}";
+
+# Filename for the main apt-listchanges configuration file relative to DPkg::Etc.
+# Default: listchanges.conf
+Dir::Etc::apt-listchanges-main "{{ apt_listchanges_etc_main | default('listchanges.conf') }}";
+
+# Directory name for additional apt-listchanges configuration snippets relative to DPkg::Etc.
+# Default: listchanges.conf.d
+Dir::Etc::apt-listchanges-parts "{{ apt_listchanges_etc_parts | default('listchanges.conf.d') }}";

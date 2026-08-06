@@ -1,0 +1,112 @@
+# =============================================================================
+# gp-saml-gui Configuration Template
+# =============================================================================
+# This template generates the environment/configuration for the gp-saml-gui
+# GlobalProtect SAML GUI client. It produces shell-exportable variables and
+# a command template that can be consumed by an init system or service wrapper.
+#
+# Self-documenting: every variable is preceded by its schema description.
+# All variables use | default(...) to ensure safe rendering even if undefined.
+# =============================================================================
+
+# Hostname or IP address of GlobalProtect server (portal or gateway); required
+GP_SAML_GUI_SERVER={{ (server | default('')) | default('') }}
+
+# If true, authenticate to gateway instead of portal
+{% if gateway | default(False) %}
+GP_SAML_GUI_TARGET=--gateway
+{% else %}
+GP_SAML_GUI_TARGET=
+{% endif %}
+
+# If true, disable cookie usage/storage entirely
+{% if no_cookies | default(False) %}
+GP_SAML_GUI_COOKIES=--no-cookies
+{% elif cookies_file | default('') %}
+# Path to cookie storage file; implies cookie usage unless no_cookies is set
+GP_SAML_GUI_COOKIES=-C {{ cookies_file | default('') }}
+{% else %}
+GP_SAML_GUI_COOKIES=
+{% endif %}
+
+# Path to PEM file containing client certificate (optionally with private key)
+{% if cert_file | default('') %}
+GP_SAML_GUI_CERT=-c {{ cert_file | default('') }}
+{% else %}
+GP_SAML_GUI_CERT=
+{% endif %}
+
+# Path to PEM file containing client private key, if separate from cert_file
+{% if key_file | default('') %}
+GP_SAML_GUI_KEY=--key {{ key_file | default('') }}
+{% else %}
+GP_SAML_GUI_KEY=
+{% endif %}
+
+# Override for clientos parameter; must be one of: Windows, Linux, Mac
+{% if clientos | default('') %}
+GP_SAML_GUI_CLIENTOS=--clientos {{ clientos | default('') }}
+{% else %}
+GP_SAML_GUI_CLIENTOS=
+{% endif %}
+
+# List of extra form fields to inject into login form (e.g. 'magic-cookie-value=deadbeef01234567') — each item should be a key=value string
+{% if extra_fields | default([]) | length > 0 %}
+GP_SAML_GUI_EXTRA_FIELDS={% for field in extra_fields | default([]) %} -f {{ field }}{% endfor %}
+{% else %}
+GP_SAML_GUI_EXTRA_FIELDS=
+{% endif %}
+
+# If true, use pkexec to run openconnect
+{% if pkexec_openconnect | default(False) %}
+GP_SAML_GUI_EXEC=-P
+# If true, use sudo to run openconnect
+{% elif sudo_openconnect | default(False) %}
+GP_SAML_GUI_EXEC=-S
+# If true, execute openconnect directly (advanced)
+{% elif exec_openconnect | default(False) %}
+GP_SAML_GUI_EXEC=-E
+{% else %}
+GP_SAML_GUI_EXEC=
+{% endif %}
+
+# If true, skip TLS certificate verification
+{% if no_verify | default(False) %}
+GP_SAML_GUI_NO_VERIFY=--no-verify
+{% else %}
+GP_SAML_GUI_NO_VERIFY=
+{% endif %}
+
+# If true, launch external browser (for debugging)
+{% if external_browser | default(False) %}
+GP_SAML_GUI_EXTERNAL=-x
+{% else %}
+GP_SAML_GUI_EXTERNAL=
+{% endif %}
+
+# If true, treat server as complete SAML entry URI (not GlobalProtect server)
+{% if uri_mode | default(False) %}
+GP_SAML_GUI_URI=-u
+{% else %}
+GP_SAML_GUI_URI=
+{% endif %}
+
+# If true, enable verbose output
+{% if verbose | default(False) %}
+GP_SAML_GUI_VERBOSITY=-v
+# If true, minimize output verbosity
+{% elif quiet | default(False) %}
+GP_SAML_GUI_VERBOSITY=-q
+{% else %}
+GP_SAML_GUI_VERBOSITY=
+{% endif %}
+
+# List of extra command-line arguments to append to openconnect invocation (must be preceded by -- if needed)
+{% if openconnect_extra | default([]) | length > 0 %}
+GP_SAML_GUI_OPENCONNECT_ARGS={% for arg in openconnect_extra | default([]) %} {{ arg }}{% endfor %}
+{% else %}
+GP_SAML_GUI_OPENCONNECT_ARGS=
+{% endif %}
+
+# Path to gp-saml-gui binary
+GP_SAML_GUI_CMD_TEMPLATE="{{ gp_saml_gui_bin | default('/usr/bin/gp-saml-gui') }} {{ server | default('') }} $GP_SAML_GUI_TARGET $GP_SAML_GUI_COOKIES $GP_SAML_GUI_CERT $GP_SAML_GUI_KEY $GP_SAML_GUI_CLIENTOS $GP_SAML_GUI_EXTRA_FIELDS $GP_SAML_GUI_EXEC $GP_SAML_GUI_NO_VERIFY $GP_SAML_GUI_EXTERNAL $GP_SAML_GUI_URI $GP_SAML_GUI_VERBOSITY $GP_SAML_GUI_OPENCONNECT_ARGS"

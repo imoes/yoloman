@@ -1,19 +1,19 @@
-# Configuration for HAVEGE daemon
-# Enables HAVEGE to run as a service and provide additional entropy
+# Configuration file for haveged
+#
+# This file configures the haveged package, which provides entropy via hardware-based
+# random number generation using the HAVEged algorithm (HARDWARE entropy VEntor).
+# It is typically used on headless servers (like VMs or embedded devices) that lack
+# sufficient hardware entropy sources (/dev/random) for cryptographic operations.
 
-# Daemon execution user and group
-DAEMON_USER={{ user }}
-DAEMON_GROUP={{ group }}
-
-# Path to the HAVEGE binary
-DAEMON={{ daemon_path }}
-
-# Extra arguments passed to the daemon
-DAEMON_ARGS="{{ args }}"
-
-# Enable HAVEGE on system startup (1=yes, 0=no)
-START={{ enable | lower }}
-
-# Optional: extra environment variables (key=value per line)
-{% for env_var in env_vars %}{{ env_var.key }}={{ env_var.value }}
-{% endfor %}
+# Options to pass to haveged:
+# These arguments are appended to the haveged daemon startup command.
+# Common options:
+#   -w <int>   : Set the target fill-level for the entropy pool (default: 2048 bits).
+#                Values below 2048 may cause issues with applications needing high entropy.
+#   --watchdog : Enable hardware watchdog timer support.
+#   -d         : Enable debug logging to stderr (useful for troubleshooting).
+#   -c         : Print configuration and exit.
+#
+# See `man haveged` for a full list of available options.
+# The default is usually sufficient for most use cases.
+#DAEMON_ARGS="{{ args | default('close') }}"

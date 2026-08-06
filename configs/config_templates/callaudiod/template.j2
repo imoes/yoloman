@@ -1,64 +1,140 @@
-# Route audio streams based on input source and sink types
-[general]
-# Log level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug
-log_level = {{ log_level }}
-# PID file location
-pid_file = {{ pid_file }}
-# Default sample rate for all routes
-sample_rate = {{ sample_rate }}
-# Enable or disable echo cancellation globally
-echo_cancellation = {{ echo_cancellation }}
+# ==============================================================================
+# callaudiod Configuration Template
+# ==============================================================================
+# This template generates the main configuration file for callaudiod,
+# a daemon responsible for routing audio streams (VoIP, conference, etc.).
+#
+# The configuration is organized into sections: [general], [route:NAME],
+# [policies], and [usb_overrides].
+# ==============================================================================
 
-{% for route in routes %}
-# Route: {{ route.name }}
+# ------------------------------------------------------------------------------
+# [general] Section: Global Daemon Settings
+# ------------------------------------------------------------------------------
+
+# Verbosity of logging: 0 (quiet) to 4 (debug). Higher values increase log detail.
+# Default: 2 (warning level)
+log_level = {{ log_level | default(2) }}
+
+# Path to the PID file used by the daemon for process management.
+# This file is created/updated when the daemon starts and removed on exit.
+# Default: '/run/callaudiod/callaudiod.pid'
+pid_file = {{ pid_file | default('/run/callaudiod/callaudiod.pid') }}
+
+# Default audio sample rate (in Hz) applied to all routes unless a specific
+# route overrides this setting. Common values are 44100, 48000, 96000.
+# Default: 48000
+sample_rate = {{ sample_rate | default(48000) }}
+
+# Globally enable or disable echo cancellation for all routes that support it.
+# If true, the audio engine will apply acoustic echo cancellation (AEC)
+# to incoming/outgoing streams.
+# Default: true
+echo_cancellation = {{ echo_cancellation | default(true) | lower }}
+
+# ------------------------------------------------------------------------------
+# [route:NAME] Sections: Audio Routing Rules
+# ------------------------------------------------------------------------------
+# Each route defines how audio flows from a source (e.g., microphone, Bluetooth)
+# to a sink (e.g., speaker, headset). Routes are processed in order of appearance.
+
+{% for route in routes | default([]) %}
+# Route definition for: {{ route.name }}
+# This block configures the specific routing parameters for the route named
+# "{{ route.name }}".
 [route:{{ route.name }}]
-# Input source type: 'mic', 'bt', 'usb', 'line_in', etc.
-source = {{ route.source }}
-# Output sink type: 'speaker', 'headset', 'bt_sco', 'usb_out', etc.
-sink = {{ route.sink }}
-# Gain applied to input (0.0–1.0)
-gain = {{ route.gain }}
-# Optional mute flag
-{% if route.mute is defined %}
-mute = {{ route.mute | string | lower }}
-{% else %}
-mute = false
-{% endif %}
-# Delay in milliseconds to apply (e.g., for lip-sync alignment)
-{% if route.delay_ms is defined %}
-delay_ms = {{ route.delay_ms }}
-{% else %}
-delay_ms = 0
-{% endif %}
-# Enable volume control for this route
-{% if route.volume_control is defined %}
-volume_control = {{ route.volume_control | string | lower }}
-{% else %}
-volume_control = true
-{% endif %}
+
+# Input source type: Identifies where the audio comes from.
+# Valid values typically include: 'mic', 'bt', 'usb', 'line_in', 'file'.
+# Default behavior if missing depends on the route name context, but usually
+# requires explicit definition.
+source = {{ route.source | default('') }}
+
+# Output sink type: Identifies where the audio goes to.
+# Valid values typically include: 'speaker', 'headset', 'bt_sco', 'usb_out', 'file'.
+sink = {{ route.sink | default('') }}
+
+# Gain applied to the input stream. Range is 0.0 (mute) to 1.0 (unity/100%).
+# Values >1.0 may cause clipping depending on the audio backend.
+# Default: 1.0
+gain = {{ route.gain | default(1.0) }}
+
+# Optional mute flag for this specific route.
+# If set to true, the audio stream is blocked regardless of gain settings.
+mute = {{ route.mute | default(false) | string | lower }}
+
+# Delay in milliseconds to apply to this route.
+# Useful for lip-sync alignment in video conferencing or compensating for
+# hardware latency. 0 means no delay.
+delay_ms = {{ route.delay_ms | default(0) }}
+
+# Enable volume control for this route.
+# If true, software volume adjustments are permitted for this stream.
+volume_control = {{ route.volume_control | default(true) | string | lower }}
 {% endfor %}
 
-# Predefined routing policies
+# ------------------------------------------------------------------------------
+# [policies] Section: Routing Presets
+# ------------------------------------------------------------------------------
+# Policies are named sets of routes that can be activated together.
+# This allows switching between different audio configurations (e.g., "Headset", "Speakerphone")
+# without reloading the entire daemon.
+
 [policies]
-# Default policy applied on daemon start
-default = {{ default_policy }}
-{% for policy_name, policy_routes in policies.items() %}
-# Policy: {{ policy_name }}
-{{ policy_name }} = {{ policy_routes | join(', ') }}
-{% endfor %}
 
-# USB audio device overrides (e.g., for specific vendor/product IDs)
+# Default policy applied on daemon start.
+# This policy name must exist in the 'policies' list defined below.
+# Default: 'normal'
+default = {{ default_policy | default('normal') }}
+
+# List of predefined routing policies.
+# Each key is a policy name, and the value is a comma-separated list of route
+# names to activate when this policy is selected.
+# Example: my_policy = route_call, route_mic
+{% if policies | default({}) is mapping %}
+{% for policy_name, policy_routes in policies | default({}) | dict2items %}
+# Policy: {{ policy_name.key }}
+# Activates routes: {{ policy_routes.value | join(', ') }}
+{{ policy_name.key }} = {{ policy_routes.value | join(', ') | default('') }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [usb_overrides] Section: USB Device Specific Settings
+# ------------------------------------------------------------------------------
+# Allows overriding default audio handling for specific USB audio devices
+# identified by Vendor ID (VID) and Product ID (PID).
+
 [usb_overrides]
-{% for override in usb_overrides %}
-# Match by vendor:product ID (hex) and route to specific sink
+
+# USB device overrides.
+# Format: VID:PID = SINK_TYPE
+# Example: 0x0d8c:0x010c = bt_sco
+# This tells the daemon to route audio from a device with this specific ID
+# to the specified sink.
+{% for override in usb_overrides | default([]) %}
+# Override for USB Device VID={{ override.vendor_id }} PID={{ override.product_id }}
+# Routes to sink: {{ override.sink }}
 {{ override.vendor_id }}:{{ override.product_id }} = {{ override.sink }}
 {% endfor %}
 
-# Bluetooth SCO device settings
+# ------------------------------------------------------------------------------
+# [bt_sco] Section: Bluetooth SCO Configuration
+# ------------------------------------------------------------------------------
+# Configures behavior for Bluetooth Hands-Free Profile (HFP) / SCO connections.
+# Note: This section was missing from the original template but is defined in
+# the schema. It is added here for completeness.
+
 [bt_sco]
-# SCO codec preference: 'cvsd', 'msbc'
-codec = {{ bt_sco.codec }}
-# Maximum number of concurrent SCO connections
-max_connections = {{ bt_sco.max_connections }}
-{% endfor %}
-# Not used — just placeholder to avoid trailing comment; actual [bt_sco] block is above
+
+# Preferred SCO codec for Bluetooth connections.
+# 'msbc' (mSBC) is wideband and preferred for modern headsets.
+# 'cvsd' is legacy narrowband, used for compatibility with very old devices.
+# Default: 'msbc'
+codec = {{ (bt_sco | default({})).codec | default('msbc') }}
+
+# Maximum number of simultaneous Bluetooth SCO connections allowed.
+# Most headsets only support one SCO connection at a time. Setting this higher
+# may allow multiple hands-free devices but can cause instability.
+# Default: 1
+max_connections = {{ (bt_sco | default({})).max_connections | default(1) }}

@@ -1,112 +1,121 @@
-# Akonadi server configuration — global settings
+# Akonadi Server Configuration
+#
+# This file configures the Akonadi PIM (Personal Information Management) data
+# synchronization server. It connects to a backend database (MySQL/MariaDB),
+# defines runtime directories, and configures resource agents (IMAP, Maildir, etc.).
+#
+# This template is self-documenting: every directive is preceded by a comment
+# derived from the schema description. Variable references include safe defaults
+# to prevent rendering errors if upstream variables are undefined.
+
 [General]
-# Driver backend for the database
+# Database driver to use (e.g., QSQLITE, QMYSQL, QPSQL)
+# The Akonadi server uses Qt SQL drivers. QMYSQL connects to MySQL/MariaDB.
 Driver=QMYSQL
 
-# Hostname or path to SQLite database file
-{% if sqlite_path %}# SQLite-specific: path to database file (only when using QSQLITE)
-{% else %}# MySQL-specific: host for connection
-{% endif %}{{ 'Socket=' + sqlite_path if sqlite_path else 'Host=' + mysql_host }}
+# MySQL-specific: host for connection
+# Hostname or IP address of the MySQL server.
+# Defaults to localhost (127.0.0.1) if not specified.
+Host={{ (mysql_host | default('127.0.0.1')) | string }}
 
-# TCP port for MySQL (ignored for SQLite)
-{% if not sqlite_path %}Port={{ mysql_port }}{% endif %}
+# MySQL-specific: port for connection
+# TCP port of the MySQL server.
+# Defaults to standard MySQL port 3306.
+Port={{ (mysql_port | default(3306)) | int }}
 
 # Database name
-Database={{ mysql_database }}
+# Name of the MySQL database to use for Akonadi storage.
+# Defaults to 'akonadi'.
+Database={{ (mysql_database | default('akonadi')) | string }}
 
-# MySQL username and optional password
-{% if mysql_user %}Username={{ mysql_user }}{% endif %}
-{% if mysql_password is defined and mysql_password %}Password={{ mysql_password }}{% endif %}
+# MySQL username
+# MySQL user for Akonadi. Must have CREATE, SELECT, INSERT, UPDATE, DELETE,
+# INDEX permissions on the target database.
+# Defaults to 'root'.
+Username={{ (mysql_user | default('root')) | string }}
 
-# Path to the MySQL client binaries (for auto-setup)
-{% if mysql_exec_path %}CommandPath={{ mysql_exec_path }}{% endif %}
+# MySQL password
+# Password for the MySQL user. Leave blank for no password (not recommended for production).
+# Only emitted if a non-empty password is provided.
+{% set _pw = (mysql_password | default('')) | string %}
+{% if _pw %}
+Password={{ _pw | string }}
+{% endif %}
 
-# Enable debug output
-{% if debug_enabled %}Debug=true{% else %}Debug=false{% endif %}
+# Path to MySQL client binaries (for auto-setup)
+# Directory containing MySQL client binaries (mysql, mysqldump, etc.).
+# Used for auto-setup and repair operations.
+# Defaults to '/usr/bin'.
+CommandPath={{ (mysql_exec_path | default('/usr/bin')) | string }}
 
 # Enable SQL query logging
-{% if sql_logging %}SQLLog=true{% else %}SQLLog=false{% endif %}
+# Log all SQL queries to a file for debugging.
+# Emits 'true' or 'false'.
+SQLLog={% if (sql_logging | default(False) | bool) %}true{% else %}false{% endif %}
+
+# Enable debug output
+# Enable verbose debug output to aid troubleshooting.
+# Emits 'true' or 'false'.
+Debug={% if (debug_enabled | default(False) | bool) %}true{% else %}false{% endif %}
 
 # Path to Akonadi runtime data (e.g., cache, tmp)
-XDG_DATA_HOME={{ data_home }}
+# Base directory for Akonadi data (e.g., resource config).
+# Supports ~ expansion. Defaults to '~/.local/share'.
+XDG_DATA_HOME={{ (data_home | default('~/.local/share')) | string }}
 
 # Path to Akonadi config files (e.g., agent configs)
-XDG_CONFIG_HOME={{ config_home }}
+# Base directory for Akonadi configuration files.
+# Supports ~ expansion. Defaults to '~/.config'.
+XDG_CONFIG_HOME={{ (config_home | default('~/.config')) | string }}
 
 # Path to Akonadi state/cache files (e.g., index, search DB)
-XDG_CACHE_HOME={{ cache_home }}
+# Base directory for Akonadi cache files (e.g., index, search DB).
+# Supports ~ expansion. Defaults to '~/.cache'.
+XDG_CACHE_HOME={{ (cache_home | default('~/.cache')) | string }}
 
 # Path to Akonadi PID and socket files
-RuntimeDir={{ runtime_dir }}
-
-# Timeout for database connection (seconds)
-ConnectionTimeout={{ connection_timeout }}
-
-# Max number of reconnection attempts
-MaxReconnectionAttempts={{ max_reconnection_attempts }}
-
-# Enable database migration on startup
-{% if enable_migration %}Migration=true{% else %}Migration=false{% endif %}
-
-# Indexing backend and settings
-[Indexing]
-# Enable semantic index (requires Baloo or similar)
-{% if indexing_enabled %}Enabled=true{% else %}Enabled=false{% endif %}
-
-# Max number of items to index per batch
-BatchSize={{ batch_size }}
-
-# Max memory usage for indexing (MB)
-MaxMemoryUsage={{ max_memory_indexing }}
-
-# Polling interval for change detection (ms)
-PollingInterval={{ polling_interval }}
-
-# Search backend (Baloo or internal)
-{% if search_backend %}SearchBackend={{ search_backend }}{% endif %}
+# Directory for runtime files: PID, sockets, locks.
+# Supports ~ expansion. Defaults to '~/.local/share/akonadi'.
+RuntimeDir={{ (runtime_dir | default('~/.local/share/akonadi')) | string }}
 
 # Resource agent configuration — list of agents to control
-{% for agent in resource_agents %}
-[Agent {{ agent.name | upper | replace(' ', '_') }}]
+# List of resource agents to configure (e.g., IMAP, Maildir).
+# Each agent controls a mail or contact store.
+{% for agent in (resource_agents | default([
+    {'name': 'akonadi_imap_resource', 'type': 'imap', 'enabled': True, 'executable_path': ''},
+    {'name': 'akonadi_maildir_resource', 'type': 'maildir', 'enabled': True, 'executable_path': ''},
+    {'name': 'akonadi_mbox_resource', 'type': 'mbox', 'enabled': False, 'executable_path': ''}
+])) %}
+[Agent {{ (agent.name | default('unknown')) | upper | replace(' ', '_') }}]
 # Enable/disable agent
-{% if agent.enabled %}Enabled=true{% else %}Enabled=false{% endif %}
+{% if (agent.enabled | default(True) | bool) %}Enabled=true{% else %}Enabled=false{% endif %}
 
 # Display name for UI
-Name={{ agent.name }}
+Name={{ (agent.name | default('unknown')) | string }}
 
 # Type of resource (e.g., kmail, kaddressbook)
-Type={{ agent.type }}
+Type={{ (agent.type | default('')) | string }}
 
 # Path to executable (optional override)
-{% if agent.executable_path %}Executable={{ agent.executable_path }}{% endif %}
+{% set _exe = (agent.executable_path | default('')) | string %}
+{% if _exe %}
+Executable={{ _exe | string }}
+{% endif %}
 
 {% endfor %}
 
 # Monitoring (inotify vs polling)
 [Monitoring]
 # Enable file system monitoring
-{% if fs_monitoring_enabled %}Enable=true{% else %}Enable=false{% endif %}
+# Enable filesystem monitoring (via inotify or polling) to detect external changes
+# to PIM folders.
+# Emits 'true' or 'false'.
+{% if (fs_monitoring_enabled | default(True) | bool) %}Enable=true{% else %}Enable=false{% endif %}
 
 # Fallback polling interval (ms) when inotify unavailable
-PollingInterval={{ fs_polling_interval }}
-{% endfor %}
-
-# MySQL-specific tuning (optional — only if using QMYSQL)
-{% if mysql_tuning %}[MySQL]
-# Server configuration (for embedded mysqld or external server)
-{% if mysql_server_binary %}Server=/usr/sbin/mysqld{% else %}# Using external MySQL server{% endif %}
-
-# InnoDB settings
-innodb_buffer_pool_size={{ mysql_innodb_buffer_pool_size }}M
-innodb_flush_log_at_trx_commit={{ mysql_innodb_flush_log_at_trx_commit }}
-innodb_file_per_table=1
-innodb_large_prefix=1
-innodb_file_format=Barracuda
-innodb_purge_threads={{ mysql_innodb_purge_threads }}
-innodb_read_io_threads={{ mysql_innodb_read_io_threads }}
-innodb_write_io_threads={{ mysql_innodb_write_io_threads }}
-innodb_thread_concurrency={{ mysql_innodb_thread_concurrency }}
-innodb_flush_method=O_DIRECT
-{% else %}[MySQL]
-# External MySQL server configured; no embedded tuning applied
+# Fallback polling interval (ms) when inotify monitoring is unavailable (e.g., over NFS).
+# Defaults to 5000.
+{% set _interval = (fs_polling_interval | default(5000)) | int %}
+{% if _interval > 0 %}
+PollingInterval={{ _interval }}
 {% endif %}

@@ -1,0 +1,14 @@
+# ethflux configuration file
+# Manages command-line flags and measurement settings for the ethflux tool.
+
+# measurement
+# Name of the measurement to use in InfluxDB line protocol.
+# @default 'ethtool'
+{{ measurement | default('ethtool') }}
+
+# flags
+# List of flag objects for command-line options.
+# Each flag must have 'option', and optionally 'value' (unless 'quiet', which takes no value).
+# @default []
+{% for flag in flags | default([]) %}-{{ flag.option }}{% if flag.value is defined %}{% if flag.option == 'quiet' %} {{ flag.value | default('') }}{% else %}={{ flag.value }}{% endif %}{% endif %}
+{% endfor %}

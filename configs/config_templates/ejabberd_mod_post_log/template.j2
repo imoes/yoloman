@@ -1,27 +1,51 @@
 # Module: ejabberd_mod_post_log — HTTP POST message logger
 # Enables logging of all end-to-end messages via HTTP POST requests to a remote endpoint.
+# Self-documenting: every field carries its schema description as a comment above the directive.
+
 mod_post_log:
-  # HTTP endpoint to receive logged messages
-  http_endpoint: "{{ http_endpoint }}"
-  # HTTP method used for POST requests
-  http_method: "{{ http_method }}"
-  # Optional HTTP headers to include in requests
-{% for header in http_headers %}  # {{ header.key }}: {{ header.value }}
-{% endfor %}  http_headers:
-{% for header in http_headers %}    - "{{ header.key }}: {{ header.value }}"
-{% endfor %}  # Maximum number of queued log messages before dropping (0 = unlimited)
-  queue_size: {{ queue_size }}
-  # Maximum batch size (messages per POST request)
-  batch_size: {{ batch_size }}
-  # Timeout for HTTP requests (seconds)
-  timeout: {{ timeout }}
-  # Retry attempts on failure
-  retry_attempts: {{ retry_attempts }}
-  # Delay between retries (seconds)
-  retry_delay: {{ retry_delay }}
-  # Enable SSL/TLS verification (set to false only in dev/test)
-  ssl_verify: {{ ssl_verify }}
-  # Optional client certificate and key for mutual TLS (paths are relative to ejabberd config dir or absolute)
-{% if cert_file %}  cert_file: "{{ cert_file }}"
-{% endif %}{% if keyfile %}  keyfile: "{{ keyfile }}"
-{% endif %}
+  # Full HTTP(S) URL of the remote logging endpoint.
+  http_endpoint: "{{ http_endpoint | default('http://localhost:8080/log') }}"
+  
+  # HTTP method used for sending logs (typically POST).
+  http_method: "{{ http_method | default('POST') }}"
+  
+  # Optional HTTP headers to include in requests.
+  # Each item is a key-value pair defined in the http_headers list.
+  http_headers:
+  {% for header in (http_headers | default([])) %}
+    # {{ header.key | default('') }}: {{ header.value | default('') }}
+    - "{{ header.key | default('') }}: {{ header.value | default('') }}"
+  {% endfor %}
+  # End of http_headers list.
+
+  # Maximum number of queued log messages before dropping new ones.
+  # Set to 0 for unlimited (not recommended in production).
+  queue_size: {{ queue_size | default(1000) }}
+  
+  # Maximum number of messages bundled in a single HTTP POST request.
+  batch_size: {{ batch_size | default(50) }}
+  
+  # Seconds to wait for HTTP response before timing out.
+  timeout: {{ timeout | default(5) }}
+  
+  # Number of retry attempts on HTTP failure before discarding the message batch.
+  retry_attempts: {{ retry_attempts | default(3) }}
+  
+  # Seconds to wait between retry attempts.
+  retry_delay: {{ retry_delay | default(2) }}
+  
+  # Whether to verify the SSL certificate of the HTTPS endpoint.
+  # Set to false only in development/test environments.
+  ssl_verify: {{ ssl_verify | default(True) }}
+  
+  # Optional path to client certificate file for TLS mutual authentication.
+  # Path can be absolute or relative to the ejabberd config directory.
+  {% if cert_file | default('') %}
+  cert_file: "{{ cert_file | default('') }}"
+  {% endif %}
+  
+  # Optional path to client private key file for TLS mutual authentication.
+  # Path can be absolute or relative to the ejabberd config directory.
+  {% if keyfile | default('') %}
+  keyfile: "{{ keyfile | default('') }}"
+  {% endif %}

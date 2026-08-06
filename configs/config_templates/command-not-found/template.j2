@@ -1,0 +1,25 @@
+# command-not-found configuration template
+#
+# This template configures the shell function handler for the 'command-not-found' utility.
+# When a user types a command that does not exist, this handler is invoked to search
+# the package database and suggest which package to install.
+#
+# Dependencies: The actual logic resides in the external script specified by command_not_found_script_path.
+
+# Path to the command-not-found executable script
+# Default: /usr/lib/command-not-found
+if [[ -x {{ command_not_found_script_path | default('/usr/lib/command-not-found') | string }} ]] ; then
+	# Check if the command_not_found_handler function is already defined in the shell.
+	# ${+functions[command_not_found_handler]} expands to 1 if the function exists, 0 otherwise.
+	if (( ! ${+functions[command_not_found_handler]} )) ; then
+		# Define the handler function. This function is called by the shell when a command
+	# is not found. It executes the command-not-found script with the typed command as an argument.
+		function command_not_found_handler {
+			# Re-check existence of the script inside the handler for safety.
+			[[ -x {{ command_not_found_script_path | default('/usr/lib/command-not-found') | string }} ]] || return 1
+			# Execute the script. The "${1+"$1"}" syntax ensures that if $1 is unset,
+			# it is not passed as an empty argument, preventing potential issues with strict shells.
+			{{ command_not_found_script_path | default('/usr/lib/command-not-found') | string }} -- ${1+"$1"} && :
+		}
+	fi
+fi

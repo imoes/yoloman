@@ -1,0 +1,40 @@
+{# calcurse configuration file
+   #
+   # This template configures the calcurse calendar/pomodoro task manager.
+   # calcurse is a terminal-based application with no network capabilities;
+   # it does not require database, cache, or remote service connections.
+   # Therefore, no provider or consumer capabilities are registered.
+   #
+   # All fields use the schema defaults provided in the package schema.
+   # Self-documenting: every directive is preceded by its schema description.
+   #}
+
+{# Input date format: 1=mm/dd/yyyy, 2=dd/mm/yyyy, 3=yyyy/mm/dd, 4=yyyy-mm-dd #}
+format.inputdate: {{ format_inputdate | default('3') }}
+
+{# Output date format: strftime(3) compatible format string #}
+format.outputdate: {{ format_outputdate | default('%Y/%m/%d') }}
+
+{# Whether to automatically run garbage collector on note files #}
+general.autogc: {{ general_autogc | default(True) | ternary('yes', 'no') }}
+
+{# Whether to start background daemon after exiting interactive mode #}
+daemon.enable: {{ daemon_enable | default(True) | ternary('yes', 'no') }}
+
+{# List of custom key bindings; each entry maps a key to an action;
+   # format is [ {"key": "F1", "action": "help"}, ... ] #}
+{%- if keys_bindings is defined and keys_bindings | length > 0 %}
+[bind]
+{%- for binding in keys_bindings %}
+{{ binding.key }} = {{ binding.action }}
+{%- endfor %}
+{% endif -%}
+
+{# List of hooks; each entry has a name (pre-load, post-load, pre-save, post-save)
+   # and a filesystem path to an executable script #}
+{%- if hooks_list is defined and hooks_list | length > 0 %}
+[hooks]
+{%- for hook in hooks_list %}
+{{ hook.name }} = {{ hook.path }}
+{%- endfor %}
+{% endif -%}

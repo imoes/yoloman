@@ -1,90 +1,54 @@
 {
-  "verbose": {
+  "host": {
+    "type": "string",
+    "description": "IP address or hostname to listen on."
+  },
+  "port": {
+    "type": "string",
+    "description": "Port number to listen on."
+  },
+  "prog": {
+    "type": "string",
+    "description": "Command/program to execute when a connection is accepted."
+  },
+  "look_up_hostname": {
     "type": "bool",
     "default": false,
-    "description": "Enable verbose logging for all services."
+    "description": "Enable -h: Look up the client's hostname in DNS."
   },
-  "maxconn": {
-    "type": "number",
-    "default": 100,
-    "description": "Global maximum number of concurrent connections across all services."
-  },
-  "default_user": {
-    "type": "string",
-    "default": "nobody",
-    "description": "Default system user to run services as when not specified per-service."
-  },
-  "default_group": {
-    "type": "string",
-    "default": "nogroup",
-    "description": "Default system group to run services as when not specified per-service."
-  },
-  "timeout_dns": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum time in seconds to wait for DNS lookups before timing out."
-  },
-  "timeout_idle": {
-    "type": "number",
-    "default": 60,
-    "description": "Idle timeout in seconds for TCP connections before closing them."
-  },
-  "tcp_wrappers": {
+  "paranoid": {
     "type": "bool",
-    "default": true,
-    "description": "Enable TCP wrappers (/etc/hosts.allow/deny) access control."
+    "default": false,
+    "description": "Enable -p: Paranoid mode. Verifies IP matches hostname via DNS reverse lookup. Implies look_up_hostname."
   },
-  "ipv6": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable listening on IPv6 addresses where supported."
+  "local_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Enable -l name: Use this name as the local hostname instead of DNS lookup."
   },
-  "services": {
-    "type": "list",
-    "default": [],
-    "description": "List of services to manage (e.g., ftp, telnet, http). Each defines a daemon.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Service name (e.g., 'ftp', 'smtp', 'http'). Must be unique."
-      },
-      "port": {
-        "type": "number",
-        "description": "Port number to bind to."
-      },
-      "protocol": {
-        "type": "string",
-        "default": "tcp",
-        "description": "Protocol: 'tcp' or 'udp'."
-      },
-      "chroot": {
-        "type": "string",
-        "description": "Chroot directory for the service (optional)."
-      },
-      "user": {
-        "type": "string",
-        "description": "User to run the service as (overrides default_user)."
-      },
-      "group": {
-        "type": "string",
-        "description": "Group to run the service as (overrides default_group)."
-      },
-      "log_prefix": {
-        "type": "string",
-        "description": "Prefix for log lines (helps identify service in logs)."
-      },
-      "maxconn": {
-        "type": "number",
-        "description": "Per-service maximum connections (overrides global maxconn)."
-      },
-      "timeout_idle": {
-        "type": "number",
-        "description": "Per-service idle timeout (overrides global timeout_idle)."
-      },
-      "cmd": {
-        "type": "list",
-        "description": "Command and arguments to execute when service is triggered."
-      }
-    }
+  "user": {
+    "type": "string",
+    "default": "",
+    "description": "Enable -u user: User to drop privileges to (run as)."
+  },
+  "group": {
+    "type": "string",
+    "default": "",
+    "description": "Enable -u group: Group to drop privileges to. Optional if user specifies user:group."
+  },
+  "instructions_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Enable -i dir: Directory to read per-connection instructions from."
+  },
+  "constant_database": {
+    "type": "string",
+    "default": "",
+    "description": "Enable -x cdb: Constant database file to read instructions from."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Enable -t sec: Timeout in seconds for removing stale files in the instructions directory. 0 disables timeout."
   }
 }

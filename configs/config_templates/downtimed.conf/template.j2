@@ -1,49 +1,50 @@
 [downtimed]
-; Enable/disable debug logging
-log_level = {{ log_level }}
+# Logging verbosity: 'debug', 'info', 'warning', 'error', or 'critical'.
+log_level = {{ log_level | default('info') }}
 
-; Path to the PID file
-pid_file = {{ pid_file }}
+# Path to the PID file for the downtimed daemon.
+pid_file = {{ pid_file | default('/var/run/downtimed/downtimed.pid') }}
 
-; Path to the log file
-log_file = {{ log_file }}
+# Path to the log file for downtimed events.
+log_file = {{ log_file | default('/var/log/downtimed/downtimed.log') }}
 
-; Maximum number of concurrent downtime sessions
-max_sessions = {{ max_sessions }}
+# Maximum number of concurrent service checks/downtime sessions allowed.
+max_sessions = {{ max_sessions | default(10) }}
 
-; Interval between health checks (seconds)
-check_interval = {{ check_interval }}
+# Time (in seconds) between health checks for all services.
+check_interval = {{ check_interval | default(30) }}
 
-; Time (in seconds) to wait before declaring a service truly down
-down_threshold = {{ down_threshold }}
+# Number of consecutive failed checks before marking a service as down.
+down_threshold = {{ down_threshold | default(5) }}
 
-; Time (in seconds) to wait before declaring a service truly up
-up_threshold = {{ up_threshold }}
+# Number of consecutive successful checks before marking a service as up.
+up_threshold = {{ up_threshold | default(2) }}
 
-; Enable/Disable email notifications
-enable_email = {{ enable_email }}
+# Enable email notifications for service state changes.
+enable_email = {{ enable_email | default(False) }}
 
-; Email address to send notifications to
-email_to = {{ email_to }}
+# Recipient email address for downtimed notifications (required if enable_email=true).
+email_to = {{ email_to | default('') }}
 
-; SMTP server for sending email notifications
-smtp_server = {{ smtp_server }}
+# SMTP server hostname for sending email notifications.
+smtp_server = {{ smtp_server | default('localhost') }}
 
-; SMTP port for sending email notifications
-smtp_port = {{ smtp_port }}
+# SMTP server port (commonly 587 for TLS, 465 for SSL, or 25 for unencrypted).
+smtp_port = {{ smtp_port | default(587) }}
 
-; Enable/Disable TLS for SMTP
-smtp_tls = {{ smtp_tls }}
+# Enable TLS encryption for SMTP connection.
+smtp_tls = {{ smtp_tls | default(True) }}
 
-; SMTP username (if auth required)
+# SMTP username for authentication (leave empty if no auth required).
 smtp_user = {{ smtp_user | default('') }}
 
-; SMTP password (if auth required)
+# SMTP password for authentication (leave empty if no auth required).
 smtp_pass = {{ smtp_pass | default('') }}
 
-; List of services to monitor
+# List of services to monitor. Each service must specify host and port.
 [services]
-{% for svc in services %}; Service: {{ svc.name }}
+{% for svc in services | default([]) %}
+; Service: {{ svc.name }}
 {{ svc.name }}.host = {{ svc.host }}
 {{ svc.name }}.port = {{ svc.port }}
 {{ svc.name }}.proto = {{ svc.proto | default('tcp') }}

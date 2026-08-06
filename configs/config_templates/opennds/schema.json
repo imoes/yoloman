@@ -1,248 +1,37 @@
 {
-  "interface": {
+  "fas_key": {
     "type": "string",
-    "default": "wlan0",
-    "description": "Wireless interface where clients connect (e.g., the AP interface)."
+    "default": "c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646",
+    "description": "Pre-shared encryption key between openNDS and FAS script (must match openNDS faskey config)."
   },
-  "upstream": {
-    "type": "string",
-    "default": "eth0",
-    "description": "Network interface connected to the upstream (e.g., LAN or WAN)."
-  },
-  "gateway": {
-    "type": "string",
-    "default": "192.168.42.1",
-    "description": "IP address of the gateway/router on the hotspot subnet (must be reachable from the interface)."
-  },
-  "subnet": {
-    "type": "string",
-    "default": "192.168.42.0/24",
-    "description": "Subnet for hotspot clients, in CIDR notation."
-  },
-  "start_ip": {
-    "type": "string",
-    "default": "192.168.42.10",
-    "description": "First IP address to assign via DHCP."
-  },
-  "end_ip": {
-    "type": "string",
-    "default": "192.168.42.250",
-    "description": "Last IP address to assign via DHCP."
-  },
-  "dns_servers": {
-    "type": "list",
-    "default": [
-      "gateway"
-    ],
-    "description": "DNS servers to hand out to clients (e.g., ['8.8.8.8', '8.8.4.4'] or ['gateway']).",
-    "items": {
-      "type": "string",
-      "pattern": "^(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|gateway)$"
-    }
-  },
-  "redirect_port": {
-    "type": "number",
-    "default": 3000,
-    "description": "Port used by the captive portal redirect server (HTTP)."
-  },
-  "control_port": {
-    "type": "number",
-    "default": 3001,
-    "description": "Port used for communication with the authentication backend."
-  },
-  "backend_url": {
-    "type": "string",
-    "default": "http://127.0.0.1:3790/",
-    "description": "URL of the backend authentication service (e.g., RADIUS, CoovaChilli NDS, or custom HTTP API)."
-  },
-  "backend_timeout": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum seconds to wait for a response from the backend before failing."
-  },
-  "max_clients": {
-    "type": "number",
-    "default": 250,
-    "description": "Maximum number of concurrent hotspot clients allowed."
-  },
-  "log_syslog": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, logs are sent to syslog instead of a file."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Logging verbosity: 0=quiet, 1=errors, 2=info, 3=debug."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/opennds/opennds.log",
-    "description": "Path to the log file (used only if log_syslog is false)."
-  },
-  "use_wpa_psk": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable WPA-PSK (pre-shared key) authentication for the wireless network (requires compatible hardware)."
-  },
-  "wpa_psk_passphrase": {
-    "type": "string",
-    "default": "",
-    "description": "WPA-PSK passphrase (8\u201363 characters). Required if use_wpa_psk is true."
-  },
-  "use_https": {
-    "type": "bool",
-    "default": false,
-    "description": "Use HTTPS for the captive portal redirect (requires valid cert files)."
-  },
-  "ssl_cert": {
-    "type": "string",
-    "default": "/etc/opennds/ssl/cert.pem",
-    "description": "Path to the SSL certificate file for HTTPS."
-  },
-  "ssl_key": {
-    "type": "string",
-    "default": "/etc/opennds/ssl/key.pem",
-    "description": "Path to the SSL private key file for HTTPS."
-  },
-  "pages": {
-    "type": "list",
-    "default": [
-      {
-        "name": "login",
-        "description": "Main login page",
-        "path": "/opt/opennds/htdocs/login.html"
-      },
-      {
-        "name": "welcome",
-        "description": "Welcome page after login",
-        "path": "/opt/opennds/htdocs/welcome.html"
-      },
-      {
-        "name": "error",
-        "description": "Error page (e.g., auth failure)",
-        "path": "/opt/opennds/htdocs/error.html"
-      }
-    ],
-    "description": "Custom HTML pages to serve for portal events.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Page name (e.g., login, welcome, error, logout)"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for the wizard."
-        },
-        "path": {
-          "type": "string",
-          "description": "Absolute filesystem path to the HTML file."
-        }
-      },
-      "required": [
-        "name",
-        "description",
-        "path"
-      ]
-    }
-  },
-  "static_hosts": {
-    "type": "list",
-    "default": [],
-    "description": "Static DNS entries to inject into the internal resolver (e.g., for local devices).",
-    "items": {
-      "type": "object",
-      "properties": {
-        "ip": {
-          "type": "string",
-          "description": "IP address (e.g., '192.168.1.100')"
-        },
-        "hostname": {
-          "type": "string",
-          "description": "Primary hostname for the IP"
-        },
-        "aliases": {
-          "type": "list",
-          "default": [],
-          "description": "Optional alternate hostnames",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "ip",
-        "hostname"
-      ]
-    }
-  },
-  "rate_limiting": {
-    "type": "object",
-    "default": {
-      "clients": []
-    },
-    "description": "Per-client rate limiting (in kbps).",
-    "items": {
-      "clients": {
-        "type": "list",
-        "default": [],
-        "description": "List of clients with custom rate limits.",
-        "items": {
-          "type": "object",
-          "properties": {
-            "mac": {
-              "type": "string",
-              "pattern": "^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$",
-              "description": "Client MAC address"
-            },
-            "up": {
-              "type": "number",
-              "description": "Upload limit in kbps"
-            },
-            "down": {
-              "type": "number",
-              "description": "Download limit in kbps"
-            }
-          },
-          "required": [
-            "mac",
-            "up",
-            "down"
-          ]
-        }
-      }
-    }
-  },
-  "use_mac_allowlist": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, only clients with MAC addresses in the allowlist are granted access."
-  },
-  "mac_allowlist": {
-    "type": "list",
-    "default": [],
-    "description": "List of allowed MAC addresses (if use_mac_allowlist is true).",
-    "items": {
-      "type": "string",
-      "pattern": "^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$",
-      "description": "A MAC address in the format XX:XX:XX:XX:XX:XX"
-    }
-  },
-  "session_timeout": {
+  "fas_sessionlength": {
     "type": "number",
     "default": 0,
-    "description": "Maximum session duration in minutes (0 = unlimited)."
+    "description": "Session length in minutes (0 = no limit)."
   },
-  "use_bandwidth_accounting": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable per-session bandwidth accounting (required for usage-based billing)."
+  "fas_uploadrate": {
+    "type": "number",
+    "default": 0,
+    "description": "Client upload rate limit in kbits/sec (0 = no limit)."
   },
-  "accounting_file": {
+  "fas_downloadrate": {
+    "type": "number",
+    "default": 0,
+    "description": "Client download rate limit in kbits/sec (0 = no limit)."
+  },
+  "fas_uploadquota": {
+    "type": "number",
+    "default": 0,
+    "description": "Client upload quota in kBytes (0 = no limit)."
+  },
+  "fas_downloadquota": {
+    "type": "number",
+    "default": 0,
+    "description": "Client download quota in kBytes (0 = no limit)."
+  },
+  "fas_imageurl": {
     "type": "string",
-    "default": "/var/log/opennds/accounting.log",
-    "description": "Path to the accounting data file (used only if use_bandwidth_accounting is true)."
+    "default": "https://avatars1.githubusercontent.com/u/62547912",
+    "description": "URL of the image to display on the splash page."
   }
 }

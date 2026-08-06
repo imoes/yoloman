@@ -1,0 +1,64 @@
+# ============================================================================
+# Systemd unit file for arping (Address Resolution Protocol ping)
+#
+# arping is a utility for sending and receiving ARP packets to/from a target
+# MAC/IP address. It is commonly used to check if a host is reachable on the
+# local LAN, or to update ARP caches on switches/bridges.
+#
+# This template generates a [Service] section suitable for inclusion in a
+# systemd unit file. Ensure the service manager reloads configuration after
+# applying changes.
+# ============================================================================
+
+# --- ExecStart: Command and Arguments ---
+# Executes /usr/sbin/arping.
+# - {{ arping_opts | default([]) | join(' ') }}:
+#   Optional CLI arguments passed before the target. Examples: '-c 3' (count), '-i eth0' (interface).
+# - {{ host | default('') }}:
+#   REQUIRED. The target IP address or MAC address to ping via ARP.
+#   If empty, the command will fail at runtime.
+ExecStart=/usr/sbin/arping {{ arping_opts | default([]) | join(' ') }} {{ host | default('') }}
+
+# --- TimeoutSec: Process Timeout ---
+# Maximum time (in seconds) systemd waits for the arping process to exit
+# after sending a SIGTERM (or immediately if no restart).
+# Default: 30 seconds.
+TimeoutSec={{ timeout_sec | default(30) }}
+
+# --- Restart: Restart Policy ---
+# Determines when systemd should restart the arping service.
+# Options: 'no' (default), 'on-success', 'on-failure', 'on-abnormal', 'on-watchdog', 'on-abort', 'always'.
+# Default: 'no'
+Restart={{ restart_policy | default('no') }}
+
+# --- User/Group: Privilege Dropping ---
+# Drops root privileges after initialization to run arping as an unprivileged user.
+# 'nobody' is used as a safe default; ensure the user exists on the target system.
+User={{ user | default('nobody') }}
+Group={{ group | default('nobody') }}
+
+# --- Nice: CPU Scheduling Priority ---
+# Adjusts the scheduling priority (nice value) of the arping process.
+# Lower (negative) values increase priority, useful for low-latency timing tests.
+# Default: 0 (normal priority).
+Nice={{ nice_value | default(0) }}
+
+# --- AmbientCapabilities: Linux Capabilities ---
+# Retains specific Linux capabilities when dropping root (e.g., CAP_NET_RAW is needed for raw sockets).
+# Provide a list of capability names. If empty, no capabilities are retained.
+# Example: ['CAP_NET_RAW']
+{% if capabilities | default([]) | length > 0 %}
+AmbientCapabilities={{ capabilities | default([]) | join(' ') }}
+{% endif %}
+
+# --- System Call Filter (Seccomp) ---
+# arping requires raw socket access. Filtering may be needed if strict seccomp is desired.
+# These are generally handled via compile-time options or global systemd drop-ins,
+# but can be specified here if explicitly required by policy.
+# SystemCallFilter=~@network @privileged
+# SystemCallErrorNumber=EPERM
+
+# --- Environment Variables ---
+# arping does not typically require environment variables for basic operation.
+# However, interface resolution or logging behavior might be influenced by PATH or locale.
+# No standard arping-specific env vars are documented for this configuration.

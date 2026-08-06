@@ -1,0 +1,111 @@
+# ==============================================================================
+# Cutycapt CLI arguments template
+# Generates the command-line arguments for the cutycapt utility.
+# Each section corresponds to a specific aspect of the capture operation.
+# ==============================================================================
+
+# -- URL and Output Configuration --
+# These are the primary inputs: where to capture from and where to save the result.
+
+# The URL to capture (required).
+{% if url is not none and url | default('') != '' %}--url={{ url }}{% endif %}
+
+# The target file path (e.g., screenshot.png).
+{% if output is not none and output | default('') != '' %}--out={{ output }}{% endif %}
+
+# Output format override (e.g., png, svg, pdf).
+{% if out_format is not none and out_format | default('') != '' %}--out-format={{ out_format }}{% endif %}
+
+# -- Display and Rendering Constraints --
+# Controls the viewport size and timing behavior of the browser engine.
+
+# Minimal width for the image.
+{% if min_width is not none %}--min-width={{ min_width | default(800) }}{% endif %}
+
+# Minimal height for the image.
+{% if min_height is not none %}--min-height={{ min_height | default(600) }}{% endif %}
+
+# Maximum waiting time in milliseconds (0 = infinite).
+{% if max_wait is not none %}--max-wait={{ max_wait | default(90000) }}{% endif %}
+
+# Additional delay after successful load in milliseconds.
+{% if delay is not none %}--delay={{ delay | default(0) }}{% endif %}
+
+# -- Custom Styles --
+# Allows injecting CSS to override page styling or hide elements.
+
+# Path to user style sheet file.
+{% if user_style_path is not none and user_style_path | default('') != '' %}--user-style-path={{ user_style_path }}{% endif %}
+
+# Inline CSS user style rules.
+{% if user_style_string is not none and user_style_string | default('') != '' %}--user-style-string={{ user_style_string }}{% endif %}
+
+# -- HTTP Request Customization --
+# Modifies the HTTP request sent to the target URL.
+
+# List of HTTP request headers to send; each item must have 'name' and 'value' fields.
+{% for header in headers | default([]) %}--header={{ header.name }}:{{ header.value }}
+{% endfor %}
+
+# HTTP request method.
+{% if method is not none %}--method={{ method | default('get') }}{% endif %}
+
+# Unencoded request body.
+{% if body_string is not none and body_string | default('') != '' %}--body-string={{ body_string }}{% endif %}
+
+# Base64-encoded request body.
+{% if body_base64 is not none and body_base64 | default('') != '' %}--body-base64={{ body_base64 }}{% endif %}
+
+# -- User-Agent Identification --
+# Controls how the target server identifies the client application.
+
+# Application name for User-Agent.
+{% if app_name is not none and app_name | default('') != '' %}--app-name={{ app_name }}{% endif %}
+
+# Application version for User-Agent.
+{% if app_version is not none and app_version | default('') != '' %}--app-version={{ app_version }}{% endif %}
+
+# Full User-Agent string override.
+{% if user_agent is not none and user_agent | default('') != '' %}--user-agent={{ user_agent }}{% endif %}
+
+# -- Browser Engine Features --
+# Enables or disables specific QtWebEngine/Browser capabilities.
+
+# Enable JavaScript execution.
+{% if javascript is not none %}--javascript={{ javascript | default(true) }}{% endif %}
+
+# Enable Java execution (unknown by default).
+{% if java is not none %}--java={{ java | default(false) }}{% endif %}
+
+# Enable plugin execution (unknown by default).
+{% if plugins is not none %}--plugins={{ plugins | default(false) }}{% endif %}
+
+# Enable private browsing mode (unknown by default).
+{% if private_browsing is not none %}--private-browsing={{ private_browsing | default(false) }}{% endif %}
+
+# Enable automatic image loading.
+{% if auto_load_images is not none %}--auto-load-images={{ auto_load_images | default(true) }}{% endif %}
+
+# Allow scripts to open windows (unknown by default).
+{% if js_can_open_windows is not none %}--js-can-open-windows={{ js_can_open_windows | default(false) }}{% endif %}
+
+# Allow scripts to access clipboard (unknown by default).
+{% if js_can_access_clipboard is not none %}--js-can-access-clipboard={{ js_can_access_clipboard | default(false) }}{% endif %}
+
+# -- Output Appearance --
+# Visual adjustments for the final captured image/PDF.
+
+# Include backgrounds in PDF/PS output.
+{% if print_backgrounds is not none %}--print-backgrounds={{ print_backgrounds | default(false) }}{% endif %}
+
+# Page zoom factor (0 = no zoom).
+{% if zoom_factor is not none %}--zoom-factor={{ zoom_factor | default(0) }}{% endif %}
+
+# Zoom text only.
+{% if zoom_text_only is not none %}--zoom-text-only={{ zoom_text_only | default(false) }}{% endif %}
+
+# -- Network Proxies --
+# Routes traffic through an intermediate proxy server.
+
+# HTTP proxy server URL.
+{% if http_proxy is not none and http_proxy | default('') != '' %}--http-proxy={{ http_proxy }}{% endif %}

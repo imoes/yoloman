@@ -1,30 +1,99 @@
 # Foremost configuration file
-# Controls what file types to recover, output directory, and logging behavior
-# Uncomment and adjust as needed for your use case
+# Controls what file types to recover, output directory, and logging behavior.
+# This template is self-documenting: every directive is preceded by its schema description.
+# Uncomment and adjust as needed for your use case.
+
+# Global Defaults Section
 [defaults]
-output = {{ output_dir }}
-log = {{ log_file }}
+
+# Top-level directory where recovered files are written
+# Default: /output
+output = {{ output_dir | default('/output') }}
+
+# Path to the log file (relative or absolute); empty string disables logging
+# Default: /foremost.log
+log = {{ log_file | default('/foremost.log') }}
 
 # File type definitions: extension, description, signature (magic bytes), and offset
 # Format: ext = description, start, signature_hex, length
 # Signatures are specified as hex byte sequences; '*' matches any byte
-{% for ftype in file_types %}
+{% for ftype in file_types | default([
+    {'ext': 'jpg', 'desc': 'JPEG image', 'sig': 'FFD8FF', 'len': 0, 'start': 0},
+    {'ext': 'png', 'desc': 'PNG image', 'sig': '89504E47', 'len': 0, 'start': 0},
+    {'ext': 'gif', 'desc': 'GIF image', 'sig': '47494638', 'len': 0, 'start': 0},
+    {'ext': 'bmp', 'desc': 'Windows bitmap', 'sig': '424D', 'len': 0, 'start': 0},
+    {'ext': 'tif', 'desc': 'TIFF image', 'sig': '49492A00', 'len': 0, 'start': 0},
+    {'ext': 'avi', 'desc': 'AVI video', 'sig': '41564920', 'len': 0, 'start': 0},
+    {'ext': 'mpg', 'desc': 'MPEG video', 'sig': '000001B3', 'len': 0, 'start': 0},
+    {'ext': 'zip', 'desc': 'ZIP archive', 'sig': '504B0304', 'len': 0, 'start': 0},
+    {'ext': 'tar', 'desc': 'TAR archive', 'sig': '7573746172', 'len': 0, 'start': 257},
+    {'ext': 'gz', 'desc': 'GZIP archive', 'sig': '1F8B08', 'len': 0, 'start': 0},
+    {'ext': 'exe', 'desc': 'Windows executable', 'sig': '4D5A', 'len': 0, 'start': 0},
+    {'ext': 'pdf', 'desc': 'PDF document', 'sig': '25504446', 'len': 0, 'start': 0},
+    {'ext': 'doc', 'desc': 'Microsoft Word (BIFF5)', 'sig': 'D0CF11E0', 'len': 0, 'start': 0},
+    {'ext': 'xls', 'desc': 'Microsoft Excel (BIFF5)', 'sig': 'D0CF11E0', 'len': 0, 'start': 0},
+    {'ext': 'ppt', 'desc': 'Microsoft PowerPoint', 'sig': 'D0CF11E0', 'len': 0, 'start': 0},
+    {'ext': 'rar', 'desc': 'RAR archive', 'sig': '52617221', 'len': 0, 'start': 0},
+    {'ext': 'mp3', 'desc': 'MPEG audio', 'sig': 'FFFB', 'len': 0, 'start': 0},
+    {'ext': 'wav', 'desc': 'WAV audio', 'sig': '52494646', 'len': 0, 'start': 0},
+    {'ext': 'ogg', 'desc': 'OGG audio', 'sig': '4F676753', 'len': 0, 'start': 0},
+    {'ext': 'html', 'desc': 'HTML document', 'sig': '3C21444F4354', 'len': 0, 'start': 0},
+    {'ext': 'txt', 'desc': 'Plain text', 'sig': '*', 'len': 0, 'start': 0}
+]) %}
+# {{ ftype.desc }} recovery definition
+# Extension: {{ ftype.ext }} | Signature: {{ ftype.sig }} | Offset: {{ ftype.start }}
 {{ ftype.ext }} = {{ ftype.desc }}, {{ ftype.start }}, {{ ftype.sig }}, {{ ftype.len }}
 {% endfor %}
 
-# Global settings
-quiet = {{ quiet }}
-verbose = {{ verbose }}
+# Global Settings Section
+
+# Suppress all non-error output
+# Default: False
+quiet = {{ quiet | default(False) }}
+
+# Print detailed information about recovery process
+# Default: False
+verbose = {{ verbose | default(False) }}
+
 # Recursively process subdirectories (true/false)
-recursive = {{ recursive }}
+# Default: True
+recursive = {{ recursive | default(True) }}
+
 # Maximum size of output file in KB (0 = unlimited)
-max_size = {{ max_size_kb }}
+# Default: 0
+max_size = {{ max_size_kb | default(0) }}
+
 # Number of bytes to search before file signature (default: 0)
-offset = {{ offset_bytes }}
+# Default: 0
+offset = {{ offset_bytes | default(0) }}
 
 # Per-file-type tuning (optional overrides)
-{% for ftype in file_types %}
+# These sections allow overriding global settings for specific file types.
+# By default, no overrides are set; uncomment and adjust below if needed.
+{% for ftype in file_types | default([
+    {'ext': 'jpg', 'desc': 'JPEG image', 'sig': 'FFD8FF', 'len': 0, 'start': 0},
+    {'ext': 'png', 'desc': 'PNG image', 'sig': '89504E47', 'len': 0, 'start': 0},
+    {'ext': 'gif', 'desc': 'GIF image', 'sig': '47494638', 'len': 0, 'start': 0},
+    {'ext': 'bmp', 'desc': 'Windows bitmap', 'sig': '424D', 'len': 0, 'start': 0},
+    {'ext': 'tif', 'desc': 'TIFF image', 'sig': '49492A00', 'len': 0, 'start': 0},
+    {'ext': 'avi', 'desc': 'AVI video', 'sig': '41564920', 'len': 0, 'start': 0},
+    {'ext': 'mpg', 'desc': 'MPEG video', 'sig': '000001B3', 'len': 0, 'start': 0},
+    {'ext': 'zip', 'desc': 'ZIP archive', 'sig': '504B0304', 'len': 0, 'start': 0},
+    {'ext': 'tar', 'desc': 'TAR archive', 'sig': '7573746172', 'len': 0, 'start': 257},
+    {'ext': 'gz', 'desc': 'GZIP archive', 'sig': '1F8B08', 'len': 0, 'start': 0},
+    {'ext': 'exe', 'desc': 'Windows executable', 'sig': '4D5A', 'len': 0, 'start': 0},
+    {'ext': 'pdf', 'desc': 'PDF document', 'sig': '25504446', 'len': 0, 'start': 0},
+    {'ext': 'doc', 'desc': 'Microsoft Word (BIFF5)', 'sig': 'D0CF11E0', 'len': 0, 'start': 0},
+    {'ext': 'xls', 'desc': 'Microsoft Excel (BIFF5)', 'sig': 'D0CF11E0', 'len': 0, 'start': 0},
+    {'ext': 'ppt', 'desc': 'Microsoft PowerPoint', 'sig': 'D0CF11E0', 'len': 0, 'start': 0},
+    {'ext': 'rar', 'desc': 'RAR archive', 'sig': '52617221', 'len': 0, 'start': 0},
+    {'ext': 'mp3', 'desc': 'MPEG audio', 'sig': 'FFFB', 'len': 0, 'start': 0},
+    {'ext': 'wav', 'desc': 'WAV audio', 'sig': '52494646', 'len': 0, 'start': 0},
+    {'ext': 'ogg', 'desc': 'OGG audio', 'sig': '4F676753', 'len': 0, 'start': 0},
+    {'ext': 'html', 'desc': 'HTML document', 'sig': '3C21444F4354', 'len': 0, 'start': 0},
+    {'ext': 'txt', 'desc': 'Plain text', 'sig': '*', 'len': 0, 'start': 0}
+]) %}
 [{{ ftype.ext }}]
 # Override settings for {{ ftype.desc }}
-# max_size = {{ max_size_kb }}  # per-type max file size in KB (uncomment to override global)
+# max_size = {{ max_size_kb | default(0) }}  # per-type max file size in KB (uncomment to override global)
 {% endfor %}

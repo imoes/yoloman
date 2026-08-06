@@ -1,71 +1,103 @@
-# Default listen address and port for the entropybroker service
-listen: {{ listen_addr }}:{{ listen_port }}
+# ============================================================================
+# entropybroker.conf — Entropy Broker Service Configuration
+# ============================================================================
+# This service provides random entropy data (e.g., for cryptographic key generation)
+# over a network protocol. It acts as a central pool aggregator and distributor.
+# ============================================================================
 
-# Path to the entropy source device (e.g., /dev/hwrng, /dev/urandom)
-entropy_source: {{ entropy_source_path }}
+# Listen address and port for the main entropy service.
+# listen_addr: default='0.0.0.0'
+# listen_port: default=8888
+listen: {{ (listen_addr | default('0.0.0.0')) }}:{{ (listen_port | default(8888)) }}
 
-# Optional fallback entropy source (set to null to disable)
-{% if fallback_entropy_source_path is defined and fallback_entropy_source_path is not none %}
-fallback_entropy_source: {{ fallback_entropy_source_path }}
+# Primary entropy source device path.
+# entropy_source_path: default='/dev/hwrng'
+entropy_source: {{ entropy_source_path | default('/dev/hwrng') }}
+
+# Optional fallback entropy source path. If the primary source fails,
+# this device is used. Set to empty/null to disable fallback.
+# fallback_entropy_source_path: default='/dev/urandom'
+{% if fallback_entropy_source_path | default('/dev/urandom') is not none and fallback_entropy_source_path | default('/dev/urandom') != '' %}
+fallback_entropy_source: {{ fallback_entropy_source_path | default('/dev/urandom') }}
 {% endif %}
 
-# Minimum required entropy pool size (in bits)
-min_pool_size: {{ min_pool_size }}
+# Minimum bits of entropy required in the internal pool before serving requests.
+# min_pool_size: default=256
+min_pool_size: {{ min_pool_size | default(256) }}
 
-# Maximum number of bits to draw per request (0 = unlimited)
-max_draw_bits: {{ max_draw_bits }}
+# Maximum number of bits to draw per request. 0 means unlimited.
+# max_draw_bits: default=4096
+max_draw_bits: {{ max_draw_bits | default(4096) }}
 
-# Worker count for parallel entropy gathering
-workers: {{ workers }}
+# Number of worker threads for gathering entropy in parallel.
+# workers: default=2
+workers: {{ workers | default(2) }}
 
-# Enable or disable metrics collection
-metrics_enabled: {{ metrics_enabled }}
+# Enable or disable Prometheus-compatible metrics collection.
+# metrics_enabled: default=False
+metrics_enabled: {{ metrics_enabled | default(false) }}
 
-# Prometheus metrics endpoint (only used if metrics_enabled=true)
-{% if metrics_enabled %}
-metrics_listen: {{ metrics_addr }}:{{ metrics_port }}
+# Prometheus metrics endpoint address and port.
+# Only active if metrics_enabled is true.
+# metrics_addr: default='127.0.0.1'
+# metrics_port: default=9100
+{% if metrics_enabled | default(false) %}
+metrics_listen: {{ metrics_addr | default('127.0.0.1') }}:{{ metrics_port | default(9100) }}
 {% endif %}
 
-# Logging configuration
-log_level: {{ log_level }}
-log_format: {{ log_format }}
+# Logging configuration.
+# log_level: default='info'
+log_level: {{ log_level | default('info') }}
+
+# log_format: default='json'
+log_format: {{ log_format | default('json') }}
+
+# Optional file path to write logs. If omitted, logs to stderr.
+# log_file: default=None
 {% if log_file is defined and log_file is not none %}
 log_file: {{ log_file }}
 {% endif %}
 
-# Hostname or FQDN to report as source identifier in logs/metrics
+# Hostname/FQDN to report in logs and metrics.
+# If omitted or null, the system auto-detects the hostname.
+# report_hostname: default=None
 {% if report_hostname is defined and report_hostname is not none %}
 report_hostname: {{ report_hostname }}
 {% else %}
 report_hostname: auto
 {% endif %}
 
-# Whitelist of allowed client CIDRs (empty list = allow all)
-{% if allowed_clients is defined and allowed_clients | length > 0 %}
+# Whitelist of allowed client IP addresses or CIDR ranges.
+# Empty list or undefined means allow all clients.
+# allowed_clients: default=[]
 allowed_clients:
+{% if allowed_clients is defined and allowed_clients | length > 0 %}
 {% for client in allowed_clients %}  - {{ client }}
 {% endfor %}
 {% else %}
-allowed_clients: []
+  []
 {% endif %}
 
-# TLS configuration (set tls.enabled to true to activate)
+# TLS configuration for secure entropy delivery.
+# tls: default={'enabled': False, 'cert_file': '/etc/entropybroker/tls/cert.pem', 'key_file': '/etc/entropybroker/tls/key.pem', 'ca_file': None}
 tls:
-  enabled: {{ tls.enabled }}
-{% if tls.enabled %}
-  cert_file: {{ tls.cert_file }}
-  key_file: {{ tls.key_file }}
-{% if tls.ca_file is defined and tls.ca_file is not none %}
+  enabled: {{ (tls | default({'enabled': False})).enabled }}
+{% if (tls | default({'enabled': False})).enabled %}
+  cert_file: {{ (tls | default({'cert_file': '/etc/entropybroker/tls/cert.pem'})).cert_file }}
+  key_file: {{ (tls | default({'key_file': '/etc/entropybroker/tls/key.pem'})).key_file }}
+{% if (tls | default({})).ca_file is defined and (tls | default({})).ca_file is not none %}
   ca_file: {{ tls.ca_file }}
 {% endif %}
 {% endif %}
 
-# Rate limiting configuration
+# Rate-limiting configuration to prevent abuse.
+# rate_limit: default={'requests_per_second': 10, 'burst_size': 20}
 rate_limit:
-  requests_per_second: {{ rate_limit.requests_per_second }}
-  burst_size: {{ rate_limit.burst_size }}
+  requests_per_second: {{ (rate_limit | default({'requests_per_second': 10})).requests_per_second }}
+  burst_size: {{ (rate_limit | default({'burst_size': 20})).burst_size }}
 
-# Backend-specific settings (e.g., for integration with external entropy services)
+# List of entropy backends to use (e.g., hardware RNG, remote service).
+# backends: default=[]
 {% if backends is defined and backends | length > 0 %}
 backends:
 {% for backend in backends %}  - name: {{ backend.name }}
@@ -84,23 +116,30 @@ backends:
 {% endfor %}
 {% endif %}
 
-# Health check endpoint path
-health_check_path: {{ health_check_path }}
+# HTTP path for health-check probes (returns 200 OK if healthy).
+# health_check_path: default='/healthz'
+health_check_path: {{ health_check_path | default('/healthz') }}
 
-# Readiness probe path
-readiness_path: {{ readiness_path }}
+# HTTP path for readiness probes (returns 200 OK only if entropy pool is sufficient).
+# readiness_path: default='/readyz'
+readiness_path: {{ readiness_path | default('/readyz') }}
 
-# Graceful shutdown timeout (seconds)
-shutdown_timeout: {{ shutdown_timeout }}
+# Seconds to wait for graceful shutdown before forcing termination.
+# shutdown_timeout: default=30
+shutdown_timeout: {{ shutdown_timeout | default(30) }}
 
-# Interval between entropy pool refreshes (seconds)
-refresh_interval: {{ refresh_interval }}
+# Seconds between automatic entropy pool refreshes.
+# refresh_interval: default=5
+refresh_interval: {{ refresh_interval | default(5) }}
 
-# Enable/disable entropy stirring (mixing from multiple sources)
-stirring_enabled: {{ stirring_enabled }}
+# Enable stirring (mixing entropy from multiple sources).
+# stirring_enabled: default=True
+stirring_enabled: {{ stirring_enabled | default(true) }}
 
-# Memory limit for internal buffers (in bytes, 0 = use default)
-buffer_memory_limit: {{ buffer_memory_limit }}
+# Maximum memory (in bytes) for internal buffers. 0 = use system default.
+# buffer_memory_limit: default=0
+buffer_memory_limit: {{ buffer_memory_limit | default(0) }}
 
-# Enable/disable entropy compression (e.g., using gzip on pool data before export)
-compression_enabled: {{ compression_enabled }}
+# Enable compression of entropy data before export (e.g., gzip).
+# compression_enabled: default=False
+compression_enabled: {{ compression_enabled | default(false) }}

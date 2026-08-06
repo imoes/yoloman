@@ -1,92 +1,30 @@
 {
-  "ddns_providers": {
-    "type": "list",
-    "default": [],
-    "description": "List of Dynamic DNS providers to update. Each entry contains credentials and target info.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "username": {
-          "type": "string",
-          "default": "",
-          "description": "Username or hostname alias for the DDNS provider."
-        },
-        "password": {
-          "type": "string",
-          "default": "",
-          "description": "Password or API token for the DDNS provider."
-        },
-        "hostname": {
-          "type": "string",
-          "default": "",
-          "description": "Full hostname (e.g., example.dyndns.org) to update."
-        },
-        "server": {
-          "type": "string",
-          "default": "dynupdate.no-ip.com",
-          "description": "DDNS provider's update server hostname (e.g., dynupdate.no-ip.com, updates.dnsmadeeasy.com)."
-        },
-        "port": {
-          "type": "string",
-          "default": "",
-          "description": "Port for the update server (e.g., '443' for HTTPS). If omitted, inadyn defaults based on scheme (http/https auto-detect)."
-        },
-        "user_agent": {
-          "type": "string",
-          "default": "",
-          "description": "Optional custom User-Agent header to use (required by some providers like Cloudflare)."
-        }
-      }
-    }
-  },
-  "default_provider": {
+  "run_daemon": {
     "type": "string",
-    "default": "dyndns2",
-    "description": "Default DDNS system protocol to use (e.g., 'dyndns2', 'cloudflare', 'godaddy'). Set this if not using provider-specific detection per entry."
+    "default": "no",
+    "description": "Whether inadyn should run in daemon mode. Must be 'yes' or 'no'.\n    enum: ['yes', 'no']",
+    "enum": [
+      "yes",
+      "no"
+    ]
   },
-  "pidfile": {
+  "run_ipup": {
     "type": "string",
-    "default": "/run/inadyn/inadyn.pid",
-    "description": "Path to the PID file for the background process."
+    "default": "no",
+    "description": "Whether inadyn should run on every new ppp connection (dial-on-demand). Must be 'yes' or 'no'.\n    enum: ['yes', 'no']",
+    "enum": [
+      "yes",
+      "no"
+    ]
   },
-  "log_file": {
+  "user": {
     "type": "string",
-    "default": "/var/log/inadyn.log",
-    "description": "Path to the log file for inadyn output."
+    "default": "debian-inadyn",
+    "description": "User account under which inadyn runs."
   },
-  "log_level": {
+  "group": {
     "type": "string",
-    "default": "info",
-    "description": "Verbosity level: 'debug', 'info', 'notice', 'warning', 'error'."
-  },
-  "check_ip_server": {
-    "type": "string",
-    "default": "checkip.dyndns.org",
-    "description": "Public IP-checking service to determine current public IPv4 address."
-  },
-  "check_ip_server_port": {
-    "type": "number",
-    "default": 80,
-    "description": "Port of the IP-checking server (typically 80 or 443)."
-  },
-  "min_update_interval": {
-    "type": "number",
-    "default": 300,
-    "description": "Minimum number of seconds between updates (prevents over-update throttling by providers)."
-  },
-  "ipv4_only": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, only use IPv4 lookups (skip IPv6 detection and updates)."
-  },
-  "ip_interface": {
-    "type": "string",
-    "default": "",
-    "description": "Network interface name (e.g., 'eth0') to bind IP detection to. If empty, inadyn uses default route."
-  },
-  "custom_ip_url": {
-    "type": "string",
-    "default": "",
-    "description": "Optional custom HTTPS/HTTP URL for public IP detection (overrides check_ip_server)."
+    "default": "debian-inadyn",
+    "description": "Group under which inadyn runs."
   }
 }

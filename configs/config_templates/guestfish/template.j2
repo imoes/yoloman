@@ -1,0 +1,21 @@
+# /etc/libguestfs-tools.conf
+#
+# Global configuration file for libguestfs-tools (guestfish, guestmount, virt-rescue, etc.).
+# See libguestfs-tools.conf(5) man page for full documentation.
+#
+# Settings in this file apply as defaults unless overridden by command-line flags.
+# Comments starting with ; or # are ignored by the parser.
+#
+# Each configuration directive is described below with its schema description.
+# All variables use safe defaults from the schema to ensure idempotent rendering.
+
+# read_only: If true, make guestfish, guestmount, virt-rescue operate in read-only mode by default
+# (equivalent to --ro flag). If false (default), operate in read-write mode.
+# Note: The semicolon (;) at the end is required by the libguestfs config parser.
+{% if read_only | default(False) | bool %}
+; Enable read-only mode for all libguestfs tools by default
+read_only = true;
+{% else %}
+; Read-write mode is the default (no directive needed, but commented for clarity)
+; read_only = true;
+{% endif %}

@@ -1,114 +1,133 @@
-# corosync.conf - Corosync Cluster Engine configuration file
-# Define the cluster name (must be identical on all nodes)
-name: {{ cluster_name }}
+# Corosync Cluster Engine Configuration File
+#
+# This template generates a valid corosync.conf file. It is self-documenting:
+# every configuration directive is preceded by a comment explaining its purpose
+# and source field.
 
-# Set the cluster transport (typically 'udpu' for unicast, 'udpm' for multicast)
-transport: {{ transport }}
+# The name of the cluster. Must be identical on all nodes.
+name: {{ cluster_name | default('mycluster') }}
 
-# Unicast addresses for each node (used only with udpu transport)
-{% if transport == 'udpu' %}
-{% for node in nodes %}node {
+# The transport protocol: 'udpu' (unicast) or 'udpm' (multicast).
+transport: {{ transport | default('udpu') }}
+
+# Unicast addresses for each node (required for udpu transport).
+# Each node object must contain 'ring0_addr' and 'nodeid'.
+{% if transport | default('udpu') == 'udpu' %}
+{% for node in nodes | default([{'ring0_addr': '192.168.1.10', 'nodeid': 1}, {'ring0_addr': '192.168.1.11', 'nodeid': 2}]) %}
+node {
+    # The IP address or hostname for this node's ring interface.
     ring0_addr: {{ node.ring0_addr }}
+    # Unique numeric identifier for this node within the cluster.
     nodeid: {{ node.nodeid }}
 }
 {% endfor %}
 {% endif %}
 
-# Quorum settings
+# Totem protocol configuration: timing and ring settings.
 totem {
-    # Token timeout in milliseconds
-    token: {{ totem.token }}
-    
-    # Number of token retries before failure is declared
-    token_retransmits_before_loss_const: {{ totem.token_retransmits_before_loss_const }}
-    
-    # Number of consensus retries before declaring quorum lost
-    join: {{ totem.join }}
-    
-    # Maximum number of failed votes before quorum is lost
-    consensus: {{ totem.consensus }}
-    
-    # Enable or disable IPv6
-    ipv6: {{ totem.ipv6 }}
-    
-    # Version of the totem protocol (typically 2)
-    version: {{ totem.version }}
-    
-    # Maximum number of messages that can be pending
-    max_messages: {{ totem.max_messages }}
-    
-    # RRP (Ring Recovery Protocol) mode: disabled, active, passive
-    rrp_mode: {{ totem.rrp_mode }}
-    
-    # Interface definition block (required for ring0)
+    # Token timeout in milliseconds before declaring a node failed.
+    token: {{ (totem | default({'token': 10000})).token | default(10000) }}
+
+    # Number of token transmission retries before declaring loss.
+    token_retransmits_before_loss_const: {{ (totem | default({'token_retransmits_before_loss_const': 20})).token_retransmits_before_loss_const | default(20) }}
+
+    # Time in milliseconds to wait for a node to join before giving up.
+    join: {{ (totem | default({'join': 50})).join | default(50) }}
+
+    # Time in milliseconds to wait for consensus before declaring quorum lost.
+    consensus: {{ (totem | default({'consensus': 120})).consensus | default(120) }}
+
+    # Enable IPv6 support for the totem protocol.
+    ipv6: {{ (totem | default({'ipv6': False})).ipv6 | default(false) | ternary('yes', 'no') }}
+
+    # Version of the totem protocol to use (typically 2).
+    version: {{ (totem | default({'version': 2})).version | default(2) }}
+
+    # Maximum number of messages that can be pending in the queue.
+    max_messages: {{ (totem | default({'max_messages': 20})).max_messages | default(20) }}
+
+    # Ring Recovery Protocol mode: disabled, active, or passive.
+    rrp_mode: {{ (totem | default({'rrp_mode': 'disabled'})).rrp_mode | default('disabled') }}
+
+    # Network interface definition for the primary ring (ring 0).
     interface {
-        # Ring number (0 = primary ring)
-        ringnumber: {{ interface.ringnumber }}
-        
-        # Interface address (can be IP or hostname)
-        bindnetaddr: {{ interface.bindnetaddr }}
-        
-        # Broadcast address (optional; usually not needed with unicast)
-        {% if interface.mcastaddr %}mcastaddr: {{ interface.mcastaddr }}{% endif %}
-        
-        # Multicast port for ring communication
-        mcastport: {{ interface.mcastport }}
-        
-        # TTL for multicast packets (1-255)
-        ttl: {{ interface.ttl }}
-        
-        # Link type: ipv4, ipv6, ib (InfiniBand)
-        linktype: {{ interface.linktype }}
+        # Ring number (0 is the primary ring).
+        ringnumber: {{ (interface | default({'ringnumber': 0})).ringnumber | default(0) }}
+
+        # Network address to bind to (subnet or host IP).
+        bindnetaddr: {{ (interface | default({'bindnetaddr': '192.168.1.0'})).bindnetaddr | default('192.168.1.0') }}
+
+        # Multicast address for the ring (required for udpm, optional for udpu).
+        {% if (interface | default({})).mcastaddr is defined and (interface | default({})).mcastaddr is not none %}
+        mcastaddr: {{ (interface | default({})).mcastaddr }}
+        {% endif %}
+
+        # Multicast port for ring communication.
+        mcastport: {{ (interface | default({'mcastport': 5405})).mcastport | default(5405) }}
+
+        # Time-to-live for multicast packets.
+        ttl: {{ (interface | default({'ttl': 1})).ttl | default(1) }}
+
+        # Link type: ipv4, ipv6, or ib (InfiniBand).
+        linktype: {{ (interface | default({'linktype': 'eth'})).linktype | default('eth') }}
     }
 }
 
-# Logging configuration
+# Logging configuration for the cluster engine.
 logging {
-    # Logging subsystem name
-    to_logfile: yes
-    
-    # Path to log file
-    logfile: {{ logging.logfile }}
-    
-    # Log level: all, trace, debug, info, notice, warning, error, fatal
-    log_level: {{ logging.log_level }}
-    
-    # Log timestamp format (default: none, standard, full)
-    log_timestamp: {{ logging.log_timestamp }}
-    
-    # Log to syslog?
-    to_syslog: {{ logging.to_syslog }}
-    
-    # Syslog facility (e.g., daemon, local0)
-    syslog_facility: {{ logging.syslog_facility }}
+    # Route logs to a specific log file.
+    # Note: The original template used 'yes' for boolean true in corosync.conf.
+    # We convert boolean True to 'yes' and False to 'no' for compliance.
+    to_logfile: {{ (logging | default({'to_logfile': True})).to_logfile | default(true) | ternary('yes', 'no') }}
+
+    # Path to the log file if to_logfile is yes.
+    logfile: {{ (logging | default({'logfile': '/var/log/cluster/corosync.log'})).logfile | default('/var/log/cluster/corosync.log') }}
+
+    # Log level: all, trace, debug, info, notice, warning, error, fatal.
+    log_level: {{ (logging | default({'log_level': 'info'})).log_level | default('info') }}
+
+    # Timestamp format: none, standard, or full.
+    log_timestamp: {{ (logging | default({'log_timestamp': 'none'})).log_timestamp | default('none') }}
+
+    # Also send logs to the system syslog daemon.
+    to_syslog: {{ (logging | default({'to_syslog': True})).to_syslog | default(true) | ternary('yes', 'no') }}
+
+    # Syslog facility (e.g., daemon, local0).
+    syslog_facility: {{ (logging | default({'syslog_facility': 'daemon'})).syslog_facility | default('daemon') }}
 }
 
-# Quorum device settings (optional; used for split-brain avoidance)
-{% if quorum_device %}quorum {
-    # Quorum device provider: fencer, net
-    provider: {{ quorum_device.provider }}
-    
-    # Voting policy: expected, all, weighted
-    expected_votes: {{ quorum_device.expected_votes }}
-    
-    # Voting policy: expected, all, weighted
-    two_node: {{ quorum_device.two_node | string | lower }}
+# Quorum device configuration (optional, for split-brain avoidance).
+# If quorum_device is defined, it must be a dict with provider, expected_votes, etc.
+{% if quorum_device is defined and quorum_device is not none %}
+quorum {
+    # Quorum device provider: fencer or net.
+    provider: {{ (quorum_device | default({})).provider | default('net') }}
+
+    # Voting policy setting (e.g., expected votes).
+    expected_votes: {{ (quorum_device | default({})).expected_votes | default(1) }}
+
+    # Two-node cluster specific voting policy setting.
+    two_node: {{ (quorum_device | default({})).two_node | default(false) | string | lower }}
 }
 {% endif %}
 
-# Service definitions (e.g., Pacemaker integration)
+# Service definitions: integrates Corosync with cluster managers like Pacemaker.
 service {
-    # Name of the service (e.g., pacemaker, lms)
-    name: {{ service.name }}
-    
-    # Version of the service interface (typically 1 for Pacemaker)
-    ver: {{ service.ver }}
+    # Name of the service to integrate (e.g., pacemaker).
+    name: {{ (service | default({'name': 'pacemaker'})).name | default('pacemaker') }}
+
+    # Version of the service interface (typically 1).
+    ver: {{ (service | default({'ver': 1})).ver | default(1) }}
 }
 
-# Enable/disable Pacemaker integration directly in Corosync
-# For Pacemaker >= 2.0.x, prefer starting Pacemaker as its own service
-{% if enable_pacemaker %}aisexec {
-    user: {{ aisexec.user }}
-    group: {{ aisexec.group }}
+# Configuration for the aisexec process (runs services like Pacemaker).
+# Only included if enable_pacemaker is true.
+{% if enable_pacemaker | default(true) %}
+aisexec {
+    # User to run the aisexec process as.
+    user: {{ (aisexec | default({'user': 'root'})).user | default('root') }}
+
+    # Group to run the aisexec process as.
+    group: {{ (aisexec | default({'group': 'root'})).group | default('root') }}
 }
 {% endif %}

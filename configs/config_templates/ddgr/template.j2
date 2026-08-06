@@ -1,0 +1,110 @@
+# ddgr configuration file
+# This template generates command-line flags for the `ddgr` tool based on provided schema values.
+# Each boolean flag emits its corresponding CLI switch if true (or false, depending on the flag's
+# logic). The `commands` list allows arbitrary key=value overrides.
+
+# Global variable defaults for safety. These match the schema defaults exactly.
+{%- set _color = color | default(true) %}
+{%- set _ducky = ducky | default(false) %}
+{%- set _unsafe = unsafe | default(false) %}
+{%- set _noua = noua | default(false) %}
+{%- set _noprompt = noprompt | default(false) %}
+{%- set _reverse = reverse | default(false) %}
+{%- set _expand = expand | default(true) %}
+{%- set _show_browser_logs = show_browser_logs | default(false) %}
+{%- set _debug = debug | default(false) %}
+{%- set _num = num | default(10) %}
+{%- set _reg = reg | default('us-en') %}
+{%- set _colors = colors | default('oCdgxy') %}
+{%- set _time = time | default('a') %}
+{%- set _site = site | default('') %}
+{%- set _proxy = proxy | default('') %}
+{%- set _url_handler = url_handler | default('') %}
+{%- set _commands = commands | default([]) %}
+
+# User-defined command overrides from the `commands` list.
+# Each item is a dict with 'key' and 'value'.
+{% for item in _commands | default([]) %}
+# {{ item.description | default('User-defined command override') }}
+--{{ item.key | default('') }}={{ item.value | default('') }}
+{% endfor %}
+
+# Enable color output.
+# Schema: color (bool, default: true)
+# CLI: -C (when false/disabled)
+{% if not _color %}-C{% endif %}
+
+# Open first result in browser immediately.
+# Schema: ducky (bool, default: false)
+# CLI: -j
+{% if _ducky %}-j{% endif %}
+
+# Disable safe search filters.
+# Schema: unsafe (bool, default: false)
+# CLI: --unsafe
+{% if _unsafe %}--unsafe{% endif %}
+
+# Disable sending the User-Agent HTTP header.
+# Schema: noua (bool, default: false)
+# CLI: --noua
+{% if _noua %}--noua{% endif %}
+
+# Exit after displaying initial results without entering the interactive prompt mode.
+# Schema: noprompt (bool, default: false)
+# CLI: --np
+{% if _noprompt %}--np{% endif %}
+
+# List search results in reversed order.
+# Schema: reverse (bool, default: false)
+# CLI: --rev
+{% if _reverse %}--rev{% endif %}
+
+# Expand URLs to show full domains in output.
+# Schema: expand (bool, default: true)
+# CLI: -x (when true/enabled)
+{% if _expand %}-x{% endif %}
+
+# Show browser stdout/stderr output (useful for debugging custom handlers).
+# Schema: show_browser_logs (bool, default: false)
+# CLI: --show-browser-logs
+{% if _show_browser_logs %}--show-browser-logs{% endif %}
+
+# Enable debugging output to stderr.
+# Schema: debug (bool, default: false)
+# CLI: -d
+{% if _debug %}-d{% endif %}
+
+# Number of results to display per page.
+# Schema: num (int, default: 10, range 0-25)
+# CLI: --num=<value>
+{% if _num != 10 %}--num={{ _num }}{% endif %}
+
+# Region code for region-specific search results.
+# Schema: reg (string, default: 'us-en')
+# CLI: --reg=<value>
+{% if _reg != 'us-en' %}--reg={{ _reg }}{% endif %}
+
+# ANSI color string configuration (indices, titles, URLs, etc.).
+# Schema: colors (string, default: 'oCdgxy')
+# CLI: --colors=<value>
+{% if _colors != 'oCdgxy' %}--colors={{ _colors }}{% endif %}
+
+# Time filter for search results (d=day, w=week, m=month, y=year, a=any).
+# Schema: time (string, default: 'a')
+# CLI: --time=<value>
+{% if _time != 'a' %}--time={{ _time }}{% endif %}
+
+# Limit search to a specific site/domain.
+# Schema: site (string, default: '')
+# CLI: --site=<value>
+{% if _site %}--site={{ _site }}{% endif %}
+
+# HTTP/HTTPS proxy URI for network requests.
+# Schema: proxy (string, default: '')
+# CLI: --proxy=<value>
+{% if _proxy %}--proxy={{ _proxy }}{% endif %}
+
+# Custom command/script to open URLs instead of the default browser.
+# Schema: url_handler (string, default: '')
+# CLI: --url-handler=<value>
+{% if _url_handler %}--url-handler={{ _url_handler }}{% endif %}

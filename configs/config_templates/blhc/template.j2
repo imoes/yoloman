@@ -1,0 +1,128 @@
+# ==============================================================================
+# blhc (Build Log Hardening Checker) Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of blhc, a tool that scans
+# build logs for missing compiler/linker hardening flags (e.g. PIE, BINDNOW).
+# Each section corresponds to a schema field. Variables are safely defaulted
+# to their schema-defined values to prevent rendering errors when variables
+# are undefined in the Ansible host vars.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# ignore_arch: Ignore build logs from architectures matching the given string.
+# Schema default: [] (empty list)
+# Format: Comma-separated list of architecture strings (e.g. "armel, i386")
+# --------------------------------------------------------------------------
+{# blhc: ignore-arch: {{ ignore_arch | default([]) | join(', ') }} #}
+
+# --------------------------------------------------------------------------
+# ignore_arch_flag: Ignore specific hardening flag on a specific architecture.
+# Schema default: [] (empty list)
+# Format: Comma-separated list of "arch:flag" strings (e.g. "i386:pie")
+# --------------------------------------------------------------------------
+{# blhc: ignore-arch-flag: {{ ignore_arch_flag | default([]) | join(', ') }} #}
+
+# --------------------------------------------------------------------------
+# ignore_arch_line: Ignore lines matching a regexp only on specific architectures.
+# Schema default: [] (empty list)
+# Format: Comma-separated list of "arch:regexp" strings
+# --------------------------------------------------------------------------
+{# blhc: ignore-arch-line: {{ ignore_arch_line | default([]) | join(', ') }} #}
+
+# --------------------------------------------------------------------------
+# ignore_flag: Ignore specific missing hardening flags.
+# Schema default: [] (empty list)
+# Format: Comma-separated list of flag names (e.g. "pie, bindnow")
+# --------------------------------------------------------------------------
+{# blhc: ignore-flag: {{ ignore_flag | default([]) | join(', ') }} #}
+
+# --------------------------------------------------------------------------
+# ignore_line: Ignore lines matching the given Perl regex.
+# Schema default: [] (empty list)
+# Note: Lines are auto-anchored at start/end by blhc.
+# Format: Comma-separated list of Perl regex strings
+# --------------------------------------------------------------------------
+{# blhc: ignore-line: {{ ignore_line | default([]) | join(', ') }} #}
+
+# --------------------------------------------------------------------------
+# build_flags: Explicit list of hardening flags to expect.
+# Schema default: [] (empty list)
+# Format: Comma-separated list of flags (e.g. "-fPIE,-Wl,-z,now")
+# If empty, blhc uses its internal defaults based on mode.
+# --------------------------------------------------------------------------
+{% if build_flags is not none %}
+{# blhc: build-flags: {{ build_flags | join(', ') }} #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# buildd_mode: Enable special mode for buildds (build daemons).
+# Schema default: False
+# Effect: Alters output format, exit code behavior, and auto-detection logic.
+# --------------------------------------------------------------------------
+{% if buildd_mode | default(False) %}
+{# buildd-mode: enabled #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# debian_mode: Enable Debian-specific settings.
+# Schema default: False
+# Effect: e.g., disables PIE check as GCC auto-injects it on Debian.
+# --------------------------------------------------------------------------
+{% if debian_mode | default(False) %}
+{# debian-mode: enabled #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# pie_mode: Force check for PIE (Position Independent Executable) flags.
+# Schema default: None
+# Effect: Overrides auto-detection. Set to true to enforce PIE checks.
+# --------------------------------------------------------------------------
+{% if pie_mode is defined and pie_mode %}
+{# pie-mode: enabled #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# bindnow_mode: Force check for BINDNOW flags.
+# Schema default: None
+# Effect: Overrides auto-detection. Set to true to enforce BINDNOW checks.
+# --------------------------------------------------------------------------
+{% if bindnow_mode is defined and bindnow_mode %}
+{# bindnow-mode: enabled #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# all_mode: Force check for ALL hardening flags.
+# Schema default: None
+# Effect: Overrides auto-detection. Enables +all, +pie, and +bindnow checks.
+# --------------------------------------------------------------------------
+{% if all_mode is defined and all_mode %}
+{# all-mode: enabled #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# arch: Explicit architecture override.
+# Schema default: None
+# Effect: Disables unavailable flags for the specified architecture
+#         (e.g. "amd64", "armel"). If None, auto-detection is used.
+# --------------------------------------------------------------------------
+{% if arch is not none %}
+{# architecture: {{ arch }} #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# color_output: Enable ANSI-colored output.
+# Schema default: None
+# Effect: Requires Term::ANSIColor Perl module. If None, auto-detected.
+# --------------------------------------------------------------------------
+{% if color_output is not none %}
+{# color-output: {{ color_output }} #}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# line_numbers: Display line numbers in the output.
+# Schema default: None
+# Effect: If None, behavior is determined by terminal/tty detection.
+# --------------------------------------------------------------------------
+{% if line_numbers is not none %}
+{# line-numbers: {{ line_numbers }} #}
+{% endif %}

@@ -1,45 +1,85 @@
-# Enable or disable debug logging
-{% if debug %}debug{% endif %}
+# ddupdate Configuration Template
+# This file configures the ddupdate dynamic DNS update client.
+# Variables are sourced from Ansible variables with sensible defaults.
 
-# Set the default policy for handling multiple plugins (e.g., 'first_ok', 'all', 'any')
-policy {{ policy }}
+# =============================================================================
+# General Settings
+# =============================================================================
 
-# Base directory for plugin and data files
-plugin_dir {{ plugin_dir }}
-data_dir {{ data_dir }}
+# Enable verbose debug logging to stderr.
+# If true, outputs detailed diagnostic information.
+{% if debug | default(false) %}debug{% endif %}
 
-# Default timeout (in seconds) for network operations
-network_timeout {{ network_timeout }}
+# Policy for handling multiple services.
+# 'first_ok': stop after the first successful update.
+# 'all': try all configured services.
+# 'any': try until one succeeds (similar to first_ok but distinct internal logic).
+policy {{ policy | default('first_ok') }}
 
-# Enable or disable IPv6 support
-{% if enable_ipv6 %}enable_ipv6{% endif %}
+# Directory where plugin modules (.py or .so) are stored.
+plugin_dir {{ plugin_dir | default('/usr/lib/ddupdate') }}
 
-# List of services and their associated plugins
-{% for service in services %}
+# Directory for runtime data (e.g., last IP cache, state files).
+data_dir {{ data_dir | default('/var/lib/ddupdate') }}
+
+# Network request timeout in seconds for API calls and DNS queries.
+network_timeout {{ network_timeout | default(30) }}
+
+# Enable IPv6 detection and updates if available.
+{% if enable_ipv6 | default(true) %}enable_ipv6{% endif %}
+
+# =============================================================================
+# Services Configuration
+# =============================================================================
+
+# List of named services to enable.
+# Each service requires a 'name' and a 'plugin'. Optional 'options' can be passed.
+# Example service entry:
+#   - name: myhost
+#     plugin: duckdns
+#     options:
+#       token: secret123
+{% for service in services | default([]) %}
 # Service: {{ service.name }} — plugin: {{ service.plugin }}
 service {{ service.name }} {{ service.plugin }}
-{% endfor %}
-
-# Per-service plugin options (key=value pairs)
-{% for service in services %}
-{% if service.options %}
+{% if service.options | default({}) %}
 # Options for service: {{ service.name }}
-{% for key, value in service.options.items() %}{{ key }} {{ value }}
+{% for key, value in service.options | default({}) | dict2items %}{{ key }} {{ value }}
 {% endfor %}
 {% endif %}
 {% endfor %}
 
-# List of hostname entries to update (host:provider:plugin:address_type:address_source)
-{% for host in hosts %}
-# Host: {{ host.hostname }} — provider: {{ host.provider }} — plugin: {{ host.plugin }}
-host {{ host.hostname }} {{ host.provider }} {{ host.plugin }} {{ host.address_type }} {{ host.address_source }}
+# =============================================================================
+# Hosts Configuration
+# =============================================================================
+
+# List of hostname entries to update.
+# Format: host <hostname> <provider> <plugin> <address_type> <address_source>
+# Example: host example.com duckdns duckdns ipv4 env
+{% for host_entry in hosts | default([]) %}
+# Host: {{ host_entry.hostname }} — provider: {{ host_entry.provider }} — plugin: {{ host_entry.plugin }}
+host {{ host_entry.hostname }} {{ host_entry.provider }} {{ host_entry.plugin }} {{ host_entry.address_type }} {{ host_entry.address_source }}
 {% endfor %}
 
-# Global plugin options (e.g., user, password, api_key, etc.)
-{% for key, value in global_options.items() %}# Global option: {{ key }}
+# =============================================================================
+# Global Plugin Options
+# =============================================================================
+
+# Global plugin configuration (e.g., default credentials, API tokens).
+# These apply to all services unless overridden per-service.
+{% if global_options | default({}) %}
+{% for key, value in global_options | default({}) | dict2items %}
+# Global option: {{ key }}
 {{ key }} {{ value }}
 {% endfor %}
+{% endif %}
 
-# Logging configuration
-{% if log_file %}log_file {{ log_file }}{% endif %}
-log_level {{ log_level }}
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Path to log file. If empty, logs to stderr only.
+{% if log_file | default('') %}log_file {{ log_file | default('') }}{% endif %}
+
+# Minimum log level: 'debug', 'info', 'warning', 'error', or 'critical'.
+log_level {{ log_level | default('info') }}

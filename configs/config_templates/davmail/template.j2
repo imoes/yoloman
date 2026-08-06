@@ -1,0 +1,119 @@
+{#
+  davmail configuration template.
+  Self-documenting: every variable gets its schema default inline,
+  and every directive is preceded by a comment derived from the field description.
+  See: http://davmail.sourceforge.net/serversetup.html
+#}
+
+{# Basic server settings #}
+
+{# If true, run in headless server mode (no GUI). See davmail(1) -server option. #}
+davmail.server={{ davmail_server | default(false) }}
+
+{# If true, show system tray icon even when davmail.server=true. Ignored if davmail.server=false. #}
+{% if davmail_server | default(false) %}
+davmail.enableTray={{ davmail_enable_tray | default(false) }}
+{% endif %}
+
+{# Connection to Exchange server #}
+
+{# Exchange server URL (e.g., https://mail.example.com/Ews/Exchange.asmx). Required. #}
+davmail.url={{ davmail_url | default('') }}
+
+{# IMAP settings #}
+
+{# Port to bind the IMAP service. #}
+davmail.imapPort={{ davmail_imap_port | default(1143) }}
+
+{# IP address to bind IMAP service (0.0.0.0 = all interfaces). #}
+{% if davmail_imap_bind | default('0.0.0.0') %}
+davmail.imapBindAddress={{ davmail_imap_bind | default('0.0.0.0') }}
+{% endif %}
+
+{# SMTP settings #}
+
+{# Port to bind the SMTP service. #}
+davmail.smtpPort={{ davmail_smtp_port | default(1025) }}
+
+{# IP address to bind SMTP service. #}
+{% if davmail_smtp_bind | default('0.0.0.0') %}
+davmail.smtpBindAddress={{ davmail_smtp_bind | default('0.0.0.0') }}
+{% endif %}
+
+{# POP3 settings #}
+
+{# Port to bind the POP3 service. #}
+davmail.popPort={{ davmail_pop_port | default(1110) }}
+
+{# IP address to bind POP3 service. #}
+{% if davmail_pop_bind | default('0.0.0.0') %}
+davmail.popBindAddress={{ davmail_pop_bind | default('0.0.0.0') }}
+{% endif %}
+
+{# CalDAV settings #}
+
+{# Port to bind the CalDAV service. #}
+davmail.caldavPort={{ davmail_caldav_port | default(1080) }}
+
+{# IP address to bind CalDAV service. #}
+{% if davmail_caldav_bind | default('0.0.0.0') %}
+davmail.caldavBindAddress={{ davmail_caldav_bind | default('0.0.0.0') }}
+{% endif %}
+
+{# CardDAV settings #}
+
+{# Port to bind the CardDAV service. #}
+davmail.carddavPort={{ davmail_carddav_port | default(1081) }}
+
+{# IP address to bind CardDAV service. #}
+{% if davmail_carddav_bind | default('0.0.0.0') %}
+davmail.carddavBindAddress={{ davmail_carddav_bind | default('0.0.0.0') }}
+{% endif %}
+
+{# LDAP settings #}
+
+{# Port to bind the LDAP service. #}
+davmail.ldapPort={{ davmail_ldap_port | default(1389) }}
+
+{# IP address to bind LDAP service. #}
+{% if davmail_ldap_bind | default('0.0.0.0') %}
+davmail.ldapBindAddress={{ davmail_ldap_bind | default('0.0.0.0') }}
+{% endif %}
+
+{# SSL/TLS settings #}
+
+{% if davmail_enable_ssl | default(false) %}
+# SSL/TLS enabled
+davmail.ssl={{ davmail_enable_ssl | default(false) }}
+davmail.ssl.keystore={{ davmail_keystore_path | default('') }}
+davmail.ssl.keystorePassword={{ davmail_keystore_password | default('') }}
+davmail.ssl.truststore={{ davmail_truststore_path | default('') }}
+{% endif %}
+
+{# Authentication #}
+
+{# Certificate validation mode. Allowed: 'none', 'peer'. See davmail SSL setup docs. #}
+davmail.certificateValidation={{ davmail_certificate_validation | default('none') }}
+
+{% if davmail_certificate_validation | default('none') == 'none' %}
+# Skip certificate validation — not recommended in production
+davmail.ssl.noverify={{ davmail_ssl_noverify | default(true) }}
+{% endif %}
+
+{# Proxy settings (optional) #}
+
+{% if davmail_proxy_enabled | default(false) %}
+davmail.proxyEnabled={{ davmail_proxy_enabled | default(false) }}
+davmail.proxyHost={{ davmail_proxy_host | default('') }}
+davmail.proxyPort={{ davmail_proxy_port | default(8080) }}
+
+{% if davmail_proxy_user | default('') %}
+davmail.proxyUser={{ davmail_proxy_user | default('') }}
+davmail.proxyPassword={{ davmail_proxy_password | default('') }}
+{% endif %}
+{% endif %}
+
+{# Logging #}
+
+{# Log level: TRACE, DEBUG, INFO, WARN, ERROR. See davmail logging docs. #}
+davmail.logLevel={{ davmail_log_level | default('INFO') }}

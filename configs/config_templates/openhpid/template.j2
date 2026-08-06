@@ -1,80 +1,243 @@
-# OpenHPI daemon configuration file
-# This file controls the behavior of the openhpid service
+#! /bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          openhpid
+# Required-Start:    $network $remote_fs $syslog
+# Required-Stop:     $network $remote_fs $syslog
+# Should-Start:      $named
+# Should-Stop:       $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start OpenHPI daemon at boot time
+# Description:       Enable OpenHPI service which is provided by openhpid.
+### END INIT INFO
+#
+# openhpid.sh    Start/Stop the openhpi daemon.
+#
+# description: openhpid is standard UNIX program which uses the OpenHPI \
+#              APIs and provides a standard internet server to access those \
+#              APIs for client programs.
+# processname: openhpid
+# config: the standard openhpi conf file specified on the command line or the env.
+# pidfile: /var/run/openhpid.pid
+# 
+# Author(s):
+#	W. David Ashley <dashley@us.ibm.com>
+#	Daniel de Araujo <ddearauj@us.ibm.com>
 
-# Daemon user and group to run as (security best practice)
-User {{ openhpi_user }}
-Group {{ openhpi_group }}
+# Source function library.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+prog="openhpid"
 
-# PID file location
-PidFile {{ openhpi_pidfile }}
+# If the openhpid executable is not available, we can't do any of this
+test -f /usr/sbin/openhpid || exit 0
 
-# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY
-LogLevel {{ openhpi_loglevel }}
+# Determine whether the lsb package is installed
+# If it is, determine which lsb is installed:
+# redhat, suse, or standard lsb
 
-# Log file path (use '-' for stderr)
-LogFile {{ openhpi_logfile }}
+if test -f /etc/init.d/functions
+then
+   lsbtype="rh"
+   . /etc/init.d/functions
+elif test -f /etc/rc.status
+then
+   lsbtype="suse"
+   . /etc/rc.status
+elif test -f /lib/lsb/init-functions
+then
+   lsbtype="lsb"
+   . /lib/lsb/init-functions
+elif test -f /etc/gentoo-release
+then
+   lsbtype="gentoo"
+   . /sbin/functions.sh
+else
+   lsbtype="nolsb"
+fi
 
-# Maximum number of log files to retain (rotated logs)
-LogRotationCount {{ openhpi_log_rotation_count }}
+print_outcome()
+{
+   
+	case "${lsbtype}" in 
+      
+		rh)
+    		echo
+    		[ "$?" -eq 0 ]
+    		;;
 
-# Maximum size (in bytes) of a log file before rotation
-LogRotationMaxSize {{ openhpi_log_rotation_max_size }}
+		suse)
+ 			rc_status -v
+			;;
 
-# Transport plugin configuration
-{% for plugin in openhpi_transport_plugins %}
-# Transport: {{ plugin.name }}
-{% for key, value in plugin.options.items() %}{{ key }} {{ value }}
-{% endfor %}
-{% endfor %}
+		lsb)
+			if test "$?" -eq 0
+    		then
+       			log_success_msg "success"
+    		else
+				log_failure_msg "failed"
+    		fi
+    		  ;;
+  		  
+		gentoo)
+			eend $?
+			;;
+   
+		nolsb)
+			if test "$?" -eq 0
+			then
+				echo " ... success"
+			fi
+			if test "$?" -ne 0
+			then
+				echo " ... failed"
+			fi
+			;;
+    	esac
+}
 
-# Resource discovery behavior
-AutoLoadResources {{ 'true' if openhpi_auto_load_resources else 'false' }}
+start() { 
+	case "${lsbtype}" in 
+		
+		rh) 
+			echo -n "Starting $prog: "
+			daemon /usr/sbin/openhpid -c /etc/openhpi/openhpi.conf
+			RETVAL=$?
+			;;
+		suse)
+			echo -n "Starting $prog: "
+			startproc /usr/sbin/openhpid -c /etc/openhpi/openhpi.conf
+			RETVAL=$?
+			;;
+		lsb)
+			echo -n "Starting $prog: "
+			start_daemon /usr/sbin/openhpid -c /etc/openhpi/openhpi.conf
+			RETVAL=$?
+			;;
+		gentoo)
+			ebegin "Starting $prog: "
+			start-stop-daemon --start --quiet --exec /usr/sbin/openhpid -- -c /etc/openhpi/openhpi.conf
+			RETVAL=$?
+			;;
+		nolsb)
+			echo -n "Starting $prog: "
+			/usr/sbin/openhpid -c /etc/openhpi/openhpi.conf
+			RETVAL=$?
+			;;
+			
+		esac
+        
+	print_outcome
 
-# Resource scan interval in seconds (0 = disable periodic scanning)
-ScanInterval {{ openhpi_scan_interval }}
+}
 
-# Enable or disable SNMP-based discovery
-{% if openhpi_snmp_discovery.enabled %}
-# SNMP Discovery settings
-SnmpDiscovery true
-SnmpCommunity {{ openhpi_snmp_discovery.community }}
-{% for subnet in openhpi_snmp_discovery.subnets %}SnmpSubnet {{ subnet }}
-{% endfor %}
-{% else %}
-# SNMP Discovery disabled
-SnmpDiscovery false
-{% endif %}
+stop() { 
+	case "${lsbtype}" in 
+		
+		rh | lsb | suse)
+			echo -n "Stopping $prog: "
+			killproc /usr/sbin/openhpid
+			RETVAL=$?
+			;;
+		
+		gentoo)
+			ebegin "Stopping $prog: "
+			start-stop-daemon --stop --quiet --exec /usr/sbin/openhpid
+			RETVAL=$?
+			;;
+		
+		nolsb)
+			echo -n "Stopping $prog: "
+			if test -f /var/run/openhpid.pid && test "`cat /var/run/openhpid.pid`" != ""
+          		then
+            			kill "`cat /var/run/openhpid.pid`"
+				RETVAL=$?  
+			else
+				RETVAL=0
+			fi	          
+			;;
+		
+	esac
+	
+	print_outcome
+	
+	if test "$RETVAL" -eq 0 && test -f /var/run/openhpid.pid
+	then
+		rm -f /var/lock/openhpid
+		rm -f /var/run/openhpid.pid
+	fi	
 
-# Enable or disable IPMI-over-LAN discovery
-{% if openhpi_ipmi_discovery.enabled %}
-# IPMI-over-LAN Discovery settings
-IpmiDiscovery true
-{% for subnet in openhpi_ipmi_discovery.subnets %}IpmiSubnet {{ subnet }}
-{% endfor %}
-{% else %}
-# IPMI-over-LAN Discovery disabled
-IpmiDiscovery false
-{% endif %}
+} 
 
-# Enable or disable Redfish discovery
-{% if openhpi_redfish_discovery.enabled %}
-# Redfish Discovery settings
-RedfishDiscovery true
-RedfishSslVerify {{ 'true' if openhpi_redfish_discovery.ssl_verify else 'false' }}
-RedfishTimeout {{ openhpi_redfish_discovery.timeout }}
-{% for host in openhpi_redfish_discovery.hosts %}RedfishHost {{ host }}
-{% endfor %}
-{% else %}
-# Redfish Discovery disabled
-RedfishDiscovery false
-{% endif %}
+dstatus() {
+	echo "Checking for $prog daemon: "
+	
+	case "${lsbtype}" in 
+		
+		rh) 
+			status /usr/sbin/openhpid
+			;;
+		suse)
+			checkproc /usr/sbin/openhpid
+			rc_status -v
+			;;
+		lsb)
+			pid="`pidofproc /usr/sbin/openhpid`"
+          		if test "${pid}" != ""
+			then
+				log_success_msg "$prog is running"
+			else
+				log_success_msg "$prog is not running" 
+			fi	
+			;;
+		gentoo | nolsb)
+			if test -f /var/run/openhpid.pid && 
+				test "`cat /var/run/openhpid.pid`" != "" && 
+				kill -s 0 "`cat /var/run/openhpid.pid`"
+			then
+				echo "$prog is running"
+			else
+				echo "$prog is not running"
+			fi			
+				
+			;;
+			
+		esac	
 
-# HPI session limits
-# Maximum number of concurrent HPI sessions
-MaxSessions {{ openhpi_max_sessions }}
 
-# Maximum sessions per user
-MaxSessionsPerUser {{ openhpi_max_sessions_per_user }}
 
-# Session timeout in seconds (0 = no timeout)
-SessionTimeout {{ openhpi_session_timeout }}
+} 
+
+restart() {
+	stop
+	start
+} 
+
+force_reload() {
+	# We don't currently support a reload, but can do a restart
+	stop
+	start
+} 
+
+# See how we were called.
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	restart
+	;;
+  status)
+	dstatus
+	;;
+  force-reload)
+	force_reload
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|status|force-reload}"
+	exit 1
+esac

@@ -1,65 +1,141 @@
-# General borgmatic configuration — controls global behavior
-config_version: 1
+# ============================================================================
+# borgmatic_scheduler Configuration Template
+#
+# This template generates a YAML configuration file for the borgmatic
+# backup automation tool. It manages BorgBackup repositories, retention
+# policies, consistency checks, hooks, logging, and storage settings.
+#
+# SELF-DOCUMENTATION: Every field is commented with its source description
+# and defaults to its schema-defined value.
+# ============================================================================
 
-# Where to store backups
+# General borgmatic configuration version — controls global behavior
+# Default: 1
+config_version: {{ config_version | default(1) }}
+
+# ============================================================================
+# Backup Sources
+# ============================================================================
+
+# source_directories: Default=['/home', '/etc', '/var/www']
+# desc='Directories to back up — paths to include in each backup.'
 source_directories:
-{% for dir in source_directories %}  - {{ dir }}
+{% for dir in (source_directories | default(['/home', '/etc', '/var/www'])) %}
+  - {{ dir }}
 {% endfor %}
 
-# Where to place backup archives
+# ============================================================================
+# Backup Destinations
+# ============================================================================
+
+# repositories: Default=[{'path': '/backup/borg', 'encryption_mode': 'repokey'}]
+# desc='Backup destination(s). Each entry defines a Borg repository location and optional encryption settings.'
 repositories:
-{% for repo in repositories %}  - path: {{ repo.path }}
-{% if repo.encryption_mode is defined %}    encryption_mode: {{ repo.encryption_mode }}
+{% for repo in (repositories | default([{'path': '/backup/borg', 'encryption_mode': 'repokey'}])) %}
+  - path: {{ repo.path | default('/backup/borg') }}
+{% if repo.encryption_mode is defined %}
+    encryption_mode: {{ repo.encryption_mode | default('repokey') }}
 {% endif %}
-{% if repo.location is defined %}    location: {{ repo.location }}
+{% if repo.location is defined %}
+    location: {{ repo.location | default(omit) }}
 {% endif %}
 {% endfor %}
 
-# Keep backups per retention policy
+# ============================================================================
+# Retention Policy
+# ============================================================================
+
+# retention: Default={'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1}
+# desc='Define how many backups to retain and for how long.'
 retention:
-  keep_within: {{ retention.keep_within }}
-  keep_hourly: {{ retention.keep_hourly }}
-  keep_daily: {{ retention.keep_daily }}
-  keep_weekly: {{ retention.keep_weekly }}
-  keep_monthly: {{ retention.keep_monthly }}
-  keep_yearly: {{ retention.keep_yearly }}
+  keep_within: {{ (retention | default({'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1})).keep_within | default('30d') }}
+  keep_hourly: {{ (retention | default({'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1})).keep_hourly | default(24) }}
+  keep_daily: {{ (retention | default({'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1})).keep_daily | default(7) }}
+  keep_weekly: {{ (retention | default({'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1})).keep_weekly | default(4) }}
+  keep_monthly: {{ (retention | default({'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1})).keep_monthly | default(6) }}
+  keep_yearly: {{ (retention | default({'keep_within': '30d', 'keep_hourly': 24, 'keep_daily': 7, 'keep_weekly': 4, 'keep_monthly': 6, 'keep_yearly': 1})).keep_yearly | default(1) }}
 
-# Run integrity checks periodically
+# ============================================================================
+# Consistency Checks
+# ============================================================================
+
+# consistency: Default={'frequency': {'repository': 'monthly', 'archives': 'weekly'}}
+# desc='Configuration for consistency checks.'
 consistency:
-  checks:
-    - name: repository
-      frequency: {{ consistency.frequency.repository }}
-    - name: archives
-      frequency: {{ consistency.frequency.archives }}
+  frequency: {{ (consistency | default({'frequency': {'repository': 'monthly', 'archives': 'weekly'}})).frequency | default({'repository': 'monthly', 'archives': 'weekly'}) | tojson }}
 
-# Hooks to run before/after backups (optional)
+# ============================================================================
+# Pre/Post Backup Hooks
+# ============================================================================
+
+# hooks: Default={'before_backup': [], 'after_backup': ['echo "Backup completed"'], 'on_error': []}
+# desc='Hooks to run before/after backup or on error.'
 hooks:
-{% if hooks.before_backup %}  before_backup:
-{% for hook in hooks.before_backup %}    - {{ hook }}
-{% endfor %}{% endif %}
-{% if hooks.after_backup %}  after_backup:
-    - echo "Backup completed"
+{% set before_hooks = (hooks | default({'before_backup': [], 'after_backup': ['echo "Backup completed"'], 'on_error': []})).before_backup | default([]) %}
+{% if before_hooks %}
+  before_backup:
+{% for hook in before_hooks %}
+    - {{ hook }}
+{% endfor %}
 {% endif %}
-{% if hooks.on_error %}  on_error:
-    - echo "Backup failed"
+{% set after_hooks = (hooks | default({'before_backup': [], 'after_backup': ['echo "Backup completed"'], 'on_error': []})).after_backup | default(['echo "Backup completed"']) %}
+{% if after_hooks %}
+  after_backup:
+{% for hook in after_hooks %}
+    - {{ hook }}
+{% endfor %}
+{% endif %}
+{% set on_error_hooks = (hooks | default({'before_backup': [], 'after_backup': ['echo "Backup completed"'], 'on_error': []})).on_error | default([]) %}
+{% if on_error_hooks %}
+  on_error:
+{% for hook in on_error_hooks %}
+    - {{ hook }}
+{% endfor %}
 {% endif %}
 
-# Log verbosity (default: info)
-log_level: {{ log_level }}
+# ============================================================================
+# Logging
+# ============================================================================
 
-# Whether to output JSON logs (for integration with log systems)
-log_json: {{ log_json | lower }}
+# log_level: Default='info'
+# desc='Verbosity of logs: `debug`, `info`, `warning`, `error`, or `critical`.'
+log_level: {{ log_level | default('info') }}
 
-# Whether to include checksums in archive listing (slower but safer)
+# log_json: Default=False
+# desc='Output logs in structured JSON format for integration with log aggregation tools.'
+log_json: {{ log_json | default(False) }}
+
+# ============================================================================
+# Checkpoints (Interrupt Resumption)
+# ============================================================================
+
+# checkpoints: Default={'checkpoint_interval': 300, 'checkpoint_size': 1073741824}
+# desc='Settings for checkpointing backups to allow resumption.'
 checkpoints:
-  checkpoint_interval: {{ checkpoints.checkpoint_interval }}
-  checkpoint_size: {{ checkpoints.checkpoint_size }}
+  checkpoint_interval: {{ (checkpoints | default({'checkpoint_interval': 300, 'checkpoint_size': 1073741824})).checkpoint_interval | default(300) }}
+  checkpoint_size: {{ (checkpoints | default({'checkpoint_interval': 300, 'checkpoint_size': 1073741824})).checkpoint_size | default(1073741824) }}
 
-# Compression to apply to backups
+# ============================================================================
+# Storage Settings
+# ============================================================================
+
+# storage: Default={'compression': 'lz4'}
+# desc='Storage configuration including compression.'
 storage:
-  compression: {{ storage.compression }}
+  compression: {{ (storage | default({'compression': 'lz4'})).compression | default('lz4') }}
 
-# Enable/ disable advanced features
-one_file_system: {{ one_file_system | lower }}
-progress: {{ progress | lower }}
-stats: {{ stats | lower }}
+# ============================================================================
+# Advanced Features
+# ============================================================================
+
+# one_file_system: Default=False
+# desc='Only back up files on the same filesystem as the starting point (i.e., skip mount points).'
+one_file_system: {{ one_file_system | default(False) }}
+
+# progress: Default=True
+# desc='Show a progress bar during backup creation.'
+progress: {{ progress | default(True) }}
+
+# stats: Default=False
+# desc='Output detailed backup statistics (size, dedup rate, etc.) after each backup.'
+stats: {{ stats | default(False) }}

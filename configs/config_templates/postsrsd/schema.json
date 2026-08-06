@@ -1,4 +1,14 @@
 {
+  "srs_forward_port": {
+    "type": "number",
+    "default": 10001,
+    "description": "TCP port on which postsrsd listens for Postfix lookup queries. Standard is 10001."
+  },
+  "srs_reverse_port": {
+    "type": "number",
+    "default": 10002,
+    "description": "TCP port used for reverse SRS lookups (bounce handling). Usually 10002."
+  },
   "srs_domain": {
     "type": "string",
     "default": "example.com",
@@ -7,22 +17,22 @@
   "srs_secret": {
     "type": "string",
     "default": "",
-    "description": "Secret key for signing/verifying SRS addresses. Must be \u226516 chars, randomly generated, and kept secret."
+    "description": "Path to file containing the secret key for signing/verifying SRS addresses. Must be \u226516 chars, randomly generated, and kept secret."
   },
-  "srs_forward_prefix": {
+  "srs_separator": {
     "type": "string",
-    "default": "SRS0=",
-    "description": "Prefix prepended to rewritten outgoing addresses. Standard is 'SRS0='."
+    "default": "==",
+    "description": "Separator character used in SRS addresses. Standard is '==' (two equals signs)."
   },
-  "srs_reverse_prefix": {
-    "type": "string",
-    "default": "SRS0=",
-    "description": "Prefix prepended to rewritten incoming addresses (for bounce handling). Usually same as forward prefix."
-  },
-  "listen_port": {
+  "srs_hashlength": {
     "type": "number",
-    "default": 10001,
-    "description": "TCP port on which postsrsd listens for Postfix lookup queries. Must be accessible to Postfix."
+    "default": 4,
+    "description": "Length of the hash suffix appended to rewritten addresses. Standard is 4."
+  },
+  "srs_hashmin": {
+    "type": "number",
+    "default": 4,
+    "description": "Minimum hash length for validation. Usually same as hashlength."
   },
   "listen_addr": {
     "type": "string",
@@ -32,25 +42,21 @@
   "max_connections": {
     "type": "number",
     "default": 100,
-    "description": "Maximum concurrent connections allowed. Increase only for very high-throughput mail systems."
+    "description": "Maximum concurrent connections allowed. Not configurable in this init script; limited by kernel/daemon defaults."
   },
   "exclude_domains": {
     "type": "list",
     "default": [],
-    "description": "List of domains to skip SRS rewriting for (e.g., internal domains with their own SRS).",
-    "items": {
-      "type": "string",
-      "description": "Domain name to exclude (e.g., 'sub.example.com')."
-    }
+    "description": "List of domains to skip SRS rewriting for (e.g., internal domains with their own SRS)."
   },
   "debug": {
     "type": "boolean",
     "default": false,
-    "description": "Enable verbose logging (true) or quiet operation (false). Enable only for troubleshooting."
+    "description": "Enable verbose logging (true) or quiet operation (false). Not directly configurable here; use extra_daemon_options instead."
   },
   "chroot_dir": {
     "type": "string",
-    "default": "",
-    "description": "Chroot directory for security hardening. Leave empty for default (no chroot)."
+    "default": "/var/lib/postsrsd",
+    "description": "Chroot directory for security hardening. Standard is '/var/lib/postsrsd'."
   }
 }

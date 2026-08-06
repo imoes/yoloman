@@ -1,0 +1,85 @@
+{# ============================================================================ #}
+{# GXEMUL Configuration File                                                      #}
+{# This template generates a configuration file for GXEMUL, an emulator for       #}
+{# various CPU architectures (MIPS, ARM, x86, etc.).                             #}
+{#                                                                                #}
+{# The configuration is structured into sections (general, machine, devices,       #}
+{# debug, networking, graphics, statistics). Each section contains a list of       #}
+{# pre-formatted option strings.                                                  #}
+{#                                                                                #}
+{# Variables:                                                                     #}
+{#   config_sections: List of dicts, each containing 'name' and 'options'.         #}
+{#                   'options' is a dict mapping section keywords to lists of      #}
+{#                   configuration directive strings.                              #}
+{#                                                                                #}
+{# Usage in Ansible:                                                              #}
+{#   template:                                                                    #}
+{#     src: "gxemul.conf.j2"                                                      #}
+{#     dest: "/etc/gxemul.conf"                                                   #}
+{#     owner: root                                                                #}
+{#     group: root                                                                #}
+{#     mode: '0644'                                                               #}
+{# ============================================================================ #}
+
+{% for section in (config_sections | default([], true)) %}
+  {# Section Header: {{ section.name | default('unknown') }} #}
+  {% if section.name == 'general' %}
+    {# General options - Core emulation settings #}
+    {% if section.options.general %}
+      {% for opt in section.options.general %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% elif section.name == 'machine' %}
+    {# Machine-specific options - CPU, RAM, and hardware configuration #}
+    {% if section.options.machine %}
+      {% for opt in section.options.machine %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% elif section.name == 'devices' %}
+    {# Device configuration - Peripherals like disks, network cards, consoles #}
+    {% if section.options.devices %}
+      {% for opt in section.options.devices %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% elif section.name == 'debug' %}
+    {# Debugging and tracing options - For troubleshooting emulation issues #}
+    {% if section.options.debug %}
+      {% for opt in section.options.debug %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% elif section.name == 'networking' %}
+    {# Networking configuration - Network emulation settings (SLIP, ethernet, etc.) #}
+    {% if section.options.networking %}
+      {% for opt in section.options.networking %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% elif section.name == 'graphics' %}
+    {# Graphics options - Screen resolution, framebuffer, and display settings #}
+    {% if section.options.graphics %}
+      {% for opt in section.options.graphics %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% elif section.name == 'statistics' %}
+    {# Statistics gathering - Performance counters and emulation metrics #}
+    {% if section.options.statistics %}
+      {% for opt in section.options.statistics %}
+{{ opt }}
+      {% endfor %}
+    {% endif %}
+
+  {% else %}
+    {# Unknown section name: {{ section.name | default('unnamed') }} - skipping #}
+  {% endif %}
+{% endfor %}

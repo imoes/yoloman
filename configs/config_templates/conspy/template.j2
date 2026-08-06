@@ -1,0 +1,11 @@
+{# conspy service configuration #}
+[Service]
+# Command-line arguments for conspy
+ExecStart=/usr/bin/conspy {{ '-g ' + geometry if geometry else '' }}{{ ' ' + console_num if console_num else '' }}{{ ' -v' if viewonly else '' }}
+# Restart policy
+Restart={{ restart_policy|default('no')|lower }}
+# User context
+User={{ user|default('root') }}
+Group={{ group|default('tty') }}
+# Environment variables
+Environment="TERM=screen"

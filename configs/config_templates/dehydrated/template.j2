@@ -1,85 +1,26 @@
-#!/bin/bash
-# Dehydrated ACME client configuration
-# See https://github.com/dehydrated-io/dehydrated for docs
+#############################################################
+# This is the main config file for dehydrated               #
+#                                                           #
+# This is the default configuration for the Debian package. #
+# To see a more comprehensive example, see                  #
+# /usr/share/doc/dehydrated/examples/config                 #
+#                                                           #
+# For details please read:                                  #
+# /usr/share/doc/dehydrated/README.Debian                   #
+#############################################################
 
-# Contact email for ACME account registration (required by Let's Encrypt)
-{{ "# Contact email for ACME account registration (required by Let's Encrypt)" | comment_for_shell }}
-CONTACT_EMAIL="{{ contact_email }}"
+# Directory containing additional configuration files (conf.d style)
+# Default: /etc/dehydrated/conf.d
+CONFIG_D={{ config_d | default('/etc/dehydrated/conf.d') }}
 
-# Directory where certificates and account keys will be stored
-{{ "# Directory where certificates and account keys will be stored" | comment_for_shell }}
-BASEDIR="{{ base_dir }}"
+# Base directory for dehydrated state and challenge files
+# Default: /var/lib/dehydrated
+BASEDIR={{ base_dir | default('/var/lib/dehydrated') }}
 
-# Where domain challenge files will be placed during HTTP-01 challenge
-{{ "# Where domain challenge files will be placed during HTTP-01 challenge" | comment_for_shell }}
-WELLKNOWN="{{ wellknown_dir }}"
+# Well-known directory for ACME challenges, resolved relative to BASEDIR
+# Uses the shell variable expansion syntax literal, not Jinja
+WELLKNOWN="${BASEDIR}/acme-challenges"
 
-# Algorithm to use for private key (default: rsa)
-{{ "# Algorithm to use for private key (default: rsa)" | comment_for_shell }}
-KEY_ALGO="{{ key_algo }}"
-
-# Key size (only applies if KEY_ALGO=rsa) — 2048, 4096, or 8192
-{{ "# Key size (only applies if KEY_ALGO=rsa) — 2048, 4096, or 8192" | comment_for_shell }}
-KEY_SIZE="{{ key_size }}"
-
-# Enable PFS (Perfect Forward Secrecy) — recommended: ec-256 or ec-384 for modern TLS
-{{ "# Enable PFS (Perfect Forward Secrecy) — recommended: ec-256 or ec-384 for modern TLS" | comment_for_shell }}
-PFS="{{ pfs }}"
-
-# CA to use (letsencrypt, letsencrypt-staging, zerossl)
-{{ "# CA to use (letsencrypt, letsencrypt-staging, zerossl)" | comment_for_shell }}
-CA="{{ ca }}"
-
-# Hook script(s) to run before/after cert issuance
-{{ "# Hook script(s) to run before/after cert issuance" | comment_for_shell }}
-{% if hooks | length > 0 %}
-HOOKS=(
-{% for hook in hooks %}  "{{ hook }}"
-{% endfor %})
-{% else %}
-HOOKS=()
-{% endif %}
-
-# Extra DNS challenge hooks (for DNS-01 validation)
-{{ "# Extra DNS challenge hooks (for DNS-01 validation)" | comment_for_shell }}
-{% if dns_hooks | length > 0 %}
-DNSHOOKS=(
-{% for hook in dns_hooks %}  "{{ hook }}"
-{% endfor %})
-{% else %}
-DNSHOOKS=()
-{% endif %}
-
-# Enable standalone HTTP server during validation (alternative to webroot)
-{{ "# Enable standalone HTTP server during validation (alternative to webroot)" | comment_for_shell }}
-STANDALONE="{{ standalone_enabled | string | lower }}"
-
-# Port for standalone server (default: 80); set to 0 to disable
-{{ "# Port for standalone server (default: 80); set to 0 to disable" | comment_for_shell }}
-STANDALONE_PORT="{{ standalone_port }}"
-
-# Additional SANs (Subject Alternative Names) to include in each cert
-{{ "# Additional SANs (Subject Alternative Names) to include in each cert" | comment_for_shell }}
-{% if san_domains | length > 0 %}
-SAN_DOMAINS=(
-{% for domain in san_domains %}  "{{ domain }}"
-{% endfor %})
-{% else %}
-SAN_DOMAINS=()
-{% endif %}
-
-# Default challenge type (http-01, dns-01, or tls-alpn-01)
-{{ "# Default challenge type (http-01, dns-01, or tls-alpn-01)" | comment_for_shell }}
-CHALLENGETYPE="{{ challenge_type }}"
-
-# Disable certificate renewal auto-check (set to any non-empty value to disable)
-{{ "# Disable certificate renewal auto-check (set to any non-empty value to disable)" | comment_for_shell }}
-NO_RENEWAL_CHECK="{{ no_renewal_check | string | lower }}"
-
-# Custom user-agent string
-{{ "# Custom user-agent string" | comment_for_shell }}
-USER_AGENT="{{ user_agent }}"
-
-# Path to custom CA bundle (e.g., for ZeroSSL or private PKI)
-{{ "# Path to custom CA bundle (e.g., for ZeroSSL or private PKI)" | comment_for_shell }}
-CA_BUNDLE="{{ ca_bundle }}"
+# Path to file listing domains and their aliases
+# Default: /etc/dehydrated/domains.txt
+DOMAINS_TXT="{{ domains_txt | default('/etc/dehydrated/domains.txt') }}"

@@ -1,101 +1,138 @@
-# Global Ceph configuration
+# ==============================================================================
+# Ceph Metadata Server (MDS) Configuration Template
+# ==============================================================================
+# This template generates the ceph.conf file for Ceph MDS daemons.
+# It handles global cluster settings, MDS-specific tuning, per-daemon overrides,
+# and multi-filesystem metadata section definitions.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Section
+# --------------------------------------------------------------------------
 [global]
-# Cluster ID for the Ceph cluster
-fsid = {{ fsid }}
 
-# Monitor public network(s) for client communication
-public network = {{ public_network }}
+# UUID of the Ceph cluster. Must be unique per cluster.
+fsid = {{ fsid | default('') }}
 
-# Monitor cluster network(s) for internal Ceph traffic
-cluster network = {{ cluster_network }}
+# Network CIDR used for client-facing traffic (MON, MDS, RGW, OSD public).
+public network = {{ public_network | default('192.168.1.0/24') }}
 
-# Monitors to connect to (comma-separated list of host:port)
-mon host = {{ mon_hosts | join(', ') }}
+# Network CIDR used for internal cluster traffic (OSD replication, journal traffic).
+cluster network = {{ cluster_network | default('192.168.2.0/24') }}
 
-# Authentication method (none, cephx)
-auth cluster required = {{ auth_cluster_required }}
-auth service required = {{ auth_service_required }}
-auth client required = {{ auth_client_required }}
+# List of monitor addresses in host:port format (typically 3 or 5 for quorum).
+mon host = {{ mon_hosts | default(['mon1:6789', 'mon2:6789', 'mon3:6789']) | join(', ') }}
 
-# Logging configuration
-log file = {{ log_file }}
-# Maximum log file size before rotation (MB); 0 = disable rotation
-max log size = {{ max_log_size }}
+# Authentication method required for cluster communication.
+auth cluster required = {{ auth_cluster_required | default('cephx') }}
 
-# Default data pool for metadata (if not specified per MDS)
-mds default data pool = {{ mds_default_data_pool }}
+# Authentication method required for service daemons (OSD, MDS, RGW).
+auth service required = {{ auth_service_required | default('cephx') }}
 
-# Enable/disallow insecure (non-cephx) authentication
-allow insecure global id reclaim = {{ allow_insecure_global_id_reclaim }}
+# Authentication method required for client connections (CephFS, RBD, etc.).
+auth client required = {{ auth_client_required | default('cephx') }}
 
-# MDS-specific configuration
+# Base path for log files. '$name' is replaced by daemon name.
+log file = {{ log_file | default('/var/log/ceph/ceph-$name.log') }}
+
+# Maximum log file size in MB before rotation. Set to 0 to disable rotation.
+max log size = {{ max_log_size | default(1000) }}
+
+# Default data pool to use for CephFS if not specified per filesystem.
+mds default data pool = {{ mds_default_data_pool | default('') }}
+
+# Whether to allow insecure global ID reclaim.
+allow insecure global id reclaim = {{ allow_insecure_global_id_reclaim | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# MDS Section
+# --------------------------------------------------------------------------
 [mds]
-# Enable metadata server daemons
-mds mode = {{ mds_mode }}
 
-# Maximum number of MDS daemons that can be active simultaneously
-mds max mds = {{ mds_max_mds }}
+# Global MDS mode: 'active', 'standby', or 'standby-replay'.
+mds mode = {{ mds_mode | default('active') }}
 
-# Maximum number of MDS instances that may be active (including standbys)
-mds max mds instances = {{ mds_max_mds_instances }}
+# Maximum number of active MDS daemons.
+mds max mds = {{ mds_max_mds | default(2) }}
 
-# Filesystem name (used if auto-creating a filesystem)
-mds filesystem = {{ mds_filesystem }}
+# Maximum total MDS instances (active + standbys) allowed.
+mds max mds instances = {{ mds_max_mds_instances | default(4) }}
 
-# Standby MDS daemons to keep in reserve (comma-separated list of daemon IDs or "*" for auto-allocate)
-mds standby = {{ mds_standby | join(', ') }}
+# Name of the default CephFS filesystem to manage.
+mds filesystem = {{ mds_filesystem | default('mycephfs') }}
 
-# Standby replay daemons (if using standby-replay mode)
-{% if mds_standby_replay | length > 0 %}
+# List of daemon IDs to auto-assign as standbys.
+mds standby = {{ mds_standby | default([]) | join(', ') }}
+
+# Standby-Replay Configuration
+# If defined, creates a dedicated [mds.standby-replay] section.
+{% if mds_standby_replay | default([]) | length > 0 %}
 [mds.standby-replay]
 {% for item in mds_standby_replay %}
-mds standby replay = {{ item.daemon_id }}
-mds standby replay extra features = {{ item.extra_features }}
+# Standby replay daemon ID
+mds standby replay = {{ item | default('') }}
 {% endfor %}
 {% endif %}
 
-# Optional MDS daemon-specific overrides (one per daemon)
-{% if mds_configs | length > 0 %}
+# --------------------------------------------------------------------------
+# Daemon-Specific Overrides
+# --------------------------------------------------------------------------
+# Optional MDS daemon-specific overrides.
+{% if mds_configs | default([]) | length > 0 %}
 {% for cfg in mds_configs %}
-[mds.{{ cfg.daemon_id }}]
+[mds.{{ cfg.daemon_id | default('') }}]
 # Hostname/IP to bind to for this MDS instance
-host = {{ cfg.host }}
+host = {{ cfg.host | default('') }}
 
 # Optional: custom log file per daemon
-log file = {{ cfg.log_file }}
+log file = {{ cfg.log_file | default('') }}
 
 # Optional: enable standby-replay for this daemon
-mds standby replay = {{ cfg.mds_standby_replay | default(false) | lower }}
+mds standby replay = {{ cfg.mds_standby_replay | default(False) | lower }}
 
-# Optional: specify filesystem for this daemon (overrides global mds filesystem)
+# Optional: specify filesystem for this daemon
 mds filesystem = {{ cfg.mds_filesystem | default('') }}
 
 # Optional: custom root export path (default: /)
 mds root path = {{ cfg.mds_root_path | default('/') }}
 
 # Optional: disable client connections (e.g., for maintenance)
-mds standby = {{ cfg.mds_standby | default(false) | lower }}
+mds standby = {{ cfg.mds_standby | default(False) | lower }}
 
 {% endfor %}
 {% endif %}
 
-# Optional: filesystem-specific section (for multi-filesystem setups)
-{% if filesystems | length > 0 %}
+# --------------------------------------------------------------------------
+# Filesystem-Specific Metadata Sections
+# --------------------------------------------------------------------------
+# Creates a [mds.<fs_name>_meta] section for each configured filesystem.
+{% if filesystems | default([]) | length > 0 %}
 {% for fs in filesystems %}
-[mds.{{ fs.name }}_meta]
-mds filesystem = {{ fs.name }}
+[mds.{{ fs.name | default('unknown') }}_meta]
+# Name of this CephFS filesystem
+mds filesystem = {{ fs.name | default('unknown') }}
+# Mode for this specific filesystem's MDS
 mds mode = active
-{% if fs.metadata_pool %}
+
+# Metadata pool for this filesystem.
+{% if fs.metadata_pool | default('') %}
 mds metadata pool = {{ fs.metadata_pool }}
 {% else %}
 mds metadata pool = {{ fs.name }}_metadata
 {% endif %}
-{% if fs.data_pools | length > 0 %}
+
+# Data pools for this filesystem.
+{% if fs.data_pools | default([]) | length > 0 %}
 mds data pools = {{ fs.data_pools | join(', ') }}
 {% else %}
 mds data pools = {{ fs.name }}_data
 {% endif %}
+
+# Rank to stand by for (0-indexed).
 mds standby for rank = {{ fs.standby_for_rank | default(0) }}
-mds standby replay = {{ fs.standby_replay | default(false) | lower }}
+
+# Enable standby-replay for this filesystem's MDS.
+mds standby replay = {{ fs.standby_replay | default(False) | lower }}
+
 {% endfor %}
 {% endif %}

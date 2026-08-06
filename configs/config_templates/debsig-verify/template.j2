@@ -1,0 +1,59 @@
+# ============================================================
+# debsig-verify configuration template
+# ============================================================
+# This file configures the behavior of debsig-verify, the Debian
+# package signature verification tool. It defines where policy
+# definitions and OpenPGP keyrings are located, how GnuPG is
+# invoked, and the verbosity/debugging level of the output.
+# ============================================================
+
+# Directory containing the policy (.pol) definitions.
+# Default: /etc/debsig/policies
+# Schema description: Directory containing the policy (.pol) definitions.
+PoliciesDirectory: {{ (values | default({})).policies_dir | default('/etc/debsig/policies') }}
+
+# Directory containing the OpenPGP keyrings (*.pgp/*.gpg).
+# Default: /usr/share/debsig/keyrings
+# Schema description: Directory containing the OpenPGP keyrings (*.pgp/*.gpg).
+KeyringsDirectory: {{ (values | default({})).keyrings_dir | default('/usr/share/debsig/keyrings') }}
+
+# Use a different root directory when looking up for policies and OpenPGP keyrings.
+# Default: (empty)
+# Schema description: Use a different root directory when looking up for policies and OpenPGP keyrings.
+{% if (values | default({})).root_dir | default('') %}
+RootDirectory: {{ (values | default({})).root_dir | default('') }}
+{% endif %}
+
+# The name (or pathname) of the GnuPG program to use (DEBSIG_GNUPG_PROGRAM).
+# Default: (empty)
+# Schema description: The name (or pathname) of the GnuPG program to use (DEBSIG_GNUPG_PROGRAM).
+{% if (values | default({})).gnupg_program | default('') %}
+GnuPGProgram: {{ (values | default({})).gnupg_program | default('') }}
+{% endif %}
+
+# Policy file name (without path) to use for verification. Overrides automatic selection.
+# Default: (empty)
+# Schema description: Policy file name (without path) to use for verification. Overrides automatic selection.
+{% if (values | default({})).use_policy | default('') %}
+UsePolicy: {{ (values | default({})).use_policy | default('') }}
+{% endif %}
+
+# Suppress all output except fatal errors (–quiet / -q).
+# Default: False
+# Schema description: Suppress all output except fatal errors (–quiet / -q).
+Quiet: {{ (values | default({})).quiet | default(False) | lower }}
+
+# Increase output verbosity to show execution steps (–verbose / -v).
+# Default: False
+# Schema description: Increase output verbosity to show execution steps (–verbose / -v).
+Verbose: {{ (values | default({})).verbose | default(False) | lower }}
+
+# Enable maximum debug output (–debug / -d).
+# Default: False
+# Schema description: Enable maximum debug output (–debug / -d).
+Debug: {{ (values | default({})).debug | default(False) | lower }}
+
+# List policies that passed Selection phase, without verification (–list-policies).
+# Default: False
+# Schema description: List policies that passed Selection phase, without verification (–list-policies).
+ListPolicies: {{ (values | default({})).list_policies | default(False) | lower }}

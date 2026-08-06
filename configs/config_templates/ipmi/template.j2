@@ -1,52 +1,52 @@
 # IPMI daemon configuration — sets operational parameters for ipmi-sel, ipmi-watchdog, and lan interface
-# IPMI device node path (kernel driver or character device)
-device={{ device_path }}
 
-# Enable/Disable watchdog timer support
-watchdog={{ watchdog_enabled }}
+# Path to the IPMI device node (e.g., /dev/ipmi0 for kernel interface).
+device={{ device_path | default('/dev/ipmi0') }}
 
-# Watchdog pre-timeout interrupt (seconds before reset); 0 disables pre-timeout
-watchdog_pretimeout={{ watchdog_pretimeout }}
+# Enable or disable kernel watchdog timer support.
+watchdog={{ watchdog_enabled | default(false) | lower }}
 
-# Watchdog timeout (seconds); 0 means use default or hardware setting
-watchdog_timeout={{ watchdog_timeout }}
+# Seconds before watchdog reset when pre-timeout interrupt is triggered (set to 0 to disable).
+watchdog_pretimeout={{ watchdog_pretimeout | default(10) }}
 
-# Enable/Disable SEL (System Event Log) logging
-event_logging={{ event_logging_enabled }}
+# Watchdog timeout in seconds (0 = use hardware default).
+watchdog_timeout={{ watchdog_timeout | default(60) }}
 
-# SEL log rotation max file size (KB)
-sel_max_size={{ sel_max_size_kb }}
+# Enable logging of System Event Log (SEL) entries to files.
+event_logging={{ event_logging_enabled | default(true) | lower }}
 
-# SEL log rotation max files retained
-sel_max_files={{ sel_max_files_retained }}
+# Maximum size (KB) of SEL log file before rotation.
+sel_max_size={{ sel_max_size_kb | default(1024) }}
 
-# Enable/Disable IPMI LAN interface
-lan_enabled={{ lan_enabled }}
+# Number of rotated SEL log files to retain.
+sel_max_files={{ sel_max_files_retained | default(5) }}
 
-{% if lan_enabled %}
+# Enable or disable IPMI LAN (RMCP) interface configuration.
+lan_enabled={{ lan_enabled | default(false) | lower }}
+
+{% if lan_enabled | default(false) %}
 # LAN interface configuration
-{% for lan in lan_configs %}
-# Interface: {{ lan.iface }}
-lan_auth_type={{ lan.iface }} {{ lan.auth_type | default('none') }}
-lan_ipaddr={{ lan.iface }} {{ lan.ipaddr | default('') }}
-lan_netmask={{ lan.iface }} {{ lan.netmask | default('') }}
-lan_def_gw_ipaddr={{ lan.iface }} {{ lan.def_gw_ipaddr | default('') }}
-lan_macaddr={{ lan.iface }} {{ lan.macaddr | default('') }}
-lan_rmcp_port={{ lan.iface }} {{ lan.rmcp_port | default('623') }}
+{% for lan in lan_configs | default([]) %}
+# LAN Interface Configuration
+# The interface identifier (e.g., 'lan0', 'lan1').
+# Note: The underlying daemon uses the interface name as a prefix for these directives.
+# auth_type: Authentication type for the interface.
+lan_auth_type={{ lan.iface | default('lan0') }} {{ lan.auth_type | default('none') }}
+# ipaddr: The IP address for the LAN interface.
+lan_ipaddr={{ lan.iface | default('lan0') }} {{ lan.ipaddr | default('') }}
+# netmask: The subnet mask for the LAN interface.
+lan_netmask={{ lan.iface | default('lan0') }} {{ lan.netmask | default('') }}
+# def_gw_ipaddr: The default gateway IP address.
+lan_def_gw_ipaddr={{ lan.iface | default('lan0') }} {{ lan.def_gw_ipaddr | default('') }}
+# macaddr: The MAC address for the LAN interface.
+lan_macaddr={{ lan.iface | default('lan0') }} {{ lan.macaddr | default('') }}
+# rmcp_port: The RMCP UDP port number.
+lan_rmcp_port={{ lan.iface | default('lan0') }} {{ lan.rmcp_port | default('623') }}
 {% endfor %}
 {% endif %}
 
-# Logging level: 0=error, 1=warn, 2=info, 3=debug
-logging_level={{ logging_level }}
+# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.
+logging_level={{ logging_level | default(2) }}
 
-# PID file path
-pidfile={{ pidfile_path }}
-
-# Enable/Disable automatic retries for failed commands
-auto_retry={{ auto_retry_enabled }}
-
-# Maximum number of retries
-max_retries={{ max_retries }}
-
-# Retry delay (milliseconds)
-retry_delay={{ retry_delay_ms }}
+# Path to write the daemon PID file.
+pidfile={{ pidfile_path | default('/run/ipmitool/ipmi-sel.pid') }}

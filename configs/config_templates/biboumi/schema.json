@@ -4,113 +4,60 @@
     "default": "biboumi.example.com",
     "description": "The hostname this XMPP-to-IRC gateway will advertise to XMPP clients."
   },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret password used to authenticate this component to the XMPP server."
+  },
+  "xmpp_server_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the XMPP server to which biboumi connects."
+  },
   "port": {
     "type": "number",
     "default": 5347,
     "description": "The port on which the XMPP component listens for incoming connections (typically 5347 for XMPP components)."
   },
-  "database_path": {
-    "type": "string",
-    "default": "/var/lib/biboumi/biboumi.sqlite",
-    "description": "Absolute path to the SQLite database file where user mappings and channel state are stored."
-  },
-  "tls_cert": {
-    "type": "string",
-    "default": "",
-    "description": "Absolute path to the TLS certificate file (PEM format). Required if use_tls=true."
-  },
-  "tls_key": {
-    "type": "string",
-    "default": "",
-    "description": "Absolute path to the TLS private key file (PEM format). Required if use_tls=true."
-  },
-  "use_tls": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS encryption for connections to the XMPP server."
-  },
-  "starttls": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable STARTTLS negotiation (only used if use_tls=true and supported by the XMPP server)."
-  },
-  "max_connections_per_user": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of concurrent IRC connections allowed per XMPP user."
-  },
-  "max_channels_per_server": {
-    "type": "number",
-    "default": 20,
-    "description": "Maximum number of channels a single IRC connection may join."
-  },
-  "idle_timeout": {
-    "type": "number",
-    "default": 3600,
-    "description": "Number of seconds of inactivity after which an IRC connection is closed."
-  },
-  "admin_jid": {
+  "admin": {
     "type": "string",
     "default": "",
     "description": "XMPP JID (bare or full) of the service administrator. Receives operational notices and errors."
+  },
+  "realname_customization": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow per-user customization of the realname sent to IRC servers."
+  },
+  "realname_from_jid": {
+    "type": "bool",
+    "default": false,
+    "description": "Use the JID (instead of hostname) to generate the realname if realname_customization=true."
   },
   "log_file": {
     "type": "string",
     "default": "/var/log/biboumi/biboumi.log",
     "description": "Path to the log file for Biboumi\u2019s runtime logs."
   },
+  "ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the CA certificate file (PEM format). Used for TLS verification. Maps to tls_cert in schema."
+  },
+  "outgoing_bind": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address to bind to for outgoing IRC connections."
+  },
   "log_level": {
     "type": "string",
-    "default": "INFO",
-    "description": "Verbosity level: NONE, ERROR, WARNING, INFO, DEBUG, or TRACE."
-  },
-  "irc_servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of IRC servers to connect to. Each server block defines its own connection settings.",
-    "items": {
-      "hostname": {
-        "type": "string",
-        "default": "",
-        "description": "IRC server hostname (e.g., 'irc.libera.chat')."
-      },
-      "port": {
-        "type": "number",
-        "default": 6697,
-        "description": "IRC server port (6697 for TLS, 6667 for plaintext)."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Server password (if required). Leave empty if none."
-      },
-      "use_tls": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable TLS for this IRC connection."
-      },
-      "autojoin": {
-        "type": "bool",
-        "default": false,
-        "description": "Whether to autojoin channels defined below on connection."
-      },
-      "channels": {
-        "type": "list",
-        "default": [],
-        "description": "Channels to autojoin (if autojoin=true).",
-        "items": {
-          "name": {
-            "type": "string",
-            "default": "",
-            "description": "IRC channel name (e.g., '#biboumi')."
-          },
-          "modes": {
-            "type": "string",
-            "default": "",
-            "description": "Channel modes to request upon join (e.g., 'nt' for 'no-ctcp + topic lock'). Leave blank for default."
-          }
-        }
-      }
-    }
+    "default": "1",
+    "description": "Verbosity level: NONE=0, ERROR=1, WARNING=2, INFO=3, DEBUG=4, or TRACE=5. Matches Biboumi's numeric logging levels.\n",
+    "enum": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
   }
 }

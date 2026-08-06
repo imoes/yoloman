@@ -1,0 +1,43 @@
+# /etc/bash.builtins: configuration for bash builtins
+# This file is sourced by bash(1) on startup for non-interactive shells
+# and by /etc/profile when invoked as a login shell
+
+{% if shell_options|default([]) %}
+# Enable or disable shell options
+{% for opt in shell_options %}{% if opt.enabled %}shopt -s {{ opt.name }}{% else %}shopt -u {{ opt.name }}{% endif %}
+{% endfor %}{% endif %}
+
+{% if set_options|default([]) %}
+# Set or unset shell attributes via 'set' builtin
+{% for opt in set_options %}{% if opt.enabled %}set -{{ opt.name }}
+{% else %}set +{{ opt.name }}
+{% endif %}{% endfor %}{% endif %}
+
+{% if aliases|default([]) %}
+# Define aliases
+{% for alias in aliases %}alias {{ alias.name }}='{{ alias.value }}'
+{% endfor %}{% endif %}
+
+{% if functions|default([]) %}
+# Define shell functions
+{% for func in functions %}{{ func.name }}() 
+{
+{% if func.body %}{{ func.body|indent(2) }}
+{% endif %}return 0
+}
+{% endfor %}{% endif %}
+
+{% if read_keybindings|default([]) %}
+# Bind readline key sequences to functions/macros
+{% for binding in read_keybindings %}bind {{ binding.keyseq|default('"\C-x\C-r"') }}:{{ binding.function|default('re-read-init-file') }}
+{% endfor %}{% endif %}
+
+{% if export_vars|default([]) %}
+# Export shell variables
+{% for var in export_vars %}export {{ var.name }}={{ var.value|default('') }}
+{% endfor %}{% endif %}
+
+{% if readonly_vars|default([]) %}
+# Mark variables as readonly
+{% for var in readonly_vars %}readonly {{ var.name }}={{ var.value|default('') }}
+{% endfor %}{% endif %}

@@ -1,0 +1,57 @@
+# =============================================================================
+# binstats configuration file
+# -----------------------------------------------------------------------------
+# This file controls the behavior of the `binstats` utility, which scans
+# directories for installed binaries, libraries, and man pages to generate
+# inventory reports.
+#
+# Format: One directive per line.
+# - List directives accept a whitespace-delimited list of paths.
+# - Boolean directives are toggled by their presence (e.g., 'debug').
+# - Empty string values for path/tmpl/logfile mean "use default system behavior".
+# =============================================================================
+
+{# Directories to search for binaries.
+   Default: ['/usr/bin', '/bin'] #}
+binaries "{{ (bindirs | default(['/usr/bin', '/bin'])) | join(' ') }}"
+
+{# Directories to search for libraries.
+   Default: ['/usr/lib', '/lib'] #}
+libraries "{{ (libdirs | default(['/usr/lib', '/lib'])) | join(' ') }}"
+
+{# Directories to search for man pages.
+   Default: ['/usr/share/man', '/usr/man'] #}
+manuals "{{ (mandirs | default(['/usr/share/man', '/usr/man'])) | join(' ') }}"
+
+{# Override the PATH environment variable used for resolving relative paths.
+   Default: '' (empty string uses the system default PATH). #}
+{% if path is defined and path | default('') != '' %}
+path "{{ path | default('') }}"
+{% endif %}
+
+{# Directory for temporary files created during analysis.
+   Default: '' (empty string uses TMPDIR env var or /tmp). #}
+{% if tmpdir is defined and tmpdir | default('') != '' %}
+tmpdir "{{ tmpdir | default('') }}"
+{% endif %}
+
+{# Path to output the final report to a file.
+   Default: '' (empty string outputs to stdout). #}
+{% if logfile is defined and logfile | default('') != '' %}
+logfile "{{ logfile | default('') }}"
+{% endif %}
+
+{# Skip Debian-specific analysis checks.
+   Default: False.
+   If present, the directive is enabled (no value needed). #}
+{% if skip_debian is defined and skip_debian | default(False) | bool %}
+skip-debian
+{% endif %}
+
+{# Enable debug mode, which retains temporary files in the current directory
+   for troubleshooting.
+   Default: False.
+   If present, the directive is enabled. #}
+{% if debug is defined and debug | default(False) | bool %}
+debug
+{% endif %}

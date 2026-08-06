@@ -1,37 +1,58 @@
-# Directory where certmonger stores state and cache files
-state_directory = /var/lib/certmonger
+# ============================================================================
+# certmonger Configuration Template
+# ============================================================================
+#
+# This file configures certmonger, a certificate tracking and renewal daemon.
+# It uses an INI-style format. Keys and section names are case-sensitive.
+# Whitespace around '=' is ignored. Comments start with '#'.
+#
+# All variables use Jinja2 defaults derived from the schema to ensure
+# the template renders correctly even if the variable is undefined in
+# the Ansible play.
+# ============================================================================
 
-# Directory where certmonger stores temporary files (e.g., CSRs, intermediate certs)
-tmp_directory = /var/tmp/certmonger
+[defaults]
 
-# Directory for logging (set empty string to disable logging to file)
-log_directory = /var/log/certmonger
+# Directory where certmonger stores its state data.
+# Schema: state_directory | default='/var/lib/certmonger'
+state_directory = {{ state_directory | default('/var/lib/certmonger') }}
 
-# Log level: 0=none, 1=errors only, 2=warnings+errors, 3=info, 4=debug
-log_level = 3
+# Directory used for temporary files during certificate operations.
+# Schema: tmp_directory | default='/var/tmp/certmonger'
+tmp_directory = {{ tmp_directory | default('/var/tmp/certmonger') }}
 
-# Maximum number of pending requests (cert requests not yet completed)
-max_pending_requests = 100
+# Directory where certmonger log files are stored.
+# Schema: log_directory | default='/var/log/certmonger'
+log_directory = {{ log_directory | default('/var/log/certmonger') }}
 
-# Maximum age (in seconds) for cached CA information (0 = never expire)
-ca_cache_ttl = 86400
+# Logging verbosity level. Higher values mean more verbose logging.
+# Schema: log_level | default=3
+log_level = {{ log_level | default(3) }}
 
-# Maximum number of CA retries before giving up (0 = infinite)
-max_ca_retries = 3
+# Maximum number of pending certificate requests.
+# Schema: max_pending_requests | default=100
+max_pending_requests = {{ max_pending_requests | default(100) }}
 
-# Delay (in seconds) between CA retries
-ca_retry_delay = 10
+# Time-to-live for CA cache entries in seconds.
+# Schema: ca_cache_ttl | default=86400
+ca_cache_ttl = {{ ca_cache_ttl | default(86400) }}
 
-# Whether to auto-start certificate renewal daemons (e.g., for HTTP(S) OCSP responders)
-start_renewer_daemon = true
+# Maximum number of retries when contacting a CA.
+# Schema: max_ca_retries | default=3
+max_ca_retries = {{ max_ca_retries | default(3) }}
 
-# Directory where CA helpers (e.g., nss, openvpn, httpd) are installed
-helpers_directory = /usr/libexec/certmonger
+# Delay in seconds between CA retry attempts.
+# Schema: ca_retry_delay | default=10
+ca_retry_delay = {{ ca_retry_delay | default(10) }}
 
-# List of CA types supported (each defines name, binary, and optional args)
-{% for ca_type in ca_types %}# {{ ca_type.name }}: {{ ca_type.description }}
-ca_type_{{ loop.index }} = {{ ca_type.name }}:{{ ca_type.binary }}{% if ca_type.args %}:{{ ca_type.args }}{% endif %}
-{% endfor %}
+# Whether to start the renewer daemon automatically.
+# Schema: start_renewer_daemon | default=True
+start_renewer_daemon = {{ start_renewer_daemon | default(True) }}
 
-# List of CA profiles (e.g., subCA, server, client) — used by some CA backends
-cache_ca_profiles = false
+# Directory containing helper scripts for certificate operations.
+# Schema: helpers_directory | default='/usr/libexec/certmonger'
+helpers_directory = {{ helpers_directory | default('/usr/libexec/certmonger') }}
+
+# Whether to cache CA profiles.
+# Schema: cache_ca_profiles | default=False
+cache_ca_profiles = {{ cache_ca_profiles | default(False) }}

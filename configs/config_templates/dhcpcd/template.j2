@@ -1,76 +1,98 @@
-# /etc/dhcpcd.conf — dual-stack DHCP client configuration
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          dhcpcd
+# Required-Start:    $remote_fs $local_fs
+# Required-Stop:     $remote_fs $local_fs
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: IPv4 DHCP client with IPv4LL support
+# Description:
+### END INIT INFO
 
-# Global options
-# Disable default route installation (manual routing preferred)
-{% if not install_routes | default(true) %}nohook run-parts
-{% endif %}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DHCPCD=/usr/sbin/dhcpcd
+NAME=dhcpcd
+# Path to the PID file for dhcpcd
+PIDFILE={{ pidfile | default('/var/run/dhcpcd.pid') }}
 
-# Prevent dhcpcd from managing specific interfaces (e.g., managed by other tools)
-{% for iface in exclude_interfaces %}
-{% if loop.first %}# Exclude interfaces from DHCP management
-{% endif %}interface {{ iface }}
-{% endfor %}
+test -x $DHCPCD || exit 0
 
-# Define static IPv4 configuration for known interfaces
-{% for static in static_ipv4 %}
-# Static IPv4 for interface {{ static.interface }}
-interface {{ static.interface }}
-  {% if static.ip %}static ip_address={{ static.ip }}{% if static.prefix %}/{{ static.prefix }}{% endif %}
-  {% endif %}{% if static.gateway %}static routers={{ static.gateway }}
-  {% endif %}{% if static.dns %}static domain_name_servers={{ static.dns | join(', ') }}
-  {% endif %}{% if static.hostname %}static host_name={{ static.hostname }}
-  {% endif %}
-{% endfor %}
+# Path to the network interfaces configuration file
+INTERFACES={{ interfaces_file | default('/etc/network/interfaces') }}
 
-# Define static IPv6 configuration (SLAAC, DHCPv6, or manual)
-{% for static6 in static_ipv6 %}
-# Static IPv6 for interface {{ static6.interface }}
-interface {{ static6.interface }}
-  {% if static6.ip %}static ipv6_address={{ static6.ip }}{% if static6.prefixlen %}/{{ static6.prefixlen }}{% endif %}
-  {% endif %}{% if static6.gateway %}static ipv6 routers={{ static6.gateway }}
-  {% endif %}{% if static6.dns %}static ipv6_domain_name_servers={{ static6.dns | join(', ') }}
-  {% endif %}
-{% endfor %}
+. /lib/lsb/init-functions
 
-# DHCPv4-specific options
-# Request custom DHCP options (e.g., NTP servers, vendor options)
-{% for opt in request_options %}
-{% if loop.first %}# Additional DHCP options to request
-{% endif %}request {{ opt }}
-{% endfor %}
+sanity() {
+	local x=
 
-# IPv6 SLAAC and DHCPv6 behavior
-# Prefer SLAAC only (default), SLAAC+DHCPv6, or DHCPv6 only
-{% if ipv6_ra_mode == 'slaac' %}noipv6rdnso
-{% elif ipv6_ra_mode == 'dhcpv6' %}noipv6rs
-{% elif ipv6_ra_mode == 'slaac+dhcpv6' %}# SLAAC + DHCPv6 (dual-mode)
-{% endif %}
+	case "$("$DHCPCD" --version)" in
+	[1234].*)
+		log_failure_msg "Not running $NAME because an older version" \
+			"is currently preferred"
+		exit 6
+		;;
+	esac
 
-# Retry behavior and timeouts
-# Network reachability check interval (seconds)
-{% if ipv6_ra_mode == 'slaac' or ipv6_ra_mode == 'slaac+dhcpv6' %}
-{% if slaac_wait_seconds is defined %}slaac wait {{ slaac_wait_seconds }}
-{% else %}slaac wait 5
-{% endif %}{% endif %}
+	for x in /var/run/dhcpcd-*.pid; do
+		[ -f "$x" ] || continue
+		log_failure_msg "Not running $NAME because there is aleady an" \
+			"interface specific instance"
+		log_failure_msg "$x"
+		exit 6
+	done
 
-# DHCP retry behavior (fallback to carrier sense after failure)
-{% if retry_delay is defined %}retry {{ retry_delay }}
-{% else %}retry 30
-{% endif %}
+	if grep -q "^[[:space:]]*iface[[:space:]]*.*[[:space:]]*inet[[:space:]]*dhcp" \
+		$INTERFACES; then
+		log_failure_msg "Not running $NAME because $INTERFACES"
+		log_failure_msg "defines some interfaces that will use a" \
+			"DHCP client"
+		exit 6
+	fi
+}
 
-# Lease time and renewal hints
-# Use received lease time; fallback to conservative values
-{% if use_lease_time | default(true) %}# Use DHCP-provided lease time
-{% else %}# Do not use DHCP-provided lease time (force conservative renewals)
-declare -x dhcpcd_lease_time=3600
-{% endif %}
-
-# Log verbosity
-{% if log_level is defined %}log-level {{ log_level }}
-{% else %}# log-level not set (default: warn)
-{% endif %}
-
-# Hostname options
-# Use system hostname, or override for specific interface
-{% if hostname is defined %}hostname {{ hostname }}
-{% endif %}
+case "$1" in
+start)
+	sanity
+	if pidofproc -p $PIDFILE $DHCPCD >/dev/null; then
+		log_warning_msg "$NAME is already running"
+		exit 0
+	fi
+	$DHCPCD
+	;;
+stop)
+	sanity
+	$DHCPCD -x
+	;;
+restart | force-reload)
+	sanity
+	$DHCPCD -x
+	$DHCPCD
+	;;
+try-restart)
+	if ! pidofproc -p $PIDFILE $DHCPCD >/dev/null; then
+		log_warning_msg "$NAME is not running"
+	else
+		sanity
+		$DHCPCD -x
+		$DHCPCD
+	fi
+	;;
+reload)
+	if ! pidofproc -p $PIDFILE $DHCPCD >/dev/null; then
+		log_failure_msg "$NAME is not running"
+		exit 7
+	fi
+	sanity
+	$DHCPCD -n
+	;;
+status)
+	status_of_proc -p $PIDFILE $DHCPCD "$NAME" || exit $?
+	;;
+*)
+	log_failure_msg "Usage: /etc/init.d/dhcpcd {start|stop|restart|try-restart|force-reload|status}"
+	exit 1
+	;;
+esac

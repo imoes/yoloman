@@ -1,0 +1,245 @@
+# BOLT-LMM/BOLT-REML configuration file
+# Generated using Debian bolt-lmm package (section 5 man page)
+# Parametrize site-specific paths, options, and filters below.
+
+# Prefix for PLINK binary files (.fam, .bim, .bed)
+# Uses --bfile to specify the base name of the PLINK binary dataset.
+{% if genotype_plink_bfile | default('') %}
+--bfile {{ genotype_plink_bfile | default('') }}
+{% endif %}
+
+# Prefix for gzipped PLINK binary files (.fam.gz, .bim.gz, .bed.gz)
+# Uses --bfilegz to specify the base name of the gzipped PLINK binary dataset.
+{% if genotype_plink_bfilegz | default('') %}
+--bfilegz {{ genotype_plink_bfilegz | default('') }}
+{% endif %}
+
+# PLINK .fam file path (overrides --bfile)
+# Uses --fam to directly specify the .fam file, bypassing the --bfile base name search.
+{% if genotype_plink_fam | default('') %}
+--fam {{ genotype_plink_fam | default('') }}
+{% endif %}
+
+# PLINK .bim file(s); supports {i:j} expansion (e.g., data.chr{1:22}.bim)
+# Uses --bim to explicitly list bim files.
+{% if genotype_plink_bim | default([]) %}
+{% for item in genotype_plink_bim | default([]) %}
+--bim {{ item }}
+{% endfor %}
+{% endif %}
+
+# PLINK .bed file(s); supports {i:j} expansion
+# Uses --bed to explicitly list bed files.
+{% if genotype_plink_bed | default([]) %}
+{% for item in genotype_pllink_bed | default([]) %}
+--bed {{ item }}
+{% endfor %}
+{% endif %}
+
+# Oxford-format genetic map file for recombination rate interpolation
+# Uses --geneticMapFile to specify the genetic map.
+{% if genetic_map_file | default('') %}
+--geneticMapFile {{ genetic_map_file | default('') }}
+{% endif %}
+
+# File listing individuals to remove (FID IID in first two columns, no header)
+# Uses --remove to exclude specific individuals from the analysis.
+{% if remove_file | default('') %}
+--remove {{ remove_file | default('') }}
+{% endif %}
+
+# File listing SNPs to exclude (SNP ID in first column, no header)
+# Uses --exclude to remove specific SNPs from the analysis.
+{% if exclude_file | default('') %}
+--exclude {{ exclude_file | default('') }}
+{% endif %}
+
+# Maximum per-SNP missing rate (QC filter); default matches --maxMissingPerSnp
+# Uses --maxMissingPerSnp to set the threshold for SNP missingness.
+--maxMissingPerSnp {{ max_missing_per_snp | default(0.1) }}
+
+# Maximum per-individual missing rate (QC filter)
+# Uses --maxMissingPerIndiv to set the threshold for individual missingness.
+--maxMissingPerIndiv {{ max_missing_per_indiv | default(0.1) }}
+
+# Phenotype file (must include header; FID IID in first two columns)
+# Uses --phenoFile to specify the phenotype data file.
+{% if pheno_file | default('') %}
+--phenoFile {{ pheno_file | default('') }}
+{% endif %}
+
+# Phenotype column header in phenoFile
+# Uses --phenoCol to specify the column name for the phenotype.
+{% if pheno_col | default('') %}
+--phenoCol {{ pheno_col | default('') }}
+{% endif %}
+
+# Use the last (6th) column of .fam file as phenotype (overrides phenoFile/phenoCol)
+# Uses --phenoUseFam to extract phenotype from the .fam file.
+{% if pheno_use_fam | default(False) | bool %}
+--phenoUseFam
+{% endif %}
+
+# Covariate file (must include header; FID IID in first two columns)
+# Uses --covarFile to specify the covariate data file.
+{% if covar_file | default('') %}
+--covarFile {{ covar_file | default('') }}
+{% endif %}
+
+# Categorical covariate column headers
+# Uses --covarCol to specify columns for categorical covariates.
+{% if covar_col | default([]) %}
+{% for item in covar_col | default([]) %}
+--covarCol {{ item }}
+{% endfor %}
+{% endif %}
+
+# Quantitative covariate column headers
+# Uses --qCovarCol to specify columns for quantitative covariates.
+{% if q_covar_col | default([]) %}
+{% for item in q_covar_col | default([]) %}
+--qCovarCol {{ item }}
+{% endfor %}
+{% endif %}
+
+# Include samples with missing covariates using missing-indicator method
+# Uses --covarUseMissingIndic to handle missing covariate values.
+{% if covar_use_missing_indic | default(False) | bool %}
+--covarUseMissingIndic
+{% endif %}
+
+# Run BOLT-REML for variance components analysis (heritability/correlation only)
+# Uses --reml to enable the REML algorithm.
+{% if run_reml | default(False) | bool %}
+--reml
+{% endif %}
+
+# Run BOLT-LMM (infinitesimal + Bayesian non-inf mixture model)
+# Uses --lmm to enable the LMM algorithm.
+{% if run_lmm | default(False) | bool %}
+--lmm
+{% endif %}
+
+# Run BOLT-LMM under the infinitesimal model only
+# Uses --lmmInfOnly to restrict LMM to the infinitesimal model.
+{% if run_lmm_inf_only | default(False) | bool %}
+--lmmInfOnly
+{% endif %}
+
+# Force non-infinitesimal association stats even when expected power gain is negligible
+# Uses --lmmForceNonInf to override automatic model selection.
+{% if run_lmm_force_non_inf | default(False) | bool %}
+--lmmForceNonInf
+{% endif %}
+
+# File(s) listing SNPs to use in model (e.g., GRM); if omitted, uses all non-excluded SNPs
+# Uses --modelSnps to specify the SNP set for the model.
+{% if model_snps_file | default([]) %}
+{% for item in model_snps_file | default([]) %}
+--modelSnps {{ item }}
+{% endfor %}
+{% endif %}
+
+# LD Scores file for Bayesian association stats calibration
+# Uses --LDscoresFile to provide pre-computed LD scores.
+{% if ld_scores_file | default('') %}
+--LDscoresFile {{ ld_scores_file | default('') }}
+{% endif %}
+
+# Number of computational threads
+# Uses --numThreads to set the parallelism level.
+--numThreads {{ num_threads | default(1) }}
+
+# Output file for association statistics at PLINK genotypes
+# Uses --statsFile to write association results.
+{% if stats_file | default('') %}
+--statsFile {{ stats_file | default('') }}
+{% endif %}
+
+# Dosage file(s) for imputed SNP association testing
+# Uses --dosageFile to specify dosage data files.
+{% if dosage_file | default([]) %}
+{% for item in dosage_file | default([]) %}
+--dosageFile {{ item }}
+{% endfor %}
+{% endif %}
+
+# File listing FIDs/IIDs corresponding to dosage_file(s)
+# Uses --dosageFidIidFile to map dosage files to individuals.
+{% if dosage_fid_iid_file | default('') %}
+--dosageFidIidFile {{ dosage_fid_iid_file | default('') }}
+{% endif %}
+
+# Output file for dosage-based association statistics
+# Uses --statsFileDosageSnps to write dosage-specific results.
+{% if stats_file_dosage_snps | default('') %}
+--statsFileDosageSnps {{ stats_file_dosage_snps | default('') }}
+{% endif %}
+
+# List of [chr file] pairs for IMPUTE2 probability files
+# Uses --impute2FileList to specify IMPUTE2 format input.
+{% if impute2_file_list | default('') %}
+--impute2FileList {{ impute2_file_list | default('') }}
+{% endif %}
+
+# File listing FIDs/IIDs corresponding to impute2_file_list
+# Uses --impute2FidIidFile to map IMPUTE2 files to individuals.
+{% if impute2_fid_iid_file | default('') %}
+--impute2FidIidFile {{ impute2_fid_iid_file | default('') }}
+{% endif %}
+
+# MAF threshold for IMPUTE2 SNPs; lower-MAF SNPs are ignored
+# Uses --impute2MinMAF to set the minor allele frequency cutoff.
+--impute2MinMAF {{ impute2_min_maf | default(0) }}
+
+# Oxford BGEN format file(s) for genotype association testing
+# Uses --bgenFile to specify BGEN format input.
+{% if bgen_file | default([]) %}
+{% for item in bgen_file | default([]) %}
+--bgenFile {{ item }}
+{% endfor %}
+{% endif %}
+
+# Corresponding Oxford sample file for BGEN file(s)
+# Uses --sampleFile to specify the sample metadata for BGEN.
+{% if sample_file | default('') %}
+--sampleFile {{ sample_file | default('') }}
+{% endif %}
+
+# List of [bgen sample] file pairs for BGEN imputed variants
+# Uses --bgenSampleFileList to specify BGEN sample files.
+{% if bgen_sample_file_list | default('') %}
+--bgenSampleFileList {{ bgen_sample_file_list | default('') }}
+{% endif %}
+
+# MAF threshold for BGEN SNPs
+# Uses --bgenMinMAF to set the minor allele frequency cutoff for BGEN.
+--bgenMinMAF {{ bgen_min_maf | default(0) }}
+
+# INFO threshold for BGEN SNPs
+# Uses --bgenMinINFO to set the imputation quality score cutoff.
+--bgenMinINFO {{ bgen_min_info | default(0) }}
+
+# Output file for BGEN-based association statistics
+# Uses --statsFileBgenSnps to write BGEN-specific results.
+{% if stats_file_bgen_snps | default('') %}
+--statsFileBgenSnps {{ stats_file_bgen_snps | default('') }}
+{% endif %}
+
+# Output file for IMPUTE2-based association statistics
+# Uses --statsFileImpute2Snps to write IMPUTE2-specific results.
+{% if stats_file_impute2_snps | default('') %}
+--statsFileImpute2Snps {{ stats_file_impute2_snps | default('') }}
+{% endif %}
+
+# List of [map dosage] file pairs with 2-dosage format (Ricopili/plink2 --dosage format=2)
+# Uses --dosage2FileList to specify 2-dosage format input.
+{% if dosage2_file_list | default('') %}
+--dosage2FileList {{ dosage2_file_list | default('') }}
+{% endif %}
+
+# Output file for 2-dosage format association statistics
+# Uses --statsFileDosage2Snps to write 2-dosage specific results.
+{% if stats_file_dosage2_snps | default('') %}
+--statsFileDosage2Snps {{ stats_file_dosage2_snps | default('') }}
+{% endif %}

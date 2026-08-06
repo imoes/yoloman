@@ -1,41 +1,111 @@
-[# General server settings]
+# =============================================================================
+# FreeCiv Server Configuration
+# =============================================================================
+# This file configures the FreeCiv network server. It uses an INI-style format
+# with section headers and key=value pairs.
+#
+# This template is self-documenting: every configuration directive is preceded
+# by a comment derived from its schema description.
+# =============================================================================
+
+[# =============================================================================
+[# General server settings
+[# =============================================================================
+
 [server]
-host={{ server_host }}
-port={{ server_port }}
-maxplayers={{ server_maxplayers }}
-maxconns={{ server_maxconns }}
-maxgames={{ server_maxgames }}
-nickname={{ server_nickname }}
-email={{ server_email }}
-admin={{ server_admin }}
-loglevel={{ server_loglevel }}
-logfile={{ server_logfile }}
 
-[# Game rules]
+# IP address the server listens on. Use 0.0.0.0 to listen on all interfaces.
+host={{ server_host | default('0.0.0.0') }}
+
+# TCP port the server listens on.
+port={{ server_port | default(5556) }}
+
+# Maximum number of players allowed in a single game.
+maxplayers={{ server_maxplayers | default(10) }}
+
+# Maximum number of simultaneous connections.
+maxconns={{ server_maxconns | default(20) }}
+
+# Maximum number of games the server will run simultaneously.
+maxgames={{ server_maxgames | default(5) }}
+
+# Public nickname displayed in server lists.
+nickname={{ server_nickname | default('FreeCiv') }}
+
+# Administrator contact email (for server list).
+email={{ server_email | default('') }}
+
+# Admin password for server administration commands.
+admin={{ server_admin | default('') }}
+
+# Logging verbosity: 0=quiet, 1=normal, 2=verbose, 3=debug.
+loglevel={{ server_loglevel | default('0') }}
+
+# Path to the server log file.
+logfile={{ server_logfile | default('/var/log/freeciv/server.log') }}
+
+[# =============================================================================
+[# Game rules
+[# =============================================================================
+
 [ruleset]
-default={{ ruleset_default }}
-path={{ ruleset_path }}
 
-[# Networking and connection options]
-networking
-maxping={{ networking_maxping }}
-maxidle={{ networking_maxidle }}
-allownewgames={{ 'yes' if networking_allownewgames else 'no' }}
+# Default ruleset name (e.g., civ2, civ1, classic).
+default={{ ruleset_default | default('civ2') }}
 
-[# Game saving]
-saving
-autosave={{ saving_autosave }}
-savegamesdir={{ saving_savegamesdir }}
-savereplays={{ 'yes' if saving_savereplays else 'no' }}
+# Path to the default ruleset directory.
+path={{ ruleset_path | default('/usr/share/freeciv/default') }}
 
-[# AI players]
-ai
-ai_count={{ ai_count }}
-ai_names={{ ai_names | join(', ') }}
+[# =============================================================================
+[# Networking and connection options
+[# =============================================================================
 
-[# Server access control]
+[net]
+
+# Maximum allowed ping in ms before disconnect (0 = disabled).
+maxping={{ networking_maxping | default(0) }}
+
+# Seconds of idle time before auto-disconnect (0 = disabled).
+maxidle={{ networking_maxidle | default(0) }}
+
+# Whether clients may create new games (true/false).
+allownewgames={{ 'yes' if (networking_allownewgames | default(True)) else 'no' }}
+
+[# =============================================================================
+[# Game saving
+[# =============================================================================
+
+[save]
+
+# Whether to autosave games periodically.
+autosave={{ 'yes' if (saving_autosave | default(True)) else 'no' }}
+
+# Directory where saved games are stored.
+savegamesdir={{ saving_savegamesdir | default('/var/lib/freeciv/saves') }}
+
+# Whether to save game replays for later review.
+savereplays={{ 'yes' if (saving_savereplays | default(True)) else 'no' }}
+
+[# =============================================================================
+[# AI players
+[# =============================================================================
+
+[ai]
+
+# Number of AI players to add to new games by default.
+ai_count={{ ai_count | default(4) }}
+
+# List of AI player names to use in new games.
+ai_names={{ ai_names | default(['Caesar', 'Alexander', 'Napoleon', 'Genghis']) | join(', ') }}
+
+[# =============================================================================
+[# Server access control
+[# =============================================================================
 [# Each entry is a host pattern with optional access level: full, read, none]
 [# Use 'all' as host pattern to allow everyone]
-hosts
-{% for host_rule in hosts %}{{ host_rule.host }} {{ host_rule.access }}
+
+[hosts]
+
+# Access control rules: list of host patterns and access levels.
+{% for host_rule in (hosts | default([])) %}{{ host_rule.host }} {{ host_rule.access }}
 {% endfor %}

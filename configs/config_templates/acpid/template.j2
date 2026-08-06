@@ -1,9 +1,13 @@
-{# Event handler definition: Matches a specific ACPI event and defines the action to run when it occurs #}
-{% for event in events %}
-# Event: {{ event.name }}
-# Event pattern: {{ event.event_pattern }}
-# Command to execute when the event matches
-{% if event.command_comment %}# {{ event.command_comment }}
-{% endif %}command={{ event.command }}
+# Configuration for the ACPI event daemon (acpid)
+# This file is sourced by the acpid init script/systemd service.
+# Each variable controls specific behavior of the daemon.
 
-{% endfor %}
+# --- Additional command-line options ---
+# OPTIONS: Additional command-line options to pass to acpid (as a string to be appended to the acpid command).
+# This allows tuning the daemon's behavior (e.g., debugging, specific interfaces).
+OPTIONS="{{ options | default('') }}"
+
+# --- Kernel modules to load ---
+# MODULES: Space-separated list of kernel modules to load before starting acpid; use "all" to load all acpi drivers, or leave empty/commented to load no module.
+# Common modules include battery, ac, processor, button, fan, thermal, video.
+MODULES="{{ modules | default('battery ac processor button fan thermal video') | join(' ') }}"

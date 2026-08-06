@@ -1,0 +1,34 @@
+# Configuration for cruft-ng system service
+# cruft-ng is a filesystem integrity checker (similar to a dedicated integrity
+# monitoring agent). It performs a single check and exits.
+
+[Unit]
+Description=Cruft filesystem checker
+Documentation=https://github.com/a-detiste/cruft-ng/blob/master/man/cruft.8
+
+[Service]
+# Systemd service type. 'oneshot' is required because cruft performs a single check and exits
+Type={{ service_type | default('oneshot') }}
+
+# Run as root; no user switching needed.
+# The executable path for the cruft binary (typically installed as /usr/bin/cruft)
+ExecStart={{ exec_start | default('/usr/bin/cruft') }}
+
+# Where to send stdout; 'journal' is recommended for systemd-managed logging
+StandardOutput={{ standard_output | default('journal') }}
+
+# Where to send stderr; 'journal' is recommended for systemd-managed logging
+StandardError={{ standard_error | default('journal') }}
+
+# Identifier used when logging to syslog
+SyslogIdentifier={{ syslog_identifier | default('cruft') }}
+
+# Set DEBUG environment variable to 1 for verbose output from cruft-ng
+{% if debug | default(False) | bool %}
+Environment=DEBUG=1
+{% else %}
+Environment=DEBUG=0
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

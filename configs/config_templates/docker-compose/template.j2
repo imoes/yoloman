@@ -1,0 +1,136 @@
+{# ============================================================================== #}
+{# Docker Compose Configuration Template                                          #}
+{# Self-documenting template for generating docker-compose.yml files.             #}
+{# Variables are drawn from the role's schema defaults.                           #}
+{# ============================================================================== #}
+
+{# compose_version: Compose file version (e.g., "3.8"). Must be one of the officially supported versions per Docker Compose release. #}
+version: "{{ compose_version | default('3.8') }}"
+
+{# project_name: Project name; overrides auto-detection. Must contain only lowercase letters, digits, dashes, and underscores, starting with a letter or digit. #}
+{% if project_name | default('') | trim != '' %}name: "{{ project_name }}"
+{% endif %}
+
+{# services: List of service definitions. Each entry is a mapping with service name as key and service configuration as value. Each service supports standard Compose directives. #}
+{% if services | default(None) is mapping and services | default({}) %}
+services:
+  {# Iterate over each service definition in the services mapping. #}
+  {% for service_name, service_config in services | default({}) | dict2items %}
+  {{ service_name.value }}:
+    {# Iterate over configuration keys for the current service. #}
+    {% for key, value in service_config.value | default({}) | dict2items %}
+    {# build: Specifies the build configuration for the service. #}
+    {% if key.key == "build" %}
+      {% if value.value is string %}
+    build: {{ value.value }}
+      {% else %}
+    build:
+        {# Iterate over build options (e.g., context, dockerfile, args). #}
+        {% for bk, bv in value.value | default({}) | dict2items %}
+        {{ bk.key }}: {{ bv.value }}
+        {% endfor %}
+      {% endif %}
+
+    {# image: Image name to use for the service. #}
+    {% elif key.key == "image" %}
+    image: {{ value.value }}
+
+    {# ports: Exposes container ports to the host. #}
+    {% elif key.key == "ports" %}
+    ports:
+        {# Iterate over each port mapping string (e.g., "80:80"). #}
+        {% for port_mapping in value.value | default([]) %}
+      - "{{ port_mapping }}"
+        {% endfor %}
+
+    {# volumes: Mounts host directories or named volumes into the container. #}
+    {% elif key.key == "volumes" %}
+    volumes:
+        {# Iterate over each volume mapping string (e.g., "/host:/container"). #}
+        {% for vol_mapping in value.value | default([]) %}
+      - "{{ vol_mapping }}"
+        {% endfor %}
+
+    {# environment: Sets environment variables inside the container. #}
+    {% elif key.key == "environment" %}
+    environment:
+        {# Iterate over environment variables. Can be a list of strings "KEY=VAL" or a mapping. #}
+        {% if value.value is mapping %}
+            {% for env_key, env_val in value.value | default({}) | dict2items %}
+        {{ env_key.key }}: {{ env_val.value }}
+            {% endfor %}
+        {% else %}
+            {% for env_var in value.value | default([]) %}
+        - "{{ env_var }}"
+            {% endfor %}
+        {% endif %}
+
+    {# networks: Connects the service to one or more defined networks. #}
+    {% elif key.key == "networks" %}
+    networks:
+        {# Iterate over network names or network configs. #}
+        {% for net_item in value.value | default([]) %}
+      - {{ net_item }}
+        {% endfor %}
+
+    {# depends_on: Specifies service dependencies. #}
+    {% elif key.key == "depends_on" %}
+    depends_on:
+        {# Iterate over dependent service names. #}
+        {% for dep in value.value | default([]) %}
+      - {{ dep }}
+        {% endfor %}
+
+    {# profiles: Specifies which profiles this service is part of. #}
+    {% elif key.key == "profiles" %}
+    profiles:
+        {# Iterate over profile names. #}
+        {% for prof in value.value | default([]) %}
+      - {{ prof }}
+        {% endfor %}
+
+    {# restart: Restart policy for the service (e.g., always, unless-stopped). #}
+    {% elif key.key == "restart" %}
+    restart: "{{ value.value }}"
+
+    {# privileged: Runs the container in privileged mode (equivalent to docker run --privileged). #}
+    {% elif key.key == "privileged" %}
+    privileged: {{ value.value | default(false) | bool | string | lower }}
+
+    {# command: Override the default command of the image. #}
+    {% elif key.key == "command" %}
+    command: {{ value.value }}
+
+    {# Generic key: Any other valid Docker Compose key-value pair. #}
+    {% else %}
+    {{ key.key }}: {{ value.value }}
+    {% endif %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{# networks: Optional network definitions. Each entry is a mapping with network name as key and network config as value. See official Compose reference for driver, ipam, etc. #}
+{% if networks | default(None) is mapping and networks | default({}) %}
+networks:
+  {# Iterate over each network definition. #}
+  {% for net_name, net_config in networks | default({}) | dict2items %}
+  {{ net_name.key }}:
+    {# Iterate over network configuration options (e.g., driver, external). #}
+    {% for nk, nv in net_config.value | default({}) | dict2items %}
+      {{ nk.key }}: {{ nv.value }}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{# volumes: Optional named volume definitions. Each entry is a mapping with volume name as key and volume config as value (e.g., external, driver). #}
+{% if volumes | default(None) is mapping and volumes | default({}) %}
+volumes:
+  {# Iterate over each volume definition. #}
+  {% for vol_name, vol_config in volumes | default({}) | dict2items %}
+  {{ vol_name.key }}:
+    {# Iterate over volume configuration options (e.g., driver, external). #}
+    {% for vk, vv in vol_config.value | default({}) | dict2items %}
+      {{ vk.key }}: {{ vv.value }}
+    {% endfor %}
+  {% endfor %}
+{% endif %}

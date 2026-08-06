@@ -3,36 +3,27 @@
     "type": "list",
     "default": [
       {
-        "address_data": "127.0.0.1",
-        "fqdn": "localhost"
+        "address_data": "145.100.185.15",
+        "fqdn": "dnsovertls.sinodun.com",
+        "pubkey": "62lKu9HsDVbyiPenApnc4sfmSYTHOVfFgL3pyB+cBL4="
+      },
+      {
+        "address_data": "145.100.185.16",
+        "fqdn": "dnsovertls1.sinodun.com",
+        "pubkey": "cE2ecALeE5B+urJhDrJlVFmf38cJLAvqekONvjvpqUA="
+      },
+      {
+        "address_data": "185.49.141.37",
+        "fqdn": "getdnsapi.net",
+        "pubkey": "foxZRnIh9gZpWnl+zEiKa0EJ2rdCGroMWm02gaxSc9Q="
       }
     ],
-    "description": "List of DoT upstream servers to use. Each entry specifies the IP address and optionally the FQDN for certificate verification.",
-    "items": {
-      "address_data": {
-        "type": "string",
-        "description": "IP address (IPv4 or IPv6) of the upstream DoT resolver (e.g., 8.8.8.8, 2001:4860:4860::8888)"
-      },
-      "fqdn": {
-        "type": "string",
-        "description": "Fully qualified domain name (FQDN) used for TLS authentication (e.g., dns.quad9.net). Optional but recommended."
-      }
-    }
+    "description": "List of DoT upstream servers to use. Each entry specifies the IP address, optional FQDN for TLS authentication, and optional SPKI pinset for strict mode."
   },
-  "authentication_mode": {
-    "type": "string",
-    "default": "name",
-    "description": "How to authenticate the upstream server: 'name' (verify certificate against FQDN), 'pubkey' (pin public key)"
-  },
-  "cacert_file_or_path": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA certificate file or directory (e.g., /etc/ssl/certs/ca-certificates.crt or /etc/ssl/certs). Leave empty to use system store."
-  },
-  "tls_min_version": {
-    "type": "string",
-    "default": "tls1.2",
-    "description": "Minimum TLS version to require: 'tls1.2' or 'tls1.3'. TLS 1.3 is preferred if upstreams support it."
+  "round_robin_upstreams": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to distribute queries across all upstreams (true) or use them in ordered fallback (false)."
   },
   "listen_addresses": {
     "type": "list",
@@ -40,71 +31,49 @@
       "127.0.0.1",
       "::1"
     ],
-    "description": "IP addresses (IPv4/IPv6) to bind the local DNS listener to. Include '0.0.0.0' or '::' to accept remote queries (not recommended for privacy)."
+    "description": "IP addresses to bind the local DNS listener to. Include '0.0.0.0' or '::' to accept remote queries (not recommended for privacy)."
+  },
+  "tls_min_version": {
+    "type": "string",
+    "default": "GETDNS_TLS1_2",
+    "description": "Minimum TLS version: 'GETDNS_TLS1_2' or 'GETDNS_TLS1_3'.",
+    "enum": [
+      "GETDNS_TLS1_2",
+      "GETDNS_TLS1_3"
+    ]
+  },
+  "tls_query_padding_blocksize": {
+    "type": "number",
+    "default": 128,
+    "description": "Padding blocksize (bytes) for EDNS0 TLS query padding."
   },
   "listen_port": {
     "type": "number",
     "default": 53,
-    "description": "Local port to listen on for DNS queries. Standard DNS uses port 53."
+    "description": "Local port to listen on for DNS queries (standard DNS uses port 53)."
   },
   "dnssec": {
-    "type": "number",
-    "default": 2,
-    "description": "IP version preference: 0=IPv4 only, 1=IPv6 only, 2=both (default). Use 3 to force IPv6 for upstream."
-  },
-  "dnssec_validate": {
-    "type": "number",
-    "default": 1,
-    "description": "Enable DNSSEC validation: 0=disable (unsafe), 1=enable strict validation (recommended), 2=aggressive NSEC validation"
-  },
-  "log_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Verbosity of logging: 0=errors only, 1=warnings, 2=info (production), 3=debug (troubleshooting)"
-  },
-  "cache_size": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of DNS responses to cache. Smaller (50\u2013150) for embedded devices; larger (1000+) for servers."
-  },
-  "cache_min_ttl": {
-    "type": "number",
-    "default": 0,
-    "description": "Minimum time (seconds) to cache a response. 0 uses RR\u2019s TTL. Non-zero overrides minimum (e.g., 60\u2013300)."
-  },
-  "cache_max_ttl": {
-    "type": "number",
-    "default": 86400,
-    "description": "Maximum time (seconds) to cache a response. Default is 24h (86400). Helps prevent stale cache."
-  },
-  "retry_attempts": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of retries to attempt before failing a DNS query when upstream is unreachable."
-  },
-  "timeout": {
-    "type": "number",
-    "default": 2,
-    "description": "Timeout in seconds per upstream query/connection. Typical: 2\u20135. Increase for high-latency networks."
-  },
-  "prefer_ipv6": {
     "type": "boolean",
     "default": false,
-    "description": "Whether to prefer IPv6 connections to upstream servers. Set true only if IPv6 is reliable."
+    "description": "Whether to enable DNSSEC validation. Note: this config uses 'dnssec: GETDNS_EXTENSION_TRUE' in comments but defaults to disabled (no explicit 'dnssec' setting) in shipped config."
   },
-  "round_robin_upstreams": {
-    "type": "boolean",
-    "default": false,
-    "description": "Rotate through upstream servers instead of using first-available order. Improves load balancing."
-  },
-  "use_tls_session_tickets": {
+  "edns_client_subnet_private": {
     "type": "boolean",
     "default": true,
-    "description": "Use TLS session tickets to resume connections (faster reconnection). Disable for strict privacy (reduces tracking but increases latency)."
+    "description": "Enable EDNS client subnet privacy (1 = enabled, 0 = disabled)."
   },
-  "add_tls_query_padding_blocksize": {
+  "idle_timeout": {
     "type": "number",
-    "default": 128,
-    "description": "Padding blocksize (bytes) for TLS queries to obscure traffic patterns. Must be power of two \u2264 1232; 0 disables padding."
+    "default": 10000,
+    "description": "Idle timeout in milliseconds for TLS connections (10000 ms = 10 seconds)."
+  },
+  "tls_authentication": {
+    "type": "string",
+    "default": "GETDNS_AUTHENTICATION_REQUIRED",
+    "description": "Authentication mode: 'GETDNS_AUTHENTICATION_REQUIRED' (Strict) or 'GETDNS_AUTHENTICATION_NONE' (Opportunistic).",
+    "enum": [
+      "GETDNS_AUTHENTICATION_REQUIRED",
+      "GETDNS_AUTHENTICATION_NONE"
+    ]
   }
 }

@@ -1,0 +1,54 @@
+# =========================================================================
+# chalow configuration (cl.conf)
+# =========================================================================
+# This file is sourced by chalow(1p) as a Perl hash reference.
+# See `man chalow(1p)` and `/usr/share/doc/chalow/examples/` for details.
+#
+# Self-documenting template: every variable is defaulted and described.
+# =========================================================================
+
+# Number of days to include in the index page.
+# Default: 10 (integer)
+$top_n = {{ top_n | default(10) }};
+
+# Output directory for generated HTML/RSS files.
+# Default: '.' (current directory)
+$output_dir = '{{ output_dir | default(".") }}';
+
+# List of input ChangeLog files to process.
+# Supports shell-style wildcards via globbing.
+# Default: ['ChangeLog']
+@change_logs = (
+{% for log in change_logs | default(['ChangeLog']) %}
+  '{{ log }}',
+{% endfor %}
+);
+
+# Path to the CSS file to embed or link in generated pages.
+# Can be relative to output_dir or an absolute path.
+# Default: 'chalow.css'
+$css = '{{ css | default("chalow.css") }}';
+
+# Stop processing entries on or after this date (format: YYYY-MM-DD).
+# If empty, no date limit is applied; all entries are included.
+# Default: '' (empty string)
+$stop_date = '{{ stop_date | default("") }}';
+
+# Input encoding of ChangeLog files.
+# Supported values: 'eucjp', 'ascii', 'utf8'.
+# Note: Using 'utf8' requires passing the -8/--utf8 flag at runtime.
+# Default: 'eucjp'
+$encoding = '{{ encoding | default("eucjp") }}';
+
+# Enable quiet mode (suppresses non-error output to stdout).
+# Default: false
+$quiet = {{ quiet | default(false) | lower }};
+
+# Enable debug mode (prints verbose diagnostic info).
+# Default: false
+$debug = {{ debug | default(false) | lower }};
+
+# Overwrite output files only if the new generated content is larger.
+# Useful for incremental updates to avoid unnecessary writes.
+# Default: false
+$update_by_size = {{ update_by_size | default(false) | lower }};

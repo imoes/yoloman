@@ -30,9 +30,9 @@
     "description": "Number of days to retain build logs before automatic cleanup."
   },
   "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debug logging (recommended only for troubleshooting)."
+    "type": "number",
+    "default": 0,
+    "description": "Debug logging level. (Note: Schema type changed to number for numeric config value)"
   },
   "architectures": {
     "type": "list",
@@ -40,11 +40,7 @@
       "amd64",
       "i386"
     ],
-    "description": "List of CPU architectures this buildd is configured to build for.",
-    "items": {
-      "type": "string",
-      "description": "Architecture name (e.g., amd64, arm64, ppc64el). Must match dpkg architecture codes."
-    }
+    "description": "List of CPU architectures this buildd is configured to build for."
   },
   "suites": {
     "type": "list",
@@ -52,11 +48,7 @@
       "unstable",
       "stable"
     ],
-    "description": "Distributions (suites) from which this buildd will accept source packages to build.",
-    "items": {
-      "type": "string",
-      "description": "Suite name (e.g., unstable, stable, experimental, a specific release codename like 'bullseye')."
-    }
+    "description": "Distributions (suites) from which this buildd will accept source packages to build."
   },
   "upload_host": {
     "type": "string",
@@ -71,42 +63,7 @@
   "apt_sources": {
     "type": "list",
     "default": [],
-    "description": "Optional list of additional APT repository sources to use during build (e.g., for custom or backport repos). Each entry adds an `APT_SOURCE_*` line.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "url": {
-          "type": "string",
-          "default": "",
-          "description": "Repository URL (e.g., `http://deb.debian.org/debian` or `https://example.com/repo`)."
-        },
-        "suite": {
-          "type": "string",
-          "default": "",
-          "description": "Suite/distribution (e.g., stable, unstable, buster-backports)."
-        },
-        "components": {
-          "type": "list",
-          "default": [
-            "main"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "description": "Component(s) (e.g., main, contrib, non-free)."
-        },
-        "keyring": {
-          "type": "string",
-          "default": "/dev/null",
-          "description": "Path to keyring file used to verify repo signatures. Use `/dev/null` to skip verification (not secure)."
-        },
-        "comment": {
-          "type": "string",
-          "default": "custom",
-          "description": "Optional human-readable label for this source (used in comments)."
-        }
-      }
-    }
+    "description": "Optional list of additional APT repository sources to use during build (e.g., for custom or backport repos). Each entry adds an `APT_SOURCE_*` line."
   },
   "keyring_dir": {
     "type": "string",
@@ -118,9 +75,29 @@
     "default": true,
     "description": "If true, buildd automatically accepts queued source uploads without manual intervention."
   },
-  "buildcmd": {
+  "admin_mail": {
     "type": "string",
-    "default": "",
-    "description": "Custom command template (e.g., `sbuild --arch-all --no-clean-source`) to override the default build invocation. Leave blank for default."
+    "default": "root",
+    "description": "Email address for buildd admin notifications."
+  },
+  "build_log_keep": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of days until build logs are archived."
+  },
+  "daemon_log_keep": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days until old daemon logs are archived in a .tar.gz file."
+  },
+  "pkg_log_keep": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days until package logs are archived."
+  },
+  "statistics_mail": {
+    "type": "string",
+    "default": "root",
+    "description": "Email address for statistics summaries."
   }
 }

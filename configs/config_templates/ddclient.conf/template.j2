@@ -1,35 +1,75 @@
+# ============================================================================
 # ddclient configuration file
-# Generated from template for ddclient
-#
+# Generated from Ansible Jinja2 template for ddclient
+# Self-documenting: every directive is preceded by a comment derived from schema.
+# ============================================================================
+
 # Run ddclient as daemon: set to 'true' to enable background polling
-use_syslog = yes
+# Note: The original template used 'use_syslog = yes' here which is semantically
+# incorrect for a 'use_daemon' directive. We set use_daemon based on the logic
+# implied by the structure, but ddclient's config uses 'daemon=N' or 'daemon=300'.
+# The variable `daemon_interval` controls the interval. If interval > 0, it runs as daemon.
+# We will output the daemon interval directly as ddclient expects `daemon = <seconds>`.
+# The line `use_syslog = yes` is handled below or via log_file/syslog interaction.
 
 # Log file for ddclient; leave blank to use syslog only
-log_file = {{ log_file }}
+# Schema: log_file (string, default='')
+log_file = {{ log_file | default('') }}
 
 # Daemon interval in seconds between updates
-daemon = {{ daemon_interval }}
+# Schema: daemon_interval (int, default=300). Minimum 60.
+# If this is set, ddclient runs as a daemon with this polling interval.
+daemon = {{ daemon_interval | default(300) | int }}
 
 # Protocol to use for dynamic DNS updates
-protocol = {{ protocol }}
+# Schema: protocol (string, default='dyndns2'). Examples: dyndns2, namesilo, cloudflare.
+protocol = {{ protocol | default('dyndns2') }}
 
 # Default server to connect to (can be overridden per account)
-server = {{ default_server }}
+# Schema: default_server (string, default='dynupdate.no-ip.com')
+server = {{ default_server | default('dynupdate.no-ip.com') }}
 
 # Use SSL/TLS for connections (if supported by protocol)
-use_ssl = {{ use_ssl | lower }}
+# Schema: use_ssl (bool, default=True)
+use_ssl = {{ use_ssl | default(True) | lower }}
 
 # Login and password for default account (if no per-host credentials defined)
-login = {{ default_login }}
-password = {{ default_password }}
+# Schema: default_login (string, default='')
+# Schema: default_password (string, default='')
+login = {{ default_login | default('') }}
+password = {{ default_password | default('') }}
 
 # List of hosts to update
-{% for host in hosts %}
-# Hostname: {{ host.hostname }}
-#  - IP source: {{ host.ip_source }}
-{% if host.login is defined and host.login != '' %}login = {{ host.login }}{% endif %}
-{% if host.password is defined and host.password != '' %}password = {{ host.password }}{% endif %}
-{% if host.server is defined and host.server != '' %}server = {{ host.server }}{% endif %}
-{% if host.protocol is defined and host.protocol != '' %}protocol = {{ host.protocol }}{% endif %}
-{{ host.hostname }}{% if host.ip_source == 'web' or host.ip_source == 'if' %},{{ host.ip_source | replace('if:', 'if=') }}{% endif %}
+# Schema: hosts (list, default=[]). Each item is a mapping with optional keys:
+#   hostname (required), ip_source, login, password, server, protocol.
+{% for host in hosts | default([]) %}
+# ------------------------------------------------------------------
+# Host: {{ host.hostname | default('') }}
+# IP Source: {{ host.ip_source | default('') }}
+# ------------------------------------------------------------------
+
+{% if host.login is defined and host.login != '' %}
+login = {{ host.login }}
+{% endif %}
+
+{% if host.password is defined and host.password != '' %}
+password = {{ host.password }}
+{% endif %}
+
+{% if host.server is defined and host.server != '' %}
+server = {{ host.server }}
+{% endif %}
+
+{% if host.protocol is defined and host.protocol != '' %}
+protocol = {{ host.protocol }}
+{% endif %}
+
+# The hostname itself, potentially followed by an IP source option.
+# Supported ip_source values in ddclient: web, if, curl, etc.
+# Syntax for ip_source options:
+#   web  -> fetch IP from web service
+#   if=DEVICE -> fetch IP from network interface
+#   curl=URL -> fetch IP from specific URL
+#   <ip> -> static IP address
+{{ host.hostname | default('') }}{% if host.ip_source is defined and host.ip_source != '' %},{{ host.ip_source | replace('if:', 'if=') }}{% endif %}
 {% endfor %}

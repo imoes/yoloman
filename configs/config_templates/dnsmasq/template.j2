@@ -1,60 +1,64 @@
-# /etc/dnsmasq.conf — DNS/DHCP server configuration
-# Basic settings
-{% if domain %}domain={{ domain }}{% endif %}
-{% if expand_hosts %}expand-hosts{% endif %}
-{% if no_resolv %}no-resolv{% endif %}
-{% if no_poll %}no-poll{% endif %}
-{% if read_ethers %}read-ethers{% endif %}
-{% if enable_tftp %}enable-tftp{% endif %}
+# ==============================================================================
+# dnsmasq Init/Configuration Template
+# ==============================================================================
+#
+# This file configures the dnsmasq service wrapper. It manages:
+# 1) Disabling the instance.
+# 2) Setting a default DOMAIN_SUFFIX via `dnsdomainname`.
+# 3) Selecting an alternative configuration file via DNSMASQ_OPTS.
+# 4) Specifying the configuration directory to scan for additional *.conf files.
+# 5) Inhibiting resolvconf's control over upstream nameservers.
+# 6) Excluding the loopback interface from being advertised by resolvconf.
+#
+# All shell variables set here are honored by the init script.
+# ==============================================================================
 
-# Interface binding
-{% if interface %}interface={{ interface }}{% endif %}
-{% if except_interface %}except-interface={{ except_interface }}{% endif %}
-{% if bind_interfaces %}bind-interfaces{% endif %}
-{% if bind_dynamic %}bind-dynamic{% endif %}
+# --------------------------------------------------------------------------
+# Function 1: Disable the dnsmasq service.
+# --------------------------------------------------------------------------
+# To completely disable starting this dnsmasq instance, uncomment the line below.
+# For systemd: systemctl disable dnsmasq
+# For SYSV init: update-rc.d dnsmasq disable
+# ENABLED=true
 
-# Listening addresses
-{% if listen_address %}listen-address={{ listen_address }}{% endif %}
-{% for addr in listen_addresses %}listen-address={{ addr }}{% endfor %}
+# --------------------------------------------------------------------------
+# Function 2: Set the domain suffix.
+# --------------------------------------------------------------------------
+# Sets the default domain suffix by running `dnsdomainname`.
+# Uncomment and modify if a specific suffix is required.
+# DOMAIN_SUFFIX=`dnsdomainname`
 
-# DHCP configuration
-{% if no_dhcp_interface %}no-dhcp-interface={{ no_dhcp_interface }}{% endif %}
-{% for dhcp_pool in dhcp_pools %}# DHCP pool: {{ dhcp_pool.name }}
-{% if dhcp_pool.start and dhcp_pool.end %}dhcp-range={{ dhcp_pool.start }},{{ dhcp_pool.end }}{% if dhcp_pool.lease_time %},{{ dhcp_pool.lease_time }}{% endif %}{% if dhcp_pool.netmask %},{{ dhcp_pool.netmask }}{% endif %}{% endif %}
-{% if dhcp_pool.dns %}dhcp-option={{ dhcp_pool.dns_option or 'option:dns-server' }},{{ dhcp_pool.dns | join(',') }}{% endif %}
-{% if dhcp_pool.gateway %}dhcp-option={{ dhcp_pool.gateway_option or 'option:router' }},{{ dhcp_pool.gateway }}{% endif %}
-{% if dhcp_pool.ntp %}dhcp-option={{ dhcp_pool.ntp_option or 'option:ntp-server' }},{{ dhcp_pool.ntp | join(',') }}{% endif %}
-{% endfor %}
+# --------------------------------------------------------------------------
+# Function 3: Alternative configuration file.
+# --------------------------------------------------------------------------
+# Selects an alternative configuration file instead of the default one.
+# By default, dnsmasq reads /etc/dnsmasq.conf.
+# DNSMASQ_OPTS="--conf-file=/etc/dnsmasq.alt"
 
-# Static DHCP leases
-{% for lease in static_leases %}# Static lease: {{ lease.name }}
-dhcp-host={{ lease.mac }},{{ lease.ip }},{{ lease.name }}{% if lease.hostname %},{{ lease.hostname }}{% endif %}{% if lease.lease_time %},{{ lease.lease_time }}{% endif %}
-{% endfor %}
+# --------------------------------------------------------------------------
+# Directory search for additional dnsmasq configuration files.
+# --------------------------------------------------------------------------
+# Directory searched for additional dnsmasq configuration files.
+# dnsmasq will read all .conf files in this directory, excluding those ending
+# in .dpkg-dist, .dpkg-old, or .dpkg-new (to avoid pulling in backups).
+# Default: /etc/dnsmasq.d
+config_dir={{ config_dir | default('/etc/dnsmasq.d') }},.dpkg-dist,.dpkg-old,.dpkg-new
 
-# DNS forwarding / upstream servers
-{% if server %}server={{ server }}{% endif %}
-{% for srv in servers %}server={{ srv }}{% endfor %}
-{% if dnssec %}dnssec{% endif %}
-{% if dnssec_check_valid %}dnssec-check-valid{% endif %}
+# --------------------------------------------------------------------------
+# Inhibit resolvconf control over upstream nameservers.
+# --------------------------------------------------------------------------
+# If the resolvconf package is installed, dnsmasq will use its output
+# rather than the contents of /etc/resolv.conf to find upstream
+# nameservers. Uncommenting this line inhibits this behaviour.
+# Note that including a "resolv-file=<filename>" line in
+# /etc/dnsmasq.conf is not enough to override resolvconf if it is
+# installed: the line below must be uncommented.
+# IGNORE_RESOLVCONF=yes
 
-# DNS rewrite rules
-{% for rule in dns_rewrite_rules %}# Rewrite: {{ rule.name }}
-dnsmasq-rewrite={{ rule.pattern }}{% if rule.replace %}={{ rule.replace }}{% endif %}
-{% endfor %}
-
-# Logging and verbosity
-{% if log_queries %}log-queries{% endif %}
-{% if log_dhcp %}log-dhcp{% endif %}
-{% if log_facility %}log-facility={{ log_facility }}{% endif %}
-
-# Cache and limits
-{% if cache_size %}cache-size={{ cache_size }}{% endif %}
-{% if min_cache_ttl %}min-cache-ttl={{ min_cache_ttl }}{% endif %}
-{% if max_cache_ttl %}max-cache-ttl={{ max_cache_ttl }}{% endif %}
-
-# TFTP settings
-{% if tftp_root %}tftp-root={{ tftp_root }}{% endif %}
-{% if tftp_no_fail %}tftp-no-fail{% endif %}
-
-# Additional options (passed through literally)
-{% for line in extra_lines %}{{ line }}{% endfor %}
+# --------------------------------------------------------------------------
+# Exclude loopback interface from resolvconf advertisement.
+# --------------------------------------------------------------------------
+# If the resolvconf package is installed, dnsmasq will tell resolvconf
+# to use dnsmasq under 127.0.0.1 as the system's default resolver.
+# Uncommenting this line inhibits this behaviour.
+# DNSMASQ_EXCEPT="lo"

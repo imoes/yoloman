@@ -1,45 +1,94 @@
+# ============================================================================
 # /etc/default/console-setup - System-wide console configuration
-# Sets the console font, character set, keymap, and other terminal behaviors
+# ============================================================================
+#
+# This file configures the Linux console (TTY) properties, including fonts,
+# keyboard layouts (keymaps), character encoding, and display behavior.
+#
+# Self-documenting: All variables are resolved with safe defaults derived from
+# the schema to prevent rendering errors or unintended configuration drift.
+# ============================================================================
 
-# Font to use for the console (e.g., 'Lat2-Terminus16', 'VGA8x16')
-FONTFACE="{{ fontface }}"
+# ---------------------------------------------------------------------------
+# FONT CONFIGURATION
+# ---------------------------------------------------------------------------
 
-# Font size (points); must match the font (e.g., '16', '14', '8x16')
-FONTSIZE="{{ fontsize }}"
+# Font to use for the console.
+# Description: Console font face name (e.g., 'Lat2-Terminus16', 'VGA8x16', 'Fixed')
+# Default: Lat2-Terminus16
+FONTFACE="{{ fontface | default('Lat2-Terminus16') }}"
 
-# Character encoding for the console (e.g., 'UTF-8', 'ISO-8859-1')
-CODEPAGE="{{ codepage }}"
+# Font size in points or 'WxH' format.
+# Description: Font size in points or 'WxH' format (e.g., '16', '8x16'). Must match the selected font.
+# Default: 16
+FONTSIZE="{{ fontsize | default('16') }}"
 
-# Keyboard layout (e.g., 'us', 'de', 'fr-latin1')
-KEYMAP="{{ keymap }}"
+# Character encoding used on the console.
+# Description: Character encoding used on the console (e.g., 'UTF-8', 'ISO-8859-1', 'CP850')
+# Default: UTF-8
+CODEPAGE="{{ codepage | default('UTF-8') }}"
 
-# Optional: Combine keymap with a variant (e.g., 'dvorak', 'colemak')
-# Leave empty to use the default variant of the keymap
+# ---------------------------------------------------------------------------
+# KEYBOARD CONFIGURATION (KEYMAP)
+# ---------------------------------------------------------------------------
+
+# Keyboard layout identifier.
+# Description: Keyboard layout identifier (e.g., 'us', 'de', 'fr', 'uk').
+# Default: us
+KEYMAP="{{ keymap | default('us') }}"
+
+# Keyboard layout variant.
+# Description: Keyboard layout variant (e.g., 'dvorak', 'colemak', 'intl'). Leave empty for default variant.
+# Default: (empty)
+# Note: An empty string means the default variant for the selected keymap is used.
 VARIANT="{{ variant | default('') }}"
 
-# Optional: Compose key behavior (e.g., 'RightAlt' for Compose on Right Alt)
+# Compose key.
+# Description: Key to use as Compose (e.g., 'RightAlt', 'CapsLock'). Leave empty to disable.
+# Default: (empty)
+# Note: An empty string disables the compose key functionality.
 COMPOSE_KEY="{{ compose_key | default('') }}"
 
-# Terminal type reported to applications
+# ---------------------------------------------------------------------------
+# TERMINAL & DISPLAY BEHAVIOR
+# ---------------------------------------------------------------------------
+
+# Terminal type string (TERM).
+# Description: Terminal type string (TERM) reported to applications (e.g., 'linux', 'xterm', 'vt220').
+# Default: linux
 TERMTYPE="{{ termtype | default('linux') }}"
 
-# Enable or disable spurious keymap warnings
-# Set to 'false' to silence warnings about missing keymap files
+# Keymap warning control.
+# Description: Set to 'true' to enable warnings for missing keymap files, or 'false' to silence them.
+# Default: false
+# Note: Useful for debugging, but 'false' is preferred for production stability.
 WARN_ABOUT_MISSING_KEYMAP="{{ warn_about_missing_keymap | default('false') }}"
 
-# Optional: Additional font paths (colon-separated)
-# If empty, defaults to standard system font directories
+# Additional font search paths.
+# Description: Colon-separated list of additional font directories (e.g., '/usr/share/fonts/:/usr/local/share/fonts/').
+# Default: (empty)
+# Note: If empty, the system uses standard locations only.
 FONTPATHS="{{ fontpaths | default('') }}"
 
-# Optional: Enable Unicode fallback for missing glyphs (true/false)
+# Unicode glyph fallback.
+# Description: Set to 'true' to enable Unicode fallback rendering for missing glyphs, or 'false' to disable.
+# Default: true
+# Note: Improves display of mixed-script text when the primary font lacks glyphs.
 UNICODE_FALLBACK="{{ unicode_fallback | default('true') }}"
 
-# Optional: Enable screen blanking after INACTIVE_MINUTES of inactivity
-# Set to 0 to disable blanking
+# Screen blanking timeout.
+# Description: Number of minutes of inactivity before the screen blanks (0 = never blank).
+# Default: 0
+# Note: Set to 0 to disable screen blanking entirely.
 INACTIVE_MINUTES="{{ inactive_minutes | default('0') }}"
 
-# Optional: Enable or disable the boot splash (true/false)
+# Boot splash screen.
+# Description: Set to 'true' to enable the boot splash logo, or 'false' to disable it.
+# Default: true
 SPLASH="{{ splash | default('true') }}"
 
-# Optional: Enable or disable hardware cursor (true/false)
+# Hardware cursor.
+# Description: Set to 'true' to enable the hardware cursor, or 'false' to use software cursor.
+# Default: true
+# Note: Hardware cursors are generally faster but may be unsupported on some virtual terminals.
 HWCURSOR="{{ hwcursor | default('true') }}"

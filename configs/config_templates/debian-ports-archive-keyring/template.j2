@@ -1,0 +1,24 @@
+{# -----------------------------------------------------------------------------
+  # debian-ports-archive-keyring configuration
+  # Purpose: Provides the PGP public key block used by APT to authenticate
+  # the Debian Ports archive (ports.debian.org).
+  #
+  # This template renders a standard PGP Public Key Block containing base64-encoded
+  # key data lines. The resulting content is typically written to
+  # /usr/share/keyrings/debian-ports-archive-keyring.gpg or
+  # /etc/apt/trusted.gpg.d/ via Ansible, or included directly in an apt-secure
+  # source definition.
+  # ----------------------------------------------------------------------------- #}
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+{#
+  key_data: List of base64-encoded lines comprising the PGP Public Key Block.
+  Each element in the list corresponds to a line in the PGP armored output.
+  Default is an empty list to prevent rendering errors if undefined.
+#}
+{% for line in key_data | default([]) %}
+{{ line }}
+{% endfor %}
+
+-----END PGP PUBLIC KEY BLOCK-----

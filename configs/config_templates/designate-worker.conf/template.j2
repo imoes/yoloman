@@ -1,105 +1,158 @@
+# =============================================================================
+# Designate Worker Configuration Template
+# =============================================================================
+# This template configures the designate-worker service, responsible for
+# processing DNS zone updates, managing background tasks, and handling
+# worker-specific logic in an OpenStack Designate deployment.
+#
+# Variables are sourced from Ansible facts/vars. Every variable uses the
+# `default()` filter to ensure safe rendering even if a variable is unset.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# [DEFAULT] Section: Core service behavior and logging
+# ------------------------------------------------------------------------------
+
 [DEFAULT]
-# The log level for the worker
-log_level = {{ log_level }}
 
-# Hostname or IP the worker binds to
-bind_host = {{ bind_host }}
+# Logging verbosity (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_level = {{ log_level | default('INFO') }}
 
-# Port the worker listens on
-bind_port = {{ bind_port }}
+# Network interface IP or hostname to bind to
+bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# Number of worker processes to spawn
-workers = {{ workers }}
+# TCP port for incoming worker connections
+bind_port = {{ bind_port | default(9001) }}
 
-# Rate limit for API requests (per second); 0 = unlimited
-rate_limit = {{ rate_limit }}
+# Number of concurrent worker processes to spawn
+workers = {{ workers | default(1) }}
 
-# Maximum number of DNS queries per second per tenant
-max_ttl = {{ max_ttl }}
+# Maximum requests per second (0 = no limit); helps prevent abuse
+rate_limit = {{ rate_limit | default(0) }}
 
-# Default TTL for records where not specified
-default_ttl = {{ default_ttl }}
+# Maximum allowed TTL in seconds (enforced upper bound)
+# Note: Although named max_ttl, in some contexts this limits query rate limits,
+# but per schema description it is the max TTL enforcement.
+max_ttl = {{ max_ttl | default(2147483647) }}
+
+# Default TTL (in seconds) applied when not specified for records
+default_ttl = {{ default_ttl | default(3600) }}
+
+# ------------------------------------------------------------------------------
+# [storage] Section: Database backend configuration
+# ------------------------------------------------------------------------------
 
 [storage]
-# Driver for storage backend
-driver = {{ storage_driver }}
 
-# SQLAlchemy connection string for the database
-connection = {{ database_connection }}
+# Backend storage driver; typically 'sqlalchemy' or 'designate_storage_sqlalchemy'
+# This dictates how Designate persists zone and record data.
+driver = {{ storage_driver | default('sqlalchemy') }}
+
+# Database connection string (e.g., PostgreSQL or MySQL URI)
+# Connects the worker to the shared Designate database.
+# Peers providing a 'database' capability should inject their URI here if
+# the default is not overridden.
+connection = {{ database_connection | default('mysql+pymysql://designate:secret@localhost/designate?charset=utf8') }}
+
+# Time (seconds) after which DB connections are recycled to prevent stale connections
+connection_recycle_time = {{ connection_recycle_time | default(600) }}
 
 # Maximum number of database connections in the pool
-connection_recycle_time = {{ connection_recycle_time }}
+pool_size = {{ pool_size | default(10) }}
 
-# Pool size for database connections
-pool_size = {{ pool_size }}
+# Timeout (seconds) for acquiring a DB connection when the pool is exhausted
+pool_timeout = {{ pool_timeout | default(30) }}
 
-# Pool timeout for database connections
-pool_timeout = {{ pool_timeout }}
+# ------------------------------------------------------------------------------
+# [oslo_messaging] Section: Message Broker Configuration
+# ------------------------------------------------------------------------------
 
 [oslo_messaging]
-# Transport URL for message broker
-transport_url = {{ transport_url }}
 
-# Topic to listen on for RPC messages
-topic = {{ rpc_topic }}
+# Message broker connection string (e.g., RabbitMQ or Redis)
+# Used for RPC calls and notifications between Designate services.
+# Peers providing a 'message_queue' capability should inject their URL here.
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
 
-# Number of RPC workers for parallel message processing
-rpc_workers = {{ rpc_workers }}
+# Topic used for inter-service RPC communication for workers
+# Workers listen on this topic to receive zone processing tasks.
+topic = {{ rpc_topic | default('designate_worker') }}
+
+# Number of worker threads handling incoming RPC messages
+rpc_workers = {{ rpc_workers | default(1) }}
+
+# ------------------------------------------------------------------------------
+# [service:worker] Section: Worker Service Settings
+# ------------------------------------------------------------------------------
 
 [service:worker]
-# Enable or disable the service
-enabled = {{ service_worker_enabled | lower }}
 
-# Interval (seconds) between status checks
-status_period = {{ status_period }}
+# Set to false to disable the worker service entirely
+enabled = {{ service_worker_enabled | default(True) | lower }}
 
-# List of zone types this worker handles
+# Interval (seconds) between status updates (e.g., heartbeat)
+status_period = {{ status_period | default(30) }}
+
+# List of zone types (e.g., public, private) this worker processes
+# Only zones of these types will be picked up for processing.
 zone_types = [
-{% for zone_type in zone_types %}    "{{ zone_type }}"{% if not loop.last %},{% endif %}
+{% for zone_type in (zone_types | default(['public', 'private'])) %}    "{{ zone_type }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-# List of tenant IDs excluded from processing (empty = none)
+# List of tenant IDs to exclude from processing (empty = process all)
+# Useful for isolating specific projects or debugging.
 exclude_tenants = [
-{% for tenant_id in exclude_tenants %}    "{{ tenant_id }}"{% if not loop.last %},{% endif %}
+{% for tenant_id in (exclude_tenants | default([])) %}    "{{ tenant_id }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-# Maximum records per zone the worker will process
-max_records_per_zone = {{ max_records_per_zone }}
+# Maximum DNS records allowed per zone (enforcement limit)
+# Workers will refuse to process zones exceeding this count.
+max_records_per_zone = {{ max_records_per_zone | default(5000) }}
 
-# Maximum transfers to process per cycle
-max_transfers_per_cycle = {{ max_transfers_per_cycle }}
+# Maximum concurrent zone transfers processed per worker cycle
+max_transfers_per_cycle = {{ max_transfers_per_cycle | default(10) }}
 
-# Enable or disable background maintenance tasks
-background_maintenance = {{ background_maintenance | lower }}
+# Enable/disable background tasks like cleanup and consistency checks
+background_maintenance = {{ background_maintenance | default(True) | lower }}
 
-{% for pool in pools %}[pool:{{ pool.id }}]
-# Driver for this pool
-driver = {{ pool.driver }}
+# ------------------------------------------------------------------------------
+# [pool:*] Sections: DNS Server Pools
+# ------------------------------------------------------------------------------
 
-# Pool name (for reference)
-name = {{ pool.name }}
+# List of DNS server pools. Each pool defines nameservers and backend targets
+# (e.g., Bind9, PowerDNS) to which zone transfers are sent.
+{% for pool in (pools | default([{'id': 'default', 'name': 'Default Pool', 'driver': 'bind9', 'nameservers': ['ns1.example.com.'], 'targets': [{'id': 'primary', 'type': 'bind9', 'host': '127.0.0.1', 'port': 53, 'username': '', 'api_endpoint': ''}]}])) %}
+[pool:{{ pool.id }}]
+# Driver for this pool (e.g., bind9, powerdns)
+driver = {{ pool.driver | default('bind9') }}
+
+# Pool name (for reference in logs and API responses)
+name = {{ pool.name | default('Default Pool') }}
 
 # List of nameservers for this pool
 nameservers = [
-{% for ns in pool.nameservers %}    "{{ ns }}"{% if not loop.last %},{% endif %}
+{% for ns in (pool.nameservers | default(['ns1.example.com.'])) %}    "{{ ns }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
 # List of targets for this pool (e.g., bind9, pdns)
-# Target configs are defined in sub-sections
-{% for target in pool.targets %}[pool_target:{{ pool.id }}_{{ target.id }}]
+# Target configs are defined in sub-sections below
+{% for target in (pool.targets | default([{'id': 'primary', 'type': 'bind9', 'host': '127.0.0.1', 'port': 53, 'username': '', 'api_endpoint': ''}])) %}
+[pool_target:{{ pool.id }}_{{ target.id }}]
 # Type of target (e.g., 'bind9', 'pdns', 'nsd')
-type = {{ target.type }}
+type = {{ target.type | default('bind9') }}
 
-# Hostname/IP of the DNS server
-host = {{ target.host }}
+# Hostname/IP of the DNS server (backend)
+# Peers providing a 'dns_authoritative' capability should inject their host here.
+host = {{ target.host | default('127.0.0.1') }}
 
 # Port for the DNS server API (if applicable)
-port = {{ target.port }}
+# Peers providing a 'dns_authoritative' capability should inject their port here.
+port = {{ target.port | default(53) }}
 
-# Username (if required)
+# Username (if required by the target API)
 username = {{ target.username | default('') }}
 
-# API key or password
+# API key or endpoint URL for the target
 api_endpoint = {{ target.api_endpoint | default('') }}
 
 {% endfor %}{% endfor %}

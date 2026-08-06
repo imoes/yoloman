@@ -15,10 +15,6 @@ remote = {{ default_remote }}
 # Not used if `remote` points to a known named remote
 server = {{ server_url }}
 
-# Whether to use local UNIX socket instead of network (ignored if server is set)
-# Default: true
-networked = {{ networked | lower }}
-
 # Enable/disable verbose debug logging
 # Default: false
 debug = {{ debug | lower }}
@@ -41,15 +37,6 @@ auto_update = {{ auto_update_images | lower }}
 
 # List of public image servers to trust (by fingerprint)
 {% for fp in trusted_image_fingerprints %}# Fingerprint: {{ fp }}
-{% endfor %}
-
-[devices]
-# Default disk device mount options (e.g., `pool=default`, `path=/`)
-{% for dev_name, dev_config in default_disk_devices.items() %}[devices.{{ dev_name }}]
-# Mount configuration for disk device '{{ dev_name }}'
-path = {{ dev_config.path }}
-source = {{ dev_config.source }}
-{% if dev_config.pool is defined %}pool = {{ dev_config.pool }}{% endif %}
 {% endfor %}
 
 [profiles]

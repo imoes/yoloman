@@ -1,0 +1,24 @@
+# dhcpdump configuration
+# This template configures the dhcpdump utility for capturing and analyzing DHCP traffic.
+# It generates command-line arguments. One source (interface or pcap file) is required.
+
+# Network interface to listen on (e.g., eth0); mutually exclusive with pcapfile
+# If no interface is specified and no pcapfile is provided, dhcpdump may fail or require manual input.
+# The interface name is trimmed of surrounding whitespace to ensure valid argument passing.
+-i {{ (interface | default('') | trim) }}
+
+# Path to pcap file to read; mutually exclusive with interface
+# Use this for offline analysis of captured traffic instead of live sniffing.
+# The path is trimmed to remove accidental whitespace.
+-r {{ (pcapfile | default('') | trim) }}
+
+# Regular expression to filter Client Hardware Addresses (CHADDR)
+# Only DHCP packets matching this regex will be displayed.
+# The filter expression is trimmed.
+-h {{ (hostname_filter | default('') | trim) }}
+
+# Show full packet hex dump
+# When enabled, prints the full hex dump of each packet for deep inspection.
+{% if full_hex_dump | default(false) | bool %}
+-H
+{% endif %}

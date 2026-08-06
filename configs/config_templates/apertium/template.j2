@@ -1,0 +1,62 @@
+# apertium configuration file
+# This template configures the Apertium machine translation tool.
+# It manages data directories, input formats, marking behaviors,
+# translation memory, language pairs, and file I/O.
+
+# Directory containing linguistic data files (e.g., modes.xml, .autobil.bin)
+# Default: /usr/local/share/apertium
+datadir {{ datadir | default('/usr/local/share/apertium') }}
+
+# Input/output format: txt, html, html-noent, or rtf
+# Default: txt
+format {{ format | default('txt') }}
+
+# Enable marking of unknown words with '*' character.
+# true (default) = enabled (marked with '*')
+# false = disabled (use -u flag)
+{% if not (unknown_mark | default(true)) %}
+# -u: Disable unknown word marking
+{% endif %}
+
+# Enable marking of disambiguated words with '=' character.
+# true = enabled (marked with '=')
+# false (default) = disabled
+{% if (disambig_mark | default(false)) %}
+# -a: Enable disambiguated word marking
+{% endif %}
+
+# Enable header-detection (only for language pairs that support it).
+# true = enabled
+# false (default) = disabled
+{% if (header_detect | default(false)) %}
+# -H: Enable header detection
+{% endif %}
+
+# Path to translation memory file (e.g., /path/to/memory.tmx).
+# If empty or undefined, no translation memory is used.
+{% if (translation_memory | default('')) %}
+tmx {{ translation_memory | default('') }}
+{% endif %}
+
+# List of language pairs in LANG1-LANG2 format (e.g., ['es-ca', 'ca-es']).
+# Required for translation to work.
+{% for pair in (language_pairs | default([])) %}
+{{ pair }}
+{% endfor %}
+
+# Input file path; empty string uses stdin (default).
+{% if (input_file | default('')) %}
+{{ input_file | default('') }}
+{% endif %}
+
+# Output file path; empty string uses stdout (default).
+{% if (output_file | default('')) %}
+{{ output_file | default('') }}
+{% endif %}
+
+# Use translation memory direction; true = use 'direction' as lookup key.
+# true = enabled
+# false (default) = disabled
+{% if (memory_direction | default(false)) %}
+# -d: Use translation memory direction
+{% endif %}

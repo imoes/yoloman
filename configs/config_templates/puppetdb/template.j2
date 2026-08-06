@@ -1,70 +1,14 @@
-# Main configuration directory for PuppetDB
-# This directory contains INI-style config files (typically `conf.d/*.ini`)
-# Below is a canonical template for the `config.ini` file, which controls core PuppetDB behavior.
+#!/usr/bin/env ruby
+# PuppetDB init script
+#
+# This is the default configuration used when installing PuppetDB via the
+# Puppet Labs package repositories. It is *not* intended to be edited
+# directly.
+#
+# To override settings, create a file named puppetdb.ini in the same
+# directory as this script and define your overrides there.
+#
+# See the PuppetDB documentation for more information.
 
-# Database backend type: currently only 'postgresql' is supported
-[database]
-type = {{ db_type }}
-
-# PostgreSQL connection settings
-host = {{ db_host }}
-port = {{ db_port }}
-name = {{ db_name }}
-user = {{ db_user }}
-password = {{ db_password }}
-
-# SSL settings (optional: set to 'true' to enable)
-ssl = {{ db_ssl }}
-ssl-cert = {{ db_ssl_cert }}
-ssl-key = {{ db_ssl_key }}
-ssl-ca-cert = {{ db_ssl_ca_cert }}
-
-# JVM options (memory, GC, etc.)
-[jetty]
-# Host and port for the HTTP endpoint
-host = {{ http_host }}
-port = {{ http_port }}
-
-# HTTPS endpoint (optional: comment out to disable)
-{% if https_enabled %}
-https-host = {{ https_host }}
-https-port = {{ https_port }}
-ssl-key = {{ https_ssl_key }}
-ssl-cert = {{ https_ssl_cert }}
-ssl-ca-cert = {{ https_ssl_ca_cert }}
-{% endif %}
-
-# Request timeouts and limits
-request-timeout = {{ request_timeout }}
-max-connection-pool-size = {{ max_connection_pool_size }}
-
-# Metrics and logging
-[metrics]
-# Enable Prometheus-style metrics endpoint
-prometheus-enabled = {{ metrics_prometheus_enabled }}
-
-# Log level: :debug, :info, :warn, :error, :fatal
-[log]
-level = {{ log_level }}
-
-# HA / replication settings (only for distributed deployments)
-[ha]
-enabled = {{ ha_enabled }}
-
-# Query processor tuning
-[query]
-# Number of worker threads for query processing
-workers = {{ query_workers }}
-max-queue-size = {{ query_max_queue_size }}
-
-# Node expiration (in seconds)
-[node-expiration]
-# Age at which inactive nodes are auto-archived
-node-purge-ttl = {{ node_purge_ttl }}
-
-# GC tuning for old data (catalog/fact purging)
-[gc]
-# Interval between garbage collection runs (in seconds)
-interval = {{ gc_interval }}
-# Max age of fact data before purging (in seconds)
-fact-purge-ttl = {{ fact_purge_ttl }}
+# Memory and JVM options
+JAVA_ARGS="{{ java_args }}"

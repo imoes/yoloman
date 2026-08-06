@@ -1,67 +1,129 @@
-# Use sandboxed (restricted) mode for enhanced security
+# Chrony Sandbox Configuration Template
+# This template configures chronyd in a restricted "sandbox" mode for enhanced security.
+# In this mode, the daemon binds only to localhost for both NTP traffic and command
+# administration, preventing external access unless explicitly opened (which contradicts
+# the sandbox philosophy).
+
+# Enable sandboxed (restricted) mode for enhanced security
+# This restricts chronyd to localhost bindings and prevents it from
+# acting as a general-purpose time source for the network.
 sandbox
 
 # Allow chronyd to bind to privileged port only from localhost
-bindcmdaddress 127.0.0.1
+# This restricts command-line control (chronyc) to local processes.
+# Default: 127.0.0.1
+bindcmdaddress {{ bindcmdaddress | default('127.0.0.1') }}
 
 # Listen for NTP requests only on localhost (sandboxed mode)
-bindaddress 127.0.0.1
+# Ensures no external hosts can query this server for time.
+# Default: 127.0.0.1
+bindaddress {{ bindaddress | default('127.0.0.1') }}
 
-# Specify time sources (server/peer lines — each as an object in servers list)
-{% for server in servers %}# NTP server {{ server.name | default('server-' + loop.index) }}
-{% if server.pool %}pool {{ server.host }} {{ server.options | join(' ') }}
-{% else %}server {{ server.host }} {{ server.options | join(' ') }}
-{% endif %}{% endfor %}
+# Specify time sources (server/peer lines)
+# Each entry in the `servers` list defines an NTP server or pool.
+# The `host` field is mandatory. The `options` field is an optional list of
+# flags (e.g., 'iburst', 'prefer', 'burst').
+# If a server entry contains a 'pool' key (true), it renders as a 'pool' directive.
+# Otherwise, it renders as a 'server' directive.
+{% for server in servers | default([{'host': '0.pool.ntp.org', 'options': ['iburst', 'prefer']}, {'host': '1.pool.ntp.org', 'options': ['iburst']}]) %}
+# NTP server {{ server.host | default('unknown') }}
+{% if server.pool | default(false) %}
+# This is configured as a pool
+pool {{ server.host | default('') }} {{ server.options | default([]) | join(' ') }}
+{% else %}
+# This is configured as a server
+server {{ server.host | default('') }} {{ server.options | default([]) | join(' ') }}
+{% endif %}
+{% endfor %}
 
 # Allow specific clients (if any) — each client object defines access rules
-{% for client in clients %}# Client access rule: {{ client.name | default('client-' + loop.index) }}
-allow {{ client.subnet }}
+# This section is typically empty in strict sandboxed mode, but included
+# if explicit allow rules are provided in the `clients` variable.
+{% for client in clients | default([]) %}
+# Client access rule: {{ client.name | default('client-' + loop.index) }}
+allow {{ client.subnet | default('0.0.0.0/0') }}
 {% endfor %}
 
 # Logging configuration
-{% if logging.file %}log {{ logging.file }}
+# Controls where chronyd logs its status and changes.
+{% if logging | default({}) %}
+{% if logging.file | default(false) %}
+# Log to a specific file
+log {{ logging.file | default('/var/log/chrony/chrony.log') }}
 {% endif %}
-logdir {{ logging.dir }}
-{% for level in logging.levels %}log changes {{ level | lower }}
+# Log directory
+# Default: /var/log/chrony
+logdir {{ logging.dir | default('/var/log/chrony') }}
+{% if logging.levels | default([]) %}
+# Log levels to record (e.g., 'packets', 'statistics', 'measurements')
+{% for level in logging.levels | default([]) %}
+log changes {{ level | lower }}
 {% endfor %}
-
-# Drift file and RTC settings (fixed paths for sandboxed mode)
-driftfile /var/lib/chrony/chrony.drift
-rtconutc
-rtcfile /var/lib/chrony/chrony.rtc
-
-# Key and command key files (sandboxed-safe locations)
-keyfile /etc/chrony/chrony.keys
-commandkey 1
-
-# Enable leap smearing if configured
-{% if leapsecmode %}leapsecmode {{ leapsecmode }}
 {% endif %}
-{% if leapseconds %}leapsectz {{ leapseconds.timezone | default('UTC') }}
 {% endif %}
 
-# Initial synchronization (sandboxed: prefer trusted sources)
-initsteps {{ initsteps | join(' ') }}
+# Drift file and RTC settings
+# Path to the file storing the frequency offset of the system clock.
+# Default: /var/lib/chrony/chrony.drift
+driftfile {{ driftfile | default('/var/lib/chrony/chrony.drift') }}
+
+# Key and command key files
+# Path to the file containing keys for authenticated commands.
+# Default: /etc/chrony/chrony.keys
+keyfile {{ keyfile | default('/etc/chrony/chrony.keys') }}
+
+# Initial synchronization
+# Specifies the step size or behavior during the first synchronization.
+# Note: The original template used `initsteps` which is not a standard
+# chrony directive. This is likely a typo for `initsteps` (non-existent)
+# or intended to be `makestep` behavior or `logoscale`.
+# Assuming this was intended to pass arguments to a hypothetical init script
+# or is a custom extension, we render it as a comment or raw output if strictly required,
+# but standard chrony does not have `initsteps`.
+# If this is a custom wrapper directive, we output it literally.
+# However, per strict chrony syntax, this line is likely invalid.
+# We will treat it as a custom directive if the variable is provided, otherwise skip.
+{% if initsteps | default([]) %}
+# Custom initialization steps (non-standard directive)
+initsteps {{ initsteps | default([]) | join(' ') }}
+{% endif %}
 
 # Make step on initial sync only if offset > threshold
-makestep {{ makestep.threshold | default(1.0) }} {{ makestep.threshold | default(1.0) > 0 and 'true' or 'false' }}
+# If the clock offset is larger than this value (in seconds), chrony will
+# step the clock immediately instead of slewing it.
+# Default threshold: 1.0, Default limit: 3600 10
+makestep {{ (makestep | default({})).threshold | default(1.0) }} {{ (makestep | default({})).limit | default('3600 10') }}
 
-# Performance tuning (sandboxed: conservative)
-maxsamples {{ maxsamples | default(10) }}
+# Performance tuning
+# Maximum number of samples to consider for updating the system clock.
+# Default: 5
+maxsamples {{ maxsamples | default(5) }}
+
+# Minimum number of samples to consider for updating the system clock.
+# Note: Schema used `minsamples` in description but `minsamples` might be a typo
+# for the variable `minsamples`. We check for `minsamples` or fallback.
+# Default: 3
 minsamples {{ minsamples | default(3) }}
 
 # Allow fallback to broadcast/multicast (disabled in sandboxed mode)
+# These directives prevent the daemon from listening for or sending broadcast/multicast NTP.
 nobroadcast
 nomcast
 
-# Hardware timestamping (sandboxed: off by default)
-{% if enable_hwtimestamp %}hwtimestamp *
+# Hardware timestamping
+# Enable hardware timestamping for all interfaces if requested.
+{% if enable_hwtimestamp | default(false) %}
+hwtimestamp *
 {% endif %}
 
-# NTPsec compatibility (sandboxed: prefer legacy mode unless explicitly enabled)
-{% if ntpsec_compatible %}ntpsec
+# NTPsec compatibility
+# Enable NTPsec compatibility mode (disables some chrony-specific features).
+{% if ntpsec_compatible | default(false) %}
+ntpsec
 {% endif %}
 
 # Source reliability tuning
+# Maximum distance (in seconds) a source can be from the correct time
+# before it is considered unreliable.
+# Default: 16.0
 maxdistance {{ maxdistance | default(16.0) }}
-crypto proof

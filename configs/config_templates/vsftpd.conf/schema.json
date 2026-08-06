@@ -1,17 +1,17 @@
 {
   "anonymous_enable": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Allow anonymous FTP logins. Only enable if public file sharing is needed."
   },
   "local_enable": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Allow local system users to log in via FTP."
   },
   "write_enable": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Allow FTP write operations (uploads, deletes, renames). Disable for read-only FTP."
   },
   "anon_upload_enable": {
@@ -19,24 +19,29 @@
     "default": false,
     "description": "Allow anonymous users to upload files. Requires write_enable and proper directory permissions."
   },
+  "anon_upload_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Directory for anonymous uploads. Required for anon_upload_enable to take effect. Must be writable by the 'ftp' user."
+  },
   "anon_root": {
     "type": "string",
-    "default": "/var/ftp",
+    "default": "",
     "description": "Directory to serve as root for anonymous users. Must exist and be owned by 'ftp'."
   },
   "local_root": {
     "type": "string",
-    "default": "$USER",
+    "default": "",
     "description": "Root directory for local users after login. Use '$USER' for per-user home-based isolation."
   },
   "chroot_local_user": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Chroot local users to their home directories for security. Prevents filesystem escape."
   },
   "chroot_list_file": {
     "type": "string",
-    "default": "/etc/vsftpd/chroot_list",
+    "default": "/etc/vsftpd.chroot_list",
     "description": "Path to file containing users who should *not* be chrooted (if chroot_local_user=YES)."
   },
   "chroot_list_enable": {
@@ -51,17 +56,17 @@
   },
   "pasv_min_port": {
     "type": "number",
-    "default": 10090,
-    "description": "Minimum port in the passive port range. Ensure firewall allows this range."
+    "default": 0,
+    "description": "Minimum port in the passive port range. Ensure firewall allows this range. 0 = any port."
   },
   "pasv_max_port": {
     "type": "number",
-    "default": 10100,
-    "description": "Maximum port in the passive port range. Must be \u2265 pasv_min_port."
+    "default": 0,
+    "description": "Maximum port in the passive port range. Must be \u2265 pasv_min_port. 0 = any port."
   },
   "listen": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Run vsftpd in standalone mode (listening directly on ports)."
   },
   "listen_address": {
@@ -76,7 +81,7 @@
   },
   "xferlog_enable": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Log file transfers (uploads/downloads) to xferlog_file."
   },
   "xferlog_file": {
@@ -96,7 +101,7 @@
   },
   "local_umask": {
     "type": "string",
-    "default": "022",
+    "default": "077",
     "description": "Umask for local users' uploaded files (e.g., '022' \u2192 files 644, dirs 755)."
   },
   "anon_umask": {
@@ -106,7 +111,7 @@
   },
   "virtual_user_config_dir": {
     "type": "string",
-    "default": "/etc/vsftpd/virtual_users",
+    "default": "",
     "description": "Directory for per-virtual-user config files (used when guest_enable=YES)."
   },
   "guest_enable": {
@@ -116,12 +121,12 @@
   },
   "guest_username": {
     "type": "string",
-    "default": "virtual",
+    "default": "ftp",
     "description": "System user to map virtual users to (must exist)."
   },
   "user_sub_token": {
     "type": "string",
-    "default": "$USER",
+    "default": "",
     "description": "Token used to substitute virtual usernames in paths (e.g., /home/vsftpd/$USER)."
   },
   "pam_service_name": {
@@ -136,35 +141,17 @@
   },
   "user_config_dir": {
     "type": "string",
-    "default": "/etc/vsftpd/user_conf",
+    "default": "",
     "description": "Directory containing per-user config files (named by username)."
   },
   "virtual_users": {
     "type": "object",
-    "default": {},
-    "description": "Virtual users and their per-user settings. Each key is a virtual username, value is a dict of config keys.",
-    "items": {
-      "type": "object",
-      "description": "Per-virtual-user configuration",
-      "properties": {
-        "local_root": {
-          "type": "string",
-          "description": "Root directory for this user (override global local_root)."
-        },
-        "write_enable": {
-          "type": "bool",
-          "description": "Allow write operations for this user only."
-        },
-        "anon_world_readable_only": {
-          "type": "bool",
-          "description": "Restrict anonymous permissions to world-readable files."
-        }
-      }
-    }
+    "default": "",
+    "description": "Virtual users and their per-user settings. Each key is a virtual username, value is a dict of config keys. Only relevant when guest_enable=YES and user_sub_token is set."
   },
   "ssl_enable": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Enable FTP over SSL/TLS (FTPS). Strongly recommended for production."
   },
   "allow_ssl": {
@@ -174,13 +161,13 @@
   },
   "rsa_cert_file": {
     "type": "string",
-    "default": "/etc/ssl/certs/vsftpd.pem",
+    "default": "/usr/share/ssl/certs/vsftpd.pem",
     "description": "Path to SSL certificate (PEM format)."
   },
   "rsa_private_key_file": {
     "type": "string",
-    "default": "/etc/ssl/private/vsftpd.key",
-    "description": "Path to SSL private key (PEM format)."
+    "default": "",
+    "description": "Path to SSL private key (PEM format). If not set, the private key is expected to be in the same file as the certificate."
   },
   "ssl_protocols": {
     "type": "string",
@@ -189,13 +176,17 @@
   },
   "ssl_ciphers": {
     "type": "string",
-    "default": "HIGH:MEDIUM:!aNULL:!MD5",
+    "default": "DES-CBC3-SHA",
     "description": "Cipher suites to permit. Restrict to strong ciphers (e.g., AES-GCM, ChaCha20)."
   },
   "ssl_session_cache": {
     "type": "string",
-    "default": "enabled",
-    "description": "SSL session cache behavior: 'enabled', 'disabled', or 'cache_size:timeout'."
+    "default": "",
+    "description": "SSL session cache behavior: 'enabled', 'disabled', or 'cache_size:timeout'.",
+    "enum": [
+      "enabled",
+      "disabled"
+    ]
   },
   "require_ssl": {
     "type": "bool",
@@ -219,17 +210,17 @@
   },
   "data_connection_timeout": {
     "type": "number",
-    "default": 120,
+    "default": 300,
     "description": "Timeout for idle data connections (in seconds)."
   },
   "max_clients": {
     "type": "number",
-    "default": 2000,
+    "default": 0,
     "description": "Maximum number of simultaneous clients. Set to 0 for unlimited."
   },
   "max_per_ip": {
     "type": "number",
-    "default": 10,
+    "default": 0,
     "description": "Maximum clients allowed per IP address."
   },
   "anon_max_rate": {

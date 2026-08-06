@@ -1,27 +1,31 @@
-# Enable logging of boot messages
-# (set to 'yes' to enable boot logging)
-BOOTLOGD_ENABLE={{ bootlogd_enable | string | lower }}
+# ==============================================================================
+# bootlogd_daemon configuration
+# ==============================================================================
+# This template generates the configuration file for the bootlogd daemon.
+# bootlogd captures kernel and init messages during the system boot process
+# before the full logging infrastructure (like rsyslog or journald) is fully
+# operational or configured.
 
-# Log file location
-LOGFILE={{ bootlogd_logfile }}
+# ------------------------------------------------------------------------------
+# bootlogd_enable: Enable the boot logging daemon to capture messages during system startup.
+# Values are 'yes' or 'no'.
+# ------------------------------------------------------------------------------
+BOOTLOGD_ENABLE={{ bootlogd_enable | default(true) | ternary('yes', 'no') }}
 
-# Log to syslog (true/false)
-LOG_TO_SYSLOG={{ bootlogd_log_to_syslog | string | lower }}
+# ------------------------------------------------------------------------------
+# bootlogd_logfile: Path to the file where boot messages will be logged.
+# This file is created by bootlogd if it does not exist.
+# ------------------------------------------------------------------------------
+LOGFILE={{ bootlogd_logfile | default('/var/log/boot') }}
 
-# Verbose mode: include timestamps and process IDs
-VERBOSE={{ bootlogd_verbose | string | lower }}
+# ------------------------------------------------------------------------------
+# bootlogd_log_to_syslog: If enabled, also send boot messages to syslog (e.g., systemd-journald).
+# Values are 'yes' or 'no'.
+# ------------------------------------------------------------------------------
+LOG_TO_SYSLOG={{ bootlogd_log_to_syslog | default(false) | ternary('yes', 'no') }}
 
-# Suppress duplicate lines (true/false)
-SUPPRESS_DUPS={{ bootlogd_suppress_dups | string | lower }}
-
-# Delay before starting log (seconds)
-DELAY={{ bootlogd_delay }}
-
-# Extra options passed to bootlogd command-line
-EXTRA_OPTS="{{ bootlogd_extra_opts | join(' ') }}"
-
-# Additional post-boot actions (commands executed after boot logging starts)
-{% for action in bootlogd_post_boot_actions %}
-# {{ action.description }}
-POST_BOOT_{{ loop.index }}="{{ action.command }}"
-{% endfor %}
+# ------------------------------------------------------------------------------
+# bootlogd_extra_opts: Additional command-line arguments passed directly to bootlogd
+# (e.g., `-f` for forced overwrite, `-q` for quiet). Items are strings.
+# ------------------------------------------------------------------------------
+EXTRA_OPTS="{{ bootlogd_extra_opts | default([]) | join(' ') }}"

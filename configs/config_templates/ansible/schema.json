@@ -6,7 +6,7 @@
   },
   "remote_user": {
     "type": "string",
-    "default": "root",
+    "default": "",
     "description": "Default remote user Ansible connects as (can be overridden per host/group)."
   },
   "host_key_checking": {
@@ -26,7 +26,7 @@
   },
   "interpreter_python": {
     "type": "string",
-    "default": "auto",
+    "default": "auto_silent",
     "description": "Python interpreter to use on remote hosts. Use 'auto' or 'auto_silent' for automatic detection."
   },
   "fact_caching_enabled": {
@@ -46,10 +46,7 @@
   },
   "roles_path": {
     "type": "list",
-    "item_type": "string",
-    "default": [
-      "/etc/ansible/roles"
-    ],
+    "default": [],
     "description": "List of directories to search for roles (local development roles)."
   },
   "log_path": {
@@ -59,19 +56,12 @@
   },
   "library_path": {
     "type": "list",
-    "item_type": "string",
-    "default": [
-      "/usr/share/ansible"
-    ],
+    "default": [],
     "description": "List of directories to search for custom modules."
   },
   "callbacks_enabled": {
     "type": "list",
-    "item_type": "string",
-    "default": [
-      "profile_tasks",
-      "timer"
-    ],
+    "default": [],
     "description": "List of callback plugins to enable by default (e.g., 'profile_tasks', 'log_plays')."
   },
   "retry_files_enabled": {
@@ -89,11 +79,6 @@
     "default": "smart",
     "description": "How facts are gathered: 'smart' (only missing), 'explicit' (when requested), or 'implicit' (always)."
   },
-  "sudo_user": {
-    "type": "string",
-    "default": "root",
-    "description": "User to sudo to (legacy; prefer using become instead)."
-  },
   "become": {
     "type": "bool",
     "default": false,
@@ -102,7 +87,11 @@
   "become_method": {
     "type": "string",
     "default": "sudo",
-    "description": "Privilege escalation method to use (sudo, su, pbrun, pfexec, doas, dzdo, ksu, runas)."
+    "description": "Privilege escalation method to use (sudo, su, pbrun, pfexec, doas, dzdo, ksu, runas).",
+    "enum": [
+      "sudo",
+      "su"
+    ]
   },
   "become_user": {
     "type": "string",
@@ -113,11 +102,6 @@
     "type": "bool",
     "default": false,
     "description": "Prompt for SSH password (instead of using keys)."
-  },
-  "ask_sudo_pass": {
-    "type": "bool",
-    "default": false,
-    "description": "Prompt for sudo password (legacy; prefer ask_become_pass)."
   },
   "ask_become_pass": {
     "type": "bool",
@@ -133,11 +117,6 @@
     "type": "bool",
     "default": true,
     "description": "Whether to show deprecation warnings for outdated features."
-  },
-  "show_custom_config": {
-    "type": "bool",
-    "default": false,
-    "description": "Show all effective config values (including defaults) on startup."
   },
   "transport": {
     "type": "string",
@@ -156,7 +135,7 @@
   },
   "additional_host_patterns": {
     "type": "object",
-    "default": {},
+    "default": [],
     "description": "Custom per-pattern configuration (e.g., for specific host groups like [webservers]). Keys are host patterns; values are dictionaries of key=value pairs."
   },
   "sudo_command": {
@@ -164,20 +143,40 @@
     "default": "sudo -H -S -n %s",
     "description": "Command template for sudo privilege escalation (legacy)."
   },
-  "ssh_connection_ssh_args": {
+  "su_command": {
     "type": "string",
-    "default": "-o ControlMaster=auto -o ControlPersist=60s",
-    "description": "SSH arguments specific to the ssh_connection section (may override top-level ssh_args)."
+    "default": "su - %s",
+    "description": "Command template for su privilege escalation."
   },
-  "ssh_connection_control_path": {
+  "pbrun_command": {
     "type": "string",
-    "default": "%(directory)s/ansible-ssh-%%h-%%p-%%r",
-    "description": "ControlPath template for SSH connection reuse (set to empty to disable)."
+    "default": "pbrun -u %s %s",
+    "description": "Command template for pbrun privilege escalation."
   },
-  "ssh_connection_control_path_dir": {
+  "pfexec_command": {
     "type": "string",
-    "default": "~/.ansible/cp",
-    "description": "Directory to store SSH connection sockets when control path is enabled."
+    "default": "pfexec %s",
+    "description": "Command template for pfexec privilege escalation."
+  },
+  "doas_command": {
+    "type": "string",
+    "default": "doas %s",
+    "description": "Command template for doas privilege escalation."
+  },
+  "dzdo_command": {
+    "type": "string",
+    "default": "dzdo %s",
+    "description": "Command template for dzdo privilege escalation."
+  },
+  "ksu_command": {
+    "type": "string",
+    "default": "ksu -l %s -c %s",
+    "description": "Command template for ksu privilege escalation."
+  },
+  "runas_command": {
+    "type": "string",
+    "default": "runas -u %s %s",
+    "description": "Command template for runas privilege escalation."
   },
   "pipelining": {
     "type": "bool",
@@ -189,11 +188,6 @@
     "default": 15,
     "description": "Seconds between keepalive messages to prevent SSH timeouts."
   },
-  "ssh_keepalive_timeout": {
-    "type": "number",
-    "default": 25,
-    "description": "Timeout in seconds before consider keepalive as failed."
-  },
   "sftp_batch_mode": {
     "type": "bool",
     "default": true,
@@ -202,14 +196,11 @@
   "galaxy_server": {
     "type": "string",
     "default": "https://galaxy.ansible.com",
-    "description": "Default Galaxy server URL for role installation."
+    "description": "Default Galaxy server URL for role/collection installation."
   },
   "galaxy_roles_path": {
     "type": "list",
-    "item_type": "string",
-    "default": [
-      "/etc/ansible/roles"
-    ],
+    "default": [],
     "description": "List of directories to search for installed Galaxy roles."
   },
   "galaxy_ignore_certs": {
@@ -217,26 +208,10 @@
     "default": false,
     "description": "Skip SSL certificate validation for Galaxy connections (not recommended)."
   },
-  "galaxy_require_signature_to_publish": {
-    "type": "bool",
-    "default": false,
-    "description": "Require GPG signatures for all published roles on Galaxy."
-  },
-  "galaxy_allow_unsigned": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow installation of unsigned roles from Galaxy."
-  },
   "galaxy_servers_list": {
     "type": "object",
-    "default": {},
-    "description": "Dictionary of named Galaxy server entries. Keys are server names; values are objects with: url (required), username, password, token."
-  },
-  "callback_whitelist": {
-    "type": "list",
-    "item_type": "string",
     "default": [],
-    "description": "Deprecated list of callback plugins (use callbacks_enabled instead)."
+    "description": "Dictionary of named Galaxy server entries. Keys are server names; values are objects with: url (required), username, token."
   },
   "diff_context": {
     "type": "number",
@@ -247,10 +222,5 @@
     "type": "bool",
     "default": false,
     "description": "Always show diffs (even on success) for tasks that support it."
-  },
-  "colors": {
-    "type": "object",
-    "default": {},
-    "description": "Override ANSI colors used in terminal output (e.g., {ok: 'green', changed: 'yellow', unreachable: 'red'})."
   }
 }

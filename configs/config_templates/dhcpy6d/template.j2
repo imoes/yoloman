@@ -1,70 +1,45 @@
-# dhcpy6d configuration file — MAC-aware DHCPv6 server
-# Server-wide settings
-[server]
-# Interface to bind the server to
-interface = {{ interface }}
-# IPv6 address the server listens on
-listen_address = {{ listen_address }}
-# Port for DHCPv6 (default: 546)
-port = {{ port }}
-# Enable logging to syslog
-syslog = {{ syslog | lower }}
-# Maximum number of concurrent requests (0 = unlimited)
-max_requests = {{ max_requests }}
+# dhcpy6d configuration template
+# This file configures the DHCPv6 server dhcpy6d.
+# It manages IPv6 address allocation, primarily for link-local addresses (LLIP).
 
-# Client classification and MAC mapping
-[clients]
-# Directory containing client configuration files (e.g., per-host overrides)
-config_dir = {{ config_dir }}
-# Enable MAC-based client identification
-mac_lookup = {{ mac_lookup | lower }}
-# Optional LDAP URI for MAC-to-identity mapping (e.g., ldap://ldap.example.com/dc=example,dc=com?macAddress?sub?(objectClass=macDevice))
-ldap_url = {{ ldap_url | default('') }}
-# LDAP bind DN (if auth required)
-ldap_bind_dn = {{ ldap_bind_dn | default('') }}
-# LDAP bind password (preferably use ldap_bind_secret_file)
-ldap_bind_password = {{ ldap_bind_password | default('') }}
-# File containing LDAP bind password (read-only, 0600)
-ldap_bind_secret_file = {{ ldap_bind_secret_file | default('') }}
-# LDAP MAC attribute (default: macAddress)
-ldap_mac_attr = {{ ldap_mac_attr }}
+[dhcpy6d]
+# Interface to listen to multicast DHCPv6 traffic (ff02::1:2).
+# Specifies the network interface on which dhcpy6d will listen for DHCPv6 requests.
+interface = {{ interface | default('eth0') }}
 
-# Address pools and allocation
-[addresses]
-# Default lease time (seconds)
-default_lease_time = {{ default_lease_time }}
-# Maximum lease time (seconds)
-max_lease_time = {{ max_lease_time }}
-# DNS servers to advertise
-dns_servers = {{ dns_servers | join(', ') }}
-# Domain search list
-domain_search = {{ domain_search | join(', ') }}
-# NTP servers to advertise (optional)
-ntp_servers = {{ ntp_servers | join(', ') }}
+# Do not identify and configure clients via persistent storage.
+# Set to 'none' to avoid writing client configuration data to disk.
+store_config = none
 
-{% for pool in pools %}
-# Pool: {{ pool.name }}
-# Network prefix and size (CIDR notation)
-pool{{ loop.index }}_prefix = {{ pool.prefix }}
-# Start IPv6 address (inclusive)
-pool{{ loop.index }}_start = {{ pool.start }}
-# End IPv6 address (inclusive)
-pool{{ loop.index }}_end = {{ pool.end }}
-# Optional static reservation for known MACs (e.g., 52:54:00:12:34:56 -> 2001:db8::100)
-{% if pool.static_reservations %}pool{{ loop.index }}_static_reservations =
-{% for mac, addr in pool.static_reservations.items() %}  {{ mac }} -> {{ addr }}
-{% endfor %}{% else %}pool{{ loop.index }}_static_reservations =
-{% endif %}
-{% endfor %}
+# SQLite DB for leases and LLIP-MAC-mapping.
+# Specifies the storage backend for volatile data like leases and MAC mappings.
+store_volatile = sqlite
 
-# Logging configuration
-[logging]
-# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-level = {{ log_level }}
-# Path to log file (empty = only syslog)
-file = {{ log_file }}
+# Path to the SQLite database for volatile (lease/LLIP-MAC mapping) data.
+# This file stores temporary DHCPv6 lease information and link-local IP mappings.
+store_sqlite_volatile = {{ sqlite_volatile_path | default('/var/lib/dhcpy6d/volatile.sqlite') }}
 
-# Optional: Database backend for lease persistence
-[database]
-# SQLite database path (empty = in-memory only)
-dsn = {{ db_dsn }}
+# Enable logging.
+log = on
+
+# Path to the log file.
+# Specifies the file where dhcpy6d will write its log messages.
+log_file = {{ log_file | default('/var/log/dhcpy6d.log') }}
+
+# set to yes to really answer to clients
+# not necessary in Debian where it comes from /etc/default/dhcpy6d and /etc/init.d/dhcpy6
+#really_do_it = no
+
+# Special address type which applies to all not specially
+# configured clients.
+[address_default]
+# Choosing MAC-based addresses.
+# Defines the addressing category for default clients. 'mac' indicates
+# that the client's MAC address will be used to generate the IPv6 address.
+category = mac
+
+# ULA-type address pattern.
+# Specifies the IPv6 address pattern for default clients.
+# $mac$ is a placeholder that will be replaced by the client's MAC address.
+# This example uses a Unique Local Address (ULA) range.
+pattern = fd01:db8:dead:bad:beef:$mac$

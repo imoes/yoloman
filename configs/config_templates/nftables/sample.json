@@ -1,16 +1,5 @@
 {
-  "vars": [
-    {
-      "name": "ssh_port",
-      "value": "22",
-      "comment": "SSH service port"
-    },
-    {
-      "name": "http_ports",
-      "value": "{80, 443}",
-      "comment": "HTTP/HTTPS ports"
-    }
-  ],
+  "vars": [],
   "chains.filter_inet.input": {
     "enabled": true,
     "default_policy": "drop",
@@ -32,25 +21,11 @@
         "action": "accept",
         "protocol": "tcp",
         "port": 22
-      },
-      {
-        "action": "accept",
-        "protocol": "tcp",
-        "ports": [
-          80,
-          443
-        ]
-      },
-      {
-        "action": "drop",
-        "protocol": "tcp",
-        "port": 23,
-        "comment": "Block telnet"
       }
     ]
   },
   "chains.filter_inet.forward": {
-    "enabled": true,
+    "enabled": false,
     "default_policy": "drop",
     "drop_invalid": true,
     "rules": [
@@ -75,35 +50,8 @@
     "rules": [
       {
         "action": "accept",
-        "protocol": "udp",
-        "port": 53
-      },
-      {
-        "action": "accept",
-        "protocol": "tcp",
-        "port": 53
+        "comment": "established/related"
       }
     ]
-  },
-  "chains.nat_postrouting": [
-    {
-      "action": "masquerade",
-      "ifname": "eth0",
-      "comment": "Outbound NAT for LAN"
-    }
-  ],
-  "chains.nat_prerouting": [
-    {
-      "action": "dnat",
-      "protocol": "tcp",
-      "port": 8080,
-      "to_address": "192.168.1.10",
-      "to_port": 80,
-      "comment": "Forward external port 8080 \u2192 internal HTTP server"
-    }
-  ],
-  "chains.filter6.enabled": false,
-  "chains.filter6.default_policy": "drop",
-  "chains.filter6.rules": [],
-  "chains.filter6.forward_rules": []
+  }
 }

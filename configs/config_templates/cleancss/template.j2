@@ -1,0 +1,84 @@
+# =============================================================================
+# cleancss — CSS Optimizer Configuration Template
+# =============================================================================
+# This template generates a command-line argument list for `cleancss`.
+# Each section corresponds to a schema field. Missing variables use the
+# schema defaults defined in the package definition.
+# =============================================================================
+
+{# --- Input Source --- #}
+# Input CSS files to process (required).
+# If sources is empty, cleancss expects file arguments from the calling
+# environment or will fail; this template assumes the caller provides
+# the list via the `sources` variable.
+{% for src in sources | default([], true) %}
+{{ src }}
+{% endfor %}
+
+{# --- Output Destination --- #}
+# Output file path; if empty (default), output goes to stdout.
+{% set output_path = output | default('', true) %}
+{% if output_path %}--output {{ output_path }}
+{% endif %}
+
+{# --- Compatibility Mode --- #}
+# Force compatibility mode: 'ie7' or 'ie8'.
+{% set compatibility_mode = compatibility | default('', true) %}
+{% if compatibility_mode %}--compatibility {{ compatibility_mode }}
+{% endif %}
+
+{# --- Debugging --- #}
+# Enable debug output (minification time & compression efficiency).
+{% if debug | default(False, true) %}--debug
+{% endif %}
+
+{# --- Formatting --- #}
+# Output formatting options (e.g., ['beautify'], ['indentBy:2', 'indentWith:space']).
+{% set format_opts = format_options | default([], true) %}
+{% if format_opts %}--format {{ format_opts | join(' ') }}
+{% endif %}
+
+{# --- Optimizations --- #}
+# Optimization level (0, 1, 2) or a fine-grained options string
+# (e.g., 'removeQuotes:off;roundingPrecision:4').
+{% set optimizations_level = optimizations | default('1', true) %}
+{% if optimizations_level %}--optimizations {{ optimizations_level }}
+{% endif %}
+
+{# --- Inlining Policy --- #}
+# Inlining policy: 'local', 'remote', 'all', or 'none'.
+{% set inline_policy = inline | default('local', true) %}
+{% if inline_policy %}--inline {{ inline_policy }}
+{% endif %}
+
+{# --- Inlining Timeout --- #}
+# Timeout (seconds) for fetching remote stylesheets during inlining.
+{% set inline_timeout_val = inline_timeout | default(5, true) %}
+{% if inline_timeout_val is defined %}--inline-timeout {{ inline_timeout_val }}
+{% endif %}
+
+{# --- Post-Processing Cleanup --- #}
+# Remove files inlined via @import or command-line after processing.
+{% if remove_inlined_files | default(False, true) %}--remove-inlined-files
+{% endif %}
+
+{# --- URL Rebase --- #}
+# Disable URL rebasing (keep original relative paths).
+{% if skip_rebase | default(False, true) %}--skip-rebase
+{% endif %}
+
+{# --- Source Map Generation --- #}
+# Enable building input source map.
+{% if source_map | default(False, true) %}--source-map
+{% endif %}
+
+{# --- Source Map Content --- #}
+# Inline source content in source maps (requires source_map enabled).
+{% if source_map_inline_sources | default(False, true) %}--source-map-inline-sources
+{% endif %}
+
+{# --- Input Source Map --- #}
+# Path to input source map file for rebase and sourcemap handling.
+{% set input_sm_path = input_source_map | default('', true) %}
+{% if input_sm_path %}--input-source-map {{ input_sm_path }}
+{% endif %}

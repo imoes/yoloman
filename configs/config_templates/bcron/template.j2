@@ -1,7 +1,29 @@
-# /etc/bcron/spool/crontab — main crontab for Bruce Cron System
-# Each line defines a scheduled job: minute hour day month weekday user command
-# Fields: minute hour day_of_month month day_of_week user command
-{% for job in jobs %}
-# {{ job.comment | default('No comment') }}
-{{ job.minute | default('*') }} {{ job.hour | default('*') }} {{ job.day | default('*') }} {{ job.month | default('*') }} {{ job.dow | default('*') }} {{ job.user | required }} {{ job.command | required }}
+# ==============================================================================
+# bcron configuration template
+# ==============================================================================
+# This script configures and starts the 'bcron' (batch cron) service.
+# It defines scheduled jobs based on the provided schema.
+#
+# Variables:
+#   jobs: List of scheduled cron jobs. Each entry is a dictionary with:
+#     - user: (str) The user account under which the job runs.
+#     - schedule: (str) Cron schedule expression (e.g., '*/5 * * * *').
+#     - command: (str) The command or script to execute.
+#     - description: (str, optional) A human-readable description of the job.
+# ==============================================================================
+
+#!/bin/sh
+exec 2>&1
+
+# --- Job Definitions ---
+# Iterate over the list of jobs defined in the schema.
+{% for job in (jobs | default([])) %}
+# Description: {{ job.description | default('No description provided') }}
+# User: {{ job.user | default('root') }}
+# Schedule: {{ job.schedule | default('* * * * *') }}
+# Command: {{ job.command | default('echo noop') }}
+{{ job.schedule | default('* * * * *') }} {{ job.user | default('root') }} {{ job.command | default('echo noop') }}
+
 {% endfor %}
+
+exec bcron-start

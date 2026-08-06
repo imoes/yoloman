@@ -1,0 +1,16 @@
+# Logrotate configuration for Graphite Web log files.
+# This block defines how /var/log/graphite/*.log files are rotated.
+
+/var/log/graphite/*.log {
+	weekly
+	missingok
+	
+	# Number of rotated log files to keep.
+	rotate {{ log_rotate_count | default(4) }}
+	
+	compress
+	notifempty
+	
+	# Create new log files with mode 640, owned by the specified user and group.
+	create 640 {{ log_user | default('_graphite') }} {{ log_group | default('_graphite') }}
+}

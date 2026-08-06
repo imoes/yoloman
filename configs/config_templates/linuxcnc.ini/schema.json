@@ -1,553 +1,181 @@
 {
-  "template": "[EMC]\n# Name of the machine (used for display and logging)\nMACHINE = {{ machine_name }}\n\n# Debug level (0 = none, 99 = very verbose)\nDEBUG = {{ emc_debug_level }}\n\n[DISPLAY]\n# GUI application to use (e.g., AXIS, TK, QTVCP)\nDISPLAY = {{ display_type }}\n\n# Path to the main UI file (if applicable, e.g., for QTVCP)\n{% if display_ui_path %}# UI file path\nUI = {{ display_ui_path }}{% endif %}\n\n# Cycle time (ms) for GUI updates\nCYCLE_TIME = {{ display_cycle_time }}\n\n# Maximum feed override (as fraction, e.g. 1.5 = 150%)\nMAX_FEED_OVERRIDE = {{ max_feed_override }}\n\n# Minimum spindle override (as fraction, e.g. 0.5 = 50%)\nMIN_SPINDLE_OVERRIDE = {{ min_spindle_override }}\n\n# Maximum spindle override (as fraction, e.g. 2.0 = 200%)\nMAX_SPINDLE_OVERRIDE = {{ max_spindle_override }}\n\n# Position feedback source: ACTUAL (default) or COMMANDED\nPOSITION_OFFSET = {{ position_offset }}\n\n# Position feedback mode: RELATIVE (default) or MACHINE\nPOSITION_FEEDBACK = {{ position_feedback }}\n\n# Default linear units: MM or INCHES\nDEFAULT_LINEAR_UNITS = {{ default_linear_units }}\n\n# Angular units: DEGREES or RADIANS\nDEFAULT_ANGULAR_UNITS = {{ default_angular_units }}\n\n[RS274NGC]\n# Path to the HAL configuration (HAL file to load before RT motion)\nHALFILE = {{ halfile_path }}\n\n# Optional: additional HAL files (comma-separated list)\n{% if halfile_extra %}# Extra HAL files\nHALFILE = {{ halfile_extra | join(', ') }}{% endif %}\n\n# Path to the startup G-code file (runs after HAL load)\n{% if startup_gcode_path %}# Startup G-code\nRUN_INI = {{ startup_gcode_path }}{% endif %}\n\n# Subroutine path (for user-defined G-codes)\nSUBROUTINE_PATH = {{ subroutine_path }}\n\n# Error log level: LOG, WARN, ERROR\nERROR_LOG_LEVEL = {{ error_log_level }}\n\n[EMCMOT]\n# Communications manager (e.g., \"emcmotc\" or \"emcmotp\")\nEMCMOT = {{ emcmot_module }}\n\n# Timeout (sec) for communications with motion controller\nCOMM_TIMEOUT = {{ emcmot_comm_timeout }}\n\n# Wait time (sec) for initial heartbeat\nCOMM_WAIT = {{ emcmot_comm_wait }}\n\n# Base task period (sec); typically 1ms (0.001) for real-time\nBASE_PERIOD = {{ base_period }}\n\n# Servo task period (sec); typically 1ms (0.001) for real-time\nSERVO_PERIOD = {{ servo_period }}\n\n[HAL]\n# HAL configuration files to load at startup\n{% for halfile in hal_files %}\n# Load HAL component: {{ halfile.name }}\n{% if halfile.load_before_motion %}# Loaded before motion controller\n{% endif %}HALCMD = [HAL] loadusr -W {{ halfile.path }}{% endfor %}\n\n[HALUI]\n# List of HAL UI components to load (e.g., for custom LCD or LED displays)\n{% if halui_modules %}# HAL UI modules to load\n{% for mod in halui_modules %}HALCMD = [HALUI] loadusr -W {{ mod }}{% endfor %}{% endif %}\n\n[TRAJ]\n# Maximum number of axes supported (including spindles as virtual axes)\nAXES = {{ traj_axes }}\n\n# Maximum linear velocity (in configured units per second)\nMAX_LINEAR_VELOCITY = {{ traj_max_linear_velocity }}\n\n# Default linear acceleration (units/sec\u00b2)\nDEFAULT_LINEAR_ACCEL = {{ traj_default_linear_accel }}\n\n# Maximum linear acceleration (units/sec\u00b2)\nMAX_LINEAR_ACCEL = {{ traj_max_linear_accel }}\n\n# Maximum angular velocity (e.g., for rotary axes)\nMAX_ANGULAR_VELOCITY = {{ traj_max_angular_velocity }}\n\n[AXIS_0]\n# Axis configuration (X-axis typical)\nTYPE = {{ axis_0.type }}\nMAX_VELOCITY = {{ axis_0.max_velocity }}\nMAX_ACCELERATION = {{ axis_0.max_acceleration }}\nBACKLASH = {{ axis_0.backlash }}\nINPUT_SCALE = {{ axis_0.input_scale }}\nOUTPUT_SCALE = {{ axis_0.output_scale }}\nMIN_LIMIT = {{ axis_0.min_limit }}\nMAX_LIMIT = {{ axis_0.max_limit }}\nHOME = {{ axis_0.home }}\nHOME_OFFSET = {{ axis_0.home_offset }}\nHOME_SEARCH_VEL = {{ axis_0.home_search_vel }}\nHOME_LATCH_VEL = {{ axis_0.home_latch_vel }}\n\n{% if axis_1 %}[AXIS_1]\nTYPE = {{ axis_1.type }}\nMAX_VELOCITY = {{ axis_1.max_velocity }}\nMAX_ACCELERATION = {{ axis_1.max_acceleration }}\nBACKLASH = {{ axis_1.backlash }}\nINPUT_SCALE = {{ axis_1.input_scale }}\nOUTPUT_SCALE = {{ axis_1.output_scale }}\nMIN_LIMIT = {{ axis_1.min_limit }}\nMAX_LIMIT = {{ axis_1.max_limit }}\nHOME = {{ axis_1.home }}\nHOME_OFFSET = {{ axis_1.home_offset }}\nHOME_SEARCH_VEL = {{ axis_1.home_search_vel }}\nHOME_LATCH_VEL = {{ axis_1.home_latch_vel }}\n{% endif %}\n\n{% if axis_2 %}[AXIS_2]\nTYPE = {{ axis_2.type }}\nMAX_VELOCITY = {{ axis_2.max_velocity }}\nMAX_ACCELERATION = {{ axis_2.max_acceleration }}\nBACKLASH = {{ axis_2.backlash }}\nINPUT_SCALE = {{ axis_2.input_scale }}\nOUTPUT_SCALE = {{ axis_2.output_scale }}\nMIN_LIMIT = {{ axis_2.min_limit }}\nMAX_LIMIT = {{ axis_2.max_limit }}\nHOME = {{ axis_2.home }}\nHOME_OFFSET = {{ axis_2.home_offset }}\nHOME_SEARCH_VEL = {{ axis_2.home_search_vel }}\nHOME_LATCH_VEL = {{ axis_2.home_latch_vel }}\n{% endif %}\n\n{% if axis_3 %}[AXIS_3]\nTYPE = {{ axis_3.type }}\nMAX_VELOCITY = {{ axis_3.max_velocity }}\nMAX_ACCELERATION = {{ axis_3.max_acceleration }}\nBACKLASH = {{ axis_3.backlash }}\nINPUT_SCALE = {{ axis_3.input_scale }}\nOUTPUT_SCALE = {{ axis_3.output_scale }}\nMIN_LIMIT = {{ axis_3.min_limit }}\nMAX_LIMIT = {{ axis_3.max_limit }}\nHOME = {{ axis_3.home }}\nHOME_OFFSET = {{ axis_3.home_offset }}\nHOME_SEARCH_VEL = {{ axis_3.home_search_vel }}\nHOME_LATCH_VEL = {{ axis_3.home_latch_vel }}\n{% endif %}\n\n[SPINDLE_0]\n# Spindle configuration (e.g., for CNC mill or lathe)\nMAX_SPEED = {{ spindle_0.max_speed }}\nMIN_SPEED = {{ spindle_0.min_speed }}\nTYPE = {{ spindle_0.type }}\nPID_P = {{ spindle_0.pid_p }}\nPID_I = {{ spindle_0.pid_i }}\nPID_D = {{ spindle_0.pid_d }}\nFF_ENABLE = {{ spindle_0.ff_enable }}\nSPEED_FEEDBACK = {{ spindle_0.speed_feedback }}\n",
-  "values_schema": {
-    "machine_name": {
-      "type": "string",
-      "default": "MyCNC",
-      "description": "Name of the machine, used in logs and GUI titlebar."
-    },
-    "emc_debug_level": {
-      "type": "number",
-      "default": 0,
-      "description": "Debug verbosity level (0\u201399). Higher = more logs. Start at 0 for production."
-    },
-    "display_type": {
-      "type": "string",
-      "default": "AXIS",
-      "description": "GUI type: AXIS (default), TK, QTVCP, or custom."
-    },
-    "display_ui_path": {
-      "type": "string",
-      "default": "",
-      "description": "Path to a QTVCP .ui file (optional). Leave empty for default AXIS."
-    },
-    "display_cycle_time": {
-      "type": "number",
-      "default": 100,
-      "description": "GUI refresh interval in milliseconds (100 = 10 Hz). Lower = smoother UI, but higher CPU use."
-    },
-    "max_feed_override": {
-      "type": "number",
-      "default": 1.5,
-      "description": "Maximum feed override multiplier (e.g., 1.5 = 150%)."
-    },
-    "min_spindle_override": {
-      "type": "number",
-      "default": 0.5,
-      "description": "Minimum spindle override multiplier (e.g., 0.5 = 50%)."
-    },
-    "max_spindle_override": {
-      "type": "number",
-      "default": 2.0,
-      "description": "Maximum spindle override multiplier (e.g., 2.0 = 200%)."
-    },
-    "position_offset": {
-      "type": "string",
-      "default": "ACTUAL",
-      "description": "Position display source: ACTUAL (encoder feedback) or COMMANDED ( commanded positions)."
-    },
-    "position_feedback": {
-      "type": "string",
-      "default": "RELATIVE",
-      "description": "Position display mode: RELATIVE (G91) or MACHINE (G53)."
-    },
-    "default_linear_units": {
-      "type": "string",
-      "default": "MM",
-      "description": "Default linear unit system: MM (millimeters) or INCHES."
-    },
-    "default_angular_units": {
-      "type": "string",
-      "default": "DEGREES",
-      "description": "Default angular unit system: DEGREES or RADIANS."
-    },
-    "halfile_path": {
-      "type": "string",
-      "default": "/usr/share/linuxcnc/hal/components/default.hal",
-      "description": "Path to the primary HAL configuration file loaded at startup."
-    },
-    "halfile_extra": {
-      "type": "list",
-      "default": [],
-      "items": {
-        "type": "string"
-      },
-      "description": "Additional HAL files (relative paths) to load in order. Useful for custom hardware."
-    },
-    "startup_gcode_path": {
-      "type": "string",
-      "default": "",
-      "description": "Optional G-code file to run after HAL load (e.g., tool change setup)."
-    },
-    "subroutine_path": {
-      "type": "string",
-      "default": "/usr/share/linuxcnc/subroutines",
-      "description": "Directory path containing user G-code subroutines (M-codes, etc.)."
-    },
-    "error_log_level": {
-      "type": "string",
-      "default": "LOG",
-      "description": "Log level for error reporting: LOG (info), WARN (warnings), ERROR (errors only)."
-    },
-    "emcmot_module": {
-      "type": "string",
-      "default": "emcmotc",
-      "description": "Motion controller module: 'emcmotc' (core) or 'emcmotp' (preview)."
-    },
-    "emcmot_comm_timeout": {
-      "type": "number",
-      "default": 1.0,
-      "description": "Timeout (seconds) for communications with the motion controller."
-    },
-    "emcmot_comm_wait": {
-      "type": "number",
-      "default": 0.1,
-      "description": "Time (seconds) to wait for motion controller heartbeat before timeout."
-    },
-    "base_period": {
-      "type": "number",
-      "default": 0.001,
-      "description": "Base task period (seconds) for real-time scheduler. Must match HAL base thread period (e.g., 1ms)."
-    },
-    "servo_period": {
-      "type": "number",
-      "default": 0.001,
-      "description": "Servo task period (seconds); usually same as BASE_PERIOD for rigid motion control."
-    },
-    "hal_files": {
-      "type": "list",
-      "default": [
-        {
-          "name": "core.hal",
-          "path": "/usr/share/linuxcnc/hal/components/core.hal",
-          "load_before_motion": false
-        }
-      ],
-      "items": {
-        "name": {
-          "type": "string",
-          "description": "Human-readable HAL component name (e.g., 'core.hal')"
-        },
-        "path": {
-          "type": "string",
-          "description": "Absolute path to the HAL configuration file."
-        },
-        "load_before_motion": {
-          "type": "bool",
-          "description": "If true, load this HAL file before the motion controller starts."
-        }
-      },
-      "description": "List of HAL configuration files to load via loadusr. Each entry specifies file name, path, and load priority."
-    },
-    "halui_modules": {
-      "type": "list",
-      "default": [],
-      "items": {
-        "type": "string"
-      },
-      "description": "List of HAL UI module names (e.g., 'halui') to load for custom user interface extensions."
-    },
-    "traj_axes": {
-      "type": "number",
-      "default": 3,
-      "description": "Total number of axes (including spindles as virtual axes). Must match sum of [AXIS_#] sections."
-    },
-    "traj_max_linear_velocity": {
-      "type": "number",
-      "default": 25.0,
-      "description": "Machine-wide maximum linear velocity (in configured units per second)."
-    },
-    "traj_default_linear_accel": {
-      "type": "number",
-      "default": 100.0,
-      "description": "Default linear acceleration (e.g., mm/s\u00b2) applied if not overridden in axis section."
-    },
-    "traj_max_linear_accel": {
-      "type": "number",
-      "default": 500.0,
-      "description": "Absolute maximum linear acceleration allowed across axes."
-    },
-    "traj_max_angular_velocity": {
-      "type": "number",
-      "default": 0.0,
-      "description": "Maximum angular velocity (e.g., for A/B/C axes) in deg/s or rad/s as per DEFAULT_ANGULAR_UNITS."
-    },
-    "axis_0": {
-      "type": "object",
-      "description": "Axis 0 configuration (typically X-axis). Required for \u22651 axis.",
-      "properties": {
-        "type": {
-          "type": "string",
-          "default": "LINEAR",
-          "description": "Axis type: LINEAR (X/Y/Z) or ROTARY (A/B/C)."
-        },
-        "max_velocity": {
-          "type": "number",
-          "default": 10.0,
-          "description": "Maximum velocity for this axis (units/sec)."
-        },
-        "max_acceleration": {
-          "type": "number",
-          "default": 200.0,
-          "description": "Maximum acceleration for this axis (units/sec\u00b2)."
-        },
-        "backlash": {
-          "type": "number",
-          "default": 0.0,
-          "description": "Backlash compensation value (same units as axis)."
-        },
-        "input_scale": {
-          "type": "number",
-          "default": 1000.0,
-          "description": "Encoder/linear scale factor (counts per unit)."
-        },
-        "output_scale": {
-          "type": "number",
-          "default": 1.0,
-          "description": "DAC/servo output scaling factor."
-        },
-        "min_limit": {
-          "type": "number",
-          "default": -500.0,
-          "description": "Hard travel limit (minimum position)."
-        },
-        "max_limit": {
-          "type": "number",
-          "default": 500.0,
-          "description": "Hard travel limit (maximum position)."
-        },
-        "home": {
-          "type": "number",
-          "default": 0.0,
-          "description": "Home switch position (relative to machine zero)."
-        },
-        "home_offset": {
-          "type": "number",
-          "default": 0.0,
-          "description": "Offset to apply after homing to set home position."
-        },
-        "home_search_vel": {
-          "type": "number",
-          "default": 5.0,
-          "description": "Velocity (units/sec) to search for home switch."
-        },
-        "home_latch_vel": {
-          "type": "number",
-          "default": 1.0,
-          "description": "Velocity (units/sec) to latch home switch final position."
-        }
-      }
-    },
-    "axis_1": {
-      "type": "object",
-      "description": "Optional Axis 1 (Y-axis). Omit if not needed.",
-      "properties": {
-        "type": {
-          "type": "string",
-          "default": "LINEAR",
-          "description": "Axis type: LINEAR or ROTARY."
-        },
-        "max_velocity": {
-          "type": "number",
-          "default": 10.0
-        },
-        "max_acceleration": {
-          "type": "number",
-          "default": 200.0
-        },
-        "backlash": {
-          "type": "number",
-          "default": 0.0
-        },
-        "input_scale": {
-          "type": "number",
-          "default": 1000.0
-        },
-        "output_scale": {
-          "type": "number",
-          "default": 1.0
-        },
-        "min_limit": {
-          "type": "number",
-          "default": -500.0
-        },
-        "max_limit": {
-          "type": "number",
-          "default": 500.0
-        },
-        "home": {
-          "type": "number",
-          "default": 0.0
-        },
-        "home_offset": {
-          "type": "number",
-          "default": 0.0
-        },
-        "home_search_vel": {
-          "type": "number",
-          "default": 5.0
-        },
-        "home_latch_vel": {
-          "type": "number",
-          "default": 1.0
-        }
-      }
-    },
-    "axis_2": {
-      "type": "object",
-      "description": "Optional Axis 2 (Z-axis). Omit if not needed.",
-      "properties": {
-        "type": {
-          "type": "string",
-          "default": "LINEAR",
-          "description": "Axis type: LINEAR or ROTARY."
-        },
-        "max_velocity": {
-          "type": "number",
-          "default": 10.0
-        },
-        "max_acceleration": {
-          "type": "number",
-          "default": 200.0
-        },
-        "backlash": {
-          "type": "number",
-          "default": 0.0
-        },
-        "input_scale": {
-          "type": "number",
-          "default": 1000.0
-        },
-        "output_scale": {
-          "type": "number",
-          "default": 1.0
-        },
-        "min_limit": {
-          "type": "number",
-          "default": -500.0
-        },
-        "max_limit": {
-          "type": "number",
-          "default": 500.0
-        },
-        "home": {
-          "type": "number",
-          "default": 0.0
-        },
-        "home_offset": {
-          "type": "number",
-          "default": 0.0
-        },
-        "home_search_vel": {
-          "type": "number",
-          "default": 5.0
-        },
-        "home_latch_vel": {
-          "type": "number",
-          "default": 1.0
-        }
-      }
-    },
-    "axis_3": {
-      "type": "object",
-      "description": "Optional Axis 3 (e.g., A-axis rotary). Omit if not needed.",
-      "properties": {
-        "type": {
-          "type": "string",
-          "default": "ROTARY",
-          "description": "Axis type: LINEAR or ROTARY."
-        },
-        "max_velocity": {
-          "type": "number",
-          "default": 20.0
-        },
-        "max_acceleration": {
-          "type": "number",
-          "default": 500.0
-        },
-        "backlash": {
-          "type": "number",
-          "default": 0.0
-        },
-        "input_scale": {
-          "type": "number",
-          "default": 3600.0
-        },
-        "output_scale": {
-          "type": "number",
-          "default": 1.0
-        },
-        "min_limit": {
-          "type": "number",
-          "default": -360.0
-        },
-        "max_limit": {
-          "type": "number",
-          "default": 360.0
-        },
-        "home": {
-          "type": "number",
-          "default": 0.0
-        },
-        "home_offset": {
-          "type": "number",
-          "default": 0.0
-        },
-        "home_search_vel": {
-          "type": "number",
-          "default": 10.0
-        },
-        "home_latch_vel": {
-          "type": "number",
-          "default": 2.0
-        }
-      }
-    },
-    "spindle_0": {
-      "type": "object",
-      "description": "Spindle 0 configuration (required for spindle control).",
-      "properties": {
-        "max_speed": {
-          "type": "number",
-          "default": 5000.0,
-          "description": "Maximum spindle speed in RPM."
-        },
-        "min_speed": {
-          "type": "number",
-          "default": 0.0,
-          "description": "Minimum spindle speed in RPM (set >0 to enable forward/reverse)."
-        },
-        "type": {
-          "type": "string",
-          "default": "ANALOG",
-          "description": "Spindle type: ANALOG, PWM, or STEP."
-        },
-        "pid_p": {
-          "type": "number",
-          "default": 100.0,
-          "description": "PID proportional gain for spindle speed control."
-        },
-        "pid_i": {
-          "type": "number",
-          "default": 0.0,
-          "description": "PID integral gain."
-        },
-        "pid_d": {
-          "type": "number",
-          "default": 0.0,
-          "description": "PID derivative gain."
-        },
-        "ff_enable": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable feed-forward control for better response."
-        },
-        "speed_feedback": {
-          "type": "string",
-          "default": "none",
-          "description": "Feedback source: 'encoder', 'tacho', or 'none'."
-        }
-      }
-    }
+  "machine_name": {
+    "type": "string",
+    "default": "MyCNC",
+    "description": "Name of the machine, used in logs and GUI titlebar."
   },
-  "sample_values": {
-    "machine_name": "MyMill3Axis",
-    "emc_debug_level": 0,
-    "display_type": "AXIS",
-    "display_ui_path": "",
-    "display_cycle_time": 100,
-    "max_feed_override": 1.2,
-    "min_spindle_override": 0.5,
-    "max_spindle_override": 1.5,
-    "position_offset": "ACTUAL",
-    "position_feedback": "RELATIVE",
-    "default_linear_units": "MM",
-    "default_angular_units": "DEGREES",
-    "halfile_path": "/usr/share/linuxcnc/hal/components/core.hal",
-    "halfile_extra": [
-      "/home/user/mill/hallib/steppers.hal",
-      "/home/user/mill/hallib/spindle.hal"
-    ],
-    "startup_gcode_path": "/home/user/gcode/setup.ngc",
-    "subroutine_path": "/usr/share/linuxcnc/subroutines",
-    "error_log_level": "WARN",
-    "emcmot_module": "emcmotc",
-    "emcmot_comm_timeout": 1.0,
-    "emcmot_comm_wait": 0.1,
-    "base_period": 0.001,
-    "servo_period": 0.001,
-    "hal_files": [
+  "emc_debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0\u201399). Higher = more logs. Start at 0 for production."
+  },
+  "display_type": {
+    "type": "string",
+    "default": "AXIS",
+    "description": "GUI type: AXIS (default), TK, QTVCP, or custom."
+  },
+  "display_ui_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a QTVCP .ui file (optional). Leave empty for default AXIS."
+  },
+  "display_cycle_time": {
+    "type": "number",
+    "default": 100,
+    "description": "GUI refresh interval in milliseconds (100 = 10 Hz). Lower = smoother UI, but higher CPU use."
+  },
+  "max_feed_override": {
+    "type": "number",
+    "default": 1.5,
+    "description": "Maximum feed override multiplier (e.g., 1.5 = 150%)."
+  },
+  "min_spindle_override": {
+    "type": "number",
+    "default": 0.5,
+    "description": "Minimum spindle override multiplier (e.g., 0.5 = 50%)."
+  },
+  "max_spindle_override": {
+    "type": "number",
+    "default": 2.0,
+    "description": "Maximum spindle override multiplier (e.g., 2.0 = 200%)."
+  },
+  "position_offset": {
+    "type": "string",
+    "default": "ACTUAL",
+    "description": "Position display source: ACTUAL (encoder feedback) or COMMANDED (commanded positions)."
+  },
+  "position_feedback": {
+    "type": "string",
+    "default": "RELATIVE",
+    "description": "Position display mode: RELATIVE (G91) or MACHINE (G53).",
+    "enum": [
+      "RELATIVE",
+      "MACHINE"
+    ]
+  },
+  "default_linear_units": {
+    "type": "string",
+    "default": "MM",
+    "description": "Default linear unit system: MM (millimeters) or INCHES."
+  },
+  "default_angular_units": {
+    "type": "string",
+    "default": "DEGREES",
+    "description": "Default angular unit system: DEGREES or RADIANS."
+  },
+  "halfile_path": {
+    "type": "string",
+    "default": "/usr/share/linuxcnc/hal/components/default.hal",
+    "description": "Path to the primary HAL configuration file loaded at startup."
+  },
+  "halfile_extra": {
+    "type": "list",
+    "default": [],
+    "description": "Additional HAL files (relative paths) to load in order. Useful for custom hardware."
+  },
+  "startup_gcode_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional G-code file to run after HAL load (e.g., tool change setup)."
+  },
+  "subroutine_path": {
+    "type": "string",
+    "default": "/usr/share/linuxcnc/subroutines",
+    "description": "Directory path containing user G-code subroutines (M-codes, etc.)."
+  },
+  "error_log_level": {
+    "type": "string",
+    "default": "LOG",
+    "description": "Log level for error reporting: LOG (info), WARN (warnings), ERROR (errors only).",
+    "enum": [
+      "LOG",
+      "ERROR"
+    ]
+  },
+  "emcmot_module": {
+    "type": "string",
+    "default": "emcmotc",
+    "description": "Motion controller module: 'emcmotc' (core) or 'emcmotp' (preview)."
+  },
+  "emcmot_comm_timeout": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Timeout (seconds) for communications with the motion controller."
+  },
+  "emcmot_comm_wait": {
+    "type": "number",
+    "default": 0.1,
+    "description": "Time (seconds) to wait for motion controller heartbeat before timeout."
+  },
+  "base_period": {
+    "type": "number",
+    "default": 0.001,
+    "description": "Base task period (seconds) for real-time scheduler. Must match HAL base thread period (e.g., 1ms)."
+  },
+  "servo_period": {
+    "type": "number",
+    "default": 0.001,
+    "description": "Servo task period (seconds); usually same as BASE_PERIOD for rigid motion control."
+  },
+  "hal_files": {
+    "type": "list",
+    "default": [
       {
         "name": "core.hal",
         "path": "/usr/share/linuxcnc/hal/components/core.hal",
         "load_before_motion": false
-      },
-      {
-        "name": "steppers.hal",
-        "path": "/home/user/mill/hallib/steppers.hal",
-        "load_before_motion": true
       }
     ],
-    "halui_modules": [
-      "halui"
-    ],
-    "traj_axes": 3,
-    "traj_max_linear_velocity": 20.0,
-    "traj_default_linear_accel": 150.0,
-    "traj_max_linear_accel": 400.0,
-    "traj_max_angular_velocity": 0.0,
-    "axis_0": {
-      "type": "LINEAR",
-      "max_velocity": 12.0,
-      "max_acceleration": 200.0,
-      "backlash": 0.0,
-      "input_scale": 1000.0,
-      "output_scale": 1.0,
-      "min_limit": -5.0,
-      "max_limit": 400.0,
-      "home": 400.0,
-      "home_offset": -10.0,
-      "home_search_vel": 10.0,
-      "home_latch_vel": 2.0
-    },
-    "axis_1": {
-      "type": "LINEAR",
-      "max_velocity": 12.0,
-      "max_acceleration": 200.0,
-      "backlash": 0.0,
-      "input_scale": 1000.0,
-      "output_scale": 1.0,
-      "min_limit": -5.0,
-      "max_limit": 300.0,
-      "home": 300.0,
-      "home_offset": -10.0,
-      "home_search_vel": 10.0,
-      "home_latch_vel": 2.0
-    },
-    "axis_2": {
-      "type": "LINEAR",
-      "max_velocity": 8.0,
-      "max_acceleration": 150.0,
-      "backlash": 0.0,
-      "input_scale": 1000.0,
-      "output_scale": 1.0,
-      "min_limit": -50.0,
-      "max_limit": 100.0,
-      "home": 100.0,
-      "home_offset": -5.0,
-      "home_search_vel": 6.0,
-      "home_latch_vel": 1.5
-    },
-    "axis_3": null,
-    "spindle_0": {
-      "max_speed": 3000.0,
-      "min_speed": 100.0,
-      "type": "PWM",
-      "pid_p": 50.0,
-      "pid_i": 0.0,
-      "pid_d": 0.0,
-      "ff_enable": true,
-      "speed_feedback": "encoder"
-    }
+    "description": "List of HAL configuration files to load via loadusr. Each entry specifies file name, path, and load priority."
+  },
+  "halui_modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of HAL UI module names (e.g., 'halui') to load for custom user interface extensions."
+  },
+  "traj_axes": {
+    "type": "number",
+    "default": 3,
+    "description": "Total number of axes (including spindles as virtual axes). Must match sum of [AXIS_#] sections."
+  },
+  "traj_max_linear_velocity": {
+    "type": "number",
+    "default": 25.0,
+    "description": "Machine-wide maximum linear velocity (in configured units per second)."
+  },
+  "traj_default_linear_accel": {
+    "type": "number",
+    "default": 100.0,
+    "description": "Default linear acceleration (e.g., mm/s\u00b2) applied if not overridden in axis section."
+  },
+  "traj_max_linear_accel": {
+    "type": "number",
+    "default": 500.0,
+    "description": "Absolute maximum linear acceleration allowed across axes."
+  },
+  "traj_max_angular_velocity": {
+    "type": "number",
+    "default": 0.0,
+    "description": "Maximum angular velocity (e.g., for A/B/C axes) in deg/s or rad/s as per DEFAULT_ANGULAR_UNITS."
+  },
+  "axis_0": {
+    "type": "object",
+    "description": "Axis 0 configuration (typically X-axis). Required for \u22651 axis."
+  },
+  "axis_1": {
+    "type": "object",
+    "description": "Optional Axis 1 (Y-axis). Omit if not needed."
+  },
+  "axis_2": {
+    "type": "object",
+    "description": "Optional Axis 2 (Z-axis). Omit if not needed."
+  },
+  "axis_3": {
+    "type": "object",
+    "description": "Optional Axis 3 (e.g., A-axis rotary). Omit if not needed."
+  },
+  "spindle_0": {
+    "type": "object",
+    "description": "Spindle 0 configuration (required for spindle control)."
   }
 }

@@ -1,3 +1,65 @@
-# The email address used as the sender for all bounces and administrative messages
-# This is the 'From:' address for system-generated mail (e.g., delivery failures)
-{{ admin_addr }}
+#! /bin/bash
+
+### BEGIN INIT INFO
+# Provides:          nullmailer
+# Required-Start:    $remote_fs $syslog $network
+# Required-Stop:     $remote_fs $syslog $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: relay-only mail transport agent
+# Description:       Nullmailer is a replacement MTA which relays to a fixed
+#                    set of smart relays.
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/nullmailer-send
+NAME=nullmailer
+DESC=mail-transfer-agent
+PIDFILE=/var/run/$NAME.pid
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	log_begin_msg "Starting $DESC:" "$NAME"
+	# don't kill trigger if daemon already running
+	if ! pidofproc -p $PIDFILE $DAEMON; then
+	    if [ ! -p /var/spool/nullmailer/trigger ]; then
+		rm -f /var/spool/nullmailer/trigger
+		mkfifo /var/spool/nullmailer/trigger
+	    fi
+	    chown mail:root /var/spool/nullmailer/trigger
+	    chmod 0622 /var/spool/nullmailer/trigger
+	    # --oknodo in case of race condition on daemon start
+	    start-stop-daemon --start --quiet --user mail --chuid mail --no-close \
+			      --pidfile $PIDFILE --make-pidfile --background \
+			      --oknodo --exec "$DAEMON" > >(logger -p mail.notice -t nullmailer) 2>&1
+	    log_end_msg $?
+	else
+	    log_end_msg $? "$NAME already running: $PIDS"
+	fi
+	;;
+  stop)
+	log_begin_msg "Stopping $DESC:" "$NAME"
+	start-stop-daemon --stop --quiet --user mail --exec "$DAEMON" --pidfile $PIDFILE --oknodo
+	log_end_msg $?
+	;;
+  restart|reload|force-reload)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME
+	exit $?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

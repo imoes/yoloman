@@ -1,44 +1,48 @@
 [server]
-  # Server port to listen on
-  Port={{ server.port }}
+  # TCP port on which the LCDd server listens for client connections.
+  Port={{ (server | default({})).port | default(13666) }}
 
-  # Hostname or IP to bind to (empty = all interfaces)
-  Host={{ server.host | default('') }}
+  # IP address or hostname to bind to. Mapped to the 'Bind' directive in LCDd.conf.
+  # Empty string means listen on all interfaces.
+  Bind={{ (server | default({})).host | default('') }}
 
-  # Protocol to use (curses, hid, etc.)
-  Protocol={{ server.protocol }}
+  # Name of the LCD driver to load (e.g., 'hd44780', 'IOWarrior', 'sure_elec').
+  # Note: The config directive is 'Driver', not 'Protocol'.
+  Driver={{ (server | default({})).driver | default('hd44780') }}
 
-  # Path to the LCD device
-  Device={{ server.device }}
+  # Path to the physical LCD device (e.g., /dev/lcd0, /dev/usb/lcd).
+  Device={{ (server | default({})).device | default('/dev/lcd0') }}
 
-  # Driver to load (e.g., hd44780, IOWarrior)
-  Driver={{ server.driver }}
+  # Run LCDd in the foreground. Overrides the -f command line option.
+  # LCDd expects 'yes' or 'no' (or 1/0) for boolean settings.
+  Foreground={% if (server | default({})).foreground | default(False) %}yes{% else %}no{% endif %}
 
-  # Driver-specific settings path (optional)
-  {% if server.driver_settings_path %}
-  DriverPath={{ server.driver_settings_path }}
-  {% endif %}
+  # Time in seconds to pause at each screen. Overrides the -w command line option.
+  WaitTime={{ (server | default({})).wait_time | default(2) }}
 
-  # Background color for text (0–7)
-  Backlight={{ server.backlight | default('on') }}
+  # Report messages to syslog (1) or stdout (0). Overrides the -s command line option.
+  ReportToSyslog={{ (server | default({})).report_to_syslog | default(1) }}
 
-  # Wait time (ms) between screen updates
-  ScreenChangeWait={{ server.screen_change_wait | default(1000) }}
+  # Reporting level (0-5). Overrides the -r command line option.
+  ReportLevel={{ (server | default({})).report_level | default(3) }}
 
-{% for driver in drivers %}
+  # Run as user. Overrides the -u command line option.
+  # This is an OS-level system user for process privileges, NOT a service credential.
+  User={{ (server | default({})).user | default('') }}
+
+{% for driver in drivers | default([]) %}
 [{{ driver.name }}]
-  # Driver-specific section for {{ driver.name }}
-  {% for key, value in driver.options.items() %}
-  {{ key }}={{ value }}
+  # Driver-specific configuration section for {{ driver.name }}.
+  {% for key, value in driver.options | default({}) | dict2items %}
+  {{ key.value }}={{ value.value }}
   {% endfor %}
 {% endfor %}
 
-{% for client in clients %}
+{% for client in clients | default([]) %}
 [client]
-  # Client definition: name, group, and allowed screens
+  # Client definition: name, group, and allowed screens.
+  # Each entry in the 'clients' list generates a [client] section.
   Name={{ client.name }}
   Group={{ client.group }}
-  {% if client.screens | length > 0 %}
-  Screens={{ client.screens | join(',') }}
-  {% endif %}
+  Screens={% if client.screens | default([]) | length > 0 %}{{ client.screens | default([]) | join(',') }}{% endif %}
 {% endfor %}

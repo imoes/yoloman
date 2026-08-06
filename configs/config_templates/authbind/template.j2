@@ -1,0 +1,29 @@
+{# /etc/authbind.conf - authbind runtime configuration #}
+# Note: authbind is invoked per-process, not a daemon. Configuration is via environment
+# variables and files in /etc/authbind.
+
+# Explicit path to libauthbind.so.1.0. Corresponds to AUTHBIND_LIB environment variable.
+# Empty string uses the compiled-in default (/usr/lib/authbind/libauthbind.so.1.0).
+authbind_lib: {{ authbind_lib | default('/usr/lib/authbind/libauthbind.so.1.0') }}
+
+# Maximum depth of child process tree affected by authbind (--depth N). Default is 1.
+# Corresponds to the --depth or --deep options.
+authbind_depth: {{ authbind_depth | default(1) }}
+
+# Access control entries defining which address:port combinations users may bind to.
+# Each entry defines a file in /etc/authbind/ that, if executable by the user, grants permission.
+# Entries are for /etc/authbind/byport/ or /etc/authbind/byaddr/ directories.
+{% for entry in authbind_access_entries | default([]) %}
+    {# Determine the type of access entry: byport or byaddr #}
+    {% if entry.file_type is defined and entry.file_type == 'byport' %}
+        {# Byport entry: allows binding to a specific port #}
+        # Entry: /etc/authbind/byport/{{ entry.port }}
+        # (File creation handled externally, variable tracks intent)
+        byport_port: {{ entry.port }}
+    {% elif entry.file_type is defined and entry.file_type == 'byaddr' %}
+        {# Byaddr entry: allows binding to a specific address:port pair #}
+        # Entry: /etc/authbind/byaddr/{{ entry.addr }},{{ entry.port }}
+        byaddr_addr: {{ entry.addr }}
+        byaddr_port: {{ entry.port }}
+    {% endif %}
+{% endfor %}

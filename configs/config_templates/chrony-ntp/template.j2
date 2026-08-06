@@ -1,41 +1,87 @@
-# Use NTP servers to synchronize the system clock
-server {{ ntp_servers[0].hostname }} iburst
-{% for server in ntp_servers[1:] %}server {{ server.hostname }} iburst
+{#
+  chrony-ntp configuration template
+  =================================
+  This template generates a chronyd.conf file.
+  It is self-documenting: every directive is preceded by a comment
+  derived from the schema field description or standard chrony semantics.
+  All variables use the |default filter to prevent rendering errors
+  if optional fields are omitted in the Ansible variables.
+#}
+
+{#
+  List of NTP servers to use for time synchronization.
+  Each item must include a 'hostname'. Optional fields:
+  'iburst' (bool, default true), 'burst' (bool, default false),
+  'minpoll' (int), 'maxpoll' (int), 'maxsources' (int).
+  Default: 0-3.pool.ntp.org with iburst enabled.
+#}
+{% for server in ntp_servers | default([{'hostname': '0.pool.ntp.org'}, {'hostname': '1.pool.ntp.org'}, {'hostname': '2.pool.ntp.org'}, {'hostname': '3.pool.ntp.org'}]) %}
+server {{ server.hostname | default('0.pool.ntp.org') }}{% if server.get('iburst') | default(true) | bool %} iburst{% endif %}
 {% endfor %}
 
-# Allow NTP clients on the local network
-{% if allow_clients %}# Allow NTP clients from trusted networks
-{% for network in allow_clients %}allow {{ network CIDR }}
-{% endfor %}{% else %}# Allow NTP clients only from localhost
+{#
+  List of CIDR networks allowed to query this chrony NTP server.
+  Set to [] to allow only localhost (127.0.0.1).
+  Common values: ['192.168.1.0/24'], ['10.0.0.0/8'].
+  Default: [] (empty list).
+#}
+{% if allow_clients | default([]) | length > 0 %}
+# Allow NTP clients from trusted networks
+{% for network in allow_clients | default([]) %}
+allow {{ network }}
+{% endfor %}
+{% else %}
+# Allow NTP clients only from localhost
 allow 127.0.0.1
 {% endif %}
 
-# Use local system clock as fallback if all NTP sources fail
-# (stratum 16 = unsynchronized; not used in production but safe fallback)
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 {
-}
+{#
+  Maximum number of initial updates to perform step slew (instant time correction)
+  before switching to gradual slewing. Set to 0 to disable step correction entirely.
+  Default: 10.
+#}
+initstepslew {{ max_init_stepslew | default(10) }} \
+{% for server in ntp_servers | default([{'hostname': '0.pool.ntp.org'}]) %}
+{{ server.hostname | default('0.pool.ntp.org') }}{% endfor %}
 
-# Logging configuration
-# Log messages to syslog
-log measurements statistics tracking
+{#
+  Make step correction at boot time if the offset is larger than the given threshold.
+  Format: makestep <threshold> <maxupdates>
+#}
+makestep 1.0 3
 
-# Directory for log files (optional, uncomment if needed)
-# logdir /var/log/chrony
-
-# Key file location (for NTS or symmetric key authentication)
-keyfile /etc/chrony/chrony.keys
-
-# Drift file location
-driftfile /var/lib/chrony/chrony.drift
-
-# Enable RTC synchronization (for systems without constant power)
+{#
+  Enable RTC synchronization (for systems without constant power).
+  Writes the system time back to the hardware clock periodically.
+#}
 rtcsync
 
-# Make step correction only in the first 10 updates
-initstepslew {{ max_init_stepslew }} {{ ntp_servers | map(attribute='hostname') | list | join(' ') }}
+{#
+  Drift file location. Stores the frequency offset of the system clock.
+#}
+driftfile /var/lib/chrony/chrony.drift
 
-# Leapseconf file (for leap second handling)
+{#
+  Key file location (for NTS or symmetric key authentication).
+  Usually empty unless authentication is configured.
+#}
+keyfile /etc/chrony/chrony.keys
+
+{#
+  Leapseconf file (for leap second handling).
+  Defines how leap seconds are handled (smear, step, ignore).
+#}
 leapsectz right/UTC
 
-# Make step correction at boot time if needed
-makestep 1.0 3
+{#
+  Logging configuration.
+  Log messages to syslog.
+#}
+log measurements statistics tracking
+
+{#
+  Reference clock configuration.
+  Use local system clock as fallback if all NTP sources fail.
+  Stratum 16 = unsynchronized; not used in production but safe fallback.
+#}
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0

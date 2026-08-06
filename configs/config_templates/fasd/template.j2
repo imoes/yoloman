@@ -1,0 +1,91 @@
+# =============================================================================
+# fasd Configuration Template
+#
+# This template generates a shell script fragment (to be sourced) that configures
+# the `fasd` tool. `fasd` allows fast access to files and directories by
+# remembering files and directories you have accessed frequently.
+#
+# Instructions:
+#   - This file should be sourced in your shell's rc file (e.g., ~/.bashrc,
+#     ~/.zshrc) or included via Ansible's `include_vars` if processed manually.
+#   - All variables are exported with a `_FASD_` prefix.
+#   - Defaults are applied inline if the corresponding variable is not provided.
+# =============================================================================
+
+# --- Core Data Settings ---
+
+# Path to the fasd data file.
+# This is where fasd stores its internal database of frequently accessed items.
+_FASD_DATA='{{ (fasd_data | default("$HOME/.fasd")) }}'
+
+# List of blacklisted strings.
+# Commands matching these strings will not be processed or added to the database.
+# This helps avoid polluting the database with temporary or system commands.
+_FASD_BLACKLIST='{{ (fasd_blacklist | default(["--help"])) | join(" ") }}'
+
+# List of commands that need to be shifted before processing.
+# These prefixes (e.g., sudo, busybox) are stripped from commands before
+# they are evaluated against blacklist/ignore lists, allowing their sub-commands
+# to be tracked correctly.
+_FASD_SHIFT='{{ (fasd_shift | default(["sudo", "busybox"])) | join(" ") }}'
+
+# List of commands that will be ignored by tracking.
+# Even if not blacklisted, these commands' arguments will not be added to the
+# fasd database to reduce noise.
+_FASD_IGNORE='{{ (fasd_ignore | default(["fasd", "ls", "echo"])) | join(" ") }}'
+
+# Track current working directory?
+# 1 to enable tracking of the current directory, 0 to disable.
+# Enabling this allows `fasd` to rank the current directory higher.
+{% if (fasd_track_pwd | default(true)) %}_FASD_TRACK_PWD='1'{% else %}_FASD_TRACK_PWD=''{% endif %}
+
+# --- Performance & Execution ---
+
+# Which awk binary to use.
+# Empty string lets fasd auto-detect the available awk.
+# Specifying a specific awk can ensure consistent behavior across systems.
+_FASD_AWK='{{ (fasd_awk | default("")) }}'
+
+# File to log STDERR output.
+# Errors from fasd operations are appended here. /dev/null silences them.
+_FASD_SINK='{{ (fasd_sink | default("/dev/null")) }}'
+
+# Maximum total score/weight.
+# Controls ranking saturation. Higher values allow finer granularity in ranking
+# but may consume more memory/storage.
+_FASD_MAX='{{ (fasd_max | default(2000)) }}'
+
+# Shell used for internal execution.
+# Faster shells like dash or ksh can improve the performance of certain
+# fasd operations (like filtering or processing backends).
+_FASD_SHELL='{{ (fasd_shell | default("")) }}'
+
+# --- Backend Configuration ---
+
+# List of default backends.
+# Backends are plugins that add specific types of entries to the database.
+# Examples: "viminfo" for vim session history, "recently-used" for desktop app history.
+# Leave empty to use no backends or rely on shell-only tracking.
+_FASD_BACKENDS='{{ (fasd_backends | default([])) | join(" ") }}'
+
+# Enable read-only mode?
+# If true, no entries will be added or deleted from the database.
+# Useful for environments where fasd is used only for querying.
+{% if (fasd_ro | default(false)) %}_FASD_RO='1'{% else %}_FASD_RO=''{% endif %}
+
+# Fuzzy matching level.
+# Maximum number of characters that can be skipped between query characters
+# when performing fuzzy searches. 0 or empty disables fuzzy matching (exact/regex only).
+_FASD_FUZZY='{{ (fasd_fuzzy | default(2)) }}'
+
+# --- Backend Specific Paths ---
+
+# Path to .viminfo file for viminfo backend.
+# Used by the 'viminfo' backend to track recent files edited in Vim.
+# Only relevant if 'viminfo' is in fasd_backends.
+_FASD_VIMINFO='{{ (fasd_viminfo | default("$HOME/.viminfo")) }}'
+
+# Path to recently-used.xbel file for recently-used backend.
+# Used by the 'recently-used' backend to track files opened by desktop applications.
+# Only relevant if 'recently-used' is in fasd_backends.
+_FASD_RECENTLY_USED_XBEL='{{ (fasd_recently_used_xbel | default("$HOME/.local/share/recently-used.xbel")) }}'

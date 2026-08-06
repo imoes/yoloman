@@ -1,121 +1,223 @@
-# Main Exim4 configuration file
-# This file is a template used by update-exim4.conf to generate the active configuration.
-# See /usr/share/doc/exim4-base/README.Debian.gz for details.
+# ==============================================================================
+# Exim4 Configuration Template
+#
+# This Jinja2 template generates the main Exim4 configuration file.
+# It is self-documenting: every directive is preceded by a comment
+# explaining its purpose and source.
+#
+# Variables are sourced from the Ansible play/role variables. All variables
+# have safe defaults defined inline to prevent rendering errors.
+# ==============================================================================
 
-# Primary configuration options
-# Set the main host name used in mail headers and SMTP banners
-main_smtp_banner = {{ smtp_banner }}
+# ------------------------------------------------------------------------------
+# Main Configuration Section
+# ------------------------------------------------------------------------------
 
-# Enable or disable TLS
-primary_hostname = {{ primary_hostname }}
-tls_disable_on_connect = {{ tls_disable_on_connect }}
+# SMTP banner line shown to connecting clients.
+# Default: 'Debian Exim server $version'
+# The $version variable is resolved by Exim at runtime, not Jinja2.
+main_smtp_banner = {{ smtp_banner | default('Debian Exim server $version') }}
 
-# Interface and port binding
-# Bind to these addresses for incoming SMTP connections
-daemon_smtp_ports = {{ smtp_ports | join(', ') }}
-local_interfaces = {{ local_interfaces | join(', ') }}
+# Primary hostname for this mail server.
+# Used in mail headers and TLS certificates.
+# If empty, Exim auto-detects from the system hostname.
+# Default: ''
+primary_hostname = {{ primary_hostname | default('') }}
 
-# Queue and delivery settings
-queue_run_timeout = {{ queue_run_timeout }}
-queue_max_max_size = {{ queue_max_max_size }}
+# Disable TLS even when connecting to servers that advertise it.
+# Useful for debugging or specific compatibility requirements.
+# Default: false
+tls_disable_on_connect = {{ tls_disable_on_connect | default(false) }}
 
+# ------------------------------------------------------------------------------
+# Interface and Port Binding
+# ------------------------------------------------------------------------------
+
+# Ports on which Exim listens for incoming SMTP connections.
+# Default: [25]
+# Rendered as a comma-separated list.
+daemon_smtp_ports = {{ smtp_ports | default([25]) | join(', ') }}
+
+# IP addresses/interfaces Exim binds to for incoming connections.
+# Use 'all' to bind to all interfaces.
+# Default: ['127.0.0.1', '::1']
+# Rendered as a comma-separated list.
+local_interfaces = {{ local_interfaces | default(['127.0.0.1', '::1']) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# Queue and Delivery Settings
+# ------------------------------------------------------------------------------
+
+# Maximum time (seconds) between queue runs when messages are retried.
+# Default: 300
+queue_run_timeout = {{ queue_run_timeout | default(300) }}
+
+# Maximum total queue size (in MB).
+# Set to 0 for unlimited.
+# Default: 0
+queue_max_max_size = {{ queue_max_max_size | default(0) }}
+
+# ------------------------------------------------------------------------------
 # Logging
-# Log files are written to /var/log/exim4/
-log_selector = {{ log_selector | join(', ') }}
+# ------------------------------------------------------------------------------
 
-# ACL configuration — included from separate file by default
+# Select additional logging details for troubleshooting.
+# Common values: '+all_transfer', '+all_delivery', '+connection_reject'.
+# Default: ['+all_transfer', '+all_delivery']
+log_selector = {{ log_selector | default(['+all_transfer', '+all_delivery']) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# External Configurations
+# ------------------------------------------------------------------------------
+
+# ACL configuration — included from separate file by default.
 .include_if_exists /etc/exim4/conf.d/acl/99_local-acl_before
 
-# Routers — process incoming mail
+# ------------------------------------------------------------------------------
+# Routers
+#
+# Routers process incoming mail to determine where it should be delivered.
+# Each router defines a condition, driver, and optional transport.
+# ------------------------------------------------------------------------------
 begin routers
-{% for router in routers %}
-{{ router.name }}:
-  driver = {{ router.driver }}
-{% if router.condition is defined %}
+{% for router in routers | default([]) %}
+# --- Router: {{ router.name | default('unnamed') }} ---
+# Description: Defines a routing entry for incoming mail.
+{{ router.name | default('unnamed_router') }}:
+  # The driver type (e.g., dnslookup, lookuphost, manualroute).
+  driver = {{ router.driver | default('default_driver') }}
+
+  {% if router.condition is defined %}
+  # A boolean expression determining if this router applies.
   condition = {{ router.condition }}
-{% endif %}
-{% if router.domains is defined %}
+  {% endif %}
+
+  {% if router.domains is defined %}
+  # List of domains to which this router applies.
   domains = {{ router.domains }}
-{% endif %}
-{% if router.transport is defined %}
+  {% endif %}
+
+  {% if router.transport is defined %}
+  # The name of the transport to use for delivery.
   transport = {{ router.transport }}
-{% endif %}
-{% if router.address_data is defined %}
+  {% endif %}
+
+  {% if router.address_data is defined %}
+  # Additional data passed to the transport.
   address_data = {{ router.address_data }}
-{% endif %}
-{% if router.headers_add is defined %}
+  {% endif %}
+
+  {% if router.headers_add is defined %}
+  # Headers to add to the message when routed by this entry.
   headers_add = {{ router.headers_add }}
-{% endif %}
-{% if router.skip = true %}
+  {% endif %}
+
+  {% if router.skip is defined and router.skip == true %}
+  # If true, skip this router if the condition fails.
   skip = true
-{% endif %}
+  {% endif %}
 {% endfor %}
 
-# Transports — define how mail is delivered
+# ------------------------------------------------------------------------------
+# Transports
+#
+# Transports define how mail is actually delivered (e.g., to a file,
+# maildir, or remote host via SMTP).
+# ------------------------------------------------------------------------------
 begin transports
-{% for transport in transports %}
-{{ transport.name }}:
-  driver = {{ transport.driver }}
-{% if transport.address_parent is defined %}
+{% for transport in transports | default([]) %}
+# --- Transport: {{ transport.name | default('unnamed') }} ---
+# Description: Defines the delivery method for mail.
+{{ transport.name | default('unnamed_transport') }}:
+  # The driver type (e.g., appendfile, smtp, pipe).
+  driver = {{ transport.driver | default('default_transport_driver') }}
+
+  {% if transport.address_parent is defined %}
+  # Parent address for nested delivery structures.
   address_parent = {{ transport.address_parent }}
-{% endif %}
-{% if transport.file is defined %}
+  {% endif %}
+
+  {% if transport.file is defined %}
+  # Path to the file for file-based transports.
   file = {{ transport.file }}
-{% endif %}
-{% if transport.directory is defined %}
+  {% endif %}
+
+  {% if transport.directory is defined %}
+  # Directory for maildir/mbox transports.
   directory = {{ transport.directory }}
-{% endif %}
-{% if transport.user is defined %}
+  {% endif %}
+
+  {% if transport.user is defined %}
+  # OS user to run the delivery as.
   user = {{ transport.user }}
-{% endif %}
-{% if transport.group is defined %}
+  {% endif %}
+
+  {% if transport.group is defined %}
+  # OS group to run the delivery as.
   group = {{ transport.group }}
-{% endif %}
-{% if transport.file_permissions is defined %}
+  {% endif %}
+
+  {% if transport.file_permissions is defined %}
+  # File permissions for the created mailbox/file.
   file_permissions = {{ transport.file_permissions }}
-{% endif %}
-{% if transport.maildir_format is defined %}
+  {% endif %}
+
+  {% if transport.maildir_format is defined %}
+  # Enable Maildir format.
   maildir_format = {{ transport.maildir_format }}
-{% endif %}
-{% if transport.delivery_date_add is defined %}
+  {% endif %}
+
+  {% if transport.delivery_date_add is defined %}
+  # Add delivery date header.
   delivery_date_add = {{ transport.delivery_date_add }}
-{% endif %}
-{% if transport.return_path_add is defined %}
+  {% endif %}
+
+  {% if transport.return_path_add is defined %}
+  # Add return-path header.
   return_path_add = {{ transport.return_path_add }}
-{% endif %}
+  {% endif %}
 {% endfor %}
 
-# Routines for retry, rewrite, authenticators, and other sections omitted for brevity
-# — typically included via .include_if_exists in production.
-
-# Authenticators — enable PLAIN, LOGIN, CRAM-MD5, etc.
+# ------------------------------------------------------------------------------
+# Authenticators
+#
+# Define SMTP authentication mechanisms (e.g., PLAIN, LOGIN, CRAM-MD5).
+# ------------------------------------------------------------------------------
 begin authenticators
-{% for auth in authenticators %}
-{{ auth.name }}:
-  driver = {{ auth.driver }}
-{% if auth.public_name is defined %}
-  public_name = {{ auth.public_name }}
-{% endif %}
-{% if auth.server_condition is defined %}
-  server_condition = {{ auth.server_condition }}
-{% endif %}
-{% if auth.server_set_id is defined %}
-  server_set_id = {{ auth.server_set_id }}
-{% endif %}
-{% if auth.server_prompts is defined %}
-  server_prompts = {{ auth.server_prompts }}
-{% endif %}
-{% if auth.client_set_id is defined %}
-  client_set_id = {{ auth.client_set_id }}
-{% endif %}
-{% if auth.client_send is defined %}
-  client_send = {{ auth.client_send }}
-{% endif %}
-{% endfor %}
+{% for auth in authenticators | default([]) %}
+# --- Authenticator: {{ auth.name | default('unnamed') }} ---
+# Description: Defines an SMTP authentication driver.
+{{ auth.name | default('unnamed_auth') }}:
+  # The driver type (e.g., plaintext, cram_md5, dovecot).
+  driver = {{ auth.driver | default('default_auth_driver') }}
 
-# ACLs — defined in /etc/exim4/conf.d/acl/
-# Below is a minimal stub to show where they go.
-# Actual ACLs are externalized for maintainability.
-# .include_if_exists /etc/exim4/conf.d/acl/30_exim4-config_check_data
-# .include_if_exists /etc/exim4/conf.d/acl/40_exim4-config_check_rcpt
-# .include_if_exists /etc/exim4/conf.d/acl/50_exim4-config_check_reject
+  {% if auth.public_name is defined %}
+  # The name advertised to the client (e.g., PLAIN, LOGIN).
+  public_name = {{ auth.public_name }}
+  {% endif %}
+
+  {% if auth.server_condition is defined %}
+  # Server-side condition to validate the user.
+  server_condition = {{ auth.server_condition }}
+  {% endif %}
+
+  {% if auth.server_set_id is defined %}
+  # Set the authenticated user ID on the server.
+  server_set_id = {{ auth.server_set_id }}
+  {% endif %}
+
+  {% if auth.server_prompts is defined %}
+  # Prompts to display to the client.
+  server_prompts = {{ auth.server_prompts }}
+  {% endif %}
+
+  {% if auth.client_set_id is defined %}
+  # Set the client ID.
+  client_set_id = {{ auth.client_set_id }}
+  {% endif %}
+
+  {% if auth.client_send is defined %}
+  # Data sent by the client.
+  client_send = {{ auth.client_send }}
+  {% endif %}
+{% endfor %}

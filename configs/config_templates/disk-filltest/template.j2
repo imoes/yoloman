@@ -1,0 +1,55 @@
+# ==============================================================================
+# disk-filltest configuration template
+# ==============================================================================
+# This file generates a command-line argument list for the `disk-filltest` utility.
+# It controls disk filling, testing, and wiping parameters.
+# ==============================================================================
+
+# Directory to change into before starting work (equivalent to `-C dir`).
+# If empty, current directory is used.
+{% if (config_dir | default('')) | string | trim | length > 0 -%}
+-C {{ config_dir | default('') }}
+{% endif %}
+
+# Number of 1 GiB files to write.
+# If 0 or omitted, fill until disk is full.
+-f {{ files | default(0) }}
+
+# Skip verification of written files (e.g., for disk wiping).
+# Corresponds to `-N`.
+{% if skip_verify | default(false) | bool -%}
+-N
+{% endif %}
+
+# Only verify existing data files using the provided random seed.
+# Corresponds to `-r`.
+{% if only_verify | default(false) | bool -%}
+-r
+{% endif %}
+
+# Number of times to repeat the fill/test/wipe steps.
+# Seed is not changed between repetitions.
+# Corresponds to `-R`.
+-R {{ repeats | default(1) }}
+
+# Random seed for generating pseudo-random data.
+# If 0, seed may be system-determined or vary per run unless explicitly set.
+# Corresponds to `-s`.
+-s {{ seed | default(0) }}
+
+# Size of each random file in MiB.
+# Default is 1024 (1 GiB).
+# Corresponds to `-S`.
+-S {{ size | default(1024) }}
+
+# Remove files after successful test.
+# Corresponds to `-u`.
+{% if remove_after_success | default(false) | bool -%}
+-u
+{% endif %}
+
+# Immediately remove files after writing, using file handles for verification.
+# Corresponds to `-U`.
+{% if immediate_remove | default(false) | bool -%}
+-U
+{% endif %}

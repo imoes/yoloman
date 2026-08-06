@@ -1,0 +1,19 @@
+# chrootuid configuration file
+# This file defines restricted execution environments where commands run under specific users inside a chroot.
+# Each entry in the 'entries' list generates one block below.
+
+{% for entry in entries | default([]) %}
+# ---------------------------------------------------------
+# chrootuid entry definition
+# -------------------------
+# name: The human-readable identifier for this service entry.
+# newroot: The path to the chroot directory (the root filesystem for the confined environment).
+# newuser: The username (or UID) to switch to after entering the chroot.
+# interactive: If true, the command is executed with the -i (interactive) flag.
+# command: The command string to execute, split into arguments.
+# ---------------------------------------------------------
+# chrootuid entry: {{ entry.name | default('unnamed') }}
+# chroot: {{ entry.newroot | default('/') }}
+# user: {{ entry.newuser | default('root') }}
+{% if entry.interactive | default(false) %}-i {% endif %}{{ entry.newroot | default('/') }} {{ entry.newuser | default('root') }} {{ entry.command | default([]) | join(' ') }}
+{% endfor %}

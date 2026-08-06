@@ -1,0 +1,29 @@
+# abbtr configuration file (v1.0.4)
+# ~/.config/abbtr/abbtr.conf
+# Syntax: key = value ; comments start with '#'
+
+# List of abbreviation rules: name → command mappings used by abbtr to substitute long commands with short aliases.
+# Each rule has a unique name and a command string.
+# The 'rules' field is a mapping of alias names to command strings.
+{% for rule in (rules | default([])) %}
+# Rule: {{ rule.name | default('unnamed') }} - Maps the alias {{ rule.name }} to the command {{ rule.command }}
+{{ rule.name | default('unnamed') }} = {{ rule.command | default('') }}
+{% endfor %}
+
+# Predefined variable substitutions (bottles) for use in commands.
+# Each bottle defines a variable name and its value. Syntax: b%('variable')%b in commands.
+# The 'bottles' field is a mapping of variable names to their values.
+# NOTE: 'bottles' is defined as a list in schema, so we iterate the list, not a dict.
+{% for bottle in (bottles | default([])) %}
+# Bottle: {{ bottle.name | default('unnamed') }} = {{ bottle.value | default('') }} - Defines variable {{ bottle.name }} with value {{ bottle.value }}
+b%({{ bottle.name | default('unnamed') }})%b = {{ bottle.value | default('') }}
+{% endfor %}
+
+# Global flag: enable verbose logging to ~/.local/share/abbtr/abbtr.log. See: USER FILES.
+{% if log_verbose | default(False) %}verbose = true
+{% endif %}
+
+# Global flag: auto-export rules on exit.
+# If true, automatically export current rules to the configured export file on exit (when -e is used to define export path). Not implemented b.
+{% if auto_export | default(False) %}auto_export = true
+{% endif %}

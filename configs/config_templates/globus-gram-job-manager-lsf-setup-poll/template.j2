@@ -1,0 +1,18 @@
+# Globus Gram Job Manager LSF Setup Poll Service Configuration
+# This template generates the systemd service unit for the Globus LSF setup poller.
+# It executes the globus-job-manager binary with LSF-specific arguments.
+
+[Unit]
+Description=Globus Gram Job Manager LSF Setup Poll
+After=network.target globus-gatekeeper.service
+
+[Service]
+Type=simple
+ExecStart={{ sbin_path | default('/usr/sbin') }}/globus-job-manager globus-job-manager -conf {{ conf_path | default('/etc/globus') }}/globus-gram-job-manager.conf -type lsf
+
+# Log errors to stderr as defined by the original template's stderr_log directive
+StandardError=inherit
+StandardOutput=inherit
+
+[Install]
+WantedBy=multi-user.target

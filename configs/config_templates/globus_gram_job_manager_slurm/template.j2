@@ -4,52 +4,76 @@
   <!-- SLURM-specific job manager backend -->
   <service name="gram" version="5.0">
     <jobmanager type="slurm">
-      <!-- Path to SLURM `srun` command -->
-      <srun path="{{ srun_path }}" />
-      <!-- Path to SLURM `sbatch` command -->
-      <sbatch path="{{ sbatch_path }}" />
-      <!-- Path to SLURM `scancel` command -->
-      <scancel path="{{ scancel_path }}" />
-      <!-- Path to SLURM `squeue` command -->
-      <squeue path="{{ squeue_path }}" />
-      <!-- Path to SLURM `sinfo` command -->
-      <sinfo path="{{ sinfo_path }}" />
-      <!-- Enable use of job arrays if supported by SLURM -->
-      <enable-job-arrays>{{ enable_job_arrays|lower }}</enable-job-arrays>
-      <!-- Maximum number of concurrent jobs per user (0 = unlimited) -->
-      <max-jobs-per-user>{{ max_jobs_per_user }}</max-jobs-per-user>
-      <!-- Default job timeout in seconds -->
-      <default-timeout>{{ default_timeout }}</default-timeout>
-      <!-- Maximum job runtime limit in seconds (0 = no limit) -->
-      <max-runtime>{{ max_runtime }}</max-runtime>
-      <!-- Path to custom SLURM environment setup script (optional) -->
-      <environment-setup-script path="{{ environment_setup_script }}" />
-      <!-- SLURM account and partition defaults per job (if applicable) -->
+      <!-- Absolute path to the SLURM `srun` executable used to launch jobs. -->
+      <srun path="{{ srun_path | default('/usr/bin/srun') }}" />
+
+      <!-- Absolute path to the SLURM `sbatch` executable used to submit batch jobs. -->
+      <sbatch path="{{ sbatch_path | default('/usr/bin/sbatch') }}" />
+
+      <!-- Absolute path to the SLURM `scancel` executable used to cancel jobs. -->
+      <scancel path="{{ scancel_path | default('/usr/bin/scancel') }}" />
+
+      <!-- Absolute path to the SLURM `squeue` executable used to query job status. -->
+      <squeue path="{{ squeue_path | default('/usr/bin/squeue') }}" />
+
+      <!-- Absolute path to the SLURM `sinfo` executable used to query cluster state. -->
+      <sinfo path="{{ sinfo_path | default('/usr/bin/sinfo') }}" />
+
+      <!-- Whether to enable submission of SLURM job arrays. Recommended for compatibility with HPC workflows. -->
+      <enable-job-arrays>{{ enable_job_arrays | default(True) | lower }}</enable-job-arrays>
+
+      <!-- Maximum number of concurrent jobs allowed per user. Set to 0 for no limit. -->
+      <max-jobs-per-user>{{ max_jobs_per_user | default(500) }}</max-jobs-per-user>
+
+      <!-- Default timeout (in seconds) for job operations (e.g., stage-in/out, startup). -->
+      <default-timeout>{{ default_timeout | default(300) }}</default-timeout>
+
+      <!-- Maximum allowed job runtime in seconds. Set to 0 for no enforced limit (SLURM partition limits still apply). -->
+      <max-runtime>{{ max_runtime | default(0) }}</max-runtime>
+
+      <!-- Optional path to a shell script that sets up environment variables (e.g., module loading) before job execution. -->
+      <environment-setup-script path="{{ environment_setup_script | default('') }}" />
+
+      <!-- Default SLURM request options applied to all jobs unless overridden.
+           Supported keys: account, partition, qos, constraint, reservation.
+           Iterate the mapping using dict2items to produce XML child elements. -->
       <defaults>
-        {% if slurm_defaults.account %}<account>{{ slurm_defaults.account }}</account>{% endif %}
-        {% if slurm_defaults.partition %}<partition>{{ slurm_defaults.partition }}</partition>{% endif %}
-        {% if slurm_defaults.qos %}<qos>{{ slurm_defaults.qos }}</qos>{% endif %}
-        {% if slurm_defaults.constraint %}<constraint>{{ slurm_defaults.constraint }}</constraint>{% endif %}
-        {% if slurm_defaults.reservation %}<reservation>{{ slurm_defaults.reservation }}</reservation>{% endif %}
+        {%- for entry in (slurm_defaults | default({})) | dict2items %}
+        {%- if entry.value is defined and entry.value != '' %}
+        <{{ entry.key }}>{{ entry.value }}</{{ entry.key }}>
+        {%- endif %}
+        {%- endfor %}
       </defaults>
-      <!-- Extra SLURM `sbatch` options (as a list of strings) -->
+
+      <!-- Additional command-line options to pass to `sbatch` (e.g., '--exclusive', '--mail-type=end'). -->
       <extra-sbatch-options>
-        {% for opt in extra_sbatch_options %}        <option>{{ opt }}</option>
-        {% endfor %}      </extra-sbatch-options>
-      <!-- List of allowed SLURM partitions (if restriction is desired); empty = all allowed -->
+        {%- for opt in extra_sbatch_options | default([]) %}
+        <option>{{ opt }}</option>
+        {%- endfor %}
+      </extra-sbatch-options>
+
+      <!-- List of SLURM partition names users are allowed to submit to. Empty list = all partitions allowed (unless denied). -->
       <allowed-partitions>
-        {% for part in allowed_partitions %}        <partition>{{ part }}</partition>
-        {% endfor %}      </allowed-partitions>
-      <!-- List of denied SLURM partitions (overrides allowed-partitions) -->
+        {%- for part in allowed_partitions | default([]) %}
+        <partition>{{ part }}</partition>
+        {%- endfor %}
+      </allowed-partitions>
+
+      <!-- List of SLURM partition names explicitly denied to users. Takes precedence over allowed_partitions. -->
       <denied-partitions>
-        {% for part in denied_partitions %}        <partition>{{ part }}</partition>
-        {% endfor %}      </denied-partitions>
-      <!-- Enable logging to syslog (true/false) -->
-      <enable-syslog>{{ enable_syslog|lower }}</enable-syslog>
-      <!-- Log level: debug, info, warn, error -->
-      <log-level>{{ log_level }}</log-level>
-      <!-- Log file path for job manager logs -->
-      <log-file>{{ log_file }}</log-file>
+        {%- for part in denied_partitions | default([]) %}
+        <partition>{{ part }}</partition>
+        {%- endfor %}
+      </denied-partitions>
+
+      <!-- Whether to send job manager logs to the system syslog. -->
+      <enable-syslog>{{ enable_syslog | default(False) | lower }}</enable-syslog>
+
+      <!-- Verbosity level of job manager logging. -->
+      <log-level>{{ log_level | default('info') }}</log-level>
+
+      <!-- Path to the primary log file for the SLURM job manager. -->
+      <log-file>{{ log_file | default('/var/log/globus/globus-gram-job-manager-slurm.log') }}</log-file>
     </jobmanager>
   </service>
 </configuration>

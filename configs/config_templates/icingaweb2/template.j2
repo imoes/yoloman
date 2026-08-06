@@ -1,96 +1,25 @@
-[global]
-; Enable or disable debug mode for development and troubleshooting
-config_debug = {{ debug }}
+Alias {{ base_path }} "{{ document_root }}"
 
-; Log level: 0=EMERG, 1=ALERT, 2=CRIT, 3=ERR, 4=WARNING, 5=NOTICE, 6=INFO, 7=DEBUG
-log_level = {{ log_level }}
+<Directory "{{ document_root }}">
+    Options SymLinksIfOwnerMatch
+    AllowOverride None
 
-; Base URL path (without trailing slash) – used for redirects and asset paths
-base_path = "{{ base_path }}"
+    SetEnv ICINGAWEB_CONFIGDIR "{{ config_dir }}"
 
-[logging]
-; Logging configuration
-log = "file"
-log_file = "{{ log_file }}"
-log_level = "{{ log_level }}"
+    EnableSendfile Off
 
-[authentication]
-; Default authentication backend (e.g., "ldap", "db", "radius")
-backend = "{{ auth_backend }}"
+    <IfModule mod_rewrite.c>
+        RewriteEngine on
+        RewriteBase {{ base_path }}/=
+        RewriteCond %{REQUEST_FILENAME} -s [OR]
+        RewriteCond %{REQUEST_FILENAME} -l [OR]
+        RewriteCond %{REQUEST_FILENAME} -d
+        RewriteRule ^.*$ - [NC,L]
+        RewriteRule ^.*$ index.php [NC,L]
+    </IfModule>
 
-{% if auth_backend == 'ldap' %}
-[ldap]
-; LDAP connection URI (e.g., "ldap://ldap.example.com:389" or "ldaps://ldap.example.com:636")
-host = "{{ ldap.host }}"
-port = {{ ldap.port }}
-
-; Bind DN and password for initial search (service account)
-bind_dn = "{{ ldap.bind_dn }}"
-bind_password = "{{ ldap.bind_password }}"
-
-; Base DN for user and group searches
-user_base_dn = "{{ ldap.user_base_dn }}"
-group_base_dn = "{{ ldap.group_base_dn }}"
-
-; User and group filters (LDAP filter syntax)
-user_filter = "({{ ldap.user_filter }})"
-group_filter = "({{ ldap.group_filter }})"
-
-; Mapping from LDAP attributes to Icinga Web user fields
-user_name_attribute = "{{ ldap.user_name_attribute }}"
-user_display_name_attribute = "{{ ldap.user_display_name_attribute }}"
-user_mail_attribute = "{{ ldap.user_mail_attribute }}"
-group_name_attribute = "{{ ldap.group_name_attribute }}"
-group_display_name_attribute = "{{ ldap.group_display_name_attribute }}"
-{% endif %}
-
-[resources]
-; Define named resources for modules (e.g., database, monitoring, eventlog)
-{% for res in resources %}
-[{{ res.name }}]
-; {{ res.description }}
-type = "{{ res.type }}"
-{% for key, val in res.options.items() %}{{ key }} = "{{ val }}"
-{% endfor %}{% endfor %}
-
-[modules]
-; Enable/disable modules
-{% for module in enabled_modules %}{{ module }} = "enabled"
-{% endfor %}{% for module in disabled_modules %}{{ module }} = "disabled"
-{% endfor %}
-
-[security]
-; Path to the HMAC key file (auto-generated at first start)
-hmac_secret_file = "{{ hmac_secret_file }}"
-
-; Session lifetime in seconds
-session_lifetime = {{ session_lifetime }}
-
-; Enforce HTTPS (true/false)
-enforce_https = {{ enforce_https | lower }}
-
-; Allowed hostnames (list of strings)
-allowed_hosts = [{{ allowed_hosts | join(", ") | safe }}]
-
-[ui]
-; Default language (ISO 639-1 code, e.g., "en", "de", "fr")
-default_language = "{{ default_language }}"
-
-; Time zone (IANA tz database name)
-default_timezone = "{{ default_timezone }}"
-
-; Date/time format (PHP-style strftime/strftime-like; e.g., "%Y-%m-%d %H:%M:%S")
-datetime_format = "{{ datetime_format }}"
-
-; Enable or disable dark mode by default
-default_theme = "{{ default_theme }}"
-
-[config]
-; Path to the configuration directory (do not change unless you know what you're doing)
-config_path = "{{ config_path }}"
-
-; Path to the modules directory
-modules_path = "{{ modules_path }}"
-
-; Enable config validation on startup (true/false)
-validate_config = {{ validate_config | lower }}
+    <IfModule !mod_rewrite.c>
+        DirectoryIndex error_norewrite.html
+        ErrorDocument 404 /error_norewrite.html
+    </IfModule>
+</Directory>

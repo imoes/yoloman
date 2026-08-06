@@ -1,0 +1,43 @@
+# =============================================================================
+# deepin-shortcut-viewer systemd unit override template
+# =============================================================================
+# This template generates an ExecStart override for the deepin-shortcut-viewer
+# systemd service unit. It respects the 'enabled' flag to generate content
+# or remain empty.
+#
+# Variables expected by the schema:
+#   enabled (bool): Enable the shortcut viewer service. When false, no
+#                   ExecStart override is generated.
+#   pos (str): Comma-separated x,y coordinates for window centering, e.g.,
+#              '100,50'. Must match the -p/--pos argument format.
+#   bypass (bool): Pass the --bypass flag to ignore window manager hints.
+# =============================================================================
+
+{# Only generate configuration if the service is enabled #}
+{% if enabled | default(true) | bool %}
+[Service]
+
+{# Determine if --bypass is active #}
+{% set is_bypass = bypass | default(false) | bool %}
+{# Determine if a custom position is set #}
+{% set has_pos = pos | default('') | trim | length > 0 %}
+
+{# Build the base command #}
+{% set cmd_base = '/usr/bin/deepin-shortcut-viewer' %}
+
+{# If bypass is requested, we must regenerate the full ExecStart line to
+   ensure the flag is present alongside any position arguments.
+   Otherwise, we generate a clean line. #}
+{% if is_bypass %}
+# Bypass window manager hints
+ExecStart={{ cmd_base }}{% if has_pos %} --pos={{ pos | default('') | trim }}{% endif %} --bypass
+{% else %}
+# Shortcut viewer start command
+{% if has_pos %}
+# Window central position (x,y) relative to target window
+ExecStart={{ cmd_base }} --pos={{ pos | default('') | trim }}
+{% else %}
+ExecStart={{ cmd_base }}
+{% endif %}
+{% endif %}
+{% endif %}

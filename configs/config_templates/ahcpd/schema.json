@@ -1,21 +1,23 @@
 {
-  "listen_address": {
-    "type": "string",
-    "default": "::",
-    "description": "IP address (IPv6 or IPv4) on which the AHCP server listens for requests. Use '::' for all interfaces."
-  },
   "interfaces": {
     "type": "list",
     "default": [],
-    "description": "List of network interface names (e.g., ['eth0', 'wlan0']) to bind the AHCP server to. Leave empty to use default routing.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of network interface names (e.g., ['eth0', 'wlan0']) to bind the AHCP server to. Leave empty to use default routing."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for server logs. Options: debug, info, notice, warning, error, crit, alert, emerg."
   },
   "mode": {
     "type": "string",
     "default": "server",
-    "description": "Server operation mode: 'server' (active responder), 'auto' (detect and act as needed), or 'none' (disable AHCP)."
+    "description": "Server operation mode: 'server' (active responder), 'auto' (detect and act as needed), or 'none' (disable AHCP). Enum: server, client, forwarder.",
+    "enum": [
+      "server",
+      "client",
+      "forwarder"
+    ]
   },
   "pool_prefix": {
     "type": "string",
@@ -24,35 +26,18 @@
   },
   "prefix_lifetime": {
     "type": "number",
-    "default": 86400,
+    "default": 2592000,
     "description": "Lifetime (in seconds) for delegated IPv6 prefixes. Clients must reconfirm before expiration."
   },
   "prefix_preferred_lifetime": {
     "type": "number",
-    "default": 43200,
+    "default": 604800,
     "description": "Preferred lifetime (in seconds) for delegated prefixes \u2014 time before deprecation."
   },
   "address_ranges": {
     "type": "list",
     "default": [],
-    "description": "Static IPv6 address ranges assigned to specific clients or subnets. Each entry defines a start\u2013end range for address allocation.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "start": {
-          "type": "string",
-          "description": "First IPv6 address in the static range."
-        },
-        "end": {
-          "type": "string",
-          "description": "Last IPv6 address in the static range."
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional human-readable description of this range."
-        }
-      }
-    }
+    "description": "Static IPv6 address ranges assigned to specific clients or subnets. Each entry defines a start\u2013end range for address allocation."
   },
   "dns_servers": {
     "type": "list",
@@ -71,13 +56,8 @@
   },
   "lease_file": {
     "type": "string",
-    "default": "/var/lib/ahcpd/leases",
+    "default": "/var/lib/ahcpd/ahcpd.state",
     "description": "Path to the file where AHCP stores current lease information for persistence across restarts."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "notice",
-    "description": "Verbosity level for server logs. Options: debug, info, notice, warning, error, crit, alert, emerg."
   },
   "ipv4_fallback": {
     "type": "string",

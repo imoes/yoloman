@@ -1,104 +1,17 @@
 {
-  "listen_address": {
+  "daemon_path": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address the proxy listens on for incoming IMAP client connections."
+    "default": "/usr/sbin/imapproxyd",
+    "description": "Full path to the imapproxy daemon executable."
   },
-  "listen_port": {
-    "type": "number",
-    "default": 143,
-    "description": "Port number the proxy listens on for IMAP connections (typically 143 for unencrypted or 993 for SSL)."
-  },
-  "backends": {
-    "type": "list",
-    "default": [],
-    "description": "List of backend IMAP servers to proxy requests to. Supports weighted round-robin if multiple servers are listed.",
-    "items": {
-      "host": {
-        "type": "string",
-        "default": "",
-        "description": "Hostname or IP address of the backend IMAP server."
-      },
-      "port": {
-        "type": "number",
-        "default": 143,
-        "description": "Port number of the backend IMAP server (usually 143 or 993)."
-      },
-      "weight": {
-        "type": "number",
-        "default": 1,
-        "description": "Relative weight for load distribution (higher = more traffic). Must be \u2265 1."
-      }
-    }
-  },
-  "ssl_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS termination at the proxy level (proxy presents its own certificate to clients)."
-  },
-  "ssl_cert_file": {
+  "pidfile_path": {
     "type": "string",
-    "default": "/etc/ssl/certs/imapproxy.crt",
-    "description": "Path to the SSL certificate file (PEM format). Required if ssl_enabled=true."
+    "default": "/var/run/imapproxy.pid",
+    "description": "Full path to the PID file."
   },
-  "ssl_key_file": {
+  "default_file_path": {
     "type": "string",
-    "default": "/etc/ssl/private/imapproxy.key",
-    "description": "Path to the SSL private key file (PEM format). Required if ssl_enabled=true."
-  },
-  "cache_size": {
-    "type": "number",
-    "default": 5000,
-    "description": "Maximum number of IMAP connections cached per backend server."
-  },
-  "connection_cache_ttl": {
-    "type": "number",
-    "default": 300,
-    "description": "Time-to-live (seconds) for cached backend connections before reconnection."
-  },
-  "max_client_connections": {
-    "type": "number",
-    "default": 200,
-    "description": "Maximum number of simultaneous client connections allowed."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of logging: 'none', 'error', 'warn', 'info', 'debug'."
-  },
-  "log_facility": {
-    "type": "string",
-    "default": "mail",
-    "description": "Syslog facility to use for logging (e.g., 'mail', 'daemon', 'local0')."
-  },
-  "chroot": {
-    "type": "string",
-    "default": "",
-    "description": "Chroot directory for sandboxing (leave empty to disable chroot)."
-  },
-  "user": {
-    "type": "string",
-    "default": "nobody",
-    "description": "Unix user to drop privileges to after binding to ports."
-  },
-  "group": {
-    "type": "string",
-    "default": "nogroup",
-    "description": "Unix group to drop privileges to after binding to ports."
-  },
-  "client_idle_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Seconds of inactivity before closing idle client connections."
-  },
-  "backend_idle_timeout": {
-    "type": "number",
-    "default": 300,
-    "description": "Seconds of inactivity before closing idle backend connections (should be \u2265 client_idle_timeout)."
-  },
-  "enable_pipeline": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable IMAP pipeline support for improved performance (requires backend support)."
+    "default": "/etc/default/imapproxy",
+    "description": "Path to the default configuration file for init script overrides."
   }
 }

@@ -1,59 +1,88 @@
 {
   "host": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address the diod server listens on. Use '0.0.0.0' for all interfaces, or '127.0.0.1' for localhost-only."
+    "default": {
+      "value": "0.0.0.0"
+    }
   },
   "port": {
     "type": "number",
-    "default": 8765,
-    "description": "TCP port number for the diod server to bind to."
+    "default": {
+      "value": 8765
+    }
   },
   "export_root": {
     "type": "string",
-    "default": "/srv/diod",
-    "description": "Base directory under which export paths are resolved (unless absolute paths are used in export definitions)."
+    "default": {
+      "value": "/srv/diod"
+    }
   },
   "max_clients": {
     "type": "number",
-    "default": 100,
-    "description": "Maximum number of concurrent client connections allowed."
+    "default": {
+      "value": 100
+    }
   },
   "verbose": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable detailed logging (true) or minimal logging (false)."
+    "type": "boolean",
+    "default": {
+      "value": false
+    }
   },
   "exports": {
-    "type": "list",
-    "default": [],
-    "description": "List of export definitions, each exposing a filesystem path with specific access rules.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique name of the export (used as mount point identifier)."
-      },
-      "path": {
-        "type": "string",
-        "default": "",
-        "description": "Absolute or relative (to export_root) filesystem path to export."
-      },
-      "read_only": {
-        "type": "bool",
-        "default": false,
-        "description": "If true, clients can only read from this export; otherwise, write access is allowed."
-      },
-      "allowed_hosts": {
-        "type": "list",
-        "default": [
-          "*"
-        ],
-        "description": "List of allowed client hostnames/IPs or CIDR subnets. Use ['*'] to allow all.",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
+    "type": "array",
+    "default": {
+      "value": []
+    },
+    "description": "List of export definitions, each exposing a filesystem path with specific access rules."
+  },
+  "nwthreads": {
+    "type": "number",
+    "default": {
+      "value": 16
+    },
+    "description": "Sets the (fixed) number of worker threads created to handle 9P requests for a unique aname. The default is 16 per aname."
+  },
+  "auth_required": {
+    "type": "boolean",
+    "default": {
+      "value": true
+    },
+    "description": "Allow clients to connect without authentication, i.e. without a valid MUNGE credential. Default is true."
+  },
+  "userdb": {
+    "type": "boolean",
+    "default": {
+      "value": true
+    },
+    "description": "This option disables password/group lookups. It allows any uid to attach and assumes gid=uid, and supplementary groups contain only the primary gid. Default is true."
+  },
+  "allsquash": {
+    "type": "boolean",
+    "default": {
+      "value": false
+    },
+    "description": "Remap all users to \"nobody\". The attaching user need not be present in the password file. Default is false."
+  },
+  "squashuser": {
+    "type": "string",
+    "default": {
+      "value": "nobody"
+    },
+    "description": "Change the squash user from the default of nobody. The squash user must be present in the password file."
+  },
+  "logdest": {
+    "type": "string",
+    "default": {
+      "value": "syslog:daemon:err"
+    },
+    "description": "Set the destination for logging. DEST is in the form of syslog:facility:level or filename. The default is syslog:daemon:err."
+  },
+  "statfs_passthru": {
+    "type": "boolean",
+    "default": {
+      "value": false
+    },
+    "description": "This option configures statfs to return the host file system's type rather than V9FS_MAGIC. The default is 0 (return V9FS_MAGIC)."
   }
 }

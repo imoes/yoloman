@@ -1,0 +1,19 @@
+{# 9mount configuration for a 9P filesystem mount #}
+# 9mount command options
+{% if debug_channels %}# comma-separated debug channels (err, devel, 9p, vfs, conv, mux, trans, alloc, fcall)
+-d {{ debug_channels | join(',') }}{% endif %}
+{% if msize %}# maximum 9P message size in bytes (≤ 8192 for non-root)
+-m {{ msize }}{% endif %}
+{% if cache_mode %}# caching mode: loose, fscache, mmap
+-c {{ cache_mode }}{% endif %}
+{% if spec %}# file tree spec to mount (e.g., /home/user/data)
+-a {{ spec }}{% endif %}
+# Mount mode flags (mutually exclusive options)
+{% if mount_opts.uid %}-i{% endif %}
+{% if mount_opts.dry_run %}-n{% endif %}
+{% if mount_opts.single_attach %}-s{% endif %}
+{% if mount_opts.use_9P2000u %}-u{% endif %}
+{% if mount_opts.device_mapping %}-v{% endif %}
+{% if mount_opts.exclusive %}-x{% endif %}
+# DIAL and MOUNTPT — always required
+{{ dial }} {{ mountpoint }}

@@ -1,0 +1,20 @@
+# fetch-crl cron job configuration
+# This template generates a crontab entry for the fetch-crl daemon, which periodically
+# updates the CRL (Certificate Revocation List) cache for GnuPG and other tools.
+# The job includes locking and environment sourcing to ensure safe, idempotent execution.
+
+# Schedule: Runs every {{ cron_interval_hours | default(6) }} hours, starting at minute
+# {{ cron_minute | default('42') }} past the hour, with a potential jitter of up to
+# {{ cron_splay_minutes | default(3) }} minutes (for documentation purposes only in this specific line).
+# The lock file prevents concurrent executions.
+# Environment variables from {{ default_config_path | default('/etc/default/fetch-crl') }} are sourced
+# before execution to allow customization via $FETCHCRL_OPTIONS and $FETCHCRL_CRON_OPTIONS.
+
+# The command checks if the lock file {{ lock_file_path | default('/var/lock/fetch-crl-cron') }} exists.
+# If it does NOT exist, it proceeds to run fetch-crl.
+# fetch-crl is invoked with:
+#   -q : quiet mode
+#   -r {{ reload_interval_seconds | default(360) }} : reload interval in seconds
+#   - $FETCHCRL_OPTIONS / $FETCHCRL_CRON_OPTIONS : user-defined options from the default config
+
+{{ cron_minute | default('42') }} */{{ cron_interval_hours | default(6) }} * * *	root	[ ! -f {{ lock_file_path | default('/var/lock/fetch-crl-cron') }} ] || ( [ -f {{ default_config_path | default('/etc/default/fetch-crl') }} ] && . {{ default_config_path | default('/etc/default/fetch-crl') }} ; /usr/sbin/fetch-crl -q -r {{ reload_interval_seconds | default(360) }} $FETCHCRL_OPTIONS $FETCHCRL_CRON_OPTIONS )

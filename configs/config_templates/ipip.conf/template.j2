@@ -1,30 +1,36 @@
 [global]
-# Global settings for the IPIP service
-listen_addr = {{ listen_addr }}
-listen_port = {{ listen_port }}
-log_level = {{ log_level }}
-log_file = {{ log_file }}
-max_workers = {{ max_workers }}
+# IP address the IPIP service will bind to for incoming connections.
+listen_addr = {{ listen_addr | default('0.0.0.0') }}
+# TCP port number for the main IPIP control service.
+listen_port = {{ listen_port | default(5000) }}
+# Verbosity of logging: one of debug, info, warn, error.
+log_level = {{ log_level | default('info') }}
+# Path to the primary log file for IPIP service events.
+log_file = {{ log_file | default('/var/log/ipip/ipip.log') }}
+# Maximum number of worker processes for handling tunnel operations.
+max_workers = {{ max_workers | default(4) }}
 
 # Authentication settings
 [auth]
-enable_auth = {{ enable_auth }}
-auth_method = {{ auth_method }}
+# Enable user authentication for service access.
+enable_auth = {{ enable_auth | default(True) }}
+# Authentication mechanism: currently only 'password' is supported.
+auth_method = {{ auth_method | default('password') }}
 # List of allowed users with credentials
-{% for user in users %}
+{% for user in users | default([]) %}
 user.{{ user.name }}.password = {{ user.password }}
-user.{{ user.name }}.scope = {{ user.scope }}
+user.{{ user.name }}.scope = {{ user.scope | default('admin') }}
 {% endfor %}
 
 # IPIP tunnel endpoints configuration
 [tunnels]
-{% for tunnel in tunnels %}
+{% for tunnel in tunnels | default([]) %}
 [tunnels.{{ tunnel.name }}]
 # IPIP tunnel {{ tunnel.name }}
 src_addr = {{ tunnel.src_addr }}
 dst_addr = {{ tunnel.dst_addr }}
 mtu = {{ tunnel.mtu }}
-enabled = {{ 'true' if tunnel.enabled else 'false' }}
+enabled = {{ tunnel.enabled | default(True) | lower }}
 {% if tunnel.description %}
 description = {{ tunnel.description }}
 {% endif %}
@@ -32,7 +38,7 @@ description = {{ tunnel.description }}
 
 # Optional service-specific overrides
 [overrides]
-{% for key, value in overrides.items() %}
+{% for key, value in overrides | default({}) | dict2items %}
 # Override: {{ key }}
 {{ key }} = {{ value }}
 {% endfor %}

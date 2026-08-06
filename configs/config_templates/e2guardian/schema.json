@@ -9,231 +9,156 @@
     "default": 8080,
     "description": "Port number E2Guardian listens on (typically 8080 or 3128)."
   },
-  "daemon_nodaemon": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, runs in foreground (useful for debugging or containerized deployments)."
-  },
-  "children_count": {
+  "tls_listen_port": {
     "type": "number",
-    "default": 10,
-    "description": "Number of child processes to spawn for handling requests."
+    "default": 0,
+    "description": "Port for TLS proxy traffic (typically 8090). Set to 0 to disable."
+  },
+  "icap_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for ICAP server mode. Set to 0 to disable."
+  },
+  "transparent_http_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for transparent HTTPS. Set to 0 to disable."
+  },
+  "filter_groups": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of filter groups (1 or more)."
+  },
+  "default_filter_group": {
+    "type": "number",
+    "default": 1,
+    "description": "Default filter group for explicit proxy mode."
+  },
+  "enable_ssl": {
+    "type": "string",
+    "default": "off",
+    "description": "Enable SSL support. Must be 'on' or 'off'.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
+  },
+  "default_icap_filter_group": {
+    "type": "number",
+    "default": 1,
+    "description": "Default filter group for ICAP mode."
+  },
+  "default_transparent_filter_group": {
+    "type": "number",
+    "default": 1,
+    "description": "Default filter group for transparent proxy mode."
+  },
+  "reverse_client_ip_lookups": {
+    "type": "string",
+    "default": "off",
+    "description": "Perform reverse lookups for banned/exception IP clients. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
+  },
+  "log_file_format": {
+    "type": "number",
+    "default": 8,
+    "description": "Log file format (1-8). Default 8."
   },
   "log_level": {
     "type": "number",
     "default": 3,
-    "description": "Logging verbosity: 1 (error) to 5 (trace). Level 3 is recommended for production."
+    "description": "Log level: 0=none, 1=just denied, 2=text-based, 3=all."
   },
-  "log_ip_addresses": {
-    "type": "boolean",
-    "default": false,
-    "description": "Include client IP addresses in log entries."
-  },
-  "log_file_path": {
-    "type": "string",
-    "default": "/var/log/e2guardian/e2guardian.log",
-    "description": "Path to the main access log file."
-  },
-  "banned_mime_types": {
-    "type": "list",
-    "default": [
-      "application/x-msdownload",
-      "application/x-sh",
-      "text/scriptlet"
-    ],
-    "description": "List of MIME types to block (e.g., scripts, executables)."
-  },
-  "content_group_files": {
-    "type": "list",
-    "default": [
-      "/etc/e2guardian/contentgroups"
-    ],
-    "description": "Paths to content restriction files (defines allowed/disallowed categories)."
-  },
-  "auth_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable HTTP Basic/Digest authentication."
-  },
-  "auth_module": {
-    "type": "string",
-    "default": "basic",
-    "description": "Authentication module: 'basic', 'digest', or custom module name."
-  },
-  "auth_file": {
-    "type": "string",
-    "default": "/etc/e2guardian/authusers",
-    "description": "Path to the file containing valid usernames/passwords."
-  },
-  "auth_realm": {
-    "type": "string",
-    "default": "E2Guardian Proxy",
-    "description": "Authentication realm string shown in browser login prompt."
-  },
-  "auth_type": {
-    "type": "string",
-    "default": "none",
-    "description": "Legacy alias for auth_enabled (use auth_enabled instead); kept for compatibility."
-  },
-  "upstream_proxy_host": {
-    "type": "string",
-    "default": "",
-    "description": "Hostname of upstream proxy to forward requests to (empty = direct internet access)."
-  },
-  "upstream_proxy_port": {
+  "log_exception_hits": {
     "type": "number",
-    "default": 3128,
-    "description": "Port of upstream proxy (if enabled)."
+    "default": 2,
+    "description": "Log exception hits: 0=never, 1=log without marking, 2=always mark."
   },
-  "time_restrictions_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable time-based content filtering (e.g., block during work hours)."
-  },
-  "restricted_times": {
+  "show_weighted_found": {
     "type": "string",
-    "default": "08:00-17:00",
-    "description": "Time ranges (24h, comma-separated) when restrictions apply."
+    "default": "on",
+    "description": "Show weighted phrases found in logs. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
-  "restrict_days": {
+  "log_client_name_and_ip": {
     "type": "string",
-    "default": "1-5",
-    "description": "Days restrictions apply: 1=Monday to 7=Sunday; '1-5' = weekdays."
+    "default": "on",
+    "description": "Log both hostname and IP. Applies to log formats 5,6,7,8.\n"
   },
-  "url_length_limit": {
+  "dstats_interval": {
     "type": "number",
-    "default": 2048,
-    "description": "Maximum allowed URL length in bytes (to prevent buffer overflow attacks)."
+    "default": 300,
+    "description": "Interval in seconds between dynamic stats output. Min 10, max 3600."
   },
-  "phrase_group_files": {
-    "type": "list",
-    "default": [
-      "/etc/e2guardian/phraselists"
-    ],
-    "description": "Paths to phrase blacklist files (contains prohibited words/phrases)."
-  },
-  "url_group_files": {
-    "type": "list",
-    "default": [
-      "/etc/e2guardian/urlgroups"
-    ],
-    "description": "Paths to URL blacklist/whitelist files."
-  },
-  "pattern_matching_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable regex-based pattern filtering."
-  },
-  "pattern_group_files": {
-    "type": "list",
-    "default": [
-      "/etc/e2guardian/patterngroups"
-    ],
-    "description": "Paths to regex pattern files (only active if pattern_matching_enabled=true)."
-  },
-  "exclude_ips": {
-    "type": "list",
-    "default": [],
-    "description": "IPs/CIDRs to exempt from filtering, each with optional comment.",
-    "items": {
-      "ip": {
-        "type": "string",
-        "description": "IP address or CIDR notation."
-      },
-      "comment": {
-        "type": "string",
-        "description": "Optional note (e.g., 'trusted server', 'admin workstation')."
-      }
-    }
-  },
-  "exclude_domains": {
-    "type": "list",
-    "default": [],
-    "description": "Domains to exempt from filtering, each with optional comment.",
-    "items": {
-      "domain": {
-        "type": "string",
-        "description": "Domain name (e.g., 'example.com')."
-      },
-      "comment": {
-        "type": "string",
-        "description": "Optional note (e.g., 'internal site', 'SSL exception' )."
-      }
-    }
-  },
-  "language": {
+  "reverse_address_lookups": {
     "type": "string",
-    "default": "english",
-    "description": "Language for filtered-page banners and error messages."
+    "default": "off",
+    "description": "Reverse lookups for site/URL lists. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
-  "ssl_inspection_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable HTTPS traffic inspection (MITM). Requires valid SSL certificate."
-  },
-  "ssl_cert_file": {
+  "search_sitelist_for_ip": {
     "type": "string",
-    "default": "/etc/e2guardian/ssl/e2guardian.crt",
-    "description": "Path to SSL certificate for MITM inspection."
+    "default": "on",
+    "description": "Search sitelist for IP entries. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
-  "ssl_key_file": {
+  "use_x_forwarded_for": {
     "type": "string",
-    "default": "/etc/e2guardian/ssl/e2guardian.key",
-    "description": "Path to SSL private key."
+    "default": "off",
+    "description": "Use X-Forwarded-For header for client IP. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
-  "ssl_chain_file": {
+  "reporting_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Reporting level: -1=stealth, 0=denied, 1-3=increasing detail."
+  },
+  "weighted_phrase_mode": {
+    "type": "number",
+    "default": 2,
+    "description": "Weighted phrase mode: 0=off, 1=normal, 2=singular."
+  },
+  "phrase_filter_mode": {
+    "type": "number",
+    "default": 2,
+    "description": "Phrase filtering mode: 0=raw, 1=smart, 2=both, 3=meta/title."
+  },
+  "preserve_case": {
+    "type": "number",
+    "default": 0,
+    "description": "Case preservation: 0=force lower, 1=keep original, 2=both."
+  },
+  "hex_decode_content": {
     "type": "string",
-    "default": "",
-    "description": "Path to intermediate CA certificate chain (optional)."
+    "default": "off",
+    "description": "Hex decode content. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
-  "ssl_proxy_port": {
-    "type": "number",
-    "default": 8081,
-    "description": "Port used for SSL-inspected traffic (if enabled)."
-  },
-  "max_content_download_mb": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum size (MB) to download for content analysis before blocking."
-  },
-  "max_content_download_limit_mb": {
-    "type": "number",
-    "default": 100,
-    "description": "Absolute hard limit (MB) for download size \u2014 requests above this are aborted."
-  },
-  "max_request_size_kb": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum HTTP request size (KB) allowed (headers + method + URL)."
-  },
-  "max_body_size_kb": {
-    "type": "number",
-    "default": 5120,
-    "description": "Maximum HTTP POST body size (KB) allowed."
-  },
-  "max_connect_time_s": {
-    "type": "number",
-    "default": 120,
-    "description": "Maximum seconds to wait for upstream connection before timing out."
-  },
-  "connection_timeout_s": {
-    "type": "number",
-    "default": 30,
-    "description": "Idle connection timeout in seconds."
-  },
-  "cache_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable disk-based caching for performance."
-  },
-  "cache_path": {
+  "force_quick_search": {
     "type": "string",
-    "default": "/var/cache/e2guardian",
-    "description": "Directory path for cached content (requires write permissions)."
-  },
-  "cache_limit_mb": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum cache size in MB (if caching is enabled)."
+    "default": "off",
+    "description": "Force Quick Search rather than DFA search algorithm. on|off.\n",
+    "enum": [
+      "on",
+      "off"
+    ]
   }
 }

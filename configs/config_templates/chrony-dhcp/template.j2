@@ -1,34 +1,71 @@
-# Source NTP servers from DHCP option 120 (if available)
-{% if enable_dhcp_source %}dhcpcd --request-option 120{% if interface %} {{ interface }}{% endif %}{% endif %}
+# Chrony configuration template.
+#
+# This template generates a chrony.conf file. It is self-documenting:
+# every directive is preceded by a comment describing the controlling schema field.
+# All variables use `| default(...)` to ensure safe rendering even when the
+# corresponding Ansible variable is undefined.
 
-# Use NTP servers discovered via DHCP
-{% if enable_dhcp_source %}pool 0.pool.ntp.org iburst dhcp{% else %}pool 0.pool.ntp.org iburst{% endif %}
+# === DHCP Source Configuration ===
 
-# Allow local NTP client queries
-{% if allow_local_client %}allow 127.0.0.1{% endif %}
+# enable_dhcp_source: Enable fetching NTP servers via DHCP option 120 (requires dhcpcd with --request-option 120 support).
+{% if enable_dhcp_source | default(True) | bool %}# Fetch NTP servers from DHCP option 120 on interface {{ interface | default('') }}
+dhcpcd --request-option 120{% if interface | default('') %} {{ interface | default('') }}{% endif %}{% endif %}
 
-# Allow LAN clients if enabled
-{% if allow_lan_clients %}
-{% for lan_subnet in lan_subnets %}allow {{ lan_subnet }}{% endfor %}
-{% endif %}
+# pool directive: Use NTP servers discovered via DHCP or static fallback.
+{% if enable_dhcp_source | default(True) | bool %}# Use NTP servers discovered via DHCP (dynamic)
+pool 0.pool.ntp.org iburst dhcp{% else %}# Static fallback pool (no DHCP)
+pool 0.pool.ntp.org iburst{% endif %}
 
-# Logging configuration
+# === Access Control ===
+
+# allow_local_client: Allow NTP queries from localhost (127.0.0.1).
+{% if allow_local_client | default(True) | bool %}# Allow NTP queries from localhost
+allow 127.0.0.1{% endif %}
+
+# allow_lan_clients: Allow NTP queries from LAN subnets (must specify at least one subnet in lan_subnets).
+{% if allow_lan_clients | default(False) | bool %}# Allow NTP queries from local LAN subnets
+{% for lan_subnet in lan_subnets | default([]) %}allow {{ lan_subnet }}
+{% endfor %}{% endif %}
+
+# === Logging Configuration ===
+
+# Log levels: Enable logging of measurements, statistics, and tracking data.
 log measurements statistics tracking
-logdir {{ log_dir }}
-maxloglines {{ max_log_lines }}
 
-# Drift file and RTC adjustment
-driftfile {{ drift_file }}
+# log_dir: Directory where chronyd writes log files.
+logdir {{ log_dir | default('/var/log/chrony') }}
+
+# max_log_lines: Maximum number of log lines to keep per file before rotation.
+maxloglines {{ max_log_lines | default(10) }}
+
+# === Drift and RTC Sync ===
+
+# drift_file: Path to the file storing the system clock drift.
+driftfile {{ drift_file | default('/var/lib/chrony/chrony.drift') }}
+
+# rtcsync: Synchronize the Real-Time Clock with the system clock periodically.
 rtcsync
-makestep {{ makestep_threshold }} {{ max_steps }}
 
-# NTP source priority and fallback
-keyfile {{ keyfile_path }}
+# makestep_threshold: Step the clock if offset exceeds this value (in seconds), before max_steps have elapsed.
+# max_steps: Maximum number of steps allowed before switching to slew-only mode.
+makestep {{ makestep_threshold | default(1.0) }} {{ max_steps | default(10) }}
+
+# === Keys and Timezone ===
+
+# keyfile_path: Path to the file containing NTP authentication keys.
+keyfile {{ keyfile_path | default('/etc/chrony/chrony.keys') }}
+
+# leapsectz: Timezone data source for leap second handling.
 leapsectz right/UTC
 
-# Hardware timestamping (if supported)
-{% if enable_hwtimestamp %}hwtimestamp *{% endif %}
+# === Hardware Timestamping ===
 
-# Additional NTP servers (static fallback, e.g., for offline scenarios)
-{% for server in static_servers %}server {{ server.host }} iburst{% if server.options %} {{ server.options | join(' ') }}{% endif %}
+# enable_hwtimestamp: Enable hardware timestamping support on all network interfaces (requires hardware support).
+{% if enable_hwtimestamp | default(False) | bool %}# Enable hardware timestamping
+hwtimestamp *{% endif %}
+
+# === Static NTP Servers ===
+
+# static_servers: Static NTP servers used as fallback (e.g., when DHCP is unavailable).
+{% for server in static_servers | default([{'host': 'time.cloudflare.com', 'options': ['iburst', 'prefer']}]) %}server {{ server.host }} iburst{% if server.options %} {{ server.options | join(' ') }}{% endif %}
 {% endfor %}

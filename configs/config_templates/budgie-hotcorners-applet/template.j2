@@ -1,0 +1,56 @@
+# === Budgie Hotcorners Applet Autostart Configuration ===
+# This file is a desktop entry (.desktop) for the Budgie Hotcorners application.
+# It defines the executable to run, localization strings, and session-specific
+# autostart behaviors (MATE and GNOME).
+#
+# Variables used from Ansible host_vars/group_vars:
+# - exec_path: Path to the budgie-hotcorners binary.
+# - gsettings_schema: GSettings schema identifier for checking if hotcorners are active.
+# - gsettings_key: The specific GSettings key indicating the active state.
+# - auto_restart_mate: Boolean; whether to auto-restart on MATE session recovery.
+# - auto_restart_gnome: Boolean; whether to auto-restart on GNOME session recovery.
+
+[Desktop Entry]
+Type=Application
+
+# Application name in English
+Name=Budgie Hotcorners
+
+# Localized names
+Name[ca]=Cantons actius del Budgie
+Name[en_GB]=Budgie Hotcorners
+Name[fi]=Budgie Hotcorners
+Name[it]=Budgie Hotcorners
+Name[pl]=Budgie Hotcorners
+Name[pt_BR]=Cantos ativos Budgie
+Name[pt_PT]=Cantos ativos Budgie
+
+# Short description of what this application does
+Comment=Kick starts the budgie-hotcorners process
+Comment[ca]=Kick inicia el procés dels cantons actius del Budgie
+Comment[en_GB]=Kick starts the budgie-hotcorners process
+Comment[fi]=Potku käynnistää budgie-hotcorners-prosessi
+Comment[it]=Avvia il processo budgie-hotcorners
+Comment[pt_BR]=Inicia o processo de cantos ativos Budgie
+Comment[pt_PT]=Inicia o processo de cantos ativos-budgie
+
+# Path to the executable. Defaults to the standard system path if not overridden.
+Exec={{ exec_path | default('/usr/libexec/budgie-hotcorners/budgie-hotcorners') }}
+
+# Do not show in application menus (it's a background daemon/service)
+NoDisplay=true
+
+# Autostart Condition:
+# The application will only start if the GSettings key is true/active.
+# Uses the schema and key defined in variables.
+AutostartCondition=GSettings {{ gsettings_schema | default('org.ubuntubudgie.budgie-extras.HotCorners') }} {{ gsettings_key | default('active') }}
+
+# MATE Session:
+# Whether to automatically restart the application if the MATE session is restored.
+# Accepts boolean true/false. Defaults to True.
+X-MATE-AutoRestart={{ auto_restart_mate | default(True) | lower }}
+
+# GNOME Session:
+# Whether to automatically restart the application if the GNOME session is restored.
+# Accepts boolean true/false. Defaults to True.
+X-GNOME-AutoRestart={{ auto_restart_gnome | default(True) | lower }}

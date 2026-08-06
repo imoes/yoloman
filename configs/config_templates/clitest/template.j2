@@ -1,0 +1,63 @@
+{# clitest(1) configuration file #}
+{# This file is generated from the clitest CLI options. #}
+{# Each directive corresponds to a specific command-line flag. #}
+
+# Stop execution upon first failed test
+# If true, the test suite aborts immediately after the first failure.
+{% if first | default(false) %}--first{% endif %}
+
+# List all tests (no execution)
+# If true, the test suite lists all available tests without running them.
+{% if list | default(false) %}--list{% endif %}
+
+# List all tests with OK/FAIL status
+# If true, the test suite lists all available tests and their current status (OK/FAIL) without running them.
+{% if list_run | default(false) %}--list-run{% endif %}
+
+# Run specific tests by number (comma- or hyphen-separated, e.g., '1,3,5-7')
+# Specify a range or list of test numbers to execute. Empty string means all tests.
+{% if test_range is defined %}--test {{ test_range | default('') | trim }}{% endif %}
+
+# Skip specific tests by number
+# Specify a range or list of test numbers to skip. Empty string means no tests skipped.
+{% if skip_range is defined %}--skip {{ skip_range | default('') | trim }}{% endif %}
+
+# Quiet operation (no output)
+# If true, suppresses most output to standard out.
+{% if quiet | default(false) %}--quiet{% endif %}
+
+# Progress indicator type: test, number, dot, none
+# Controls how progress is displayed during test execution.
+# Allowed values: 'test', 'number', 'dot', 'none'.
+{% if progress_type is defined %}--progress {{ progress_type | default('none') | lower }}{% endif %}
+
+# Pre-flight command to run before first test
+# A shell command to execute before the test suite begins.
+# This can be used to set up the environment or start dependent services.
+{% if pre_flight is defined and pre_flight is not none and pre_flight | trim | length > 0 %}--pre-flight {{ pre_flight | trim }}{% endif %}
+
+# Post-flight command to run after last test
+# A shell command to execute after the test suite finishes (whether passed or failed).
+# This can be used to clean up or notify.
+{% if post_flight is defined and post_flight is not none and post_flight | trim | length > 0 %}--post-flight {{ post_flight | trim }}{% endif %}
+
+# Color usage: auto, always, never
+# Controls when colored output is emitted.
+# Allowed values: 'auto', 'always', 'never'.
+{% if color_when is defined %}--color {{ color_when | default('auto') | lower }}{% endif %}
+
+# Diff command options (default: '-u')
+# Arguments passed to the diff command when comparing output.
+{% if diff_options is defined %}--diff-options {{ diff_options | default('-u') | trim }}{% endif %}
+
+# Inline output prefix (default: '#→ ')
+# A string prefix added to inline output lines for clarity.
+{% if inline_prefix is defined %}--inline-prefix {{ inline_prefix | default('#→ ') | trim }}{% endif %}
+
+# Command line prefix (default: '')
+# A string prefix added to the command line prompt or execution context.
+{% if prefix is defined %}--prefix {{ prefix | default('') | trim }}{% endif %}
+
+# Prompt string (default: '$ ')
+# The string displayed as the shell prompt during interactive test sessions.
+{% if prompt is defined %}--prompt {{ prompt | default('$ ') | trim }}{% endif %}

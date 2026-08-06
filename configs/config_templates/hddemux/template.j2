@@ -1,0 +1,39 @@
+# =============================================================================
+# hddemux - Configuration Template
+# =============================================================================
+# This file configures hddemux, a demultiplexer for HD video streams over
+# standard protocols (HTTP and DNS). Each directive controls a specific
+# aspect of backend connectivity, session management, and logging verbosity.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Backend target for HTTP/1.x traffic.
+# Format: hostname[:port].
+# hddemux forwards HTTP requests to this upstream target.
+# Default: localhost:80
+# ------------------------------------------------------------------------------
+HTTP_TARGET={{ http_target | default('localhost:80') }}
+
+# ------------------------------------------------------------------------------
+# Backend target for DNS traffic.
+# Format: hostname[:port].
+# hddemux forwards DNS queries to this upstream target.
+# Default: localhost:53
+# ------------------------------------------------------------------------------
+DNS_TARGET={{ dns_target | default('localhost:53') }}
+
+# ------------------------------------------------------------------------------
+# Idle session timeout in milliseconds.
+# Defines how long an inactive session is kept open before being terminated.
+# Set to 0 to disable the timeout entirely (sessions stay open indefinitely).
+# Default: 600000 (10 minutes)
+# ------------------------------------------------------------------------------
+IDLE_TIMEOUT={{ idle_timeout | default(600000) }}
+
+# ------------------------------------------------------------------------------
+# Enable verbose debugging output to stderr.
+# When enabled, hddemux emits detailed diagnostic information to standard error.
+# Useful for troubleshooting connection issues.
+# Default: 0 (disabled)
+# ------------------------------------------------------------------------------
+HDDEMUX_DEBUG={% if debug | default(False) | bool %}1{% else %}0{% endif %}

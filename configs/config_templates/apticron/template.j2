@@ -1,0 +1,74 @@
+# ==============================================================================
+# Apticron Configuration Template
+# ==============================================================================
+# This file configures apticron, a lightweight tool that sends email
+# notifications about packages that need upgrading on Debian/Ubuntu systems.
+#
+# Each variable is explicitly documented and provides a safe default if the
+# corresponding Ansible variable is not defined.
+# ==============================================================================
+
+# Path to the custom configuration file (default: /etc/apticron.conf)
+# NOTE: This variable is primarily informational or used by wrappers; the
+# actual settings below are written to this file or the default location.
+CONFIG_FILE="{{ config_file | default('/etc/apticron.conf') }}"
+
+# Email address where notifications should be sent
+# Accepts a single address or a list of addresses
+{% if email is defined %}
+{% if email is iterable and email is not string %}
+EMAIL="{{ email | join(',') }}"
+{% else %}
+EMAIL="{{ email | default('root') }}"
+{% endif %}
+{% else %}
+EMAIL="{{ email | default('root') }}"
+{% endif %}
+
+# Set to "1" to enable notifications for newly available packages
+# If "0", apticron only notifies if there are upgrades available compared to the last run
+NOTIFY_NEW="{{ notify_new | default('0') }}"
+
+# Set to "1" to enable notifications only for security updates
+# Overrides NOTIFY_NEW if set to 1; prioritizes security updates
+NOTIFY_SECURITY="{{ notify_security | default('0') }}"
+
+# Set to "1" to perform a dry-run (no actual upgrades or email sending)
+# Useful for testing configuration changes
+DRY_RUN="{{ dry_run | default('0') }}"
+
+# Set to "1" to include held/outdated packages not upgradeable
+# Held packages are those pinned or manually held back from upgrading
+SHOW_HELD="{{ show_held | default('0') }}"
+
+# Set to "1" to include packages that would be downgraded
+# Downgrades occur if a newer version is removed from repositories
+SHOW_DOWNGRADES="{{ show_downgrades | default('0') }}"
+
+# Set to "1" to suppress output for unchanged packages
+# Only significant changes trigger notifications when enabled
+SILENT="{{ silent | default('0') }}"
+
+# Set to "1" to enable debug mode
+# Enables verbose logging for troubleshooting configuration issues
+DEBUG="{{ debug | default('0') }}"
+
+# Set to "1" to log to syslog
+# Logs diagnostic and operational messages to the system logger
+SYSLOG="{{ syslog | default('0') }}"
+
+# Path to custom diff tool
+# Used to display differences between the current and new package lists
+DIFF_TOOL="{{ diff_tool | default('/usr/bin/diff') }}"
+
+# Path to custom mail command
+# The executable used to send notification emails
+MAIL_CMD="{{ mail_cmd | default('/usr/bin/mail') }}"
+
+# Custom email 'From' address
+# Uses the system hostname by default if not specified
+MAIL_FROM="{{ mail_from | default('apticron@' ~ (hostname | default('localhost'))) }}"
+
+# Custom prefix for notification email subject
+# Prepended to the email subject line to identify the source
+SUBJECT_PREFIX="{{ subject_prefix | default('[apticron]') }}"

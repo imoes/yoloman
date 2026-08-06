@@ -20,7 +20,7 @@
     "description": "Maximum queue size per worker before dropping metrics (0 = unlimited)"
   },
   "debug": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "If true, enables connection logging; if false, suppresses logging"
   },
@@ -44,53 +44,47 @@
     "default": [],
     "description": "List of cluster definitions for routing metrics to backend Graphite servers",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique cluster identifier used in routing rules"
-        },
-        "replication": {
-          "type": "number",
-          "default": 1,
-          "description": "Number of times each metric is replicated across backends"
-        },
-        "backends": {
-          "type": "list",
-          "default": [],
-          "description": "List of backend servers in this cluster",
-          "items": {
-            "type": "object",
-            "fields": {
-              "host": {
-                "type": "string",
-                "default": "",
-                "description": "Backend hostname or IP"
-              },
-              "port": {
-                "type": "number",
-                "default": 2003,
-                "description": "Backend server port"
-              },
-              "replication": {
-                "type": "number",
-                "default": 1,
-                "description": "Optional per-backend override for replication factor"
-              }
-            }
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique cluster identifier used in routing rules"
+      },
+      "replication": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of times each metric is replicated across backends"
+      },
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend servers in this cluster",
+        "items": {
+          "host": {
+            "type": "string",
+            "default": "",
+            "description": "Backend hostname or IP"
+          },
+          "port": {
+            "type": "number",
+            "default": 2003,
+            "description": "Backend server port"
+          },
+          "replication": {
+            "type": "number",
+            "default": 1,
+            "description": "Optional per-backend override for replication factor"
           }
-        },
-        "hashing": {
-          "type": "string",
-          "default": "consistent",
-          "enum": [
-            "consistent",
-            "random",
-            "none"
-          ],
-          "description": "Hashing strategy for metric distribution: 'consistent' (default), 'random', or 'none'"
         }
+      },
+      "hashing": {
+        "type": "string",
+        "default": "consistent",
+        "enum": [
+          "consistent",
+          "random",
+          "none"
+        ],
+        "description": "Hashing strategy for metric distribution: 'consistent' (default), 'random', or 'none'"
       }
     }
   },
@@ -109,95 +103,92 @@
     ],
     "description": "List of routing rules; processed in order; first match wins unless 'stop' or aggregation is used",
     "items": {
-      "type": "object",
-      "fields": {
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description (not used by relay, for clarity)"
-        },
-        "condition": {
-          "type": "string",
-          "default": "",
-          "description": "Regular expression to match incoming metric names"
-        },
-        "action": {
-          "type": "string",
-          "default": "send_to",
-          "enum": [
-            "send_to",
-            "stop",
-            "aggregate",
-            "rewrite"
-          ],
-          "description": "Action to perform on matched metrics"
-        },
-        "destination": {
-          "type": "object",
-          "default": {},
-          "description": "Target for 'send_to' action: either a cluster name or a host:port",
-          "fields": {
-            "type": {
-              "type": "string",
-              "enum": [
-                "cluster",
-                "host"
-              ],
-              "default": "cluster",
-              "description": "Type of destination"
-            },
-            "name": {
-              "type": "string",
-              "description": "Cluster name (required if type = 'cluster')"
-            },
-            "host": {
-              "type": "string",
-              "description": "Host:port string (required if type = 'host')"
-            },
-            "port": {
-              "type": "number",
-              "default": 2003,
-              "description": "Port (required if type = 'host')"
-            }
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description (not used by relay, for clarity)"
+      },
+      "condition": {
+        "type": "string",
+        "default": "",
+        "description": "Regular expression to match incoming metric names"
+      },
+      "action": {
+        "type": "string",
+        "default": "send_to",
+        "enum": [
+          "send_to",
+          "stop",
+          "aggregate",
+          "rewrite"
+        ],
+        "description": "Action to perform on matched metrics"
+      },
+      "destination": {
+        "type": "object",
+        "default": {},
+        "description": "Target for 'send_to' action: either a cluster name or a host:port",
+        "fields": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "cluster",
+              "host"
+            ],
+            "default": "cluster",
+            "description": "Type of destination"
+          },
+          "name": {
+            "type": "string",
+            "description": "Cluster name (required if type = 'cluster')"
+          },
+          "host": {
+            "type": "string",
+            "description": "Host:port string (required if type = 'host')"
+          },
+          "port": {
+            "type": "number",
+            "default": 2003,
+            "description": "Port (required if type = 'host')"
           }
-        },
-        "aggregate": {
-          "type": "object",
-          "default": {},
-          "description": "Configuration for aggregation action",
-          "fields": {
-            "metric": {
-              "type": "string",
-              "default": "",
-              "description": "Metric name pattern (with placeholders like *.sum, *.count)"
-            },
-            "window": {
-              "type": "number",
-              "default": 60,
-              "description": "Aggregation window in seconds"
-            },
-            "destination": {
-              "type": "string",
-              "default": "",
-              "description": "Cluster name or host:port to send aggregated metrics to"
-            }
+        }
+      },
+      "aggregate": {
+        "type": "object",
+        "default": {},
+        "description": "Configuration for aggregation action",
+        "fields": {
+          "metric": {
+            "type": "string",
+            "default": "",
+            "description": "Metric name pattern (with placeholders like *.sum, *.count)"
+          },
+          "window": {
+            "type": "number",
+            "default": 60,
+            "description": "Aggregation window in seconds"
+          },
+          "destination": {
+            "type": "string",
+            "default": "",
+            "description": "Cluster name or host:port to send aggregated metrics to"
           }
-        },
-        "rewrite": {
-          "type": "object",
-          "default": {},
-          "description": "Configuration for rewrite action",
-          "fields": {
-            "from": {
-              "type": "string",
-              "default": "",
-              "description": "Regex to match in metric name"
-            },
-            "to": {
-              "type": "string",
-              "default": "",
-              "description": "Replacement pattern (supports backreferences like \\1)"
-            }
+        }
+      },
+      "rewrite": {
+        "type": "object",
+        "default": {},
+        "description": "Configuration for rewrite action",
+        "fields": {
+          "from": {
+            "type": "string",
+            "default": "",
+            "description": "Regex to match in metric name"
+          },
+          "to": {
+            "type": "string",
+            "default": "",
+            "description": "Replacement pattern (supports backreferences like \\1)"
           }
         }
       }

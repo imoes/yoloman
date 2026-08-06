@@ -1,0 +1,13 @@
+# entr(1) configuration file
+# This file defines the shell commands to execute when monitored files change.
+# entr reads file paths from stdin (e.g., via `find . -type f | entr`).
+# If no command is specified, entr prints the filenames that changed.
+# If a command is provided here, it is executed once for each set of changed files.
+
+# List of shell command strings to execute. entr reads file paths from stdin.
+# If a command is provided, it is executed with the files from stdin as arguments.
+# Leave empty to just print filenames.
+{% for cmd in commands | default([]) %}
+# Command: {{ cmd }}
+{{ cmd }}{% if not loop.last %}
+{% endif %}{% endfor %}

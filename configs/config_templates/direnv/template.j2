@@ -1,0 +1,54 @@
+# === direnv configuration (config.toml) ===
+# This file configures the `direnv` utility, which automatically manages
+# environment variables when entering directories with a `.envrc` file.
+#
+# Self-documenting template: every setting includes its schema description
+# and safe default values to prevent render failures when variables are omitted.
+
+# [Global Settings]
+
+# config_root: Custom XDG config directory (overrides XDG_CONFIG_HOME/direnv).
+#              Empty string uses default ($XDG_CONFIG_HOME/direnv).
+config_root = "{{ config_root | default('') }}"
+
+# allow_file: Path to the allow list file (records direnv-allowed .envrc paths).
+#             Empty string uses default ($XDG_DATA_HOME/direnv/allow).
+allow_file = "{{ allow_file | default('') }}"
+
+# [Shell Integration]
+
+# shell_integration_enabled: List of shells for which direnv hook is enabled
+#                            (e.g., bash, zsh, fish, tcsh, elvish).
+#                            Must be valid shell names supported by direnv hook.
+{% for shell in (shell_integration_enabled | default([])) %}
+# Shell hook enabled for: {{ shell }}
+{{ shell }}_hook_enabled = true
+{% endfor %}
+
+# [Shell Specific Settings]
+
+# fish_mode: Fish shell trigger mode. One of: eval_on_arrow (default),
+#            eval_after_arrow, disable_arrow.
+fish_mode = "{{ fish_mode | default('eval_on_arrow') }}"
+
+# [Library Configuration]
+
+# stdlib_path: Additional stdlib search paths. Overrides or extends built-in
+#              direnv-stdlib.
+{% if (stdlib_path | default([])) | length > 0 %}
+# Custom stdlib path(s)
+stdlib_path = "{{ stdlib_path | default([]) | join(',') }}"
+{% endif %}
+
+# extra_lib_paths: Extra library paths (e.g., $XDG_CONFIG_HOME/direnv/lib/*.sh)
+#                  loaded before each .envrc.
+{% if (extra_lib_paths | default([])) | length > 0 %}
+# Extra library paths (lib/*.sh loaded before .envrc)
+extra_lib_paths = "{{ extra_lib_paths | default([]) | join(',') }}"
+{% endif %}
+
+# [Logging]
+
+# log_level: Log verbosity. One of: debug, info, warn, error.
+#            Empty string uses default (usually info).
+log_level = "{{ log_level | default('info') }}"

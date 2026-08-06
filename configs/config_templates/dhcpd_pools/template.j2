@@ -1,78 +1,91 @@
-# {{ comment_header }}
 # ISC DHCP Lease Analysis Tool (dhcpd_pools) configuration
 # Configuration file: /etc/dhcpd-pools.conf
 # Ref: https://dhcpd-pools.sourceforge.net/
 
 [global]
-# Path to the main DHCP lease file to analyze
-lease_file = {{ lease_file }}
+# Absolute path to the ISC DHCP server lease database file to analyze.
+# Default: /var/lib/dhcp/dhcpd.leases
+lease_file = {{ lease_file | default('/var/lib/dhcp/dhcpd.leases') }}
 
-# Path to write HTML reports (leave empty to disable HTML output)
-html_output_dir = {{ html_output_dir }}
+# Directory where HTML reports are generated. Set to empty string to disable HTML output.
+# Default: /var/www/dhcpd-pools/reports
+html_output_dir = {{ html_output_dir | default('/var/www/dhcpd-pools/reports') }}
 
-# Path to write CSV reports (leave empty to disable CSV output)
-csv_output_dir = {{ csv_output_dir }}
+# Directory where CSV reports are generated. Set to empty string to disable CSV output.
+# Default: /var/lib/dhcpd-pools/csv
+csv_output_dir = {{ csv_output_dir | default('/var/lib/dhcpd-pools/csv') }}
 
-# Path to write JSON reports (leave empty to disable JSON output)
-json_output_dir = {{ json_output_dir }}
+# Directory where JSON reports are generated. Set to empty string to disable JSON output.
+# Default: /var/lib/dhcpd-pools/json
+json_output_dir = {{ json_output_dir | default('/var/lib/dhcpd-pools/json') }}
 
-# Report date format (strptime-compatible)
-report_date_format = {{ report_date_format }}
+# Date/time format used in report headers and timestamps (Python strptime syntax).
+# Default: %Y-%m-%d %H:%M:%S
+report_date_format = {{ report_date_format | default('%Y-%m-%d %H:%M:%S') }}
 
-# Number of days to include in "recent activity" analysis
-recent_days = {{ recent_days }}
+# Number of days into the past considered 'recent' for activity analysis.
+# Default: 7
+recent_days = {{ recent_days | default(7) }}
 
-# Minimum number of days a lease must have been inactive to be considered stale
-stale_days = {{ stale_days }}
+# Minimum number of days since last activity before a lease is flagged as 'stale'.
+# Default: 30
+stale_days = {{ stale_days | default(30) }}
 
-# Enable detailed per-subnet analysis (adds overhead on large lease files)
-detailed_subnets = {{ detailed_subnets }}
+# Whether to include per-subnet statistics in reports. More accurate but heavier on large files.
+# Default: True
+detailed_subnets = {{ detailed_subnets | default(true) }}
 
-# List of subnets to *exclude* from analysis (CIDR or dotted-quad notation)
-exclude_subnets = {% for subnet in exclude_subnets %}
-  {{ subnet }}
-{% endfor %}
+# List of subnet CIDR or dotted-quad ranges to exclude from analysis.
+# If empty, no subnets are excluded.
+# Format: one subnet per line, indented.
+exclude_subnets = {% if (exclude_subnets | default([])) is defined and (exclude_subnets | default([])) is iterable and (exclude_subnets | default([])) | length > 0 %}
+{% for subnet in exclude_subnets | default([]) %}  {{ subnet }}
+{% endfor %}{% else %}
+  # (none excluded)
+{% endif %}
 
-# List of subnet ranges to *include* in analysis (if non-empty, only these are processed)
-include_subnets = {% if include_subnets | length > 0 %}
-{% for subnet in include_subnets %}
-  {{ subnet }}
-{% endfor %}
-{% else %}
+# List of subnet ranges to include in analysis. If non-empty, only these subnets are analyzed.
+# If empty, all subnets found in the lease file are included.
+include_subnets = {% if (include_subnets | default([])) is defined and (include_subnets | default([])) is iterable and (include_subnets | default([])) | length > 0 %}
+{% for subnet in include_subnets | default([]) %}  {{ subnet }}
+{% endfor %}{% else %}
   # (all subnets included by default)
 {% endif %}
 
 [thresholds]
-# Warning threshold: pool utilization above this % triggers warning
-pool_warn_pct = {{ thresholds.pool_warn_pct }}
+# Warning threshold: pool utilization percentage above which a warning is triggered.
+# Default: 80
+pool_warn_pct = {{ (thresholds | default({})).pool_warn_pct | default(80) }}
 
-# Critical threshold: pool utilization above this % triggers critical alert
-pool_crit_pct = {{ thresholds.pool_crit_pct }}
+# Critical threshold: pool utilization percentage above which a critical alert is triggered.
+# Default: 95
+pool_crit_pct = {{ (thresholds | default({})).pool_crit_pct | default(95) }}
 
-# Warning threshold: number of stale leases above this triggers warning
-stale_warn_count = {{ thresholds.stale_warn_count }}
+# Warning threshold: number of stale leases above which a warning is triggered.
+# Default: 100
+stale_warn_count = {{ (thresholds | default({})).stale_warn_count | default(100) }}
 
-# Critical threshold: number of stale leases above this triggers critical alert
-stale_crit_count = {{ thresholds.stale_crit_count }}
-
-# Warning threshold: total active leases above this triggers warning
-active_warn_count = {{ thresholds.active_warn_count }}
-
-# Critical threshold: total active leases above this triggers critical alert
-active_crit_count = {{ thresholds.active_crit_count }}
+# Critical threshold: number of stale leases above which a critical alert is triggered.
+# Default: 200
+stale_crit_count = {{ (thresholds | default({})).stale_crit_count | default(200) }}
 
 [reports]
-# Enable per-pool statistics in reports
-pool_stats = {{ reports.pool_stats }}
+# Enable per-pool statistics in generated reports.
+# Default: True
+pool_stats = {{ (reports | default({})).pool_stats | default(true) }}
 
-# Enable per-class statistics in reports
-class_stats = {{ reports.class_stats }}
+# Enable per-class (vendor class identifier) statistics in generated reports.
+# Default: False
+class_stats = {{ (reports | default({})).class_stats | default(false) }}
 
-# Include host reservations in reports
-host_reservations = {{ reports.host_reservations }}
+# Include host reservations in the generated reports.
+# Default: False
+host_reservations = {{ (reports | default({})).host_reservations | default(false) }}
 
-# Include MAC vendor lookup in reports (requires external lookup; adds latency)
-mac_vendor_lookup = {{ reports.mac_vendor_lookup }}
+# Enable MAC vendor lookup in reports (requires external lookup service; adds latency).
+# Default: False
+mac_vendor_lookup = {{ (reports | default({})).mac_vendor_lookup | default(false) }}
 
-# Enable time-series summary in reports (requires multiple runs; needs historic data)
-time_series = {{ reports.time_series }}
+# Enable time-series summary in reports (requires multiple runs with historic data).
+# Default: False
+time_series = {{ (reports | default({})).time_series | default(false) }}

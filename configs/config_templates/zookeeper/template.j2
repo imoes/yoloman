@@ -1,67 +1,24 @@
-# The number of milliseconds of each tick
-# (controls heartbeat and timeout units)
-tickTime={{ tick_time }}
-
-# The number of ticks that the initial synchronization phase can take
-initLimit={{ init_limit }}
-
-# The number of ticks that can pass between sending a request and getting an acknowledgement
-syncLimit={{ sync_limit }}
-
-# The directory where the snapshot and transaction log are stored
-# If not set, defaults to the same as dataDir
-# It's recommended to use a separate log directory for durability
-dataLogDir={{ data_log_dir }}
-
-# The directory where the in-memory database snapshots and transaction log are stored
-# Must exist and be writable by the zookeeper user
-dataDir={{ data_dir }}
-
-# The port on which the ZooKeeper server will listen for client connections
-clientPort={{ client_port }}
-
-# Hostname to bind to for client connections (0.0.0.0 = all interfaces)
-# For production, set to a specific interface or localhost if only local clients
-clientBindAddress={{ client_bind_address }}
-
-# Maximum number of client connections (per IP by default)
-# Increase for high-throughput workloads
-maxClientCnxns={{ max_client_cnxns }}
-
-# Enable four-letter words commands (e.g., `stat`, `ruok`, `cons`)
-# Set to false in untrusted environments for security
-4lw.commands.whitelist={{ four_letter_words_whitelist }}
-
-# Enable secure SASL authentication (not enabled by default)
-# See `authProvider.*` and JAAS config when enabling
-group.digest.enabled={{ group_digest_enabled }}
-
-# Enable secure TLS (requires `secureClientPort`, certificates, etc.)
-# Not recommended unless TLS is fully configured
-secureClientPort={{ secure_client_port }}
-
-# Space-separated list of server definitions in the ensemble
-# Format: server.id=host:peerPort:leaderPort[;electionPort][;role]
-# Where `id` is the server ID (1–255), `host` is DNS or IP, ports are for quorum & election
-{% for srv in servers %}server.{{ srv.id }}={{ srv.hostname }}:{{ srv.peer_port }}:{{ srv.leader_port }}{% if srv.role %}:{{ srv.role }}{% endif %}
-{% endfor %}
-
-# Comma-separated list of observer servers (non-voting members)
-# Format: server.id=host:peerPort:leaderPort:observer
-{% for obs in observers %}server.{{ obs.id }}={{ obs.hostname }}:{{ obs.peer_port }}:{{ obs.leader_port }}:observer
-{% endfor %}
-
-# Enable automatic purging of old snapshots and logs
-autopurge.snapRetainCount={{ auto_purge_snap_retain_count }}
-autopurge.purgeInterval={{ auto_purge_purge_interval }}
-
-# Enable ZooKeeper to automatically start in a standalone mode if ensemble fails to form
-standaloneEnabled={{ standalone_enabled }}
-
-# Enable read-only mode servers (can serve reads but not participate in writes/leader election)
-# Deprecated in recent versions; use observer role instead
-readOnlyMode.enabled={{ read_only_mode_enabled }}
-
-# JVM Garbage Collection logging options (if needed for diagnostics)
-# Not part of zoo.cfg but often configured via JVM_OPTS in environment
-# We leave it out — operators configure via systemd service/env
+<?xml version="1.0"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+<xsl:output method="html"/>
+<xsl:template match="configuration">
+<html>
+<body>
+<table border="1">
+<tr>
+ <td>name</td>
+ <td>value</td>
+ <td>description</td>
+</tr>
+<xsl:for-each select="property">
+<tr>
+  <td><a name="{name}"><xsl:value-of select="name"/></a></td>
+  <td><xsl:value-of select="value"/></td>
+  <td><xsl:value-of select="description"/></td>
+</tr>
+</xsl:for-each>
+</table>
+</body>
+</html>
+</xsl:template>
+</xsl:stylesheet>

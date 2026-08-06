@@ -93,18 +93,14 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "Standby-replay daemon configuration \u2014 each element defines a standby-replay MDS.",
-      "fields": {
-        "daemon_id": {
-          "type": "string",
-          "description": "ID for the standby-replay MDS (e.g., 'a', 'b')."
-        },
-        "extra_features": {
-          "type": "string",
-          "default": "",
-          "description": "Additional feature flags for standby-replay (e.g., 'dirfrag', 'inode64'). Optional."
-        }
+      "daemon_id": {
+        "type": "string",
+        "description": "ID for the standby-replay MDS (e.g., 'a', 'b')."
+      },
+      "extra_features": {
+        "type": "string",
+        "default": "",
+        "description": "Additional feature flags for standby-replay (e.g., 'dirfrag', 'inode64'). Optional."
       }
     },
     "description": "List of MDS daemons in standby-replay mode (for fast failover)."
@@ -113,42 +109,38 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "Per-daemon overrides (advanced). One per MDS daemon (e.g., mds.a, mds.b).",
-      "fields": {
-        "daemon_id": {
-          "type": "string",
-          "description": "Daemon ID (e.g., 'a', 'b')."
-        },
-        "host": {
-          "type": "string",
-          "description": "Hostname or IP to bind this daemon to. Required if overriding defaults."
-        },
-        "log_file": {
-          "type": "string",
-          "default": "/var/log/ceph/ceph-$name.log",
-          "description": "Optional per-daemon log file path."
-        },
-        "mds_standby_replay": {
-          "type": "bool",
-          "default": false,
-          "description": "Enable standby-replay for this daemon? (Overrides global mds mode)."
-        },
-        "mds_filesystem": {
-          "type": "string",
-          "default": "",
-          "description": "Optional filesystem name for this daemon (if different from global)."
-        },
-        "mds_root_path": {
-          "type": "string",
-          "default": "/",
-          "description": "Root export path (e.g., '/exports/project')."
-        },
-        "mds_standby": {
-          "type": "bool",
-          "default": false,
-          "description": "Force this daemon into standby mode?"
-        }
+      "daemon_id": {
+        "type": "string",
+        "description": "Daemon ID (e.g., 'a', 'b')."
+      },
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP to bind this daemon to. Required if overriding defaults."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/ceph/ceph-$name.log",
+        "description": "Optional per-daemon log file path."
+      },
+      "mds_standby_replay": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable standby-replay for this daemon? (Overrides global mds mode)."
+      },
+      "mds_filesystem": {
+        "type": "string",
+        "default": "",
+        "description": "Optional filesystem name for this daemon (if different from global)."
+      },
+      "mds_root_path": {
+        "type": "string",
+        "default": "/",
+        "description": "Root export path (e.g., '/exports/project')."
+      },
+      "mds_standby": {
+        "type": "bool",
+        "default": false,
+        "description": "Force this daemon into standby mode?"
       }
     },
     "description": "Daemon-specific overrides. Use only if fine-grained control is needed."
@@ -157,36 +149,32 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "CephFS filesystem configuration for multi-filesystem deployments.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Unique filesystem name."
+      "name": {
+        "type": "string",
+        "description": "Unique filesystem name."
+      },
+      "metadata_pool": {
+        "type": "string",
+        "default": "",
+        "description": "Metadata pool name. Auto-generates '$name_metadata' if omitted."
+      },
+      "data_pools": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "metadata_pool": {
-          "type": "string",
-          "default": "",
-          "description": "Metadata pool name. Auto-generates '$name_metadata' if omitted."
-        },
-        "data_pools": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "List of data pools. Auto-generates '$name_data' if omitted."
-        },
-        "standby_for_rank": {
-          "type": "number",
-          "default": 0,
-          "description": "Rank this standby MDS should fail over to. Only applies to standbys."
-        },
-        "standby_replay": {
-          "type": "bool",
-          "default": false,
-          "description": "Enable standby-replay for filesystem?"
-        }
+        "default": [],
+        "description": "List of data pools. Auto-generates '$name_data' if omitted."
+      },
+      "standby_for_rank": {
+        "type": "number",
+        "default": 0,
+        "description": "Rank this standby MDS should fail over to. Only applies to standbys."
+      },
+      "standby_replay": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable standby-replay for filesystem?"
       }
     },
     "description": "Configure multiple CephFS filesystems in one cluster."

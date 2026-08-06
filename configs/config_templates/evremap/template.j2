@@ -1,0 +1,71 @@
+# ==============================================================================
+# evremap Configuration Template
+# ==============================================================================
+#
+# This configuration file defines key remapping rules for evremap, a utility
+# that intercepts evdev events and remaps input keys based on user-defined rules.
+#
+# Structure:
+#   1. Global device settings (device_name, phys)
+#   2. Dual-role key definitions ([[dual_role]])
+#   3. One-shot key remapping definitions ([[remap]])
+#
+# For detailed documentation on the evremap configuration format, see:
+#   https://github.com/norionomura/evremap
+# ==============================================================================
+
+# --- Global Device Settings ---
+
+# The name of the device to remap.
+# Run `sudo evremap list-devices` to see the devices available on your system.
+device_name = "{{ device_name | default('AT Translated Set 2 keyboard') }}"
+
+# Optional phys path to disambiguate multiple devices with the same name.
+# This field is only emitted if `phys` is defined and non-empty.
+{% if phys is defined and phys | length > 0 %}
+# Phys path: {{ phys }}
+phys = "{{ phys }}"
+{% endif %}
+
+# --- Dual-Role Key Definitions ---
+# Dual-role keys act as one key when held and another when tapped.
+# These rules are processed before the standard remap rules.
+{% for rule in dual_role | default([]) %}
+# --------------------------------------------------------------------------
+# Dual-Role Rule for Input: {{ rule.input | default('KEY_CAPSLOCK') }}
+# --------------------------------------------------------------------------
+# Holding {{ rule.input | default('KEY_CAPSLOCK') | replace('KEY_', '') | lower | replace('_', ' ') | title }}
+# produces: {{ rule.hold | default(['KEY_LEFTCTRL']) | join(', ') | replace('KEY_', '') }}
+# Tapping {{ rule.input | default('KEY_CAPSLOCK') | replace('KEY_', '') | lower | replace('_', ' ') | title }}
+# produces: {{ rule.tap | default(['KEY_ESC']) | join(', ') | replace('KEY_', '') }}
+
+[[dual_role]]
+# Input key to monitor
+input = "{{ rule.input | default('KEY_CAPSLOCK') }}"
+
+# Keys emitted when the input key is held down
+hold = [{{ rule.hold | default(['KEY_LEFTCTRL']) | join(', ') | indent(1) }}]
+
+# Keys emitted when the input key is tapped (pressed and released quickly)
+tap = [{{ rule.tap | default(['KEY_ESC']) | join(', ') | indent(1) }}]
+
+{% endfor %}
+
+# --- One-Shot Key Remapping Definitions ---
+# These rules map a sequence of input keys to a sequence of output keys.
+# Processed in order after dual-role rules.
+{% for rule in remap | default([]) %}
+# --------------------------------------------------------------------------
+# Remap Rule
+# --------------------------------------------------------------------------
+# Input Sequence:  {{ rule.input | default(['KEY_LEFTALT', 'KEY_UP']) | join(', ') | replace('KEY_', '') }}
+# Output Sequence: {{ rule.output | default(['KEY_PAGEUP']) | join(', ') | replace('KEY_', '') }}
+
+[[remap]]
+# Sequence of input key names to match
+input = [{{ rule.input | default(['KEY_LEFTALT', 'KEY_UP']) | join(', ') | indent(1) }}]
+
+# Keys to emit when the input sequence is matched
+output = [{{ rule.output | default(['KEY_PAGEUP']) | join(', ') | indent(1) }}]
+
+{% endfor %}

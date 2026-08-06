@@ -1,80 +1,168 @@
-{# Enable/disable the local proxy (must be enabled for most deployments) #}
-{% if enable_proxy | bool %}CONFIG proxy.config.proxy_name STRING {{ proxy_name }}
+# Traffic Server (ATS) `local.config` enriched template
+# Self-documenting: every directive is preceded by its schema description.
+# Variables use `| default(<schema_default>)` to be safe when omitted.
+
+# --- Global Proxy Identity ---
+# proxy_name: The name of this proxy instance (used in headers and logs).
+CONFIG proxy.config.proxy_name STRING {{ proxy_name | default('localhost') }}
+
+# --- Network Interfaces and Ports ---
+# server_ports: List of ports to listen on for HTTP traffic. Each entry must be an integer or port:interface specification (e.g., '8080' or '8080::').
+CONFIG proxy.config.http.server_ports STRING {{ server_ports | default(['8080']) | join(' ') }}
+
+# ssl_enabled: Enable HTTPS (TLS) termination and forwarding.
+# server_ssl_port: Port to use for HTTPS traffic when ssl_enabled is true.
+{% if ssl_enabled | default(False) | bool %}
+# server_ssl_port: Port to use for HTTPS traffic when ssl_enabled is true.
+CONFIG proxy.config.http.server_ssl_port INT {{ server_ssl_port | default(8443) }}
 {% endif %}
 
-{# Network interfaces and ports #}
-CONFIG proxy.config.http.server_ports STRING {{ server_ports | join(', ') }}
-{% if ssl_enabled | bool %}CONFIG proxy.config.http.server_ssl_port INT {{ server_ssl_port }}
+# --- Network Bindings (Acceptors) ---
+# http_accept_enabled: Enable accepting new HTTP connections (must be 1 for normal operation).
+CONFIG proxy.config.http.accept_enabled INT {{ http_accept_enabled | default(1) }}
+
+# http_accept_threads: Number of threads dedicated to accepting HTTP connections.
+# Only emitted if accept is explicitly enabled.
+{% if http_accept_enabled | default(1) | int == 1 %}
+# http_accept_threads: Number of threads dedicated to accepting HTTP connections.
+CONFIG proxy.config.http.accept_threads INT {{ http_accept_threads | default(1) }}
 {% endif %}
 
-{# Network bindings #}
-CONFIG proxy.config.http.accept_enabled INT {{ http_accept_enabled }}
-{% if http_accept_enabled | int == 1 %}CONFIG proxy.config.http.accept_threads INT {{ http_accept_threads }}
-{% endif %}
+# --- HTTP Behavior: Origin Connection Settings ---
+# connect_attempts_timeout: Time (in seconds) to wait for a connection to the origin before timing out.
+CONFIG proxy.config.http.connect_attempts_timeout INT {{ connect_attempts_timeout | default(30) }}
 
-{# HTTP behavior: origin connection settings #}
-CONFIG proxy.config.http.connect_attempts_timeout INT {{ connect_attempts_timeout }}
-CONFIG proxy.config.http.connect_attempts_max_retries INT {{ connect_attempts_max_retries }}
-CONFIG proxy.config.http.post_connect_attempts_timeout INT {{ post_connect_attempts_timeout }}
-CONFIG proxy.config.http.transaction_no_activity_timeout_in INT {{ transaction_no_activity_timeout_in }}
-CONFIG proxy.config.http.transaction_active_timeout_in INT {{ transaction_active_timeout_in }}
-CONFIG proxy.config.http.response_active_timeout_in INT {{ response_active_timeout_in }}
+# connect_attempts_max_retries: Maximum number of retries to connect to the origin before failing.
+CONFIG proxy.config.http.connect_attempts_max_retries INT {{ connect_attempts_max_retries | default(4) }}
 
-{# Caching behavior #}
-CONFIG proxy.config.cache.enable_checksum INT {{ cache_enable_checksum }}
-CONFIG proxy.config.cache.enable_read_while_writer INT {{ cache_enable_read_while_writer }}
-CONFIG proxy.config.cache.rw_parallelism INT {{ cache_rw_parallelism }}
-CONFIG proxy.config.cache.min_average_object_size INT {{ cache_min_average_object_size }}
-CONFIG proxy.config.cache.threads_per_disk INT {{ cache_threads_per_disk }}
+# post_connect_attempts_timeout: Time (in seconds) to wait for data after establishing a connection to the origin.
+CONFIG proxy.config.http.post_connect_attempts_timeout INT {{ post_connect_attempts_timeout | default(15) }}
 
-{# Storage configuration (single volume or multiple volumes via loop) #}
-{% for volume in cache_volumes %}CONFIG proxy.config.cache.volume.{{ loop.index }}.size INT {{ volume.size }}
-CONFIG proxy.config.cache.volume.{{ loop.index }}.remap {{ volume.remap | string | lower }}
+# transaction_no_activity_timeout_in: Idle timeout (seconds) for client requests with no activity.
+CONFIG proxy.config.http.transaction_no_activity_timeout_in INT {{ transaction_no_activity_timeout_in | default(120) }}
+
+# transaction_active_timeout_in: Maximum total time (seconds) a client transaction can take.
+CONFIG proxy.config.http.transaction_active_timeout_in INT {{ transaction_active_timeout_in | default(900) }}
+
+# response_active_timeout_in: Maximum time (in seconds) to wait for a response from the origin.
+CONFIG proxy.config.http.response_active_timeout_in INT {{ response_active_timeout_in | default(900) }}
+
+# --- Caching Behavior ---
+# cache_enable_checksum: Enable checksumming of cached objects to detect corruption.
+CONFIG proxy.config.cache.enable_checksum INT {{ cache_enable_checksum | default(1) }}
+
+# cache_enable_read_while_writer: Allow cache reads while a write is in progress (improves concurrency).
+CONFIG proxy.config.cache.enable_read_while_writer INT {{ cache_enable_read_while_writer | default(1) }}
+
+# cache_min_average_object_size: Estimated average size (in bytes) of cached objects (affects internal tuning).
+CONFIG proxy.config.cache.min_average_object_size INT {{ cache_min_average_object_size | default(8000) }}
+
+# cache_threads_per_disk: Number of threads used for I/O per disk or volume.
+CONFIG proxy.config.cache.threads_per_disk INT {{ cache_threads_per_disk | default(1) }}
+
+# --- Storage Configuration (Cache Volumes) ---
+# cache_volumes: List of cache volumes. Each volume has a size (in bytes) and remap flag (true = this volume is used for remapping).
+{% for volume in cache_volumes | default([{'size': 1073741824, 'remap': True}]) %}
+# Volume index {{ loop.index }}: size={{ volume.size | default(1073741824) }}, remap={{ volume.remap | default(True) }}
+CONFIG proxy.config.cache.volume.{{ loop.index }}.size INT {{ volume.size | default(1073741824) }}
+CONFIG proxy.config.cache.volume.{{ loop.index }}.remap {{ volume.remap | default(True) | string | lower }}
 {% endfor %}
 
-{# Log configuration #}
-CONFIG proxy.config.log.logging_enabled INT {{ log_logging_enabled }}
-CONFIG proxy.config.log.logfile_dir STRING {{ log_dir }}
-CONFIG proxy.config.log.logfile_perm STRING {{ log_perm }}
-CONFIG proxy.config.log.rolling_enabled INT {{ log_rolling_enabled }}
-CONFIG proxy.config.log.rolling_interval_sec INT {{ log_rolling_interval_sec }}
-CONFIG proxy.config.log.rolling_size INT {{ log_rolling_size_mb }}
+# --- Log Configuration ---
+# log_logging_enabled: Log verbosity level (0=none,1=errors,2=info,3=debug).
+CONFIG proxy.config.log.logging_enabled INT {{ log_logging_enabled | default(2) }}
 
-{# Reverse proxy / host routing (optional) #}
-{% if enable_remap | bool %}CONFIG proxy.config.url_remap.remap_required INT {{ remap_required }}
-CONFIG proxy.config.url_remap.pristine_host_hdr INT {{ pristine_host_hdr }}
+# log_dir: Directory for log files.
+CONFIG proxy.config.log.logfile_dir STRING {{ log_dir | default('/var/log/trafficserver') }}
+
+# log_perm: File permissions for log files (octal string).
+CONFIG proxy.config.log.logfile_perm STRING {{ log_perm | default('0640') }}
+
+# log_rolling_enabled: Enable automatic log rotation.
+CONFIG proxy.config.log.rolling_enabled INT {{ log_rolling_enabled | default(1) }}
+
+# log_rolling_interval_sec: Time (seconds) between log rotations.
+CONFIG proxy.config.log.rolling_interval_sec INT {{ log_rolling_interval_sec | default(86400) }}
+
+# log_rolling_size_mb: Log file size (in MB) that triggers rotation.
+CONFIG proxy.config.log.rolling_size INT {{ log_rolling_size_mb | default(100) }}
+
+# --- Reverse Proxy / Host Routing (Optional) ---
+# enable_remap: Enable URL remapping (required for reverse proxy mode).
+# remap_required: Require remap rules for every request (disables direct origin access).
+# pristine_host_hdr: Preserve the original Host header (1) or replace with origin (0).
+{% if enable_remap | default(True) | bool %}
+# remap_required: Require remap rules for every request (disables direct origin access).
+CONFIG proxy.config.url_remap.remap_required INT {{ remap_required | default(1) }}
+# pristine_host_hdr: Preserve the original Host header (1) or replace with origin (0).
+CONFIG proxy.config.url_remap.pristine_host_hdr INT {{ pristine_host_hdr | default(0) }}
 {% endif %}
 
-{# HTTP/2 and TLS settings #}
-{% if enable_http2 | bool %}CONFIG proxy.config.http2.enabled INT {{ http2_enabled }}
-CONFIG proxy.config.http2.max_concurrent_streams_per_connection INT {{ http2_max_concurrent_streams }}
-CONFIG proxy.config.http2.min_stream_priority INT {{ http2_min_stream_priority }}
-CONFIG proxy.config.http2.max_frame_size INT {{ http2_max_frame_size }}
+# --- HTTP/2 and TLS Settings ---
+# enable_http2: Enable HTTP/2 support.
+# http2_enabled: HTTP/2 protocol support enabled (must match enable_http2).
+# http2_max_concurrent_streams: Maximum concurrent HTTP/2 streams per connection.
+{% if enable_http2 | default(True) | bool %}
+# http2_enabled: HTTP/2 protocol support enabled (must match enable_http2).
+CONFIG proxy.config.http2.enabled INT {{ http2_enabled | default(1) }}
+# http2_max_concurrent_streams: Maximum concurrent HTTP/2 streams per connection.
+CONFIG proxy.config.http2.max_concurrent_streams_per_connection INT {{ http2_max_concurrent_streams | default(100) }}
 {% endif %}
 
-{% if ssl_enabled | bool %}{# SSL/TLS configuration #}
-CONFIG proxy.config.ssl.enabled INT {{ ssl_enabled }}
-CONFIG proxy.config.ssl.server.cert.path STRING {{ ssl_cert_path }}
-CONFIG proxy.config.ssl.server.private_key.path STRING {{ ssl_key_path }}
-CONFIG proxy.config.ssl.server.cipher_suite STRING {{ ssl_cipher_suite }}
-CONFIG proxy.config.ssl.server.tm.keylog_enabled INT {{ ssl_keylog_enabled }}
-CONFIG proxy.config.ssl.client.verify.server INT {{ ssl_client_verify_server }}
+# SSL/TLS Configuration (Conditional on ssl_enabled)
+# ssl_enabled: Enable HTTPS (TLS) termination and forwarding.
+# ssl_cert_path: Directory containing TLS server certificates (PEM files).
+# ssl_key_path: Directory containing TLS private keys (PEM files).
+# ssl_cipher_suite: TLS cipher suites to allow (colon-separated).
+# ssl_client_verify_server: Verify server certificate when acting as client to origin (0=off,1=optional,2=required).
+{% if ssl_enabled | default(False) | bool %}
+# ssl_enabled: Enable HTTPS (TLS) termination and forwarding.
+CONFIG proxy.config.ssl.enabled INT {{ ssl_enabled | default(False) | int }}
+# ssl_cert_path: Directory containing TLS server certificates (PEM files).
+CONFIG proxy.config.ssl.server.cert.path STRING {{ ssl_cert_path | default('/etc/trafficserver/ssl') }}
+# ssl_key_path: Directory containing TLS private keys (PEM files).
+CONFIG proxy.config.ssl.server.private_key.path STRING {{ ssl_key_path | default('/etc/trafficserver/ssl') }}
+# ssl_cipher_suite: TLS cipher suites to allow (colon-separated).
+CONFIG proxy.config.ssl.server.cipher_suite STRING {{ ssl_cipher_suite | default('ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384') }}
+# ssl_client_verify_server: Verify server certificate when acting as client to origin (0=off,1=optional,2=required).
+CONFIG proxy.config.ssl.client.verify.server INT {{ ssl_client_verify_server | default(0) }}
 {% endif %}
 
-{# Debugging and diagnostics #}
-CONFIG proxy.config.dump_config INT {{ dump_config }}
-CONFIG proxy.config.diags.debug.enabled INT {{ diags_debug_enabled }}
-CONFIG proxy.config.diags.debug.tags STRING {{ diags_debug_tags | join(', ') }}
+# --- Debugging and Diagnostics ---
+# dump_config: Dump configuration on startup (for debugging: 1=on).
+CONFIG proxy.config.dump_config INT {{ dump_config | default(0) }}
 
-{# Worker / thread pool tuning #}
-CONFIG proxy.config.exec_thread.autoconfig INT {{ exec_thread_autoconfig }}
-{% if not exec_thread_autoconfig | bool %}CONFIG proxy.config.exec_thread.limit INT {{ exec_thread_limit }}
-CONFIG proxy.config.exec_thread.affinity INT {{ exec_thread_affinity }}
+# diags_debug_enabled: Enable debug-level diagnostic logging.
+CONFIG proxy.config.diags.debug.enabled INT {{ diags_debug_enabled | default(0) }}
+
+# diags_debug_tags: List of debug tag filters (e.g., ['http', 'cache']).
+CONFIG proxy.config.diags.debug.tags STRING {{ diags_debug_tags | default([]) | join(', ') }}
+
+# --- Worker / Thread Pool Tuning ---
+# exec_thread_autoconfig: Automatically configure number of executor threads.
+CONFIG proxy.config.exec_thread.autoconfig INT {{ exec_thread_autoconfig | default(True) | int }}
+
+# exec_thread_limit: Maximum number of executor threads (if autoconfig=false).
+# exec_thread_affinity: Enable thread affinity to CPU cores (1=on,0=off).
+{% if not exec_thread_autoconfig | default(True) | bool %}
+# exec_thread_limit: Maximum number of executor threads (if autoconfig=false).
+CONFIG proxy.config.exec_thread.limit INT {{ exec_thread_limit | default(4) }}
+# exec_thread_affinity: Enable thread affinity to CPU cores (1=on,0=off).
+CONFIG proxy.config.exec_thread.affinity INT {{ exec_thread_affinity | default(0) }}
 {% endif %}
 
-{# Memory and resource limits #}
-CONFIG proxy.config.cache.ram_cache.size INT {{ ram_cache_size_mb }}
-CONFIG proxy.config.cache.ram_cache.algorithm INT {{ ram_cache_algorithm }}
-CONFIG proxy.config.http.number_of_redirections INT {{ max_redirections }}
-CONFIG proxy.config.net.max_connections_in INT {{ max_connections_in }}
-CONFIG proxy.config.net.connections_throttle INT {{ connections_throttle }}
+# --- Memory and Resource Limits ---
+# ram_cache_size_mb: RAM cache size (in MB) for frequently accessed objects.
+CONFIG proxy.config.cache.ram_cache.size INT {{ ram_cache_size_mb | default(1024) }}
+
+# ram_cache_algorithm: RAM cache replacement algorithm (0=LRU,1=2Q).
+CONFIG proxy.config.cache.ram_cache.algorithm INT {{ ram_cache_algorithm | default(0) }}
+
+# max_redirections: Maximum HTTP redirect hops to follow.
+CONFIG proxy.config.http.number_of_redirections INT {{ max_redirections | default(5) }}
+
+# max_connections_in: Maximum simultaneous client connections.
+CONFIG proxy.config.net.max_connections_in INT {{ max_connections_in | default(50000) }}
+
+# connections_throttle: Connection rate limit per second.
+CONFIG proxy.config.net.connections_throttle INT {{ connections_throttle | default(60000) }}

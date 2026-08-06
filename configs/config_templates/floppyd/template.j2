@@ -1,37 +1,64 @@
 # Floppy Remote Access Daemon configuration
-# Listen address and port for incoming connections
-bind: {{ bind_host }}:{{ bind_port }}
+# ============================================================
+# This file configures floppyd, a daemon for remote access
+# to floppy disk images. It defines network bindings, access
+# control, logging, and supported disk formats.
 
-# Path to the directory containing floppy images
-image_root: {{ image_root }}
+# IP address the daemon binds to for incoming connections.
+# Binds to all interfaces by default; restrict to a specific IP
+# to limit exposure.
+bind: {{ bind_host | default('0.0.0.0') }}:{{ bind_port | default(1960) }}
 
-# Maximum number of concurrent connections
-max_connections: {{ max_connections }}
+# Absolute path to the directory containing floppy disk image files.
+# Ensure the daemon user has read access to this directory.
+image_root: {{ image_root | default('/var/lib/floppyd/images') }}
 
-# Enable or disable write access to floppy images
-allow_write: {{ allow_write }}
+# Maximum number of simultaneous client connections allowed.
+# Prevents resource exhaustion under high load.
+max_connections: {{ max_connections | default(10) }}
 
-# Logging level: debug, info, warn, error
-log_level: {{ log_level }}
+# When true, allows connected clients to modify floppy images;
+# when false, read-only access is enforced for all clients.
+allow_write: {{ allow_write | default(False) }}
 
-# Log file path (empty string for stdout)
-log_file: {{ log_file }}
+# Verbosity of log output (debug, info, warn, or error).
+# Use 'debug' for troubleshooting, 'info' for standard operation.
+log_level: {{ log_level | default('info') }}
+
+# Path to a log file. If empty, logs are written to stdout.
+# Provide an absolute path here if file-based logging is desired.
+log_file: {{ log_file | default('') }}
 
 # Trusted client entries
-{% for client in trusted_clients %}# Allow access from {{ client.name }} ({{ client.host }})
-{% if client.password %}client: {{ client.host }} password={{ client.password }}
-{% else %}client: {{ client.host }}
-{% endif %}{% endfor %}
-
-# Supported floppy types (order matters for auto-detection)
-{% for ftype in floppy_types %}floppy_type: {{ ftype.name }} {{ ftype.size_kb }}KB {{ ftype.sectors }}sectors {{ ftype.heads }}heads
+# Defines clients permitted to connect, optionally with passwords.
+{% if trusted_clients | default([]) %}
+{% for client in trusted_clients | default([]) %}
+# Allow access from {{ client.host | default('unknown') }}
+# Client name: {{ client.name | default('') }}
+{% if client.password | default(None) is not none %}client: {{ client.host | default('unknown') }} password={{ client.password | default('') }}
+{% else %}client: {{ client.host | default('unknown') }}
+{% endif %}
 {% endfor %}
-
-# Optional TLS configuration (set tls_cert and tls_key to enable)
-{% if tls_cert and tls_key %}# TLS encryption settings
-tls_cert: {{ tls_cert }}
-tls_key: {{ tls_key }}
 {% endif %}
 
-# Session timeout in seconds
-session_timeout: {{ session_timeout }}
+# Supported floppy disk types, in order of auto-detection preference.
+# Each entry specifies the floppy type name, capacity in KB,
+# number of sectors, and number of heads.
+{% if floppy_types | default([]) %}
+{% for ftype in floppy_types | default([]) %}
+floppy_type: {{ ftype.name | default('') }} {{ ftype.size_kb | default(0) }}KB {{ ftype.sectors | default(0) }}sectors {{ ftype.heads | default(0) }}heads
+{% endfor %}
+{% endif %}
+
+# Optional TLS configuration (set tls_cert and tls_key to enable)
+# Provide paths to PEM-encoded certificate and private key files.
+# Both must be set and valid for TLS to be enabled.
+{% if tls_cert | default(None) is not none and tls_key | default(None) is not none %}
+# TLS encryption settings
+tls_cert: {{ tls_cert | default('') }}
+tls_key: {{ tls_key | default('') }}
+{% endif %}
+
+# Number of seconds of inactivity before an idle client session is closed.
+# Helps reclaim resources from abandoned connections.
+session_timeout: {{ session_timeout | default(300) }}

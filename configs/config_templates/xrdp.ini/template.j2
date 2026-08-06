@@ -1,154 +1,333 @@
-[globals]
-# Basic server identification
-machine_id={{ machine_id | default('xrdp') }}
+[Globals]
+; xrdp.ini file version number
+ini_version=1
 
-# Log settings
-log_file={{ log_file | default('/var/log/xrdp.log') }}
-log_level={{ log_level | default('info') }}
+; fork a new process for each incoming connection
+fork=true
 
-# Security settings
-security_layer={{ security_layer | default('negotiate') }}
-certificate={{ certificate | default('') }}
-key_file={{ key_file | default('') }}
-ssl_protocols={{ ssl_protocols | default('TLSv1.2,TLSv1.3') }}
-allow_tls13={{ allow_tls13 | default(true) }}
+; ports to listen on, number alone means listen on all interfaces
+; 0.0.0.0 or :: if ipv6 is configured
+; space between multiple occurrences
+; ALL specified interfaces must be UP when xrdp starts, otherwise xrdp will fail to start
+;
+; Examples:
+;   port=3389
+;   port=unix://./tmp/xrdp.socket
+;   port=tcp://.:3389                           127.0.0.1:3389
+;   port=tcp://:3389                            *:3389
+;   port=tcp://<any ipv4 format addr>:3389      192.168.1.1:3389
+;   port=tcp6://.:3389                          ::1:3389
+;   port=tcp6://:3389                           *:3389
+;   port=tcp6://{<any ipv6 format addr>}:3389   {FC00:0:0:0:0:0:0:1}:3389
+;   port=vsock://<cid>:<port>
+port={{ listen_port }}
 
-# Listening
-# IP address and port to listen on (0.0.0.0 = all interfaces)
-listen_address={{ listen_address | default('0.0.0.0') }}
-listen_port={{ listen_port | default(3389) }}
+; 'port' above should be connected to with vsock instead of tcp
+; use this only with number alone in port above
+; prefer use vsock://<cid>:<port> above
+use_vsock=false
 
-# Session configuration
-max_bpp={{ max_bpp | default(32) }}
+; regulate if the listening socket use socket option tcp_nodelay
+; no buffering will be performed in the TCP stack
+tcp_nodelay=true
 
-# XRDP session management
-new_cursors={{ new_cursors | default(true) }}
-fips_mode={{ fips_mode | default(false) }}
+; regulate if the listening socket use socket option keepalive
+; if the network connection disappear without close messages the connection will be closed
+tcp_keepalive=true
 
-# XRDP session timeout (seconds)
-# 0 = no timeout
-idle_max_time={{ idle_max_time | default(0) }}
-disconnect_idle={{ disconnect_idle | default(false) }}
+; set tcp send/recv buffer
+; These parameters are largely historic. On systems with dynamic TCP
+; buffer sizes, setting them manually will either impact performance or
+; waste memory
+#tcp_send_buffer_bytes=32768
+#tcp_recv_buffer_bytes=32768
 
-# Session reuse — reuse existing sessions when possible
-reuse_sessions={{ reuse_sessions | default(false) }}
+; security layer can be 'tls', 'rdp' or 'negotiate'
+; for client compatible layer
+security_layer={{ security_layer }}
 
-# XRDP service startup behavior
-# Set to 'false' to prevent auto-start of session manager
-xserver_startup_delay={{ xserver_startup_delay | default(10) }}
+; minimum security level allowed for client for classic RDP encryption
+; use tls_ciphers to configure TLS encryption
+; can be 'none', 'low', 'medium', 'high', 'fips'
+crypt_level=high
 
-# XRDP font path
-font_path={{ font_path | default('/usr/share/fonts/TTF') }}
+; X.509 certificate and private key
+; openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365
+; note this needs the user xrdp to be a member of the ssl-cert group, do with e.g.
+;$ sudo adduser xrdp ssl-cert
+certificate={{ certificate }}
+key_file={{ key_file }}
 
-# XRDP bitmap cache settings
-bitmap_cache={{ bitmap_cache | default(true) }}
-bitmap_compression={{ bitmap_compression | default(true) }}
-persistent_bitmap={{ persistent_bitmap | default(true) }}
+; set SSL protocols
+; can be comma separated list of 'SSLv3', 'TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3'
+ssl_protocols=TLSv1.2, TLSv1.3
+; set TLS cipher suites
+#tls_ciphers=HIGH
 
-# XRDP audio redirection
-# Set to 'true' to enable ALSA/Pulse audio redirection
-audio_redirection={{ audio_redirection | default(false) }}
+; concats the domain name to the user if set for authentication with the separator
+; for example when the server is multi homed with SSSd
+#domain_user_separator=@
 
-# XRDP smart card redirection
-# Requires pcscd and libccid installed
-smartcard_redirection={{ smartcard_redirection | default(false) }}
+; The following options will override the keyboard layout settings.
+; These options are for DEBUG and are not recommended for regular use.
+#xrdp.override_keyboard_type=0x04
+#xrdp.override_keyboard_subtype=0x01
+#xrdp.override_keylayout=0x00000409
 
-# XRDP clipboard redirection
-# Options: 'both', 'client-to-server', 'server-to-client', 'off'
-clipboard={{ clipboard | default('both') }}
+; Section name to use for automatic login if the client sends username
+; and password. If empty, the domain name sent by the client is used.
+; If empty and no domain name is given, the first suitable section in
+; this file will be used.
+autorun=
 
-# XRDP drive redirection
-# Maps local drives into the session (requires user-specific config in xrdp-sesman.ini)
-drive_redirection={{ drive_redirection | default(false) }}
+allow_channels=true
+allow_multimon=true
+bitmap_cache={{ bitmap_cache }}
+bitmap_compression={{ bitmap_compression }}
+bulk_compression=true
+#hidelogwindow=true
+max_bpp={{ max_bpp }}
+new_cursors={{ new_cursors }}
+; fastpath - can be 'input', 'output', 'both', 'none'
+use_fastpath=both
+; when true, userid/password *must* be passed on cmd line. If the password
+; is incorrect, the login will fail
+#require_credentials=true
+; when true, the userid will be used to try to authenticate
+#enable_token_login=true
+; You can set the PAM error text in a gateway setup (MAX 256 chars)
+#pamerrortxt=change your password according to policy at http://url
 
-# XRDP printer redirection (via CUPS)
-printer_redirection={{ printer_redirection | default(false) }}
+;
+; colors used by windows in RGB format
+;
+#black=000000
+grey=e1e1e1
+dark_grey=b4b4b4
+blue=0078d7
+dark_blue=0078d7
+#white=ffffff
+#red=ff0000
+#green=00ff00
+#background=626c72
 
-# XRDP serial port redirection
-serial_redirection={{ serial_redirection | default(false) }}
+;
+; Select a default fv1 font
+;
+; This parameter is a comma-separated list of DPI:name pairs.
+; The list is scanned from left-to-right. The font used is the first
+; font whose DPI value is less-than-or-equal to the vertical DPI of
+; the monitor used for the login screen.
+#fv1_select=130:sans-18.fv1,0:sans-10.fv1
+; Default DPI used for a monitor when that information is unknown
+#default_dpi=96
 
-# XRDP parallel port redirection
-parallel_redirection={{ parallel_redirection | default(false) }}
+;
+; configure login screen
+;
 
-# XRDP USB redirection (experimental)
-usb_redirection={{ usb_redirection | default(false) }}
+; Login Screen Window Title
+#ls_title=My Login Title
 
-# XRDP GDI+ rendering (requires xorgxrdp or similar)
-gdi_rendering={{ gdi_rendering | default(true) }}
+; top level window background color in RGB format
+ls_top_window_bg_color=003057
 
-# XRDP Xvnc backend configuration (for VNC-based sessions)
-[xvnc]
-name=xvnc
+; width and height of login screen
+;
+; When the sans-10.fv1 font is selected, these values are in pixels.
+; For other fonts, these values (and other size values) will be scaled
+; appropriately to preserve the proportions of the login screen.
+;
+; The default height allows for about 5 fields to be comfortably displayed
+; above the buttons at the bottom. To display more fields, make <ls_height>
+; larger, and also increase <ls_btn_ok_y_pos> and <ls_btn_cancel_y_pos>
+; below
+;
+ls_width=350
+ls_height=360
+
+; login screen background color in RGB format
+ls_bg_color=f0f0f0
+
+; optional background image filename. BMP format is always supported,
+; but other formats will be supported if xrdp is build with imlib2
+; The transform can be one of the following:-
+;     none  : No transformation. Image is placed in bottom-right corner
+;             of the screen.
+;     scale : Image is scaled to the screen size. The image aspect
+;             ratio is not preserved.
+;     zoom  : Image is scaled to the screen size. The image aspect
+;             ratio is preserved by clipping the image.
+#ls_background_image=
+#ls_background_transform=none
+
+; logo
+; full path to file or file in shared folder. BMP format is always supported,
+; but other formats will be supported if xrdp is build with imlib2
+; For transform values, see 'ls_background_transform'. The logo width and
+; logo height are ignored for a transform of 'none'.
+ls_logo_filename=
+ls_logo_transform=scale
+ls_logo_width=250
+ls_logo_height=110
+ls_logo_x_pos=55
+ls_logo_y_pos=35
+
+; for positioning labels such as username, password etc
+ls_label_x_pos=30
+ls_label_width=68
+
+; for positioning text and combo boxes next to above labels
+ls_input_x_pos=110
+ls_input_width=210
+
+; y pos for first label and combo box
+ls_input_y_pos=158
+
+; OK button
+ls_btn_ok_x_pos=142
+ls_btn_ok_y_pos=308
+ls_btn_ok_width=85
+ls_btn_ok_height=30
+
+; Cancel button
+ls_btn_cancel_x_pos=237
+ls_btn_cancel_y_pos=308
+ls_btn_cancel_width=85
+ls_btn_cancel_height=30
+
+[Logging]
+; Note: Log levels can be any of: core, error, warning, info, debug, or trace
+LogFile={{ log_file }}
+LogLevel={{ log_level }}
+EnableSyslog=true
+#SyslogLevel=INFO
+#EnableConsole=false
+#ConsoleLevel=INFO
+#EnableProcessId=false
+
+[LoggingPerLogger]
+; Note: per logger configuration is only used if xrdp is built with
+; --enable-devel-logging
+#xrdp.c=INFO
+#main()=INFO
+
+[Channels]
+; Channel names not listed here will be blocked by XRDP.
+; You can block any channel by setting its value to false.
+; IMPORTANT! All channels are not supported in all use
+; cases even if you set all values to true.
+; You can override these settings on each session type
+; These settings are only used if allow_channels=true
+rdpdr=true
+rdpsnd=true
+drdynvc=true
+cliprdr=true
+rail=true
+xrdpvr=true
+
+; for debugging xrdp, in section xrdp1, change port=-1 to this:
+#port=/tmp/.xrdp/xrdp_display_10
+
+
+;
+; Session types
+;
+
+; Some session types such as Xorg and Xvnc start a display server.
+; Startup command-line parameters for the display server are configured
+; in sesman.ini. See and configure also sesman.ini.
+[Xorg]
+name=Xorg
+lib=libxup.so
+username=ask
+password=ask
+port=-1
+code=20
+
+[Xvnc]
+name=Xvnc
 lib=libvnc.so
 username=ask
 password=ask
 ip=127.0.0.1
 port=-1
-xserver_custom_parameters={{ xserver_custom_parameters | default('-depth 24 -geometry 1024x768') }}
+#xserverbpp=24
+#delay_ms=2000
+; Disable requested encodings to support buggy VNC servers
+; (1 = ExtendedDesktopSize)
+#disabled_encodings_mask=0
+; Use this to connect to a chansrv instance created outside of sesman
+; (e.g. as part of an x11vnc console session). Replace '0' with the
+; display number of the session
+#chansrvport=DISPLAY(0)
 
-# XRDP Xorg backend configuration (for Xorg-based sessions)
-[xorg]
-name=xorg
-lib=libxup.so
-username=ask
-password=ask
-ip=127.0.0.1
-port=-1
-xserver_custom_parameters={{ xserver_custom_parameters | default('-background none -noreset -nolisten tcp -logfile .xorgxrdp.%s.log') }}
-
-# XRDP X11rdp backend (legacy, not used in modern xrdp)
-[x11rdp]
-name=x11rdp
-lib=libxup.so
-username=ask
-password=ask
-ip=127.0.0.1
-port=-1
-
-# XRDP Xvnc with specific session parameters
-[xvnc-specific]
-name=xvnc-specific
+; Generic VNC Proxy
+; Tailor this to specific hosts and VNC instances by specifying an ip
+; and port and setting a suitable name.
+[vnc-any]
+name=vnc-any
 lib=libvnc.so
+ip=ask
+port=ask5900
+username=na
+password=ask
+#pamusername=asksame
+#pampassword=asksame
+#delay_ms=2000
+
+; Generic RDP proxy using NeutrinoRDP
+; Tailor this to specific hosts by specifying an ip and port and setting
+; a suitable name.
+[neutrinordp-any]
+name=neutrinordp-any
+; To use this section, you should build xrdp with configure option
+; --enable-neutrinordp.
+lib=libxrdpneutrinordp.so
+ip=ask
+port=ask3389
 username=ask
 password=ask
-ip=127.0.0.1
-port=-1
+; Uncomment the following lines to enable PAM authentication for proxy
+; connections.
+#pamusername=ask
+#pampassword=ask
+; Currently NeutrinoRDP doesn't support dynamic resizing. Uncomment
+; this line if you're using a client which does.
+#enable_dynamic_resizing=false
+; By default, performance settings requested by the RDP client are ignored
+; and chosen by NeutrinoRDP. Uncomment this line to allow the user to
+; select performance settings in the RDP client.
+#perf.allow_client_experiencesettings=true
+; Override any experience setting by uncommenting one or more of the
+; following lines.
+#perf.wallpaper=false
+#perf.font_smoothing=false
+#perf.desktop_composition=false
+#perf.full_window_drag=false
+#perf.menu_anims=false
+#perf.themes=false
+#perf.cursor_blink=false
+; By default NeutrinoRDP supports cursor shadows. If this is giving
+; you problems (e.g. cursor is a black rectangle) try disabling cursor
+; shadows by uncommenting the following line.
+#perf.cursor_shadow=false
+; By default, NeutrinoRDP uses the keyboard layout of the remote RDP Server.
+; If you want to tell the remote the keyboard layout of the RDP Client,
+; by uncommenting the following line.
+#neutrinordp.allow_client_keyboardLayout=true
+; The following options will override the remote keyboard layout settings.
+; These options are for DEBUG and are not recommended for regular use.
+#neutrinordp.override_keyboardLayout_mask=0x0000FFFF
+#neutrinordp.override_kbd_type=0x04
+#neutrinordp.override_kbd_subtype=0x01
+#neutrinordp.override_kbd_fn_keys=12
+#neutrinordp.override_kbd_layout=0x00000409
 
-# XRDP Xorg with specific session parameters
-[xorg-specific]
-name=xorg-specific
-lib=libxup.so
-username=ask
-password=ask
-ip=127.0.0.1
-port=-1
-
-# XRDP session types configuration
-# Each session type defines how a user session is launched
-{% for session in session_types %}[{{ session.name }}]
-name={{ session.name }}
-lib={{ session.lib | default('libvnc.so') }}
-username={{ session.username | default('ask') }}
-password={{ session.password | default('ask') }}
-ip={{ session.ip | default('127.0.0.1') }}
-port={{ session.port | default(-1) }}
-{% endfor %}
-
-# XRDP security policy: allow only certain users
-{% if allowed_users is not none %}[users]
-{% for user in allowed_users %}allow_users={{ user }}
-{% endfor %}{% endif %}
-
-# XRDP security policy: deny certain users
-{% if denied_users is not none %}[users]
-{% for user in denied_users %}deny_users={{ user }}
-{% endfor %}{% endif %}
-
-# XRDP security policy: allow/deny groups
-{% if allowed_groups is not none %}[groups]
-{% for group in allowed_groups %}allow_groups={{ group }}
-{% endfor %}{% endif %}
-
-{% if denied_groups is not none %}[groups]
-{% for group in denied_groups %}deny_groups={{ group }}
-{% endfor %}{% endif %}
+; You can override the common channel settings for each session type
+#channel.rdpdr=true
+#channel.rdpsnd=true
+#channel.drdynvc=true
+#channel.cliprdr=true
+#channel.rail=true
+#channel.xrdpvr=true

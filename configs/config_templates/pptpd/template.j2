@@ -1,42 +1,6 @@
-# PPTP VPN Server Configuration
-# This file controls the behavior of the pptpd daemon.
-# Ensure this file is readable only by root.
+#
+# This is a POSIX shell fragment
+#
 
-# Specify the local IP address the PPTP daemon should bind to.
-# Usually the server's primary interface IP, or 127.0.0.1 for loopback-only.
-{% if bind_address %}bind {{ bind_address }}{% else %}#bind 127.0.0.1{% endif %}
-
-# The device name for the PPTP kernel module (e.g., ppp0). Optional.
-# If omitted, pptpd auto-allocates devices starting from ppp0.
-{% if device %}device {{ device }}{% endif %}
-
-# Time in seconds before the PPTP control connection times out.
-timeout {{ timeout }}
-
-# Enable or disable MPPE (Microsoft Point-to-Point Encryption).
-# Recommended for security: use 128-bit encryption.
-{% if mppe %}mppe{% if mppe == 'required' or mppe == 'required-128' or mppe == 'optional' or mppe == 'optional-128' %} {{ mppe }}{% endif %}{% else %}#mppe required{% endif %}
-
-# Enable or disable MS-CHAPv2 authentication.
-# MS-CHAPv2 is required for MPPE encryption.
-{% if ms_chap_v2 %}ms-chap-v2{% if ms_chap_v2 %}{% if ms_chap_v2 == true %} yes{% else %} no{% endif %}{% else %} yes{% endif %}{% else %}#ms-chap-v2 yes{% endif %}
-
-# Set the local IP range for assigning client addresses.
-# Format: start-end (e.g., 192.168.1.100-192.168.1.200)
-{% for ip_range in ip_ranges %}localip {{ ip_range.local }}
-remoteip {{ ip_range.remote }}{% endfor %}
-
-# Optional DNS servers for VPN clients (IPv4).
-{% for dns in dns_servers %}dns {{ dns }}{% endfor %}
-
-# Optional WINS servers for VPN clients (NetBIOS name resolution).
-{% for wins in wins_servers %}wins {{ wins }}{% endfor %}
-
-# Enable or disable debug logging.
-{% if debug %}debug{% endif %}
-
-# Log file location forpptpd output (syslog by default if omitted).
-{% if logwtmp %}logwtmp{% endif %}
-
-# Rate limit PPTP connections per source IP (connections per second).
-{% if rate_limit %}rate-limit {{ rate_limit }}{% endif %}
+# Additional options that are passed to the Daemon.
+DAEMON_OPTS='{{ daemon_opts }}'

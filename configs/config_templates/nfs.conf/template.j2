@@ -1,42 +1,221 @@
-# NFS server configuration (/etc/nfs.conf) — managed by agentic-mcp.
-# Exports (which paths are shared to whom) live in /etc/exports — manage those
-# in the NFS exports snap-in. This file tunes the NFS *service*.
-[general]
-pipefs-directory = {{ pipefs_directory }}
+#!/bin/bash
 
-[nfsd]
-# Kernel nfsd threads — RPC request concurrency. Raise on busy servers.
-threads = {{ nfsd_threads }}
-{% if nfsd_port %}port = {{ nfsd_port }}
-{% endif %}# Lease/grace windows (seconds) governing state recovery after a restart.
-grace-time = {{ nfsd_grace_time }}
-lease-time = {{ nfsd_lease_time }}
-# Transports.
-tcp = {{ nfsd_tcp }}
-udp = {{ nfsd_udp }}
-# Protocol versions to serve.
-vers3 = {{ nfsd_vers3 }}
-vers4 = {{ nfsd_vers4 }}
-vers4.1 = {{ nfsd_vers4_1 }}
-vers4.2 = {{ nfsd_vers4_2 }}
-# RDMA transport (needs RDMA-capable hardware).
-rdma = {{ nfsd_rdma }}
-{% if nfsd_rdma == 'y' %}rdma-port = {{ nfsd_rdma_port }}
-{% endif %}
-[mountd]
-{% if mountd_port %}port = {{ mountd_port }}
-{% endif %}# Resolve supplementary groups on the server from its own user database
-# (instead of trusting the client's up-to-16 gid list).
-manage-gids = {{ mountd_manage_gids }}
+### BEGIN INIT INFO
+# Provides:          nfs-kernel-server
+# Required-Start:    $remote_fs nfs-common $portmap $time
+# Required-Stop:     $remote_fs nfs-common $portmap $time
+# Should-Start:      $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Kernel NFS server support
+# Description:       NFS is a popular protocol for file sharing across
+#                     TCP/IP networks. This service provides NFS server
+#                    functionality, which is configured via the
+#                    /etc/exports file.
+### END INIT INFO
 
-[statd]
-{% if statd_port %}port = {{ statd_port }}
-{% endif %}{% if statd_outgoing_port %}outgoing-port = {{ statd_outgoing_port }}
-{% endif %}
-[lockd]
-{% if lockd_port %}port = {{ lockd_port }}
-{% endif %}{% if lockd_udp_port %}udp-port = {{ lockd_udp_port }}
-{% endif %}
-[gssd]
-# Use gss-proxy for Kerberos (krb5) security flavours.
-use-gss-proxy = {{ gssd_use_gss_proxy }}
+# What is this?
+DESC="NFS kernel daemon"
+PREFIX=/usr
+
+# Exit if required binaries are missing.
+[ -x $PREFIX/sbin/rpc.nfsd    ] || exit 0
+[ -x $PREFIX/sbin/rpc.mountd  ] || exit 0
+[ -x $PREFIX/sbin/exportfs    ] || exit 0
+
+# Read config
+DEFAULTFILE=/etc/default/nfs-kernel-server
+RPCNFSDPRIORITY=0
+NEED_SVCGSSD=no
+PROCNFSD_MOUNTPOINT=/proc/fs/nfsd
+if [ -f $DEFAULTFILE ]; then
+    . $DEFAULTFILE
+fi
+
+. /lib/lsb/init-functions
+
+do_modprobe() {
+    if [ -x /sbin/modprobe ] && [ -f /proc/modules ]
+    then
+        modprobe -q "$1" || true
+    fi
+}
+
+do_mount() {
+    if ! grep -E -qs "$1\$" /proc/filesystems
+    then
+	return 1
+    fi
+    if ! mountpoint -q "$2"
+    then
+	mount -t "$1" "$1" "$2"
+	return
+    fi
+    return 0
+}
+
+# See how we were called.
+case "$1" in
+  start)
+	export_files="/etc/exports"
+	for file in /etc/exports.d/*.exports ; do
+		if [ -f "$file" ]; then
+			export_files="$export_files $file"
+		fi
+	done
+	# shellcheck disable=SC2086
+	if [ -f /etc/exports ] && grep -q '^[[:space:]]*[^#]*/' $export_files
+	then
+		do_modprobe nfsd
+
+		# See if our running kernel supports the NFS kernel server
+		if ! grep -E -qs "[[:space:]]nfsd\$" /proc/filesystems; then
+			log_warning_msg "Not starting $DESC: no support in current kernel"
+			exit 0
+		fi
+		
+		do_mount nfsd $PROCNFSD_MOUNTPOINT || NEED_SVCGSSD=no
+		log_action_begin_msg "Exporting directories for $DESC"
+		$PREFIX/sbin/exportfs -r
+		RET=$?
+		if [ $RET != 0 ]; then
+			log_action_end_msg $RET
+			exit $RET
+		fi
+		log_action_end_msg 0
+
+		log_daemon_msg "Starting $DESC"
+		log_progress_msg "nfsd"
+		
+		# See if rpcbind is running
+		$PREFIX/sbin/rpcinfo -p >/dev/null 2>&1
+		RET=$?
+		if [ $RET != 0 ]; then
+		    echo
+		    log_warning_msg "Not starting: portmapper is not running"
+		    exit 0
+		fi
+
+		start-stop-daemon --start --oknodo --quiet \
+		    --nicelevel $RPCNFSDPRIORITY \
+		    --exec $PREFIX/sbin/rpc.nfsd
+		RET=$?
+		if [ $RET != 0 ]; then
+			log_end_msg $RET
+			exit $RET
+		fi
+
+		# make sure 127.0.0.1 is a valid source for requests
+		ClearAddr=
+		if [ -f /proc/net/rpc/auth.unix.ip/channel ]
+		then
+		    grep -Fqs 127.0.0.1 /proc/net/rpc/auth.unix.ip/content || {
+			echo "nfsd 127.0.0.1 2147483647 localhost" >/proc/net/rpc/auth.unix.ip/channel
+			ClearAddr=yes
+		    }
+		fi
+
+		[ -z "$ClearAddr" ] || echo "nfsd 127.0.0.1 1" >/proc/net/rpc/auth.unix.ip/channel
+	
+	        if [ "$NEED_SVCGSSD" = "yes" ]; then
+			do_modprobe rpcsec_gss_krb5
+			log_progress_msg "svcgssd"
+			start-stop-daemon --start --oknodo --quiet \
+			    --exec $PREFIX/sbin/rpc.svcgssd
+			RET=$?
+			if [ $RET != 0 ]; then
+				log_end_msg $RET
+				exit $RET
+			fi
+		fi
+
+		log_progress_msg "mountd"
+		start-stop-daemon --start --oknodo --quiet \
+		    --exec $PREFIX/sbin/rpc.mountd
+		RET=$?
+		if [ $RET != 0 ]; then
+			log_end_msg $RET
+			exit $RET
+		fi
+
+		log_end_msg 0
+	else
+		log_warning_msg "Not starting $DESC: no exports"
+	fi
+	;;
+
+  stop)
+	log_daemon_msg "Stopping $DESC"
+
+	log_progress_msg "mountd"
+	start-stop-daemon --stop --oknodo --quiet \
+	    --name rpc.mountd --user 0
+	RET=$?
+	if [ $RET != 0 ]; then
+		log_end_msg $RET
+		exit $RET
+	fi
+
+	if [ "$NEED_SVCGSSD" = "yes" ]; then
+		log_progress_msg "svcgssd"
+		start-stop-daemon --stop --oknodo --quiet \
+		    --name rpc.svcgssd --user 0
+		RET=$?
+		if [ $RET != 0 ]; then
+			log_end_msg $RET
+			exit $RET
+		fi
+	fi
+
+	log_progress_msg "nfsd"
+	start-stop-daemon --stop --oknodo --quiet \
+	    --name nfsd --user 0 --signal 2
+	RET=$?
+	if [ $RET != 0 ]; then
+		log_end_msg $RET
+		exit $RET
+	fi
+
+	log_end_msg 0
+
+	log_action_begin_msg "Unexporting directories for $DESC"
+	$PREFIX/sbin/exportfs -au
+	RET=$?
+	if [ $RET != 0 ]; then
+		log_action_end_msg $RET
+		exit $RET
+	fi
+	log_action_end_msg 0
+
+	if mountpoint -q $PROCNFSD_MOUNTPOINT
+	then
+	    $PREFIX/sbin/exportfs -f
+	fi
+	;;
+
+  status)
+	status_of_proc nfsd nfsd
+	exit $?
+	;;
+
+  reload | force-reload)
+	log_begin_msg "Re-exporting directories for $DESC..."
+	$PREFIX/sbin/exportfs -r
+	RET=$?
+	log_end_msg $RET
+	exit $RET
+	;;
+
+  restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+
+  *)
+	log_success_msg "Usage: nfs-kernel-server {start|stop|status|reload|force-reload|restart}"
+	exit 1
+	;;
+esac
+
+exit 0

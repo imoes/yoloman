@@ -1,74 +1,69 @@
 {
-  "device_path": {
-    "type": "string",
-    "default": "/dev/input/event0",
-    "description": "Input event device path for the HDAPS sensor (e.g., /dev/input/event0, /dev/input/mouse0)."
+  "devices": {
+    "type": "list",
+    "default": [
+      "sda"
+    ],
+    "description": "List of block devices to protect (e.g. 'sda', 'hda'). Can be specified multiple times. Defaults to 'sda'."
   },
   "sensitivity": {
     "type": "number",
-    "default": 50,
-    "description": "Sensitivity threshold (0\u2013100). Higher values make the daemon respond to smaller movements."
+    "default": 15,
+    "description": "Sensitivity threshold. Higher values mean less sensitive to movement. Default is 15."
   },
-  "enabled": {
+  "adaptive": {
     "type": "bool",
-    "default": true,
-    "description": "Whether the HDAPS protection is active."
+    "default": false,
+    "description": "Enable adaptive threshold (automatic increase when built-in keyboard/mouse are used). Corresponds to --adaptive."
   },
-  "hysteresis": {
-    "type": "number",
-    "default": 200,
-    "description": "Delay (ms) before reactivating protection after movement stops \u2014 prevents rapid toggling."
+  "force": {
+    "type": "bool",
+    "default": false,
+    "description": "Force unloading heads even if kernel thinks different (on pre ATA7 drives). Corresponds to --force."
   },
-  "loglevel": {
-    "type": "number",
-    "default": 2,
-    "description": "Verbosity: 0 (none) to 4 (debug). Recommended: 2 for warnings/errors, 3 for normal operation."
+  "force_rotational": {
+    "type": "bool",
+    "default": false,
+    "description": "Autodetect drives as rotational, even if kernel thinks they are not. Corresponds to --force-rotational."
   },
-  "protect_cmd": {
+  "background": {
+    "type": "bool",
+    "default": false,
+    "description": "Run the process in the background. Corresponds to --background."
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "Don't actually park the drive. Corresponds to --dry-run."
+  },
+  "poll_sysfs": {
+    "type": "bool",
+    "default": false,
+    "description": "Force use of sysfs interface to accelerometer. Corresponds to --poll-sysfs."
+  },
+  "hardware_logic": {
+    "type": "bool",
+    "default": false,
+    "description": "Uses the hardware fall detection logic instead of the software one. Options --sensitivity and --adaptive have no effect in this mode. Corresponds to --hardware-logic."
+  },
+  "software_logic": {
+    "type": "bool",
+    "default": false,
+    "description": "Uses the software fall detection logic even if the hardware one is available. Corresponds to --software-logic."
+  },
+  "no_leds": {
+    "type": "bool",
+    "default": false,
+    "description": "Don't blink the LEDs when a shock is detected. Corresponds to --no-leds."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Log to syslog instead of stdout/stderr. Corresponds to --syslog."
+  },
+  "pidfile": {
     "type": "string",
-    "default": "hdapsd-protect",
-    "description": "Command executed when movement is detected (e.g., parking disk heads). Can include arguments."
-  },
-  "relax_cmd": {
-    "type": "string",
-    "default": "hdapsd-relax",
-    "description": "Command executed when the device is deemed stable again (e.g., unhalt disk activity)."
-  },
-  "sample_interval": {
-    "type": "number",
-    "default": 100,
-    "description": "Time (ms) between sensor readings. Shorter = more responsive but higher CPU load."
-  },
-  "min_move": {
-    "type": "number",
-    "default": 5,
-    "description": "Minimum raw acceleration change required to consider movement (unitless sensor scale)."
-  },
-  "raise_count": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of consecutive high readings needed before triggering protection."
-  },
-  "fall_count": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of consecutive low readings needed before releasing protection."
-  },
-  "axes": {
-    "type": "list",
-    "default": [
-      "x",
-      "y"
-    ],
-    "items": {
-      "type": "string",
-      "enum": [
-        "x",
-        "y",
-        "z"
-      ],
-      "description": "Axis name(s) to monitor for motion."
-    },
-    "description": "List of axes to monitor. Usually 'x' and 'y' (laptop plane), 'z' (vertical) may be unreliable."
+    "default": "/var/run/hdapsd.pid",
+    "description": "PID file location when running in background. Defaults to /var/run/hdapsd.pid if --pidfile is not specified."
   }
 }

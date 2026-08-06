@@ -1,0 +1,62 @@
+{
+  "provides": [
+    {
+      "capability": "reverse_proxy",
+      "backend": "haproxy",
+      "port_field": "stats_frontend_port",
+      "default_port": 9000,
+      "provisionable": {
+        "backends": "backends",
+        "frontends": "frontends"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "web_server",
+      "backends": [
+        "nginx",
+        "apache",
+        "caddy",
+        "lighttpd",
+        "traefik"
+      ],
+      "fields": {
+        "host": null,
+        "port": null
+      },
+      "note": "Backend servers are defined inline in 'backends' list with address/port, not via global requires."
+    },
+    {
+      "capability": "cache",
+      "backends": [
+        "redis",
+        "memcached",
+        "valkey",
+        "keydb"
+      ],
+      "fields": {
+        "host": null,
+        "port": null
+      },
+      "note": "Backend servers are defined inline in 'backends' list with address/port."
+    },
+    {
+      "capability": "app_runtime",
+      "backends": [
+        "php-fpm",
+        "uwsgi",
+        "gunicorn",
+        "passenger"
+      ],
+      "fields": {
+        "host": null,
+        "port": null,
+        "socket": null
+      },
+      "note": "Backend servers are defined inline in 'backends' list."
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

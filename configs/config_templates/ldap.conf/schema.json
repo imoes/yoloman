@@ -1,28 +1,28 @@
 {
-  "uri": {
-    "type": "string",
-    "default": "ldap://127.0.0.1/",
-    "description": "LDAP server URI(s) \u2014 space-separated for failover (e.g., 'ldap://ldap1.example.com ldap://ldap2.example.com')"
-  },
   "base_dn": {
     "type": "string",
     "default": "dc=example,dc=com",
     "description": "Default base DN for LDAP searches (e.g., 'dc=myorg,dc=local')"
   },
-  "ldap_version": {
+  "sizelimit": {
     "type": "number",
-    "default": 3,
-    "description": "LDAP protocol version to use (1, 2, or 3); typically 3"
+    "default": 1000,
+    "description": "Maximum number of entries to return from a search; 0 means unlimited"
   },
   "timelimit": {
     "type": "number",
     "default": 10,
     "description": "Maximum time (seconds) to wait for a server connection; 0 means unlimited"
   },
-  "sizelimit": {
+  "uri": {
+    "type": "string",
+    "default": "ldap://127.0.0.1/",
+    "description": "LDAP server URI(s) \u2014 space-separated for failover (e.g., 'ldap://ldap1.example.com ldap://ldap2.example.com')"
+  },
+  "ldap_version": {
     "type": "number",
-    "default": 1000,
-    "description": "Maximum number of entries to return from a search; 0 means unlimited"
+    "default": 3,
+    "description": "LDAP protocol version to use (1, 2, or 3); typically 3"
   },
   "tls_ca_cert_path": {
     "type": "string",
@@ -32,7 +32,19 @@
   "tls_reqcert": {
     "type": "string",
     "default": "demand",
-    "description": "TLS certificate verification mode: 'never' (skip), 'demand' (required), etc."
+    "description": "TLS certificate verification mode: 'never' (skip), 'demand' (required), etc.",
+    "enum": [
+      "never",
+      "allow",
+      "try",
+      "demand",
+      "hard"
+    ]
+  },
+  "referrals": {
+    "type": "string",
+    "default": "follow",
+    "description": "How to handle referrals: 'follow' (automatically chase), 'stop' (do not chase)"
   },
   "sasl_enabled": {
     "type": "bool",
@@ -54,11 +66,6 @@
     "default": "",
     "description": "SASL authentication identity (e.g., principal name for GSSAPI)"
   },
-  "referrals": {
-    "type": "string",
-    "default": "follow",
-    "description": "How to handle referrals: 'follow' (automatically chase), 'stop' (do not chase)"
-  },
   "bind_dn": {
     "type": "string",
     "default": "",
@@ -72,24 +79,6 @@
   "extra_options": {
     "type": "list",
     "default": [],
-    "description": "Additional configuration key-value pairs (for advanced or vendor-specific options)",
-    "items": {
-      "type": "object",
-      "fields": {
-        "key": {
-          "type": "string",
-          "description": "Configuration key (e.g., 'NCSA_AUTH', 'TLS_CIPHER_SUITE')"
-        },
-        "value": {
-          "type": "string",
-          "description": "Value for the key"
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Optional human-readable note for the line"
-        }
-      }
-    }
+    "description": "Additional configuration key-value pairs (for advanced or vendor-specific options)"
   }
 }

@@ -1,60 +1,76 @@
+; Geoclue configuration file
+; Self-documenting template generated from schema.
+; Variables are provided with their schema defaults.
+
 [main]
-# Enables or disables the Geoclue service
-# Set to false to completely disable the service
-enable=false
+; enable: Whether Geoclue is enabled. Disable to prevent any location services.
+; Set to false to completely disable the service
+enable={{ enable | default(False) | lower }}
 
-# Network provider configuration
-# Enables network-based geolocation (Wi-Fi, cell tower, IP-based)
-# Requires network access and may be disabled for privacy reasons
-network-provider=true
+; network_provider: Enable network-based geolocation (Wi-Fi/cell towers/IP). May expose network data.
+; Network provider configuration
+; Enables network-based geolocation (Wi-Fi, cell tower, IP-based)
+; Requires network access and may be disabled for privacy reasons
+network-provider={{ network_provider | default(True) | lower }}
 
-# GPS provider configuration
-# Enables GPS hardware-based geolocation
-# May require additional permissions or hardware support
-gps-provider=true
+; gps_provider: Enable GPS hardware support. Requires physical GPS device and permissions.
+; GPS provider configuration
+; Enables GPS hardware-based geolocation
+; May require additional permissions or hardware support
+gps-provider={{ gps_provider | default(True) | lower }}
 
-# GeoIP provider configuration
-# Enables IP-based geolocation fallback
-# Useful when GPS and network providers are unavailable
-geoip-provider=true
+; geoip_provider: Enable IP-based geolocation fallback. Less accurate but widely supported.
+; GeoIP provider configuration
+; Enables IP-based geolocation fallback
+; Useful when GPS and network providers are unavailable
+geoip-provider={{ geoip_provider | default(True) | lower }}
 
-# Hostname for the NTP server used to verify system time (required for some providers)
-# Must be a resolvable hostname or IP address
-# System time must be accurate for geolocation to function correctly
-time-server=pool.ntp.org
+; time_server: NTP server hostname or IP. Accurate system time is required for some location methods.
+; Hostname for the NTP server used to verify system time (required for some providers)
+; Must be a resolvable hostname or IP address
+; System time must be accurate for geolocation to function correctly
+time-server={{ time_server | default('pool.ntp.org') }}
 
-# Minimum time interval (in seconds) between location updates
-# Smaller values increase responsiveness but may reduce battery life
-min-time-between-updates=5
+; min_time_between_updates: Minimum seconds between location updates. Lower values increase responsiveness but battery usage.
+; Minimum time interval (in seconds) between location updates
+; Smaller values increase responsiveness but may reduce battery life
+min-time-between-updates={{ min_time_between_updates | default(5) }}
 
-# Minimum distance (in meters) required to trigger a new location update
-# Larger values reduce update frequency and power consumption
-min-distance-between-updates=10
+; min_distance_between_updates: Minimum meters of movement required to trigger an update. Higher values save power.
+; Minimum distance (in meters) required to trigger a new location update
+; Larger values reduce update frequency and power consumption
+min-distance-between-updates={{ min_distance_between_updates | default(10) }}
 
-# Maximum age (in seconds) for cached location fixes
-# Location data older than this will be considered stale and discarded
-max-cache-age=30
+; max_cache_age: Maximum age (seconds) of cached location fixes. Stale data is discarded beyond this.
+; Maximum age (in seconds) for cached location fixes
+; Location data older than this will be considered stale and discarded
+max-cache-age={{ max_cache_age | default(30) }}
 
 [whitelist]
-# List of allowed applications (by executable name) that may access geolocation
-# Each entry is an executable basename (e.g., 'firefox', 'gnome-maps')
-# An empty list allows all applications
-{% for app in allowed_apps %}{{ app }}
+; allowed_apps: List of allowed application executables (basenames only) that may request location. Empty = all allowed.
+; List of allowed applications (by executable name) that may access geolocation
+; Each entry is an executable basename (e.g., 'firefox', 'gnome-maps')
+; An empty list allows all applications
+{% for app in allowed_apps | default([]) %}{{ app }}
 {% endfor %}
 
 [logging]
-# Verbosity level of logging: 0=error, 1=warning, 2=info, 3=debug
-# Higher levels produce more verbose logs (useful for troubleshooting)
-level=2
+; log_level: Logging verbosity: 0=error, 1=warning, 2=info, 3=debug. Use higher levels for troubleshooting.
+; Verbosity level of logging: 0=error, 1=warning, 2=info, 3=debug
+; Higher levels produce more verbose logs (useful for troubleshooting)
+level={{ log_level | default(2) }}
 
-# Log domain filters; log only messages from specified providers or subsystems
-# Comma-separated list of domains (e.g., 'all', 'gpsd', 'network', 'geoip')
-domains=all
+; log_domains: Comma-separated list of log domains (e.g., 'all', 'gpsd', 'network', 'geoip'). Controls which subsystems are logged.
+; Log domain filters; log only messages from specified providers or subsystems
+; Comma-separated list of domains (e.g., 'all', 'gpsd', 'network', 'geoip')
+domains={{ log_domains | default('all') }}
 
-# Log destination: 'systemd' for journald, or path to a file
-# Using 'systemd' is recommended for modern systemd-based systems
-# File path is useful for debugging or custom log aggregation
-destination=systemd
+; log_destination: Log output target: 'systemd' for journald, or a file path (e.g., '/var/log/geoclue.log').
+; Log destination: 'systemd' for journald, or path to a file
+; Using 'systemd' is recommended for modern systemd-based systems
+; File path is useful for debugging or custom log aggregation
+destination={{ log_destination | default('systemd') }}
 
-# Format of log timestamps: 'iso8601' or 'uptime'
-uptime-format=iso8601
+; log_uptime_format: Timestamp format for logs: 'iso8601' (e.g., '2023-12-01T10:30:00Z') or 'uptime' (seconds since boot).
+; Format of log timestamps: 'iso8601' or 'uptime'
+uptime-format={{ log_uptime_format | default('iso8601') }}

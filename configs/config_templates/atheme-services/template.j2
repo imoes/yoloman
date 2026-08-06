@@ -1,0 +1,116 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          atheme-services
+# Required-Start:    $syslog $remote_fs
+# Required-Stop:     $syslog $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Atheme-services daemon init.d script
+# Description:       Use to manage the Atheme services daemon.
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Path to the atheme-services executable binary.
+DAEMON={{ DAEMON | default('/usr/bin/atheme-services') }}
+
+# Service name used for init.d script and log messages.
+NAME="{{ NAME | default('atheme-services') }}"
+
+# Human-readable description of the service.
+DESC="{{ DESC | default('Atheme IRC Services') }}"
+
+. /lib/lsb/init-functions
+
+test -x $DAEMON || exit 0
+
+# Directory where PID file and runtime data are stored.
+RUNDIR="{{ RUNDIR | default('/var/run/atheme') }}"
+
+set -e
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: $NAME "
+	if [ ! -d "$RUNDIR" ]; then
+		echo -n "run folder missing "
+		rm -rf "$RUNDIR"
+		echo -n "cleared "
+		mkdir -p "$RUNDIR"
+		# User:group ownership for RUNDIR directory (passed to chown).
+		chown {{ RUNDIR_OWNER | default('irc:irc') }} $RUNDIR/
+		# Permissions for RUNDIR directory (passed to chmod).
+		chmod {{ RUNDIR_PERMS | default('755') }} $RUNDIR/
+		echo -n "created "
+	fi
+	if [ -f "$RUNDIR/atheme.pid" ] && ps `cat $RUNDIR/atheme.pid ` > /dev/null ; then
+		echo "Already running!"
+	else
+		ps `cat $RUNDIR/atheme.pid ` > /dev/null || rm -f $RUNDIR/atheme.pid
+		start-stop-daemon -u irc -c irc --start --quiet --pidfile $RUNDIR/atheme.pid \
+			--exec $DAEMON
+	fi
+	echo "."
+	;;
+  stop)
+	echo -n "Stopping $DESC: $NAME "
+	if [ -f "$RUNDIR/atheme.pid" ]; then
+		start-stop-daemon --stop --quiet --pidfile $RUNDIR/atheme.pid \
+			--exec $DAEMON --signal 15
+	else
+		echo "not running."
+	fi
+	echo "."
+	;;
+  reload|force-reload)
+    	echo -n "Reloading $DESC configuration files: $NAME "
+	if [ ! -d "$RUNDIR" ]; then
+		echo "run folder missing!"
+	else
+		if [ -f "$RUNDIR/atheme.pid" ]; then
+			start-stop-daemon --stop --signal 1 --quiet --pidfile \
+				$RUNDIR/atheme.pid --exec $DAEMON
+		else
+			echo "not running!"
+		fi
+		echo "."
+	fi
+	;;
+  restart)
+    	echo -n "Restarting $DESC: $NAME "
+	if [ ! -d "$RUNDIR" ]; then
+		echo -n "run folder missing "
+		rm -rf "$RUNDIR"
+		echo -n "cleared "
+		mkdir -p "$RUNDIR"
+		# User:group ownership for RUNDIR directory (passed to chown).
+		chown {{ RUNDIR_OWNER | default('irc:irc') }} $RUNDIR/
+		# Permissions for RUNDIR directory (passed to chmod).
+		chmod {{ RUNDIR_PERMS | default('755') }} $RUNDIR/
+		echo -n "created "
+	fi
+	if [ -f "$RUNDIR/atheme.pid" ]; then
+		start-stop-daemon --stop --quiet --pidfile \
+			$RUNDIR/atheme.pid --exec $DAEMON --signal 15
+		echo -n "."
+		sleep 1
+	fi
+	echo -n "."
+	start-stop-daemon -u irc -c irc --start --quiet --pidfile \
+		$RUNDIR/atheme.pid --exec $DAEMON
+	echo "."
+	;;
+  status)
+	status_of_proc -p $RUNDIR/atheme.pid $DAEMON $NAME
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	# echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

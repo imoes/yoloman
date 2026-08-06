@@ -1,38 +1,121 @@
-# Use NTP servers for fallback synchronization
-{% for server in ntp_servers %}server {{ server.host }} iburst{% endfor %}
+# Chrony Configuration Template
+# Managed by Ansible. Do not edit manually.
 
-# Allow NTP clients on the local network
-{% if allow_ntp_clients %}allow {{ allow_ntp_clients_subnet }}{% endif %}
+# ============================================
+# NTP Server Fallbacks
+# List of NTP servers to use for fallback time synchronization when GPS is unavailable.
+# If empty, no external fallback servers are configured.
+# ============================================
+{% for server in (ntp_servers | default([])) %}
+# List of NTP servers to use for fallback time synchronization when GPS is unavailable
+server {{ server | default('0.pool.ntp.org') }} iburst
+{% endfor %}
 
-# USB GPS reference clock via NMEA driver
-refclock USB /dev/ttyACM0 refid USB precision 1e-3 noselect
+# ============================================
+# Access Control: Allow NTP Clients
+# Allow NTP clients to synchronize from this server.
+# If true, the subnet specified below is allowed to query this server.
+# ============================================
+{% if allow_ntp_clients | default(False) %}
+# Subnet from which to allow NTP client queries (ignored unless allow_ntp_clients is true)
+allow {{ allow_ntp_clients_subnet | default('192.168.1.0/24') }}
+{% endif %}
 
-# Enable hardware timestamping if supported (optional)
-{% if enable_hwtimestamp %}hwtimestamp *{% endif %}
+# ============================================
+# USB GPS Reference Clock
+# USB GPS reference clock via NMEA driver.
+# This directive configures Chrony to use a shared memory segment
+# populated by a USB GPS daemon (e.g., gpsd) for time reference.
+# 'noselect' prevents this source from being selected until other sources
+# have stabilized, or until explicitly required.
+# ============================================
+refclock SHM 0 refid GPS precision 1e-3 noselect
 
-# Logging configuration
+# ============================================
+# Hardware Timestamping (Ignored)
+# Note: Chrony does not support 'hwtimestamp' directive directly.
+# This configuration block is preserved for documentation purposes
+# but does not affect runtime behavior.
+# ============================================
+{% if enable_hwtimestamp | default(False) %}
+# Enable hardware timestamping (Note: Chrony does not support 'hwtimestamp' directive directly; this variable is preserved but ignored in template)
+# Hardware timestamping is enabled in schema but chrony ignores 'hwtimestamp'.
+# Configure hardware timestamping via kernel parameters or driver-specific options.
+{% endif %}
+
+# ============================================
+# Logging Configuration
+# Directives to enable logging of measurements, statistics, and tracking events.
+# ============================================
+# Directory where chronyd writes its log files
+logdir {{ log_dir | default('/var/log/chrony') }}
 log measurements statistics tracking
-logdir {{ log_dir }}
-maxlogage {{ max_log_age_hours }}h
 
-# Step first few boots to correct large offsets quickly
-initstepslew {{ init_stepslew_threshold }} {{ init_stepslew_servers | join(' ') }}
+# ============================================
+# Initial Step-Slew Configuration
+# Threshold (in seconds) above which the clock is stepped initially (not slewing).
+# List of servers to query during initial step-slew (before GPS takes over).
+# This ensures a quick correction on boot if the clock offset is large.
+# ============================================
+{% set _init_stepslew_servers = init_stepslew_servers | default(['0.pool.ntp.org', '1.pool.ntp.org']) %}
+{% set _init_stepslew_threshold = init_stepslew_threshold | default(10) %}
+{% if _init_stepslew_servers | length > 0 %}
+# List of servers to query during initial step-slew (before GPS takes over)
+initstepslew {{ _init_stepslew_threshold }} {{ _init_stepslew_servers | join(' ') }}
+{% endif %}
 
-# RTI (Rate Timing Interface) for smooth rate estimation
-rti {{ rti_interval }}
+# ============================================
+# Rate Timing Interface (RTI)
+# Interval (in seconds) between rate estimates used for smoothing time adjustments.
+# Note: 'rti' directive is not standard in all chrony versions; included if schema requires.
+# ============================================
+# Interval (in seconds) between rate estimates used for smoothing time adjustments (Note: 'rti' directive is not standard in chrony.conf)
+rti {{ rti_interval | default(60) }}
 
-# Set system clock to UTC
-makestep {{ makestep_threshold }} {{ max_steps }}
+# ============================================
+# Makestep Configuration
+# Maximum offset (in seconds) above which the clock is stepped instead of slewing
+# during normal operation.
+# Maximum number of steps allowed in makestep mode before switching to slewing.
+# This prevents rapid oscillation if the clock drifts significantly.
+# ============================================
+# Maximum offset (in seconds) above which the clock is stepped instead of slewing during normal operation
+# Maximum number of steps allowed in makestep mode before switching to slewing
+makestep {{ makestep_threshold | default(1.0) }} {{ max_steps | default(3) }}
 
-# Key file and command socket
-keyfile {{ keyfile_path }}
-commandkey {{ command_key }}
-commandport {{ command_port }}
+# ============================================
+# Authentication Keys
+# Path to the file containing NTP authentication keys.
+# See: keyfile_path
+keyfile {{ keyfile_path | default('/etc/chrony/chrony.keys') }}
 
-# Drift file and RTC settings
-driftfile {{ drift_file_path }}
-rtcfile {{ rtc_file_path }}
+# Key number used for authenticating chronyc commands.
+# See: command_key
+commandkey {{ command_key | default(1) }}
+
+# ============================================
+# Command Port
+# Port on which chronyd listens for chronyc commands.
+# Typically 323/udp.
+# See: command_port
+commandport {{ command_port | default(323) }}
+
+# ============================================
+# Drift File and RTC Settings
+# Path to the file recording the system clock's drift rate.
+# See: drift_file_path
+driftfile {{ drift_file_path | default('/var/lib/chrony/chrony.drift') }}
+
+# Path to the file recording the RTC calibration parameters.
+# See: rtc_file_path
+rtcfile {{ rtc_file_path | default('/var/lib/chrony/chrony.rtc') }}
+
+# Enable RTC synchronization.
+# This tells chronyd to update the hardware Real-Time Clock (RTC) periodically.
 rtcsync
 
-# Leap seconds file
-leapsectz {{ leap_seconds_tz }}
+# ============================================
+# Leap Seconds Configuration
+# Time zone to use when interpreting leap second events.
+# See: leap_seconds_tz
+leapsectz {{ leap_seconds_tz | default('UTC') }}

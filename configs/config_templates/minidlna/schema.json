@@ -1,4 +1,29 @@
 {
+  "configfile": {
+    "type": "string",
+    "default": "/etc/minidlna.conf",
+    "description": "Path to the minidlna configuration file."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/minidlna/minidlna.log",
+    "description": "Path to the minidlna log file."
+  },
+  "user": {
+    "type": "string",
+    "default": "minidlna",
+    "description": "User the daemon should run as (sysV init only; systemd uses unit override)."
+  },
+  "group": {
+    "type": "string",
+    "default": "minidlna",
+    "description": "Group the daemon should run as (sysV init only; systemd uses unit override)."
+  },
+  "daemon_opts": {
+    "type": "string",
+    "default": "-r",
+    "description": "Additional options passed to the minidlna daemon (e.g., '-r' for soft rebuild on startup)."
+  },
   "friendly_name": {
     "type": "string",
     "default": "MiniDLNA",
@@ -27,19 +52,17 @@
         "name": ""
       }
     ],
-    "description": "List of media directories (path and optional friendly name).",
-    "items": {
-      "path": {
-        "type": "string",
-        "default": "",
-        "description": "Absolute path to a media directory (must be readable by minidlna user)."
-      },
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Friendly name for this directory (shown in UPnP browser); leave blank to use path basename."
-      }
-    }
+    "description": "List of media directories (path and optional friendly name)."
+  },
+  "media_dirs.*.path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a media directory (must be readable by minidlna user)."
+  },
+  "media_dirs.*.name": {
+    "type": "string",
+    "default": "",
+    "description": "Friendly name for this directory (shown in UPnP browser); leave blank to use path basename."
   },
   "db_dir": {
     "type": "string",
@@ -59,7 +82,15 @@
   "root_container": {
     "type": "string",
     "default": ".",
-    "description": "Root container to display at top level: '.' (root), 'F' (filesystem), 'M' (music), 'V' (video), 'P' (pictures)."
+    "description": "Root container to display at top level: '.' (root), 'F' (filesystem), 'M' (music), 'V' (video), 'P' (pictures).",
+    "enum": [
+      ".",
+      "F",
+      "M",
+      "V",
+      "P",
+      "B"
+    ]
   },
   "inotify": {
     "type": "boolean",
@@ -132,36 +163,6 @@
   "cache_dir": {
     "type": "string",
     "default": "",
-    "description": "Directory for temporary cache (e.g., thumbnails); defaults to db_dir if empty."
-  },
-  "language": {
-    "type": "string",
-    "default": "",
-    "description": "ISO 639-2/B three-letter language code (e.g., 'eng')."
-  },
-  "tivo_support": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable TiVo compatibility mode (disables some features, adds TiVo-specific headers)."
-  },
-  "hide_root": {
-    "type": "boolean",
-    "default": false,
-    "description": "Hide the root container from UPnP browse responses."
-  },
-  "enable_ipv6": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable IPv6 support (requires IPv6 networking stack)."
-  },
-  "metadata_extractors": {
-    "type": "list",
-    "default": [],
-    "description": "List of external metadata extractor scripts (paths separated by ':')."
-  },
-  "listen_addresses": {
-    "type": "list",
-    "default": [],
-    "description": "List of IP addresses to listen on (overrides interface binding)."
+    "description": "Directory for temporary cache (e.g., thumbnail cache). Leave empty to use db_dir."
   }
 }

@@ -32,7 +32,11 @@
       "alert",
       "emergency"
     ],
-    "description": "Verbosity of logging output."
+    "description": "Verbosity of logging output.",
+    "enum": [
+      "info",
+      "none"
+    ]
   },
   "scan_interval": {
     "type": "number",
@@ -95,86 +99,83 @@
   "watches": {
     "type": "list",
     "items": {
-      "type": "object",
-      "fields": {
-        "path": {
-          "type": "string",
-          "required": true,
-          "description": "Absolute path of directory to monitor (e.g., /var/www/html)."
+      "path": {
+        "type": "string",
+        "required": true,
+        "description": "Absolute path of directory to monitor (e.g., /var/www/html)."
+      },
+      "events": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "events": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "create",
-            "delete",
-            "modify",
-            "move"
-          ],
-          "allowed_values": [
-            "modify",
-            "access",
-            "create",
-            "delete",
-            "rename",
-            "chmod",
-            "attrib",
-            "move",
-            "all"
-          ],
-          "description": "Filesystem events to monitor (e.g., file creation, deletion, rename)."
+        "default": [
+          "create",
+          "delete",
+          "modify",
+          "move"
+        ],
+        "allowed_values": [
+          "modify",
+          "access",
+          "create",
+          "delete",
+          "rename",
+          "chmod",
+          "attrib",
+          "move",
+          "all"
+        ],
+        "description": "Filesystem events to monitor (e.g., file creation, deletion, rename)."
+      },
+      "alert_email_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable per-watch email alerts (overrides global email config)."
+      },
+      "alert_email_to": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "alert_email_enabled": {
-          "type": "bool",
-          "default": false,
-          "description": "Enable per-watch email alerts (overrides global email config)."
+        "default": [],
+        "description": "Recipient list for this watch's alerts."
+      },
+      "use_regex": {
+        "type": "bool",
+        "default": false,
+        "description": "Use regular expressions instead of shell globs for include/exclude patterns."
+      },
+      "include_patterns": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "alert_email_to": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Recipient list for this watch's alerts."
+        "default": [],
+        "description": "List of filename patterns to include (files matching any pattern are monitored)."
+      },
+      "exclude_patterns": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "use_regex": {
-          "type": "bool",
-          "default": false,
-          "description": "Use regular expressions instead of shell globs for include/exclude patterns."
-        },
-        "include_patterns": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "List of filename patterns to include (files matching any pattern are monitored)."
-        },
-        "exclude_patterns": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "List of filename patterns to exclude (files matching any pattern are ignored)."
-        },
-        "on_event_script": {
-          "type": "string",
-          "default": "",
-          "description": "Path to a script to execute when an event occurs (passive events: filename and event type passed as arguments)."
-        },
-        "max_depth": {
-          "type": "number",
-          "default": 0,
-          "description": "Maximum subdirectory depth to monitor (0 = unlimited)."
-        },
-        "ignore_self": {
-          "type": "bool",
-          "default": false,
-          "description": "Ignore events triggered by the script/process itself (prevents recursion loops)."
-        }
+        "default": [],
+        "description": "List of filename patterns to exclude (files matching any pattern are ignored)."
+      },
+      "on_event_script": {
+        "type": "string",
+        "default": "",
+        "description": "Path to a script to execute when an event occurs (passive events: filename and event type passed as arguments)."
+      },
+      "max_depth": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum subdirectory depth to monitor (0 = unlimited)."
+      },
+      "ignore_self": {
+        "type": "bool",
+        "default": false,
+        "description": "Ignore events triggered by the script/process itself (prevents recursion loops)."
       }
     },
     "default": [

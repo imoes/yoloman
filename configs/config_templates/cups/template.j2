@@ -1,69 +1,10 @@
-# Listen for connections from the local machine only
-Listen localhost:{{ port }}
+#
+# SNMP configuration file for CUPS.  See "man cups-snmp.conf" for a complete
+# description of this file.
+#
 
-{% if listen_addresses %}
-# Additional network interfaces to listen on (IP:port)
-{% for addr in listen_addresses %}Listen {{ addr }}
-{% endfor %}{% endif %}
+# SNMP address for CUPS SNMP monitoring (typically '@LOCAL' for local SNMP agent, or an IP address)
+Address {{ snmp_address | default('@LOCAL') }}
 
-# Allow remote administration
-{% if allow_remote_admin %}AllowRemoteAdmin On
-{% else %}AllowRemoteAdmin Off
-{% endif %}
-
-# Enable browsing of shared printers
-{% if allow_browsing %}Browsing On
-{% else %}Browsing Off
-{% endif %}
-
-# Default authentication type
-{% if require_auth %}AuthType Default
-{% else %}AuthType None
-{% endif %}
-
-# Logging configuration
-LogLevel {{ log_level }}
-{% if log_file %}LogPath {{ log_file }}
-{% endif %}
-
-# Access control — admin-only commands
-{% for rule in access_rules %}# {{ rule.comment }}
-{% if rule.auth_required %}Order deny,allow
-Deny From All
-Allow From {{ rule.allowed_network }}
-AuthType Default
-Require user {{ rule.allowed_user }}
-{% else %}Order allow,deny
-Allow From {{ rule.allowed_network }}
-{% endif %}
-{% endfor %}
-
-# Printer sharing configuration
-{% if share_printers %}Printcap {{ printcap_file }}
-{% else %}# Printer sharing disabled
-# Printcap {{ printcap_file }}
-{% endif %}
-
-# Max job size (in bytes); 0 = unlimited
-MaxJobSize {{ max_job_size }}
-
-# Idle timeout (seconds)
-IdleTimeout {{ idle_timeout }}
-
-# Server name (hostname displayed to clients)
-ServerName {{ server_name }}
-
-# Default language and character set
-DefaultLanguage {{ default_language }}
-{% if default_charset %}DefaultCharset {{ default_charset }}
-{% endif %}
-
-# Worker process limits
-{% if max_clients %}MaxClients {{ max_clients }}
-{% endif %}
-{% if max_clients_per_host %}MaxClientsPerHost {{ max_clients_per_host }}
-{% endif %}
-
-# Job retention settings (in days)
-PreserveJobFiles {{ 'Yes' if preserve_job_files else 'No' }}
-PreserveJobHistory {{ 'Yes' if preserve_job_history else 'No' }}
+# SNMP community string used for polling (usually 'public' for read-only access)
+Community {{ snmp_community | default('public') }}

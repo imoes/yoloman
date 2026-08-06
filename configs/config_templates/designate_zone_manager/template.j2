@@ -1,199 +1,277 @@
+# ==============================================================================
+# designate_zone_manager configuration template
+#
+# This template generates the INI-style configuration file for the OpenStack
+# Designate Zone Manager service. The Zone Manager is responsible for
+# processing zone creation, deletion, and updates, ensuring the underlying
+# storage backend is consistent, and coordinating with secondary DNS servers
+# via zone transfers.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# Variables use the |default() filter to ensure safe rendering even if the
+# variable is undefined in the Ansible context.
+# ==============================================================================
+
 [DEFAULT]
-# Enable debug logging (true/false)
-log_debug = {{ log_debug }}
+# Enable verbose debug logging. (Boolean: true/false)
+# Schema: log_debug, default: False
+log_debug = {{ log_debug | default(False) | lower }}
 
-# Log file path (empty = stdout)
-log_file = {{ log_file }}
+# Path to log file. Leave empty to log to stdout.
+# Schema: log_file, default: ''
+log_file = {{ log_file | default('') }}
 
-# Maximum number of log files to rotate
-log_max_bytes = {{ log_max_bytes }}
+# Maximum size (in bytes) of each log file before rotation.
+# Schema: log_max_bytes, default: 104857600
+log_max_bytes = {{ log_max_bytes | default(104857600) }}
 
-# Number of backups to keep
-log_backup_count = {{ log_backup_count }}
+# Number of old log files to retain during rotation.
+# Schema: log_backup_count, default: 5
+log_backup_count = {{ log_backup_count | default(5) }}
 
-# Logging level
-log_level = {{ log_level }}
+# Minimum logging level (e.g., DEBUG, INFO, WARNING, ERROR).
+# Schema: log_level, default: 'INFO'
+log_level = {{ log_level | default('INFO') }}
 
-# Bind address for the service
-bind_host = {{ bind_host }}
+# Network interface to bind the service to.
+# Schema: bind_host, default: '0.0.0.0'
+bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# Port for the service to listen on
-bind_port = {{ bind_port }}
+# Port for the zone manager RPC service to listen on.
+# Schema: bind_port, default: 9001
+bind_port = {{ bind_port | default(9001) }}
 
-# Number of worker processes
-workers = {{ workers }}
+# Number of worker processes for the zone manager service.
+# Schema: workers, default: 1
+workers = {{ workers | default(1) }}
 
-# RPC backend transport (e.g., 'rabbit', 'kombu')
-transport_url = {{ transport_url }}
+# Message broker connection URL (e.g., RabbitMQ).
+# Schema: transport_url, default: 'rabbit://guest:guest@localhost:5672//'
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672//') }}
 
-# Authentication strategy (e.g., 'keystone', 'noauth')
-auth_strategy = {{ auth_strategy }}
+# Authentication strategy (e.g., 'keystone', 'noauth').
+# Schema: auth_strategy, default: 'keystone'
+auth_strategy = {{ auth_strategy | default('keystone') }}
 
-# Path to the configuration file used to authenticate with keystone
-keystone_auth_uri = {{ keystone_auth_uri }}
+# Keystone identity endpoint URI for authentication.
+# Schema: keystone_auth_uri, default: 'http://localhost:5000/v3'
+keystone_auth_uri = {{ keystone_auth_uri | default('http://localhost:5000/v3') }}
 
-# Keyston auth URL (for token validation)
-keystone_auth_url = {{ keystone_auth_url }}
+# Keystone auth URL (used for token validation).
+# Schema: keystone_auth_url, default: 'http://localhost:5000/v3'
+keystone_auth_url = {{ keystone_auth_url | default('http://localhost:5000/v3') }}
 
-# Region name for keystone
-keystone_region_name = {{ keystone_region_name }}
+# Keystone region name to use.
+# Schema: keystone_region_name, default: 'RegionOne'
+keystone_region_name = {{ keystone_region_name | default('RegionOne') }}
 
-# Username for service auth (if using static credentials)
-keystone_username = {{ keystone_username }}
+# Service username for Keystone authentication.
+# Schema: keystone_username, default: 'designate'
+keystone_username = {{ keystone_username | default('designate') }}
 
-# Password for service auth
-keystone_password = {{ keystone_password }}
+# Service password for Keystone authentication (required if using keystone auth).
+# Schema: keystone_password, default: ''
+keystone_password = {{ keystone_password | default('') }}
 
-# Project name for service auth
-keystone_project_name = {{ keystone_project_name }}
+# Project (tenant) name for the service.
+# Schema: keystone_project_name, default: 'service'
+keystone_project_name = {{ keystone_project_name | default('service') }}
 
-# Domain name for service auth
-keystone_user_domain_name = {{ keystone_user_domain_name }}
+# Domain name for the service user.
+# Schema: keystone_user_domain_name, default: 'Default'
+keystone_user_domain_name = {{ keystone_user_domain_name | default('Default') }}
 
-# Domain name for project
-keystone_project_domain_name = {{ keystone_project_domain_name }}
+# Domain name for the service project.
+# Schema: keystone_project_domain_name, default: 'Default'
+keystone_project_domain_name = {{ keystone_project_domain_name | default('Default') }}
 
-# Path to SSL certificate
-ssl_cert_file = {{ ssl_cert_file }}
+# Path to SSL certificate (for TLS).
+# Schema: ssl_cert_file, default: ''
+ssl_cert_file = {{ ssl_cert_file | default('') }}
 
-# Path to SSL private key
-ssl_key_file = {{ ssl_key_file }}
+# Path to SSL private key (for TLS).
+# Schema: ssl_key_file, default: ''
+ssl_key_file = {{ ssl_key_file | default('') }}
 
-# Enable SSL/TLS
-enable_ssl = {{ enable_ssl }}
+# Enable SSL/TLS encryption on the service endpoint.
+# Schema: enable_ssl, default: False
+enable_ssl = {{ enable_ssl | default(False) | lower }}
 
 [service:main]
-# Enable service endpoint (true/false)
-enabled = {{ enabled }}
+# Enable the zone manager service.
+# Schema: enabled, default: True
+enabled = {{ enabled | default(True) | lower }}
 
-# API prefix (e.g., /dns or empty for no prefix)
-api_base_uri = {{ api_base_uri }}
+# Base URI path for the DNS API.
+# Schema: api_base_uri, default: '/dns/v1'
+api_base_uri = {{ api_base_uri | default('/dns/v1') }}
 
-# Maximum allowed zone name length
-max_zone_name_len = {{ max_zone_name_len }}
+# Maximum allowed length for zone names.
+# Schema: max_zone_name_len, default: 255
+max_zone_name_len = {{ max_zone_name_len | default(255) }}
 
-# Maximum recordset name length
-max_recordset_name_len = {{ max_recordset_name_len }}
+# Maximum allowed length for recordset names.
+# Schema: max_recordset_name_len, default: 255
+max_recordset_name_len = {{ max_recordset_name_len | default(255) }}
 
 [storage:sql]
-# SQLAlchemy connection string
-connection = {{ storage_sql_connection }}
+# SQLAlchemy connection string for the backend database.
+# Schema: storage_sql_connection, default: 'mysql+pymysql://designate:designate@localhost/designate?charset=utf8mb4'
+connection = {{ storage_sql_connection | default('mysql+pymysql://designate:designate@localhost/designate?charset=utf8mb4') }}
 
-# Pool size for connections
-connection_recycle_time = {{ storage_sql_connection_recycle_time }}
+# Time (seconds) before recycling database connections.
+# Schema: storage_sql_connection_recycle_time, default: 3600
+connection_recycle_time = {{ storage_sql_connection_recycle_time | default(3600) }}
 
-# Pool size (number of connections)
-pool_size = {{ storage_sql_pool_size }}
+# Size of the database connection pool.
+# Schema: storage_sql_pool_size, default: 10
+pool_size = {{ storage_sql_pool_size | default(10) }}
 
-# Max overflow in pool
-pool_max_overflow = {{ storage_sql_pool_max_overflow }}
+# Maximum overflow connections beyond pool size.
+# Schema: storage_sql_pool_max_overflow, default: 20
+pool_max_overflow = {{ storage_sql_pool_max_overflow | default(20) }}
 
 [zone_file]
-# Directory for zone files (if using file-based backend)
-dir = {{ zone_file_dir }}
+# Directory to store zone files (for file-based storage backend).
+# Schema: zone_file_dir, default: '/var/lib/designate/zones'
+dir = {{ zone_file_dir | default('/var/lib/designate/zones') }}
 
-# Format for zone files (e.g., bind, tinydns)
-format = {{ zone_file_format }}
+# Format of zone files (e.g., 'bind', 'tinydns').
+# Schema: zone_file_format, default: 'bind'
+format = {{ zone_file_format | default('bind') }}
 
-# TTL for SOA minimum field (seconds)
-soa_ttl = {{ soa_ttl }}
+# TTL (seconds) for SOA records.
+# Schema: soa_ttl, default: 3600
+soa_ttl = {{ soa_ttl | default(3600) }}
 
-# TTL for NS records
-ns_ttl = {{ ns_ttl }}
+# TTL (seconds) for NS records.
+# Schema: ns_ttl, default: 86400
+ns_ttl = {{ ns_ttl | default(86400) }}
 
-# Email for SOA (use @ for domain placeholder)
-soa_email = {{ soa_email }}
+# Email address for SOA records (replace @ with zone name).
+# Schema: soa_email, default: 'hostmaster@example.com'
+soa_email = {{ soa_email | default('hostmaster@example.com') }}
 
-# Refresh interval (seconds)
-soa_refresh = {{ soa_refresh }}
+# SOA refresh interval (seconds).
+# Schema: soa_refresh, default: 3600
+soa_refresh = {{ soa_refresh | default(3600) }}
 
-# Retry interval (seconds)
-soa_retry = {{ soa_retry }}
+# SOA retry interval (seconds).
+# Schema: soa_retry, default: 900
+soa_retry = {{ soa_retry | default(900) }}
 
-# Expire time (seconds)
-soa_expire = {{ soa_expire }}
+# SOA expiration time (seconds).
+# Schema: soa_expire, default: 604800
+soa_expire = {{ soa_expire | default(604800) }}
 
-# Default TTL for records without explicit TTL
-default_rrset_ttl = {{ default_rrset_ttl }}
+# Default TTL for recordsets that do not specify TTL.
+# Schema: default_rrset_ttl, default: 3600
+default_rrset_ttl = {{ default_rrset_ttl | default(3600) }}
 
-# Default SOA serial number offset
-soa_serial_offset = {{ soa_serial_offset }}
+# Offset added to Unix timestamp when generating SOA serial.
+# Schema: soa_serial_offset, default: 0
+soa_serial_offset = {{ soa_serial_offset | default(0) }}
 
 [agent]
-# Enable agent mode (true/false)
-enabled = {{ agent_enabled }}
+# Enable the zone manager agent to process zone actions (e.g., create, delete).
+# Schema: agent_enabled, default: True
+enabled = {{ agent_enabled | default(True) | lower }}
 
-# RPC queue name for agent messages
-rpc_queue = {{ agent_rpc_queue }}
+# Name of the RPC queue for agent messages.
+# Schema: agent_rpc_queue, default: 'designate'
+rpc_queue = {{ agent_rpc_queue | default('designate') }}
 
-# Zone action queue name
-zone_action_queue = {{ agent_zone_action_queue }}
+# Name of the zone action queue.
+# Schema: agent_zone_action_queue, default: 'zone_actions'
+zone_action_queue = {{ agent_zone_action_queue | default('zone_actions') }}
 
-# Number of zone actions to process per cycle
-actions_per_cycle = {{ agent_actions_per_cycle }}
+# Maximum zone actions processed per polling cycle.
+# Schema: agent_actions_per_cycle, default: 10
+actions_per_cycle = {{ agent_actions_per_cycle | default(10) }}
 
-# Delay between polling cycles (seconds)
-poll_interval = {{ agent_poll_interval }}
+# Seconds between polling for zone actions.
+# Schema: agent_poll_interval, default: 2
+poll_interval = {{ agent_poll_interval | default(2) }}
 
-# Maximum zone actions to queue before dropping
-max_queue_length = {{ agent_max_queue_length }}
+# Maximum number of queued actions before dropping new ones.
+# Schema: agent_max_queue_length, default: 10000
+max_queue_length = {{ agent_max_queue_length | default(10000) }}
 
-# Timeout for RPC calls (seconds)
-rpc_timeout = {{ agent_rpc_timeout }}
+# Timeout (seconds) for RPC calls from the agent.
+# Schema: agent_rpc_timeout, default: 60
+rpc_timeout = {{ agent_rpc_timeout | default(60) }}
 
 [service:worker]
-# Enable worker mode (true/false)
-enabled = {{ worker_enabled }}
+# Enable dedicated worker mode (rarely needed for zone manager).
+# Schema: worker_enabled, default: False
+enabled = {{ worker_enabled | default(False) | lower }}
 
-# Number of worker threads
-workers = {{ worker_num_workers }}
+# Number of worker threads in worker mode.
+# Schema: worker_num_workers, default: 1
+workers = {{ worker_num_workers | default(1) }}
 
-# RPC queue name
-rpc_queue = {{ worker_rpc_queue }}
+# RPC queue name for worker mode.
+# Schema: worker_rpc_queue, default: 'designate_worker'
+rpc_queue = {{ worker_rpc_queue | default('designate_worker') }}
 
 [service:api]
-# Enable API (true/false)
-enabled = {{ api_enabled }}
+# Enable the internal API endpoint (for internal orchestration only; usually disabled).
+# Schema: api_enabled, default: False
+enabled = {{ api_enabled | default(False) | lower }}
 
-# API bind host
-bind_host = {{ api_bind_host }}
+# API bind address (internal only).
+# Schema: api_bind_host, default: '127.0.0.1'
+bind_host = {{ api_bind_host | default('127.0.0.1') }}
 
-# API bind port
-bind_port = {{ api_bind_port }}
+# Port for internal API.
+# Schema: api_bind_port, default: 9010
+bind_port = {{ api_bind_port | default(9010) }}
 
-# API root URI
-api_base_uri = {{ api_base_uri }}
+# Base URI path for the DNS API.
+# Schema: api_base_uri, default: '/dns/v1'
+api_base_uri = {{ api_base_uri | default('/dns/v1') }}
 
-# Maximum request body size (bytes)
-max_request_body_size = {{ api_max_request_body_size }}
+# Maximum allowed size (bytes) for API requests.
+# Schema: api_max_request_body_size, default: 1048576
+max_request_body_size = {{ api_max_request_body_size | default(1048576) }}
 
-# Enable CORS (true/false)
-enable_cors = {{ api_enable_cors }}
+# Enable Cross-Origin Resource Sharing (CORS).
+# Schema: api_enable_cors, default: False
+enable_cors = {{ api_enable_cors | default(False) | lower }}
 
-# Allowed origins for CORS (comma-separated list)
-cors_allowed_origins = {{ api_cors_allowed_origins | join(', ') }}
+# List of allowed origins for CORS.
+# Schema: api_cors_allowed_origins, default: ['http://localhost:9000']
+cors_allowed_origins = {{ api_cors_allowed_origins | default(['http://localhost:9000']) | join(', ') }}
 
-# Enforce SSL (true/false)
-enforce_ssl = {{ api_enforce_ssl }}
+# Enforce SSL termination proxy header for HTTPS detection.
+# Schema: api_enforce_ssl, default: False
+enforce_ssl = {{ api_enforce_ssl | default(False) | lower }}
 
-# Enable secure cookies (true/false)
-secure_proxy_ssl_header = {{ api_secure_proxy_ssl_header }}
+# HTTP header used by proxy to indicate protocol (e.g., X-Forwarded-Proto).
+# Schema: api_secure_proxy_ssl_header, default: 'X-Forwarded-Proto'
+secure_proxy_ssl_header = {{ api_secure_proxy_ssl_header | default('X-Forwarded-Proto') }}
 
-# Rate limiting (requests per second)
-rate_limit = {{ api_rate_limit }}
+# Maximum requests per second allowed.
+# Schema: api_rate_limit, default: 100
+rate_limit = {{ api_rate_limit | default(100) }}
 
-# Rate limit burst
-rate_limit_burst = {{ api_rate_limit_burst }}
+# Maximum burst capacity.
+# Schema: api_rate_limit_burst, default: 10
+rate_limit_burst = {{ api_rate_limit_burst | default(10) }}
 
-# Timeout for API requests (seconds)
-rpc_timeout = {{ api_rpc_timeout }}
+# Timeout (seconds) for internal RPC calls.
+# Schema: api_rpc_timeout, default: 60
+rpc_timeout = {{ api_rpc_timeout | default(60) }}
 
-[service:worker]
-# Enable zone transfers (AXFR/IXFR) (true/false)
-enable_zone_transfer = {{ zone_transfer_enabled }}
+[service:zone_transfer]
+# Enable zone transfers (AXFR/IXFR) to secondary DNS servers.
+# Schema: zone_transfer_enabled, default: True
+enable_zone_transfer = {{ zone_transfer_enabled | default(True) | lower }}
 
-# Secondary servers allowed for zone transfers
-axfr_secondary_ips = {{ axfr_secondary_ips | join(', ') }}
+# List of allowed secondary DNS server IPs for zone transfers.
+# Schema: axfr_secondary_ips, default: []
+axfr_secondary_ips = {{ axfr_secondary_ips | default([]) | join(', ') }}
 
-# Zone transfer timeout (seconds)
-zone_transfer_timeout = {{ zone_transfer_timeout }}
+# Timeout (seconds) for outgoing zone transfers.
+# Schema: zone_transfer_timeout, default: 30
+zone_transfer_timeout = {{ zone_transfer_timeout | default(30) }}

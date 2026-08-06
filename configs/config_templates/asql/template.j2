@@ -1,0 +1,57 @@
+# Configuration for asql — SQL interface to Apache logfiles
+# This file controls asql's startup behavior, query execution, and log loading.
+# It is consumed as command-line arguments by the asql binary.
+#
+# Variables are mapped directly to asql CLI flags. All variables have safe
+# defaults to prevent render failures when optional fields are omitted.
+
+# ————
+# Startup behavior
+# ————
+
+# quiet: Suppress the startup banner.
+# Default: false. When true, the --quiet flag is emitted to suppress the
+# informational banner displayed at asql startup.
+{% if quiet | default(False) %}--quiet
+{% endif %}
+
+# ————
+# Execution options
+# ————
+
+# load: List of log file paths or glob patterns to load at startup.
+# Default: [] (empty list).
+# Accepts paths like '/var/log/apache2/access.log' or globs like
+# '/var/log/apache2/access*.gz'. Each item in the list generates a
+# separate --load argument.
+{% for pattern in load | default([]) %}--load {{ pattern }}
+{% endfor %}
+
+# execute: Single SQL query to execute, then exit.
+# Default: '' (empty string).
+# If provided, asql runs this query against the loaded logs and exits
+# immediately, rather than entering an interactive shell. Useful for
+# automation and scripting.
+{% if execute | default('') %}# Execute a single query and exit
+--execute {{ execute }}
+{% endif %}
+
+# ————
+# Input/Output files
+# ————
+
+# input_file: Read commands from this file instead of starting an interactive session.
+# Default: '' (empty string).
+# When set, asql reads its input commands from the specified file path
+# and does not open a TTY for interactive use.
+{% if input_file | default('') %}# Read commands from file instead of interactive shell
+--file {{ input_file }}
+{% endif %}
+
+# ————
+# User initialization
+# ————
+
+# ~/.asqlrc is read automatically if present.
+# ~/.asql.aliases and ~/.asql are managed by the tool internally and are
+# not configurable via this CLI-arg-based configuration file.

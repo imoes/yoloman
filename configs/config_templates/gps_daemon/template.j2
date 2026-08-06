@@ -1,41 +1,68 @@
 # /etc/default/gpsd - configuration for the GPS daemon (gpsd)
+#
+# This file is managed by Ansible. Do not edit manually.
+# Each variable below uses its schema default if not provided by role vars.
 
-# Enable gpsd at system startup
-START_DAEMON="{{ start_daemon }}"
+# Enable gpsd to start automatically at boot.
+# Schema: start_daemon (boolean) | default: true
+START_DAEMON="{{ start_daemon | default(true) }}"
 
-# Device(s) to monitor. Use a space-separated list for multiple devices
-DEVICES="{{ devices | join(' ') }}"
+# List of serial or USB device paths to monitor for GPS data.
+# Schema: devices (list) | default: ['/dev/ttyUSB0']
+# Rendered as a space-separated string for the init script.
+DEVICES="{{ devices | default(['/dev/ttyUSB0']) | join(' ') }}"
 
-# Optional: Default GPS device (for backward compatibility; ignored if DEVICES is set)
-GPSD_DEVICE="{{ gpsd_device }}"
+# Deprecated: Default GPS device (used only if DEVICES is empty).
+# Schema: gpsd_device (string) | default: ''
+# Prefer using the DEVICES list instead of this legacy field.
+GPSD_DEVICE="{{ gpsd_device | default('') }}"
 
-# Extra options to pass to gpsd (e.g., "-n" for non-blocking mode, "-b" for Bluetooth support)
-GPSD_OPTIONS="{{ gpsd_options | join(' ') }}"
+# Command-line options for gpsd.
+# Schema: gpsd_options (list) | default: []
+# Common examples: ['-n'] to start without waiting for a client,
+# ['-b'] for Bluetooth serial devices.
+# Rendered as a space-separated string.
+GPSD_OPTIONS="{{ gpsd_options | default([]) | join(' ') }}"
 
-# Host address to bind the GPSD control socket (default: localhost only)
-# Set to empty string or "0.0.0.0" to listen on all interfaces
-HOST="{{ host }}"
+# IP address to bind the gpsd control socket.
+# Schema: host (string) | default: '127.0.0.1'
+# Use '0.0.0.0' to allow remote connections (not recommended for public networks).
+HOST="{{ host | default('127.0.0.1') }}"
 
-# Port to bind the GPSD control socket (default: 2947)
-PORT="{{ port }}"
+# TCP port for the gpsd control socket.
+# Schema: port (int) | default: 2947
+PORT="{{ port | default(2947) }}"
 
-# User to run gpsd as (must have permission to access GPS devices)
-USER="{{ user }}"
+# System user under which gpsd runs.
+# Schema: user (string) | default: 'nobody'
+# Must have access to GPS devices (e.g., added to 'tty' or 'dialout' group).
+USER="{{ user | default('nobody') }}"
 
-# Group to run gpsd as
-GROUP="{{ group }}"
+# System group under which gpsd runs.
+# Schema: group (string) | default: 'tty'
+# Typical values: 'tty', 'dialout', or 'uucp'.
+GROUP="{{ group | default('tty') }}"
 
-# PID file location
-PIDFILE="{{ pidfile }}"
+# Path to the PID file for gpsd process tracking.
+# Schema: pidfile (string) | default: '/run/gpsd.pid'
+PIDFILE="{{ pidfile | default('/run/gpsd.pid') }}"
 
-{% if hotplug_devices %}
+# List of device paths to auto-add when plugged in via udev/hotplug.
+# Schema: hotplug_devices (list) | default: []
+# Example: ['/dev/ttyACM*'] for common USB serial GPS receivers.
+# Only emitted if the list is not empty.
+{% if hotplug_devices | default([]) | length > 0 %}
 # Hot-pluggable device detection (auto-add devices when plugged in)
 # This enables gpsd to automatically manage USB/serial GPS devices
-HOTPLUG_DEVICES="{{ hotplug_devices | join(' ') }}"
+HOTPLUG_DEVICES="{{ hotplug_devices | default([]) | join(' ') }}"
 {% endif %}
 
-# Optional: Enable shared access mode (multiple clients can read concurrently)
-SHARED="{{ shared }}"
+# Allow multiple clients to connect and read GPS data concurrently.
+# Schema: shared (boolean) | default: true
+# When true, gpsd serves the same NMEA data to all connected clients.
+SHARED="{{ shared | default(true) }}"
 
-# Optional: Enable idle timeout (seconds); 0 disables timeout
-IDLE_TIMEOUT="{{ idle_timeout }}"
+# Seconds of inactivity before gpsd powers down the GPS receiver.
+# Schema: idle_timeout (int) | default: 0
+# Value 0 disables the timeout (receiver stays active).
+IDLE_TIMEOUT="{{ idle_timeout | default(0) }}"

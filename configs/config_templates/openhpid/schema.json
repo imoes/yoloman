@@ -11,13 +11,17 @@
   },
   "openhpi_pidfile": {
     "type": "string",
-    "default": "/run/openhpid.pid",
+    "default": "/var/run/openhpid.pid",
     "description": "Full path to the PID file where the daemon writes its process ID."
   },
   "openhpi_loglevel": {
     "type": "string",
     "default": "INFO",
-    "description": "Verbosity of logging. Set to DEBUG for detailed diagnostics, ERROR or higher for minimal output."
+    "description": "Verbosity of logging. Set to DEBUG for detailed diagnostics, ERROR or higher for minimal output.",
+    "enum": [
+      "DEBUG",
+      "INFO"
+    ]
   },
   "openhpi_logfile": {
     "type": "string",
@@ -37,17 +41,7 @@
   "openhpi_transport_plugins": {
     "type": "list",
     "default": [],
-    "description": "List of transport plugins to enable (e.g., IPMI, SNMP, Redfish). Each entry configures one plugin with its options.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Name of the transport plugin (e.g., 'ipmi', 'snmp', 'redfish')."
-      },
-      "options": {
-        "type": "object",
-        "description": "Plugin-specific key-value configuration options (e.g., timeouts, retry counts, device paths)."
-      }
-    }
+    "description": "List of transport plugins to enable (e.g., IPMI, SNMP, Redfish). Each entry configures one plugin with its options."
   },
   "openhpi_auto_load_resources": {
     "type": "bool",
@@ -61,104 +55,17 @@
   },
   "openhpi_snmp_discovery": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "community": "public",
-      "subnets": []
-    },
-    "description": "Configuration for SNMP-based auto-discovery of hardware resources.",
-    "properties": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable or disable SNMP-based discovery."
-      },
-      "community": {
-        "type": "string",
-        "default": "public",
-        "description": "SNMP community string used for discovery queries."
-      },
-      "subnets": {
-        "type": "list",
-        "default": [],
-        "description": "List of IPv4/IPv6 subnets (CIDR or dotted notation) to scan for SNMP-managed devices.",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
+    "default": null,
+    "description": "Configuration for SNMP-based auto-discovery of hardware resources."
   },
   "openhpi_ipmi_discovery": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "subnets": []
-    },
-    "description": "Configuration for IPMI-over-LAN auto-discovery.",
-    "properties": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable or disable IPMI-over-LAN discovery."
-      },
-      "subnets": {
-        "type": "list",
-        "default": [],
-        "description": "List of subnets to scan for IPMI-capable BMCs.",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
+    "default": null,
+    "description": "Configuration for IPMI-over-LAN auto-discovery."
   },
   "openhpi_redfish_discovery": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "ssl_verify": true,
-      "timeout": 10,
-      "hosts": []
-    },
-    "description": "Configuration for Redfish API-based auto-discovery.",
-    "properties": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable or disable Redfish discovery."
-      },
-      "ssl_verify": {
-        "type": "bool",
-        "default": true,
-        "description": "If true, validate TLS certificates when connecting to Redfish endpoints."
-      },
-      "timeout": {
-        "type": "number",
-        "default": 10,
-        "description": "Request timeout in seconds for Redfish API calls."
-      },
-      "hosts": {
-        "type": "list",
-        "default": [],
-        "description": "List of specific Redfish hosts/URLs to probe (e.g., 'https://bmc1.example.com').",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  "openhpi_max_sessions": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of concurrent HPI sessions allowed system-wide."
-  },
-  "openhpi_max_sessions_per_user": {
-    "type": "number",
-    "default": 20,
-    "description": "Maximum number of HPI sessions any single user may hold simultaneously."
-  },
-  "openhpi_session_timeout": {
-    "type": "number",
-    "default": 600,
-    "description": "Idle timeout (in seconds) for HPI sessions. A value of 0 disables session timeouts."
+    "default": null,
+    "description": "Configuration for Redfish API-based auto-discovery."
   }
 }

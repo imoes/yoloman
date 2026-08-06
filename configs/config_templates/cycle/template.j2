@@ -1,0 +1,45 @@
+{# ~/.cycle/config - Cycle calendar configuration #}
+# Cycle configuration file
+#
+# This file manages personal menstrual cycle tracking data.
+# It is self-documenting: every directive is annotated with its
+# purpose and default value based on the schema.
+
+# Length of menstrual cycle in days (used for fertility calculations)
+# Default: 28
+cycle_length = {{ (cycle_length | default(28)) }}
+
+# Number of cycles to use for statistical average (minimum 6 recommended)
+# Default: 6
+num_cycles = {{ (num_cycles | default(6)) }}
+
+# Array of cycle lengths used for fertile period calculation (last {{ (num_cycles | default(6)) }} cycles)
+# This field is optional and typically populated by the application logic.
+{% if cycle_lengths is defined and cycle_lengths is iterable %}
+cycle_lengths = {{ cycle_lengths | join(', ') }}
+{% endif %}
+
+# Base cycle length for due date calculation (default: 28 days)
+# Used to estimate expected due date if pregnancy is marked.
+# Default: 28
+base_cycle_length = {{ (base_cycle_length | default(28)) }}
+
+# Start date of last menstrual period (YYYY-MM-DD)
+# Format: ISO 8601 date string (YYYY-MM-DD)
+last_menstruation_date = {{ last_menstruation_date | default('') }}
+
+# Flag indicating last cycle is marked as pregnancy (for EDC calculation)
+# Value: true or false
+# Default: false
+is_pregnant = {{ (is_pregnant | default(false) | lower) }}
+
+# Array of notes with dates and content (format: date:message)
+# Each note is on a separate line.
+# Example:
+# 2023-01-01:Started tracking
+# 2023-01-15:Mild cramps
+{% if cycle_notes is defined and cycle_notes is iterable %}
+{% for note in cycle_notes %}
+{{ note }}
+{% endfor %}
+{% endif %}

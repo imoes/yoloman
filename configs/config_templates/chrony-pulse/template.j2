@@ -1,82 +1,190 @@
-# Allow NTP client access from specified networks or hosts
-allow {{ allow_networks | default([]) | join('\nallow ') }}
+# Chrony Configuration Template
+# This template generates a valid chrony.conf file.
+# It uses Jinja2 variables with explicit defaults to ensure safe rendering.
+# Comments above each directive describe the corresponding schema field.
 
-# Specify NTP servers to synchronize with
-{% for server in ntp_servers %}
-server {{ server.hostname }}{{ ' iburst' if server.iburst | default(true) else '' }}{{ ' prefer' if server.prefer | default(false) else '' }}
+# -----------------------------------------------------------------------------
+# allow_networks: List of IP subnets or hostnames allowed to query this chrony
+# instance as an NTP server.
+# -----------------------------------------------------------------------------
+{% set allow_nets = allow_networks | default([]) %}
+{% if allow_nets | length > 0 %}
+{% for net in allow_nets %}
+allow {{ net }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# ntp_servers: List of NTP servers to synchronize with. Each entry defines a
+# server hostname and optional flags.
+# -----------------------------------------------------------------------------
+{% set servers = ntp_servers | default([]) %}
+{% for server in servers %}
+server {{ server.hostname }}{{ ' iburst' if (server.iburst | default(true)) else '' }}{{ ' prefer' if (server.prefer | default(false)) else '' }}
 {% endfor %}
 
-# Enable and configure PPS (Pulse Per Second) reference
+# -----------------------------------------------------------------------------
+# pps_enabled: Enable Pulse Per Second (PPS) reference for high-precision
+# timing, e.g., from GPS receiver.
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# pps_device: Path to the PPS device (e.g., /dev/pps0).
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# pps_refid: Reference ID string (max 4 chars) to identify the PPS source in
+# logs and status.
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# pps_precision: Expected precision of the PPS signal in seconds (e.g., 1e-9
+# for nanoseconds).
+# -----------------------------------------------------------------------------
 {% if pps_enabled | default(false) %}
-# PPS reference device (e.g., /devpps0 or /dev/pps0)
+# PPS reference device configuration
 refclock PPS {{ pps_device | default('/dev/pps0') }} refid {{ pps_refid | default('PPS') }} prefer precision {{ pps_precision | default(1e-9) }}
 {% endif %}
 
-# Specify the drift file (rate of RTC oscillator)
+# -----------------------------------------------------------------------------
+# Drift file path (standard chrony location).
+# -----------------------------------------------------------------------------
 driftfile /var/lib/chrony/drift
 
-# Enable RTC hardware clock synchronization
+# -----------------------------------------------------------------------------
+# rtcsync: Enable RTC hardware clock synchronization.
+# -----------------------------------------------------------------------------
 rtcsync
 
-# Set leapsource to NTP (default), PPS, or manual
+# -----------------------------------------------------------------------------
+# leapsectz: Timezone for leap second handling (e.g., 'right/UTC', 'Etc/UTC').
+# -----------------------------------------------------------------------------
 leapsectz {{ leapsectz | default('right/UTC') }}
 
-# Logging configuration
+# -----------------------------------------------------------------------------
+# Logging directory.
+# -----------------------------------------------------------------------------
 logdir /var/log/chrony
-{% for log_item in log_options | default(['measurements', 'statistics', 'tracking']) %}
+
+# -----------------------------------------------------------------------------
+# log_options: Log categories to enable (e.g., 'measurements', 'statistics',
+# 'tracking').
+# -----------------------------------------------------------------------------
+{% set logs = log_options | default(['measurements', 'statistics', 'tracking']) %}
+{% for log_item in logs %}
 log {{ log_item }}
 {% endfor %}
 
-# Key file for NTP authentication (if used)
+# -----------------------------------------------------------------------------
+# ntp_auth_enabled: Enable NTP authentication using keys in chrony.keys file.
+# -----------------------------------------------------------------------------
 {% if ntp_auth_enabled | default(false) %}
 keyfile /etc/chrony/chrony.keys
 {% endif %}
 
-# Command access: allow local control without auth
+# -----------------------------------------------------------------------------
+# makestep: Allow time to be stepped even after initial sync (for recovery).
+# Default: 1.0 seconds threshold, 3 updates.
+# -----------------------------------------------------------------------------
 makestep 1.0 3
 
-# Enable RTC kernel pll for continuous time adjustments
+# -----------------------------------------------------------------------------
+# rtconutc: Enable RTC kernel pll for continuous time adjustments.
+# -----------------------------------------------------------------------------
 rtconutc
 
-# Initial step correction only within first few updates
+# -----------------------------------------------------------------------------
+# maxslewrate: Maximum slew rate (ms/day).
+# -----------------------------------------------------------------------------
 maxslewrate 1000
 
-# Maximum distance to sync sources
+# -----------------------------------------------------------------------------
+# maxdistance: Maximum distance to a synchronization source (seconds); sources
+# farther away are rejected.
+# -----------------------------------------------------------------------------
 maxdistance {{ maxdistance | default(3600.0) }}
 
-# Minimum number of sources to sync
+# -----------------------------------------------------------------------------
+# minsources: Minimum number of valid sources required before synchronization is
+# allowed.
+# -----------------------------------------------------------------------------
 minsources {{ minsources | default(2) }}
 
-# Synchronization source selection threshold
+# -----------------------------------------------------------------------------
+# sourcereplacementthreshold: Threshold (in seconds) for replacing the current
+# reference source (0 = use default).
+# -----------------------------------------------------------------------------
 sourcereplacementthreshold {{ sourcereplacementthreshold | default(0) }}
 
-# Allow time to be stepped even after initial sync (for recovery)
-initstepslew {{ initstepslew_threshold | default(0) }} {{ initstepslew_hosts | default([]) | join(' ') }}
+# -----------------------------------------------------------------------------
+# initstepslew: Enable initial time step at startup (use with
+# initstepslew_threshold).
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# initstepslew_threshold: Maximum clock offset (seconds) to allow step-based
+# initial sync.
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# initstepslew_hosts: List of hosts to consider as time sources during initial
+# slew.
+# -----------------------------------------------------------------------------
+{% set threshold = initstepslew_threshold | default(0) %}
+{% set hosts = initstepslew_hosts | default([]) %}
+{% set hosts_str = hosts | join(' ') %}
+initstepslew {{ threshold }} {{ hosts_str }}
 
-# Enable NTP server mode (if this host serves time)
+# -----------------------------------------------------------------------------
+# ntp_server_enabled: Enable this host to serve time to other NTP clients.
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# local_stratum: Stratum level when serving time locally (only effective if
+# ntp_server_enabled is true).
+# -----------------------------------------------------------------------------
 {% if ntp_server_enabled | default(false) %}
 local stratum {{ local_stratum | default(10) }}
 {% endif %}
 
-# Disable internet time sources in air-gapped setups
+# -----------------------------------------------------------------------------
+# offline_mode: Disable all internet time sources — useful for air-gapped or
+# offline systems.
+# -----------------------------------------------------------------------------
 {% if offline_mode | default(false) %}
 offline
 {% endif %}
 
-# Bind to specific interfaces (optional, e.g., for security)
-{% if bind_interfaces | default([]) | length > 0 %}
-bindaddress {{ bind_interfaces | join('\nbindaddress ') }}
+# -----------------------------------------------------------------------------
+# bind_interfaces: List of IP addresses or interface names to bind NTP commands
+# and queries to (for security).
+# -----------------------------------------------------------------------------
+{% set bind_ifaces = bind_interfaces | default([]) %}
+{% if bind_ifaces | length > 0 %}
+{% for iface in bind_ifaces %}
+bindaddress {{ iface }}
+{% endfor %}
 {% endif %}
 
-# Allow manual time adjustments via chronyc commands
+# -----------------------------------------------------------------------------
+# manual_allowed: Allow use of 'manpage' (chronyc manual control) for
+# debugging/administration.
+# -----------------------------------------------------------------------------
 {% if manual_allowed | default(true) %}
 manpage
 {% endif %}
 
-# Specify command port (for chronyc)
-cmdport 323
+# -----------------------------------------------------------------------------
+# cmdport: Specify command port (for chronyc).
+# NOTE: cmdport is NOT a standard network listening port for NTP clients.
+# It is used only for local CLI connections. Standard NTP port 123 is implicit
+# and not configurable in chrony.conf.
+# -----------------------------------------------------------------------------
+{% if cmdport is defined %}
+cmdport {{ cmdport }}
+{% endif %}
 
-# Disable NTP broadcasts/ multicasts unless explicitly configured
+# -----------------------------------------------------------------------------
+# ntp_broadcast_enabled: Enable broadcast of time to local subnet (requires
+# ntp_broadcast_addr).
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# ntp_broadcast_addr: Broadcast address for time (e.g., 192.168.1.255).
+# -----------------------------------------------------------------------------
 {% if ntp_broadcast_enabled | default(false) %}
-broadcast {{ ntp_broadcast_addr }}
+broadcast {{ ntp_broadcast_addr | default('') }}
 {% endif %}

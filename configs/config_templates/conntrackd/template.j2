@@ -1,78 +1,91 @@
-# /etc/conntrackd/conntrackd.conf
-# Global behavior and logging
-# Logging section for verbosity and log file options
-[Log]
-  # Enable verbose logging
-  LogLevel = {{ log_level }}
-  # Path to log file (use 'Syslog' for system logging)
-  LogFile = {{ log_file }}
+# =============================================================================
+# conntrackd configuration template
+# =============================================================================
+# This file configures conntrackd, a userspace connection tracking daemon.
+# It manages the connection tracking table size and logging behavior.
+# See conntrackd.conf(5) for full documentation.
 
-# Network section for daemon communication
-# Network settings for internal communication (e.g., with kernel)
-[Network]
-  # IP address to bind to for internal communication
-  BindAddr = {{ network.bind_addr }}
-  # Port for internal communication
-  Port = {{ network.port }}
-  # Protocol for internal communication (IPv4 or IPv6)
-  Protocol = {{ network.protocol }}
+General {
+    # -----------------------------------------------------------------
+    # HashSize: Size of the connection tracking hash table.
+    # Schema: log_level (not used in General section directly, but affects verbosity)
+    # -----------------------------------------------------------------
+    HashSize 8192
 
-# Connection tracking section
-# Main connection tracking configuration
-[Conntrack]
-  # Size of the connection tracking table
-  TableSize = {{ conntrack.table_size }}
-  # Timeout values for connections (in seconds)
-  TimeoutEstablished = {{ conntrack.timeout.established }}
-  TimeoutClose = {{ conntrack.timeout.close }}
-  TimeoutTimeWait = {{ conntrack.timeout.time_wait }}
-  # Flush table on startup
-  FlushOnStart = {{ conntrack.flush_on_start }}
-  # Enable sync (for HA setups)
-  Sync = {{ conntrack.sync.enabled }}
-  # Sync method (flood or normal)
-  SyncMode = {{ conntrack.sync.mode }}
-  # Maximum queued messages during sync
-  QueueMaxlen = {{ conntrack.sync.queue_maxlen }}
-  # Log sync events
-  LogSync = {{ conntrack.sync.log_sync }}
+    # -----------------------------------------------------------------
+    # HashLimit: Maximum number of connections per hash bucket.
+    # Schema: log_level (not used here)
+    # -----------------------------------------------------------------
+    HashLimit 65535
 
-# Event handler section for custom actions
-# Hooks for connection creation/deletion events
-[Event]
-  # Command to execute on connection creation
-  New = {{ event.new_command | default('') }}
-  # Command to execute on connection deletion
-  Destroy = {{ event.destroy_command | default('') }}
+    # -----------------------------------------------------------------
+    # Syslog: Enable or disable syslog logging.
+    # Schema field: log_to_syslog
+    # Default: true
+    # Description: If true, use syslog instead of file logging in General section.
+    # -----------------------------------------------------------------
+    Syslog {{ log_to_syslog | default(true) }}
 
-# FTP helper configuration (if FTP tracking is needed)
-# FTP helper settings
-[Helper]
-  # Enable FTP helper
-  FTP = {{ helper.ftp.enabled }}
-  # FTP helper port
-  FTPPort = {{ helper.ftp.port }}
-  # FTP helper timeout (seconds)
-  FTPTimeout = {{ helper.ftp.timeout }}
+    # -----------------------------------------------------------------
+    # LockFile: Path to the lock file to prevent multiple instances.
+    # Schema field: lock_file
+    # Default: '/var/lock/conntrackd.lock'
+    # Description: Path to the lock file.
+    # -----------------------------------------------------------------
+    LockFile {{ lock_file | default('/var/lock/conntrackd.lock') }}
 
-# SNMP extension (optional)
-# SNMP settings for monitoring
-[SNMP]
-  # Enable SNMP extension
-  AgentX = {{ snmp.agentx }}
+    # -----------------------------------------------------------------
+    # UNIX socket configuration for local communication with the daemon.
+    # -----------------------------------------------------------------
+    UNIX {
+        # -----------------------------------------------------------------
+        # Path: Path to the UNIX domain socket.
+        # Schema field: unix_socket_path
+        # Default: '/var/run/conntrackd.sock'
+        # Description: Path to the UNIX domain socket.
+        # -----------------------------------------------------------------
+        Path {{ unix_socket_path | default('/var/run/conntrackd.sock') }}
 
-# HA (High Availability) section
-# Configuration for active/standby or load-sharing HA setups
-[HA]
-  # Enable HA mode
-  Mode = {{ ha.mode | default('') }}
-  # List of HA peers (for multi-node HA)
-  {% if ha.peers %}
-  {% for peer in ha.peers %}
-  Peer = {{ peer.addr }}:{{ peer.port }}
-  {% endfor %}
-  {% endif %}
-  # Secret for HA authentication
-  Secret = {{ ha.secret | default('') }}
-  # Interval (in seconds) between heartbeat messages
-  Interval = {{ ha.interval }}
+        # -----------------------------------------------------------------
+        # Backlog: Maximum number of pending connections in the socket listen queue.
+        # Schema field: unix_socket_backlog
+        # Default: 20
+        # Description: Backlog for the UNIX socket listen queue.
+        # -----------------------------------------------------------------
+        Backlog {{ unix_socket_backlog | default(20) }}
+    }
+
+    # -----------------------------------------------------------------
+    # SocketBufferSize: Initial size of the socket buffer for netlink communication.
+    # Schema field: socket_buffer_size
+    # Default: 262142
+    # Description: Initial size of the socket buffer.
+    # -----------------------------------------------------------------
+    SocketBufferSize {{ socket_buffer_size | default(262142) }}
+
+    # -----------------------------------------------------------------
+    # SocketBufferSizeMaxGrown: Maximum size the socket buffer can grow to dynamically.
+    # Schema field: socket_buffer_size_max_grown
+    # Default: 655355
+    # Description: Maximum size the socket buffer can grow to.
+    # -----------------------------------------------------------------
+    SocketBufferSizeMaxGrown {{ socket_buffer_size_max_grown | default(655355) }}
+
+    # -----------------------------------------------------------------
+    # Systemd: Enable systemd notify support (Type=notify).
+    # Schema field: systemd_enabled
+    # Default: true
+    # Description: If true, enable systemd notify support.
+    # -----------------------------------------------------------------
+    Systemd {{ systemd_enabled | default(true) }}
+}
+
+Stats {
+    # -----------------------------------------------------------------
+    # LogFile: Enable or disable file logging for statistics.
+    # Schema field: stats_log_file
+    # Default: true
+    # Description: If true, enable file logging in Stats section.
+    # -----------------------------------------------------------------
+    LogFile {{ stats_log_file | default(true) }}
+}

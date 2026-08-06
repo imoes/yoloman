@@ -1,77 +1,126 @@
 # /etc/pbuilderrc — default configuration for cowbuilder
-# Load default cowbuilder settings
+# Load default cowbell/cowbuilder settings if present
 . /etc/cowbell/cowbell.conf 2>/dev/null || true
 
-# Distribution to use (e.g., stable, testing, unstable)
-# Specify Debian/Ubuntu codename(s) for target build
-DIST={{ dist }}
+# ==============================================================================
+# DIST: Debian/Ubuntu release codename (e.g., bullseye, jammy, noble)
+# Must match available mirror. If the target distribution is not specified,
+# it defaults to 'bullseye' for stability.
+# ==============================================================================
+DIST="{{ dist | default('bullseye') }}"
 
-# Architecture to build for (e.g., amd64, i386, arm64)
-# Leave empty to build for host architecture
-ARCH={{ arch | default('') }}
+# ==============================================================================
+# ARCH: Target architecture (e.g., amd64, arm64, i386)
+# Leave empty to build for the host architecture.
+# ==============================================================================
+ARCH="{{ arch | default('') }}"
 
-# BaseTGZ path — location of the base image tarball
-# cowbuilder uses this to store and reuse the chroot snapshot
-BASETGZ={{ base_tgz_path }}
+# ==============================================================================
+# BASETGZ: Path to the cowbuilder base image tarball
+# cowbuilder reuses this snapshot for fast rebuilds.
+# ==============================================================================
+BASETGZ="{{ base_tgz_path | default('/var/cache/cow/build-base.tgz') }}"
 
-# Mirror URL — APT repository mirror used for debootstrap
-# Must be a valid Debian/Ubuntu mirror, e.g., http://deb.debian.org/debian
-MIRROR={{ mirror_url }}
+# ==============================================================================
+# MIRROR: Base APT mirror URL
+# Must be reachable and support the requested distribution.
+# ==============================================================================
+MIRROR="{{ mirror_url | default('http://deb.debian.org/debian') }}"
 
-# Additional APT sources for extra repositories (e.g., backports, security)
-# Each entry is one line of /etc/apt/sources.list format
-{% for source in extra_sources %}# {{ source.comment }}
+# ==============================================================================
+# EXTRA SOURCES: Additional APT repository entries
+# Each item adds one sources.list line.
+# ==============================================================================
+{% for source in extra_sources | default([]) %}
+# {{ source.comment | default('Additional repository') }}
 {{ source.content }}
 {% endfor %}
 
-# Additional packages to install into the build environment
-# Useful for build dependencies not in base system
-{% if extra_packages %}EXTRAPACKAGES="{{ extra_packages | join(' ') }}"
-{% else %}# EXTRAPACKAGES not set
+# ==============================================================================
+# EXTRAPACKAGES: Additional packages to install in the build chroot
+# Useful for build dependencies not in the base system.
+# ==============================================================================
+{% set epkgs = extra_packages | default([]) %}
+{% if epkgs | length > 0 %}
+EXTRAPACKAGES="{{ epkgs | join(' ') }}"
+{% else %}
+# EXTRAPACKAGES not set
 {% endif %}
 
-# APT options (e.g., to disable prompts, set cache dir)
+# ==============================================================================
+# APTOPTIONS: Options passed to APT during debootstrap/build
+# Disables prompts and unauthenticated package checks for automation safety.
+# ==============================================================================
 APTOPTIONS="-o Acquire::Retries=3 -o APT::Get::AllowUnauthenticated=true"
 
-# Cow-specific options — cowbuilder wrapper settings
-# cow uses /var/cache/cow for chroot snapshots; adjust if needed
- cowcow_opts="{{ cowcow_opts | default('--no-copyonwrite') }}"
+# ==============================================================================
+# COWCOW_OPTS: Options passed to the 'cow' binary when invoked by cowbuilder
+# Common options include '--no-copyonwrite' or '--shared-tmpfs'.
+# ==============================================================================
+cowcow_opts="{{ cowcow_opts | default('--no-copyonwrite') }}"
 
-# Use cow's copy-on-write (COW) mode for speed (on supported filesystems)
-# Set to false to disable COW and use full copies (e.g., for NFS)
-{% if use_cow %}USECOW={{ use_cow }}
-{% else %}# COW disabled; set USECOW=false explicitly if needed
+# ==============================================================================
+# USECOW: Enable copy-on-write for speed
+# Set to true only if /var/cache/cow is on a COW-capable FS (e.g., btrfs).
+# ==============================================================================
+{% if use_cow | default(False) | bool %}
+USECOW=true
+{% else %}
+# COW disabled; set USECOW=false explicitly if needed
 {% endif %}
 
-# Extra cowbuilder options (e.g., --no-cleanup-after, --auto-cleanup)
+# ==============================================================================
+# COWBUILDER_OPTS: Extra options for cowbuilder
+# (e.g., '--no-cleanup-after', '--buildplace /custom/path')
+# ==============================================================================
 COWBUILDER_OPTS="{{ cowbuilder_opts | default('--auto-cleanup') }}"
 
-# Custom hooks: pre-build, post-build, etc.
-# Hook scripts run inside the chroot or on the host; paths are absolute
-{% if hooks %}
-# Custom hooks
-{% for hook in hooks %}{{ hook.type | upper }}HOOK="{{ hook.script_path }}"
-{% endfor %}
-{% endif %}
-
-# Environment variables passed into the chroot
-{% for var, val in env_vars.items() %}export {{ var }}="{{ val }}"
+# ==============================================================================
+# HOOKS: Custom hook scripts (pre-build, post-build, etc.)
+# Hook scripts run inside the chroot unless otherwise noted.
+# ==============================================================================
+{% for hook in hooks | default([]) %}
+# {{ hook.type | default('CUSTOM') }} hook: {{ hook.script_path | default('/path/to/hook') }}
+{{ hook.type | upper | default('CUSTOM') }}HOOK="{{ hook.script_path }}"
 {% endfor %}
 
-# Build directory (inside chroot) — where source is unpacked & built
-BUILD_DIR={{ build_dir }}
+# ==============================================================================
+# ENV_VARS: Environment variables to export inside the chroot
+# Example: DEB_BUILD_OPTIONS=parallel=4
+# ==============================================================================
+{% for var, val in env_vars | default({}) | dict2items %}
+export {{ var.key }}="{{ val.value }}"
+{% endfor %}
 
-# Output directory — where .deb files are copied after build
-OUTPUT_DIR={{ output_dir }}
+# ==============================================================================
+# BUILD_DIR: Working directory inside the chroot
+# Where source is unpacked and compiled.
+# ==============================================================================
+BUILD_DIR="{{ build_dir | default('/tmp/buildd') }}"
 
-# Use https for mirror (if supported by mirror and debootstrap)
-{% if use_https_mirror %}# Mirror uses HTTPS
-MIRROR="https://{{ mirror_url.split('://')[1] }}"
+# ==============================================================================
+# OUTPUT_DIR: Directory on the host where built .deb files are copied
+# After a successful build, results are moved here.
+# ==============================================================================
+OUTPUT_DIR="{{ output_dir | default('/var/cache/pbuilder/result') }}"
+
+# ==============================================================================
+# MIRROR HTTPS ENFORCEMENT (Optional)
+# If use_https_mirror is set, this block overrides MIRROR to use HTTPS.
+# ==============================================================================
+{% if use_https_mirror | default(False) | bool %}
+# Mirror uses HTTPS
+MIRROR="https://{{ mirror_url | default('http://deb.debian.org/debian') | replace('http://', '') | replace('https://', '') }}"
 {% endif %}
 
-# Disable dpkg-unsafe-locale to avoid locale warnings
+# ==============================================================================
+# DPKGUnsafeLocale: Disable dpkg-unsafe-locale
+# Set to 0 to avoid locale warnings during build.
+# ==============================================================================
 DPKGUnsafeLocale="0"
 
-# Default root command — sudo or doas, etc.
-# cowbuilder uses cow, which internally uses sudo by default
+# ==============================================================================
+# ROOTCMD: Default root command
+# cowbuilder uses cow, which internally uses sudo by default.
+# ==============================================================================
 ROOTCMD="sudo cow"

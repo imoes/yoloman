@@ -2,34 +2,7 @@
   "listeners": {
     "type": "list",
     "default": [],
-    "description": "List of listeners to expose (port, optional bind address, protocol). Each defines a listening endpoint.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "port": {
-          "type": "number",
-          "default": 1883,
-          "description": "TCP port number to listen on (e.g., 1883 for MQTT, 8883 for TLS)."
-        },
-        "bind_address": {
-          "type": "string",
-          "default": "",
-          "description": "IP address or hostname to bind to (e.g., '127.0.0.1'). Leave empty to bind to all interfaces."
-        },
-        "protocol": {
-          "type": "string",
-          "default": "",
-          "enum": [
-            "",
-            "mqtt",
-            "mqtts",
-            "ws",
-            "wss"
-          ],
-          "description": "Protocol variant: 'mqtt' (default), 'mqtts' (TLS), 'ws' (WebSocket), 'wss' (WebSocket+TLS)."
-        }
-      }
-    }
+    "description": "List of listeners to expose (port, optional bind address, protocol). Each defines a listening endpoint."
   },
   "allow_zero_length_clientid": {
     "type": "bool",
@@ -94,22 +67,7 @@
       "notice",
       "information"
     ],
-    "description": "List of log message types to record (options: none, error, warning, notice, information, subscribe, unsubscribe, websockets, audit, debug).",
-    "items": {
-      "type": "string",
-      "enum": [
-        "none",
-        "error",
-        "warning",
-        "notice",
-        "information",
-        "subscribe",
-        "unsubscribe",
-        "websockets",
-        "audit",
-        "debug"
-      ]
-    }
+    "description": "List of log message types to record (options: none, error, warning, notice, information, subscribe, unsubscribe, websockets, audit, debug)."
   },
   "log_timestamp": {
     "type": "bool",
@@ -124,116 +82,16 @@
   "tls_keyfile": {
     "type": "string",
     "default": "/etc/mosquitto/certs/server.key",
-    "description": "Absolute path to the server\u2019s TLS private key (PEM format, unencrypted)."
+    "description": "Absolute path to the server\u2019s TLS private key (PEM format)."
   },
-  "tls_cafile": {
+  "tls_ca_file": {
     "type": "string",
-    "default": "/etc/mosquitto/certs/ca.crt",
-    "description": "Absolute path to the CA certificate (PEM format) for client cert verification."
+    "default": "",
+    "description": "Absolute path to the CA certificate file (PEM format) for validating client certificates."
   },
-  "tls_require_certificate": {
-    "type": "bool",
-    "default": false,
-    "description": "Require clients to present a valid certificate (for TLS-only or mutual TLS)."
-  },
-  "autosave_interval": {
-    "type": "number",
-    "default": 60,
-    "description": "Interval (in seconds) between automatic persistence file saves. Set to 0 to disable timed saves."
-  },
-  "autosave_on_changes": {
-    "type": "bool",
-    "default": true,
-    "description": "Save the persistence file immediately after any change to persisted data."
-  },
-  "retained_cache_size": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum size (in bytes) of the retained message cache (0 = unlimited)."
-  },
-  "retained_persistence": {
-    "type": "bool",
-    "default": true,
-    "description": "Persist retained messages to disk (requires persistence=true for full effect)."
-  },
-  "bridges": {
-    "type": "list",
-    "default": [],
-    "description": "Outgoing bridge connections to other MQTT brokers (e.g., for geo-redundancy or cloud sync).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique identifier for this bridge."
-        },
-        "remote_address": {
-          "type": "string",
-          "default": "",
-          "description": "Hostname or IP of the remote broker."
-        },
-        "remote_port": {
-          "type": "number",
-          "default": 1883,
-          "description": "Port of the remote broker (usually 1883 or 8883)."
-        },
-        "client_id": {
-          "type": "string",
-          "default": "",
-          "description": "Client ID used when connecting to the remote broker. If omitted, auto-generated."
-        },
-        "username": {
-          "type": "string",
-          "default": "",
-          "description": "Username for authentication on the remote broker."
-        },
-        "password": {
-          "type": "string",
-          "default": "",
-          "description": "Password for authentication on the remote broker."
-        },
-        "attempt_unsubscribe": {
-          "type": "bool",
-          "default": true,
-          "description": "Send UNSUBSCRIBE on disconnect to clean up remote subscriptions."
-        },
-        "try_private": {
-          "type": "bool",
-          "default": true,
-          "description": "Use the MQTT 'private' clean session flag (prevents message queuing for offline clients)."
-        },
-        "notifications": {
-          "type": "bool",
-          "default": false,
-          "description": "Publish bridge connection status to $SYS bridge state topics."
-        },
-        "topics": {
-          "type": "list",
-          "default": [],
-          "description": "List of topics to bridge (direction and pattern).",
-          "items": {
-            "type": "object",
-            "fields": {
-              "topic": {
-                "type": "string",
-                "default": "",
-                "description": "MQTT topic pattern (supports wildcards: +, #)."
-              },
-              "direction": {
-                "type": "string",
-                "default": "both",
-                "enum": [
-                  "in",
-                  "out",
-                  "both"
-                ],
-                "description": "Direction: 'in' (remote\u2192local), 'out' (local\u2192remote), 'both'."
-              }
-            }
-          }
-        }
-      }
-    }
+  "tls_version": {
+    "type": "string",
+    "default": "tlsv1.2",
+    "description": "Minimum TLS version to support (e.g., 'tlsv1.2', 'tlsv1.1')."
   }
 }

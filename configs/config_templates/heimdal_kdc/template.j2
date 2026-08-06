@@ -1,39 +1,110 @@
-{# Heimdal KDC configuration file #}
-{% if kdc_db_dir is defined %}[kdc]
-{% if kdc_db_dir %}    database = {{ kdc_db_dir }}{% endif %}
-{% if kdc_db_mode %}    lock-file = {{ kdc_db_dir }}/{{ kdc_db_mode }}.lock{% endif %}
-{% if kdc_port %}    port = {{ kdc_port }}{% endif %}
-{% if kdc_realm %}    realm = {{ kdc_realm }}{% endif %}
-{% if kdc_enable_audit %}    audit = true{% else %}    audit = false{% endif %}
-{% if kdc_enable_http %}    http = true{% else %}    http = false{% endif %}
-{% if kdc_enable_hprop %}    hprop = true{% else %}    hprop = false{% endif %}
-{% if kdc_enable_hpropd %}    hpropd = true{% else %}    hpropd = false{% endif %}
-{% if kdc_enable_kadmin %}    kadmin = true{% else %}    kadmin = false{% endif %}
-{% if kdc_enable_kadmin_local %}    kadmin_local = true{% else %}    kadmin_local = false{% endif %}
-{% if kdc_acl_file %}    acl-file = {{ kdc_acl_file }}{% endif %}
-{% if kdc_keytab_file %}    keytab = {{ kdc_keytab_file }}{% endif %}
-{% if kdc_log_file %}    log = {{ kdc_log_file }}{% endif %}
-{% if kdc_max_life %}    max_life = {{ kdc_max_life }}{% endif %}
-{% if kdc_max_renewable_life %}    max_renewable_life = {{ kdc_max_renewable_life }}{% endif %}
-{% if kdc_preauth_types %}    preauth_types = {{ kdc_preauth_types | join(', ') }}{% endif %}
-{% if kdc_default_flags %}    default_flags = {{ kdc_default_flags | join(', ') }}{% endif %}
-{% endif %}
+# Heimdal KDC Configuration File
+# This configuration defines the settings for the Heimdal Kerberos Key Distribution Center (KDC).
+# It includes database settings, service ports, realm definitions, and optional daemons
+# such as kadmin (remote administration), hpropd (replication), and HTTP kadmin.
 
-{% if kdc_listen is defined %}{# Listen addresses and ports #}
-{% if kdc_listen|length > 0 %}listen:
-{% for item in kdc_listen %}{% if item.address %}    {% if item.interface %}interface = {{ item.interface }}{% endif %}
-    address = {{ item.address }}{% if item.port %}
-    port = {{ item.port }}{% endif %}
+# --- Global KDC Settings ---
+[kdc]
+# Directory where the KDC database and related files are stored.
+# Defaults to /var/lib/heimdal-kdc if kdc_db_dir is not specified.
+    database = {{ (kdc_db_dir | default('/var/lib/heimdal-kdc')) }}
+
+# Base name for the lock file (e.g., 'kdc' → /path/kdc.lock).
+# The lock file will be created at {{ (kdc_db_dir | default('/var/lib/heimdal-kdc')) }}/{{ (kdc_db_mode | default('kdc')) }}.lock
+    lock-file = {{ (kdc_db_dir | default('/var/lib/heimdal-kdc')) }}/{{ (kdc_db_mode | default('kdc')) }}.lock
+
+# Primary port for KDC service.
+# Defaults to 88.
+    port = {{ (kdc_port | default(88)) }}
+
+# Default realm for the KDC instance.
+# Defaults to EXAMPLE.COM.
+    realm = {{ (kdc_realm | default('EXAMPLE.COM')) }}
+
+# Enable audit logging (records access to sensitive resources).
+# Defaults to false.
+    audit = {{ kdc_enable_audit | default(false) | ternary('true', 'false') }}
+
+# Enable HTTP interface for kadmin (remote administration over HTTPS).
+# Defaults to false.
+    http = {{ kdc_enable_http | default(false) | ternary('true', 'false') }}
+
+# Enable hprop (replication) client functionality in KDC.
+# Defaults to false.
+    hprop = {{ kdc_enable_hprop | default(false) | ternary('true', 'false') }}
+
+# Enable hpropd (replication daemon) to accept incoming propagation requests.
+# Defaults to false.
+    hpropd = {{ kdc_enable_hpropd | default(false) | ternary('true', 'false') }}
+
+# Enable kadmin service (remote administration via kadmin protocol).
+# Defaults to true.
+    kadmin = {{ kdc_enable_kadmin | default(true) | ternary('true', 'false') }}
+
+# Enable kadmin.local (local-only administration, e.g., via kerberosd or scripts).
+# Defaults to true.
+    kadmin_local = {{ kdc_enable_kadmin_local | default(true) | ternary('true', 'false') }}
+
+# Path to the ACL file defining access permissions for kadmin/kadmin.local.
+# Defaults to /etc/heimdal/kdc.acl.
+    acl-file = {{ (kdc_acl_file | default('/etc/heimdal/kdc.acl')) }}
+
+# Path to the KDC's keytab file containing its service keys.
+# Defaults to /etc/heimdal/kdc.keytab.
+    keytab = {{ (kdc_keytab_file | default('/etc/heimdal/kdc.keytab')) }}
+
+# Path to the main KDC log file.
+# Defaults to /var/log/heimdal-kdc.log.
+    log = {{ (kdc_log_file | default('/var/log/heimdal-kdc.log')) }}
+
+# Default maximum lifetime (in seconds) for tickets (default: 24h).
+# Defaults to 86400.
+    max_life = {{ (kdc_max_life | default(86400)) }}
+
+# Default maximum renewable lifetime (in seconds) for tickets (default: 7d).
+# Defaults to 604800.
+    max_renewable_life = {{ (kdc_max_renewable_life | default(604800)) }}
+
+# List of supported pre-authentication types.
+# Defaults to ['pa-etype-info2', 'pa-pk-as-req'].
+    preauth_types = {{ (kdc_preauth_types | default(['pa-etype-info2', 'pa-pk-as-req'])) | join(', ') }}
+
+# Default ticket flags to set for new principals.
+# Defaults to ['pre-auth', 'forwardable', 'renewable'].
+    default_flags = {{ (kdc_default_flags | default(['pre-auth', 'forwardable', 'renewable'])) | join(', ') }}
+
+# --- Listen Addresses ---
+# List of network interfaces/addresses and optional ports/protocols to bind to for KDC traffic.
+# If kdc_listen is defined and not empty, these blocks are generated below.
+{% if kdc_listen is defined %}
+{% if kdc_listen | length > 0 %}
+# Listen directives for specific addresses/ports
+{% for item in kdc_listen %}
+# Interface: {{ (item.interface | default('any')) }}
+{% if item.interface %}    interface = {{ item.interface }}{% endif %}
+# Address to bind to
+{% if item.address %}    address = {{ item.address }}{% endif %}
+# Port override for this listen address
+{% if item.port %}    port = {{ item.port }}{% endif %}
+# Protocol (tcp/udp)
 {% if item.protocol %}    protocol = {{ item.protocol }}{% endif %}
+# SSL Key file for HTTPS/TLS
 {% if item.ssl_key_file %}    ssl-key = {{ item.ssl_key_file }}{% endif %}
+# SSL Certificate file for HTTPS/TLS
 {% if item.ssl_cert_file %}    ssl-cert = {{ item.ssl_cert_file }}{% endif %}
-{% endif %}
 {% endfor %}
 {% endif %}
+{% endif %}
 
-{% if kdc_realm_configs is defined %}{# Per-realm configurations #}
-{% if kdc_realm_configs|length > 0 %}[realms]
-{% for realm in kdc_realm_configs %}{% if realm.name %}[{{ realm.name }}]
+# --- Realm-Specific Configurations ---
+# Per-realm override configurations (if multiple realms or non-default settings needed).
+# Defined in kdc_realm_configs list.
+{% if kdc_realm_configs is defined %}
+{% if kdc_realm_configs | length > 0 %}
+[realms]
+{% for realm in kdc_realm_configs %}
+# Realm: {{ realm.name | default('unnamed') }}
+{% if realm.name %}[{{ realm.name }}]{% endif %}
 {% if realm.database %}    database = {{ realm.database }}{% endif %}
 {% if realm.keytab %}    keytab = {{ realm.keytab }}{% endif %}
 {% if realm.max_life %}    max_life = {{ realm.max_life }}{% endif %}
@@ -42,12 +113,18 @@
 {% if realm.preauth_types %}    preauth_types = {{ realm.preauth_types | join(', ') }}{% endif %}
 {% if realm.acl_file %}    acl-file = {{ realm.acl_file }}{% endif %}
 {% if realm.log_file %}    log = {{ realm.log_file }}{% endif %}
-{% endif %}
 {% endfor %}
 {% endif %}
+{% endif %}
 
-{% if kdc_hpropd is defined %}{# Hpropd (KDC replication daemon) configuration #}
-{% if kdc_hpropd.enabled %}hpropd:
+# --- Hpropd Configuration (Replication Daemon) ---
+# Hpropd (KDC replication daemon) settings.
+# Defined in kdc_hpropd dict. Enabled if kdc_hpropd.enabled is true.
+{% if kdc_hpropd is defined %}
+{% if kdc_hpropd | default({}) | length > 0 %}
+{% if kdc_hpropd | default({}) | bool or (kdc_hpropd | default({})) | bool == true %}
+{% if kdc_hpropd | default({'enabled': False}) | default({'enabled': False}) | bool %}
+hpropd:
 {% if kdc_hpropd.port %}    port = {{ kdc_hpropd.port }}{% endif %}
 {% if kdc_hpropd.listen_address %}    address = {{ kdc_hpropd.listen_address }}{% endif %}
 {% if kdc_hpropd.acl_file %}    acl-file = {{ kdc_hpropd.acl_file }}{% endif %}
@@ -56,9 +133,18 @@
 {% if kdc_hpropd.ssl_key %}    ssl-key = {{ kdc_hpropd.ssl_key }}{% endif %}
 {% if kdc_hpropd.ssl_cert %}    ssl-cert = {{ kdc_hpropd.ssl_cert }}{% endif %}
 {% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
 
-{% if kdc_http is defined %}{# HTTP (kadmin over HTTP) configuration #}
-{% if kdc_http.enabled %}http:
+# --- HTTP Configuration (kadmin over HTTP) ---
+# HTTP interface for kadmin (remote admin via HTTP/S).
+# Defined in kdc_http dict. Enabled if kdc_http.enabled is true.
+{% if kdc_http is defined %}
+{% if kdc_http | default({}) | length > 0 %}
+{% if kdc_http | default({}) | bool or (kdc_http | default({})) | bool == true %}
+{% if kdc_http | default({'enabled': False}) | default({'enabled': False}) | bool %}
+http:
 {% if kdc_http.port %}    port = {{ kdc_http.port }}{% endif %}
 {% if kdc_http.listen_address %}    address = {{ kdc_http.listen_address }}{% endif %}
 {% if kdc_http.ssl_key %}    ssl-key = {{ kdc_http.ssl_key }}{% endif %}
@@ -66,24 +152,56 @@
 {% if kdc_http.root %}    root = {{ kdc_http.root }}{% endif %}
 {% if kdc_http.log_file %}    log = {{ kdc_http.log_file }}{% endif %}
 {% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
 
-{% if kdc_kadmin is defined %}{# kadmin (local/admin) daemon configuration #}
-{% if kdc_kadmin.enabled %}kadmin:
+# --- kadmin Configuration (Remote Admin) ---
+# kadmin (remote admin) daemon settings.
+# Defined in kdc_kadmin dict. Enabled if kdc_kadmin.enabled is true.
+{% if kdc_kadmin is defined %}
+{% if kdc_kadmin | default({}) | length > 0 %}
+{% if kdc_kadmin | default({}) | bool or (kdc_kadmin | default({})) | bool == true %}
+{% if kdc_kadmin | default({'enabled': True}) | default({'enabled': True}) | bool %}
+kadmin:
 {% if kdc_kadmin.port %}    port = {{ kdc_kadmin.port }}{% endif %}
 {% if kdc_kadmin.listen_address %}    address = {{ kdc_kadmin.listen_address }}{% endif %}
 {% if kdc_kadmin.acl_file %}    acl-file = {{ kdc_kadmin.acl_file }}{% endif %}
 {% if kdc_kadmin.log_file %}    log = {{ kdc_kadmin.log_file }}{% endif %}
 {% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
 
-{% if kdc_kadmin_local is defined %}{# kadmin.local (local-only) configuration #}
-{% if kdc_kadmin_local.enabled %}kadmin_local:
+# --- kadmin.local Configuration (Local Admin) ---
+# kadmin.local (local-only admin) settings.
+# Defined in kdc_kadmin_local dict. Enabled if kdc_kadmin_local.enabled is true.
+{% if kdc_kadmin_local is defined %}
+{% if kdc_kadmin_local | default({}) | length > 0 %}
+{% if kdc_kadmin_local | default({}) | bool or (kdc_kadmin_local | default({})) | bool == true %}
+{% if kdc_kadmin_local | default({'enabled': True}) | default({'enabled': True}) | bool %}
+kadmin_local:
 {% if kdc_kadmin_local.acl_file %}    acl-file = {{ kdc_kadmin_local.acl_file }}{% endif %}
 {% if kdc_kadmin_local.log_file %}    log = {{ kdc_kadmin_local.log_file }}{% endif %}
 {% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
 
-{% if kdc_hprop is defined %}{# hprop (propagate changes to replicas) configuration #}
-{% if kdc_hprop.enabled %}hprop:
+# --- hprop Configuration (Propagation) ---
+# hprop (propagate changes to replicas) configuration.
+# Defined in kdc_hprop dict. Enabled if kdc_hprop.enabled is true.
+{% if kdc_hprop is defined %}
+{% if kdc_hprop | default({}) | length > 0 %}
+{% if kdc_hprop | default({}) | bool or (kdc_hprop | default({})) | bool == true %}
+{% if kdc_hprop | default({'enabled': False}) | default({'enabled': False}) | bool %}
+hprop:
 {% if kdc_hprop.source %}    source = {{ kdc_hprop.source }}{% endif %}
-{% if kdc_hprop.destinations|length > 0 %}    destinations = {{ kdc_hprop.destinations | join(', ') }}{% endif %}
+{% if kdc_hprop.destinations is defined %}
+{% if kdc_hprop.destinations | length > 0 %}    destinations = {{ kdc_hprop.destinations | join(', ') }}{% endif %}
+{% endif %}
 {% if kdc_hprop.log_file %}    log = {{ kdc_hprop.log_file }}{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
 {% endif %}

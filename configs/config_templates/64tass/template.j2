@@ -1,0 +1,503 @@
+{# ============================================================================ #}
+{# 64tass Assembler Configuration Template                                      #}
+{#                                                                              #}
+{# This template generates 64tass command-line options based on the `options`   #}
+{# dictionary provided by Ansible. 64tass does not use a native config file;    #}
+{# this template serves as a generated script or configuration block that       #}
+{# assembles source code with the specified target architecture, output format, #}
+{# and diagnostic settings.                                                     #}
+{#                                                                              #}
+{# Variables:                                                                   #}
+{#   options (dict): A top-level object containing all 64tass configuration     #}
+{#                   keys. Keys map directly to 64tass CLI flags.               #}
+{#                   Defaults are applied if a key is missing or null.           #}
+{#                                                                              #}
+{# Notes:                                                                       #}
+{#   - Boolean options are treated as flags: if truthy, the flag is emitted.    #}
+{#   - String/Int options are treated as key-value arguments: if set,           #}
+{#     `--flag value` is emitted.                                               #}
+{#   - List options are iterated to emit multiple flags (e.g. `-D DEFINE`).     #}
+{#   - No networking, databases, or external services are involved.             #}
+{# ============================================================================ #}
+
+{% set opts = options | default({}) %}
+
+{# ============================================================================ #}
+{# Output Options                                                               #}
+{# Control the format and destination of the assembled binary.                  #}
+{# ============================================================================ #}
+
+{% if opts.output is defined and opts.output %}
+{# Output file path: Specifies the name of the output binary file.          #}
+-o {{ opts.output }}
+{% endif %}
+
+{% if opts.output_append is defined and opts.output_append %}
+{# Append to output file: If set, appends output to the specified file    #}
+{# instead of overwriting it.                                              #}
+--output-append {{ opts.output_append }}
+{% endif %}
+
+{% if opts.output_section is defined and opts.output_section %}
+{# Output specific section: Output only the specified section from the     #}
+{# assembly. Useful for extracting data segments.                          #}
+--output-section {{ opts.output_section }}
+{% endif %}
+
+{% if opts.output_exec is defined and opts.output_exec %}
+{# Execution address: Sets the start address for executable formats.       #}
+--output-exec {{ opts.output_exec }}
+{% endif %}
+
+{% if opts.long_address is defined and opts.long_address %}
+{# Use 3-byte addresses for CBM/nonlinear formats: Enables extended        #}
+{# address mode for Commodore and nonlinear memory maps.                   #}
+-X
+{% endif %}
+
+{% if opts.cbm_prg is defined and opts.cbm_prg %}
+{# Generate CBM PRG format: Output in Commodore PRG binary format.        #}
+--cbm-prg
+{% endif %}
+
+{% if opts.nostart is defined and opts.nostart %}
+{# Raw data only, no start address: Generates raw binary without a start   #}
+{# address header.                                                           #}
+-b
+{% endif %}
+
+{% if opts.flat is defined and opts.flat %}
+{# Flat address space output: Forces a flat memory model for output.       #}
+-f
+{% endif %}
+
+{% if opts.nonlinear is defined and opts.nonlinear %}
+{# Nonlinear output format: Enables nonlinear memory mapping support.      #}
+--nonlinear
+{% endif %}
+
+{% if opts.atari_xex is defined and opts.atari_xex %}
+{# Atari XEX format: Output in Atari XEX executable format.                #}
+--atari-xex
+{% endif %}
+
+{% if opts.apple2 is defined and opts.apple2 %}
+{# Apple II DOS 3.3 format: Output in Apple II DOS 3.3 disk image format.  #}
+--apple2
+{% endif %}
+
+{% if opts.c256_pgx is defined and opts.c256_pgx %}
+{# C256 Foenix PGX format: Output in Foenix PGX format.                    #}
+--c256-pgx
+{% endif %}
+
+{% if opts.c256_pgz is defined and opts.c256_pgz %}
+{# C256 Foenix PGZ format: Output in Foenix PGZ format.                    #}
+--c256-pgz
+{% endif %}
+
+{% if opts.intel_hex is defined and opts.intel_hex %}
+{# Intel HEX output: Output in Intel HEX format for programming devices.   #}
+--intel-hex
+{% endif %}
+
+{% if opts.s_record is defined and opts.s_record %}
+{# Motorola S-record output: Output in Motorola S-Record format.           #}
+--s-record
+{% endif %}
+
+
+{# ============================================================================ #}
+{# Operation Options                                                            #}
+{# Control encoding, compatibility, and include/search behavior.              #}
+{# ============================================================================ #}
+
+{% if opts.ascii is defined and opts.ascii %}
+{# Use ASCII/Unicode encoding instead of raw 8-bit: Enables UTF-8/ASCII    #}
+{# string handling in the source.                                          #}
+-a
+{% endif %}
+
+{% if opts.long_branch is defined and opts.long_branch %}
+{# Auto-convert long branches to BRA/JMP: Automatically replaces out-of    #}
+{# range branches with BRA or JMP instructions.                            #}
+-B
+{% endif %}
+
+{% if opts.case_sensitive is defined and opts.case_sensitive %}
+{# Make all symbols case-sensitive: Treats 'Var' and 'var' as distinct.    #}
+-C
+{% endif %}
+
+{% if opts.tasm_compatible is defined and opts.tasm_compatible %}
+{# Enable TASM-compatible operators: Allows Turbo Assembler syntax.        #}
+-T
+{% endif %}
+
+{% if opts.quiet is defined and opts.quiet %}
+{# Suppress messages: Reduces output to errors only.                       #}
+-q
+{% endif %}
+
+{% if opts.defines is defined and opts.defines %}
+{# Define a label: Adds a macro definition (equivalent to -D DEFINE).      #}
+{% for define in opts.defines %}
+-D {{ define }}
+{% endfor %}
+{% endif %}
+
+{% if opts.includes is defined and opts.includes %}
+{# Include search path: Adds a directory to the include search path.       #}
+{% for include in opts.includes %}
+-I {{ include }}
+{% endfor %}
+{% endif %}
+
+{% if opts.dependencies is defined and opts.dependencies %}
+{# Dependencies output file: Writes dependency information (Makefile       #}
+{# compatible) to this file.                                               #}
+-M {{ opts.dependencies }}
+{% endif %}
+
+{% if opts.dependencies_append is defined and opts.dependencies_append %}
+{# Append dependencies: Appends dependency output to the specified file.   #}
+--dependencies-append {{ opts.dependencies_append }}
+{% endif %}
+
+{% if opts.make_phony is defined and opts.make_phony %}
+{# Generate phony dependencies: Marks all dependencies as phony targets.   #}
+--make-phony
+{% endif %}
+
+
+{# ============================================================================ #}
+{# Diagnostic Options                                                           #}
+{# Control error reporting, warnings, and verbosity.                          #}
+{# ============================================================================ #}
+
+{% if opts.error_file is defined and opts.error_file %}
+{# Redirect errors to file: Sends error messages to the specified file.    #}
+-E {{ opts.error_file }}
+{% endif %}
+
+{% if opts.error_append is defined and opts.error_append %}
+{# Append to error file: Appends error output to the specified file.       #}
+--error-append {{ opts.error_append }}
+{% endif %}
+
+{% if opts.no_error is defined and opts.no_error %}
+{# Suppress error output: Disables error messages entirely.                #}
+--no-error
+{% endif %}
+
+{% if opts.no_warn is defined and opts.no_warn %}
+{# Disable warnings: Turns off all warning messages.                       #}
+-w
+{% endif %}
+
+{% if opts.no_caret_diag is defined and opts.no_caret_diag %}
+{# Suppress source line display in diagnostics: Hides the source line      #}
+{# pointer in error/warning messages.                                      #}
+--no-caret-diag
+{% endif %}
+
+{% if opts.macro_caret_diag is defined and opts.macro_caret_diag %}
+{# Restrict caret diagnostics to macros only: Shows source lines only for  #}
+{# macro-related errors.                                                   #}
+--macro-caret-diag
+{% endif %}
+
+{% if opts.all_warnings is defined and opts.all_warnings %}
+{# Enable most diagnostics: Enables a broad set of warnings for best       #}
+{# practices and common errors.                                            #}
+-Wall
+{% endif %}
+
+{% if opts.warning_as_error is defined and opts.warning_as_error %}
+{# Treat warnings as errors: Makes warnings fatal, stopping assembly.      #}
+-Werror
+{% endif %}
+
+{% if opts.warning_to_error is defined and opts.warning_to_error %}
+{# Convert specific warning to error: Turns specific warning codes into    #}
+{# fatal errors.                                                           #}
+{% for warn_error in opts.warning_to_error %}
+-Werror={{ warn_error }}
+{% endfor %}
+{% endif %}
+
+{% if opts.suppressed_warnings is defined and opts.suppressed_warnings %}
+{# Suppress specific warning: Disables specific warning codes.             #}
+{% for suppress_warning in opts.suppressed_warnings %}
+-Wno-{{ suppress_warning }}
+{% endfor %}
+{% endif %}
+
+{% if opts.w_alias is defined and opts.w_alias %}
+{# Warn about alias opcodes: Warns when using opcode aliases.              #}
+-Walias
+{% endif %}
+
+{% if opts.w_align is defined and opts.w_align %}
+{# Warn about padding bytes added for alignment: Warns on auto-padding.    #}
+-Walign
+{% endif %}
+
+{% if opts.w_altmode is defined and opts.w_altmode %}
+{# Warn about alternative addressing modes: Warns on non-standard modes.   #}
+-Waltmode
+{% endif %}
+
+{% if opts.w_branch_page is defined and opts.w_branch_page %}
+{# Warn about page-crossing branches: Warns if branch crosses memory page. #}
+-Wbranch-page
+{% endif %}
+
+{% if opts.w_case_symbol is defined and opts.w_case_symbol %}
+{# Warn about inconsistent symbol case: Warns on case mismatches.          #}
+-Wcase-symbol
+{% endif %}
+
+{% if opts.w_immediate is defined and opts.w_immediate %}
+{# Warn about likely immediate addressing: Warns on ambiguous # usage.     #}
+-Wimmediate
+{% endif %}
+
+{% if opts.w_implied_reg is defined and opts.w_implied_reg %}
+{# Warn about implied addressing instead of register: Warns on implicit    #}
+{# register usage.                                                         #}
+-Wimplied-reg
+{% endif %}
+
+{% if opts.w_leading_zeros is defined and opts.w_leading_zeros %}
+{# Warn about leading zeros: Warns on numbers with leading zeros.          #}
+-Wleading-zeros
+{% endif %}
+
+{% if opts.w_long_branch is defined and opts.w_long_branch %}
+{# Warn about long branches: Warns on branches that might overflow.        #}
+-Wlong-branch
+{% endif %}
+
+{% if opts.w_macro_prefix is defined and opts.w_macro_prefix %}
+{# Warn about macro call without prefix: Warns on macro calls missing      #}
+{# a prefix marker.                                                        #}
+-Wmacro-prefix
+{% endif %}
+
+{% if opts.w_old_equal is defined and opts.w_old_equal %}
+{# Warn about old '=' operator: Warns on usage of legacy assignment syntax.#}
+-Wold-equal
+{% endif %}
+
+{% if opts.w_optimize is defined and opts.w_optimize %}
+{# Warn about optimizable code: Warns when code could be simplified.       #}
+-Woptimize
+{% endif %}
+
+{% if opts.w_shadow is defined and opts.w_shadow %}
+{# Warn about symbol shadowing: Warns if a symbol hides an outer scope     #}
+{# symbol.                                                                 #}
+-Wshadow
+{% endif %}
+
+{% if opts.w_strict_bool is defined and opts.w_strict_bool %}
+{# Warn about implicit boolean conversions: Warns on non-boolean used as   #}
+{# boolean.                                                                #}
+-Wstrict-bool
+{% endif %}
+
+{% if opts.w_unused is defined and opts.w_unused %}
+{# Warn about unused constant symbols: Warns on defined but unused const.  #}
+-Wunused
+{% endif %}
+
+{% if opts.w_unused_const is defined and opts.w_unused_const %}
+{# Warn about unused constants: Warns on constant values not referenced.   #}
+-Wunused-const
+{% endif %}
+
+{% if opts.w_unused_label is defined and opts.w_unused_label %}
+{# Warn about unused labels: Warns on labels defined but never jumped to.  #}
+-Wunused-label
+{% endif %}
+
+{% if opts.w_unused_macro is defined and opts.w_unused_macro %}
+{# Warn about unused macros: Warns on macros defined but not invoked.      #}
+-Wunused-macro
+{% endif %}
+
+{% if opts.w_unused_variable is defined and opts.w_unused_variable %}
+{# Warn about unused variables: Warns on local variables not read.         #}
+-Wunused-variable
+{% endif %}
+
+
+{# ============================================================================ #}
+{# Target Selection Options                                                     #}
+{# Select the CPU architecture for assembly.                                  #}
+{# ============================================================================ #}
+
+{% if opts.m65xx is defined and opts.m65xx %}
+{# Standard 65xx: Assemble for generic MOS Technology 65xx family.         #}
+--m65xx
+{% endif %}
+
+{% if opts.m65c02 is defined and opts.m65c02 %}
+{# CMOS 65C02: Assemble for the CMOS 65C02 variant.                        #}
+-c
+{% endif %}
+
+{% if opts.m65ce02 is defined and opts.m65ce02 %}
+{# CSG 65CE02: Assemble for the CSG 65CE02 variant.                        #}
+--m65ce02
+{% endif %}
+
+{% if opts.m6502 is defined and opts.m6502 %}
+{# NMOS 65xx: Assemble for NMOS 6502/6510.                                #}
+-i
+{% endif %}
+
+{% if opts.m65dtv02 is defined and opts.m65dtv02 %}
+{# 65DTV02: Assemble for the 65DTV02 variant.                              #}
+-t
+{% endif %}
+
+{% if opts.m65816 is defined and opts.m65816 %}
+{# W65C816: Assemble for the 65816 (W65C816) 16-bit variant.               #}
+-x
+{% endif %}
+
+{% if opts.m65el02 is defined and opts.m65el02 %}
+{# 65EL02: Assemble for the 65EL02 variant.                                #}
+-e
+{% endif %}
+
+{% if opts.mr65c02 is defined and opts.mr65c02 %}
+{# R65C02: Assemble for the R65C02 variant.                                #}
+--mr65c02
+{% endif %}
+
+{% if opts.mw65c02 is defined and opts.mw65c02 %}
+{# W65C02: Assemble for the W65C02 variant.                                #}
+--mw65c02
+{% endif %}
+
+{% if opts.m4510 is defined and opts.m4510 %}
+{# CSG 4510: Assemble for the Commodore 4510 variant.                      #}
+--m4510
+{% endif %}
+
+
+{# ============================================================================ #}
+{# Symbol Listing Options                                                       #}
+{# Control the output of symbol tables and label listings.                    #}
+{# ============================================================================ #}
+
+{% if opts.labels is defined and opts.labels %}
+{# List labels to file: Writes a symbol table to the specified file.       #}
+-l {{ opts.labels }}
+{% endif %}
+
+{% if opts.labels_append is defined and opts.labels_append %}
+{# Append labels to file: Appends symbol table to the specified file.      #}
+--labels-append={{ opts.labels_append }}
+{% endif %}
+
+{% if opts.labels_root is defined and opts.labels_root %}
+{# Scope for label listing: Limits label listing to a specific namespace.  #}
+--labels-root={{ opts.labels_root }}
+{% endif %}
+
+{% if opts.labels_section is defined and opts.labels_section %}
+{# Section for label listing: Limits label listing to a specific code      #}
+{# or data section.                                                        #}
+--labels-section={{ opts.labels_section }}
+{% endif %}
+
+{% if opts.labels_add_prefix is defined and opts.labels_add_prefix %}
+{# Prefix for label output: Adds a prefix to all listed label names.       #}
+--labels-add-prefix={{ opts.labels_add_prefix }}
+{% endif %}
+
+{% if opts.normal_labels is defined and opts.normal_labels %}
+{# Normal 64tass-readable format: Outputs labels in standard 64tass format.#}
+--normal-labels
+{% endif %}
+
+{% if opts.export_labels is defined and opts.export_labels %}
+{# Export 64tass-readable format: Exports labels in a portable format.     #}
+--export-labels
+{% endif %}
+
+{% if opts.vice_labels is defined and opts.vice_labels %}
+{# VICE-readable format: Outputs labels compatible with the VICE emulator. #}
+--vice-labels
+{% endif %}
+
+{% if opts.vice_labels_numeric is defined and opts.vice_labels_numeric %}
+{# VICE-readable with numeric constants: VICE format including numeric     #}
+{# constant values.                                                        #}
+--vice-labels-numeric
+{% endif %}
+
+{% if opts.dump_labels is defined and opts.dump_labels %}
+{# Debug label listing: Outputs raw debug information about labels.        #}
+--dump-labels
+{% endif %}
+
+{% if opts.simple_labels is defined and opts.simple_labels %}
+{# Simple label = $x format: Outputs simple hex value assignments.         #}
+--simple-labels
+{% endif %}
+
+{% if opts.mesen_labels is defined and opts.mesen_labels %}
+{# Mesen-readable format: Outputs labels compatible with Mesen emulator.   #}
+--mesen-labels
+{% endif %}
+
+
+{# ============================================================================ #}
+{# Assembly Listing Options                                                     #}
+{# Control the generation of assembly source listings.                        #}
+{# ============================================================================ #}
+
+{% if opts.list is defined and opts.list %}
+{# List to file: Writes a full assembly listing to the specified file.     #}
+-L {{ opts.list }}
+{% endif %}
+
+{% if opts.list_append is defined and opts.list_append %}
+{# Append list to file: Appends assembly listing to the specified file.    #}
+--list-append={{ opts.list_append }}
+{% endif %}
+
+{% if opts.no_monitor is defined and opts.no_monitor %}
+{# Omit monitor code from listing: Excludes internal monitor code from     #}
+{# the assembly listing.                                                   #}
+-m
+{% endif %}
+
+{% if opts.no_source is defined and opts.no_source %}
+{# Omit source code from listing: Excludes source code from the assembly   #}
+{# listing.                                                                #}
+-s
+{% endif %}
+
+{% if opts.line_numbers is defined and opts.line_numbers %}
+{# Show line numbers in listing: Includes source line numbers in the       #}
+{# assembly listing.                                                       #}
+--line-numbers
+{% endif %}
+
+{% if opts.tab_size is defined and opts.tab_size %}
+{# Set tab size in listing: Configures the width of tab characters in      #}
+{# the listing output.                                                     #}
+--tab-size={{ opts.tab_size }}
+{% endif %}
+
+{% if opts.verbose_list is defined and opts.verbose_list %}
+{# List everything including comments and empty lines: Produces a          #}
+{# comprehensive listing with all details.                                 #}
+--verbose-list
+{% endif %}

@@ -1,68 +1,78 @@
-# RADIUS clients to forward requests to (local or remote)
-{% for client in clients %}{{ client.name }}
-{% endfor %}
+#! /bin/sh
 
-# UDP servers to forward Access-Request and Accounting-Request
-{% for server in udp_servers %}{{ server.name }}
-{% endfor %}
+### BEGIN INIT INFO
+# Provides:		radsecproxy
+# Required-Start:	$remote_fs $syslog $network
+# Required-Stop:	$remote_fs $syslog
+# Should-Start:		$time $named
+# Should-Stop:		
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	RADIUS proxy
+# Description:		RADIUS protocol proxy supporting RadSec
+### END INIT INFO
 
-# TCP/TLS (RadSec) servers to forward requests
-{% for server in tcp_servers %}{{ server.name }}
-{% endfor %}
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/radsecproxy
+DAEMONUSER=radsecproxy
+NAME=radsecproxy
+DESC="RadSec proxy"
+PIDDIR=/run/$NAME
+PIDFILE=$PIDDIR/pid
 
-# Global options
-{% if debug %}# Enable debug logging
-Debug
-{% endif %}
-{# Logging #}
-{% if log_level %}# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug
-LogLevels {{ log_level }}
-{% endif %}
-{% if log_file %}# Log to file (default: syslog)
-LogFile {{ log_file }}
-{% endif %}
+. /lib/lsb/init-functions
 
-{# Global statistics and status #}
-{% if stats_port %}# Statistics server port (UDP)
-StatsPort {{ stats_port }}
-{% endif %}
-{% if listen_addr %}# Local address to bind to (default: 0.0.0.0)
-Listen {{ listen_addr }}
-{% endif %}
+test -x $DAEMON || exit 0
 
-{# Certificate and TLS configuration #}
-{% if use_tls %}# TLS settings (RadSec)
-CACertFile {{ ca_cert_file }}
-{% if server_cert_file %}ServerCertFile {{ server_cert_file }}{% endif %}
-{% if server_key_file %}ServerKeyFile {{ server_key_file }}{% endif %}
-{% if client_cert_file %}ClientCertFile {{ client_cert_file }}{% endif %}
-{% if client_key_file %}ClientKeyFile {{ client_key_file }}{% endif %}
-{% if tls_cipher_list %}TLSCipherList {{ tls_cipher_list }}{% endif %}
-{% if tls_verify_cert %}VerifyCertificates{% endif %}
-{% endif %}
+DAEMON_OPTS="-i $PIDFILE"
 
-{# Default realm and fallback behavior #}
-{% if default_realm %}# Default realm to use for unqualified usernames
-DefaultRealm {{ default_realm }}
-{% endif %}
-{% if fallback_realm %}# Realm to use if no matching realm or client found
-FallbackRealm {{ fallback_realm }}
-{% endif %}
+case "$1" in
+  start)
+	if [ ! -d $PIDDIR ]; then
+		mkdir -p $PIDDIR
+		chown $DAEMONUSER $PIDDIR
+		chgrp $DAEMONUSER $PIDDIR
+	fi
 
-{# Timeouts and retries #}
-{% if timeout %}# Request timeout in seconds (default: 3)
-Timeout {{ timeout }}
-{% endif %}
-{% if retries %}# Max number of retries per request (default: 3)
-Retries {{ retries }}
-{% endif %}
-
-{# Weighted server selection #}
-{% for server in tcp_servers %}{{ server.name }}
-{% endfor %}
-{% for server in udp_servers %}{{ server.name }}
-{% endfor %}
-
-# Realm definitions (optional, but commonly present)
-{% for realm in realms %}{{ realm.name }}
-{% endfor %}
+	if pidofproc -p $PIDFILE $DAEMON > /dev/null; then
+		log_failure_msg "Starting $DESC (already started)"
+		exit 0
+	fi
+	if ! $DAEMON -p $DAEMON_OPTS 2> /dev/null; then
+		log_failure_msg "Checking $DESC config syntax"
+		exit 1
+	fi
+	log_daemon_msg "Starting $DESC" "$NAME"
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--user $DAEMONUSER --chuid $DAEMONUSER \
+		--exec $DAEMON -- $DAEMON_OPTS
+	log_end_msg $?
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	start-stop-daemon --stop --retry 5 --quiet --pidfile $PIDFILE \
+		--user $DAEMONUSER \
+		--exec $DAEMON
+	case "$?" in
+		0) log_end_msg 0 ;;
+		1) log_progress_msg "(already stopped)"
+		   log_end_msg 0 ;;
+		*) log_end_msg 1 ;;
+	esac
+	;;
+  force-reload|restart)
+	if ! $DAEMON -p $DAEMON_OPTS 2> /dev/null; then
+		log_failure_msg "Checking $DESC config syntax"
+		exit 1
+	fi
+	$0 stop
+	$0 start
+	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+	;;
+  *)
+	echo "Usage: ${0} {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac

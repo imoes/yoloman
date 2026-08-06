@@ -2,94 +2,116 @@
   "services": {
     "type": "list",
     "default": [],
-    "description": "List of load-balanced services to configure. Each service defines a virtual IP, protocol, and backend pool.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique name for the service (e.g., 'web-lb')."
-      },
-      "type": {
-        "type": "string",
-        "default": "lb",
-        "description": "Service type: 'lb' for load balancer, 'fw' for firewall/redirect."
-      },
-      "proto": {
-        "type": "string",
-        "default": "tcp",
-        "description": "Protocol to listen on: tcp, udp, or sctp."
-      },
-      "listen_ip": {
-        "type": "string",
-        "default": "",
-        "description": "IP address to bind the service to (e.g., 192.168.1.10 or 0.0.0.0)."
-      },
-      "listen_port": {
-        "type": "number",
-        "default": 80,
-        "description": "Port number to listen on."
-      },
-      "backends": {
-        "type": "list",
-        "default": [],
-        "description": "List of backend servers to distribute traffic to.",
-        "items": {
-          "ip": {
-            "type": "string",
-            "default": "",
-            "description": "IP address of the backend server."
-          },
-          "port": {
-            "type": "number",
-            "default": 80,
-            "description": "Port on which backend listens (defaults to service's listen_port if omitted)."
-          },
-          "weight": {
-            "type": "number",
-            "default": 1,
-            "description": "Relative weight for weighted load balancing (higher = more traffic)."
-          }
-        }
-      },
-      "health_check": {
-        "type": "object",
-        "default": null,
-        "description": "Health check configuration for backends.",
-        "items": {
-          "type": {
-            "type": "string",
-            "default": "tcp",
-            "description": "Type of health check: 'tcp', 'http', or 'none'."
-          },
-          "path": {
-            "type": "string",
-            "default": "/",
-            "description": "HTTP path to probe for 'http' health checks."
-          }
-        }
-      },
-      "options": {
-        "type": "object",
-        "default": {},
-        "description": "Per-service options as key-value pairs (e.g., { 'sched': 'lc', 'persistence': '60' })."
-      }
-    }
+    "description": "List of load-balanced services (farms) to configure. Each service defines a virtual IP, protocol, and backend pool per nftlb(8) documentation."
   },
-  "global_settings": {
+  "items": {
     "type": "object",
-    "default": {},
-    "description": "Global nftlb settings affecting overall behavior.",
-    "items": {
-      "log_level": {
-        "type": "string",
-        "default": "warning",
-        "description": "Logging verbosity: debug, info, notice, warning, error."
-      },
-      "persistence_default": {
-        "type": "number",
-        "default": 0,
-        "description": "Default persistence timeout (seconds) for connections without per-service override."
-      }
-    }
+    "description": "A single farm (service) configuration object matching the nftlb JSON format."
+  },
+  "name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the backend (required by nftlb)."
+  },
+  "iface": {
+    "type": "string",
+    "default": "",
+    "description": "Input interface (only required for DSR mode)."
+  },
+  "oface": {
+    "type": "string",
+    "default": "",
+    "description": "Output interface (only required for DSR mode)."
+  },
+  "family": {
+    "type": "string",
+    "default": "ipv4",
+    "description": "Family of the virtual service: ipv4, ipv6, or dual (ipv4 by default).",
+    "enum": [
+      "ipv4",
+      "ipv6",
+      "dual"
+    ]
+  },
+  "ether_addr": {
+    "type": "string",
+    "default": "",
+    "description": "Physical (MAC) address of the backend (required for DSR mode)."
+  },
+  "virtual_addr": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for the virtual service (required)."
+  },
+  "virtual_ports": {
+    "type": "string",
+    "default": "80",
+    "description": "Port list (comma-separated or hyphen-ranged, e.g., 80 or 80-88)."
+  },
+  "mode": {
+    "type": "string",
+    "default": "snat",
+    "description": "Topology mode: snat, dnat, or dsr (required).",
+    "enum": [
+      "snat",
+      "dnat",
+      "dsr"
+    ]
+  },
+  "proto": {
+    "type": "string",
+    "default": "tcp",
+    "description": "Protocol: tcp, udp, sctp, or all (tcp by default).",
+    "enum": [
+      "tcp",
+      "udp",
+      "sctp",
+      "all"
+    ]
+  },
+  "scheduler": {
+    "type": "string",
+    "default": "rr",
+    "description": "Scheduler: weight, rr, hash, symhash (round robin by default).",
+    "enum": [
+      "weight",
+      "rr",
+      "hash",
+      "symhash"
+    ]
+  },
+  "priority": {
+    "type": "number",
+    "default": 1,
+    "description": "Priority for the backend (1 by default)."
+  },
+  "state": {
+    "type": "string",
+    "default": "up",
+    "description": "State: up, down, or off (up by default).",
+    "enum": [
+      "up",
+      "down",
+      "off"
+    ]
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend servers."
+  },
+  "backend_items": {
+    "type": "object",
+    "description": "A single backend configuration object."
+  },
+  "ip_addr": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for the backend (required, except for DSR)."
+  },
+  "weight": {
+    "type": "number",
+    "default": 1,
+    "description": "Weight of the backend (1 by default)."
   }
 }

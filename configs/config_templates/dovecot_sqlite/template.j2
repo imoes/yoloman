@@ -1,110 +1,184 @@
-# Base Dovecot configuration — SQLite backend enabled
-# Protocol settings: enable IMAP/POP3 and disable plaintext unless SSL/TLS is used
-protocols = {{ protocols | join(' ') }}
+# ==========================================================================
+# Dovecot Configuration (SQLite Backend)
+# ==========================================================================
+# This template generates the main Dovecot configuration file.
+# It is fully self-documenting: every directive is preceded by a comment
+# derived from the Ansible schema description.
+# All variables use explicit defaults to ensure the template renders
+# safely even when optional fields are not provided by the caller.
+# ==========================================================================
 
-# Listen on specified addresses and ports
-# (empty string = all interfaces; specify 'localhost' for local-only)
-listen = {{ listen | join(', ') }}
+# --------------------------------------------------------------------------
+# Protocols to enable. Common: 'imap', 'pop3', 'managesieve', 'lmtp'.
+# --------------------------------------------------------------------------
+protocols = {{ (protocols | default(['imap', 'pop3'])) | join(' ') }}
 
-# Mail location: where user mailboxes are stored
-# '%u' expands to username, '%d' to domain, '%n' to user part
-mail_location = "{{ mail_location }}"
+# --------------------------------------------------------------------------
+# IP addresses or hostnames to listen on. Use ['*'] for all interfaces.
+# --------------------------------------------------------------------------
+listen = {{ (listen | default(['*'])) | join(', ') }}
 
-# Authentication mechanism configuration
-# Use plain or login only over SSL/TLS for security
-auth_mechanisms = {{ auth_mechanisms | join(' ') }}
+# --------------------------------------------------------------------------
+# Mailbox location format. Use 'maildir' or 'mbox'; '%u', '%d', '%n' are
+# expanded variables.
+# --------------------------------------------------------------------------
+mail_location = "{{ mail_location | default('maildir:~/Maildir') }}"
 
-# Passdb (password database) using SQLite
+# --------------------------------------------------------------------------
+# Authentication mechanisms to support. Avoid 'anonymous'; require SSL/TLS
+# in production.
+# --------------------------------------------------------------------------
+auth_mechanisms = {{ (auth_mechanisms | default(['plain', 'login'])) | join(' ') }}
+
+# --------------------------------------------------------------------------
+# Passdb (password database) using SQLite.
+# --------------------------------------------------------------------------
 passdb {
   driver = sql
-  # Path to SQL configuration file (template-generated separately or inline here)
-  args = {{ sql_passdb_config_path | tojson }}
+  # Path to SQL configuration file containing passdb (password) queries.
+  # Must exist and be readable by Dovecot.
+  args = {{ sql_passdb_config_path | default('/etc/dovecot/dovecot-sql.conf.ext') | tojson }}
 }
 
-# Userdb (user database) using SQLite
+# --------------------------------------------------------------------------
+# Userdb (user database) using SQLite.
+# --------------------------------------------------------------------------
 userdb {
   driver = sql
-  # Path to SQL configuration file (same file as passdb usually)
-  args = {{ sql_userdb_config_path | tojson }}
+  # Path to SQL configuration file containing userdb (user info) queries.
+  # Often same as passdb config.
+  args = {{ sql_userdb_config_path | default('/etc/dovecot/dovecot-sql.conf.ext') | tojson }}
 }
 
-# Logging configuration
-# Log to syslog and optionally to a file
-log_path = {{ log_path | tojson }}
-syslog_facility = {{ syslog_facility | tojson }}
+# --------------------------------------------------------------------------
+# Log destination. Use 'syslog' or path like '/var/log/dovecot.log'.
+# --------------------------------------------------------------------------
+log_path = {{ log_path | default('syslog') | tojson }}
 
-# SSL/TLS settings — mandatory for secure auth
-ssl = {{ ssl | tojson }}
-ssl_cert = {{ ssl_cert | tojson }}
-ssl_key = {{ ssl_key | tojson }}
+# --------------------------------------------------------------------------
+# Syslog facility for Dovecot logs. Options: 'mail', 'daemon', 'local0'–'local7'.
+# --------------------------------------------------------------------------
+syslog_facility = {{ syslog_facility | default('mail') | tojson }}
 
-# Mailbox limits and timeouts (in seconds)
-mail_max_userip_connections = {{ mail_max_userip_connections }}
-imap_max_connections = {{ imap_max_connections }}
-pop3_max_connections = {{ pop3_max_connections }}
-login_greeting = {{ login_greeting | tojson }}
+# --------------------------------------------------------------------------
+# SSL/TLS mode: 'yes' (optional), 'no', or 'required' (recommended for
+# production).
+# --------------------------------------------------------------------------
+ssl = {{ ssl | default('required') | tojson }}
 
-# Mail plugins
-# Enable quota and quota warning plugin if configured
-{% if mail_plugins | length > 0 %}
-mail_plugins = {{ mail_plugins | join(' ') }}
+# --------------------------------------------------------------------------
+# Path to SSL certificate file.
+# --------------------------------------------------------------------------
+ssl_cert = {{ ssl_cert | default('/etc/ssl/certs/dovecot.pem') | tojson }}
+
+# --------------------------------------------------------------------------
+# Path to SSL private key file.
+# --------------------------------------------------------------------------
+ssl_key = {{ ssl_key | default('/etc/ssl/private/dovecot.pem') | tojson }}
+
+# --------------------------------------------------------------------------
+# Maximum IMAP/POP3 connections per user per IP.
+# --------------------------------------------------------------------------
+mail_max_userip_connections = {{ mail_max_userip_connections | default(20) }}
+
+# --------------------------------------------------------------------------
+# Maximum total IMAP connections.
+# --------------------------------------------------------------------------
+imap_max_connections = {{ imap_max_connections | default(1024) }}
+
+# --------------------------------------------------------------------------
+# Maximum total POP3 connections.
+# --------------------------------------------------------------------------
+pop3_max_connections = {{ pop3_max_connections | default(1024) }}
+
+# --------------------------------------------------------------------------
+# Greeting message shown on login. Use '$name' for service name.
+# --------------------------------------------------------------------------
+login_greeting = {{ login_greeting | default('$name Dovecot ready.') | tojson }}
+
+# --------------------------------------------------------------------------
+# List of global mail plugins (e.g., ['quota', 'acl']).
+# --------------------------------------------------------------------------
+{% set plugins = mail_plugins | default([]) %}
+{% if plugins | length > 0 %}
+mail_plugins = {{ plugins | join(' ') }}
 {% endif %}
 
+# --------------------------------------------------------------------------
 # Quota plugin configuration (if used)
-{% if quota_enabled %}
+# Requires the quota plugin to be listed in mail_plugins.
+# --------------------------------------------------------------------------
+{% if quota_enabled | default(false) %}
 plugin {
+  # Quota backend name and description
   quota = maildir:User quota
-  quota_rule = *:storage={{ quota_storage_limit_mb }}M
+
+  # Default per-user storage quota in megabytes (used if quota_enabled).
+  # Syntax: *:storage=<size>M
+  quota_rule = *:storage={{ quota_storage_limit_mb | default(1024) }}M
+
+  # Grace period allowed over quota (percentage)
   quota_grace = 10%%
-  quota_warning = storage={{ quota_warning_percent }}%% quota-warning {{ quota_warning_percent }} %u
+
+  # Threshold percentage to trigger quota warning (used if quota_enabled).
+  # Triggers a warning service when usage exceeds this percentage.
+  quota_warning = storage={{ quota_warning_percent | default(90) }}%% quota-warning {{ quota_warning_percent | default(90) }} %u
 }
 
 # Quota warning service (shell script or command)
 service quota-warning {
   executable = script /usr/local/bin/quota-warning.sh
   user = dovecot
+
   unix_listener quota-warning {
     user = dovecot
   }
 }
 {% endif %}
 
+# --------------------------------------------------------------------------
 # Service-specific settings
-# IMAP service
+# --------------------------------------------------------------------------
+
+# IMAP service configuration
 service imap-login {
   inet_listener imap {
-    port = {{ imap_port }}
+    # IMAP plaintext port. Should be used only if SSL is required elsewhere.
+    port = {{ imap_port | default(143) }}
   }
-{% if ssl_imap_port is not none %}
+
+  # IMAPS (SSL/TLS) port. Set to null to disable.
+  {% if ssl_imap_port is not none %}
   inet_listener imaps {
-    port = {{ ssl_imap_port }}
+    port = {{ ssl_imap_port | default(993) }}
     ssl = yes
   }
-{% endif %}
+  {% endif %}
 }
 
-# POP3 service
+# POP3 service configuration
 service pop3-login {
   inet_listener pop3 {
-    port = {{ pop3_port }}
+    # POP3 plaintext port.
+    port = {{ pop3_port | default(110) }}
   }
-{% if ssl_pop3_port is not none %}
+
+  # POP3S (SSL/TLS) port. Set to null to disable.
+  {% if ssl_pop3_port is not none %}
   inet_listener pop3s {
-    port = {{ ssl_pop3_port }}
+    port = {{ ssl_pop3_port | default(995) }}
     ssl = yes
   }
-{% endif %}
+  {% endif %}
 }
 
 # Auth service (used by LDA, SASL, etc.)
 service auth {
   unix_listener auth-userdb {
     mode = 0600
-    user = {{ mail_user }}
-    group = {{ mail_group }}
+    # System user that owns mailboxes (for auth-userdb unix listener).
+    user = {{ mail_user | default('vmail') }}
+    # System group that owns mailboxes.
+    group = {{ mail_group | default('vmail') }}
   }
 }
-
-# Final note: This config assumes doveconf -n shows minimal required settings.
-# The actual SQL queries are defined in external .conf files (sql_passdb_config_path & sql_userdb_config_path).
-# For simplicity, they may be inlined here if needed — but external files improve security & modularity.

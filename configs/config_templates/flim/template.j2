@@ -1,0 +1,94 @@
+# =============================================================================
+# 50{{ package_name | default('flim') }}.el
+# =============================================================================
+#
+# DESCRIPTION:
+#   Debian-specific Emacs startup snippet for the "{{ package_name | default('flim') }}" package.
+#   This file is installed in the Emacs site-lisp directory and is executed
+#   automatically by the Debian Emacs package management system during
+#   package installation or upgrade.
+#
+#   It ensures the package's Elisp files are added to the load path so that
+#   Emacs can find and load the package's functions and libraries.
+#
+#   The 'flavor' determines the specific Emacs distribution directory (e.g.,
+#   emacs, emacs24, emacs25) where the site-lisp directory resides. If the
+#   global variable 'debian-emacs-flavor' is not bound at render time, this
+#   template falls back to a default value.
+#
+# SCHEMA FIELDS:
+#   - package_name: Name of the Debian package. Used to construct file paths
+#                   and variable names. (Default: 'flim')
+#   - default_flavor: Fallback Emacs flavor name if 'debian-emacs-flavor' is
+#                     not defined in the Ansible context. (Default: 'emacs')
+#
+# =============================================================================
+
+(let* (
+       ;; -----------------------------------------------------------------
+       ;; pkg: The name of the Debian package.
+       ;; Used to identify the package directory in /usr/lib/emacsen-common/
+       ;; and to construct the site-lisp path.
+       ;; -----------------------------------------------------------------
+       (pkg "{{ package_name | default('flim') }}")
+
+       ;; -----------------------------------------------------------------
+       ;; flavor-name: The Emacs "flavor" (distribution variant).
+       ;; If the global variable 'debian-emacs-flavor' is already bound
+       ;; (set by the surrounding Emacs initialization or environment),
+       ;; we use that. Otherwise, we fall back to the configured default
+       ;; to ensure a valid path is generated.
+       ;; -----------------------------------------------------------------
+       (flavor-name (if (boundp 'debian-emacs-flavor)
+                        (symbol-name debian-emacs-flavor)
+                      "{{ default_flavor | default('emacs') }}"))
+
+       ;; -----------------------------------------------------------------
+       ;; pkg-inst: Path to the package installation helper script.
+       ;; This script is part of 'emacsen-common' and is used by Debian
+       ;; maintainers to hook into the Emacs package installation process.
+       ;; -----------------------------------------------------------------
+       (pkg-inst (concat "/usr/lib/emacsen-common/packages/install/" pkg))
+
+       ;; -----------------------------------------------------------------
+       ;; elc-dir: The site-lisp directory for this specific package.
+       ;; Emacs loads .el/.elc files from directories listed in 'load-path'.
+       ;; This path follows the Debian standard directory layout for
+       ;; package-specific Elisp files.
+       ;; -----------------------------------------------------------------
+       (elc-dir (concat "/usr/share/" flavor-name "/site-lisp/" pkg))
+       )
+
+  ;; -----------------------------------------------------------------
+  ;; Verification: Check if the expected directories and scripts exist.
+  ;; We only proceed if:
+  ;;   1. The package's site-lisp directory (elc-dir) exists.
+  ;;   2. The emacsen-common installation helper (pkg-inst) exists.
+  ;; This prevents errors if the package is partially installed or if
+  ;; emacsen-common is missing.
+  ;; -----------------------------------------------------------------
+  (when (and (file-exists-p elc-dir)
+             (file-exists-p pkg-inst))
+
+    ;; -----------------------------------------------------------------
+    ;; Path Registration: Add the package's directory to Emacs' load path.
+    ;;
+    ;; Debian Emacs packages typically provide a helper function
+    ;; 'debian-pkg-add-load-path-item' which handles the logic of adding
+    ;; directories to 'load-path' in a Debian-friendly way (e.g., respecting
+    ;; user customization). If this function is not available (perhaps in
+    ;; an older or non-Debian Emacs), we fall back to manually consing the
+    ;; directory onto 'load-path'.
+    ;; -----------------------------------------------------------------
+    (if (fboundp 'debian-pkg-add-load-path-item)
+        (debian-pkg-add-load-path-item elc-dir)
+      (setq load-path (cons elc-dir load-path)))
+
+    ;; -----------------------------------------------------------------
+    ;; NOTE: Additional package-specific initialization code can be added
+    ;; inside this 'when' block if required. For example, loading
+    ;; specific .el files or setting up keybindings.
+    ;; -----------------------------------------------------------------
+    ))
+
+;;; 50{{ package_name | default('flim') }}.el ends here

@@ -1,125 +1,111 @@
-[# Main system configuration for Debian-Edu environments #]
-
 [debian-edu]
-# Enable/disable Debian-Edu specific system customizations
-enabled = {{ debian_edu.enabled }}
+# Enable or disable all Debian-Edu-specific customizations.
+enabled = {{ (debian_edu | default({})).enabled | default(True) | lower }}
 
-#Hostname prefix for Debian-Edu hosts (e.g., 'student' or 'server')
-hostname_prefix = {{ debian_edu.hostname_prefix | default('') }}
+# Prefix for automatically generated hostnames (e.g., 'edu', 'school'). Leave empty to disable.
+hostname_prefix = {{ (debian_edu | default({})).hostname_prefix | default('') | string }}
 
-# Default language and locale settings
-language = {{ debian_edu.language | default('en') }}
-locale = {{ debian_edu.locale | default('en_US.UTF-8') }}
+# Default system language code (e.g., 'en', 'de').
+language = {{ (debian_edu | default({})).language | default('en') | string }}
 
-# Timezone configuration
-timezone = {{ debian_edu.timezone | default('Etc/UTC') }}
+# System locale (language + encoding).
+locale = {{ (debian_edu | default({})).locale | default('en_US.UTF-8') | string }}
 
-# Keyboard layout (used during installation and live systems)
-keyboard = {{ debian_edu.keyboard | default('us') }}
+# System timezone (e.g., 'Europe/Berlin', 'America/New_York').
+timezone = {{ (debian_edu | default({})).timezone | default('Etc/UTC') | string }}
+
+# Keyboard layout (e.g., 'us', 'de', 'fr').
+keyboard = {{ (debian_edu | default({})).keyboard | default('us') | string }}
 
 [apt]
-# Enable Debian-Edu-specific APT sources
-use_debian_edu_repo = {{ apt.use_debian_edu_repo }}
+# Include the official Debian-Edu APT repository (recommended for full feature set).
+use_debian_edu_repo = {{ (apt | default({})).use_debian_edu_repo | default(True) | lower }}
 
-# List of additional APT repositories (e.g., for custom Debian-Edu packages)
-{% for repo in apt.extra_repos %}
-# Repository: {{ repo.name }}
-{{ repo.section | default('main') }}_repo_url = {{ repo.url }}
-{{ repo.section | default('main') }}_repo_components = {{ repo.components | join(', ') }}
-{{ repo.section | default('main') }}_repo_architectures = {{ repo.architectures | join(', ') }}
-{% if repo.key_url %}
-{{ repo.section | default('main') }}_repo_key = {{ repo.key_url }}
+# List of additional APT repositories (e.g., for local packages or testing).
+{% for repo in (apt | default({})).extra_repos | default([]) %}
+# Repository: {{ (repo.name | default('')) | string }}
+# Section name for this repo (e.g., 'main', 'contrib', 'non-free').
+section_name = {{ (repo.section | default('main')) | string }}
+{{ section_name }}_repo_url = {{ (repo.url | default('')) | string }}
+{{ section_name }}_repo_components = {{ (repo.components | default([])) | join(', ') }}
+{{ section_name }}_repo_architectures = {{ (repo.architectures | default([])) | join(', ') }}
+{% if (repo.key_url | default('')) %}
+{{ section_name }}_repo_key = {{ (repo.key_url | default('')) | string }}
 {% endif %}
-{% if repo.key_id %}
-{{ repo.section | default('main') }}_repo_key_id = {{ repo.key_id }}
+{% if (repo.key_id | default('')) %}
+{{ section_name }}_repo_key_id = {{ (repo.key_id | default('')) | string }}
 {% endif %}
-{% if repo.suite %}
-{{ repo.section | default('main') }}_repo_suite = {{ repo.suite }}
+{% if (repo.suite | default('')) %}
+{{ section_name }}_repo_suite = {{ (repo.suite | default('')) | string }}
 {% endif %}
-{% endfor %}
-
-[ldap]
-# LDAP server configuration (used for centralized authentication)
-enabled = {{ ldap.enabled }}
-hostname = {{ ldap.hostname }}
-base_dn = {{ ldap.base_dn }}
-bind_dn = {{ ldap.bind_dn }}
-bind_password = {{ ldap.bind_password | default('') }}
-
-# LDAP groups to manage and their settings
-{% for group in ldap.groups %}
-# LDAP group: {{ group.cn }}
-{{ group.cn | replace(' ', '_') }}_base = {{ group.base }}
-{{ group.cn | replace(' ', '_') }}_members = {{ group.members | join(', ') }}
 {% endfor %}
 
 [nis]
 # NIS domain (legacy network information service)
-enabled = {{ nis.enabled }}
-name = {{ nis.name }}
-master = {{ nis.master }}
+enabled = {{ (nis | default({})).enabled | default(False) | lower }}
+name = {{ (nis | default({})).name | default('') | string }}
+master = {{ (nis | default({})).master | default('') | string }}
 
 [pam]
 # PAM configuration for LDAP/NIS integration
-use_ldap = {{ pam.use_ldap }}
-use_nis = {{ pam.use_nis }}
+use_ldap = {{ (pam | default({})).use_ldap | default(False) | lower }}
+use_nis = {{ (pam | default({})).use_nis | default(False) | lower }}
 
 [filesystem]
 # Default filesystem layout options
-create_home = {{ filesystem.create_home }}
-home_mount_opts = {{ filesystem.home_mount_opts }}
+create_home = {{ (filesystem | default({})).create_home | default(True) | lower }}
+home_mount_opts = {{ (filesystem | default({})).home_mount_opts | default('') | string }}
 
 [users]
 # Default user settings
-{% for role in users.roles %}
-# Role: {{ role.name }}
-{{ role.name }}_uid_min = {{ role.uid_min }}
-{{ role.name }}_uid_max = {{ role.uid_max }}
-{{ role.name }}_shell = {{ role.shell }}
-{{ role.name }}_groups = {{ role.groups | join(', ') }}
+{% for role in (users | default({})).roles | default([]) %}
+# Role: {{ (role.name | default('')) | string }}
+role_uid_min = {{ (role.uid_min | default(1000)) | int }}
+role_uid_max = {{ (role.uid_max | default(60000)) | int }}
+role_shell = {{ (role.shell | default('/bin/bash')) | string }}
+role_groups = {{ (role.groups | default([])) | join(', ') }}
 {% endfor %}
 
 [boot]
 # Bootloader and kernel configuration
-grub_timeout = {{ boot.grub_timeout }}
-kernel_cmdline = {{ boot.kernel_cmdline | join(' ') }}
+grub_timeout = {{ (boot | default({})).grub_timeout | default(5) | int }}
+kernel_cmdline = {{ (boot | default({})).kernel_cmdline | default([]) | join(' ') }}
 
 [logging]
 # Centralized logging configuration
-rsyslog_server = {{ logging.rsyslog_server | default('') }}
-log_level = {{ logging.log_level | default('info') }}
+rsyslog_server = {{ (logging | default({})).rsyslog_server | default('') | string }}
+log_level = {{ (logging | default({})).log_level | default('info') | string }}
 
 [security]
 # Security hardening options
-ssh_password_auth = {{ security.ssh_password_auth }}
-fail2ban_enabled = {{ security.fail2ban_enabled }}
+ssh_password_auth = {{ (security | default({})).ssh_password_auth | default(False) | lower }}
 
 [workstation]
 # Workstation-specific defaults
-{% for desktop in workstation.desktops %}
-# Desktop environment: {{ desktop.name }}
-{{ desktop.name | replace(' ', '_') }}_theme = {{ desktop.theme }}
-{{ desktop.name | replace(' ', '_') }}_wallpaper = {{ desktop.wallpaper | default('') }}
-{{ desktop.name | replace(' ', '_') }}_autologin = {{ desktop.autologin }}
+{% for desktop in (workstation | default({})).desktops | default([]) %}
+# Desktop environment: {{ (desktop.name | default('')) | string }}
+desktop_theme = {{ (desktop.theme | default('')) | string }}
+desktop_wallpaper = {{ (desktop.wallpaper | default('')) | string }}
+desktop_autologin = {{ (desktop.autologin | default(False)) | lower }}
 {% endfor %}
 
 [school]
 # School-specific settings (e.g., class groups, shared resources)
-school_name = {{ school.school_name }}
-class_groups = {{ school.class_groups | join(', ') }}
-shared_printers = {{ school.shared_printers | join(', ') }}
+school_name = {{ (school | default({})).school_name | default('') | string }}
+class_groups = {{ (school | default({})).class_groups | default([]) | join(', ') }}
+shared_printers = {{ (school | default({})).shared_printers | default([]) | join(', ') }}
 
 [backup]
 # Backup configuration
-enabled = {{ backup.enabled }}
-target = {{ backup.target }}
-retention_days = {{ backup.retention_days }}
-{% for backup_path in backup.paths %}
-# Backup path: {{ backup_path.source }}
-{{ backup_path.source | replace('/', '_') }}_dest = {{ backup_path.dest }}
+enabled = {{ (backup | default({})).enabled | default(False) | lower }}
+target = {{ (backup | default({})).target | default('') | string }}
+retention_days = {{ (backup | default({})).retention_days | default(30) | int }}
+{% for backup_path in (backup | default({})).paths | default([]) %}
+# Backup path: {{ (backup_path.source | default('')) | string }}
+backup_dest = {{ (backup_path.dest | default('')) | string }}
 {% endfor %}
 
 [monitoring]
 # Monitoring services (e.g., Nagios, Zabbix)
-nagios_enabled = {{ monitoring.nagios_enabled }}
-nagios_server = {{ monitoring.nagios_server | default('') }}
+nagios_enabled = {{ (monitoring | default({})).nagios_enabled | default(False) | lower }}
+nagios_server = {{ (monitoring | default({})).nagios_server | default('') | string }}

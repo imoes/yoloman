@@ -1,77 +1,18 @@
-# Interface name to use for the VPN tunnel (e.g., tun0, tap0)
-Interface {{ interface }}
+# example vpnc configuration file
+# see vpnc --long-help for details
 
-# IPsec pre-shared secret (PSK) — leave empty to prompt interactively
- IPSec secret {{ psk | default('') }}
+#Interface name {{ interface }}
+#IKE DH Group {{ ike_dh_group }}
+#Perfect Forward Secrecy {{ ipsec_pfs }}
 
-# VPN gateway (host or IP address)
- IPSec gateway {{ gateway }}
+# You may replace this script with something better
+#Script /etc/vpnc/vpnc-script
+# Enable this option for NAT traversal
+#UDP Encapsulate
 
-# IKE DH group (e.g., modp1024, modp1536, modp2048)
- IKE DH Group {{ ike_dh_group | default('modp1536') }}
-
-# IKE encryption algorithm (e.g., aes, 3des)
- IKE Authmode {{ ike_authmode | default('psk') }}
-
-# Phase 1 encryption algorithm
- IKE Encryption {{ ike_encryption | default('aes') }}
-
-# Phase 1 hash algorithm
- IKE Hash {{ ike_hash | default('sha1') }}
-
-# Phase 1 lifetime (seconds)
- IKE Life Time {{ ike_lifetime | default(28800) }}
-
-# Phase 2 (IPSec) encryption algorithm
- IPSec Encryption {{ ipsec_encryption | default('aes') }}
-
-# Phase 2 hash algorithm
- IPSec Hash {{ ipsec_hash | default('sha1') }}
-
-# Phase 2 perfect forward secrecy (PFS) key group (e.g., modp1024, off)
- IPSec PFS {{ ipsec_pfs | default('modp1024') }}
-
-# Phase 2 lifetime (seconds)
- IPSec Life Time {{ ipsec_lifetime | default(3600) }}
-
-# Local IP address to use (optional; leave blank for auto)
- Local IP {{ local_ip | default('') }}
-
-# Local port for NAT-T (optional)
- Local Port {{ local_port | default(0) }}
-
-# Phase 2 payload format (e.g., transport, tunnel)
- IPSec payload {{ ipsec_payload | default('tunnel') }}
-
-# Enable Cisco NAT-Traversal (on/off)
- NATT Mode {{ natt_mode | default('on') }}
-
-# DNS suffixes to append (list of strings)
-Domain {{ domain }}
-
-# Split DNS search domains (list of strings)
-# (Note: vpnc does not support split-DNS natively; use resolvconf or scripts for full control)
-DNS {{ dns_servers | join(', ') if dns_servers else '' }}
-
-# Routes to push to client (list of objects with network, netmask)
-{% for route in routes %}# Route {{ route.network }}/{{ route.netmask }}
-Subnet {{ route.network }} {{ route.netmask }}
-{% endfor %}
-
-# Local networks to exclude from tunnel (list of objects with network, netmask)
-{% for except in no_nat %}# Exclude route {{ except.network }}/{{ except.netmask }} from tunnel
-No NAT {{ except.network }} {{ except.netmask }}
-{% endfor %}
-
-# Enable XAuth (username/password auth in addition to IPSec PSK)
-Xauth username {{ xauth_username | default('') }}
-Xauth password {{ xauth_password | default('') }}
-
-# Proxy ARP (on/off)
-Proxy ARP {{ proxy_arp | default('on') }}
-
-# Enable debug output (on/off)
-Debug {{ debug | default('off') }}
-
-# Script to run after connecting (optional)
-Script {{ script | default('') }}
+IPSec gateway {{ gateway }}
+#IPSec ID <group-id>
+IPSec secret {{ psk }}
+#IKE Authmode hybrid
+#Xauth username {{ xauth_username }}
+#Xauth password {{ xauth_password }}

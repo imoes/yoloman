@@ -1,0 +1,70 @@
+# ==============================================================================
+# checkpolicy Configuration Template
+# ==============================================================================
+# This template generates command-line arguments for the `checkpolicy` utility,
+# which compiles SELinux policy source files into binary policy packages.
+#
+# The following schema fields are supported:
+# - output_file: The output binary policy file path (mandatory).
+# - input_file: The input policy source file or binary policy file.
+# - handle_unknown: How to handle unknown classes/permissions ('allow', 'deny', 'reject').
+# - policy_version: Policy version number.
+# - target_platform: Target platform ('selinux', 'xen').
+# - mls_enabled: Enable Multi-Level Security.
+# - binary_input: Read from binary policy file.
+# - binary_output: Write binary policy output.
+# ==============================================================================
+
+# Output file for the compiled binary policy (mandatory argument)
+# Syntax: -o <output_file>
+# Schema: output_file (not listed in fields but required by context)
+-o {{ output_file | default('policy.bin') }}
+
+# Input source: either a source file (.fc, .te, etc.) or a binary policy file
+# If input_file is provided, it is appended as the last argument.
+# Syntax: <input_file>
+{% if input_file is defined and input_file %}{{ input_file }}{% endif %}
+
+# ------------------------------------------------------------------------------
+# Policy Compilation Options
+# ------------------------------------------------------------------------------
+
+# handle_unknown: How the kernel should handle unknown classes or permissions.
+# Allowed values: 'allow', 'deny', 'reject'.
+# Default: 'deny'
+# Option: -U <value>
+-U {{ (config | default({})).handle_unknown | default('deny') }}
+
+# policy_version: Policy version number.
+# If omitted, checkpolicy uses the latest supported version.
+# Option: -c <version>
+{% if (config | default({})).policy_version is defined and (config | default({})).policy_version %}
+-c {{ (config | default({})).policy_version }}
+{% endif %}
+
+# target_platform: The target platform for the policy.
+# Allowed values: 'selinux', 'xen'.
+# Default: 'selinux'
+# Option: -t <platform>
+-t {{ (config | default({})).target_platform | default('selinux') }}
+
+# mls_enabled: Enable Multi-Level Security (MLS) support.
+# When true, adds MLS constraints and attributes to the policy.
+# Option: -M (flag)
+{% if (config | default({})).mls_enabled | default(false) | bool %}
+-M
+{% endif %}
+
+# binary_input: Read from a binary policy file instead of source.
+# This implies the input is already compiled.
+# Option: -b (for input context)
+{% if (config | default({})).binary_input | default(false) | bool %}
+-b
+{% endif %}
+
+# binary_output: Write the output as a binary policy file.
+# This is the default behavior unless -F or -C is specified.
+# Option: -b (for output context)
+{% if (config | default({})).binary_output | default(false) | bool %}
+-b
+{% endif %}

@@ -1,0 +1,69 @@
+# ==============================================================================
+# debugedit — DWARF debug section relocation tool configuration
+# ==============================================================================
+# This template generates the command-line arguments for the `debugedit` utility.
+# debugedit is used to rewrite base directory paths in DWARF debug info,
+# recompute build IDs, and list source/header files included in a binary.
+#
+# Variables are sourced from the Ansible inventory/vars. All variables have
+# safe defaults to prevent rendering errors when optional features are unused.
+# ==============================================================================
+
+{# -------------------------------------------------------------------------- #}
+{# Base build directory for debug source path rewriting                       #}
+{# Schema: base_dir (string, default: '')                                    #}
+{# Description: Base build directory of objects; used with -b/--base-dir      #}
+{# -------------------------------------------------------------------------- #}
+{%- if base_dir | default(false) %}
+-b {{ base_dir | default('') | string }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Destination directory to rewrite base-dir into                             #}
+{# Schema: dest_dir (string, default: '')                                    #}
+{# Description: Directory to rewrite base-dir into; used with -d/--dest-dir   #}
+{# -------------------------------------------------------------------------- #}
+{%- if dest_dir | default(false) %}
+-d {{ dest_dir | default('') | string }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# File to write list of source and header file names                         #}
+{# Schema: list_file (string, default: '')                                   #}
+{# Description: File where to put list of source and header file names;       #}
+{#              used with -l/--list-file                                      #}
+{# -------------------------------------------------------------------------- #}
+{%- if list_file | default(false) %}
+-l {{ list_file | default('') | string }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Recompute build ID note and print ID on stdout                             #}
+{# Schema: build_id (boolean, default: False)                                #}
+{# Description: If true, recompute build ID note and print ID on stdout;      #}
+{#              corresponds to -i/--build-id                                  #}
+{# -------------------------------------------------------------------------- #}
+{%- if build_id | default(False) | bool %}
+-i
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Hash seed for build ID recomputation                                       #}
+{# Schema: build_id_seed (string, default: '')                               #}
+{# Description: Hash seed string for build ID recomputation; used with        #}
+{#              --build-id-seed                                               #}
+{# -------------------------------------------------------------------------- #}
+{%- if build_id_seed | default(false) %}
+--build-id-seed {{ build_id_seed | default('') | string }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Suppress build ID recomputation despite -i/--build-id-seed flags           #}
+{# Schema: no_recompute_build_id (boolean, default: False)                   #}
+{# Description: If true, suppress build ID recomputation even if -i or        #}
+{#              --build-id-seed are given; corresponds to -n/--no-recompute-  #}
+{#              build-id                                                      #}
+{# -------------------------------------------------------------------------- #}
+{%- if no_recompute_build_id | default(False) | bool %}
+-n
+{%- endif %}

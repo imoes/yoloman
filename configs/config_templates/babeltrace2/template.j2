@@ -1,0 +1,101 @@
+# ==============================================================================
+# Babeltrace 2 Configuration Template
+# ==============================================================================
+#
+# This template generates environment variables and CLI arguments for Babeltrace 2.
+# It is self-documenting: every directive is preceded by a comment describing
+# its schema field and purpose.
+#
+# All variables use | default(...) to prevent undefined-variable errors during
+# Ansible rendering. The defaults match the schema definitions.
+# ==============================================================================
+
+# Global log level: NONE, FATAL, ERROR, WARN, INFO, DEBUG, TRACE
+# Schema field: log_level
+BABELTRACE_LOG_LEVEL={{ log_level | default('WARN') }}
+
+# Skip $HOME/.local/lib/babeltrace2/plugins when searching for plugins
+# Schema field: omit_home_plugin_path
+{% if omit_home_plugin_path | default(False) %}
+BABELTRACE_OMIT_HOME_PLUGIN_PATH=1
+{% endif %}
+
+# Skip /usr/lib/babeltrace2/plugins when searching for plugins
+# Schema field: omit_system_plugin_path
+{% if omit_system_plugin_path | default(False) %}
+BABELTRACE_OMIT_SYSTEM_PLUGIN_PATH=1
+{% endif %}
+
+# Colon-separated list of additional plugin directories
+# Schema field: plugin_paths
+{% for path in plugin_paths | default([]) %}
+BABELTRACE_PLUGIN_PATHS={{ path }}
+{% endfor %}
+
+# Terminal color mode: AUTO, NEVER, ALWAYS
+# Schema field: term_color
+BABELTRACE_TERM_COLOR={{ term_color | default('AUTO') }}
+
+# Override library log level: NONE, FATAL, ERROR, WARN, INFO, DEBUG, TRACE (empty = no override)
+# Schema field: lib_log_level
+{% if lib_log_level | default('') != '' %}
+LIBBABELTRACE2_INIT_LOG_LEVEL={{ lib_log_level | default('') }}
+{% endif %}
+
+# Override CLI log level: NONE, FATAL, ERROR, WARN, INFO, DEBUG, TRACE (empty = no override)
+# Schema field: cli_log_level
+{% if cli_log_level | default('') != '' %}
+BABELTRACE_CLI_LOG_LEVEL={{ cli_log_level | default('') }}
+{% endif %}
+
+# Override Python bindings log level: NONE, FATAL, ERROR, WARN, INFO, DEBUG, TRACE (empty = no override)
+# Schema field: py_log_level
+{% if py_log_level | default('') != '' %}
+BABELTRACE_PYTHON_BT2_LOG_LEVEL={{ py_log_level | default('') }}
+{% endif %}
+
+# Disable loading of Python plugins
+# Schema field: disable_python_plugins
+{% if disable_python_plugins | default(False) %}
+LIBBABELTRACE2_DISABLE_PYTHON_PLUGINS=1
+{% endif %}
+
+# Leave dynamically loaded plugins open at exit (useful for debugging)
+# Schema field: disable_dlclose
+{% if disable_dlclose | default(False) %}
+LIBBABELTRACE2_NO_DLCLOSE=1
+{% endif %}
+
+# Override system plugin provider directory (empty = use default)
+# Schema field: plugin_provider_dir
+{% if plugin_provider_dir | default('') != '' %}
+LIBBABELTRACE2_PLUGIN_PROVIDER_DIR={{ plugin_provider_dir | default('') }}
+{% endif %}
+
+# Command line to execute on unexpected abort (shell-parsed words)
+# Schema field: exec_on_abort
+{% if exec_on_abort | default([]) | length > 0 %}
+BABELTRACE_EXEC_ON_ABORT={{ exec_on_abort | default([]) | join(' ') }}
+{% endif %}
+
+# Set to false to use SGR codes 90–97 (bright) instead of bold (1) + base colors
+# Schema field: bright_means_bold
+BABELTRACE_TERM_COLOR_BRIGHT_MEANS_BOLD={{ bright_means_bold | default(True) }}
+
+# Suppress warning when trace path matches a babeltrace2 command name
+# Schema field: suppress_clash_warning
+{% if suppress_clash_warning | default(False) %}
+BABELTRACE_CLI_WARN_COMMAND_NAME_DIRECTORY_CLASH=0
+{% endif %}
+
+# Enable legacy debug (equivalent to BABELTRACE_DEBUG=1 / TRACE log level)
+# Schema field: legacy_debug
+{% if legacy_debug | default(False) %}
+BABELTRACE_DEBUG=1
+{% endif %}
+
+# Enable legacy verbose (equivalent to BABELTRACE_VERBOSE=1 / INFO log level)
+# Schema field: legacy_verbose
+{% if legacy_verbose | default(False) %}
+BABELTRACE_VERBOSE=1
+{% endif %}

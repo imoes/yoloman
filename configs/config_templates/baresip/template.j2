@@ -1,0 +1,44 @@
+# baresip main configuration
+# Network interface to use (optional, auto-detects if omitted)
+{{- 'interface: ' ~ interface | default('') | indent(2) | trim | replace(':','') }}
+
+# SIP user agent parameters
+ua:
+  # SIP registrar URL (required for registration)
+  {{- 'regint: ' ~ ua.regint | default('') | indent(2) }}
+  {{- 'aor: ' ~ ua.aor | default('') | indent(2) }}
+  {{- 'dispname: ' ~ ua.dispname | default('') | indent(2) }}
+  {{- 'cuser: ' ~ ua.cuser | default('') | indent(2) }}
+  {{- 'expires: ' ~ ua.expires | default(3600) | indent(2) }}
+
+# Audio configuration
+audio:
+  {{- 'ausrc: ' ~ audio.ausrc | default('') | indent(2) }}
+  {{- 'auenc: ' ~ audio.auenc | default('') | indent(2) }}
+  {{- 'audec: ' ~ audio.audec | default('') | indent(2) }}
+  {{- 'auplay: ' ~ audio.auplay | default('') | indent(2) }}
+  {{- 'srcfmt: ' ~ audio.srcfmt | default('s16') | indent(2) }}
+  {{- 'encfmt: ' ~ audio.encfmt | default('s16') | indent(2) }}
+  {{- 'playfmt: ' ~ audio.playfmt | default('s16') | indent(2) }}
+  {{- 'srate: ' ~ audio.srate | default(0) | indent(2) }}
+  {{- 'channels: ' ~ audio.channels | default(0) | indent(2) }}
+
+# Video configuration (optional)
+{{- 'video:
+' ~ ('  ' ~ 'src: ' ~ video.src | default('') | indent(2) | replace('\n', '\n  ') if video.src else '') ~
+  ('  ' ~ 'disp: ' ~ video.disp | default('') | indent(2) | replace('\n', '\n  ') if video.disp else '') ~
+  ('  ' ~ 'size: ' ~ video.size | default('') | indent(2) | replace('\n', '\n  ') if video.size else '') ~
+  ('  ' ~ 'bitrate: ' ~ video.bitrate | default(0) | indent(2) | replace('\n', '\n  ') if video.bitrate else '') ~
+  ('  ' ~ 'fps: ' ~ video.fps | default(0.0) | indent(2) | replace('\n', '\n  ') if video.fps else '') | indent(0) }}
+
+# Network mode (IPv4/IPv6 enforcement)
+{{- 'net_if:
+' ~ ('  ' ~ 'ipv4: ' ~ net_if.ipv4 | default('') | indent(2) | replace('\n', '\n  ') if net_if.ipv4 else '') ~
+  ('  ' ~ 'ipv6: ' ~ net_if.ipv6 | default('') | indent(2) | replace('\n', '\n  ') if net_if.ipv6 else '') ~
+  ('  ' ~ 'use: ' ~ net_if.use | default('') | indent(2) | replace('\n', '\n  ') if net_if.use else '') | indent(0) }}
+
+# Log level (0=none, 1=crit, 2=warn, 3=info, 4=debug)
+log_level: {{ log_level | default(3) }}
+
+# Audio file directory (for prompts/DTMF tones)
+{{- 'audiopath: ' ~ audiopath | default('') | indent(2) }}

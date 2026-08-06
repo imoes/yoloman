@@ -1,28 +1,8 @@
-# QuickTun VPN Server configuration
-# Listen address and port for incoming connections
-listen = {{ listen_addr }}:{{ listen_port }}
-
-# Private key file for this server (must be kept secret)
-private_key = {{ private_key_path }}
-
-# Public key(s) of allowed peers (one per line)
-{% for peer in peers %}# Peer: {{ peer.name }}
-{% if peer.public_key %}allowed_key = {{ peer.public_key }}{% endif %}
-{% if peer.allowed_ips %}allowed_ip = {{ peer.allowed_ips | join(', ') }}{% endif %}
-{% if peer.preshared_key %}preshared_key = {{ peer.preshared_key }}{% endif %}
-{% endfor %}
-
-# Enable logging to syslog
-{% if log_syslog %}syslog = true{% else %}syslog = false{% endif %}
-
-# Log level: 0=error, 1=warn, 2=info, 3=debug
-log_level = {{ log_level }}
-
-# Maximum number of simultaneous peer connections
-max_connections = {{ max_connections }}
-
-# Path to PID file
-pidfile = {{ pidfile_path }}
-
-# Enable keepalive for peer connections (seconds)
-{% if keepalive_enabled %}keepalive = {{ keepalive_interval }}{% else %}keepalive = 0{% endif %}
+#!/bin/sh
+test -n "${IF_QT_REMOTE_ADDRESS}" || exit 0
+if [ -z "${IF_QT_NO_PRECREATE}" ]; then
+        RUNUSER="{{ runuser }}"
+else
+        RUNUSER="root"
+fi
+daemon -n "quicktun.{{ iface }}" -u "${RUNUSER}" --stop

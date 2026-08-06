@@ -1,0 +1,113 @@
+# =============================================================================
+# charon-cmd IKE Client Configuration Template
+# =============================================================================
+#
+# This template generates command-line arguments for strongSwan's charon-cmd
+# utility to establish IPsec connections.
+#
+# Expected Input Variable:
+#   commands: List of configuration blocks. Only blocks with type 'connection'
+#             are processed. Each block contains a list of connections.
+#
+# =============================================================================
+
+{% for item in commands | default([], true) %}
+    # -------------------------------------------------------------------------
+    # Processing command block of type: {{ item.type | default('connection') }}
+    # -------------------------------------------------------------------------
+    {% if item.type == 'connection' %}
+        {% for conn in item.connections | default([], true) %}
+            # -------------------------------------------------------------------------
+            # Connection Profile: {{ conn.name | default('default') }}
+            #   Remote Gateway:  {{ conn.host | default('') }}
+            #   IKE Version:     {{ conn.version | default(2) }}
+            #   Auth Profile:    {{ conn.profile | default('') }}
+            # -------------------------------------------------------------------------
+
+            # --host <host>
+            #   Remote gateway DNS name or IP address to connect to.
+            {% if conn.host | default('') %}--host {{ conn.host | default('') }} \
+            {% endif %}
+
+            # --identity <identity>
+            #   Client identity sent during IKE exchange.
+            {% if conn.identity | default('') %}--identity {{ conn.identity | default('') }} \
+            {% endif %}
+
+            # --remote-identity <identity>
+            #   Expected identity of the remote server. Defaults to --host if omitted.
+            {% if conn.remote_identity | default('') %}--remote-identity {{ conn.remote_identity | default('') }} \
+            {% endif %}
+
+            # --profile <profile>
+            #   Authentication profile to use (e.g., ikev2-pub, ikev1-xauth).
+            {% if conn.profile | default('') %}--profile {{ conn.profile | default('') }} \
+            {% endif %}
+
+            # --eap-identity <identity>
+            #   Identity used specifically for EAP authentication methods.
+            {% if conn.eap_identity | default('') %}--eap-identity {{ conn.eap_identity | default('') }} \
+            {% endif %}
+
+            # --xauth-username <username>
+            #   Username for Extended Authentication (XAuth).
+            {% if conn.xauth_username | default('') %}--xauth-username {{ conn.xauth_username | default('') }} \
+            {% endif %}
+
+            # --cert <path>
+            #   Path to a trusted peer certificate. Can be specified multiple times.
+            {% if conn.cert | default([], true) %}--cert {{ conn.cert | default([], true) | join(' --cert ') }} \
+            {% endif %}
+
+            # --rsa <path>
+            #   Path to the RSA private key file for client authentication.
+            {% if conn.rsa | default('') %}--rsa {{ conn.rsa | default('') }} \
+            {% endif %}
+
+            # --priv <path>
+            #   Path to a generic private key file for client authentication.
+            {% if conn.priv | default('') %}--priv {{ conn.priv | default('') }} \
+            {% endif %}
+
+            # --p12 <path>
+            #   Path to a PKCS#12 (.p12/.pfx) file containing key and certificates.
+            {% if conn.p12 | default('') %}--p12 {{ conn.p12 | default('') }} \
+            {% endif %}
+
+            # --agent[=<socket>]
+            #   Enable authentication via SSH agent.
+            #   If agent_socket is provided, the path is appended.
+            {% if conn.agent | default(False) %}--agent{% if conn.agent_socket | default('') %}={{ conn.agent_socket | default('') }}{% endif %} \
+            {% endif %}
+
+            # --local-ts <subnet>
+            #   Local traffic selector subnet (Source CIDR for IPsec).
+            {% if conn.local_ts | default('') %}--local-ts {{ conn.local_ts | default('') }} \
+            {% endif %}
+
+            # --remote-ts <subnet>
+            #   Remote traffic selector subnet (Destination CIDR for IPsec).
+            {% if conn.remote_ts | default('') %}--remote-ts {{ conn.remote_ts | default('') }} \
+            {% endif %}
+
+            # --ike-proposal <proposal>
+            #   IKEv1/IKEv2 security proposal string (e.g., aes256-sha256-modp2048).
+            #   Can be specified multiple times.
+            {% if conn.ike_proposal | default([], true) %}--ike-proposal {{ conn.ike_proposal | default([], true) | join(' --ike-proposal ') }} \
+            {% endif %}
+
+            # --esp-proposal <proposal>
+            #   ESP security proposal string.
+            #   Can be specified multiple times.
+            {% if conn.esp_proposal | default([], true) %}--esp-proposal {{ conn.esp_proposal | default([], true) | join(' --esp-proposal ') }} \
+            {% endif %}
+
+            # --ah-proposal <proposal>
+            #   AH security proposal string.
+            #   Can be specified multiple times.
+            {% if conn.ah_proposal | default([], true) %}--ah-proposal {{ conn.ah_proposal | default([], true) | join(' --ah-proposal ') }} \
+            {% endif %}
+
+        {% endfor %}
+    {% endif %}
+{% endfor %}

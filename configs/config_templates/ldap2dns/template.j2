@@ -1,67 +1,114 @@
-# Configuration for ldap2dns: LDAP-based DNS zone management
-# Connect to LDAP server with bind credentials and base DN
-bind_url: {{ ldap.url }}
-bind_dn: {{ ldap.bind_dn }}
-bind_password: {{ ldap.bind_password | mandatory }}
+# schema for DNS data
+# include this file into Your slapd.conf for openldap-2.0.x
+# $Id: dns.schema,v 1.9 2001/11/06 08:01:51 config Exp $
 
-# LDAP search base and filter for DNS zones and records
-base_dn: {{ ldap.base_dn }}
-zone_filter: {{ ldap.zone_filter }}
-record_filter: {{ ldap.record_filter }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.1
+	NAME 'dnszonename'
+	SUP name )
 
-# How often to refresh zones from LDAP (in seconds)
-refresh_interval: {{ refresh.interval }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.2
+	NAME 'dnsserial'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 
+        SINGLE-VALUE )
 
-# DNS server target (NSD, PowerDNS, BIND via AXFR/TSIG, etc.)
-dns_backend: {{ backend.type }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.3
+	NAME 'dnsrefresh'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+        SINGLE-VALUE )
 
-{% if backend.type == 'nsd' %}
-# NSD-specific settings
-nsd:
-  config_file: {{ backend.nsd.config_file }}
-  control_sock: {{ backend.nsd.control_sock }}
-{% elif backend.type == 'powerdns' %}
-# PowerDNS API settings
-powerdns:
-  url: {{ backend.powerdns.url }}
-  api_key: {{ backend.powerdns.api_key | mandatory }}
-  ttl: {{ backend.powerdns.ttl }}
-{% elif backend.type == 'bind' %}
-# BIND (ISC) via AXFR/TSIG settings
-bind:
-  servers:
-{% for server in backend.bind.servers %}
-    - host: {{ server.host }}
-      port: {{ server.port }}
-      tsig_key_name: {{ server.tsig_key_name }}
-      tsig_algorithm: {{ server.tsig_algorithm }}
-      tsig_secret: {{ server.tsig_secret | mandatory }}
-{% endfor %}
-  zone_dir: {{ backend.bind.zone_dir }}
-{% endif %}
+attributetype ( 1.3.6.1.4.1.7222.1.4.4
+	NAME 'dnsretry'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+        SINGLE-VALUE )
 
-# Default TTL for generated records (if not specified in LDAP)
-default_ttl: {{ defaults.ttl }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.5
+	NAME 'dnsexpire'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+        SINGLE-VALUE )
 
-# Default SOA parameters
-soa:
-  primary: {{ defaults.soa.primary }}
-  email: {{ defaults.soa.email | replace('@', '.') }}
-  refresh: {{ defaults.soa.refresh }}
-  retry: {{ defaults.soa.retry }}
-  expire: {{ defaults.soa.expire }}
-  minimum: {{ defaults.soa.minimum }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.6
+	NAME 'dnsminimum'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+        SINGLE-VALUE )
 
-# Zone naming convention: domain -> zone mapping
-zone_naming:
-  format: {{ zone_naming.format }}
-  separator: {{ zone_naming.separator }}
-  reverse_zone_suffix: {{ zone_naming.reverse_zone_suffix }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.7
+	NAME 'dnsadminmailbox'
+	SUP name )
 
-# Logging configuration
-log:
-  level: {{ log.level }}
-  file: {{ log.file }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.8
+	NAME 'dnszonemaster'
+	SUP name )
 
-# Optional: dry-run mode (no changes to DNS backend)
-dry_run: {{ dry_run }}
+attributetype ( 1.3.6.1.4.1.7222.1.4.9
+	NAME 'dnstype'
+	SUP name )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.10
+	NAME 'dnsclass'
+	SUP name )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.11
+	NAME 'dnsdomainname'
+	SUP name )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.12
+	NAME 'dnsipaddr'
+	EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch	
+        SYNTAX 1.3.6.1.4.1.1466.115.121.1.26{16} )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.13
+	NAME 'dnscipaddr'
+	EQUALITY caseIgnoreIA5Match
+    SUBSTR caseIgnoreIA5SubstringsMatch	
+        SYNTAX 1.3.6.1.4.1.1466.115.121.1.26{16} )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.14
+	NAME 'dnscname'
+	SUP name )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.15
+	NAME 'dnspreference'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+        SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.16
+	NAME 'dnsrr'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+        SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.17
+	NAME 'dnsttl'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+        SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.18
+	NAME 'dnstimestamp'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+        SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.21
+	NAME 'NIChandle'
+	EQUALITY caseIgnoreMatch
+	SUBSTR caseIgnoreSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{16} )
+
+attributetype ( 1.3.6.1.4.1.7222.1.4.22
+	NAME 'TIShandle'
+	EQUALITY caseIgnoreMatch
+	SUBSTR caseIgnoreSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{16} )
+
+objectclass ( 1.3.6.1.4.1.7222.1.4.19
+	NAME 'dnszone' 
+	MUST ( objectclass $ cn )
+	MAY ( dnszonename $ dnsserial $ dnsrefresh $ dnsretry $ dnsexpire
+	    $ dnsminimum $ dnsadminmailbox $ dnszonemaster $ dnstype $ dnsclass
+	    $ dnsttl $ dnstimestamp $ owner $ NIChandle $ TIShandle ) )
+
+objectclass ( 1.3.6.1.4.1.7222.1.4.20
+	NAME 'dnsrrset' 
+	SUP dnszone
+	MUST ( objectclass $ cn )
+	MAY ( dnsdomainname $ dnsrr $ dnsclass $ dnstype $ dnsipaddr $ dnscipaddr 
+	    $ dnscname $ dnspreference $ dnsttl $ dnstimestamp $ owner ) )

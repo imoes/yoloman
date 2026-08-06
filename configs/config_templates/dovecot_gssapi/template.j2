@@ -1,46 +1,98 @@
-# Enable GSSAPI authentication mechanism
+# ==============================================================================
+# Dovecot GSSAPI Authentication Configuration
+# ==============================================================================
+# This template configures Dovecot to support GSSAPI (Kerberos) authentication.
+# It sets up the necessary mechanisms, module loading, logging, and service overrides.
+# Self-documenting: every directive is preceded by a comment describing its schema field.
+# ==============================================================================
+
+# gssapi_hostname: Hostname used for GSSAPI (e.g., fully qualified domain name of the mail server). Must match the principal in the keytab.
+# Default: 'mail.example.com'
 disable_plaintext_auth = yes
 auth_mechanisms = plain gssapi
 
 # GSSAPI principal and keytab configuration
 # (Leave empty to use the default service principal and keytab)
 # Dovecot will use the service name 'imap' and hostname from hostname setting
-gssapi_hostname = {{ gssapi_hostname }}
-{% if gssapi_keytab %}gssapi_keytab = {{ gssapi_keytab }}{% endif %}
+gssapi_hostname = {{ gssapi_hostname | default('mail.example.com') }}
+
+# gssapi_keytab: Path to the Kerberos keytab file. Leave empty to use the system default (typically /etc/krb5.keytab).
+# Default: ''
+# Only emit this directive if the keytab path is provided and non-empty.
+{% if gssapi_keytab | default('') %}
+gssapi_keytab = {{ gssapi_keytab | default('') }}
+{% endif %}
 
 # Enable GSSAPI module for authentication
 disable_auth = no
 # Load the GSSAPI auth module (required on some platforms)
-{% if gssapi_auth_module_path %}!include_try {{ gssapi_auth_module_path }}{% endif %}
+# gssapi_auth_module_path: Path to the GSSAPI authentication module (if not auto-loaded). Adjust for architecture or distribution (e.g., /usr/lib64/dovecot/authgssapi).
+# Default: '/usr/lib/dovecot/authgssapi.so'
+# Only emit this directive if the module path is provided and non-empty.
+{% if gssapi_auth_module_path | default('/usr/lib/dovecot/authgssapi.so') %}
+!include_try {{ gssapi_auth_module_path | default('/usr/lib/dovecot/authgssapi.so') }}
+{% endif %}
 
 # Log GSSAPI-related messages at appropriate verbosity
-log_path = {{ log_path }}
+# log_path: Path to the main Dovecot log file where GSSAPI events will be recorded.
+# Default: '/var/log/dovecot.log'
+log_path = {{ log_path | default('/var/log/dovecot.log') }}
+
 log_timestamp = "%b %d %H:%M:%S "
 auth_verbose = yes
 
 # Optional: restrict GSSAPI to trusted networks (e.g., internal LAN)
 # Override per-service if needed in auth-worker or service blocks
-{% if gssapi_trusted_networks %}# Trust only these networks for GSSAPI auth
-{% for network in gssapi_trusted_networks %}# {{ network }}{% endfor %}{% endif %}
+# gssapi_trusted_networks: List of CIDR networks allowed to use GSSAPI authentication. If empty, all networks are allowed (not recommended for untrusted environments).
+# Default: []
+# If trusted networks are specified, we can optionally inject ACL rules or comments.
+# Since Dovecot config doesn't have a simple "trusted_networks" directive for GSSAPI globally
+# without service blocks, we document it or prepare for per-service override.
+{% if gssapi_trusted_networks | default([]) | length > 0 %}
+# GSSAPI Trusted Networks Configuration
+# The following networks are allowed to use GSSAPI authentication:
+{% for network in gssapi_trusted_networks | default([]) %}
+#   - {{ network }}
+{% endfor %}
+{% endif %}
 
 # Example service override — adjust if per-service GSSAPI policy is needed
-{% for svc in gssapi_services %}
-# Service: {{ svc.name }}
-service {{ svc.name }} {
-{% if svc.chroot %}  chroot = {{ svc.chroot }}{% endif %}
-{% if svc.listen %}  listen = {{ svc.listen | join(', ') }}{% endif %}
-{% if svc.max_processes %}  process_limit = {{ svc.max_processes }}{% endif %}
-{% if svc.gssapi_enabled is defined %}  # GSSAPI per-service override
+# gssapi_services: Custom per-service configurations to override defaults (e.g., for IMAP, POP3, or LDA). Add only if needed.
+# Default: []
+# This block iterates over the list of service overrides defined in the schema.
+{% for svc in gssapi_services | default([]) %}
+# Service: {{ svc.name | default('unnamed') }}
+# Note: 'name' is the service name (e.g., 'imap', 'pop3', 'lda')
+service {{ svc.name | default('unnamed') }} {
+  # chroot: Chroot directory for this service (if specified)
+  {% if svc.chroot | default('') %}  chroot = {{ svc.chroot }}{% endif %}
+
+  # listen: Listen addresses for this service
+  {% if svc.listen | default([]) | length > 0 %}  listen = {{ svc.listen | default([]) | join(', ') }}{% endif %}
+
+  # process_limit: Maximum number of processes for this service
+  {% if svc.max_processes | default(0) %}  process_limit = {{ svc.max_processes }}{% endif %}
+
+  # GSSAPI per-service override: Enable or disable GSSAPI for this specific service
+  {% if svc.gssapi_enabled is defined %}
+  # GSSAPI per-service override
   auth_gssapi_enabled = {{ svc.gssapi_enabled | lower }}
-{% endif %}
+  {% endif %}
 }
 {% endfor %}
 
 # Global auth service settings (shared across mechanisms)
 service auth {
   unix_listener auth-userdb {
+    # mode: File permissions for the auth-userdb socket
     mode = 0600
-    user = {{ auth_userdb_user }}
-    group = {{ auth_userdb_group }}
+
+    # auth_userdb_user: User owning the auth-userdb Unix socket for authentication database access.
+    # Default: 'dovecot'
+    user = {{ auth_userdb_user | default('dovecot') }}
+
+    # auth_userdb_group: Group owning the auth-userdb Unix socket.
+    # Default: 'dovecot'
+    group = {{ auth_userdb_group | default('dovecot') }}
   }
 }

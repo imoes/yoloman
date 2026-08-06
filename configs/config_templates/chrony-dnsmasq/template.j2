@@ -1,37 +1,147 @@
-# Allow NTP client access from local network
-allow {{ network_cidr }}
+# ==============================================================================
+# Chrony Configuration Template
+# ==============================================================================
+# This template generates a chrony.conf file for a server acting as both
+# an NTP client/sync source and an NTP server for local clients via Dnsmasq
+# forwarding.
+#
+# Key behaviors:
+# - Allows NTP queries from the specified local network CIDR.
+# - Syncs to public NTP pools, optionally preferring one server for fast
+#   initial step.
+# - Binds to specific interfaces to serve NTP responses.
+# - Logs measurements and statistics to a dedicated directory.
+# ==============================================================================
 
-# Use public NTP servers as upstream sources
-{% for server in upstream_servers %}server {{ server.host }} iburst{% endfor %}
+# ------------------------------------------------------------------------------
+# Network Access Control: Allow NTP client access from local network
+# Description: Local network (CIDR notation) allowed to query NTP from this server.
+# ------------------------------------------------------------------------------
+# The `allow` directive opens the NTP service to the specified subnet.
+# Default is the standard private /24 range.
+allow {{ network_cidr | default('192.168.1.0/24') }}
 
-# Prefer one upstream server if specified
-{% if primary_upstream is defined %}makestep 1.0 3{% endif %}
+# ------------------------------------------------------------------------------
+# Upstream Time Sources: Public NTP servers
+# Description: Public NTP servers to use as time sources. At least 2–3 are recommended.
+# ------------------------------------------------------------------------------
+# Each server entry uses the `iburst` option for faster initial synchronization.
+# The variable `upstream_servers` is expected to be a list of dicts with a 'host' key.
+{% for server in upstream_servers | default([{'host': '0.pool.ntp.org'}, {'host': '1.pool.ntp.org'}, {'host': '2.pool.ntp.org'}, {'host': '3.pool.ntp.org'}]) %}
+server {{ server.host }} iburst
+{% endfor %}
 
-# Record the rate at which the system clock gains/loses time
+# ------------------------------------------------------------------------------
+# Fast Initial Synchronization: Makestep tuning
+# Description: Hostname of the preferred upstream server (enables faster initial synchronization).
+#              Leave blank to disable makestep tuning.
+# ------------------------------------------------------------------------------
+# The `makestep` directive corrects the system time immediately if the offset
+# exceeds the specified threshold during the first few updates.
+# If `primary_upstream` is provided and not empty, we enable this behavior.
+# Note: Chrony's `makestep` command does not take a hostname argument; it is
+# a global setting. We enable it when a primary upstream is defined to signal
+# that fast sync is desired.
+{% if (primary_upstream | default('', true)) != '' %}
+makestep 1.0 3
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# RTC Synchronization: Real-Time Clock Sync
+# Description: Always enabled. Record the rate at which the system clock gains/loses time.
+# ------------------------------------------------------------------------------
+# This directive ensures that the hardware clock (RTC) is synchronized with
+# the system clock, maintaining time accuracy across reboots.
 rtcsync
 
-# Enable leap second handling
+# ------------------------------------------------------------------------------
+# Leap Second Handling
+# Description: Always enabled. Enable leap second handling.
+# ------------------------------------------------------------------------------
+# Specifies the timezone used for leap second announcements.
+# `right/UTC` is the standard POSIX timezone identifier for UTC.
 leapsectz right/UTC
 
-# Specify directory for log and data files
-logdir {{ log_dir }}
+# ------------------------------------------------------------------------------
+# Log Directory
+# Description: Directory where Chrony will store logs, measurements, and statistics.
+# ------------------------------------------------------------------------------
+# Sets the directory where chrony writes its log files.
+# If the directory does not exist, chrony may fail to start; ensure it exists.
+logdir {{ log_dir | default('/var/log/chrony') }}
+
+# Log the following types of data:
+# - measurements: clock offset and delay measurements
+# - statistics: summary statistics of NTP performance
+# - tracking: current system clock status and drift
 log measurements statistics tracking
 
-# Enable command socket for chronyd control
+# ------------------------------------------------------------------------------
+# Command Port
+# Description: Disable remote command port for security.
+# ------------------------------------------------------------------------------
+# Setting `cmdport 0` disables the UDP command port, preventing remote
+# administration via chronyc unless explicitly configured otherwise.
+# This is the recommended secure default.
+# Note: cmdport is not a service port (NTP uses UDP/123).
 cmdport 0
 
-# Enable broadcast client support if needed
-{% if enable_broadcast %}broadcastclient{% endif %}
+# ------------------------------------------------------------------------------
+# Broadcast Client Support
+# Description: Enable broadcast mode so clients can listen for NTP broadcasts (rarely needed in modern setups).
+# ------------------------------------------------------------------------------
+# If `enable_broadcast` is true, chronyd will listen for NTP broadcast packets.
+# This is rarely needed in modern client/server setups where unicast is preferred.
+{% if enable_broadcast | default(False) %}
+broadcastclient
+{% endif %}
 
-# Allow Dnsmasq to forward NTP traffic on behalf of clients
-{% for interface in dnsmasq_ntp_interfaces %}bindaddress {{ interface }}{% endfor %}
+# ------------------------------------------------------------------------------
+# Interface Binding (Dnsmasq Integration)
+# Description: Interfaces (IPs) where Chrony will bind for NTP responses, typically including localhost and LAN gateway.
+# ------------------------------------------------------------------------------
+# Chrony binds to these addresses to respond to NTP requests.
+# Dnsmasq can forward NTP queries to these addresses.
+{% for interface in dnsmasq_ntp_interfaces | default(['127.0.0.1', '192.168.1.1']) %}
+bindaddress {{ interface }}
+{% endfor %}
 
-# Optional: restrict access to specific hosts
-{% for host in restricted_hosts %}deny {{ host }}{% endfor %}
+# ------------------------------------------------------------------------------
+# Restricted Access: Deny Specific Hosts
+# Description: List of hostnames or CIDRs to deny NTP access (optional).
+# ------------------------------------------------------------------------------
+# The `deny` directive explicitly blocks NTP access from specified hosts
+# or subnets, overriding broader `allow` directives.
+{% for host in restricted_hosts | default([]) %}
+deny {{ host }}
+{% endfor %}
 
-# Optional: allow specific hosts (e.g., local mesh)
-{% for host in allowed_hosts %}allow {{ host }}{% endfor %}
+# ------------------------------------------------------------------------------
+# Allowed Access: Explicit Allow
+# Description: Additional hosts or subnets explicitly allowed (optional, e.g., for meshed LAN time distribution).
+# ------------------------------------------------------------------------------
+# The `allow` directive can be used multiple times to permit additional
+# networks beyond the primary `network_cidr`.
+{% for host in allowed_hosts | default([]) %}
+allow {{ host }}
+{% endfor %}
 
-# Optional: custom driftfile and key file paths
-{% if driftfile_path is defined %}driftfile {{ driftfile_path }}{% endif %}
-{% if keyfile_path is defined %}keyfile {{ keyfile_path }}{% endif %}
+# ------------------------------------------------------------------------------
+# Drift File Path
+# Description: Custom path to the drift file (where Chrony stores clock rate correction). Leave blank for system default.
+# ------------------------------------------------------------------------------
+# The drift file stores the measured frequency offset of the system clock.
+# If `driftfile_path` is empty, chrony uses its compiled-in default (/var/lib/chrony/drift).
+{% if (driftfile_path | default('', true)) != '' %}
+driftfile {{ driftfile_path }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Key File Path (Authentication)
+# Description: Custom path to the key file (for NTP authentication). Leave blank if authentication is not used.
+# ------------------------------------------------------------------------------
+# The key file contains symmetric keys for NTP authentication.
+# If `keyfile_path` is empty, authentication is disabled.
+{% if (keyfile_path | default('', true)) != '' %}
+keyfile {{ keyfile_path }}
+{% endif %}

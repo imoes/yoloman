@@ -1,0 +1,348 @@
+# Dunst notification daemon configuration
+#
+# This template generates a self-documenting dunst.conf file.
+# Every setting is derived from Ansible variables with safe defaults.
+# See dunst(5) for full documentation of options.
+
+[global]
+    ### Display ###
+
+    # Which monitor should the notifications be displayed on.
+    # '0' means all monitors.
+    monitor = {{ monitor | default('0') }}
+
+    # Display notification on focused monitor.
+    # Modes: 'mouse', 'keyboard', or 'none'.
+    # 'keyboard' requires a WM exporting _NET_ACTIVE_WINDOW.
+    # If set to mouse/keyboard, the 'monitor' option is ignored.
+    follow = {{ follow | default('none') }}
+
+    ### Geometry ###
+
+    # Width of the notification window.
+    # Can be a constant integer (e.g., 300) or a dynamic range '(min, max)' (e.g., '(0, 300)').
+    width = {{ width | default('300') }}
+
+    # Height of a single notification, excluding the frame.
+    # Can be a constant integer or a dynamic range '(min, max)'.
+    # Note: Older dunst versions (<1.11) treat constant values as max height.
+    height = {{ height | default('(0, 300)') }}
+
+    # Position of the notification window relative to the corner.
+    # Common values: 'top-right', 'top-left', 'bottom-right', 'bottom-left', 'center'.
+    origin = {{ origin | default('top-right') }}
+
+    # Offset from the origin corner.
+    # Format: '(x, y)' e.g., '(10, 50)'.
+    # Note: Older dunst versions used 'x:y' format.
+    offset = {{ offset | default('(10, 50)') }}
+
+    # Scale factor for DPI.
+    # '0' enables auto-detection.
+    scale = {{ scale | default(0) }}
+
+    # Maximum number of displayed notifications.
+    # '0' means no limit.
+    notification_limit = {{ notification_limit | default(20) }}
+
+    ### Progress bar ###
+
+    # Enable progress bar display when progress hint is passed (e.g., via dunstify).
+    progress_bar = {{ progress_bar | default(true) }}
+
+    # Height of the progress bar including the frame.
+    # Should be at least twice the frame width.
+    progress_bar_height = {{ progress_bar_height | default(10) }}
+
+    # Frame width of the progress bar.
+    progress_bar_frame_width = {{ progress_bar_frame_width | default(1) }}
+
+    # Minimum width for the progress bar.
+    progress_bar_min_width = {{ progress_bar_min_width | default(150) }}
+
+    # Maximum width for the progress bar.
+    progress_bar_max_width = {{ progress_bar_max_width | default(300) }}
+
+    # Corner radius for the progress bar.
+    # '0' disables rounded corners.
+    progress_bar_corner_radius = {{ progress_bar_corner_radius | default(0) }}
+
+    # Which corners to round for the progress bar.
+    # e.g., 'all', 'bottom-right,bottom-left'.
+    # Ignored if progress_bar_corner_radius is 0.
+    progress_bar_corners = {{ progress_bar_corners | default('all') }}
+
+    # Corner radius for the icon image.
+    # '0' disables rounded corners.
+    icon_corner_radius = {{ icon_corner_radius | default(0) }}
+
+    # Which corners to round for the icon image.
+    # e.g., 'all', 'bottom-right'.
+    # Ignored if icon_corner_radius is 0.
+    icon_corners = {{ icon_corners | default('all') }}
+
+    # Show an indicator for hidden notifications (those suppressed by notification_limit).
+    # Values: 'yes', 'no'.
+    indicate_hidden = {{ indicate_hidden | default('yes') }}
+
+    # Window transparency. Range: [0; 100].
+    # Requires a compositing window manager (X11 only).
+    transparency = {{ transparency | default(0) }}
+
+    # Height of the separator line between notifications (pixels).
+    # '0' disables the separator.
+    # Ignored if gap_size is greater than 0.
+    separator_height = {{ separator_height | default(2) }}
+
+    # Padding between text and the separator.
+    padding = {{ padding | default(8) }}
+
+    # Horizontal padding inside the notification.
+    horizontal_padding = {{ horizontal_padding | default(8) }}
+
+    # Padding between the text and the icon.
+    text_icon_padding = {{ text_icon_padding | default(0) }}
+
+    # Width of the frame around the notification window (pixels).
+    # '0' disables the frame.
+    frame_width = {{ frame_width | default(3) }}
+
+    # Color of the frame around the notification window.
+    # Must be quoted if it starts with '#'.
+    frame_color = {{ frame_color | default('"#aaaaaa"') }}
+
+    # Size of the gap between notifications (pixels).
+    # Requires a compositor.
+    # If > 0, separator_height is ignored and a border of frame_width is drawn around each notification.
+    gap_size = {{ gap_size | default(0) }}
+
+    # Color of the separator line.
+    # Values: 'auto' (fit background), 'foreground', 'frame', or any X color string.
+    separator_color = {{ separator_color | default('frame') }}
+
+    # Sort type for notifications.
+    # Values: 'id', 'urgency_ascending', 'urgency_descending', 'update'.
+    sort = {{ sort | default('yes') }}
+
+    # idle_threshold is not exposed in schema, but available in dunst.
+
+    ### Text ###
+
+    # Font to use for notifications (Pango font name).
+    font = {{ font | default('Monospace 8') }}
+
+    # Line height.
+    # If smaller than font height, it is raised to font height.
+    line_height = {{ line_height | default(0) }}
+
+    # Markup level for notification content.
+    # 'full': Allow Pango markup (<b>, <i>, etc.).
+    # 'strip': Strip markup (not recommended globally).
+    # 'no': Treat as plain text.
+    # Note: Markup in the 'format' string is always parsed.
+    markup = {{ markup | default('full') }}
+
+    # Format string for notifications.
+    # Variables: %a (appname), %s (summary), %b (body), %i (icon path), %I (icon name),
+    #            %p (progress), %n (progress no brackets), %% (literal %).
+    format = {{ format | default('"<b>%s</b>\\n%b"') }}
+
+    # Text alignment.
+    # Values: 'left', 'center', 'right'.
+    alignment = {{ alignment | default('left') }}
+
+    # Vertical alignment of text and icon.
+    # Values: 'top', 'center', 'bottom'.
+    vertical_alignment = {{ vertical_alignment | default('center') }}
+
+    # Show age of message if it is older than this threshold (seconds).
+    # '-1' to disable.
+    show_age_threshold = {{ show_age_threshold | default(60) }}
+
+    # Ellipsis position for long lines.
+    # Values: 'start', 'middle', 'end'.
+    ellipsize = {{ ellipsize | default('middle') }}
+
+    # Ignore newlines '\n' in notification content.
+    ignore_newline = {{ ignore_newline | default(false) }}
+
+    # Stack together notifications with identical content.
+    stack_duplicates = {{ stack_duplicates | default(true) }}
+
+    # Hide the count of stacked notifications in the indicator.
+    hide_duplicate_count = {{ hide_duplicate_count | default(false) }}
+
+    # Display indicators for URLs (U) and actions (A).
+    # Values: 'yes', 'no', 'smart'.
+    show_indicators = {{ show_indicators | default('yes') }}
+
+    ### Icons ###
+
+    # Enable recursive icon lookup using the icon theme.
+    enable_recursive_icon_lookup = {{ enable_recursive_icon_lookup | default(true) }}
+
+    # Icon theme name (e.g., 'Adwaita').
+    icon_theme = {{ icon_theme | default('Adwaita') }}
+
+    # Icon position relative to text.
+    # Values: 'left', 'right', 'top', 'off'.
+    icon_position = {{ icon_position | default('left') }}
+
+    # Minimum icon size (pixels).
+    # Set to 0 to disable scaling up.
+    min_icon_size = {{ min_icon_size | default(32) }}
+
+    # Maximum icon size (pixels).
+    # Set to 0 to disable scaling down.
+    # Takes precedence over min_icon_size in case of conflict.
+    max_icon_size = {{ max_icon_size | default(128) }}
+
+    # Paths to search for default icons.
+    # Colon-separated list of paths. Used when not using recursive icon lookup.
+    icon_path = {{ icon_path | default('/usr/share/icons/gnome/16x16/status/:/usr/share/icons/gnome/16x16/devices/') }}
+
+    ### History ###
+
+    # Whether notifications popped from history are sticky or timeout normally.
+    sticky_history = {{ sticky_history | default(true) }}
+
+    # Maximum number of notifications kept in history.
+    history_length = {{ history_length | default(20) }}
+
+    ### Misc/Advanced ###
+
+    # Path to dmenu for context menus.
+    dmenu = {{ dmenu | default('/usr/bin/dmenu -p dunst:') }}
+
+    # Browser executable for opening URLs.
+    browser = {{ browser | default('/usr/bin/xdg-open') }}
+
+    # Always run rule-defined scripts, even if the notification is suppressed.
+    always_run_script = {{ always_run_script | default(true) }}
+
+    # Window title (X11 only).
+    title = {{ title | default('Dunst') }}
+
+    # Window class (X11 only).
+    class = {{ class | default('Dunst') }}
+
+    # Corner radius for the notification window (pixels).
+    # '0' disables rounded corners.
+    # Automatically lowered if it exceeds half the notification height.
+    corner_radius = {{ corner_radius | default(0) }}
+
+    # Which corners to round for the window.
+    # e.g., 'all', 'bottom-right,bottom-left'.
+    # Ignored if corner_radius is 0.
+    corners = {{ corners | default('all') }}
+
+    # Ignore the dbus closeNotification message.
+    # Useful to enforce timeouts even if the client closes the notification early.
+    ignore_dbusclose = {{ ignore_dbusclose | default(false) }}
+
+    ### Wayland ###
+
+    # Force using Xwayland output on Wayland.
+    force_xwayland = {{ force_xwayland | default(false) }}
+
+    ### Legacy ###
+
+    # Use Xinerama extension for multi-monitor support.
+    # Deprecated; discouraged on modern RandR-capable systems.
+    force_xinerama = {{ force_xinerama | default(false) }}
+
+    ### Mouse Actions ###
+
+    # Actions triggered by mouse left click.
+    # Values: 'none', 'do_action', 'open_url', 'close_current', 'close_all', 'context'.
+    mouse_left_click = {{ mouse_left_click | default('close_current') }}
+
+    # Actions triggered by mouse middle click.
+    mouse_middle_click = {{ mouse_middle_click | default('do_action, close_current') }}
+
+    # Actions triggered by mouse right click.
+    mouse_right_click = {{ mouse_right_click | default('close_all') }}
+
+[experimental]
+    ### Experimental ###
+
+    # Calculate DPI on a per-monitor basis.
+    # Ignores Xft.dpi, calculates based on resolution and physical size.
+    per_monitor_dpi = {{ per_monitor_dpi | default(false) }}
+
+[urgency_low]
+    ### Urgency Low ###
+
+    # IMPORTANT: Colors must be quoted. Unquoted '#' is treated as a comment.
+    background = {{ urgency_low_background | default('"#222222"') }}
+    foreground = {{ urgency_low_foreground | default('"#888888"') }}
+    timeout = {{ urgency_low_timeout | default(10) }}
+    default_icon = {{ urgency_low_default_icon | default('dialog-information') }}
+
+[urgency_normal]
+    ### Urgency Normal ###
+
+    background = {{ urgency_normal_background | default('"#285577"') }}
+    foreground = {{ urgency_normal_foreground | default('"#ffffff"') }}
+    timeout = {{ urgency_normal_timeout | default(10) }}
+    override_pause_level = {{ urgency_normal_override_pause_level | default(30) }}
+    default_icon = {{ urgency_normal_default_icon | default('dialog-information') }}
+
+[urgency_critical]
+    ### Urgency Critical ###
+
+    background = {{ urgency_critical_background | default('"#900000"') }}
+    foreground = {{ urgency_critical_foreground | default('"#ffffff"') }}
+    frame_color = {{ urgency_critical_frame_color | default('"#ff0000"') }}
+    timeout = {{ urgency_critical_timeout | default(0) }}
+    override_pause_level = {{ urgency_critical_override_pause_level | default(60) }}
+    default_icon = {{ urgency_critical_default_icon | default('dialog-warning') }}
+
+# Rules Section
+#
+# Any section starting with a name other than the built-in sections
+# is interpreted as a rule to override settings for specific messages.
+#
+# Matching fields:
+#   appname (discouraged; use desktop_entry), body, category, desktop_entry,
+#   icon, match_transient, msg_urgency, stack_tag, summary.
+#
+# Overrideable fields:
+#   background, foreground, format, frame_color, fullscreen, new_icon,
+#   set_stack_tag, set_transient, set_category, timeout, urgency,
+#   icon_position, skip_display, history_ignore, action_name, word_wrap,
+#   ellipsize, alignment, hide_text, override_pause_level, script.
+#
+# Examples:
+#
+# [transient_disable]
+#    match_transient = yes
+#    set_transient = no
+#
+# [history_ignore]
+#    # Do not save these in history
+#    summary = "foobar"
+#    history_ignore = yes
+#
+# [skip_display]
+#    # Do not show these, but keep in history
+#    summary = "foobar"
+#    skip_display = yes
+#
+# [signed_on]
+#    desktop_entry = "pidgin"
+#    summary = "*signed on*"
+#    urgency = low
+#
+# [twitter]
+#    desktop_entry = "pidgin"
+#    summary = "*twitter.com*"
+#    urgency = normal
+#
+# [espeak]
+#    summary = "*"
+#    script = dunst_espeak.sh
+#
+# [skip_volume]
+#    appname = "some_volume_notifiers"
+#    set_stack_tag = "volume"

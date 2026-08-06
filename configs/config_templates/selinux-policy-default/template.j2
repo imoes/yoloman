@@ -1,10 +1,17 @@
-# SELinux file contexts for Debian default policy
-# This file defines the security context mapping for filesystem paths.
-# Each line: <path_spec> <context>
-# <path_spec> may include wildcards: * (any chars), [] (character classes), etc.
-# <context> has format: user:role:type:level (mls) or user:role:type (non-mls)
-
-{% for rule in file_contexts %}
-# {{ rule.comment if rule.comment else 'Context for ' + rule.path_spec }}
-{{ rule.path_spec }} {{ rule.context }}
-{% endfor %}
+#
+# Multi-Category Security translation table for SELinux
+# 
+# Uncomment the following to disable translation libary
+# disable=1
+#
+# Objects can be categorized with 0-1023 categories defined by the admin.
+# Objects can be in more than one category at a time.
+# Categories are stored in the system as c0-c1023.  Users can use this
+# table to translate the categories into a more meaningful output.
+# Examples:
+# s0:c0=CompanyConfidential
+# s0:c1=PatientRecord
+# s0:c2=Unclassified
+# s0:c3=TopSecret
+# s0:c1,c3=CompanyConfidentialRedHat
+{{ mls_translations | join('\n') }}

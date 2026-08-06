@@ -1,86 +1,160 @@
-# ecFlow Server configuration file
-# Defines the runtime parameters for the ecFlow server daemon
-host: "{{ host }}"
-port: {{ port }}
+# ==============================================================================
+# ecFlow Server Configuration Template
+#
+# This template configures the ecFlow server daemon. It controls network binding,
+# data storage, logging, workers, security (TLS/Auth), alerting (SMTP), and
+# high-availability (failover).
+#
+# Variables are sourced from Ansible inventory/group_vars. All variables have
+# safe defaults derived from the schema to prevent render failures.
+# ==============================================================================
 
-# Path to the data directory where ecFlow stores workflow definitions and logs
-data_dir: "{{ data_dir }}"
+# ------------------------------------------------------------------------------
+# Network Binding
+# ------------------------------------------------------------------------------
 
-# Log level: DEBUG, INFO, WARNING, ERROR, or FATAL
-log_level: "{{ log_level }}"
+# host: The network interface address the server will bind to (e.g., '0.0.0.0' or '127.0.0.1').
+host: "{{ host | default('localhost') }}"
 
-# Path to the log file (empty string to log to stdout only)
-log_file: "{{ log_file }}"
+# port: TCP port on which the ecFlow server listens for client connections.
+port: {{ port | default(31415) }}
 
-# Maximum size (in MB) of a log file before rotation
-log_max_size_mb: {{ log_max_size_mb }}
+# ------------------------------------------------------------------------------
+# Data Storage
+# ------------------------------------------------------------------------------
 
-# Number of old log files to retain
-log_keep_count: {{ log_keep_count }}
+# data_dir: Absolute path to the directory where workflow definitions, logs, and state are stored.
+data_dir: "{{ data_dir | default('/var/lib/ecflow-server') }}"
 
-# Number of worker threads to handle client requests
-num_workers: {{ num_workers }}
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
 
-# HTTP server timeout (seconds)
-http_timeout: {{ http_timeout }}
+# log_level: Minimum log level to record (DEBUG, INFO, WARNING, ERROR, or FATAL).
+log_level: "{{ log_level | default('INFO') }}"
 
-# Enable HTTPS support
+# log_file: Path to the primary log file. Set to empty string ('') to disable file logging.
+log_file: "{{ log_file | default('/var/log/ecflow-server/ecflow-server.log') }}"
+
+# log_max_size_mb: Maximum size (in MB) of a log file before it is rotated.
+log_max_size_mb: {{ log_max_size_mb | default(100) }}
+
+# log_keep_count: Number of rotated log files to retain.
+log_keep_count: {{ log_keep_count | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Worker Threads
+# ------------------------------------------------------------------------------
+
+# num_workers: Number of worker threads to handle concurrent client requests.
+num_workers: {{ num_workers | default(4) }}
+
+# ------------------------------------------------------------------------------
+# HTTP Settings
+# ------------------------------------------------------------------------------
+
+# http_timeout: Timeout (seconds) for HTTP requests (connect, read, write).
+http_timeout: {{ http_timeout | default(30) }}
+
+# ------------------------------------------------------------------------------
+# HTTPS / TLS Configuration
+# ------------------------------------------------------------------------------
+
+# enable_https: Enable HTTPS instead of HTTP for secure communication.
+# If true, the tls block below becomes active.
 enable_https: {{ enable_https | default(false) | lower }}
 
-# TLS certificate and key paths (only used if enable_https is true)
-{% if enable_https %}
+{% if enable_https | default(false) %}
+# tls: TLS certificate and key paths (only used if enable_https is true).
 tls:
-  cert_file: "{{ tls_cert_file }}"
-  key_file: "{{ tls_key_file }}"
+  # tls_cert_file: Path to the TLS certificate file.
+  cert_file: "{{ tls_cert_file | default('/etc/ssl/certs/ecflow-server.crt') }}"
+  # tls_key_file: Path to the TLS private key file.
+  key_file: "{{ tls_key_file | default('/etc/ssl/private/ecflow-server.key') }}"
 {% endif %}
 
-# Authentication configuration
-auth:
-  enabled: {{ auth_enabled | default(false) | lower }}
-  # Path to the password file for basic authentication
-  password_file: "{{ auth_password_file }}"
-  # Token expiry time in seconds (for token-based auth)
-  token_expiry: {{ auth_token_expiry }}
+# ------------------------------------------------------------------------------
+# Authentication Configuration
+# ------------------------------------------------------------------------------
 
-# Allowed client CIDR ranges (empty list = allow all)
-# Each item specifies an allowed network and optional description
-{% for client in allowed_clients %}
-  # {{ client.desc | default('Allowed client') }}
+# auth: Top-level block for authentication settings.
+auth:
+  # auth_enabled: Enable password or token-based authentication for clients.
+  enabled: {{ auth_enabled | default(false) | lower }}
+
+  # auth_password_file: Path to the file containing username:password:role entries for basic auth.
+  password_file: "{{ auth_password_file | default('/etc/ecflow-server/passwd') }}"
+
+  # auth_token_expiry: Time (in seconds) after which authentication tokens expire.
+  token_expiry: {{ auth_token_expiry | default(86400) }}
+
+# ------------------------------------------------------------------------------
+# Access Control (Allowed Clients)
+# ------------------------------------------------------------------------------
+
+# allowed_clients: List of IP networks allowed to connect. Empty list = allow all clients.
+# Each item is a dict with 'network' (required) and 'description' (optional).
+{% for client in allowed_clients | default([]) %}
+  # Allowed client entry
   - network: "{{ client.network }}"
-    description: "{{ client.desc | default('') }}"
+    description: "{{ client.description | default('Allowed client') }}"
 {% endfor %}
 
-# Server restart behavior on configuration reload
+# ------------------------------------------------------------------------------
+# Server Behavior
+# ------------------------------------------------------------------------------
+
+# restart_on_config_change: If true, automatically restarts the server when configuration is changed.
 restart_on_config_change: {{ restart_on_config_change | default(false) | lower }}
 
-# Initial heartbeat interval (seconds) for client connections
-heartbeat_interval: {{ heartbeat_interval }}
+# heartbeat_interval: Interval (in seconds) between heartbeat messages to detect client health.
+heartbeat_interval: {{ heartbeat_interval | default(30) }}
 
-# Enable debug endpoints (e.g., /debug/vars, /debug/pprof)
+# debug_endpoints: Enable internal debug HTTP endpoints (not for production).
 debug_endpoints: {{ debug_endpoints | default(false) | lower }}
 
-# SMTP alert configuration (for email notifications)
-{% if smtp_enabled %}
+# ------------------------------------------------------------------------------
+# SMTP Alerting Configuration
+# ------------------------------------------------------------------------------
+
+# smtp_enabled: Enable SMTP for sending email alerts on workflow events.
+{% if smtp_enabled | default(false) %}
 smtp:
-  host: "{{ smtp_host }}"
-  port: {{ smtp_port }}
-  from_addr: "{{ smtp_from_addr }}"
-  use_tls: {{ smtp_use_tls | default(false) | lower }}
-  username: "{{ smtp_username }}"
+  # smtp_host: SMTP server hostname or IP address.
+  host: "{{ smtp_host | default('localhost') }}"
+
+  # smtp_port: SMTP server port (typically 25, 465, or 587).
+  port: {{ smtp_port | default(587) }}
+
+  # smtp_from_addr: Sender email address used in alert notifications.
+  from_addr: "{{ smtp_from_addr | default('ecflow-alerts@localhost') }}"
+
+  # smtp_use_tls: Use STARTTLS to secure the SMTP connection.
+  use_tls: {{ smtp_use_tls | default(true) | lower }}
+
+  # smtp_username: SMTP authentication username (leave empty if not using auth).
+  username: "{{ smtp_username | default('') }}"
 {% endif %}
 
-# List of admin email recipients for alerts
+# admin_emails: List of email addresses to receive administrative alerts.
 admin_emails:
-{% for email in admin_emails %}
+{% for email in admin_emails | default([]) %}
   - "{{ email }}"
 {% endfor %}
 
-# Failover mode (true for active/passive cluster setup)
+# ------------------------------------------------------------------------------
+# Failover / High Availability Configuration
+# ------------------------------------------------------------------------------
+
+# failover: Enable failover mode for high-availability (requires a paired failover peer).
 failover: {{ failover | default(false) | lower }}
 
-# Failover peer node (only used when failover is true)
-{% if failover %}
+{% if failover | default(false) %}
+# failover_peer: Failover peer node configuration (only used when failover is true).
 failover_peer:
-  host: "{{ failover_peer_host }}"
-  port: {{ failover_peer_port }}
+  # failover_peer_host: Hostname or IP of the failover peer server.
+  host: "{{ failover_peer_host | default('ecflow-backup.local') }}"
+
+  # failover_peer_port: Port of the failover peer server.
+  port: {{ failover_peer_port | default(31415) }}
 {% endif %}

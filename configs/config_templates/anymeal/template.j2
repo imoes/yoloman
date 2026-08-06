@@ -1,0 +1,62 @@
+# ===========================================================================
+# anymeal Configuration File
+#
+# This is the self-documenting configuration for the anymeal application.
+# It controls database location, data directories, UI behavior, and I/O formats.
+# All variables must be provided via Ansible host_vars/group_vars/defaults.
+# ===========================================================================
+
+# Path to the SQLite database file storing recipes.
+# If not provided, defaults to the user's local share directory.
+database_path: {{ (database_path | default('~/.local/share/anymeal/anymeal.sqlite')) | trim }}
+
+# Base directory for importing, exporting, and temporary recipe data.
+# Used for caching parsed recipes and holding temporary files during transfers.
+data_directory: {{ (data_directory | default('~/.local/share/anymeal')) | trim }}
+
+# UI theme preference for the application interface.
+# Accepted values: 'light', 'dark', or 'system' (follows OS setting).
+ui_theme: {{ (ui_theme | default('system')) | trim }}
+
+# Maximum number of recipes to load into memory at once.
+# Set to 0 for no limit (load all). Set to a positive integer to cap memory usage.
+max_recipes: {{ (max_recipes | default(0)) | int }}
+
+# List of file import formats to support, checked in order of preference.
+# Common formats include 'mm' (Meal-Mate), 'mr' (Meal-Recipe), and plain 'txt'.
+import_formats:
+{% for fmt in (import_formats | default(['mm', 'mr', 'txt'])) %}
+  - {{ fmt | string }}
+{% endfor %}
+
+# List of file export formats to support when saving recipes.
+# 'mm' is the native format; 'html' is useful for sharing/printing.
+export_formats:
+{% for fmt in (export_formats | default(['mm', 'html'])) %}
+  - {{ fmt | string }}
+{% endfor %}
+
+# Print settings configuration.
+# If print_options is not defined, sensible defaults for paper size and margins are applied.
+print_options:
+{% if print_options is defined %}
+{% for key, val in (print_options | default({})) | dict2items %}
+  {{ key }}: {{ val | default('') | string }}
+{% endfor %}
+{% else %}
+  paper_size: A4
+  margins: true
+{% endif %}
+
+# Search behavior defaults.
+# Controls how recipe searches are performed (case sensitivity, field inclusion).
+search_options:
+{% if search_options is defined %}
+{% for key, val in (search_options | default({})) | dict2items %}
+  {{ key }}: {{ val | default('') | string }}
+{% endfor %}
+{% else %}
+  case_sensitive: false
+  include_ingredients: true
+  include_tags: true
+{% endif %}

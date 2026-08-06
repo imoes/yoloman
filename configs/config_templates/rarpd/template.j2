@@ -1,24 +1,17 @@
-# Reverse Address Resolution Protocol (RARP) configuration file
-# Listen on specified network interfaces (required)
-# Format: interface_name [hardware_address]
-{% for iface in interfaces %}
-{{ iface.name }}{{ ' ' + iface.hwaddr if iface.hwaddr else '' }}
-{% endfor %}
+# Settings for rarpd(8).
+#
+# This is a shell script snippet, source from init-script.
+# Any values assigned here will override the internal ones.
 
-# Log level: 0 = quiet, 1 = normal, 2 = verbose, 3 = debug
-# Default: 1
-loglevel {{ loglevel }}
+# The package default options, set in init-script.
+#
+# Interpretation: verbose (-v), skip image checking (-e)
+#
+#OPTS="{{ rarpd_opts }}"
 
-# PID file path
-# Default: /var/run/rarpd.pid
-pidfile {{ pidfile }}
-
-# Allow RARP requests only from known MAC addresses (true/false)
-# Default: false
-strict_mode {{ strict_mode | lower }}
-
-# Optional static RARP entries (MAC -> IPv4 mappings)
-# Format: hwaddr ipv4
-{% for entry in static_entries %}
-{{ entry.hwaddr }} {{ entry.ipv4 }}
-{% endfor %}
+# More advanced settings might use a boot directory
+# differing from the hardcoded default (/tftpboot),
+# might activate image checking, and decide to only
+# serve requests on a specific network adapter.
+#
+##OPTS="-v -b /srv/tftpboot eth2"

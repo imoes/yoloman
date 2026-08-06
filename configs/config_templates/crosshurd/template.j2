@@ -1,0 +1,27 @@
+# /etc/apt/preferences.d/crosshurd
+#
+# This file configures APT pin priorities to manage package installation
+# from specific distribution releases. Pinning prevents automatic upgrades
+# from unstable or unreleased repositories unless explicitly desired.
+#
+# Syntax:
+#   Package: <package_name_or_wildcard>
+#   Pin: <pin_definition>
+#   Pin-Priority: <priority_integer>
+
+# Configure priority for packages from the 'unreleased' distribution.
+# A higher priority (closer to 1000) makes APT prefer these packages.
+# Default 995 ensures they are preferred over stable (usually 500) but
+# not automatically installed unless they are the only available version
+# or explicitly requested.
+Package: *
+Pin: release a=unreleased
+Pin-Priority: {{ pin_unreleased_priority | default(995) }}
+
+# Configure priority for packages from the 'unstable' distribution.
+# Default 990 ensures these are preferred over stable but lower than
+# unreleased. Unstable packages are typically not installed on stable systems
+# unless pinned or manually forced.
+Package: *
+Pin: release a=unstable
+Pin-Priority: {{ pin_unstable_priority | default(990) }}

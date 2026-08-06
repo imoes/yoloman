@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  D-Bus Bus Configuration for click-service
+
+  This file defines security policies for the D-Bus system or session bus
+  specific to the click-service. It restricts ownership of the service
+  interface to root and defines default permissions for message sending
+  and receiving.
+
+  Variables:
+    service_dbus_name: The D-Bus name (interface) this service owns.
+-->
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!--
+    Policy for the root user.
+    Allows 'root' to own the D-Bus service interface.
+  -->
+  <policy user="root">
+    <allow own="{{ service_dbus_name | default('com.lomiri.click') }}"/>
+  </policy>
+
+  <!--
+    Default policy for all other users.
+    Defines what messages are allowed to be sent to or received from
+    this service interface.
+  -->
+  <policy context="default">
+    <!-- Allow sending messages to the service interface -->
+    <allow send_destination="{{ service_dbus_name | default('com.lomiri.click') }}"/>
+    <!-- Allow receiving messages from the service interface -->
+    <allow receive_sender="{{ service_dbus_name | default('com.lomiri.click') }}"/>
+  </policy>
+
+</busconfig>

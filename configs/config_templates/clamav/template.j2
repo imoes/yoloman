@@ -1,172 +1,399 @@
-# ClamAV clamd daemon configuration
-# This file configures the ClamAV daemon (clamd) for on-access and on-demand scanning.
+# ==============================================================================
+# ClamAV clamd Daemon Configuration Template
+# ==============================================================================
+# This template generates the clamd.conf file for the ClamAV antivirus daemon.
+# It supports both Unix socket (local IPC) and TCP socket communication.
+# All variables use defaults from the schema to ensure self-contained rendering.
+# ==============================================================================
 
-# Path to the local socket for IPC (used by clamd and other tools like clamscan)
-# Listen on a TCP socket at specified host and port (comment out for local socket only)
-{% if listen_host %}Listen {{ listen_host }}
-{% else %}# Listen 127.0.0.1
-{% endif %}
-{% if listen_port %}Port {{ listen_port }}
-{% else %}# Port 3310
-{% endif %}
+# --------------------------------------------------------------------------
+# IPC: Unix Socket Configuration
+# --------------------------------------------------------------------------
+# Path to the Unix socket file used for local inter-process communication.
+# Tools like clamscan, clamdtop, and amavisd-new typically connect here.
+# Required: Unix socket communication.
+# Default: /var/run/clamav/clamd.ctl
+# --------------------------------------------------------------------------
+Socket {{ (socket_path | default('/var/run/clamav/clamd.ctl')) | string }}
 
-# Use local Unix socket instead of TCP (default: /var/run/clamav/clamd.ctl)
-Socket {{ socket_path }}
-
-# User to run as (must be able to read scan targets)
-User {{ scan_user }}
-
-# Maximum number of concurrent scan threads (affects throughput vs. resource usage)
-MaxThreads {{ max_threads }}
-
-# Set timeout (in seconds) for scanning large files; 0 = no timeout
-ScanTimeout {{ scan_timeout }}
-
-# Set timeout (in seconds) for reading data from network connections
-ReadTimeout {{ read_timeout }}
-
-# Maximum recursion depth for archive scanning (0 = unlimited)
-MaxRecursion {{ max_recursion }}
-
-# Maximum number of files to scan inside archives
-MaxFiles {{ max_files }}
-
-# Scan compressed files (e.g., .gz, .zip, .7z)
-{% if enable_compression_scan %}ScanCompressed yes
-{% else %}ScanCompressed no
+# --------------------------------------------------------------------------
+# IPC: TCP Socket Configuration
+# --------------------------------------------------------------------------
+# Bind the daemon to a specific IP address for TCP communication.
+# If left empty (default), the Unix socket is used exclusively (recommended
+# for local-only services to avoid network exposure).
+# Default: '' (empty, meaning no TCP listening)
+# --------------------------------------------------------------------------
+{% if (listen_host | default('')) != '' %}
+# TCP listening is enabled via listen_host
+Listen {{ (listen_host | default('')) | string }}
+{% else %}
+# TCP listening is disabled; using Unix socket only
+# Listen 127.0.0.1
 {% endif %}
 
-# Maximum size of file to scan (in MB); 0 = no limit
-MaxScanSize {{ max_scan_size_mb }}M
-
-# Maximum size of archive to scan (in MB); 0 = no limit
-MaxArchiveSize {{ max_archive_size_mb }}M
-
-# Maximum number of files in archive to scan (0 = no limit)
-MaxFiles {{ max_files }}
-
-# Enable heuristic detection (e.g., phishing, malformed headers)
-{% if enable_heuristic_scan %}HeuristicScan yes
-{% else %}HeuristicScan no
+# TCP Port for ClamAV communication.
+# Only active if listen_host is set.
+# Default: 3310
+# --------------------------------------------------------------------------
+{% if (listen_host | default('')) != '' %}
+Port {{ (listen_port | default(3310)) | string }}
+{% else %}
+# Port 3310
 {% endif %}
 
-# Enable PUA (Potentially Unwanted Application) detection
-{% if enable_pua_scan %}PUAScan yes
-{% else %}PUAScan no
+# --------------------------------------------------------------------------
+# Daemon Runtime User
+# --------------------------------------------------------------------------
+# System user under which the clamd process runs.
+# This user must have read access to all scanned directories and write
+# access to the socket, PID file, and log file locations.
+# Default: clamav
+# --------------------------------------------------------------------------
+User {{ (scan_user | default('clamav')) | string }}
+
+# --------------------------------------------------------------------------
+# Performance Tuning
+# --------------------------------------------------------------------------
+# Maximum number of concurrent threads used for scanning.
+# Increasing this improves throughput on multi-core systems but consumes
+# more CPU and memory. Adjust based on available resources.
+# Default: 10
+# --------------------------------------------------------------------------
+MaxThreads {{ (max_threads | default(10)) | string }}
+
+# Timeout in seconds for scanning a single file.
+# Files taking longer than this are skipped to prevent hangs.
+# 0 disables the timeout (not recommended for production).
+# Default: 120
+# --------------------------------------------------------------------------
+ScanTimeout {{ (scan_timeout | default(120)) | string }}
+
+# Timeout in seconds to wait for data from network connections (e.g.,
+# when scanning files served via HTTP/FTP through external interfaces).
+# Default: 30
+# --------------------------------------------------------------------------
+ReadTimeout {{ (read_timeout | default(30)) | string }}
+
+# --------------------------------------------------------------------------
+# Archive Scanning Limits
+# --------------------------------------------------------------------------
+# Maximum depth of nested archives to recurse into.
+# 0 means unlimited (use with caution to avoid DoS via deeply nested archives).
+# Default: 16
+# --------------------------------------------------------------------------
+MaxRecursion {{ (max_recursion | default(16)) | string }}
+
+# Maximum number of files to extract and scan inside a single archive.
+# Prevents resource exhaustion from archives containing thousands of files.
+# Default: 10000
+# --------------------------------------------------------------------------
+MaxFiles {{ (max_files | default(10000)) | string }}
+
+# Whether to decompress and scan inside compressed archives (e.g., .gz, .bz2, .zip).
+# Disabling this improves performance but reduces detection rate for threats
+# hidden in compressed containers.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_compression_scan | default(true)) | bool %}
+ScanCompressed yes
+{% else %}
+ScanCompressed no
 {% endif %}
 
-# Log file path (clamd writes here on startup, errors, and scan results)
-Log {{ log_file }}
+# Maximum size (in MB) of an individual file to scan.
+# Files larger than this are skipped. 0 means no limit.
+# Default: 100
+# --------------------------------------------------------------------------
+MaxScanSize {{ (max_scan_size_mb | default(100)) | string }}M
 
-# Log verbosity (5 = debug, 0 = minimal)
-LogVerbose {{ log_verbose }}
+# Maximum total size (in MB) of an archive to scan.
+# If an archive exceeds this, scanning stops for that archive. 0 means no limit.
+# Default: 250
+# --------------------------------------------------------------------------
+MaxArchiveSize {{ (max_archive_size_mb | default(250)) | string }}M
 
-# Log file rotation (yes = rotate when log file exceeds LogRotateMaxSize)
-LogRotate {{ log_rotate }}
-
-# Maximum size (in MB) of log before rotation
-LogRotateMaxSize {{ log_rotate_max_size_mb }}M
-
-# PID file path
-PidFile {{ pid_file }}
-
-# Database directory (where freshclam drops .cvd/.cld files)
-DatabaseDirectory {{ database_directory }}
-
-# Automatic database update via freshclam (clamd itself does NOT update — relies on freshclam)
-{% if enable_local_update %}UpdateLogFile {{ database_directory }}/freshclam.log
-{% else %}# UpdateLogFile /var/log/clamav/freshclam.log
+# --------------------------------------------------------------------------
+# Heuristic and PUA Detection
+# --------------------------------------------------------------------------
+# Enable heuristic analysis to detect unknown or obfuscated threats.
+# May increase false positives.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_heuristic_scan | default(true)) | bool %}
+HeuristicScan yes
+{% else %}
+HeuristicScan no
 {% endif %}
 
-# Enable detection of potentially unwanted applications (PUA) databases
-{% if enable_pua_db %}DetectPUA yes
-{% else %}DetectPUA no
+# Enable detection of Potentially Unwanted Applications (PUA).
+# PUAs are software that may not be malicious but are often unwanted
+# (e.g., adware, toolbars). May cause false positives in dev environments.
+# Default: false
+# --------------------------------------------------------------------------
+{% if (enable_pua_scan | default(false)) | bool %}
+PUAScan yes
+{% else %}
+PUAScan no
 {% endif %}
 
-# List of PUA categories to detect (if DetectPUA = yes); others ignored
-{% for pua_category in pua_categories %}PUACategory {{ pua_category }}
+# --------------------------------------------------------------------------
+# Logging Configuration
+# --------------------------------------------------------------------------
+# Path to the log file where clamd records scan events, errors, and startup info.
+# Ensure the scan_user has write permissions to this path.
+# Default: /var/log/clamav/clamd.log
+# --------------------------------------------------------------------------
+Log {{ (log_file | default('/var/log/clamav/clamd.log')) | string }}
+
+# Log verbosity level (0–5).
+# 0 = errors only, 5 = debug (very verbose, not recommended for production).
+# Default: 0
+# --------------------------------------------------------------------------
+LogVerbose {{ (log_verbose | default(0)) | string }}
+
+# Enable automatic log rotation based on size.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (log_rotate | default(true)) | bool %}
+LogRotate yes
+{% else %}
+LogRotate no
+{% endif %}
+
+# Maximum log file size (in MB) before rotation occurs.
+# Default: 10
+# --------------------------------------------------------------------------
+LogRotateMaxSize {{ (log_rotate_max_size_mb | default(10)) | string }}M
+
+# --------------------------------------------------------------------------
+# PID File
+# --------------------------------------------------------------------------
+# Path to store the daemon's PID file for process management (systemd, init scripts).
+# Ensure the directory is writable by scan_user.
+# Default: /var/run/clamav/clamd.pid
+# --------------------------------------------------------------------------
+PidFile {{ (pid_file | default('/var/run/clamav/clamd.pid')) | string }}
+
+# --------------------------------------------------------------------------
+# Database Directory
+# --------------------------------------------------------------------------
+# Directory where virus signature databases (.cld/.cvd) are stored.
+# This directory must be writable by the freshclam updater process
+# and readable by the clamd daemon user.
+# Default: /var/lib/clamav
+# --------------------------------------------------------------------------
+DatabaseDirectory {{ (database_directory | default('/var/lib/clamav')) | string }}
+
+# --------------------------------------------------------------------------
+# Local Update Logging
+# --------------------------------------------------------------------------
+# If enabled, logs freshclam update activity to a file inside database_directory.
+# Note: clamd itself does NOT update signatures; freshclam must be run separately.
+# Default: false
+# --------------------------------------------------------------------------
+{% if (enable_local_update | default(false)) | bool %}
+UpdateLogFile {{ (database_directory | default('/var/lib/clamav')) }}/freshclam.log
+{% else %}
+# UpdateLogFile /var/log/clamav/freshclam.log
+{% endif %}
+
+# --------------------------------------------------------------------------
+# PUA Category Selection
+# --------------------------------------------------------------------------
+# List of PUA categories to detect. Only effective if PUAScan=yes.
+# If empty, all configured PUA categories are scanned.
+# Example values: 'Adware', 'Tool', 'Spyware'
+# --------------------------------------------------------------------------
+{% if pua_categories is defined and pua_categories | length > 0 %}
+{% for pua_category in pua_categories %}
+PUACategory {{ pua_category | string }}
 {% endfor %}
+{% else %}
+# No specific PUA categories defined; scan all enabled PUA types
+{% endif %}
 
-# Exclude paths (e.g., to avoid scanning /proc, /sys, or mount points)
-{% for exclude_path in exclude_paths %}ExcludePath {{ exclude_path }}
+# --------------------------------------------------------------------------
+# Path Exclusions
+# --------------------------------------------------------------------------
+# List of file or directory paths to EXCLUDE from scanning.
+# Useful to skip system directories (/proc, /sys) or mount points.
+# Default: ['/proc', '/sys', '/dev', '/run']
+# --------------------------------------------------------------------------
+{% if exclude_paths is defined %}
+{% for exclude_path in exclude_paths %}
+ExcludePath {{ exclude_path | string }}
 {% endfor %}
-
-# Include paths (if left empty, scan everything under /)
-{% if include_paths %}{% for include_path in include_paths %}IncludePath {{ include_path }}
-{% endfor %}{% else %}# IncludePath /home
+{% else %}
+# ExcludePath /proc
+# ExcludePath /sys
+# ExcludePath /dev
+# ExcludePath /run
 {% endif %}
 
-# Scan mail files (enables RFC822 parsing, multipart handling, etc.)
-{% if enable_mail_scan %}ScanMail yes
-{% else %}ScanMail no
+# --------------------------------------------------------------------------
+# Path Inclusions
+# --------------------------------------------------------------------------
+# Optional list of paths to scan EXCLUSIVELY.
+# If this list is empty, the entire filesystem (under /) is scanned
+# (subject to exclusions). If populated, only these paths are scanned.
+# Default: [] (empty, scan everything minus exclusions)
+# --------------------------------------------------------------------------
+{% if include_paths is defined and include_paths | length > 0 %}
+{% for include_path in include_paths %}
+IncludePath {{ include_path | string }}
+{% endfor %}
+{% else %}
+# IncludePath /home
+# No inclusion list defined; scan all paths except exclusions
 {% endif %}
 
-# Scan embedded URLs in documents (PDF, HTML, etc.)
-{% if enable_embedded_urls %}ScanEmbedded yes
-{% else %}ScanEmbedded no
+# --------------------------------------------------------------------------
+# Protocol-Specific Scanning
+# --------------------------------------------------------------------------
+# Enable scanning of email files (RFC822 parsing, multipart support).
+# Essential for mail gateway deployments.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_mail_scan | default(true)) | bool %}
+ScanMail yes
+{% else %}
+ScanMail no
 {% endif %}
 
-# Enable archive scanning (RAR, ZIP, tar, etc.)
-{% if enable_archive_scan %}ScanArchive yes
-{% else %}ScanArchive no
+# Detect embedded URLs in documents (PDF, HTML, etc.) for phishing detection.
+# Default: false
+# --------------------------------------------------------------------------
+{% if (enable_embedded_urls | default(false)) | bool %}
+ScanEmbedded yes
+{% else %}
+ScanEmbedded no
 {% endif %}
 
-# Scan for broken/invalid archives (may reduce false positives)
-{% if enable_broken_scan %}ScanBrokenArchive yes
-{% else %}ScanBrokenArchive no
+# Enable scanning inside various archive formats (ZIP, RAR, 7z, tar, etc.).
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_archive_scan | default(true)) | bool %}
+ScanArchive yes
+{% else %}
+ScanArchive no
 {% endif %}
 
-# Enable bytecode interpreter (for advanced signatures)
-{% if enable_bytecode %}Bytecode yes
-{% else %}Bytecode no
+# Scan for broken or invalid archives.
+# May catch malformed threats but can cause errors on corrupted files.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_broken_scan | default(true)) | bool %}
+ScanBrokenArchive yes
+{% else %}
+ScanBrokenArchive no
 {% endif %}
 
-# Trust bytecode signatures (requires Bytecode = yes)
-{% if trust_bytecode %}BytecodeTrust all
-{% elif partial_trust_bytecode %}BytecodeTrust signed
-{% else %}BytecodeTrust none
+# --------------------------------------------------------------------------
+# Bytecode Support
+# --------------------------------------------------------------------------
+# Enable the bytecode interpreter for advanced ClamAV signatures.
+# Some detections require bytecode execution.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_bytecode | default(true)) | bool %}
+Bytecode yes
+{% else %}
+Bytecode no
 {% endif %}
 
-# Enable extra signatures via local .crb/.ign files (if any)
-{% if extra_signatures_path %}DatabaseCustomPath {{ extra_signatures_path }}
-{% else %}# DatabaseCustomPath /var/lib/clamav/custom
+# Trust level for bytecode signatures.
+# 'all' = unsafe (run untrusted bytecode), 'signed' = recommended (only trusted),
+# 'none' = disable bytecode trust.
+# Requires Bytecode=yes.
+# Default: none
+# --------------------------------------------------------------------------
+{% if (trust_bytecode | default('none')) == 'all' %}
+BytecodeTrust all
+{% elif (trust_bytecode | default('none')) == 'signed' %}
+BytecodeTrust signed
+{% else %}
+BytecodeTrust none
 {% endif %}
 
-# Scan PE section headers (helps detect packed EXEs)
-{% if enable_pe_scan %}ScanPE yes
-{% else %}ScanPE no
+# --------------------------------------------------------------------------
+# Custom Signatures
+# --------------------------------------------------------------------------
+# Optional directory containing custom .crb/.ign signature files.
+# Allows internal organizations to deploy custom detection rules.
+# Default: '' (empty, no custom signatures)
+# --------------------------------------------------------------------------
+{% if (extra_signatures_path | default('')) != '' %}
+DatabaseCustomPath {{ (extra_signatures_path | default('')) | string }}
+{% else %}
+# DatabaseCustomPath /var/lib/clamav/custom
 {% endif %}
 
-# Scan ELF binaries
-{% if enable_elf_scan %}ScanELF yes
-{% else %}ScanELF no
+# --------------------------------------------------------------------------
+# Binary Format Scanning
+# --------------------------------------------------------------------------
+# Scan Windows PE (Portable Executable) files.
+# Essential for detecting malware on mixed-platform environments.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_pe_scan | default(true)) | bool %}
+ScanPE yes
+{% else %}
+ScanPE no
 {% endif %}
 
-# Scan PDF documents
-{% if enable_pdf_scan %}ScanPDF yes
-{% else %}ScanPDF no
+# Scan ELF (Executable and Linkable Format) binaries.
+# Standard for Linux/Unix executables.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_elf_scan | default(true)) | bool %}
+ScanELF yes
+{% else %}
+ScanELF no
 {% endif %}
 
-# Scan HTML/JS for suspicious patterns
-{% if enable_html_scan %}ScanHTML yes
-{% else %}ScanHTML no
+# Scan PDF documents for malicious JavaScript and embedded files.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_pdf_scan | default(true)) | bool %}
+ScanPDF yes
+{% else %}
+ScanPDF no
 {% endif %}
 
-# Scan office documents (DOC, XLS, PPT)
-{% if enable_office_scan %}ScanOffice yes
-{% else %}ScanOffice no
+# Scan HTML files for suspicious scripts and embedded objects.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_html_scan | default(true)) | bool %}
+ScanHTML yes
+{% else %}
+ScanHTML no
 {% endif %}
 
-# Scan SWF (Flash) files
-{% if enable_swf_scan %}ScanSWF yes
-{% else %}ScanSWF no
+# Scan Microsoft Office documents for macro viruses.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_office_scan | default(true)) | bool %}
+ScanOffice yes
+{% else %}
+ScanOffice no
 {% endif %}
 
-# Scan hwp (Hangul Word Processor) files
-{% if enable_hwp_scan %}ScanHWP yes
-{% else %}ScanHWP no
+# Scan Flash (SWF) files for exploits.
+# Default: true
+# --------------------------------------------------------------------------
+{% if (enable_swf_scan | default(true)) | bool %}
+ScanSWF yes
+{% else %}
+ScanSWF no
 {% endif %}
 
-# Enable notifications on infected files (used by clamdscan, not clamd itself)
-# (This section is informational only; clamd reports via log or syslog)
-# If you use ClamDNotify in your mail or web service, configure it separately.
+# Scan Korean HWP (Hangul Word Processor) documents.
+# Required only in Korean-language environments.
+# Default: false
+# --------------------------------------------------------------------------
+{% if (enable_hwp_scan | default(false)) | bool %}
+ScanHWP yes
+{% else %}
+ScanHWP no
+{% endif %}

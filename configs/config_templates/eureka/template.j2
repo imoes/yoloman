@@ -1,0 +1,64 @@
+{# ============================================================================== #}
+{# Configuration file for Eureka (DOOM map editor)                             #}
+{# Generated from Ansible role template. Self-documenting via schema defaults.  #}
+{# ============================================================================== #}
+
+{# Installation directory for Eureka assets (game definitions, key bindings, etc.). #}
+{# Path: absolute, overrides auto-detection of the engine's share path.             #}
+--install {{ install_dir | default('/usr/local/share/eureka') }}
+
+{# User home directory for config, backups, logs. #}
+{# Path: relative (e.g. ~/.eureka) or absolute. Used as base for other relative paths. #}
+--home {{ home_dir | default('~/.eureka') }}
+
+{# Path (relative or absolute) to the log file. #}
+{# If relative, resolved against home_dir. #}
+--log {{ log_file | default('logs.txt') }}
+
+{# Path (relative or absolute) to the config file. #}
+{# If relative, resolved against home_dir. #}
+--config {{ config_file | default('config.cfg') }}
+
+{# List of WAD files to edit. If empty, the first map in the IWAD is opened. #}
+{# Output as space-separated arguments on the command line. #}
+{# wad_files is a list; if undefined, default to empty list []. #}
+{% set _wad_files = wad_files | default([]) %}
+{% if _wad_files | length > 0 %}
+{% for f in _wad_files %}{{ f }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endif %}
+
+{# Map to edit (e.g., MAP01, E1M1, 01, 1 1). #}
+{# If empty, defaults to first map in WAD. Uses --warp flag. #}
+{% set _map_name = (map_name | default('')) | trim %}
+{% if _map_name != '' %}
+--warp {{ _map_name }}
+{% endif %}
+
+{# Name of the IWAD file. Determines the target game (Doom, Heretic, etc.). #}
+{# Typically a .wad file located in share or home directory. #}
+--iwad {{ iwad_file | default('doom.wad') }}
+
+{# List of resource WADs and/or .ugh definition files to merge. #}
+{# Each item is passed as --merge <file>. #}
+{# resource_files is a list; if undefined, default to empty list []. #}
+{% set _resource_files = resource_files | default([]) %}
+{% if _resource_files | length > 0 %}
+{% for f in _resource_files %}--merge {{ f }}
+{% endfor %}
+{% endif %}
+
+{# Target port/engine name (e.g., boom, vanilla, odamex, edge, legacy). #}
+{# Selects which underlying Doom engine implementation to invoke. #}
+--port {{ port_name | default('boom') }}
+
+{# Enable quiet mode (suppress stdout messages). #}
+{# Use boolean true/false. #}
+{% if quiet | default(false) | bool %}
+--quiet
+{% endif %}
+
+{# Enable debug mode (emit verbose logs). #}
+{# Use boolean true/false. #}
+{% if debug | default(false) | bool %}
+--debug
+{% endif %}

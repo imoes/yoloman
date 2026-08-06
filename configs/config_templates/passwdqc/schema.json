@@ -6,28 +6,67 @@
   },
   "min_length": {
     "type": "string",
-    "default": "disabled:14:11:6",
-    "description": "Minimum lengths for passwords, encoded as 'disabled:class:min:length'. Format: disabled (off), weak (14 chars), medium (11), strong (6). Example: 'disabled:14:11:6'"
+    "default": "disabled,24,11,8,7",
+    "description": "Minimum lengths for passwords, encoded as 'disabled:class:min:length'. Format: disabled (off), weak (24 chars), medium (11), strong (8), extra (7). Example: 'disabled,24,11,8,7'"
   },
   "max_length": {
     "type": "number",
-    "default": 0,
+    "default": 72,
     "description": "Maximum password length in characters. Set to 0 for no upper limit."
   },
-  "similar": {
+  "min_passphrase_length": {
     "type": "number",
-    "default": 0,
-    "description": "Minimum number of different character classes (upper, lower, digit, other) required in password. 0 = no requirement."
+    "default": 3,
+    "description": "Minimum number of words in a passphrase. 0 = no passphrase support."
   },
-  "dictionary_path": {
+  "min_match_length": {
+    "type": "number",
+    "default": 4,
+    "description": "Minimum length of substrings that must match (case-insensitive) to reject password."
+  },
+  "similar": {
     "type": "string",
-    "default": "/usr/share/dict/words",
-    "description": "Path to word list for dictionary-based rejection. Set to 'none' to disable."
+    "default": "deny",
+    "description": "Whether to deny passwords similar to the old one. Values: 'deny', 'allow'.",
+    "enum": [
+      "deny",
+      "permit"
+    ]
+  },
+  "min_random_length": {
+    "type": "number",
+    "default": 47,
+    "description": "Minimum length of randomly generated passwords."
+  },
+  "enforce_for": {
+    "type": "string",
+    "default": "everyone",
+    "description": "Which users to enforce password checking on. Values: 'everyone', 'admin', 'nonroot'."
+  },
+  "retry_limit": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of authentication attempts allowed before locking. 0 = no limit."
+  },
+  "wordlist_path": {
+    "type": "string",
+    "default": "/usr/share/john/password.lst",
+    "description": "Path to wordlist for additional rejection rules. Set to 'none' to disable."
+  },
+  "denylist_path": {
+    "type": "string",
+    "default": "/etc/passwdqc.deny",
+    "description": "Path to explicit denylist file."
+  },
+  "filter_path": {
+    "type": "string",
+    "default": "/opt/passwdqc/hibp.pwq",
+    "description": "Path to custom filter script."
   },
   "reject_user_name": {
     "type": "bool",
     "default": true,
-    "description": "Reject passwords containing the user's login name or gecos (full name) fields."
+    "description": "Reject passwords containing the user's login name or gecos (full name) fields. (Mapped via enforce=everyone; handled internally by passwdqc when enforced for non-root users.)"
   },
   "unique_chars": {
     "type": "number",
@@ -49,27 +88,9 @@
     "default": false,
     "description": "Allow empty (blank) passwords."
   },
-  "retry_limit": {
-    "type": "number",
-    "default": 1,
-    "description": "Maximum number of authentication attempts allowed before locking. 0 = no limit."
-  },
   "extra_options": {
     "type": "list",
     "default": [],
-    "description": "Additional key=value pairs for advanced or optional passwdqc settings.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "kw": {
-          "type": "string",
-          "description": "Configuration keyword (e.g., 'enforce_for_root', 'passminlen')"
-        },
-        "val": {
-          "type": "string",
-          "description": "Value to assign to the keyword"
-        }
-      }
-    }
+    "description": "Additional key=value pairs for advanced or optional passwdqc settings. (Note: Values are applied as-is and appended to config; not used in template above, which uses only standard keys.)"
   }
 }

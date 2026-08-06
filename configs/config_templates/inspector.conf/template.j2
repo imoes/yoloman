@@ -1,114 +1,137 @@
+# =============================================================================
+# Ironic Inspector Configuration Template
+# =============================================================================
+# This file configures the Ironic Inspector service, which handles hardware
+# introspection for OpenStack Ironic. It manages PXE boot parameters,
+# DHCP filtering, and connects to the Ironic API for node management.
+# =============================================================================
+
 [DEFAULT]
+
 # The name of the service (used for logging and service discovery)
-service_name = {{ service_name }}
+service_name = {{ (service_name | default('ironic-inspector')) | string }}
 
-# Enable debug logging (set to true for troubleshooting)
-debug = {{ debug }}
+# Enable debug logging for detailed troubleshooting
+debug = {{ (debug | default(False)) | lower }}
 
-# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level = {{ log_level }}
+# Global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_level = {{ (log_level | default('INFO')) | upper }}
 
-# Log file path (empty string disables file logging)
-log_file = {{ log_file }}
+# Path to the inspector log file; leave empty to log only to stdout
+log_file = {{ (log_file | default('/var/log/ironic-inspector/inspector.log')) | string }}
 
-# Listen host and port for the API endpoint
-bind_host = {{ bind_host }}
-bind_port = {{ bind_port }}
+# Network interface IP address to bind the API server to
+bind_host = {{ (bind_host | default('0.0.0.0')) | string }}
 
-# Path to the root of the IPA (Inspector's Provisioning Agent) image
-ipa_ramdisk_path = {{ ipa_ramdisk_path }}
+# Port number for the API endpoint
+bind_port = {{ (bind_port | default(5050)) | int }}
 
-# Type of IPA ramdisk: pxelinux or ipxe (selects boot method)
-ipa_ramdisk_type = {{ ipa_ramdisk_type }}
+# Absolute path to the Inspector's Provisioning Agent ramdisk image
+ipa_ramdisk_path = {{ (ipa_ramdisk_path | default('/var/lib/ironic-inspector/ipa-initramfs')) | string }}
 
-# Enable TLS for API endpoints (requires cert/key below)
-enable_tls = {{ enable_tls }}
+# IPA ramdisk type: 'pxelinux' for legacy BIOS/PXE or 'ipxe' for iPXE support
+ipa_ramdisk_type = {{ (ipa_ramdisk_type | default('pxelinux')) | string }}
 
-# TLS certificate and private key paths (only used if enable_tls is true)
-tls_cert = {{ tls_cert }}
-tls_key = {{ tls_key }}
+# Enable TLS encryption for the API endpoint (requires cert and key paths)
+enable_tls = {{ (enable_tls | default(False)) | lower }}
 
-# Maximum number of concurrent cleaning steps per node
-max_concurrent_cleaning_steps = {{ max_concurrent_cleaning_steps }}
+# Path to TLS certificate file (only used if TLS is enabled)
+tls_cert = {{ (tls_cert | default('/etc/ironic-inspector/ssl/inspector.crt')) | string }}
 
-# Maximum number of retries for cleaning/inspection steps
-max_clean_retries = {{ max_clean_retries }}
-max_inspect_retries = {{ max_inspect_retries }}
+# Path to TLS private key file (only used if TLS is enabled)
+tls_key = {{ (tls_key | default('/etc/ironic-inspector/ssl/inspector.key')) | string }}
 
-# Interval (seconds) between retry attempts for cleaning/inspection
-retry_interval = {{ retry_interval }}
+# Maximum number of cleaning steps executed concurrently per node
+max_concurrent_cleaning_steps = {{ (max_concurrent_cleaning_steps | default(3)) | int }}
 
-# Enable or disable automatic node enrollment on successful inspection
-enroll_nodes = {{ enroll_nodes }}
+# Maximum number of retries for cleaning operations
+max_clean_retries = {{ (max_clean_retries | default(3)) | int }}
 
-# Default ironic auth strategy: keystone or noauth
-ironic_auth_strategy = {{ ironic_auth_strategy }}
+# Maximum number of retries for inspection operations
+max_inspect_retries = {{ (max_inspect_retries | default(2)) | int }}
 
-# Keystone endpoint type (publicURL, internalURL, adminURL)
-ironic_endpoint_type = {{ ironic_endpoint_type }}
+# Seconds to wait between retry attempts
+retry_interval = {{ (retry_interval | default(10)) | int }}
 
-# Identity API version (v2.0 or v3)
-ironic_identity_api_version = {{ ironic_identity_api_version }}
+# Automatically create new node records in Ironic upon successful inspection
+enroll_nodes = {{ (enroll_nodes | default(True)) | lower }}
 
-# URL of the Ironic API endpoint
-ironic_url = {{ ironic_url }}
+# Authentication strategy used for Ironic API calls ('keystone' or 'noauth')
+ironic_auth_strategy = {{ (ironic_auth_strategy | default('keystone')) | string }}
 
-# Ironic username (used if keystone auth is enabled and no token provided)
-ironic_username = {{ ironic_username }}
+# Endpoint type used to locate Ironic API ('publicURL', 'internalURL', or 'adminURL')
+ironic_endpoint_type = {{ (ironic_endpoint_type | default('publicURL')) | string }}
 
-# Ironic password (used if keystone auth is enabled)
-ironic_password = {{ ironic_password }}
+# Keystone API version ('v2.0' or 'v3')
+ironic_identity_api_version = {{ (ironic_identity_api_version | default('v3')) | string }}
 
-# Ironic project name (for keystone v3)
-ironic_project_name = {{ ironic_project_name }}
+# Base URL of the Ironic API service
+ironic_url = {{ (ironic_url | default('http://localhost:6385')) | string }}
 
-# Ironic user domain name (for keystone v3)
-ironic_user_domain_name = {{ ironic_user_domain_name }}
+# Service username for Ironic API authentication (if keystone is used)
+ironic_username = {{ (ironic_username | default('ironic')) | string }}
 
-# Ironic project domain name (for keystone v3)
-ironic_project_domain_name = {{ ironic_project_domain_name }}
+# Service password for Ironic API authentication (if keystone is used)
+ironic_password = {{ (ironic_password | default('')) | string }}
 
-# Enable or disable DHCP filtering (requires dnsmasq)
-dhcp_filter = {{ dhcp_filter }}
+# Keystone project (tenant) name for the Ironic service (v3 only)
+ironic_project_name = {{ (ironic_project_name | default('services')) | string }}
+
+# Keystone user domain name (v3 only)
+ironic_user_domain_name = {{ (ironic_user_domain_name | default('Default')) | string }}
+
+# Keystone project domain name (v3 only)
+ironic_project_domain_name = {{ (ironic_project_domain_name | default('Default')) | string }}
+
+# Enable DHCP filtering using dnsmasq to restrict PXE boot to inspected nodes
+dhcp_filter = {{ (dhcp_filter | default(True)) | lower }}
 
 # DNSMasq configuration options
 # If enabled, the inspector will manage dnsmasq configuration for PXE boot
 [dnsmasq]
-# Path to dnsmasq configuration directory
-dnsmasq_config_dir = {{ dnsmasq_config_dir }}
 
-# Path to dnsmasq PID file
-dnsmasq_pid_file = {{ dnsmasq_pid_file }}
+# Directory where dnsmasq looks for configuration files
+dnsmasq_config_dir = {{ (dnsmasq_config_dir | default('/etc/dnsmasq.d')) | string }}
 
-# DNSMasq interface to bind to (e.g., br-ctlplane)
-dnsmasq_interface = {{ dnsmasq_interface }}
+# Path to the dnsmasq PID file
+dnsmasq_pid_file = {{ (dnsmasq_pid_file | default('/run/dnsmasq/dnsmasq.pid')) | string }}
 
-# DNSMasq DHCP range for introspection (start IP,end IP)
-dnsmasq_dhcp_range = {{ dnsmasq_dhcp_range }}
+# Network interface used for DHCP provisioning (e.g., 'br-ctlplane')
+dnsmasq_interface = {{ (dnsmasq_interface | default('br-ctlplane')) | string }}
 
-# DNSMasq PXE boot filename
-pxe_bootfile_name = {{ pxe_bootfile_name }}
+# DHCP range (IP start,IP end) for PXE-booting nodes
+dnsmasq_dhcp_range = {{ (dnsmasq_dhcp_range | default('192.168.100.10,192.168.100.100')) | string }}
 
-# List of DNS servers to provide via DHCP (e.g., ['8.8.8.8', '1.1.1.1'])
-dnsmasq_dns_servers = {% for dns in dnsmasq_dns_servers %}{{ dns }}{% if not loop.last %}, {% endif %}{% endfor %}
+# PXE boot filename served to nodes (e.g., 'pxelinux.0', 'efi/ipxe.efi')
+pxe_bootfile_name = {{ (pxe_bootfile_name | default('pxelinux.0')) | string }}
 
-{% if ironic_concurrency_workers %}
+# List of DNS servers provided to nodes via DHCP
+dnsmasq_dns_servers = {{ ((dnsmasq_dns_servers | default(['8.8.8.8', '8.8.4.4'])) | map('string') | join(', ')) }}
+
 # Concurrency settings for Ironic API calls
+# If max_workers is defined, these settings apply
+{% if max_workers is defined %}
 [concurrency]
-# Maximum number of concurrent workers processing introspection events
-max_workers = {{ max_workers }}
+
+# Maximum number of concurrent workers for Ironic API operations
+max_workers = {{ (max_workers | default(10)) | int }}
 {% endif %}
 
-{% for rule in ipxe_rules %}
+# iPXE script rules configuration
+# Defines custom boot scripts for nodes supporting iPXE
+{% for rule in (ipxe_rules | default([{'name': 'default', 'chain': 'true', 'description': 'Default iPXE script chain to IPA ramdisk'}])) %}
 # {{ rule.description }}
 [ipxe:{{ rule.name }}]
+
 # {{ rule.description }}
-chain = {{ rule.chain }}
+chain = {{ rule.chain | default('true') | string }}
 {% endfor %}
 
 # Logging configuration (optional; overrides DEFAULT log_level per module)
 [logging]
+
 # Log level for specific modules
-{% for module, level in log_levels_by_module.items() %}# Logging level for {{ module }}
-{{ module }} = {{ level }}
+{% for item in (log_levels_by_module | default({'ironic_inspector': 'INFO', 'sqlalchemy': 'WARNING'})) | dict2items %}
+# Logging level for {{ item.key }}
+{{ item.key }} = {{ item.value }}
 {% endfor %}

@@ -1,123 +1,145 @@
-{# Kea DHCP DDNS server configuration #}
+{# Kea DHCP DDNS Server Configuration Template
+#
+# This template generates a JSON configuration file for the Kea DHCP DDNS server component.
+# It handles dynamic DNS updates for DHCP-allocated leases.
+#
+# Key variables (from schema):
+#   - workers: int, default 1. Worker threads.
+#   - dns_servers: list of dicts, default [{'ip': '127.0.0.1', 'port': 53}]. Upstream DNS servers.
+#   - domains: list of dicts, default []. DNS zones/areas to manage.
+#   - statistics_interval: int, default 0. Stats emission interval in seconds.
+#   - json_pretty_print: bool, default True. Human-readable JSON output.
+#   - reconfigure_processing: bool, default True. Accept SIGHUP for reload.
+#   - log_output: string, default 'stderr'. Log destination (stderr, syslog, or path).
+#   - log_severity: string, default 'INFO'. Min log level.
+#   - log_debuglevel: int, default 99. Debug verbosity.
+#   - log_trace_output: string, default ''. Trace file path.
+#   - control_channel: dict or None. Control socket config.
+#   - hooks_libraries: list of dicts, default []. Dynamic libraries to load.
+#   - lease_file: string or None. Path to lease file.
+#   - max_queue_size: int, default 1000. Max pending DDNS requests.
+#   - ttl: int, default 1200. TTL for DDNS entries.
+#}
 {
   "DhcpDdns": {
-    {# Controls the number of server instances (workers) #}
-    "workers": {{ workers }},
+    {# Number of worker threads for handling incoming requests. #}
+    "workers": {{ workers | default(1) }},
 
-    {# List of DNS servers to send update requests to #}
+    {# List of DNS servers to send DDNS update requests to. #}
     "dns-servers": [
-      {% for server in dns_servers %}
-      {# IP address and port of each DNS server #}
+      {% for server in (dns_servers | default([{'ip': '127.0.0.1', 'port': 53}])) %}
       {
-        "ip-address": "{{ server.ip }}",
-        "port": {{ server.port }}
+        "ip-address": "{{ (server | default({})).ip | default('127.0.0.1') }}",
+        "port": {{ (server | default({})).port | default(53) }}
       }{% if not loop.last %},{% endif %}
       {% endfor %}
     ],
 
-    {# Domain name to update (zone) #}
+    {# List of DNS zones to manage updates for. #}
     "domains": [
-      {% for domain in domains %}
+      {% for domain in (domains | default([])) %}
       {
         {# Name of the DNS zone (e.g., "example.com.") #}
-        "name": "{{ domain.name }}",
-        
+        "name": "{{ (domain | default({})).name | default('') }}",
+
         {# DNS update key name (must match TSIG key name) #}
-        "dns-server-key-name": "{{ domain.key_name }}",
-        
+        "dns-server-key-name": "{{ (domain | default({})).dns_server_key_name | default('') }}",
+
         {# DDNS backend type: 'memfile' (file-based) or 'mysql' (database) #}
-        "ddns-backend": "{{ domain.backend }}",
-        
-        {# Optional: update counter (for statistics) #}
-        {# Only present if update_counter is enabled #}
-        {% if domain.update_counter is defined %}
+        "ddns-backend": "{{ (domain | default({})).ddns_backend | default('memfile') }}",
+
+        {# Optional: update counter configuration #}
+        {% if (domain | default({})).update_counter is defined and (domain | default({})).update_counter %}
         "update-counter": {
-          "name": "{{ domain.update_counter.name }}",
-          "key": "{{ domain.update_counter.key }}"
+          "name": "{{ ((domain | default({})).update_counter | default({})).name | default('') }}",
+          "key": "{{ ((domain | default({})).update_counter | default({})).key | default('') }}"
         },
         {% endif %}
-        
+
         {# Optional: zone-specific DNS server override #}
-        {# If not set, global dns-servers used #}
-        {% if domain.dns_servers is defined and domain.dns_servers | length > 0 %}
+        {% if (domain | default({})).dns_servers is defined and ((domain | default({})).dns_servers | default([])) | length > 0 %}
         "dns-servers": [
-          {% for srv in domain.dns_servers %}
+          {% for srv in ((domain | default({})).dns_servers | default([])) %}
           {
-            "ip-address": "{{ srv.ip }}",
-            "port": {{ srv.port }}
+            "ip-address": "{{ (srv | default({})).ip | default('127.0.0.1') }}",
+            "port": {{ (srv | default({})).port | default(53) }}
           }{% if not loop.last %},{% endif %}
           {% endfor %}
         ],
         {% endif %}
-        
-        {# Optional: control channel for this domain (if using control API per domain) #}
-        {% if domain.control_channel is defined %}
+
+        {# Optional: control channel for this domain #}
+        {% if (domain | default({})).control_channel is defined and (domain | default({})).control_channel %}
         "control-channel": {
           "socket-type": "unix",
-          "socket-name": "{{ domain.control_channel.socket_name }}"
+          "socket-name": "{{ ((domain | default({})).control_channel | default({})).socket_name | default('') }}"
         },
         {% endif %}
       }{% if not loop.last %},{% endif %}
       {% endfor %}
     ],
 
-    {# Controls how often to log statistics (0 = disabled) #}
-    "statistics-interval": {{ statistics_interval }},
+    {# Interval (in seconds) for emitting DDNS statistics. Set to 0 to disable. #}
+    "statistics-interval": {{ statistics_interval | default(0) }},
 
-    {# Controls whether to emit JSON output in a pretty-printed format #}
-    "json-pretty-print": {{ json_pretty_print | lower }},
+    {# Whether to format JSON output with indentation (helps readability). #}
+    "json-pretty-print": {{ json_pretty_print | default(true) | lower }},
 
-    {# Controls whether to accept dynamic reconfiguration via SIGHUP #}
-    "reconfigure-processing": {{ reconfigure_processing | lower }},
+    {# Enable/disable dynamic reconfiguration via SIGHUP. #}
+    "reconfigure-processing": {{ reconfigure_processing | default(true) | lower }},
 
-    {# Logging configuration #}
+    {# Logging configuration block #}
     "logging": {
       "loggers": [
         {
           "name": "kea-dhcp-ddns",
           "output_options": [
             {
-              "output": "{{ log_output }}"
+              {# Output destination for logs (stderr, syslog, or file path). #}
+              "output": "{{ log_output | default('stderr') }}"
             }
           ],
-          "severity": "{{ log_severity }}",
-          "debuglevel": {{ log_debuglevel }},
-          "trace_output": "{{ log_trace_output }}"
+          {# Minimum log severity level (messages at this level and above are logged). #}
+          "severity": "{{ log_severity | default('INFO') }}",
+          {# Debug level (0–99); higher = more verbose. Ignored unless severity is DEBUG. #}
+          "debuglevel": {{ log_debuglevel | default(99) }},
+          {# Optional: Path to trace output file. If empty, trace output goes to main log. #}
+          "trace_output": "{{ log_trace_output | default('') }}"
         }
       ]
     },
 
-    {# Optional: control API channel configuration #}
-    {% if control_channel is defined %}
+    {# Configuration for the main control channel socket. #}
+    {% if control_channel is defined and control_channel %}
     "control-socket": {
       "socket-type": "unix",
-      "socket-name": "{{ control_channel.socket_name }}"
+      "socket-name": "{{ (control_channel | default({})).socket_name | default('') }}"
     },
     {% endif %}
 
-    {# Optional: hooks libraries #}
-    {% if hooks_libraries | length > 0 %}
+    {# List of shared libraries (hooks) to load. #}
+    {% if hooks_libraries | default([]) | length > 0 %}
     "hooks-libraries": [
-      {% for lib in hooks_libraries %}
+      {% for lib in hooks_libraries | default([]) %}
       {
-        "library": "{{ lib.library }}",
-        {% if lib.parameters is defined %}
-        "parameters": {{ lib.parameters | to_json }}
+        "library": "{{ (lib | default({})).library | default('') }}",
+        {% if (lib | default({})).parameters is defined %}
+        "parameters": {{ (lib | default({})).parameters | to_json }}
         {% endif %}
       }{% if not loop.last %},{% endif %}
       {% endfor %}
     ],
     {% endif %}
 
-    {# Optional: lease file location (if using file backend) #}
+    {# Path to the lease file (only relevant when using file-based backend). #}
     {% if lease_file is defined %}
     "lease-file": "{{ lease_file }}",
     {% endif %}
 
-    {# Optional: max queue size for DNS updates #}
-    "max-queue-size": {{ max_queue_size }},
+    {# Maximum number of pending DNS update requests queued before dropping. #}
+    "max-queue-size": {{ max_queue_size | default(1000) }},
 
-    {# Optional: DNS update TTL (seconds) #}
-    "ttl": {{ ttl }}
+    {# Time-to-live (in seconds) for dynamic DNS entries. #}
+    "ttl": {{ ttl | default(1200) }}
   }
 }

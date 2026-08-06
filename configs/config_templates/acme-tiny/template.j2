@@ -1,0 +1,54 @@
+{# ============================================================================== #}
+{# acme-tiny: ACME client for Let's Encrypt certificate issuance                  #}
+{# This template generates a shell command line to run acme-tiny with the         #}
+{# specified parameters. All variables use schema defaults to ensure safe         #}
+{# rendering even when the variable is undefined in the playbook.                #}
+{# ============================================================================== #}
+
+{# --contact: List of contact URIs (e.g., ['mailto:admin@example.com']).          #}
+{# If provided, appends --contact <space-separated list> to the command.          #}
+{# The contact list is joined by spaces for the command-line argument.            #}
+{% if contact | default([]) | length > 0 %}
+--contact {{ contact | default([]) | join(' ') }} \
+{% endif %}
+
+{# --account-key: Path to the Let's Encrypt account private key file.             #}
+{# This private key is used to identify the account with the CA.                  #}
+--account-key {{ account_key | default('/etc/ssl/acme/account.key') }} \
+
+{# --csr: Path to the certificate signing request (CSR) file.                     #}
+{# The CSR contains the public key and requested certificate details.             #}
+--csr {{ csr | default('/etc/ssl/acme/domain.csr') }} \
+
+{# --acme-dir: Path to the ACME challenge directory (must be served at            #}
+{# /.well-known/acme-challenge/ by the web server).                               #}
+{# This directory is written by acme-tiny and must be accessible by the web       #}
+{# server to validate domain ownership.                                           #}
+--acme-dir {{ acme_dir | default('/var/www/.well-known/acme-challenge') }} \
+
+{# --directory-url: ACME directory URL (CA endpoint).                             #}
+{# Points to the ACME protocol implementation (e.g., Let's Encrypt).              #}
+{# Only included if explicitly provided (non-empty).                              #}
+{% if directory_url | default('https://acme-v02.api.letsencrypt.org/directory') != 'https://acme-v02.api.letsencrypt.org/directory' %}
+--directory-url {{ directory_url | default('https://acme-v02.api.letsencrypt.org/directory') }} \
+{% endif %}
+
+{# --disable-check: Disable the challenge file accessibility check before         #}
+{# submitting to the CA. Useful for non-standard setups.                          #}
+{# When enabled, acme-tiny skips verifying that the challenge file is reachable   #}
+{# via HTTP before attempting to finalize the order.                              #}
+{% if disable_check | default(False) | bool %}
+--disable-check \
+{% endif %}
+
+{# --quiet: Suppress non-error output.                                            #}
+{# When enabled, only error messages are printed to stderr.                       #}
+{% if quiet | default(True) | bool %}
+--quiet \
+{% endif %}
+
+{# Redirect stdout to the signed certificate chain file and append stderr to      #}
+{# the log file.                                                                  #}
+{# The resulting certificate chain is written to output_file, while any           #}
+{# informational or error logs are appended to log_file.                          #}
+> {{ output_file | default('/etc/ssl/acme/signed_chain.crt') }} 2>> {{ log_file | default('/var/log/acme-tiny.log') }}

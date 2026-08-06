@@ -20,7 +20,7 @@ EnableUsbDeviceProbing={{ enable_usb_device_probing | lower }}
 EnableAtPortAutoDetect={{ enable_at_port_auto_detect | lower }}
 # Enable/Disable firmware update support
 EnableFirmwareUpdate={{ enable_firmware_update | lower }}
-# Enable/Disable MBIM support
+# Enable/Disable MM-SMS (ModemManager's native SMS handling)
 EnableMmSms={{ enable_mm_sms | lower }}
 # Enable/Disable QMI support
 EnableQmi={{ enable_qmi | lower }}
@@ -45,3 +45,10 @@ UsbDeviceWhitelist={{ usb_device_whitelist | join(', ') }}
 # List of MM-specific options per plugin: plugin_name=key1=value1,key2=value2,...
 {% for plugin in plugin_options %}{{ plugin.name }}={{ plugin.options | join(',') }}
 {% endfor %}
+
+# Note: ModemManager configuration file does NOT support enabling/disabling MBIM
+# directly via a top-level boolean. Use `mmcli --create-modem --interface-type=mbim`
+# or udev rules for MBIM-specific handling.
+# The directive `EnableMmSms` was incorrectly named in the original as `EnableMmSms`
+# and is actually for enabling ModemManager's native SMS handling (not ofono).
+# Its default is true, and it's unrelated to MBIM.

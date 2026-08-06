@@ -1,20 +1,20 @@
-{# Cloudflare API email #}
-"email": "{{ cloudflare_email }}",
+{# Cloudflare account email address (used with API key for authentication). #}
+"email": "{{ cloudflare_email | default('') }}",
 
-{# Cloudflare API key (Global API Key or Origin CA Key) #}
-"key": "{{ cloudflare_api_key }}",
+{# Cloudflare API key (Global API Key or Origin CA Key). Do not expose in logs or configs shared publicly. #}
+"key": "{{ cloudflare_api_key | default('') }}",
 
-{# List of domains and records to manage #}
+{# List of domains and DNS records to manage with dynamic DNS. #}
 "domains": [
-{% for domain in domains %}
+{% for domain in domains | default([]) %}
   {
-    "domain": "{{ domain.name }}",
+    "domain": "{{ domain.name | default('') }}",
     "records": [
-{% for record in domain.records %}
+{% for record in domain.records | default([]) %}
       {
-        "name": "{{ record.name }}",
-        "type": "{{ record.type }}",
-        "ttl": {{ record.ttl }},
+        "name": "{{ record.name | default('') }}",
+        "type": "{{ record.type | default('A') }}",
+        "ttl": {{ record.ttl | default(300) }},
         "proxied": {{ 'true' if record.proxied else 'false' }}
       }{% if not loop.last %},{% endif %}
 {% endfor %}
@@ -23,8 +23,8 @@
 {% endfor %}
 ],
 
-{# Interval (in seconds) between updates #}
-"interval": {{ update_interval }},
+{# Interval (in seconds) between dynamic DNS update checks. Minimum recommended: 60. #}
+"interval": {{ update_interval | default(300) }},
 
-{# Enable debug logging #}
-"debug": {{ 'true' if debug else 'false' }}
+{# Enable verbose debug logging for troubleshooting. #}
+"debug": {{ debug | default(False) | ternary('true', 'false') }}

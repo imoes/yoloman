@@ -1,11 +1,13 @@
-# /etc/at.allow: List of usernames allowed to submit jobs with 'at'
-# If both /etc/at.allow and /etc/at.deny exist, only /etc/at.allow is consulted (atd behavior)
-{% for user in allow_users %}{{ user }}
+# /etc/at.allow: List of usernames allowed to submit jobs with 'at'.
+# If this file exists and contains users, it overrides /etc/at.deny.
+# Only listed users may use the 'at' command.
+{% for user in allow_users | default([]) %}{{ user }}
 {% endfor %}
 
-# /etc/at.deny: List of usernames denied from submitting jobs with 'at'
-# Only used if /etc/at.allow does NOT exist
-{% if not allow_users %}
-{% for user in deny_users %}{{ user }}
+# /etc/at.deny: List of usernames denied from submitting jobs with 'at'.
+# This file is consulted ONLY if /etc/at.allow does NOT exist or is empty.
+# If /etc/at.allow is present (even if empty), /etc/at.deny is ignored.
+{% if not allow_users | default([]) %}
+{% for user in deny_users | default([]) %}{{ user }}
 {% endfor %}
 {% endif %}

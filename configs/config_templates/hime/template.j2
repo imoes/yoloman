@@ -1,0 +1,136 @@
+{#
+  ============================================================================
+  Hime Input Method Framework Configuration
+  ============================================================================
+
+  This template generates the configuration environment/settings for the Hime
+  Input Method Framework. Hime is an open-source input method platform primarily
+  used for Chinese (Traditional and Simplified), Japanese, and Korean input on
+  Linux/Unix systems.
+
+  The generated content defines environment variables that must typically be
+  sourced in shell login scripts (.bash_profile, .profile) or set within
+  desktop environment session configurations.
+
+  Variables are self-documenting with their schema descriptions.
+  ============================================================================
+#}
+
+{#
+  ============================================================================
+  Input Method Tables Configuration
+  ============================================================================
+#}
+
+{#
+  hime_table_dir: Custom directory for input method tables.
+  If provided, this overrides the default system path (/usr/share/hime/table).
+  Keep empty or omit to use the system default.
+#}
+{% if hime_table_dir is defined and hime_table_dir | length > 0 %}
+HIME_TABLE_DIR={{ hime_table_dir }}
+{% else %}
+{# Default: Use system default table directory #}
+{# HIME_TABLE_DIR is left unset to allow Hime to fall back to /usr/share/hime/table #}
+{% endif %}
+
+{#
+  ============================================================================
+  Debugging and Diagnostic Options
+  ============================================================================
+#}
+
+{#
+  hime_connect_msg_on: Enable display of socket connection messages.
+  Set to true to log when Hime clients connect to the Hime server socket.
+  Default: false (silent operation)
+#}
+{% if hime_connect_msg_on is defined and hime_connect_msg_on %}
+HIME_CONNECT_MSG_ON=true
+{% endif %}
+
+{#
+  hime_dbg_tmp: Enable additional debug messages.
+  Set to true to output verbose debugging information to stderr/logs.
+  Recommended: false for production, true for troubleshooting.
+  Default: false
+#}
+{% if hime_dbg_tmp is defined and hime_dbg_tmp %}
+HIME_DBG_TMP=true
+{% endif %}
+
+{#
+  hime_err_coredump: Enable core dump on error.
+  Set to true to generate a core dump file if Hime crashes, aiding in debugging.
+  Note: Requires system ulimit/coredump settings to permit core dumps.
+  Default: false
+#}
+{% if hime_err_coredump is defined and hime_err_coredump %}
+HIME_ERR_COREDUMP=true
+{% endif %}
+
+{#
+  ============================================================================
+  Protocol Behavior Configuration
+  ============================================================================
+#}
+
+{#
+  hime_im_client_no_auto_exec: Disable auto-evoke in Hime protocol.
+  Set to true to prevent applications from automatically invoking Hime
+  when input focus is gained. Users must manually toggle input mode.
+  Default: false (auto-evoke enabled)
+#}
+{% if hime_im_client_no_auto_exec is defined and hime_im_client_no_auto_exec %}
+HIME_IM_CLIENT_NO_AUTO_EXEC=true
+{% endif %}
+
+{#
+  hime_output_filter: Path or name of output filter.
+  Specifies a filter program to process IM output data before it is sent
+  to client applications. Useful for preprocessing or normalization.
+  Leave empty to disable filtering.
+  Default: '' (empty)
+#}
+{% if hime_output_filter is defined and hime_output_filter | length > 0 %}
+HIME_OUTPUT_FILTER={{ hime_output_filter }}
+{% endif %}
+
+{#
+  ============================================================================
+  Locale and Toolkit Integration
+  ============================================================================
+
+  These variables configure the system locale for character type checking
+  (LC_CTYPE) and inform GUI toolkits (GTK, Qt) and X11 applications
+  about the input method module to use (@im=hime).
+
+  These MUST be present for Hime to function correctly as the active IM.
+#}
+
+{#
+  locale: Locale setting for LC_CTYPE.
+  Determines the character classification and collation rules used by Hime.
+  Common values: zh_TW.UTF-8 (Traditional Chinese), zh_CN.UTF-8 (Simplified Chinese),
+  ja_JP.UTF-8 (Japanese), ko_KR.UTF-8 (Korean).
+  Default: zh_TW.UTF-8
+#}
+LC_CTYPE={{ locale | default('zh_TW.UTF-8') }}
+
+{#
+  XMODIFIERS: X11 input method module identifier.
+  Tells X11 applications to use the Hime input method framework.
+#}
+XMODIFIERS=@im=hime
+
+{#
+  GTK_IM_MODULE: GTK Input Method module name.
+  Ensures GTK2/GTK3 applications route input through Hime.
+#}
+GTK_IM_MODULE=hime
+
+{#
+  QT_IM_MODULE: Qt Input Method module name.
+  Ensures Qt4/Qt5/Qt6 applications route input through Hime.
+#}
+QT_IM_MODULE=hime

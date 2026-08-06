@@ -1,0 +1,45 @@
+# ==============================================================================
+# heartbleeder Configuration Template
+# ==============================================================================
+# This template configures the 'heartbleeder' service, a tool for scanning
+# hosts for the Heartbleed vulnerability (CVE-2014-0160).
+#
+# Variables are sourced directly from Ansible variables.
+# ==============================================================================
+
+# Address to serve HTTP dashboard from.
+# Default: localhost:5000
+listen: "{{ (values | default({})).listen | default('localhost:5000') }}"
+
+# Seconds to wait before rechecking secure hosts.
+# Accepts duration strings like '10m0s' or numeric seconds.
+# Default: 10m0s
+refresh: "{{ (values | default({})).refresh | default('10m0s') }}"
+
+# Seconds to wait before retesting a host after an unfavorable response.
+# Accepts duration strings like '10s'.
+# Default: 10s
+retry: "{{ (values | default({})).retry | default('10s') }}"
+
+# Timeout after sending heartbeat.
+# Accepts duration strings like '5s'.
+# Default: 5s
+timeout: "{{ (values | default({})).timeout | default('5s') }}"
+
+# Number of workers to scan hosts with.
+# Default: 40
+workers: {{ (values | default({})).workers | default(40) }}
+
+# Path to a newline separated file with hosts or IPs.
+# If empty, hosts might be sourced from elsewhere or default behavior applies.
+# Default: (empty)
+{% if (values | default({})).hostfile is defined and (values | default({})).hostfile is not none and (values | default({})).hostfile != "" %}
+hostfile: "{{ (values | default({})).hostfile }}"
+{% endif %}
+
+# Check PostgreSQL TLS.
+# If true, enables specific checks for PostgreSQL servers using the heartbeat protocol.
+# Default: false
+{% if (values | default({})).pg | default(false) | bool %}
+pg: true
+{% endif %}

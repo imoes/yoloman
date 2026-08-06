@@ -1,64 +1,41 @@
-# Listen on this IP address for incoming DNS queries (UDP and TCP)
-listen: {{ listen_ip }}:{{ listen_port }}
+# CurveDNS configuration file.
+# This file configures the CurveDNS daemon, a lightweight DNS proxy/cache.
 
-# Upstream recursive resolver (forwarder) to handle non-Curve queries
-forward: {{ forward_host }}:{{ forward_port }}
+# listen_ip: IP address on which curvedns listens for incoming DNS queries (UDP/TCP).
+IP={{ (listen_ip | default('127.0.0.1')) }}
 
-# DNSCurve mode: 'none', 'server', 'client', or 'both'
-dnscurve: {{ dnscurve_mode }}
+# listen_port: UDP/TCP port to listen on for incoming DNS queries (commonly 53 or 5353).
+PORT={{ (listen_port | default(53)) }}
 
-# Optional: DNSCurve public key for server mode (PEM-encoded, base64, or hex)
-# If blank, key will be auto-generated at startup (not recommended for production)
-{% if dnscurve_public_key %}
-publickey: {{ dnscurve_public_key }}
-{% endif %}
+# forward_host: Hostname or IP of the upstream recursive resolver (e.g., Unbound or systemd-resolved).
+REMOTEIP={{ (forward_host | default('127.0.0.2')) }}
 
-# Optional: DNSCurve secret key (PEM-encoded or hex); required for server/client modes
-{% if dnscurve_secret_key %}
-secretkey: {{ dnscurve_secret_key }}
-{% endif %}
+# forward_port: Port of the upstream recursive resolver (usually 53).
+REMOTEPORT={{ (forward_port | default(53)) }}
 
-# Optional: Pre-shared Curve25519 key(s) for authenticated clients/servers
-# Format: hex(64 chars) = peer public key + our secret (or vice versa); one per line
-{% for peer in peers %}
-peer: {{ peer.public_key_hex }}:{{ peer.secret_key_hex }}:{{ peer.role }}{% if peer.comment %} # {{ peer.comment }}{% endif %}
-{% endfor %}
+# chroot_path: Chroot directory for security hardening (empty = disabled).
+ROOT={{ (chroot_path | default('/var/lib/curvedns/empty')) }}
 
-# Maximum number of simultaneous connections (0 = no limit)
-maxconn: {{ max_connections }}
+# Nonce separation
+# When several servers share a key, than servers must use separate nonces, for example:
+# the first of four servers is configured to use CURVEDNS_NONCE_SEPARATION_BITS='100',
+# the second is configured to use CURVEDNS_NONCE_SEPARATION_BITS='101',
+# the third is configured to use CURVEDNS_NONCE_SEPARATION_BITS='110', and
+# the fourth is configured to use CURVEDNS_NONCE_SEPARATION_BITS='111'.
+#
+# CURVEDNS_NONCE_SEPARATION_BITS='' means no separation bits.
+# CURVEDNS_NONCE_SEPARATION_BITS is limited by 16bits (65536 variants),
+# e.g. CURVEDNS_NONCE_SEPARATION_BITS='1111111111111111'
+#
+# By default we set '0'. So we have space to switch to
+# CURVEDNS_NONCE_SEPARATION_BITS starting with 1 in the future.
+CURVEDNS_NONCE_SEPARATION_BITS='0'
 
-# Timeout for upstream queries, in seconds
-query_timeout: {{ query_timeout_seconds }}
-
-# Log level: 0 (quiet) to 5 (debug)
-loglevel: {{ log_level }}
-
-# Optional: chroot directory (empty string = disabled)
-chroot: {{ chroot_path }}
-
-# Optional: run as user/group
-user: {{ run_user }}
-group: {{ run_group }}
-
-# Optional: PID file location
-pidfile: {{ pidfile_path }}
-
-# Optional: disable UDP forwarding (force TCP-only upstream queries)
-{% if not udp_forward %}
-no-udp-forward
-{% endif %}
-
-# Optional: enable EDNS0 support for upstream queries
-{% if edns0 %}
-edns0
-{% endif %}
-
-# Optional: restrict upstream recursion to these IPs (space-separated list)
-{% if upstream_allow %}
-allow-upstream: {% for ip in upstream_allow %}{{ ip }}{% if not loop.last %} {% endif %}{% endfor %}
-{% endif %}
-
-# Optional: fallback to plain DNS if DNSCurve handshake fails
-{% if fallback_to_plain %}
-fallback
-{% endif %}
+#Optionnal CurveDNS configuration, see curvedns(8)
+#CURVEDNS_INTERNAL_TIMEOUT=1.2
+#CURVEDNS_UDP_TRIES=2
+#CURVEDNS_TCP_NUMBER=25
+#CURVEDNS_TCP_TIMEOUT=60.0
+#CURVEDNS_SHARED_SECRETS=5000
+#CURVEDNS_DEBUG=5
+#CURVEDNS_SOURCE_IP=xx.xx.xx.xx

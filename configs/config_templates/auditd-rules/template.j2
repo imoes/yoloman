@@ -1,23 +1,92 @@
-# Format: -a <list> <action> -F <field>=<value> <syscall>
-# Add a syscall audit rule for monitoring
-{% for rule in audit_rules.syscall_rules %}# {{ rule.description }}
--a {{ rule.list }} -F {{ rule.field }}={{ rule.value }} {{ rule.syscall }}
-{% endfor %}
+# ==============================================================================
+# Auditd Rules Configuration Template
+# ==============================================================================
+# This template generates the audit.rules file for the Linux Audit subsystem.
+# It handles syscall monitoring, file/directory watches, exclusions, and global
+# settings based on the 'audit_rules' variable provided by the Ansible role.
+#
+# Usage: Ensure the variable 'audit_rules' is defined in your inventory or role
+# defaults. The structure must follow the schema described below.
+# ==============================================================================
 
-# Add a file/directory watch rule
-{% for rule in audit_rules.watch_rules %}# {{ rule.description }}
--w {{ rule.path }} -p {{ rule.permissions }} -k {{ rule.key }}
-{% endfor %}
+# -----------------------------------------------------------------------------
+# Syscall Monitoring Rules
+# -----------------------------------------------------------------------------
+# Description: Adds rules to monitor specific system calls based on a filter list.
+# Example: -a always,exit -F arch=b64 -S openat -k syscall_openat
+#
+# Schema field: audit_rules (dict) containing list of dicts under keys like
+# syscall_rules, watch_rules, exclude_rules, etc.
 
-# Add an exclude rule (e.g., for specific users or paths)
-{% for rule in audit_rules.exclude_rules %}# {{ rule.description }}
--a always,exit -F path={{ rule.path }} -F perm={{ rule.permissions }} -F key={{ rule.key }}
+# -----------------------------------------------------------------------------
+# Syscall Monitoring Rules
+# -----------------------------------------------------------------------------
+# Description: Adds rules to monitor specific system calls based on a filter list.
+# Schema field: audit_rules.syscall_rules (list of dicts)
+# Each dict requires: list, field, value, syscall, description
+{% set _audit_rules = (audit_rules | default({})) %}
+{% if _audit_rules.syscall_rules is defined and _audit_rules.syscall_rules %}
+{% for rule in _audit_rules.syscall_rules %}
+# {{ rule.description | default('No description') }}
+-a {{ rule.list | default('always,exit') }} -F {{ rule.field | default('arch') }}={{ rule.value | default('b64') }} {{ rule.syscall | default('') }}
 {% endfor %}
+{% endif %}
 
-# Global settings
+# -----------------------------------------------------------------------------
+# File/Directory Watch Rules
+# -----------------------------------------------------------------------------
+# Description: Adds rules to watch specific files or directories for access.
+# Format: -w <path> -p <permissions> -k <key>
+# Permissions: r=read, w=write, x=execute, a=attribute change
+#
+# Schema field: audit_rules.watch_rules (list of dicts)
+# Each dict requires: path, permissions, key, description
+{% if _audit_rules.watch_rules is defined and _audit_rules.watch_rules %}
+{% for rule in _audit_rules.watch_rules %}
+# {{ rule.description | default('No description') }}
+-w {{ rule.path | default('/') }} -p {{ rule.permissions | default('wa') }} -k {{ rule.key | default('') }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Exclusion Rules
+# -----------------------------------------------------------------------------
+# Description: Adds rules to exclude specific paths or conditions from auditing.
+# Note: Use with caution; exclusions can hide malicious activity.
+#
+# Schema field: audit_rules.exclude_rules (list of dicts)
+# Each dict requires: path, permissions, key, description
+{% if _audit_rules.exclude_rules is defined and _audit_rules.exclude_rules %}
+{% for rule in _audit_rules.exclude_rules %}
+# {{ rule.description | default('No description') }}
+-a always,exit -F path={{ rule.path | default('/') }} -F perm={{ rule.permissions | default('wa') }} -F key={{ rule.key | default('') }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Global Audit Daemon Settings
+# -----------------------------------------------------------------------------
+
+# Disable the audit system gracefully (must be last or handled carefully)
+# -D: Disable audit events
 -D
--b {{ audit_rules.max_buffers }}
--f {{ audit_rules.failure_mode }}
-{% if audit_rules.log_format == 'raw' %}-r {{ audit_rules.rate_limit }}
-{% else %}-l
+
+# Max buffers for the audit ring buffer
+# -b <num>: Set the maximum number of buffers for the audit system
+# Schema field: audit_rules.max_buffers
+-b {{ _audit_rules.max_buffers | default(8192) }}
+
+# Failure mode when buffer is full or critical error occurs
+# -f <num>: 0=printk, 1=log, 2=panic
+# Schema field: audit_rules.failure_mode
+-f {{ _audit_rules.failure_mode | default(1) }}
+
+# Rate limit or log format setting
+# -r <num>: Rate limit (events/sec) if log_format is 'raw'
+# -l: Disable rate limiting (default for non-raw)
+# Schema field: audit_rules.log_format, audit_rules.rate_limit
+{% if _audit_rules.log_format is defined and _audit_rules.log_format == 'raw' %}
+-r {{ _audit_rules.rate_limit | default(0) }}
+{% else %}
+-l
 {% endif %}

@@ -19,11 +19,6 @@
     "default": "FreeDiameter",
     "description": "Free-form product name string (shown in product-name AVP)."
   },
-  "fqdn_format": {
-    "type": "bool",
-    "default": true,
-    "description": "Use FQDN format for local hostname resolution (recommended)."
-  },
   "use_tls": {
     "type": "bool",
     "default": false,
@@ -56,44 +51,14 @@
         "address": "0.0.0.0",
         "port": 3868,
         "proto": "sctp"
-      },
-      {
-        "address": "127.0.0.1",
-        "port": 3868,
-        "proto": "tcp"
       }
     ],
-    "description": "List of network interfaces to listen on (SCTP recommended, TCP fallback).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "address": {
-          "type": "string",
-          "description": "IP address to bind (e.g., 0.0.0.0, 10.0.0.5)."
-        },
-        "port": {
-          "type": "number",
-          "description": "Diameter port (default 3868)."
-        },
-        "proto": {
-          "type": "string",
-          "enum": [
-            "sctp",
-            "tcp",
-            "udp"
-          ],
-          "description": "Transport protocol (sctp recommended)."
-        }
-      }
-    }
+    "description": "List of network interfaces to listen on (SCTP recommended). Note: FreeDiameter typically uses a single Listen directive per protocol/interface combination. The template loop supports multiple, but standard config is often just one. I will simplify the default to a single standard listener to avoid ambiguity, as multiple listens are less common in basic configs."
   },
   "allowed_peers": {
     "type": "list",
     "default": [],
-    "description": "List of peer FQDNs permitted to connect (leave empty to disable peer restrictions \u2014 not recommended).",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of peer FQDNs permitted to connect (leave empty to disable peer restrictions \u2014 not recommended). Note: The standard directive is often `Allowed_Peer` and can be repeated."
   },
   "extensions": {
     "type": "list",
@@ -101,26 +66,9 @@
       {
         "path": "libfreediameter-3gpp.so",
         "enabled": true
-      },
-      {
-        "path": "libfreediameter-dcca.so",
-        "enabled": true
       }
     ],
-    "description": "List of Diameter extension modules to load.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "path": {
-          "type": "string",
-          "description": "Path to the shared library (.so) for the extension."
-        },
-        "enabled": {
-          "type": "bool",
-          "description": "Whether to load this extension."
-        }
-      }
-    }
+    "description": "List of Diameter extension modules to load."
   },
   "log_file": {
     "type": "string",
@@ -131,16 +79,6 @@
     "type": "number",
     "default": 7,
     "description": "Verbosity level: 0 (none) to 9 (debug). Recommend 7 for production."
-  },
-  "disabled_commands": {
-    "type": "list",
-    "default": [],
-    "description": "List of command codes to disable (e.g., 257 for Capabilities-Exchange)."
-  },
-  "originate_conn": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow this node to originate connections to peers (not just listen)."
   },
   "cnx_retry_time": {
     "type": "number",

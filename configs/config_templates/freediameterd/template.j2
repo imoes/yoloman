@@ -1,0 +1,98 @@
+# ============================================================================
+# FreeDiameter Daemon Configuration Template
+#
+# This template generates a self-documenting configuration file for the
+# FreeDiameter Protocol Stack. It is designed to be robust, safely handling
+# missing variables by applying explicit defaults derived from the schema.
+#
+# Each configuration directive is preceded by a detailed comment block
+# explaining its purpose, the source variable, and the default value.
+# ============================================================================
+
+# Identity = "{{ Identity | default('peer1.localdomain') }}";
+# ============================================================================
+# Diameter peer identity (FQDN)
+# Specifies the unique identity of this Diameter node in the network.
+# This is a Fully Qualified Domain Name (FQDN) used for routing and identification.
+# Source Variable: Identity
+# Default: 'peer1.localdomain'
+# ============================================================================
+Identity = "{{ Identity | default('peer1.localdomain') }}";
+
+# Realm = "{{ Realm | default('localdomain') }}";
+# ============================================================================
+# Diameter realm
+# Specifies the administrative domain (realm) this node belongs to.
+# Diameter routing relies on realms to determine where messages should be forwarded.
+# Source Variable: Realm
+# Default: 'localdomain'
+# ============================================================================
+Realm = "{{ Realm | default('localdomain') }}";
+
+# Port = {{ Port | default(3868) }};
+# ============================================================================
+# Diameter base port (unsecured)
+# The UDP port on which this peer listens for unsecured Diameter connections.
+# Standard Diameter base protocol runs over UDP port 3868.
+# Source Variable: Port
+# Default: 3868
+# ============================================================================
+Port = {{ Port | default(3868) }};
+
+# SecPort = {{ SecPort | default(3869) }};
+# ============================================================================
+# Diameter TLS port
+# The TCP port on which this peer listens for TLS-secured Diameter connections.
+# Use this port for encrypted Diameter connections (DIA/TLS).
+# Source Variable: SecPort
+# Default: 3869
+# ============================================================================
+SecPort = {{ SecPort | default(3869) }};
+
+# TLS_Cred = "{{ TLS_Cred_cert | default('peer1.cert.pem') }}",
+#            "{{ TLS_Cred_key | default('peer1.key.pem') }}";
+# ============================================================================
+# TLS Credentials
+# Specifies the paths to the TLS certificate and private key files used for
+# SecPort connections. These files must exist and be readable by the daemon.
+# TLS_Cred_cert: Path to TLS certificate file (Default: 'peer1.cert.pem')
+# TLS_Cred_key:  Path to TLS private key file (Default: 'peer1.key.pem')
+# Source Variables: TLS_Cred_cert, TLS_Cred_key
+# ============================================================================
+TLS_Cred = "{{ TLS_Cred_cert | default('peer1.cert.pem') }}",
+           "{{ TLS_Cred_key | default('peer1.key.pem') }}";
+
+# TLS_CA = "{{ TLS_CA | default('cacert.pem') }}";
+# ============================================================================
+# TLS CA Certificate
+# Path to the CA certificate bundle used to verify peer certificates during
+# the TLS handshake. This ensures the identity of connecting peers.
+# Source Variable: TLS_CA
+# Default: 'cacert.pem'
+# ============================================================================
+TLS_CA = "{{ TLS_CA | default('cacert.pem') }}";
+
+# LoadExtension = "{{ LoadExtension_path | default('extensions/test_app.fdx') }}" : "{{ LoadExtension_config | default('test_app1.conf') }}";
+# ============================================================================
+# Load Extension Module
+# Loads a FreeDiameter extension module and associates it with its specific
+# configuration file. Extensions allow custom application logic within the stack.
+# LoadExtension_path:   Path to the extension module file (Default: 'extensions/test_app.fdx')
+# LoadExtension_config: Path to the extension-specific configuration file (Default: 'test_app1.conf')
+# Source Variables: LoadExtension_path, LoadExtension_config
+# ============================================================================
+LoadExtension = "{{ LoadExtension_path | default('extensions/test_app.fdx') }}" : "{{ LoadExtension_config | default('test_app1.conf') }}";
+
+# ConnectPeer = "{{ ConnectPeer_identity | default('peer2.localdomain') }}" { ConnectTo = "{{ ConnectPeer_connectTo | default('127.0.0.1') }}"; No_TLS; port = {{ ConnectPeer_port | default(30868) }}; };
+# ============================================================================
+# ConnectPeer Configuration
+# Defines an outbound peer connection. This node will actively connect to the
+# specified identity.
+# ConnectPeer_identity: Identity of the peer to connect to (Default: 'peer2.localdomain')
+# ConnectPeer_connectTo: IP address or hostname to connect to (Default: '127.0.0.1')
+# ConnectPeer_port: Port number on the remote peer (Default: 30868)
+# Note: No_TLS is hardcoded here as per original template requirements.
+#       Adjust if mutual TLS or secure outbound connections are required.
+# Source Variables: ConnectPeer_identity, ConnectPeer_connectTo, ConnectPeer_port
+# ============================================================================
+ConnectPeer = "{{ ConnectPeer_identity | default('peer2.localdomain') }}" { ConnectTo = "{{ ConnectPeer_connectTo | default('127.0.0.1') }}"; No_TLS; port = {{ ConnectPeer_port | default(30868) }}; };

@@ -1,110 +1,155 @@
 [mysqld]
-# Basic server identification and general settings
-bind-address = {{ bind_address }}
+# IP address to bind to. Use '0.0.0.0' to listen on all interfaces (not recommended for production without firewalling).
+bind-address = {{ bind_address | default('127.0.0.1') }}
+# OS user to run the MariaDB/MySQL daemon as (not a database credential).
 user = mysql
 pid-file = /run/mysqld/mysqld.pid
 socket = /run/mysqld/mysqld.sock
-port = {{ port }}
-basedir = {{ basedir }}
-datadir = {{ datadir }}
-tmpdir = {{ tmpdir }}
-lc-messages-dir = {{ lc_messages_dir }}
+# TCP port for MySQL connections.
+port = {{ port | default(3306) }}
+# Base directory where the MariaDB binaries are installed.
+basedir = {{ basedir | default('/usr') }}
+# Data directory where database files are stored.
+datadir = {{ datadir | default('/var/lib/mysql') }}
+# Directory for temporary files (e.g., sorting, temp tables). Ensure it has sufficient space and proper permissions.
+tmpdir = {{ tmpdir | default('/tmp') }}
+# Directory containing error message files for localization.
+lc-messages-dir = {{ lc_messages_dir | default('/usr/share/mysql') }}
 
 # Character set and collation
-character-set-server = {{ character_set_server }}
-collation-server = {{ collation_server }}
+# Default server character set. Use utf8mb4 for full Unicode support (including emoji).
+character-set-server = {{ character_set_server | default('utf8mb4') }}
+# Default server collation. Match your language and sorting needs.
+collation-server = {{ collation_server | default('utf8mb4_general_ci') }}
 
 # InnoDB settings
-innodb_buffer_pool_size = {{ innodb_buffer_pool_size }}
-innodb_log_file_size = {{ innodb_log_file_size }}
-innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit }}
-innodb_file_per_table = {{ innodb_file_per_table }}
+# Size of InnoDB buffer pool (memory for caching data and indexes). Recommended: ~70-80% of total RAM on dedicated DB server.
+innodb_buffer_pool_size = {{ innodb_buffer_pool_size | default('1G') }}
+# Size of each InnoDB log file in the log group. Larger sizes improve performance but increase crash recovery time.
+innodb_log_file_size = {{ innodb_log_file_size | default('256M') }}
+# Controls durability/speed tradeoff: 1 = safest (ACID), 2 = faster (OS flush), 0 = fastest (less safe). Use 1 for production.
+innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit | default(1) }}
+# Store each InnoDB table in its own .ibd file. Recommended for manageability and disk reclamation.
+innodb_file_per_table = {{ innodb_file_per_table | default(True) }}
 
 # Query cache (deprecated in MariaDB 10.1+, but may be used for compatibility)
-{% if query_cache_size > 0 %}
-query_cache_size = {{ query_cache_size }}
-query_cache_type = {{ 'ON' if query_cache_type else 'OFF' }}
+# Query cache size in bytes. 0 disables it (recommended for MariaDB ≥10.1 and modern workloads).
+{% if (query_cache_size | default(0)) > 0 %}
+query_cache_size = {{ query_cache_size | default(0) }}
+# Whether query cache is ON (true) or OFF (false). Ignored if query_cache_size = 0.
+query_cache_type = {{ 'ON' if (query_cache_type | default(False)) else 'OFF' }}
 {% else %}
 # Query cache disabled
 {% endif %}
 
 # Connection handling
-max_connections = {{ max_connections }}
-max_allowed_packet = {{ max_allowed_packet }}
-thread_cache_size = {{ thread_cache_size }}
+# Maximum number of simultaneous client connections. Increase if you see 'Too many connections' errors.
+max_connections = {{ max_connections | default(151) }}
+# Maximum size of a single packet or row. Increase for large INSERTs or BLOBs.
+max_allowed_packet = {{ max_allowed_packet | default('64M') }}
+# Number of threads to keep in cache for reuse. Tune to reduce thread creation overhead.
+thread_cache_size = {{ thread_cache_size | default(21) }}
 
 # Logging
-{% if general_log %}
+# Enable general query logging (logs all statements). Use only for debugging — impacts performance and disk I/O.
+{% if (general_log | default(False)) %}
 general_log = 1
-general_log_file = {{ general_log_file }}
+# Path to the general log file. Ensure directory exists and is writable by mysql user.
+general_log_file = {{ general_log_file | default('/var/log/mysql/query.log') }}
 {% else %}
 general_log = 0
 {% endif %}
 
-{% if slow_query_log %}
+# Enable slow query logging (queries exceeding long_query_time). Critical for performance tuning.
+{% if (slow_query_log | default(False)) %}
 slow_query_log = 1
-slow_query_log_file = {{ slow_query_log_file }}
-long_query_time = {{ long_query_time }}
+# Path to the slow query log file.
+slow_query_log_file = {{ slow_query_log_file | default('/var/log/mysql/slow-query.log') }}
+# Threshold in seconds for a query to be logged as 'slow'. Lower for stricter logging.
+long_query_time = {{ long_query_time | default(2.0) }}
 {% else %}
 slow_query_log = 0
 {% endif %}
 
 # Binary logging for replication
-{% if server_id > 0 %}
-server-id = {{ server_id }}
-log_bin = {{ log_bin }}
-log_bin_index = {{ log_bin_index }}
+# Unique server ID for replication. Must be > 0 to enable binary logging. Set to 0 to disable replication features.
+{% if (server_id | default(1)) > 0 %}
+server-id = {{ server_id | default(1) }}
+# Base name/path for binary log files. Required for replication and point-in-time recovery.
+log_bin = {{ log_bin | default('/var/log/mysql/binlog') }}
+# Index file for binary logs.
+log_bin_index = {{ log_bin_index | default('/var/log/mysql/binlog.index') }}
 {% else %}
 # Binary logging disabled (server-id <= 0)
 {% endif %}
 
 # TLS/SSL support
-{% if ssl %}
-ssl = {{ 'ON' if ssl_enabled else 'OFF' }}
-ssl_cert = {{ ssl_cert_path }}
-ssl_key = {{ ssl_key_path }}
+{% if (ssl_enabled | default(False)) %}
+ssl = ON
+# Path to SSL certificate file.
+ssl_cert = {{ ssl_cert_path | default('/etc/mysql/ssl/server-cert.pem') }}
+# Path to SSL private key file.
+ssl_key = {{ ssl_key_path | default('/etc/mysql/ssl/server-key.pem') }}
 {% else %}
 # SSL disabled
+ssl = OFF
 {% endif %}
 
 # Memory and performance tuning
-key_buffer_size = {{ key_buffer_size }}
-read_buffer_size = {{ read_buffer_size }}
-read_rnd_buffer_size = {{ read_rnd_buffer_size }}
-sort_buffer_size = {{ sort_buffer_size }}
-join_buffer_size = {{ join_buffer_size }}
-thread_stack = {{ thread_stack }}
+# Memory buffer for MyISAM index blocks. Relevant only if you use MyISAM tables.
+key_buffer_size = {{ key_buffer_size | default('16M') }}
+# Buffer size for sequential table scans.
+read_buffer_size = {{ read_buffer_size | default('8M') }}
+# Buffer size for random reads after sorting (e.g., ORDER BY with LIMIT).
+read_rnd_buffer_size = {{ read_rnd_buffer_size | default('2M') }}
+# Memory per connection used for ORDER BY and GROUP BY operations.
+sort_buffer_size = {{ sort_buffer_size | default('2M') }}
+# Buffer size for full join operations (without indexes).
+join_buffer_size = {{ join_buffer_size | default('2M') }}
+# Stack size for each thread. Increase for deep recursion or large stored procedures.
+thread_stack = {{ thread_stack | default('256K') }}
 
 # Timeouts
-timeout_connect = {{ timeout_connect }}
-timeout_interactive = {{ timeout_interactive }}
-timeout_slave = {{ timeout_slave }}
-wait_timeout = {{ wait_timeout }}
-interactive_timeout = {{ interactive_timeout }}
+# Seconds to wait for connection handshake before aborting.
+timeout_connect = {{ timeout_connect | default(10) }}
+# Seconds of inactivity before closing an interactive connection.
+timeout_interactive = {{ timeout_interactive | default(28800) }}
+# Seconds of inactivity before closing a replication slave connection.
+timeout_slave = {{ timeout_slave | default(3600) }}
+# Seconds of inactivity before closing a non-interactive connection.
+wait_timeout = {{ wait_timeout | default(28800) }}
+# Seconds of inactivity before closing an interactive connection (same as timeout_interactive).
+interactive_timeout = {{ interactive_timeout | default(28800) }}
 
 # Replication (standalone master settings)
-{% for replica in replicas %}
-# Replica: {{ replica.name }}
-{% if replica.enabled %}
-report_host = {{ replica.report_host }}
-report_user = {{ replica.report_user }}
-{% if replica.auto_position %}
+{% for replica in (replicas | default([])) %}
+# Replica configuration entry
+{% if replica.enabled | default(False) %}
+report_host = {{ replica.report_host | default('') }}
+report_user = {{ replica.report_user | default('') }}
+{% if replica.auto_position | default(False) %}
 master_auto_position = 1
 {% else %}
-master_log_file = {{ replica.log_file }}
-master_log_pos = {{ replica.log_pos }}
+master_log_file = {{ replica.log_file | default('') }}
+master_log_pos = {{ replica.log_pos | default(0) }}
 {% endif %}
 {% endif %}
 {% endfor %}
 
 # Storage engine default
-default_storage_engine = {{ default_storage_engine }}
+# Default storage engine for new tables. InnoDB is strongly recommended for production.
+default_storage_engine = {{ default_storage_engine | default('InnoDB') }}
 
 # Security: disable local infile unless needed
-disable_local_infile = {{ not local_infile_enabled }}
+# Enable LOCAL INFILE (allows client to upload files). Set to false for security unless needed.
+disable_local_infile = {{ not (local_infile_enabled | default(False)) }}
 
 # Table and temporary table limits
-max_heap_table_size = {{ max_heap_table_size }}
-tmp_table_size = {{ tmp_table_size }}
-open_files_limit = {{ open_files_limit }}
-table_open_cache = {{ table_open_cache }}
+# Maximum size of in-memory temporary tables (MEMORY engine).
+max_heap_table_size = {{ max_heap_table_size | default('16M') }}
+# Maximum size of in-memory temporary tables (before spilling to disk).
+tmp_table_size = {{ tmp_table_size | default('16M') }}
+# Maximum number of files the server can open. Increase for large databases with many tables.
+open_files_limit = {{ open_files_limit | default(1024) }}
+# Number of open table descriptors to cache. Tune with open_files_limit.
+table_open_cache = {{ table_open_cache | default(400) }}

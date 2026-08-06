@@ -1,67 +1,104 @@
-# Global configuration settings
+# dhcpd-pools.conf — Configuration for dhcpd-pools status page generator
+#
+# This INI-style configuration controls the behavior of the dhcpd-pools utility,
+# which monitors DHCP lease pools and generates status reports in HTML, JSON,
+# and CSV formats. It also optionally exposes a small HTTP status server and
+# supports SNMP polling for external monitoring systems.
+#
+# All variables MUST have a safe default to prevent render failures when
+# the Ansible role is reused without explicit variable definition.
+
 [global]
-# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
-log_level = {{ log_level }}
 
-# Maximum number of lines to show in the HTML status page
-max_lines = {{ max_lines }}
+# Verbosity of logging: 0 = quiet, 1 = normal, 2 = verbose, 3 = debug.
+# Default 1 provides standard operational logging.
+log_level = {{ log_level | default(1) }}
 
-# Enable/disable HTML status page generation
-html_status = {{ html_status }}
+# Maximum number of recent lease entries to show in the HTML status page.
+# Helps prevent extremely large HTML pages in networks with many leases.
+max_lines = {{ max_lines | default(100) }}
 
-# Path to write the HTML status page
-html_output = {{ html_output }}
+# Enable or disable generation of the HTML status page.
+# Set to False if you only want JSON or CSV outputs.
+html_status = {{ html_status | default(true) }}
 
-# Path to write the JSON status page (if enabled)
-json_output = {{ json_output }}
+# File path where the HTML status page will be written.
+# The directory must exist and be writable by the dhcpd-pools process.
+html_output = {{ html_output | default('/var/www/html/dhcpd-pools/status.html') }}
 
-# Enable/disable JSON status page generation
-json_status = {{ json_status }}
+# File path where the JSON status page will be written (if enabled).
+# Useful for machine-readable consumption by other tools or scripts.
+json_output = {{ json_output | default('/var/www/html/dhcpd-pools/status.json') }}
 
-# Path to write the CSV summary
-# (if enabled, empty string disables CSV output)
-csv_output = {{ csv_output }}
+# Enable or disable generation of the JSON status page.
+json_status = {{ json_status | default(true) }}
 
-# Enable/disable CSV summary generation
-csv_status = {{ csv_status }}
+# File path for the CSV summary output; empty disables CSV output.
+# The directory must exist and be writable by the dhcpd-pools process.
+csv_output = {{ csv_output | default('/var/log/dhcpd-pools/daily-summary.csv') }}
 
-# Time zone offset (e.g., '+0000' for UTC)
-tz_offset = {{ tz_offset }}
+# Enable or disable generation of the CSV summary.
+csv_status = {{ csv_status | default(true) }}
 
-# Hostname or FQDN for status page links (optional)
-hostname = {{ hostname }}
+# Time zone offset in ±HHMM format (e.g., '+0800' for UTC+8).
+# Used for timestamping status page entries.
+tz_offset = {{ tz_offset | default('+0000') }}
 
-# Interface to listen on for status HTTP server (empty = no HTTP server)
-listen_iface = {{ listen_iface }}
+# Hostname or FQDN to use in status page URLs.
+# Leave empty to auto-detect the local hostname.
+hostname = {{ hostname | default('') }}
 
-# HTTP port for status server (ignored if listen_iface empty)
-listen_port = {{ listen_port }}
+# Network interface to bind the status HTTP server to.
+# Empty string disables the HTTP server entirely.
+listen_iface = {{ listen_iface | default('') }}
 
-# Interval in seconds between status updates
-update_interval = {{ update_interval }}
+# HTTP port for the status server.
+# Only used if listen_iface is set to a non-empty value.
+listen_port = {{ listen_port | default(8080) }}
 
-# Enable/disable SNMP polling
-snmp_enable = {{ snmp_enable }}
+# Seconds between automatic status page updates.
+# Controls the refresh rate of the generated static files.
+update_interval = {{ update_interval | default(60) }}
 
-# SNMP community string for polling
-snmp_community = {{ snmp_community }}
+# Enable or disable SNMP polling for additional metrics.
+# Requires an SNMP agent to be running and configured.
+snmp_enable = {{ snmp_enable | default(false) }}
 
-# List of subnets and pools to monitor
-# Each subnet block defines a range to track
-{% for subnet in subnets %}
+# SNMP community string to use for polling (if enabled).
+# In production, use a read-only community string with restricted access.
+snmp_community = {{ snmp_community | default('public') }}
+
+# List of subnets and DHCP pools to monitor.
+# Each subnet block defines a DHCP range to track lease statistics.
+{% for subnet in subnets | default([]) %}
 [{{ subnet.name }}]
-# Network address in CIDR notation
-network = {{ subnet.network }}
-# Netmask (optional; if omitted, derived from CIDR)
-netmask = {{ subnet.netmask | default('') | trim | default('') | default('') }}
+
+# Network address in CIDR notation (e.g., 192.168.1.0/24)
+# This identifies the DHCP scope being monitored.
+network = {{ subnet.network | default('') }}
+
+# Netmask (optional; if omitted, derived from CIDR notation)
+# Explicitly specifying it can aid in clarity for non-CIDR representations.
+netmask = {{ subnet.netmask | default('') | trim | default('') }}
+
 # Start of the DHCP address pool
-start = {{ subnet.start }}
+# The first IP address offered by the DHCP server in this range.
+start = {{ subnet.start | default('') }}
+
 # End of the DHCP address pool
-end = {{ subnet.end }}
+# The last IP address offered by the DHCP server in this range.
+end = {{ subnet.end | default('') }}
+
 # Lease time in seconds
-lease_time = {{ subnet.lease_time }}
+# The duration for which an IP address is leased to a client.
+lease_time = {{ subnet.lease_time | default(3600) }}
+
 # Enable/disable tracking for this subnet
-enabled = {{ subnet.enabled }}
-# Optional description
+# Set to False to exclude this pool from status reports.
+enabled = {{ subnet.enabled | default(true) }}
+
+# Optional description for the subnet/pool
+# Used for documentation purposes in the generated status pages.
 # comment = {{ subnet.comment | default('') | trim }}
+
 {% endfor %}

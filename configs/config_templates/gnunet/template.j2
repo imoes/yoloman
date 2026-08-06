@@ -1,151 +1,37 @@
-# GNU gnunet main configuration file — generated from template
-# This file configures the core GNUnet daemon and services.
+# GNUnet configuration file
+# This file configures the GNUnet framework, specifically the ARM (Automatic Reloading Manager)
+# and base directory paths.
 
-# [PATHS] — Default paths for configuration, data, and cache
-[PATHS]
-GNUNET_PREFIX = {{ paths.gnunet_prefix }}
-GNUNET_HOME = {{ paths.gnunet_home }}
+# GNUnet base directory
+# Base GNUnet home directory.
+# @default /var/lib/gnunet/
+[path]
+GNUNET_HOME = {{ gnunet_home | default('/var/lib/gnunet/') }}
 
-# [peerinfo] — How the peer identifies and exposes itself to others
-[peerinfo]
-# Public URI at which this peer can be reached (e.g., by bootstrap or other peers)
-URI = {{ peerinfo.uri }}
-# Hostname or IP to advertise for inbound connections (optional: defaults to local IP)
-NAT_ADDRESS = {{ peerinfo.nat_address | default('') }}
+# GNUnet data directory
+# GNUnet data directory.
+# @default /var/lib/gnunet/data/
+GNUNET_DATA_HOME = {{ gnunet_data_home | default('/var/lib/gnunet/data/') }}
 
-# [transport] — Transport configuration (protocols, addresses, and limits)
-[transport]
-# Which transports are enabled (comma-separated: tcp, udp, http, https, etc.)
-PLUGINS = {{ transport.plugins | join(', ') }}
-# Listen address for the main transport (e.g., 0.0.0.0 for all interfaces)
-LISTEN_ADDRESS = {{ transport.listen_address }}
-# Maximum simultaneous connections per transport
-MAX_CONNECTIONS = {{ transport.max_connections }}
-# Timeout for idle connections (in seconds)
-IDLE_TIMEOUT = {{ transport.idle_timeout }}
+# GNUnet runtime directory
+# Fixed runtime directory for sockets and PID files.
+GNUNET_RUNTIME_DIR = /var/run/gnunet/
 
-# [ats] — Automatic Traffic Shaping — bandwidth management
-[ats]
-# Enable automatic traffic shaping
-ENABLED = {{ ats.enabled | lower }}
-# Total available outbound bandwidth in bytes/second (0 = unlimited)
-OUTBOUND_QUOTA = {{ ats.outbound_quota }}
-INBOUND_QUOTA = {{ ats.inbound_quota }}
-# Weight for latency vs. throughput in path selection
-LATENCY_WEIGHT = {{ ats.latency_weight }}
-
-# [dht] — Distributed Hash Table service configuration
-[dht]
-# Enable DHT service
-ENABLED = {{ dht.enabled | lower }}
-# Number of replicas to store for each key (typically 3–5)
-REPLICATION = {{ dht.replication }}
-# Maximum number of entries in local DHT cache
-CACHE_SIZE = {{ dht.cache_size }}
-# Number of peers to contact during lookup
-FANOUT = {{ dht.fanout }}
-
-# [nse] — Network Size Estimation service
-[nse]
-# Enable network size estimation
-ENABLED = {{ nse.enabled | lower }}
-# Interval (in seconds) between estimation broadcasts
-INTERVAL = {{ nse.interval }}
-
-# [statistics] — Statistics service for monitoring
-[statistics]
-# Enable statistics collection
-ENABLED = {{ statistics.enabled | lower }}
-# Path to Unix domain socket for statistics access
-UNIXPATH = {{ statistics.unixpath }}
-
-# [vpn] — VPN service (optional, for secure routing)
-[vpn]
-# Enable VPN service
-ENABLED = {{ vpn.enabled | lower }}
-# DNS forwarder address for split-DNS (e.g., 127.0.0.1#5300)
-DNS_SERVER = {{ vpn.dns_server | default('') }}
-# List of internal subnets routed via GNUnet
-INTERNAL_SUBNETS = {{ vpn.internal_subnets | join(', ') }}
-
-# [dns] — DNS over GNUnet (for secure resolution)
-[dns]
-# Enable DNS forwarding
-ENABLED = {{ dns.enabled | lower }}
-# Address to bind DNS listener
-LISTEN_ADDRESS = {{ dns.listen_address }}
-PORT = {{ dns.port }}
-
-# [namestore] — Local storage for PKE/PKE+ and zone records
-[namestore]
-# Enable namestore service
-ENABLED = {{ namestore.enabled | lower }}
-# Maximum number of records per zone
-MAX_RECORDS_PER_ZONE = {{ namestore.max_records_per_zone }}
-
-# [gns] — GNU Name System (decentralized DNS)
-[gns]
-# Enable GNS service
-ENABLED = {{ gns.enabled | lower }}
-# Number of KSK records to cache
-KSK_CACHE_SIZE = {{ gns.ksk_cache_size }}
-# Zone file lifetime (seconds)
-ZONEFILE_TTL = {{ gns.zonefile_ttl }}
-
-# [revocation] — Certificate revocation service
-[revocation]
-# Enable revocation support
-ENABLED = {{ revocation.enabled | lower }}
-# Revocation window in seconds
-WINDOW = {{ revocation.window }}
-
-# [consensus] — Consensus protocol (for distributed coordination)
-[consensus]
-# Enable consensus service
-ENABLED = {{ consensus.enabled | lower }}
-# Number of peers to include in consensus round
-QUORUM = {{ consensus.quorum }}
-
-# [cadet] — Cooperative data transfer (secure overlay routing)
-[cadet]
-# Enable CADet service
-ENABLED = {{ cadet.enabled | lower }}
-# Default channel MTU in bytes
-MTU = {{ cadet.mtu }}
-
-# [datastore] — Persistent storage backend
-[datastore]
-# Backend type (sqlite, postgres, mysql, etc.)
-BACKEND = {{ datastore.backend }}
-# Path to database file (for SQLite)
-DATA_DIR = {{ datastore.data_dir }}
-# Maximum storage quota (in bytes, 0 = unlimited)
-QUOTA = {{ datastore.quota }}
-
-# [testing] — Testing-specific overrides (e.g., for dev/test setups)
-[testing]
-# Enable test mode (e.g., disables real network usage)
-USE_TESTING_TOPOLOGY = {{ testing.use_testing_topology | lower }}
-# Delay (in ms) between simulated message delivery
-NETWORK_DELAY = {{ testing.network_delay }}
-
-# [arm] — Abstract Resource Management — service controller
 [arm]
-# Paths to start services automatically
-SERVICES = {{ arm.services | join(', ') }}
-# Wait time (in seconds) before restarting a crashed service
-RESTART_DELAY = {{ arm.restart_delay }}
+# ARM (Automatic Reloading Manager) section
 
-# [resolver] — Local DNS-like name resolution
-[resolver]
-# Enable local resolver
-ENABLED = {{ resolver.enabled | lower }}
+# START_SYSTEM_SERVICES
+# Whether ARM should start system services.
+# @default YES
+START_SYSTEM_SERVICES = {{ arm_start_system_services | default('YES') }}
 
-# [core] — Core service (peer-to-peer connection management)
-[core]
-# Enable core service
-ENABLED = {{ core.enabled | lower }}
-# Path to private key for peer identity
-PRIVATE_KEY = {{ core.private_key }}
-# Path to peer information file
-PEERFILE = {{ core.peerfile }}
+# START_USER_SERVICES
+# Whether ARM should start user services.
+# @default NO
+START_USER_SERVICES = {{ arm_start_user_services | default('NO') }}
+
+# OPTIONS
+# Additional options passed to the ARM daemon.
+# Path to the GNUnet log file used by ARM.
+# @default /var/log/gnunet.log
+OPTIONS = -l {{ gnunet_log_path | default('/var/log/gnunet.log') }}

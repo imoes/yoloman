@@ -1,0 +1,68 @@
+{# Main Claws Mail configuration file: ~/{{ config_dir }}/{{ main_rc }} #}
+{# Generated from documented claws-mail(1) man page (section 5) #}
+{% if accounts %}
+# Account definitions (claws-mail uses accountrc format)
+# Each account block begins with [account N] (N is 1-indexed)
+{% for account in accounts %}
+[account {{ loop.index }}]
+name = {{ account.name | default('Default Account') }}
+protocol = {{ account.protocol | default('IMAP4') }}
+{% if account.server %}server = {{ account.server }}
+{% endif %}{% if account.port %}port = {{ account.port }}
+{% endif %}{% if account.user %}user = {{ account.user }}
+{% endif %}{% if account.passwd %}passwd = {{ account.passwd }}
+{% else %}passwd = *
+{% endif %}
+{% if account.use_ssl %}ssl = 1
+{% elif account.use_tls %}ssl = 2
+{% else %}ssl = 0
+{% endif %}
+{% if account.smtp_server %}smtp_server = {{ account.smtp_server }}
+{% endif %}{% if account.smtp_port %}smtp_port = {{ account.smtp_port | default(587) }}
+{% endif %}{% if account.use_smtp_auth %}smtp_auth = 1
+{% else %}smtp_auth = 0
+{% endif %}
+{% if account.use_smtp_user %}smtp_user = {{ account.smtp_user }}
+{% endif %}{% if account.use_smtp_passwd %}smtp_passwd = {{ account.smtp_passwd }}
+{% else %}smtp_passwd = *
+{% endif %}
+{% if account.local_repository %}folder = {{ account.local_repository }}
+{% endif %}
+{% if account.default_identity %}default_identity = {% if account.default_identity %}1{% else %}0{% endif %}
+{% endif %}
+{% if account.from_addr %}from_addr = {{ account.from_addr }}
+{% endif %}{% if account.real_name %}real_name = {{ account.real_name }}
+{% endif %}
+
+{% endfor %}{% endif %}
+{% if main_config %}
+# Main configuration (clawsrc format)
+[common]
+{% if main_config.default_folder %}default_folder = {{ main_config.default_folder }}
+{% endif %}{% if main_config.default_send_account %}default_send_account = {{ main_config.default_send_account }}
+{% endif %}{% if main_config.auto_check_interval %}auto_check_interval = {{ main_config.auto_check_interval }}
+{% endif %}
+{% if main_config.check_on_startup %}check_on_startup = {% if main_config.check_on_startup %}1{% else %}0{% endif %}
+{% endif %}
+{% if main_config.offline_mode %}offline_mode = {% if main_config.offline_mode %}1{% else %}0{% endif %}
+{% endif %}
+{% if main_config.font %}font = {{ main_config.font }}
+{% endif %}
+{% if main_config.message_font %}message_font = {{ main_config.message_font }}
+{% endif %}
+{% if main_config.composer_font %}composer_font = {{ main_config.composer_font }}
+{% endif %}
+{% if main_config.date_format %}date_format = {{ main_config.date_format }}
+{% endif %}
+{% if main_config.theme_dir %}theme_dir = {{ main_config.theme_dir }}
+{% endif %}
+{% endif %}
+{% if filters %}
+# Filtering rules (matcherrc format)
+[filter]
+{% for filter in filters %}rule{{ loop.index }} = {{ filter.name }}
+{% if filter.condition %}cond{{ loop.index }} = {{ filter.condition }}
+{% endif %}{% if filter.action %}act{{ loop.index }} = {{ filter.action }}
+{% endif %}{% endfor %}
+{% endif %}
+{# End of template — only documented claws-mail config options used #}

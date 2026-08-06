@@ -1,40 +1,78 @@
 # gddccontrol main configuration file
+# This file configures gddccontrol, a tool for controlling monitor brightness/contrast via DDC/CI.
+#
+# Schema:
+# - debug: boolean - Enable verbose debug logging
+# - log_path: string - Path to the main log file
+# - max_log_size: int - Max log size in MB before rotation
+# - max_log_files: int - Number of rotated log files to retain
+# - monitors: list - List of monitor bus+address identifiers (e.g., 'i2c-3:0x37')
+# - default_brightness: int - Global default brightness (0-100)
+# - default_contrast: int - Global default contrast (0-100)
+# - min_interval: int - Minimum seconds between brightness changes
+# - auto_save: boolean - Automatically save settings on exit
+# - monitor_configs: list - Per-monitor custom settings (list of objects with id, name, bus, address, curve, gamma, min_brightness, max_brightness)
+# - triggers: list - Events invoking external commands (list of objects with id, description, event, command)
+
 [General]
-# Enable or disable debug logging
-Debug = {{ debug }}
 
-# Path to log file
-LogPath = {{ log_path }}
+# Enable verbose debug logging to aid troubleshooting
+# Default: False
+Debug = {{ debug | default(False) | lower }}
 
-# Maximum size (in MB) of log files before rotation
-MaxLogSize = {{ max_log_size }}
+# Absolute path to the main log file
+# Default: /var/log/gddccontrol.log
+LogPath = {{ log_path | default('/var/log/gddccontrol.log') }}
 
-# Number of rotated log files to keep
-MaxLogFiles = {{ max_log_files }}
+# Maximum size (in megabytes) per log file before rotation
+# Default: 10
+MaxLogSize = {{ max_log_size | default(10) }}
 
-# List of monitors to control (DDC/CI bus identifiers)
-Monitors = {{ monitors | join(', ') }}
+# Number of rotated log files to retain
+# Default: 3
+MaxLogFiles = {{ max_log_files | default(3) }}
 
-# Default brightness level (0-100)
-DefaultBrightness = {{ default_brightness }}
+# List of monitor identifiers (e.g., bus+address strings like 'i2c-3:0x37') to control
+# Default: [] (empty list)
+# If empty, gddccontrol may attempt to auto-detect or behave differently depending on version.
+Monitors = {{ monitors | default([]) | join(', ') }}
 
-# Default contrast level (0-100)
-DefaultContrast = {{ default_contrast }}
+# Global default brightness level (0–100) applied at startup if not overridden
+# Default: 50
+DefaultBrightness = {{ default_brightness | default(50) }}
 
-# Minimum time (in seconds) between brightness changes
-MinInterval = {{ min_interval }}
+# Global default contrast level (0–100) applied at startup if not overridden
+# Default: 50
+DefaultContrast = {{ default_contrast | default(50) }}
 
-# Enable auto-save of brightness settings on exit
-AutoSave = {{ auto_save }}
+# Minimum seconds between successive brightness changes (prevents flicker)
+# Default: 2
+MinInterval = {{ min_interval | default(2) }}
 
-{% for monitor in monitor_configs %}
-# Configuration for {{ monitor.id }}
-[Monitor:{{ monitor.id }}]
-Name = {{ monitor.name }}
-Bus = {{ monitor.bus }}
-Address = {{ monitor.address }}
+# Automatically save current brightness/contrast settings on exit or DDC/CI timeout
+# Default: True
+AutoSave = {{ auto_save | default(True) | lower }}
+
+{% if monitor_configs | default([]) | length > 0 %}
+# --- Per-Monitor Configuration ---
+# Overrides global defaults for specific monitors.
+# Each item in monitor_configs is an object:
+#   id: string - Unique identifier for this monitor block
+#   name: string - Human-readable name
+#   bus: string - I2C bus identifier
+#   address: string - I2C address (e.g., 0x37)
+#   curve: string - Brightness curve type (linear, sRGB, gamma, custom)
+#   gamma: float - Gamma value if curve is 'gamma'
+#   min_brightness: int - Minimum allowed brightness for this monitor
+#   max_brightness: int - Maximum allowed brightness for this monitor
+{% for monitor in monitor_configs | default([]) %}
+# Configuration for monitor ID: {{ monitor.id | default('unknown') }}
+[Monitor:{{ monitor.id | default('unknown') }}]
+Name = {{ monitor.name | default('') }}
+Bus = {{ monitor.bus | default('') }}
+Address = {{ monitor.address | default('') }}
 # Brightness curve: linear, sRGB, gamma, custom
-Curve = {{ monitor.curve }}
+Curve = {{ monitor.curve | default('linear') }}
 # Custom gamma value (if curve = gamma)
 Gamma = {{ monitor.gamma | default(2.2) }}
 # Minimum brightness for this monitor
@@ -42,11 +80,20 @@ MinBrightness = {{ monitor.min_brightness | default(5) }}
 # Maximum brightness for this monitor
 MaxBrightness = {{ monitor.max_brightness | default(100) }}
 {% endfor %}
+{% endif %}
 
-# Trigger configuration — runs scripts on brightness change
-{% for trigger in triggers %}
-# {{ trigger.description }}
-[Trigger:{{ trigger.id }}]
-Event = {{ trigger.event }}
-Command = {{ trigger.command }}
+# --- Trigger Configuration ---
+# Events that invoke external commands (e.g., script execution).
+# Each item in triggers is an object:
+#   id: string - Unique trigger identifier
+#   description: string - Description of the trigger
+#   event: string - Event name that activates the trigger
+#   command: string - Shell command to execute
+{% if triggers | default([]) | length > 0 %}
+{% for trigger in triggers | default([]) %}
+# {{ trigger.description | default('No description') }}
+[Trigger:{{ trigger.id | default('unknown') }}]
+Event = {{ trigger.event | default('') }}
+Command = {{ trigger.command | default('') }}
 {% endfor %}
+{% endif %}

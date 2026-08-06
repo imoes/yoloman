@@ -1,100 +1,41 @@
-# /etc/krb5.conf — Heimdal Kerberos configuration file
-# Global Kerberos client settings (not KDC-specific)
-[libdefaults]
-  default_realm = {{ default_realm }}
-{% if dns_lookup_realm is defined %}  dns_lookup_realm = {{ dns_lookup_realm | lower | string }}
-{% endif %}{% if dns_lookup_kdc is defined %}  dns_lookup_kdc = {{ dns_lookup_kdc | lower | string }}
-{% endif %}{% if dns_fallback is defined %}  dns_fallback = {{ dns_fallback | lower | string }}
-{% endif %}  clockskew = {{ clockskew | default(300) }}
-{% if kdc_timeout is defined %}  kdc_timeout = {{ kdc_timeout }}
-{% endif %}
-{% if default_ccache_name is defined %}  default_ccache_name = {{ default_ccache_name }}
-{% endif %}
-{% if ticket_lifetime is defined %}  ticket_lifetime = {{ ticket_lifetime }}
-{% endif %}
-{% if renew_lifetime is defined %}  renew_lifetime = {{ renew_lifetime }}
-{% endif %}
-{% if forwardable is defined %}  forwardable = {{ forwardable | lower | string }}
-{% endif %}
-{% if proxiable is defined %}  proxiable = {{ proxiable | lower | string }}
-{% endif %}
-{% if pk_init_anchors is defined %}  pk_init_anchors = {{ pk_init_anchors | join(', ') }}
-{% endif %}
-{% if allow_weak_crypto is defined %}  allow_weak_crypto = {{ allow_weak_crypto | lower | string }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Heimdal KDC Service Configuration Template
+#
+# This template generates the systemd service drop-in or environment configuration
+# for the Heimdal Key Distribution Center (KDC). It controls the lifecycle of
+# three potential daemons:
+# 1. KDC (Kerberos Key Distribution Center)
+# 2. kpasswdd (Password Change Daemon)
+# 3. kprop (KDC Replication Slave/Master)
+#
+# All variables are sourced from the Ansible role variables. Defaults are applied
+# inline to ensure the template is self-contained and safe to reuse.
+# -----------------------------------------------------------------------------
 
-# Realm definitions
-[realms]
-{% for realm in realms %}  {{ realm.name | upper }} = {
-{% if realm.kdcs is defined %}    kdc = {{ realm.kdcs | join(', ') }}
-{% endif %}{% if realm.admin_server is defined %}    admin_server = {{ realm.admin_server }}
-{% endif %}{% if realm.default_domain is defined %}    default_domain = {{ realm.default_domain }}
-{% endif %}{% if realm.pkinit_anchors is defined %}    pk_init_anchors = {{ realm.pk_init_anchors | join(', ') }}
-{% endif %}{% if realm.pkinit_identity is defined %}    pk_init_identity = {{ realm.pk_init_identity }}
-{% endif %}{% if realm.pkinit_eku_checking is defined %}    pk_init_eku_checking = {{ realm.pk_init_eku_checking }}
-{% endif %}
-  }
-{% endfor %}
+# kdc_enabled: Whether to start the Heimdal KDC daemon.
+# Default: True
+KDC_ENABLED={{ kdc_enabled | default(true) }}
 
-# Domain-to-realm mappings
-[domain_realm]
-{% for mapping in domain_realm %}  {{ mapping.domain }} = {{ mapping.realm | upper }}
-{% endfor %}
+# kdc_config_file: Path to the KDC configuration file.
+# Default: '/etc/heimdal-kdc/kdc.conf'
+KDC_PARAMS="--config-file={{ kdc_config_file | default('/etc/heimdal-kdc/kdc.conf') }}"
 
-# KDC defaults (for server-side tuning)
-[kdcdefaults]
-{% if kdc_listen is defined %}  listen = {{ kdc_listen | join(', ') }}
-{% endif %}{% if kdc_bind is defined %}  bind = {{ kdc_bind | join(', ') }}
-{% endif %}{% if kdc_threads is defined %}  threads = {{ kdc_threads }}
-{% endif %}{% if kdc_max_time_skew is defined %}  max_time_skew = {{ kdc_max_time_skew }}
-{% endif %}{% if kdc_profile is defined %}  profile = {{ kdc_profile }}
-{% endif %}
+# kpasswdd_enabled: Whether to start the Heimdal kpasswdd (password change) daemon.
+# Default: True
+KPASSWDD_ENABLED={{ kpasswdd_enabled | default(true) }}
 
-# KDC databases
-[kdc]  
-{% if kdc_database is defined %}  database = {{ kdc_database.type | default('bdb') }}
-  database-path = {{ kdc_database.path }}
-{% if kdc_database.acls_file is defined %}  acls-file = {{ kdc_database.acls_file }}
-{% endif %}{% if kdc_database.key_stash_file is defined %}  key-stash-file = {{ kdc_database.key_stash_file }}
-{% endif %}{% if kdc_database.mkey_file is defined %}  mkey-file = {{ kdc_database.mkey_file }}
-{% endif %}{% if kdc_database.principal_file is defined %}  principal-file = {{ kdc_database.principal_file }}
-{% endif %}{% if kdc_database.log_file is defined %}  log-file = {{ kdc_database.log_file }}
-{% endif %}{% if kdc_database.lock_file is defined %}  lock-file = {{ kdc_database.lock_file }}
-{% endif %}
-{% endif %}
+# kpasswdd_params: Additional command-line parameters for kpasswdd.
+# Default: ''
+KPASSWDD_PARAMS="{{ kpasswdd_params | default('') }}"
 
-# Service principal to port mapping (for clients)
-[capaths]
-{% if capaths is defined %}
-{% for entry in capaths %}  {{ entry.from_realm | upper }} = {
-    {{ entry.to_realm | upper }} = {{ entry.path_realm | upper }}
-  }
-{% endfor %}
-{% endif %}
+# master_enabled: Whether this host is the KDC master (used for iprop replication).
+# Default: False
+MASTER_ENABLED={{ master_enabled | default(false) }}
 
-# Logging configuration
-[logging]
-{% if logging is defined %}
-{% for entry in logging %}  {{ entry.component | lower }} = {{ entry.target | upper }}:{{ entry.level | default('INFO') }}
-{% endfor %}
-{% endif %}
+# slave_enabled: Whether this host is a KDC slave (for iprop replication).
+# Default: False
+SLAVE_ENABLED={{ slave_enabled | default(false) }}
 
-# Additional configuration sections (for compatibility)
-[dbmodules]
-{% if dbmodules is defined %}
-{% for module in dbmodules %}  {{ module.db_name }} = {
-    db_library = {{ module.library | default('kdb5_util') }}
-{% if module.database_args is defined %}    database_args = {{ module.database_args | join(', ') }}
-{% endif %}{% if module.acls_file is defined %}    acls_file = {{ module.acls_file }}
-{% endif %}
-  }
-{% endfor %}
-{% endif %}
-
-[appdefaults]
-{% if appdefaults is defined %}
-{% for entry in appdefaults %}  {{ entry.application }} = {
-{% for param in entry.parameters %}    {{ param.name }} = {{ param.value | string }}
-{% endfor %}  }
-{% endfor %}
-{% endif %}
+# slave_params: Additional parameters for the KDC slave (e.g., master hostname for iprop).
+# Default: ''
+SLAVE_PARAMS="{{ slave_params | default('') }}"

@@ -1,0 +1,82 @@
+{# ============================================================================ #}
+{# freetable HTML Table Configuration Template                                    #}
+{# This template generates a structured table source file (wwwtable format).     #}
+{# It is self-documenting: every directive is preceded by a comment describing  #}
+{# its purpose and source field.                                                #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# Input/Output Source                                                        #}
+{# -------------------------------------------------------------------------- #}
+{# Path to the input file. If empty, freetable reads from stdin.              #}
+{# Source: input_file                                                         #}
+{% if input_file | default('') | trim != '' %}# Input file: {{ input_file | default('') | trim }}
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Global Table Attributes                                                    #}
+{# -------------------------------------------------------------------------- #}
+{# List of attributes to include in the opening <table> tag.                  #}
+{# Source: table_attributes                                                   #}
+{# Example: ["border=1", "cellpadding=5"]                                     #}
+wwwtable {{ table_attributes | default([]) | join(' ') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Preamble                                                                   #}
+{# -------------------------------------------------------------------------- #}
+{# HTML text inserted immediately before the table starts.                    #}
+{# Source: preamble                                                           #}
+{% if preamble | default('') | trim != '' %}
+{{ preamble | default('') | trim }}
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Cell Definitions                                                           #}
+{# -------------------------------------------------------------------------- #}
+{# List of cell definitions. Each entry defines a row, column, optional       #}
+{# attributes/options, and content. Order matters for relative addressing     #}
+{# semantics in the generated table.                                          #}
+{# Source: cells                                                              #}
+{% for cell in cells | default([]) %}
+    {# ------------------------------------------------------------------ #}
+    {# Cell Location (Optional Comment)                                   #}
+    {# If 'comment' is true, insert a comment before every cell to point  #}
+    {# its exact location (row, column).                                  #}
+    {# Source: comment                                                    #}
+    {% if comment | default(False) | bool %}
+    # Cell: row={{ cell.row | default('') }}, col={{ cell.col | default('') }}
+    {% endif %}
+
+    {# ------------------------------------------------------------------ #}
+    {# Cell Coordinates and Options                                       #}
+    {# Format: (row,col) options...                                       #}
+    {# Source: row, col, options                                          #}
+    ({{ cell.row | default('') }},{{ cell.col | default('') }}) {{ cell.options | default([]) | join(' ') }}
+
+    {# ------------------------------------------------------------------ #}
+    {# Cell Content                                                       #}
+    {# The actual content of the cell.                                    #}
+    {# Source: content                                                    #}
+    {{ cell.content | default('') | indent(2) }}
+{% endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# Closing Tag                                                                #}
+{# -------------------------------------------------------------------------- #}
+# End of table definition
+</wwwtable>
+
+{# -------------------------------------------------------------------------- #}
+{# Additional Options (Implicit in generation logic)                          #}
+{# -------------------------------------------------------------------------- #}
+{# no_nbsp: If true, do not insert non-breaking spaces in empty cells.        #}
+{# Source: no_nbsp                                                            #}
+{# warning: If true, print a warning before each generated table.             #}
+{# Source: warning                                                            #}
+{# location: If true, substitute <row> and <col> flags inside table.          #}
+{# Source: location                                                           #}
+{# macro: Use macro processor (e.g., 'm4') to process cells content.          #}
+{# Source: macro                                                              #}
+# Note: Options 'no_nbsp', 'warning', 'location', and 'macro' affect the     #
+# post-processing/rendering phase of the generated source but do not alter   #
+# the structural directives above.                                           #

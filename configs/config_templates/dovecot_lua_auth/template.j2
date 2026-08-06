@@ -1,19 +1,15 @@
 # Dovecot configuration — Lua authentication plugin
 # Enable Lua scripting for authentication logic
 # Load the Lua auth module
-{% if auth_lua_enabled %}auth_lua_enabled = yes
-auth_lua_script = "{{ auth_lua_script_path }}"
+{% if auth_lua_enabled %}auth_lua_script = "{{ auth_lua_script_path }}"
 {% endif %}
-# Lua auth plugin parameters (passed as environment variables to script)
-{% if auth_lua_params %}{% for param in auth_lua_params %}auth_lua_param_{{ param.name }} = "{{ param.value | replace('"', '\"') }}"
-{% endfor %}{% endif %}
 # Mail location and namespace setup
 mail_location = "{{ mail_location }}"
 {% if namespaces %}{% for ns in namespaces %}namespace {{ ns.name | replace('"', '\"') }} {
   # {{ ns.description }}
   type = {{ ns.type }}
-  prefix = {{ ns.prefix | default('""') | replace('"', '\"') }}
-  separator = {{ ns.separator | default('"."') | replace('"', '\"') }}
+  prefix = {{ ns.prefix | default('') | replace('"', '\"') }}
+  separator = {{ ns.separator | default('.') | replace('"', '\"') }}
   location = {{ ns.location | default('maildir:/tmp') | replace('"', '\"') }}
 }
 {% endfor %}{% endif %}

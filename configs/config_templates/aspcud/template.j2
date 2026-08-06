@@ -1,0 +1,86 @@
+{#
+  aspcud configuration template.
+  aspcud is a constraint-based package dependency solver. This configuration
+  controls the paths to its sub-components (solver, grounder, preprocessor),
+  optimization criteria, verbosity, and input/output handling.
+#}
+
+# Path to the ASP solver executable (e.g., clasp).
+# If empty or undefined, defaults to 'clasp'.
+SOLVER={{ (solver | default('clasp')) }}
+
+# Path to the ASP grounder executable (e.g., gringo).
+# If empty or undefined, defaults to 'gringo'.
+GROUNDER={{ (grounder | default('gringo')) }}
+
+# Path to the CUDF-to-LP preprocessor executable (cudf2lp).
+# If empty or undefined, defaults to 'cudf2lp'.
+PREPROCESSOR={{ (preprocessor | default('cudf2lp')) }}
+
+# Optimization criterion used by the solver.
+# Common values: 'paranoid', 'min-inconsistent', 'min-upgrade'.
+# If empty or undefined, defaults to 'paranoid'.
+CRITERION={{ (criterion | default('paranoid')) }}
+
+# Verbosity level for the solver output.
+# 0 = minimal, higher values increase detail.
+# If empty or undefined, defaults to 0.
+VERBOSITY={{ (verbosity | default(0)) }}
+
+# If true, do not cleanup temporary files created during solving.
+# Useful for debugging failed solves.
+# If undefined or false, temporary files are cleaned up.
+{% if (debug | default(false) | bool) %}
+DEBUG=true
+{% endif %}
+
+# Command-line options passed to the solver.
+# Each item in the list produces a SOLVER_OPT line.
+# If the list is empty, no solver options are set (solver uses its defaults).
+{% if solver_opts | default([]) | length > 0 %}
+{% for opt in solver_opts %}
+SOLVER_OPT={{ opt | default('') | trim }}
+{% endfor %}
+{% endif %}
+
+# Command-line options passed to the grounder.
+# Each item in the list produces a GROUNDER_OPT line.
+# If the list is empty, no grounder options are set.
+{% if grounder_opts | default([]) | length > 0 %}
+{% for opt in grounder_opts %}
+GROUNDER_OPT={{ opt | default('') | trim }}
+{% endfor %}
+{% endif %}
+
+# Command-line options passed to the preprocessor.
+# Each item in the list produces a PREPROCESSOR_OPT line.
+# If the list is empty, no preprocessor options are set.
+{% if preprocessor_opts | default([]) | length > 0 %}
+{% for opt in preprocessor_opts %}
+PREPROCESSOR_OPT={{ opt | default('') | trim }}
+{% endfor %}
+{% endif %}
+
+# Custom encoding files to append to the logic program.
+# If this list is non-empty, the default encoding is NOT used.
+# If the list is empty, no custom encodings are specified.
+{% if encodings | default([]) | length > 0 %}
+{% for enc in encodings %}
+ENCODING={{ enc | default('') | trim }}
+{% endfor %}
+{% endif %}
+
+# Input CUDF (Constraint Update Description Format) files.
+# If the list is empty, input is read from stdin.
+# If the list is non-empty, each file is processed in order.
+{% if input_files | default([]) | length > 0 %}
+{% for f in input_files %}
+INPUT_FILE={{ f | default('') | trim }}
+{% endfor %}
+{% endif %}
+
+# Output CUDF file path.
+# If empty or undefined, output is written to stdout.
+{% if (output_file | default('')) | trim != '' %}
+OUTPUT_FILE={{ (output_file | default('')) | trim }}
+{% endif %}

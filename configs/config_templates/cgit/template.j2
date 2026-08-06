@@ -1,0 +1,37 @@
+# ==============================================================================
+# CGit Web Interface Configuration
+# ==============================================================================
+# This template generates an Apache httpd configuration snippet for the CGit
+# (Git web interface) service. It sets up CGI execution for the repository
+# browsing interface and serves static CSS/assets.
+#
+# Variables are derived from the role's schema with safe defaults to prevent
+# render failures.
+# ==============================================================================
+
+# The URL path prefix for the CGit interface.
+# Default: 'cgit'
+# This maps the root CGI script to a URL path (e.g., /cgit/).
+ScriptAlias /{{ cgit_url_path | default('cgit') }}/ "{{ cgit_cgi_path | default('/usr/lib/cgit/cgit.cgi') }}/"
+
+# Redirect the bare URL path to the trailing-slash version.
+# This ensures consistent URL handling for the CGI script.
+# Example: /cgit -> /cgit/
+RedirectMatch ^/{{ cgit_url_path | default('cgit') }}$ /{{ cgit_url_path | default('cgit') }}/
+
+# The URL path prefix for CGit static assets (CSS, images, etc.).
+# Default: 'cgit-css'
+# This maps the static assets directory to a URL path.
+Alias /{{ cgit_css_url_path | default('cgit-css') }} "{{ cgit_css_path | default('/usr/share/cgit') }}/"
+
+# Directory configuration for the CGit CGI binary.
+# Allows execution of CGI scripts and following symlinks, while disabling
+# .htaccess overrides for security.
+<Directory "{{ cgit_cgi_path | default('/usr/lib/cgit/cgit.cgi') }}">
+    # Disable .htaccess processing for this directory
+    AllowOverride None
+    # Enable CGI execution and symlink following
+    Options ExecCGI FollowSymlinks
+    # Allow access to all users (Apache 2.4 syntax)
+    Require all granted
+</Directory>

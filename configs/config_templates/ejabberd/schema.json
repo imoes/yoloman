@@ -1,337 +1,37 @@
 {
-  "listeners": {
-    "type": "list",
-    "default": [
-      {
-        "port": 5222,
-        "module": "ejabberd_c2s",
-        "options": {
-          "starttls": true,
-          "certfile": "/etc/ejabberd/cert.pem"
-        }
-      },
-      {
-        "port": 5269,
-        "module": "ejabberd_s2s_in"
-      },
-      {
-        "port": 5280,
-        "module": "ejabberd_http",
-        "options": {
-          "ip": "127.0.0.1",
-          "tls": false,
-          "request_handlers": {
-            "/admin": "ejabberd_web_admin"
-          }
-        }
-      }
-    ],
-    "description": "List of listener definitions: port, module, optional ip and options (e.g., TLS, admin endpoint)",
-    "items": {
-      "type": "object",
-      "properties": {
-        "port": {
-          "type": "number",
-          "description": "TCP port to bind"
-        },
-        "ip": {
-          "type": "string",
-          "description": "IP address to bind (optional, e.g., '0.0.0.0', '127.0.0.1')"
-        },
-        "module": {
-          "type": "string",
-          "description": "Ejabberd module for this listener"
-        },
-        "options": {
-          "type": "object",
-          "description": "Module-specific options (e.g., TLS settings, admin access)"
-        }
-      },
-      "required": [
-        "port",
-        "module"
-      ]
-    }
+  "ejabberd_binary_dir": {
+    "type": "string",
+    "default": "/usr/sbin",
+    "description": "Directory where ejabberdctl binary resides"
   },
-  "auth": {
-    "type": "object",
-    "default": {
-      "method": "sql",
-      "sql": {
-        "type": "mysql",
-        "host": "localhost",
-        "database": "ejabberd",
-        "username": "ejabberd",
-        "password": "secret"
-      }
-    },
-    "description": "Authentication method: 'internal', 'sql', or 'ldap'. Configures backend credentials.",
-    "properties": {
-      "method": {
-        "type": "string",
-        "enum": [
-          "internal",
-          "sql",
-          "ldap"
-        ],
-        "default": "sql",
-        "description": "Authentication backend type"
-      },
-      "sql": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "mysql",
-              "postgresql",
-              "sqlite"
-            ],
-            "description": "SQL backend driver"
-          },
-          "host": {
-            "type": "string",
-            "description": "SQL server hostname or IP"
-          },
-          "database": {
-            "type": "string",
-            "description": "Database name"
-          },
-          "username": {
-            "type": "string",
-            "description": "SQL username"
-          },
-          "password": {
-            "type": "string",
-            "description": "SQL password"
-          }
-        }
-      },
-      "ldap": {
-        "type": "object",
-        "properties": {
-          "servers": {
-            "type": "list",
-            "items": {
-              "type": "string"
-            },
-            "description": "LDAP server hostnames/IPs"
-          },
-          "port": {
-            "type": "number",
-            "description": "LDAP port (usually 389 or 636 for LDAPS)"
-          },
-          "userdn": {
-            "type": "string",
-            "description": "Distinguished name pattern for user lookup"
-          },
-          "base": {
-            "type": "string",
-            "description": "Base DN for searches"
-          },
-          "password": {
-            "type": "string",
-            "description": "Bind password for LDAP search"
-          }
-        }
-      }
-    }
+  "ejabberd_user": {
+    "type": "string",
+    "default": "ejabberd",
+    "description": "System user under which ejabberd runs"
   },
-  "hosts": {
-    "type": "list",
-    "default": [
-      "example.com"
-    ],
-    "description": "List of XMPP domain names (VirtualHosts) this server serves.",
-    "items": {
-      "type": "string"
-    }
+  "run_directory": {
+    "type": "string",
+    "default": "/run/ejabberd",
+    "description": "Runtime directory used by ejabberd for pid files and sockets"
   },
-  "modules": {
-    "type": "object",
-    "default": {
-      "mod_roster": {},
-      "mod_vcard": {},
-      "mod_muc": {
-        "access_muc": "muc",
-        "storage": "ram"
-      },
-      "mod_pubsub": {
-        "access_createnode": "pubsub_createnode",
-        "plugins": [
-          "flat",
-          "pep"
-        ]
-      }
-    },
-    "description": "Loaded XMPP modules and their options (e.g., MUC, roster, vCard, pubsub).",
-    "additionalProperties": {
-      "type": "object"
-    }
+  "short_description": {
+    "type": "string",
+    "default": "Starts ejabberd XMPP server",
+    "description": "One-line summary shown in init script descriptions"
   },
-  "log": {
-    "type": "object",
-    "default": {
-      "path": "/var/log/ejabberd/ejabberd.log",
-      "level": "info"
-    },
-    "description": "Logging configuration: log file path and verbosity level.",
-    "properties": {
-      "path": {
-        "type": "string",
-        "description": "Path to log file (empty string to disable file logging)"
-      },
-      "level": {
-        "type": "string",
-        "enum": [
-          "debug",
-          "info",
-          "warning",
-          "error"
-        ],
-        "default": "info",
-        "description": "Minimum log level to record"
-      }
-    }
+  "description_line1": {
+    "type": "string",
+    "default": "Starts ejabberd XMPP server, an XMPP",
+    "description": "First line of multi-line description field"
   },
-  "limits": {
-    "type": "object",
-    "default": {
-      "max_fsm_queue": 1000,
-      "max_fsm_sessions": 100000,
-      "queue_type": "normal"
-    },
-    "description": "Performance tuning: session and queue limits.",
-    "properties": {
-      "max_fsm_queue": {
-        "type": "number",
-        "description": "Max messages per connection queue before disconnect"
-      },
-      "max_fsm_sessions": {
-        "type": "number",
-        "description": "Max concurrent client connections"
-      },
-      "queue_type": {
-        "type": "string",
-        "enum": [
-          "normal",
-          "priority"
-        ],
-        "description": "Message queue policy"
-      }
-    }
+  "description_line2": {
+    "type": "string",
+    "default": "compliant server written in Erlang.",
+    "description": "Second line of multi-line description field"
   },
-  "cluster": {
-    "type": "object",
-    "default": {
-      "enabled": false
-    },
-    "description": "Optional cluster configuration: multi-node deployment with shared state.",
-    "properties": {
-      "enabled": {
-        "type": "bool",
-        "description": "Enable clustering"
-      },
-      "node": {
-        "type": "string",
-        "description": "Current node's name (e.g., 'ejabberd@node1')",
-        "default": "ejabberd@localhost"
-      },
-      "nodes": {
-        "type": "list",
-        "items": {
-          "type": "string"
-        },
-        "description": "List of cluster node names"
-      },
-      "sql": {
-        "type": "object",
-        "properties": {
-          "pool_size": {
-            "type": "number",
-            "description": "DB connection pool size per node"
-          }
-        }
-      }
-    }
-  },
-  "tls": {
-    "type": "object",
-    "default": {
-      "enabled": true,
-      "cert_dir": "/etc/ejabberd/certs"
-    },
-    "description": "TLS certificate directory (required if listeners enable STARTTLS).",
-    "properties": {
-      "enabled": {
-        "type": "bool",
-        "description": "Enable TLS for listeners and S2S"
-      },
-      "cert_dir": {
-        "type": "string",
-        "description": "Directory containing TLS certs (e.g., /etc/ejabberd/certs)"
-      }
-    }
-  },
-  "s2s": {
-    "type": "object",
-    "default": {
-      "use_starttls": true,
-      "timeout": 45,
-      "allow_domains": [
-        "jabber.org",
-        "gitter.im"
-      ]
-    },
-    "description": "Server-to-server federation settings.",
-    "properties": {
-      "use_starttls": {
-        "type": "bool",
-        "description": "Use STARTTLS for outbound S2S connections"
-      },
-      "timeout": {
-        "type": "number",
-        "description": "S2S connection timeout in seconds"
-      },
-      "allow_domains": {
-        "type": "list",
-        "items": {
-          "type": "string"
-        },
-        "description": "List of domains allowed to connect (if strict access control needed)"
-      }
-    }
-  },
-  "acl": {
-    "type": "object",
-    "default": {
-      "admin": [
-        {
-          "user": "admin",
-          "server": "example.com"
-        },
-        {
-          "user": "admin",
-          "server": "localhost"
-        }
-      ]
-    },
-    "description": "Access Control Lists: named groups of users or patterns (e.g., admins, regular users).",
-    "additionalProperties": {
-      "type": "list",
-      "items": {
-        "type": "object"
-      }
-    }
-  },
-  "admins": {
-    "type": "list",
-    "default": [
-      "admin@example.com"
-    ],
-    "description": "List of admin JIDs (full bare addresses) with full server control.",
-    "items": {
-      "type": "string"
-    }
+  "chkconfig_description": {
+    "type": "string",
+    "default": "ejabberd XMPP server",
+    "description": "Short description used in chkconfig headers"
   }
 }

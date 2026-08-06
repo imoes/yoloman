@@ -1,23 +1,28 @@
-# core dump configuration template
+# Core dump configuration template
 # This config controls system-wide core dump behavior via kernel sysctl parameters.
+# It is self-documenting: every directive is preceded by its schema description and default.
 
 # Controls naming of core dump files: specifies a template for the core dump filename.
-# It supports % specifiers (e.g., %p for PID, %e for executable name) and can pipe to a handler.
-kernel.core_pattern = {{ core_pattern }}
+# Supports % specifiers (e.g., %p for PID, %e for executable name) and can pipe to a handler.
+# Default: 'core'
+kernel.core_pattern = {{ core_pattern | default('core') }}
 
 # If nonzero, appends .PID to core filename when core_pattern lacks %p and the pattern is simple.
 # Deprecated in favor of embedding %p directly in core_pattern, but still effective.
-kernel.core_uses_pid = {{ core_uses_pid }}
+# Default: 0
+kernel.core_uses_pid = {{ core_uses_pid | default(0) }}
 
 # Controls dumping behavior for privileged/setuid programs:
 #   0 = never dump (default for security)
 #   1 = dump if process is dumpable (traditional)
 #   2 = always dump (suidsafe mode — core_pattern must be absolute or pipe)
-kernel.suid_dumpable = {{ suid_dumpable }}
+# Default: 0
+kernel.suid_dumpable = {{ suid_dumpable | default(0) }}
 
 # Limits concurrent pipe-core handlers running in parallel when core_pattern pipes to a program.
 # Value >0 caps concurrency; 0 means unlimited concurrency but no waiting (handlers may miss /proc access).
-kernel.core_pipe_limit = {{ core_pipe_limit }}
+# Default: 0
+kernel.core_pipe_limit = {{ core_pipe_limit | default(0) }}
 
 # Controls which memory mappings are included in the core dump (bitmask):
 #   bit 0: anonymous private, bit 1: anonymous shared,
@@ -25,8 +30,10 @@ kernel.core_pipe_limit = {{ core_pipe_limit }}
 #   bit 4: ELF headers, bits 5-8: huge/DAX pages.
 # Default: 0x33 (bits 0,1,4,5 set unless config omits ELF headers).
 # This is a system-wide default (can be overridden per-process via /proc/pid/coredump_filter).
-vm.core_dump_filter = {{ core_dump_filter }}
+# Default: '0x33'
+vm.core_dump_filter = {{ core_dump_filter | default('0x33') }}
 
 # Optional: If using systemd-coredump, this path shows where dumps are stored.
 # Not a sysctl — for documentation only. Typically /var/lib/systemd/coredump/.
-# {{ systemd_coredump_dir | default('# Systemd core dumps are stored in: /var/lib/systemd/coredump/') }}
+# Default: '/var/lib/systemd/coredump/'
+# {{ systemd_coredump_dir | default('/var/lib/systemd/coredump/') }}

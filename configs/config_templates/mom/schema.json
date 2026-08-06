@@ -7,13 +7,14 @@
   "log_level": {
     "type": "string",
     "default": "info",
-    "allowed_values": [
+    "description": "Verbosity of logging.",
+    "enum": [
       "debug",
       "info",
-      "warning",
-      "error"
-    ],
-    "description": "Verbosity of logging."
+      "warn",
+      "error",
+      "critical"
+    ]
   },
   "state_file": {
     "type": "string",
@@ -73,11 +74,6 @@
   "cpu_throttling_policy": {
     "type": "string",
     "default": "adaptive",
-    "allowed_values": [
-      "none",
-      "constant",
-      "adaptive"
-    ],
     "description": "Throttling strategy: none (no throttling), constant (fixed shares), adaptive (reactive based on load)."
   },
   "disk_enabled": {
@@ -128,48 +124,36 @@
   "cpu_throttling_cmd": {
     "type": "string",
     "default": "",
-    "description": "Command template executed when CPU throttling is applied. Supports {vm}, {limit} (vCPU limit), {reason}."
+    "description": "Command template executed when CPU throttling is triggered. Supports placeholders: {vm}, {action}, {reason}."
   },
-  "migration_cmd": {
+  "policy_engine_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "The wake up frequency of the policy engine (in seconds)."
+  },
+  "controllers": {
+    "type": "string",
+    "default": "Balloon, KSM",
+    "description": "A comma-separated list of Controller plugins to enable."
+  },
+  "libvirt_hypervisor_uri": {
     "type": "string",
     "default": "",
-    "description": "Command template executed before VM migration (e.g., for preflight checks). Supports {vm}, {target}."
+    "description": "The URI to use when connecting to this host's libvirt interface."
   },
-  "excluded_vms": {
-    "type": "list",
-    "default": [],
-    "description": "List of VM UUIDs or names to exclude from all MOM resource management."
+  "plot_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Directory to enable plotting (empty string disables)."
   },
-  "vm_policies": {
-    "type": "list",
-    "default": [],
-    "description": "Override policies for specific VMs.",
-    "items": {
-      "vm_name": {
-        "type": "string",
-        "required": true,
-        "description": "VM name or UUID to apply this policy to."
-      },
-      "memory_limit": {
-        "type": "number",
-        "default": null,
-        "description": "Override memory limit (MiB) for this VM (global default: automatic)."
-      },
-      "cpu_shares": {
-        "type": "number",
-        "default": null,
-        "description": "Override CPU shares for this VM (range 1\u20131024)."
-      },
-      "disk_iops_limit": {
-        "type": "number",
-        "default": null,
-        "description": "Override per-VM disk IOPS limit (global default: max_per_vm_iops)."
-      },
-      "network_bandwidth_limit": {
-        "type": "number",
-        "default": null,
-        "description": "Override per-VM network bandwidth limit (Mbps)."
-      }
-    }
+  "rpc_port": {
+    "type": "number",
+    "default": -1,
+    "description": "RPC server port (-1 to disable)."
+  },
+  "policy_file": {
+    "type": "string",
+    "default": "",
+    "description": "At startup, load a policy from this file. If empty, no policy is loaded."
   }
 }

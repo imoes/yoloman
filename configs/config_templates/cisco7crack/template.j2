@@ -1,0 +1,82 @@
+{#
+  ==============================================================================
+  cisco7crack Configuration Template
+  ==============================================================================
+  NOTE: cisco7crack(1) does NOT use a configuration file.
+  This tool operates solely via command-line arguments (CLI flags).
+  
+  This template serves as a documentation placeholder and a source of truth
+  for the available CLI options within an Ansible role context. In practice,
+  these variables should be passed directly to the 'command' or 'shell'
+  module invocations, not written to a file.
+  
+  See cisco7crack(1) for full usage details.
+  ==============================================================================
+#}
+
+# --------------------------------------------------------------------------
+# Mode: Operation Mode (crypt or decrypt)
+# --------------------------------------------------------------------------
+# Default: 'decrypt'
+# Description: Specifies the operation mode.
+#   - 'crypt': Encrypts the provided plaintext string.
+#   - 'decrypt': Decrypts the provided ciphertext (Type-7).
+# CLI Flag: -c (crypt) / -d (decrypt)
+# Note: cisco7crack uses CLI flags -c and -d; no config equivalent exists.
+{% set mode = mode | default('decrypt') %}
+# mode={{ mode }}
+
+# --------------------------------------------------------------------------
+# Plaintext Input
+# --------------------------------------------------------------------------
+# Default: ''
+# Description: The plaintext string to be encrypted.
+#              Used ONLY when mode is 'crypt'. Ignored in decrypt mode.
+# CLI Flag: (Passed as argument or via stdin depending on implementation)
+# Note: plaintext string to encrypt (used only when mode is 'crypt').
+{% set plaintext = plaintext | default('') %}
+# plaintext={{ plaintext }}
+
+# --------------------------------------------------------------------------
+# Ciphertext Input
+# --------------------------------------------------------------------------
+# Default: ''
+# Description: The Type-7 encrypted password string to be decrypted.
+#              Used ONLY when mode is 'decrypt'. Ignored in crypt mode.
+# CLI Flag: (Passed as argument)
+# Note: ciphertext (Type-7 encrypted password) to decrypt (used only when mode is 'decrypt').
+{% set ciphertext = ciphertext | default('') %}
+# ciphertext={{ ciphertext }}
+
+# --------------------------------------------------------------------------
+# Index Selection
+# --------------------------------------------------------------------------
+# Default: 0
+# Description: Specifies the index (0-15) of the crypt variant to use.
+#              This allows selecting specific keys for encryption.
+# CLI Flag: -<n> (e.g., -0 to -15)
+# Note: Index (0-15) of the crypt variant to use with -#<n>. Ignored in decrypt mode.
+{% set index = index | default(0) %}
+# index={{ index }}
+
+# --------------------------------------------------------------------------
+# All Variants
+# --------------------------------------------------------------------------
+# Default: False
+# Description: If true, displays all crypt variants (brute-force style).
+#              Overrides the specific 'index' setting if both are set.
+# CLI Flag: -a
+# Note: If true, display all crypt variants (equivalent to -a flag). Overrides index if true.
+{% set all_variants = all_variants | default(False) | bool %}
+# all_variants={{ all_variants | lower }}
+
+# --------------------------------------------------------------------------
+# Quiet Mode
+# --------------------------------------------------------------------------
+# Default: False
+# Description: Suppresses non-essential output (errors, usage hints).
+#              Useful for scripting or piping results.
+# CLI Flag: -q
+# Note: Suppress non-essential output (equivalent to -q flag).
+{% set quiet = quiet | default(False) | bool %}
+# quiet={{ quiet | lower }}

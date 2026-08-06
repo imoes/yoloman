@@ -16,42 +16,13 @@
   },
   "tls": {
     "type": "object",
-    "default": {},
-    "description": "TLS/SSL certificate and key configuration for secure mesh communication.",
-    "items": {
-      "cert_file": {
-        "type": "string",
-        "default": "/etc/receptor/node.crt",
-        "description": "Path to the node\u2019s public certificate (PEM format)."
-      },
-      "key_file": {
-        "type": "string",
-        "default": "/etc/receptor/node.key",
-        "description": "Path to the node\u2019s private key (PEM format)."
-      },
-      "ca_file": {
-        "type": "string",
-        "default": "/etc/receptor/ca.crt",
-        "description": "Path to the trusted CA certificate for verifying peers."
-      }
-    }
+    "default": [],
+    "description": "TLS/SSL certificate and key configuration for secure mesh communication."
   },
   "listener": {
     "type": "object",
-    "default": {},
-    "description": "Network listener configuration for incoming peer connections.",
-    "items": {
-      "listen_addr": {
-        "type": "string",
-        "default": "0.0.0.0:8080",
-        "description": "Local address and port for Receptor to listen on (e.g., '127.0.0.1:8080' or ':8080')."
-      },
-      "advertise_addr": {
-        "type": "string",
-        "default": "0.0.0.0:8080",
-        "description": "Public address Receptor advertises to peers (useful behind NAT/firewalls)."
-      }
-    }
+    "default": [],
+    "description": "Network listener configuration for incoming peer connections."
   },
   "max_conns": {
     "type": "number",
@@ -66,167 +37,41 @@
   "nodes": {
     "type": "list",
     "default": [],
-    "description": "List of mesh nodes (other Receptor instances). At least one peer is required for a functional mesh.",
-    "items": {
-      "type": "object",
-      "description": "A single peer node in the mesh.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name for this node (must be unique in the mesh)."
-        },
-        "address": {
-          "type": "string",
-          "default": "",
-          "description": "Host and port of the peer node (e.g., '192.168.1.10:8080')."
-        },
-        "role": {
-          "type": "string",
-          "default": "worker",
-          "description": "Node role (e.g., 'worker', 'controller'). Usually 'worker' for compute nodes."
-        },
-        "cert_name": {
-          "type": "string",
-          "default": "",
-          "description": "Certificate subject name used to verify this peer (optional)."
-        }
-      }
-    }
+    "description": "List of mesh nodes (other Receptor instances). At least one peer is required for a functional mesh."
   },
   "workers": {
     "type": "list",
     "default": [],
-    "description": "List of workers (named job executors) that accept work from the mesh.",
-    "items": {
-      "type": "object",
-      "description": "A configurable worker backend.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name of the worker (used in job submissions)."
-        },
-        "type": {
-          "type": "string",
-          "default": "",
-          "description": "Worker type (e.g., 'exec', 'container', 'python')."
-        },
-        "command": {
-          "type": "string",
-          "default": "",
-          "description": "Command or script to execute (required for 'exec' type)."
-        },
-        "work_dir": {
-          "type": "string",
-          "default": "",
-          "description": "Working directory for the worker process."
-        },
-        "env": {
-          "type": "object",
-          "default": {},
-          "description": "Environment variables passed to the worker process (key=value)."
-        },
-        "max_jobs": {
-          "type": "number",
-          "default": 10,
-          "description": "Maximum number of concurrent jobs this worker can process."
-        }
-      }
-    }
+    "description": "List of workers (named job executors) that accept work from the mesh."
   },
-  "services": {
-    "type": "list",
-    "default": [],
-    "description": "List of services (long-running TCP/HTTP proxies or executables) managed by Receptor.",
-    "items": {
-      "type": "object",
-      "description": "A managed service.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name of the service."
-        },
-        "type": {
-          "type": "string",
-          "default": "",
-          "description": "Service type (e.g., 'tcp', 'http', 'exec')."
-        },
-        "listen": {
-          "type": "string",
-          "default": "",
-          "description": "Address:port to expose (e.g., '127.0.0.1:3000')."
-        },
-        "forward_to": {
-          "type": "string",
-          "default": "",
-          "description": "Upstream target for proxying (e.g., 'localhost:8000')."
-        },
-        "command": {
-          "type": "string",
-          "default": "",
-          "description": "Command to run as a service (for 'exec' type)."
-        }
-      }
-    }
+  "control_service_filename": {
+    "type": "string",
+    "default": "/tmp/receptor.sock",
+    "description": "Path to the Unix domain socket for the control service."
   },
-  "acls": {
-    "type": "list",
-    "default": [],
-    "description": "Access control lists to restrict peer access or command execution.",
-    "items": {
-      "type": "object",
-      "description": "An ACL rule set.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Name of the ACL."
-        },
-        "allow_peers": {
-          "type": "list",
-          "default": [],
-          "description": "List of peer names allowed to use this ACL (or ['*'] for all)."
-        },
-        "allow_commands": {
-          "type": "list",
-          "default": [],
-          "description": "List of worker commands allowed under this ACL."
-        },
-        "deny_peers": {
-          "type": "list",
-          "default": [],
-          "description": "List of peers explicitly denied (overrides allow)."
-        },
-        "deny_commands": {
-          "type": "list",
-          "default": [],
-          "description": "List of commands explicitly denied (overrides allow)."
-        }
-      }
-    }
+  "control_service_permissions": {
+    "type": "string",
+    "default": "0660",
+    "description": "File permissions for the control service socket (octal string)."
   },
-  "log": {
-    "type": "object",
-    "default": {},
-    "description": "Logging configuration.",
-    "items": {
-      "level": {
-        "type": "string",
-        "default": "info",
-        "description": "Minimum log level (debug, info, warn, error)."
-      },
-      "format": {
-        "type": "string",
-        "default": "text",
-        "description": "Log format: 'text' (human-readable) or 'json' (machine-parseable)."
-      },
-      "file": {
-        "type": "string",
-        "default": "",
-        "description": "Path to log file. Empty or absent sends logs to stderr."
-      }
-    }
+  "tcp_listener_port": {
+    "type": "number",
+    "default": 7323,
+    "description": "TCP port for the mesh listener."
+  },
+  "work_command_command": {
+    "type": "string",
+    "default": "ansible-runner",
+    "description": "Command to execute for local work items."
+  },
+  "work_command_params": {
+    "type": "string",
+    "default": "worker",
+    "description": "Arguments passed to the work command."
+  },
+  "work_command_allowruntimeparams": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether runtime parameters can be passed to the work command."
   }
 }

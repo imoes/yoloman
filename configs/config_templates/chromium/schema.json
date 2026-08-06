@@ -1,50 +1,201 @@
 {
-  "chromium_flags": {
-    "type": "list",
-    "default": [
-      "--no-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-features=VizDisplayCompositor",
-      "--enable-features=NetworkServiceSandbox,InsecurelyDisableSiteIsolation",
-      "--disable-extensions",
-      "--disable-extensions-except=/usr/share/chromium/extensions",
-      "--load-extension=/usr/share/chromium/extensions"
-    ],
-    "description": "List of Chromium command-line flags. Used to enforce security hardening, disable risky features, and enable enterprise controls. Flags are passed directly to the Chromium binary on launch."
-  },
-  "enable_spellcheck": {
+  "distribution_import_bookmarks": {
     "type": "bool",
     "default": false,
-    "description": "If true, enables spell-checking support by setting SPELLCHECK=1."
+    "description": "Whether to import bookmarks from the default file on first run."
   },
-  "enable_webrtc_mute_capture": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, sets WEBRTC_MUTE_CAPTURE=1 to mute camera/microphone by default, improving privacy."
+  "distribution_import_bookmarks_from_file": {
+    "type": "string",
+    "default": "/usr/share/chromium/initial_bookmarks.html",
+    "description": "Path to the file containing initial bookmarks to import."
   },
-  "enable_sandbox_debugging": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, enables sandbox debugging via SANDBOX_DEBUG=1. Only use for diagnostics \u2014 never in production."
-  },
-  "enable_sandbox": {
-    "type": "bool",
-    "default": true,
-    "description": "If false, sets NO_SANDBOX=1 to disable Chromium\u2019s sandbox (e.g., for containerized or CI environments where sandboxing is unavailable)."
-  },
-  "disable_gpu": {
+  "distribution_make_chrome_default": {
     "type": "bool",
     "default": false,
-    "description": "If true, sets DISABLE_GPU=1 to disable GPU acceleration \u2014 helpful for headless deployments or systems with problematic drivers."
+    "description": "Whether to make Chrome the system-wide default browser."
   },
-  "disable_speech_recognition": {
+  "distribution_make_chrome_default_for_user": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to make Chrome the default browser for the current user."
+  },
+  "distribution_verbose_logging": {
     "type": "bool",
     "default": true,
-    "description": "If true, sets DISABLE_SPEECH_RECOGNITION=1 to disable web speech APIs, reducing attack surface and enhancing privacy."
+    "description": "Enable verbose logging for distribution-specific operations."
   },
-  "extra_env": {
-    "type": "object",
-    "default": {},
-    "description": "Key-value pairs for additional environment variables. Use sparingly; prefer explicitly defined options above for better control and documentation."
+  "distribution_skip_first_run_ui": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip the first-run welcome/assistant UI."
+  },
+  "distribution_create_all_shortcuts": {
+    "type": "bool",
+    "default": true,
+    "description": "Create desktop and menu shortcuts for Chromium."
+  },
+  "distribution_suppress_first_run_default_browser_prompt": {
+    "type": "bool",
+    "default": true,
+    "description": "Suppress the prompt asking the user to make Chrome the default browser."
+  },
+  "browser_show_home_button": {
+    "type": "bool",
+    "default": true,
+    "description": "Show the home button in the toolbar."
+  },
+  "browser_has_seen_welcome_page": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the user has already seen the welcome page."
+  },
+  "browser_check_default_browser": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to check if Chrome is the default browser."
+  },
+  "search_provider_overrides_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether this search provider override is active."
+  },
+  "search_provider_overrides_encoding": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Character encoding for search queries."
+  },
+  "search_provider_favicon_url": {
+    "type": "string",
+    "default": "https://duckduckgo.com/favicon.ico",
+    "description": "URL of the search provider's favicon."
+  },
+  "search_provider_new_tab_url": {
+    "type": "string",
+    "default": "https://duckduckgo.com/chrome_newtab",
+    "description": "URL used for new tab page by the search provider."
+  },
+  "search_provider_overrides_id": {
+    "type": "number",
+    "default": 2,
+    "description": "Internal ID for the search provider override."
+  },
+  "search_provider_keyword": {
+    "type": "string",
+    "default": "duckduckgo.com",
+    "description": "Keyword to identify the search provider in Chromium settings."
+  },
+  "search_provider_name": {
+    "type": "string",
+    "default": "DuckDuckGo",
+    "description": "User-visible name of the search provider."
+  },
+  "search_provider_search_url": {
+    "type": "string",
+    "default": "https://duckduckgo.com/?q={searchTerms}",
+    "description": "Template URL for search queries, with {searchTerms} placeholder."
+  },
+  "search_provider_suggest_url": {
+    "type": "string",
+    "default": "https://duckduckgo.com/ac/?q={searchTerms}&type=list",
+    "description": "Template URL for search suggestions, with {searchTerms} placeholder."
+  },
+  "search_provider_overrides_version": {
+    "type": "number",
+    "default": 1,
+    "description": "Version number for search provider overrides, incremented when overrides change."
+  },
+  "profile_default_content_setting_values_payment_handler": {
+    "type": "number",
+    "default": 2,
+    "description": "Default permission for payment handlers (0=ask, 1=allow, 2=block)."
+  },
+  "bookmark_bar_show_on_all_tabs": {
+    "type": "bool",
+    "default": true,
+    "description": "Show the bookmark bar on all tabs."
+  },
+  "net_network_prediction_options": {
+    "type": "number",
+    "default": 2,
+    "description": "Network prediction options (0=disabled, 1=enabled, 2=enabled with prefetch)."
+  },
+  "search_suggest_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable search suggestions."
+  },
+  "signin_allowed": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether sign-in is allowed."
+  },
+  "signin_allowed_on_next_startup": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether sign-in is allowed on the next startup."
+  },
+  "autofill_profile_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable Autofill for profiles."
+  },
+  "autofill_credit_card_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable Autofill for credit cards."
+  },
+  "payments_can_make_payment_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether the user can make payments."
+  },
+  "safebrowsing_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable Safe Browsing protection."
+  },
+  "dns_prefetching_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable DNS prefetching."
+  },
+  "alternate_error_pages_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable alternate error pages."
+  },
+  "credentials_enable_service": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable the credential management service."
+  },
+  "credentials_enable_autosignin": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable auto-signin."
+  },
+  "default_apps": {
+    "type": "string",
+    "default": "noinstall",
+    "description": "Default apps behavior (e.g., noinstall, install).",
+    "enum": [
+      "noinstall",
+      "install"
+    ]
+  },
+  "hide_web_store_icon": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to hide the Chrome Web Store icon."
+  },
+  "homepage_is_newtabpage": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the homepage should be the New Tab page."
+  },
+  "homepage_url": {
+    "type": "string",
+    "default": "https://www.debian.org",
+    "description": "URL for the Chromium homepage."
   }
 }

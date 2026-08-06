@@ -1,37 +1,78 @@
-# Main gdnsd configuration file
+# =========================================================================
+# gdnsd Configuration Template
+#
+# This template generates the configuration file for gdnsd, a high-performance
+# authoritative DNS server. It is self-documenting: every setting is commented
+# with its purpose and default value.
+#
+# Variables used:
+#   listen_addrs  - List of IP:port pairs to bind (default: ['127.0.0.1,53', '::1,53'])
+#   max_udp_size  - Max UDP response size (default: 4096)
+#   tcp_fallback  - Allow TCP fallback (default: true)
+#   workers       - Worker thread count (default: 1)
+#   geo_sources   - List of GeoIP MMDB file paths (default: ['/usr/share/geoip/GeoLite2-Country.mmdb'])
+#   zones         - List of zone definitions (default: [])
+# =========================================================================
+
+# -----------------------------------------------------------------------------
 # List of listening addresses and ports
+# Each entry is an IP address followed by a comma and the port number.
+# Default: ['127.0.0.1,53', '::1,53']
+# -----------------------------------------------------------------------------
 listen {
-{% for addr in listen_addrs %}  {{ addr | join(', ') }}{% if not loop.last %}
-{% endif %}{% endfor %}
-}
+{% for addr in (listen_addrs | default(['127.0.0.1,53', '::1,53'])) %}  {{ addr }};
+{% endfor %}}
 
+# -----------------------------------------------------------------------------
 # Global DNS server settings
+# -----------------------------------------------------------------------------
 global {
-  # Maximum UDP packet size for responses
-  max_udp_size: {{ max_udp_size }};
-  # Enable TCP fallback for large responses
-  tcp_fallback: {{ tcp_fallback | lower }};
-  # Number of worker threads
-  workers: {{ workers }};
+  # Maximum UDP packet size for DNS responses.
+  # RFC 8020 recommends ≥ 4096 for EDNS0 support.
+  # Default: 4096
+  max_udp_size: {{ max_udp_size | default(4096) }};
+
+  # Enable TCP fallback: if a UDP response exceeds the client's advertised size,
+  # accept the connection over TCP instead of truncating the response.
+  # Default: true
+  tcp_fallback: {{ tcp_fallback | default(true) | lower }};
+
+  # Number of worker threads to spawn for handling DNS queries.
+  # For best performance, set this to the number of available CPU cores.
+  # Default: 1
+  workers: {{ workers | default(1) }};
 }
 
-# Geographic data sources
+# -----------------------------------------------------------------------------
+# Geographic data sources (GeoIP)
+# List of file paths to MaxMind MMDB files used for geolocation lookups.
+# Default: ['/usr/share/geoip/GeoLite2-Country.mmdb']
+# -----------------------------------------------------------------------------
 geo {
-{% for src in geo_sources %}  {{ src | join(', ') }}{% if not loop.last %}
-{% endif %}{% endfor %}
-}
+{% for src in (geo_sources | default(['/usr/share/geoip/GeoLite2-Country.mmdb'])) %}  {{ src }};
+{% endfor %}}
 
+# -----------------------------------------------------------------------------
 # DNS zones configuration
+# Defines authoritative zones served by this server.
+# Each zone expects: name (required), file (optional), options (optional list),
+#                    geodatas (optional list of geo mappings).
+# Default: []
+# -----------------------------------------------------------------------------
 zones {
-{% for zone in zones %}  {{ zone.name }} {
-{% if zone.file %}    file: "{{ zone.file }}";
-{% endif %}{% if zone.options %}{% for opt in zone.options %}    {{ opt | join(', ') }};
-{% endfor %}{% endif %}{% if zone.geodatas %}{% for geo in zone.geodatas %}    geodata:
-{% for entry in geo %}      {{ entry.ip | default(entry.net) | default(entry.host) }} -> {{ entry.location }};
+{% for zone in (zones | default([])) %}  {{ zone.name }} {
+{% if zone.file is defined %}    file: "{{ zone.file }}";
+{% endif %}
+{% if zone.options is defined %}{% for opt in zone.options %}    {{ opt }};
+{% endfor %}{% endif %}
+{% if zone.geodatas is defined %}{% for geo in zone.geodatas %}    geodata:
+{% for entry in geo %}      {{ entry.ip | default(entry.net | default(entry.host)) }} -> {{ entry.location }};
 {% endfor %}    ;
 {% endfor %}{% endif %}  }
-{% endfor %}
-}
+{% endfor %}}
 
+# -----------------------------------------------------------------------------
 # Runtime metadata
+# Configuration format version.
+# -----------------------------------------------------------------------------
 version: 2;

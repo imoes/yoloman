@@ -1,79 +1,94 @@
 [infinoted]
-# Server identifier used in collaborative sessions
-identifier = {{ server_identifier }}
+# Unique identifier for this collaborative server instance, used in session negotiation.
+identifier = {{ server_identifier | default('infinoted') }}
 
-# Hostname or IP address the server listens on
-host = {{ listen_host }}
+# IP address or hostname the server binds to. Use 0.0.0.0 for all interfaces.
+listen_host = {{ listen_host | default('0.0.0.0') }}
 
-# TCP port the server listens on
-port = {{ listen_port }}
+# TCP port the server listens on for client connections.
+listen_port = {{ listen_port | default(16993) }}
 
-# Path to the SSL/TLS certificate file (optional, for secure connections)
-{% if ssl_cert %}ssl_cert = {{ ssl_cert }}{% endif %}
-{% if ssl_key %}ssl_key = {{ ssl_key }}{% endif %}
+# Absolute path to the SSL/TLS certificate file (PEM format). Required if SSL is enabled.
+{% if (ssl_cert | default('')) | trim %}ssl_cert = {{ ssl_cert | default('') }}{% endif %}
 
-# Path to the GnuTLS priority string (optional, e.g., "NORMAL:%COMPAT")
-{% if gnutls_priority %}gnutls_priority = {{ gnutls_priority }}{% endif %}
+# Absolute path to the SSL/TLS private key file (PEM format). Required if SSL is enabled.
+{% if (ssl_key | default('')) | trim %}ssl_key = {{ ssl_key | default('') }}{% endif %}
 
-# Maximum number of simultaneous connections
-max_connections = {{ max_connections }}
+# GnuTLS priority string controlling cipher suites and protocol version. Adjust for security vs compatibility.
+gnutls_priority = {{ gnutls_priority | default('NORMAL:%COMPAT') }}
 
-# Enable or disable anonymous guest access
-{% if allow_anonymous %}allow_anonymous = true{% else %}allow_anonymous = false{% endif %}
+# Maximum number of concurrent client connections allowed.
+max_connections = {{ max_connections | default(100) }}
 
-# Default user role for anonymous guests
-{% if anonymous_role %}anonymous_role = {{ anonymous_role }}{% endif %}
+# Allow guests to connect without authentication.
+allow_anonymous = {{ allow_anonymous | default(true) | ternary('true', 'false') }}
 
-# Path to the shared document directory
-share_path = {{ share_path }}
+# Default role assigned to anonymous users (e.g., 'reader' or 'writer').
+anonymous_role = {{ anonymous_role | default('reader') }}
 
-# Enable or disable automatic document persistence (auto-save)
-{% if auto_save %}auto_save = true{% else %}auto_save = false{% endif %}
+# Directory path where collaborative documents are stored and served from.
+share_path = {{ share_path | default('/var/lib/infinoted/shares') }}
 
-# Number of seconds between auto-saves
-auto_save_interval = {{ auto_save_interval }}
+# Enable automatic saving of shared documents on change.
+auto_save = {{ auto_save | default(true) | ternary('true', 'false') }}
 
-# Path to the log file (use '-' for stdout)
-log_file = {{ log_file }}
+# Seconds between auto-save checkpoints.
+auto_save_interval = {{ auto_save_interval | default(30) }}
 
-# Logging verbosity level (0–5, 4 is info)
-log_level = {{ log_level }}
+# Path to log file. Use '-' to log to standard output (e.g., for systemd journal).
+log_file = {{ log_file | default('-') }}
 
-# Enable or disable SSL/TLS
-{% if ssl_enabled %}ssl_enabled = true{% else %}ssl_enabled = false{% endif %}
+# Verbosity level: 0=error, 1=warn, 2=notice, 3=info, 4=debug. Higher = more verbose.
+log_level = {{ log_level | default(4) }}
 
-# Path to the PID file
-pid_file = {{ pid_file }}
+# Enable SSL/TLS for secure connections. Requires ssl_cert and ssl_key.
+ssl_enabled = {{ ssl_enabled | default(false) | ternary('true', 'false') }}
 
-# Enable or disable the WebSockets interface
-{% if websocket_enabled %}websocket_enabled = true{% else %}websocket_enabled = false{% endif %}
+# Path to PID file. Must be writable by the infinoted process.
+pid_file = {{ pid_file | default('/run/infinoted/infinoted.pid') }}
 
-# Host and port for the WebSocket interface (if enabled)
-{% if websocket_enabled %}websocket_host = {{ websocket_host }}
-websocket_port = {{ websocket_port }}{% endif %}
+# Enable WebSockets support for real-time sync (required by some clients like Gobby).
+websocket_enabled = {{ websocket_enabled | default(true) | ternary('true', 'false') }}
 
-# Authentication backend: 'none', 'simple', 'ldap'
-auth_backend = {{ auth_backend }}
+# Host for WebSocket interface (if enabled).
+{% if websocket_enabled | default(true) %}
+websocket_host = {{ websocket_host | default('0.0.0.0') }}
 
-# Simple auth config (used only if auth_backend = simple)
-{% if auth_backend == 'simple' %}# Simple auth user list
-{% for user in simple_auth_users %}{{ user.username }} = {{ user.password_hash }}{% endfor %}{% endif %}
-
-# LDAP auth config (used only if auth_backend = ldap)
-{% if auth_backend == 'ldap' %}# LDAP server URI
-ldap_uri = {{ ldap_uri }}
-# LDAP base DN
-ldap_base = {{ ldap_base }}
-# LDAP bind DN (optional, for bind authentication)
-{% if ldap_bind_dn %}ldap_bind_dn = {{ ldap_bind_dn }}{% endif %}
-# LDAP bind password (optional)
-{% if ldap_bind_password %}ldap_bind_password = {{ ldap_bind_password }}{% endif %}
-# LDAP user filter
-ldap_user_filter = {{ ldap_user_filter }}
+# Port for WebSocket interface (if enabled).
+websocket_port = {{ websocket_port | default(16994) }}
 {% endif %}
 
-# Session timeout in seconds (0 = no timeout)
-session_timeout = {{ session_timeout }}
+# Authentication method: 'none' (no auth), 'simple' (user/password file), or 'ldap' (LDAP server).
+auth_backend = {{ auth_backend | default('none') }}
 
-# Idle timeout in seconds (0 = no timeout)
-idle_timeout = {{ idle_timeout }}
+# List of users for simple authentication. Only used when auth_backend = simple.
+# Each user entry is mapped as: username = password_hash
+{% if auth_backend | default('none') == 'simple' %}
+{% for user in simple_auth_users | default([]) %}
+{{ user.username | default('') }} = {{ user.password_hash | default('') }}
+{% endfor %}
+{% endif %}
+
+# LDAP server configuration.
+{% if auth_backend | default('none') == 'ldap' %}
+# LDAP server URI (e.g., ldap://host:port or ldaps:// for secure).
+ldap_uri = {{ ldap_uri | default('ldap://localhost:389') }}
+
+# Base DN for user searches in the LDAP directory.
+ldap_base = {{ ldap_base | default('ou=people,dc=example,dc=com') }}
+
+# DN to bind as when querying LDAP (optional; for anonymous bind leave empty).
+{% if (ldap_bind_dn | default('')) | trim %}ldap_bind_dn = {{ ldap_bind_dn | default('') }}{% endif %}
+
+# Password for LDAP bind DN (optional).
+{% if (ldap_bind_password | default('')) | trim %}ldap_bind_password = {{ ldap_bind_password | default('') }}{% endif %}
+
+# LDAP filter for user lookup; '%u' is replaced by the username.
+ldap_user_filter = {{ ldap_user_filter | default('(uid=%u)') }}
+{% endif %}
+
+# Maximum session duration in seconds. 0 = no timeout.
+session_timeout = {{ session_timeout | default(0) }}
+
+# Seconds of inactivity before automatically disconnecting a client.
+idle_timeout = {{ idle_timeout | default(300) }}

@@ -1,85 +1,21 @@
-# BIRD v3 configuration file
-# Generated via Jinja2 template — do not edit manually
+# ==============================================================================
+# BIRD3 Daemon Configuration Template
+# ==============================================================================
+# This template generates the environment file for the BIRD3 daemon (BGP router).
+# It controls the system user/group the daemon runs as and any additional CLI arguments.
 #
-# Global settings
-router id {{ bird.router_id }};
+# Self-documenting: Every variable usage includes its schema default and description.
+# ==============================================================================
 
-# Global AS number and BGP settings
-protocol kernel {
-  # Import and export kernel routes
-  import all;
-  export all;
-  kernel metric {{ bird.kernel_metric }};
-  persist {{ bird.kernel_persist | lower }};
-}
+# System user under which BIRD runs.
+# Schema default: 'bird'
+BIRD_RUN_USER={{ bird_run_user | default('bird') }}
 
-{% if bird.bgp_neighbors is defined and bird.bgp_neighbors %}
-{% for neighbor in bird.bgp_neighbors %}
-# BGP neighbor: {{ neighbor.name }}
-protocol bgp {{ neighbor.name }} {
-  local as {{ neighbor.local_as }};
-  neighbor as {{ neighbor.peer_as }};
-  neighbor {{ neighbor.ip }};
-{% if neighbor.description %}
-  description "{{ neighbor.description }}";
-{% endif %}
-  multihop {{ neighbor.multihop | default(1) }};
-{% if neighbor.local_ip %}
-  source address {{ neighbor.local_ip }};
-{% endif %}
-{% if neighbor.password %}
-  password "{{ neighbor.password }}";
-{% endif %}
-{% if neighbor.hold_time %}
-  hold time {{ neighbor.hold_time }};
-{% endif %}
-{% if neighbor.connect_retry %}
-  connect retry {{ neighbor.connect_retry }};
-{% endif %}
-  graceful restart {{ neighbor.graceful_restart | default(true) | lower }};
-  passive {{ neighbor.passive | default(false) | lower }};
-{% if neighbor.enabled | default(true) %}
-  enable;
-{% else %}
-  disable;
-{% endif %}
+# System group under which BIRD runs.
+# Schema default: 'bird'
+BIRD_RUN_GROUP={{ bird_run_group | default('bird') }}
 
-  # Route filtering
-{% if neighbor.in_filter or neighbor.out_filter %}
-  filter {
-{% if neighbor.in_filter %}
-    if path ~ [ {{ neighbor.in_filter | join(", ") }} ] then accept;
-{% else %}
-    accept;
-{% endif %}
-  };
-{% endif %}
-}
-{% endfor %}
-{% endif %}
-
-{% if bird.static_routes is defined and bird.static_routes %}
-# Static routes
-protocol static {
-{% for route in bird.static_routes %}
-  route {{ route.prefix }} {{ route.next_hop | default('via ' + route.via | default('')) }}{{ '' if route.via or route.next_hop else '' }}{{ route.next_hop if route.next_hop else '' }};
-{% endfor %}
-}
-{% endif %}
-
-{% if bird.interfaces is defined and bird.interfaces %}
-# Interface configuration (OSPF / direct route control)
-{% for iface in bird.interfaces %}
-protocol direct {
-  interface "{{ iface.name }}";
-{% if iface.metric %}
-  metric {{ iface.metric }};
-{% endif %}
-{% if iface.enabled | default(true) %}
-  enabled;
-{% else %}
-  disabled;
-{% endif %}
-}
-{% endfor %}
-{% endif %}
+# Additional command-line arguments passed to the BIRD daemon.
+# Leave empty to use defaults.
+# Schema default: ''
+BIRD_ARGS={{ bird_args | default('') }}

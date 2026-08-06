@@ -1,0 +1,17 @@
+{# gworldclock configuration template #}
+{# This file defines the list of time zones to be displayed/managed by gworldclock. #}
+{# Each entry consists of the TZ identifier (mandatory) and an optional human-friendly name. #}
+{# The zones variable is expected to be a list of dictionaries with keys 'tz' and optionally 'name'. #}
+
+{# Iterate over the list of time zone entries. If 'zones' is undefined or empty, the loop produces no output. #}
+{%- for zone_entry in (zones | default([])) %}
+{# Emit the TZ identifier as a string. #}
+{{ zone_entry.tz | string | default('', true) }}{# Zone identifier (TZ string) #}
+{%- if zone_entry.name is defined and zone_entry.name is not none %}
+{# If a human-friendly name is provided, append it quoted. #}
+ "{{ zone_entry.name }}"
+{%- else %}
+{# If no name is provided, end the line cleanly. #}
+
+{%- endif %}
+{%- endfor %}

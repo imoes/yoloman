@@ -1,0 +1,75 @@
+{# ============================================================================ #}
+{# connect-proxy Configuration Template                                         #}
+{#                                                                                #}
+{# This template generates a configuration for `connect-proxy`, a tool primarily   #}
+{# used to generate SSH ProxyCommand lines for ~/.ssh/config files. It supports   #}
+{# forwarding SSH connections through SOCKS5, SOCKS4, or HTTP proxies.             #}
+{#                                                                                #}
+{# Fields:                                                                        #}
+{#   connect_proxy_path  - Path to the binary                                    #}
+{#   socks5_server       - Default SOCKS5 server (host:port)                     #}
+{#   http_proxy_server   - Default HTTP proxy server (host:port)                 #}
+{#   socks_version       - Default SOCKS version (4 or 5)                        #}
+{#   resolve_method      - DNS resolution strategy (local|remote|both|IP)        #}
+{#   ssh_proxy_entries   - List of per-host ProxyCommand configurations          #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# connect_proxy_path                                                           #}
+{# Full path to the connect-proxy executable. Usually /usr/bin/connect-proxy on #}
+{# Debian.                                                                      #}
+{# ---------------------------------------------------------------------------- #}
+{% if connect_proxy_path is defined %}
+# connect-proxy binary path (usually installed at /usr/bin/connect-proxy)
+# {{ connect_proxy_path }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# socks5_server                                                                #}
+{# Default SOCKS5 server (host[:port]) when using -s or SOCKS5_SERVER env.     #}
+{# Omit port for default (1080).                                                #}
+{# ---------------------------------------------------------------------------- #}
+{% if socks5_server is defined %}
+# SOCKS5 server for general use (override via -s or SOCKS5_SERVER env)
+# SOCKS5_SERVER={{ socks5_server | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# http_proxy_server                                                            #}
+{# Default HTTP proxy server (host[:port]) when using -h or HTTP_PROXY env.    #}
+{# Omit port for default (80).                                                  #}
+{# ---------------------------------------------------------------------------- #}
+{% if http_proxy_server is defined %}
+# HTTP proxy server for general use (override via -h or HTTP_PROXY env)
+# HTTP_PROXY={{ http_proxy_server | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# socks_version                                                                #}
+{# Default SOCKS protocol version: 4 or 5. Used when no -4 or -5 is specified. #}
+{# ---------------------------------------------------------------------------- #}
+{% if socks_version is defined %}
+# Default SOCKS protocol version: 4 or 5
+# default protocol: -{{ '5' if socks_version == 5 else '4' }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# resolve_method                                                               #}
+{# Default hostname resolution method: 'local', 'remote', 'both', or an IP     #}
+{# address for custom nameserver.                                               #}
+{# ---------------------------------------------------------------------------- #}
+{% if resolve_method is defined %}
+# Hostname resolution method: local|remote|both or IP
+# -R {{ resolve_method | default('remote') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# ssh_proxy_entries                                                            #}
+{# List of ssh ProxyCommand configuration entries for ~/.ssh/config. Each       #}
+{# entry corresponds to a Host block. Use [] for no entries (e.g., rely on     #}
+{# global defaults above).                                                      #}
+{# ---------------------------------------------------------------------------- #}
+{% for entry in ssh_proxy_entries | default([], true) %}
+# Host {{ entry.host | default('unknown') }}
+# ProxyCommand connect-proxy{% if entry.http_proxy is defined %} -H {{ entry.http_proxy }}{% endif %}{% if entry.socks_server is defined %} -S {{ entry.socks_server }}{% endif %}{% if entry.protocol_version is defined and entry.protocol_version == 4 %} -4{% endif %}{% if entry.resolve_method is defined %} -R {{ entry.resolve_method }}{% endif %} %h %p
+{% endfor %}

@@ -1,59 +1,65 @@
 {
   "term_type": {
     "type": "string",
-    "default": "linux",
-    "description": "Terminal type to advertise to the login session (e.g., 'linux', 'vt100')."
+    "default": {
+      "value": "linux",
+      "description": "For virtual terminals, 'linux' is used. For generic terminals, 'vt100' is default."
+    }
   },
   "login_shell": {
     "type": "string",
-    "default": "/bin/sh",
-    "description": "Login shell to invoke (full path). systemd's default is '/bin/sh'."
+    "default": {
+      "value": "/bin/sh",
+      "description": "systemd's default shell (used if LOGIN is not set in /etc/default/getty)"
+    }
   },
   "getty_options": {
     "type": "list",
-    "default": [
-      "-8",
-      "-o",
-      "-p",
-      "--keep-baud",
-      "115200",
-      "38400",
-      "19200",
-      "9600"
-    ],
-    "description": "Command-line options passed to agetty. Common flags: '-8' (8-bit clean), '-o' (omit login name prompt), '-p' (pre-pend login name), '--keep-baud' (serial only).",
-    "items": {
-      "type": "string",
-      "description": "Single agetty option string (e.g., '-8', '--keep-baud 115200')."
+    "default": {
+      "value": [],
+      "description": "No default options are hardcoded \u2014 agetty defaults are applied unless overridden."
     }
   },
   "baud_rate": {
     "type": "number",
-    "default": 115200,
-    "description": "Default serial baud rate for non-console terminals (ignored for console)."
+    "default": {
+      "value": 9600,
+      "description": "Default fallback baud rate when no --keep-baud or BREAK-based switching succeeds."
+    }
   },
   "fast_boot": {
     "type": "bool",
-    "default": false,
-    "description": "If true, skip the START_DELAY to speed up boot (useful for development or fast hardware)."
+    "default": {
+      "value": false,
+      "description": "When true, skip START_DELAY. Note: systemd uses StartLimitIntervalSec/StartLimitBurst for rate-limiting, not agetty itself."
+    }
   },
   "start_delay": {
     "type": "number",
-    "default": 0,
-    "description": "Seconds to wait before starting getty on serial ports (helpful for slow devices or USB-serial adapters)."
+    "default": {
+      "value": 0,
+      "description": "Seconds to wait before starting getty on serial ports (agetty uses --delay for per-line delay; this is used only in template expansion for systemd unit override context)."
+    }
   },
   "extra_tty_names": {
     "type": "list",
-    "default": [],
-    "description": "List of extra TTY device names (e.g., 'tty4') where you want agetty to start (beyond the default tty1\u2013tty6).",
-    "items": {
-      "type": "string",
-      "description": "TTY name without path, e.g., 'tty4' or 'ttyS0'."
+    "default": {
+      "value": [],
+      "description": "List of extra TTY device names (e.g., 'tty4') where agetty should be started beyond the systemd defaults. Note: systemd already manages tty1\u2013tty6 by default."
     }
   },
   "locale": {
     "type": "string",
-    "default": "C.UTF-8",
-    "description": "Locale encoding and language (e.g., 'en_US.UTF-8', 'C.UTF-8'). Used for character encoding in login prompts."
+    "default": {
+      "value": "C.UTF-8",
+      "description": "Locale for TERM and environment. Note: agetty does not directly accept locale options \u2014 LANG/TERM are inherited or set in /etc/default/getty."
+    }
+  },
+  "autologin_user": {
+    "type": "string",
+    "default": {
+      "value": "",
+      "description": "Username to auto-login. Requires systemd credential 'agetty.autologin' or --autologin in unit override."
+    }
   }
 }

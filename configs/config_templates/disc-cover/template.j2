@@ -1,0 +1,85 @@
+# disc-cover configuration template
+# This template generates a Perl configuration file for disc-cover.
+# Each variable is sourced from the Ansible role variables, with sensible defaults applied.
+
+# Configuration version string
+# Description: Configuration version string
+my ($config_version_config) = '{{ config_version_config | default("1.4.1") }}';
+
+# CD case type
+# Description: CD case type (e.g., jewel, digipak, slimline)
+my ($config_casetype) = "{{ config_casetype | default('jewel') }}";
+
+# Output format
+# Description: Output format (e.g., ps, pdf)
+my ($config_output_format) = '{{ config_output_format | default("ps") }}';
+
+# Device path to the CD-ROM drive
+# Description: Device path to the CD-ROM drive
+my ($config_device) = "{{ config_device | default('/dev/cdrom') }}";
+
+# Temporary directory for intermediate files
+# Description: Temporary directory for intermediate files
+my ($config_tmp_dir) = '{{ config_tmp_dir | default("/tmp") }}';
+
+# Home directory override
+# Description: Home directory override (empty string uses $ENV{HOME})
+my ($config_homedir) = "{{ config_homedir | default('') }}";
+# If the variable is empty, fall back to environment variable HOME
+$config_homedir = "$ENV{HOME}" if (defined $ENV{HOME});
+
+# CDDB cache directory (derived from homedir)
+my ($config_cddb_cache_directory) = "$config_homedir/.cddb";
+
+# Flap text (derived from user GECOS field)
+my ($config_flaptext) = split ',', (getpwuid($<))[6];
+
+# LaTeX user packages
+# Description: Comma-separated list of LaTeX packages to load
+my ($latex_user_packages) = '{{ latex_user_packages | default("inputenc") }}';
+
+# Enable genre display in output
+# Description: Enable genre display in output (0 = disabled, 1 = enabled)
+my ($flag_genre) = {{ flag_genre | default(0) }};
+
+# Include extended track information
+# Description: Include extended track information (0 = disabled, 1 = enabled)
+my ($flag_with_extended_track_info) = {{ flag_with_extended_track_info | default(0) }};
+
+# LaTeX color configuration (hardcoded defaults for structure)
+my (%config_latex_colors) = ( title => 'black', artist => 'black', discinfo => 'black', track_number => 'black', track_string => 'black', track_time => 'black', flaptext => 'black', track_extended => 'black', track_artist => 'black', 'genre' => 'black' );
+
+# Treat CD as various-artist compilation
+# Description: Treat CD as various-artist compilation (0 = disabled, 1 = enabled)
+my ($flag_various_artist_cd) = {{ flag_various_artist_cd | default(0) }};
+
+# Use double-disc title formatting
+# Description: Use double-disc title formatting (0 = disabled, 1 = enabled)
+my ($flag_double_disc_cdtitle) = {{ flag_double_disc_cdtitle | default(1) }};
+
+# Use AllMusic for cover art
+# Description: Use AllMusic for cover art (0 = disabled, 1 = enabled)
+my ($flag_picture_use_allmusic) = {{ flag_picture_use_allmusic | default(0) }};
+
+# Apply uppercase title/artist fix
+# Description: Apply uppercase title/artist fix (0 = disabled, 1 = enabled)
+my ($flag_uppercase_fix) = {{ flag_uppercase_fix | default(0) }};
+
+# Enable verbose output
+# Description: Enable verbose output (0 = disabled, 1 = enabled)
+my ($flag_verbose) = {{ flag_verbose | default(0) }};
+
+# Remove temporary files after processing
+# Description: Remove temporary files after processing (0 = yes, remove; 1 = no, keep)
+my ($flag_remove_temporary_files) = {{ flag_remove_temporary_files | default(0) }};
+
+# LaTeX global layout settings
+# Description: LaTeX oddsidemargin setting
+my ($latex_global_oddsidemargin, $latex_global_evenside_margin, $latex_global_voffset, $latex_global_footskip, $latex_global_textheight, $latex_global_textwidth) = (
+    "{{ latex_global_oddsidemargin | default('-25pt') }}",
+    "{{ latex_global_evenside_margin | default('-25pt') }}",
+    "{{ latex_global_voffset | default('-100pt') }}",
+    "{{ latex_global_footskip | default('0pt') }}",
+    "{{ latex_global_textheight | default('780pt') }}",
+    "{{ latex_global_textwidth | default('170mm') }}"
+);

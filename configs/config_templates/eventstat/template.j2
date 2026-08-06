@@ -1,0 +1,102 @@
+# eventstat configuration file
+# This template generates a command-line style configuration for the 'eventstat' utility.
+# Each boolean flag enables a specific behavior; numeric/optional fields take arguments.
+#
+# Variable expectations:
+#   values.top_mode       (bool, default False) - Enable 'top' mode, refresh display on each update.
+#   values.just_kernel    (bool, default False) - Report just kernel threads.
+#   values.just_user      (bool, default False) - Report just user space processes.
+#   values.long_name      (bool, default False) - Report long process name from /proc/pid/cmdline (all args).
+#   values.short_name     (bool, default False) - Report short process name from /proc/pid/cmdline (process name only).
+#   values.strip_path     (bool, default False) - Strip full directory path off the process name in CSV output.
+#   values.timer_id       (bool, default False) - Show timer ID information.
+#   values.timestamp      (bool, default False) - Add timestamp (the 'whence' info) to the output.
+#   values.brief          (bool, default False) - Just report events, PID and process name.
+#   values.cumulative     (bool, default False) - Report cumulative events rather than events per sample period.
+#   values.sample_count   (bool, default False) - Report the sample event count in the CSV output rather than the default events per second rate.
+#   values.stats          (bool, default False) - Report the minimum, maximum, average and population standard deviation at the end of the CSV output.
+#   values.quiet          (bool, default False) - Run quietly (only makes sense with -r).
+#   values.csv_file       (str,  default '')    - Path to CSV output file (for -r option).
+#   values.threshold      (int,  default 0)    - Ignore samples where the event delta per second is less than this threshold.
+#   values.max_events     (int,  default 0)    - Only display the first N top events (top N).
+#   values.delay          (int,  default 1)    - Sample interval in seconds (first positional argument).
+#   values.count          (int,  default 0)    - Number of samples to collect (second positional argument). 0 means unlimited.
+
+{% set vals = values | default({}, true) %}
+{% set top_mode = vals.get('top_mode', false) | default(false, true) %}
+{% set just_kernel = vals.get('just_kernel', false) | default(false, true) %}
+{% set just_user = vals.get('just_user', false) | default(false, true) %}
+{% set long_name = vals.get('long_name', false) | default(false, true) %}
+{% set short_name = vals.get('short_name', false) | default(false, true) %}
+{% set strip_path = vals.get('strip_path', false) | default(false, true) %}
+{% set timer_id = vals.get('timer_id', false) | default(false, true) %}
+{% set timestamp = vals.get('timestamp', false) | default(false, true) %}
+{% set brief = vals.get('brief', false) | default(false, true) %}
+{% set cumulative = vals.get('cumulative', false) | default(false, true) %}
+{% set sample_count = vals.get('sample_count', false) | default(false, true) %}
+{% set stats = vals.get('stats', false) | default(false, true) %}
+{% set quiet = vals.get('quiet', false) | default(false, true) %}
+{% set csv_file = vals.get('csv_file', '') | default('', true) %}
+{% set threshold = vals.get('threshold', 0) | default(0, true) %}
+{% set max_events = vals.get('max_events', 0) | default(0, true) %}
+{% set delay = vals.get('delay', 1) | default(1, true) %}
+{% set count = vals.get('count', 0) | default(0, true) %}
+
+# Enable top mode, refresh display on each update.
+{% if top_mode %}--T{% endif %}
+
+# Report just kernel threads.
+{% if just_kernel %}--k{% endif %}
+
+# Report just user space processes.
+{% if just_user %}--u{% endif %}
+
+# Report long process name from /proc/pid/cmdline (all args).
+{% if long_name %}--l{% endif %}
+
+# Report short process name from /proc/pid/cmdline (process name only).
+{% if short_name %}--s{% endif %}
+
+# Strip full directory path off the process name in CSV output.
+{% if strip_path %}--d{% endif %}
+
+# Show timer ID information.
+{% if timer_id %}--i{% endif %}
+
+# Add timestamp (the 'whence' info) to the output.
+{% if timestamp %}--w{% endif %}
+
+# Just report events, PID and process name.
+{% if brief %}--b{% endif %}
+
+# Report cumulative events rather than events per sample period.
+{% if cumulative %}--c{% endif %}
+
+# Report the sample event count in the CSV output rather than the default events per second rate.
+{% if sample_count %}--C{% endif %}
+
+# Report the minimum, maximum, average and population standard deviation at the end of the CSV output.
+{% if stats %}--S{% endif %}
+
+# Run quietly (only makes sense with -r).
+{% if quiet %}--q{% endif %}
+
+# Path to CSV output file (for -r option).
+# Emits: -r <path>
+{% if csv_file is defined and csv_file is string and csv_file != '' %}-r {{ csv_file }}{% endif %}
+
+# Ignore samples where the event delta per second is less than this threshold.
+# Emits: -t <threshold>
+{% if threshold is defined and (threshold is number) and threshold > 0 %}-t {{ threshold }}{% endif %}
+
+# Only display the first N top events (top N).
+# Emits: -n <max_events>
+{% if max_events is defined and (max_events is number) and max_events > 0 %}-n {{ max_events }}{% endif %}
+
+# Sample interval in seconds (first positional argument).
+# Emits: <delay>
+{% if delay is defined and (delay is number) and delay > 0 %}{{ delay }}{% endif %}
+
+# Number of samples to collect (second positional argument). 0 means unlimited.
+# Emits: <count>
+{% if count is defined and (count is number) and count > 0 %}{{ count }}{% endif %}

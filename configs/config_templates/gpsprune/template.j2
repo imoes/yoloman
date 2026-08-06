@@ -1,0 +1,23 @@
+# === GPSprune Configuration Template ===
+# This file generates command-line style flags for GPSprune based on the `config_entries` list.
+# Each entry in `config_entries` is a dictionary with 'key' and 'value'.
+# The template iterates through this list and emits the corresponding flag.
+
+{% for item in config_entries | default([], true) %}
+  {# item is a dict with 'key' and 'value' #}
+  {# Safely extract key and value, defaulting to empty strings if missing #}
+  {% set key = item.get('key', '') | default('', true) %}
+  {% set value = item.get('value', '') | default('', true) %}
+
+  {# Emit specific flags based on the 'key' #}
+  {% if key == 'configfile' %}
+    --configfile={{ value }}
+  {% elif key == 'lang' %}
+    --lang={{ value }}
+  {% elif key == 'langfile' %}
+    --langfile={{ value }}
+  {% elif key == 'locale' %}
+    --locale={{ value }}
+  {% endif %}
+
+{% endfor %}

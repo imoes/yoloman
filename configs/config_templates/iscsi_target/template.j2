@@ -1,105 +1,204 @@
-# istgt configuration file
-# Global settings
+# ==============================================================================
+# iSCSI Target Configuration (istgt)
+# ==============================================================================
+# This file configures the istgt iSCSI target daemon.
+# It defines global parameters, logging, storage units (LUNs), targets (IQNs),
+# and storage mappings.
+# ==============================================================================
+
+# [Global] Settings
+# -----------------
 [Global]
-  # Listen address for iSCSI target (IP or hostname)
-  # Multiple addresses supported; use comma-separated list
-  # Default: 0.0.0.0
-  # Variable: global_listen_ips
-  # ListenPort = {{ global_listen_port }}
-  # NodeSystemName = {{ global_node_system_name }}
-  # AuthMethod = {{ global_auth_method | join(', ') }}
-  # AuthFile = {{ global_auth_file }}
-  # MaxConnections = {{ global_max_connections }}
-
-{% if global_listen_ips | length > 0 %}  # Listen address for iSCSI target (comma-separated)
-  ListenIP = {{ global_listen_ips | join(', ') }}
+{# -------------------------------------------------------------------------- #}
+{# IP addresses or hostnames to bind the iSCSI target to.                   #}
+{# Leave empty to use default (0.0.0.0).                                    #}
+{# -------------------------------------------------------------------------- #}
+{% set listen_ips = global_listen_ips | default([]) %}
+{% if listen_ips | length > 0 %}
+  # Bind address(es) for the iSCSI target listener.
+  ListenIP = {{ listen_ips | join(', ') }}
 {% endif %}
-  ListenPort = {{ global_listen_port }}
-  NodeSystemName = {{ global_node_system_name }}
-  AuthMethod = {{ global_auth_method | join(', ') }}
-  AuthFile = {{ global_auth_file }}
-  MaxConnections = {{ global_max_connections }}
 
-# Log settings
+{# -------------------------------------------------------------------------- #}
+{# TCP port on which the iSCSI target listens. Standard iSCSI port is 3260. #}
+{# -------------------------------------------------------------------------- #}
+  # Port for iSCSI connections.
+  ListenPort = {{ global_listen_port | default(3260) }}
+
+{# -------------------------------------------------------------------------- #}
+{# System name used in iSCSI discovery responses and connection negotiation.  #}
+{# -------------------------------------------------------------------------- #}
+  # Unique system identifier for this iSCSI target node.
+  NodeSystemName = {{ global_node_system_name | default('istgt.example.org') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Authentication methods to advertise/support. Common values: 'None',       #}
+{# 'CHAP', 'Mutual'.                                                         #}
+{# -------------------------------------------------------------------------- #}
+  # Authentication methods enabled globally.
+  AuthMethod = {{ global_auth_method | default(['None']) | join(', ') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Path to the authentication file containing CHAP credentials.              #}
+{# -------------------------------------------------------------------------- #}
+  # File containing CHAP/Mutual CHAP credentials.
+  AuthFile = {{ global_auth_file | default('/etc/istgt/auth.conf') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Maximum number of simultaneous iSCSI connections per target.              #}
+{# -------------------------------------------------------------------------- #}
+  # Max concurrent sessions allowed per target.
+  MaxConnections = {{ global_max_connections | default(64) }}
+
+# [Log] Settings
+# --------------
 [Log]
-  # Log level (0=error, 1=warn, 2=info, 3=debug)
-  # Variable: log_level
-  LogLevel = {{ log_level }}
+{# -------------------------------------------------------------------------- #}
+{# Verbosity: 0=errors only, 1=warnings, 2=info, 3=debug.                   #}
+{# -------------------------------------------------------------------------- #}
+  # Log level (0=error, 1=warn, 2=info, 3=debug).
+  LogLevel = {{ log_level | default(1) }}
 
-  # Log file path (empty for stdout)
-  # Variable: log_file
-{% if log_file | length > 0 %}  LogFile = {{ log_file }}
+{# -------------------------------------------------------------------------- #}
+{# Path to write logs. Leave blank to log to stdout/stderr.                  #}
+{# -------------------------------------------------------------------------- #}
+  # Log file path (empty string means stdout/stderr).
+{% set log_file = log_file | default('') %}
+{% if log_file | length > 0 %}
+  LogFile = {{ log_file }}
 {% endif %}
 
-# Storage unit definitions
-# Each unit defines a LUN-backed storage device
-{% for unit in storage_units %}[Unit:{{ unit.name }}]
-  # Type of storage: FileIo, BlockIo, or Memory
-  # Variable: unit.type
+# ==============================================================================
+# Storage Unit Definitions
+# ==============================================================================
+# Each unit defines a LUN-backed storage device.
+# Maps to a physical or logical storage backing store.
+# ==============================================================================
+
+{% for unit in storage_units | default([]) %}
+[Unit:{{ unit.name }}]
+{# -------------------------------------------------------------------------- #}
+{# Type of storage: FileIo, BlockIo, or Memory.                              #}
+{# -------------------------------------------------------------------------- #}
+  # Storage backend type (FileIo, BlockIo, or Memory).
   Type = {{ unit.type }}
 
-  # Device path (file for FileIo, block device for BlockIo)
-  # Variable: unit.path
+{# -------------------------------------------------------------------------- #}
+{# Device path (file for FileIo, block device for BlockIo).                  #}
+{# -------------------------------------------------------------------------- #}
+  # Path to the backing store file or block device.
   Path = {{ unit.path }}
 
-  # Block size in bytes (512 or 4096; ignored for Memory)
-  # Variable: unit.blocksize
-  BlockSize = {{ unit.blocksize }}
+{# -------------------------------------------------------------------------- #}
+{# Block size in bytes (512 or 4096; ignored for Memory).                    #}
+{# -------------------------------------------------------------------------- #}
+  # Physical block size.
+  BlockSize = {{ unit.blocksize | default(512) }}
 
-  # Number of blocks (required for BlockIo & Memory; auto-detected for FileIo)
-  # Variable: unit.blocks
-{% if unit.blocks is defined and unit.blocks | length > 0 %}  Blocks = {{ unit.blocks }}
+{# -------------------------------------------------------------------------- #}
+{# Number of blocks (required for BlockIo & Memory; auto-detected for FileIo)#}
+{# -------------------------------------------------------------------------- #}
+{% if unit.blocks is defined and unit.blocks is not none %}
+  # Number of blocks (for BlockIo/Memory).
+  Blocks = {{ unit.blocks }}
 {% endif %}
 
-  # Write cache mode: 0=disabled (default), 1=enabled
-  # Variable: unit.write_cache
-{% if unit.write_cache == true %}  WriteCache = On
-{% else %}  WriteCache = Off
+{# -------------------------------------------------------------------------- #}
+{# Write cache mode: 0=disabled (default), 1=enabled.                        #}
+{# -------------------------------------------------------------------------- #}
+{% if unit.write_cache is defined and unit.write_cache == true %}
+  # Write-back cache enabled.
+  WriteCache = On
+{% else %}
+  # Write-back cache disabled (default).
+  WriteCache = Off
 {% endif %}
 
-  # Lun mapping: maps this unit to LUN IDs in each Target
-  # Variable: unit.lun_map
-  # Format: TargetName:LUN[,TargetName:LUN,...]
-  # Note: LUNs must be 0–255
-{% if unit.lun_map | length > 0 %}  Lun = {{ unit.lun_map | join(', ') }}
-{% else %}  # No LUN mapping defined (must be set per-target in [StorageMapping:...])
-{% endif %}
-
-{% endfor %}
-
-# Target definitions
-# Each target defines an iSCSI target (IQN) and its access control
-{% for target in targets %}[Target:{{ target.name }}]
-  # IQN format: iqn.yyyy-mm.naming-authority:unique
-  # Variable: target.iqn
-  # (Name auto-derived from section; no separate IQN directive)
-
-  # Auth type: Auto (default), None, CHAP, Mutual
-  # Variable: target.auth_type
-  Auth = {{ target.auth_type }}
-
-  # Allowed initiators (IP, network, or IQN)
-  # Variable: target.allowed_initiators
-{% if target.allowed_initiators | length > 0 %}  AllowIP = {{ target.allowed_initiators | join(', ') }}
-{% else %}  AllowIP = 0.0.0.0/0
-{% endif %}
-
-  # Optional: deny initiators (stronger precedence)
-  # Variable: target.deny_initiators
-{% if target.deny_initiators | length > 0 %}  DenyIP = {{ target.deny_initiators | join(', ') }}
+{# -------------------------------------------------------------------------- #}
+{# Lun mapping: maps this unit to LUN IDs in each Target.                    #}
+{# Format: TargetName:LUN[,TargetName:LUN,...]                               #}
+{# Note: LUNs must be 0–255.                                                 #}
+{# -------------------------------------------------------------------------- #}
+{% set lun_map = unit.lun_map | default([]) %}
+{% if lun_map | length > 0 %}
+  # LUN mapping to targets.
+  Lun = {{ lun_map | join(', ') }}
+{% else %}
+  # No LUN mapping defined here; must be set per-target in [StorageMapping:...].
 {% endif %}
 
 {% endfor %}
 
-# LUN mapping per target (when not specified in [Unit:...])
-# Only needed if unit.Lun was omitted
-{% for mapping in storage_mappings %}[StorageMapping:{{ mapping.target }}]
-  # LUN mapping for a specific target: UnitName:LUN
-  # Variable: mapping.lun_map
-{% for entry in mapping.lun_map %}  {{ entry.unit }} = {{ entry.lun }}
+# ==============================================================================
+# Target Definitions
+# ==============================================================================
+# Each target defines an iSCSI target (IQN) and its access control policies.
+# ==============================================================================
+
+{% for target in targets | default([]) %}
+[Target:{{ target.name }}]
+{# -------------------------------------------------------------------------- #}
+{# IQN format: iqn.yyyy-mm.naming-authority:unique                           #}
+{# (Name auto-derived from section header; no separate IQN directive)        #}
+{# -------------------------------------------------------------------------- #}
+
+{# -------------------------------------------------------------------------- #}
+{# Auth type: Auto (default), None, CHAP, Mutual.                            #}
+{# -------------------------------------------------------------------------- #}
+  # Authentication requirement for this target (Auto, None, CHAP, Mutual).
+  Auth = {{ target.auth_type | default('Auto') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Allowed initiators (IP, network, or IQN).                                 #}
+{# -------------------------------------------------------------------------- #}
+{% set allowed_initiators = target.allowed_initiators | default([]) %}
+{% if allowed_initiators | length > 0 %}
+  # List of allowed initiator IPs, networks, or IQNs.
+  AllowIP = {{ allowed_initiators | join(', ') }}
+{% else %}
+  # Allow all initiators by default.
+  AllowIP = 0.0.0.0/0
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Optional: deny initiators (stronger precedence than AllowIP).             #}
+{# -------------------------------------------------------------------------- #}
+{% set deny_initiators = target.deny_initiators | default([]) %}
+{% if deny_initiators | length > 0 %}
+  # List of denied initiator IPs, networks, or IQNs.
+  DenyIP = {{ deny_initiators | join(', ') }}
+{% endif %}
+
+{% endfor %}
+
+# ==============================================================================
+# LUN Mappings per Target (StorageMapping)
+# ==============================================================================
+# Only needed if LUN mapping was omitted in [Unit:...].
+# Maps units to LUN IDs for specific targets.
+# ==============================================================================
+
+{% for mapping in storage_mappings | default([]) %}
+[StorageMapping:{{ mapping.target }}]
+{# -------------------------------------------------------------------------- #}
+{# LUN mapping for a specific target: UnitName=LUN                           #}
+{# -------------------------------------------------------------------------- #}
+{% for entry in mapping.lun_map %}
+  # Mapping: {{ entry.unit }} to LUN {{ entry.lun }} for target {{ mapping.target }}.
+  {{ entry.unit }} = {{ entry.lun }}
 {% endfor %}
 {% endfor %}
 
-# Auth file location (default: /etc/istgt/auth.conf)
-# (override only if needed)
-# AuthFile = {{ auth_file_override }}
+# ==============================================================================
+# Auth File Override
+# ==============================================================================
+# (Default: /etc/istgt/auth.conf)
+# Override only if you move auth.conf elsewhere.
+# Note: The global AuthFile directive above is the primary setting.
+# This section is kept for compatibility/override if specific backends require
+# it, but typically the [Global] AuthFile is sufficient.
+# ==============================================================================
+{# -------------------------------------------------------------------------- #}
+{# Override path for auth file. Only change if you move auth.conf elsewhere. #}
+{# -------------------------------------------------------------------------- #}
+{# AuthFile = {{ auth_file_override | default('/etc/istgt/auth.conf') }} #}

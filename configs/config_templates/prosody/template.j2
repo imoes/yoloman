@@ -1,87 +1,122 @@
-# Listen on all interfaces for incoming connections
-bind_address = "{{ bind_address }}"
+#! /bin/sh
 
-# Port configuration for clients (XMPP, HTTP, etc.)
-ports = [
-{% for port in ports %}  {{ port.number }}{% if port.address %}{{ "@" + port.address }}{% endif %}
-{% endfor %}]
+### BEGIN INIT INFO
+# Provides:             prosody
+# Required-Start:       $network $local_fs $remote_fs $syslog
+# Required-Stop:        $remote_fs $syslog
+# Default-Start:        2 3 4 5
+# Default-Stop:         0 1 6
+# Should-Start:         postgresql mysql
+# Should-Stop:          postgresql mysql
+# Short-Description:    Prosody XMPP Server
+### END INIT INFO
 
-# Enable or disable legacy SSL/TLS (not recommended; use starttls instead)
-ssl = {
-  protocol = "{{ ssl_protocol }}",
-  verify = {% if ssl_verify %}true{% else %}false{% endif %},
-  cafile = "{{ ssl_cafile }}"
+set -e
+
+# /etc/init.d/prosody: start and stop Prosody XMPP server
+
+USER={{ user }}
+DAEMON=/usr/bin/prosody
+PIDPATH=/run/prosody
+PIDFILE="$PIDPATH"/prosody.pid
+LUA=lua5.4
+
+NICE=
+CPUSCHED=
+IOSCHED=
+
+test -x "$DAEMON" || exit 0
+
+. /lib/lsb/init-functions
+
+if [ -f /etc/default/prosody ] ; then
+    . /etc/default/prosody
+fi
+
+start_opts() {
+	test -z "$NICE"     || printf " --nicelevel %s" $NICE
+	test -z "$CPUSCHED" || printf " --procsched %s" $CPUSCHED
+	test -z "$IOSCHED"  || printf " --iosched %s" $IOSCHED
 }
 
-# Virtual host definitions (each is an instance of an XMPP domain)
-VirtualHost "{{ virtual_hosts[0].hostname }}"{% if virtual_hosts[0].enabled %}
-{% else %}
-  -- disabled
-{% endif %}
-{% for host in virtual_hosts[1:] %}
-VirtualHost "{{ host.hostname }}"{% if host.enabled %}
-{% else %}
-  -- disabled
-{% endif %}
-{% endfor %}
-
-# Authentication backend and credentials storage
-authentication = "{{ authentication.type }}"
-
-# If using external auth, specify auth parameters
-{% if authentication.type == "cram-md5" or authentication.type == "plain" or authentication.type == "digest-md5" %}
-passwords_path = "{{ authentication.passwords_path }}"
-{% endif %}
-
-# Data storage directory
-data_path = "{{ data_path }}"
-
-# Logging configuration
-log = {
-  levels = {
-{% for level in log_levels %}    ["{{ level.name }}"] = "{{ level.target }}"{% if not loop.last %},{% endif %}
-{% endfor %}  }
+start_prosody () {
+	mkdir -p "$(dirname $PIDFILE)"
+	chown prosody:adm "$(dirname $PIDFILE)"
+	[ -x /sbin/restorecon ] && /sbin/restorecon `dirname $PIDFILE`
+	if start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
+		--chuid "$USER" --oknodo --user "$USER" --name "$LUA" \
+		$(start_opts) --startas "$DAEMON" -- -D;
+	then
+		return 0
+	else
+		return 1
+	fi
 }
 
-# Module loading and configuration
-modules_enabled = [
-{% for module in modules_enabled %}  "{{ module.name }}"{% if module.options %}
-    -- Options:
-    -- {% for key, val in module.options | dictsort %}{{ key }} = {{ val | tojson }}{% if not loop.last %}, {% endif %}
-    -- {% endfor %}
-{% endif %}
-{% endfor %}]
-
-# Module-specific configuration
-{% for module in modules_enabled %}{% if module.options %}
-modules_{{ module.name }} = {
-{% for key, val in module.options | dictsort %}  {{ key }} = {{ val | tojson }}{% if not loop.last %},{% endif %}
-{% endfor %}
-}
-{% endif %}{% endfor %}
-
-# Allow or deny specific IP ranges (optional, default: all)
-allow_registration = {% if allow_registration %}true{% else %}false{% endif %}
-
-# Max idle time (in seconds) for client connections
-max_idle_time = {{ max_idle_time }}
-
-# Max stanzas in queue per connection
-max_stanza_size = {{ max_stanza_size }}
-
-# Server-to-server (S2S) communication settings
-s2s = {
-  ports = [
-{% for port in s2s_ports %}    {{ port.number }}{% if port.address %}{{ "@" + port.address }}{% endif %}
-{% endfor %}  ],
-  require_encryption = {% if s2s_require_encryption %}true{% else %}false{% endif %},
-  ssl = {
-    protocol = "{{ s2s_ssl.protocol }}",
-    verify = {% if s2s_ssl.verify %}true{% else %}false{% endif %}
-  }
+stop_prosody () {
+	if start-stop-daemon --stop --quiet --retry 30 \
+		--oknodo --pidfile "$PIDFILE" --user "$USER" --name "$LUA";
+	then
+		return 0
+	else
+		return 1
+	fi
 }
 
-# Trusted IPs (e.g., for MUC service or external components)
-trusted_proxies = [
-{% for proxy in trusted_proxies %}  "{{ proxy }}"{% if not loop.last %},{% endif %}
-{% endfor %}]
+signal_prosody () {
+	if start-stop-daemon --stop --quiet --pidfile "$PIDFILE" \
+		--user "$USER" --name "$LUA" --oknodo --signal "$1";
+	then
+		return 0
+	else
+		return 1
+	fi
+}
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting Prosody XMPP Server" "prosody"
+	if start_prosody; then
+		log_end_msg 0;
+	else
+		log_end_msg 1;
+	fi
+	;;
+  stop)
+  	log_daemon_msg "Stopping Prosody XMPP Server" "prosody"
+  	if stop_prosody; then
+  		log_end_msg 0;
+  	else
+  		log_end_msg 1;
+  	fi
+	;;
+  force-reload|restart)
+  	log_daemon_msg "Restarting Prosody XMPP Server" "prosody"
+
+  	stop_prosody
+
+	if start_prosody; then
+   		log_end_msg 0;
+   	else
+   		log_end_msg 1;
+   	 fi
+   	;;
+  reload)
+  	log_daemon_msg "Reloading Prosody XMPP Server" "prosody"
+
+	if signal_prosody 1; then
+   		log_end_msg 0;
+   	else
+   		log_end_msg 1;
+   	 fi
+   	;;
+  status)
+	log_daemon_msg "Status of Prosody XMPP Server" "prosody "
+	status_of_proc -p"$PIDFILE" "$LUA"
+	;;
+  *)
+  	log_action_msg "Usage: /etc/init.d/prosody {start|stop|restart|reload|status}"
+  	exit 1
+esac
+
+exit 0

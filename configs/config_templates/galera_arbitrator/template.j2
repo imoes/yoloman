@@ -1,63 +1,49 @@
-# Galera Arbitrator (garbd) configuration
-# Run as a daemon to provide quorum voting without storing data
-# Group communication system options
-[galera]
-# Comma-separated list of cluster nodes (host:port)
-# Each node should be reachable and running Galera (MariaDB/MySQL with Galera)
-wsrep_cluster_address = "gcomm://{{ wsrep_cluster_address | default('') | join(',') }}"
+# ==============================================================================
+# Galera Arbitrator (garbd) Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the Galera Arbitrator daemon (garbd).
+# The arbitrator participates in MariaDB/MySQL Galera cluster quorum decisions
+# without storing any data itself, providing a "tie-breaker" vote.
+#
+# Self-documenting: Each directive is preceded by its schema description.
+# Variables are provided with safe defaults to ensure valid output even if
+# the variable is undefined.
+# ==============================================================================
 
-# Unique node name for this arbitrator
-# Must be different from all cluster node names
-wsrep_node_name = "{{ wsrep_node_name }}"
+[galera]
+
+# List of cluster node addresses in 'host:port' format.
+# The arbitrator will connect to these nodes to participate in quorum decisions.
+# Defaults to an empty list if not provided.
+wsrep_cluster_address = "gcomm://{{ wsrep_cluster_address | default([]) | join(',') }}"
+
+# Unique name for this arbitrator node — must not conflict with any Galera cluster node name.
+# Defaults to 'garbd_node'.
+wsrep_node_name = "{{ wsrep_node_name | default('garbd_node') }}"
 
 # Arbitrator-specific options
-# Enables the arbitrator mode (required)
+# Enables the arbitrator mode (required for garbd)
 garbd = "yes"
 
-# Optional: log file path
-# Leave empty to log to stderr/syslog
-log = "{{ log_path }}"
+# Path to log file.
+# Leave empty to log to syslog/stderr (recommended for systemd environments).
+# If specified, the path must be writable by the user running garbd.
+log = "{{ log_path | default('') }}"
 
 # Optional: group communication options
-# Controls reconnection attempts after disconnection from cluster
-# 0 = infinite retries; set >0 to limit retries (in seconds)
-# Default: 10
-repl.connect_timeout = {{ repl_connect_timeout }}
-
-# Optional: SSL/TLS support
-# Path to SSL certificate (for client cert)
-wsrep_ssl_cert = "{{ wsrep_ssl_cert }}"
-# Path to SSL private key
-wsrep_ssl_key = "{{ wsrep_ssl_key }}"
-# Path to SSL CA certificate (for verifying cluster nodes)
-wsrep_ssl_ca = "{{ wsrep_ssl_ca }}"
-
-# Optional: disable encryption if not using SSL
-# Set to true to disable SSL/TLS entirely (default: false)
-{% if not use_ssl %}
-wsrep_ssl = "no"
-{% else %}
-wsrep_ssl = "yes"
-{% endif %}
-
-# Optional: socket buffer size (bytes) for communication
-# Increase if you see network timeouts on high load
-# Default: 0 (system default)
-socket.buffer_size = {{ socket_buffer_size }}
+# Controls reconnection attempts after disconnection from cluster.
+# 0 = infinite retries; set >0 to limit retries (in seconds).
+# Defaults to 10.
+repl.connect_timeout = {{ repl_connect_timeout | default(10) }}
 
 # Optional: logging verbosity
-# 0 = errors only, 1 = warnings, 2 = info, 3 = debug
-# Default: 1
-log_level = {{ log_level }}
+# 0 = errors only, 1 = warnings (recommended), 2 = info, 3 = debug.
+# Defaults to 1.
+log_level = {{ log_level | default(1) }}
 
-# Optional: timeout for arbitrator to declare cluster unreachable
-# (in seconds) — must be < repl.connect_timeout
-# Default: 5
-garbd.group = "{{ wsrep_cluster_name }}"
-garbd.options = "--join-timeout={{ garbd_join_timeout }}"
-
-# Optional: additional Galera provider options
-# e.g., for custom socket or replication settings
-{% for option, value in extra_galera_options.items() %}
-{{ option }} = {{ value | quote_if_string }}
+# Optional: Custom Galera configuration options to append to the config.
+# Iterates over a list of custom Galera configuration options.
+# Each item in the list is a string representing a config directive.
+{% for option in extra_galera_options | default([]) %}
+{{ option }}
 {% endfor %}

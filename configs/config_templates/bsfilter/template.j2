@@ -1,0 +1,235 @@
+# ==============================================================================
+# bsfilter.conf
+# Configuration file for bsfilter (Bayesian Spam Filter)
+# ==============================================================================
+# This configuration file controls the behavior of bsfilter.
+# Each directive is documented below with its schema default and purpose.
+# ==============================================================================
+
+# [homedir]
+# Directory used for bsfilter home (databases, state files)
+# Default: ~/.bsfilter
+homedir = {{ homedir | default("~/.bsfilter") }}
+
+# [db]
+# Database backend: sdbm, gdbm, bdb1, bdb, or qdbm
+# Default: sdbm
+db = {{ db | default("sdbm") }}
+
+# [jtokenizer]
+# Tokenizer for Japanese text: bigram, block, mecab, chasen, kakasi
+# Default: bigram
+jtokenizer = {{ jtokenizer | default("bigram") }}
+
+# [method]
+# Filtering method: g (Graham), r (Robinson), rf (Robinson-Fisher)
+# Default: rf
+method = {{ method | default("rf") }}
+
+# [spam_cutoff]
+# Spam probability cutoff threshold (0.0–1.0); uses method-specific default if omitted
+# Default: (none, uses method default)
+{% if spam_cutoff is defined %}
+spam_cutoff = {{ spam_cutoff }}
+{% endif %}
+
+# [max_line]
+# Maximum lines to process per message (0 = all lines)
+# Default: 500
+max_line = {{ max_line | default(500) }}
+
+# [auto_update]
+# Enable automatic learning from filtered mail
+# Default: false
+auto_update = {{ auto_update | default(false) | ternary('true', 'false') }}
+
+# [disable_utf_8]
+# Disable UTF-8 support
+# Default: false
+disable_utf_8 = {{ disable_utf_8 | default(false) | ternary('true', 'false') }}
+
+# [disable_degeneration]
+# Disable degeneration during probability lookup
+# Default: false
+disable_degeneration = {{ disable_degeneration | default(false) | ternary('true', 'false') }}
+
+# [refer_header]
+# Additional headers to reference beyond defaults
+# Default: [] (empty list)
+# Renders as comma-separated string if non-empty
+{% set refer_headers = refer_header | default([]) %}
+{% if refer_headers | length > 0 %}
+refer_header = {{ refer_headers | join(", ") }}
+{% endif %}
+
+# [ignore_header]
+# Headers to ignore (overrides refer_header)
+# Default: [] (empty list)
+# Renders as comma-separated string if non-empty
+{% set ignore_headers = ignore_header | default([]) %}
+{% if ignore_headers | length > 0 %}
+ignore_header = {{ ignore_headers | join(", ") }}
+{% endif %}
+
+# [mark_spam_subject]
+# Prefix inserted at beginning of spam subject line
+# Default: [SPAM]
+mark_spam_subject = {{ mark_spam_subject | default("[SPAM] ") }}
+
+# [header_prefix]
+# Prefix for inserted headers (e.g., 'X-MySpam-Flag')
+# Default: (empty)
+header_prefix = {{ header_prefix | default("") }}
+
+# [insert_revision]
+# Insert X-Spam-Revision header
+# Default: false
+insert_revision = {{ insert_revision | default(false) | ternary('true', 'false') }}
+
+# [insert_flag]
+# Insert X-Spam-Flag header
+# Default: false
+insert_flag = {{ insert_flag | default(false) | ternary('true', 'false') }}
+
+# [insert_probability]
+# Insert X-Spam-Probability header
+# Default: false
+insert_probability = {{ insert_probability | default(false) | ternary('true', 'false') }}
+
+# [imap_settings]
+# List of IMAP server configurations (use with --imap mode).
+# Each item may include: imap_server, imap_port, imap_auth, imap_user, imap_password,
+# imap_folder_clean, imap_folder_spam, imap_fetch_unseen, imap_fetch_unflagged,
+# imap_reset_seen_flag, ssl, ssl_cert.
+# Only defined fields within each configuration item are emitted.
+{% set imap_cfgs = imap_settings | default([]) %}
+{% if imap_cfgs | length > 0 %}
+{% for s in imap_cfgs %}
+# --- IMAP Server Configuration ---
+{% if s.imap_server is defined %}
+# [imap_server] The IMAP server hostname or IP
+imap-server = {{ s.imap_server }}
+{% endif %}
+
+{% if s.imap_port is defined %}
+# [imap_port] The IMAP server port (default 143 if omitted in schema, but explicit here)
+imap-port = {{ s.imap_port | default(143) }}
+{% endif %}
+
+{% if s.imap_auth is defined %}
+# [imap_auth] Authentication method
+imap-auth = {{ s.imap_auth | default("auto") }}
+{% endif %}
+
+{% if s.imap_user is defined %}
+# [imap_user] Username for IMAP authentication
+imap-user = {{ s.imap_user }}
+{% endif %}
+
+{% if s.imap_password is defined %}
+# [imap_password] Password for IMAP authentication
+imap-password = {{ s.imap_password }}
+{% endif %}
+
+{% if s.imap_folder_clean is defined %}
+# [imap_folder_clean] Folder name for clean (ham) messages
+imap-folder-clean = {{ s.imap_folder_clean }}
+{% endif %}
+
+{% if s.imap_folder_spam is defined %}
+# [imap_folder_spam] Folder name for spam messages
+imap-folder-spam = {{ s.imap_folder_spam }}
+{% endif %}
+
+{% if s.imap_fetch_unseen is defined %}
+# [imap_fetch_unseen] Fetch only unseen messages
+imap-fetch-unseen = {{ s.imap_fetch_unseen | ternary('true', 'false') }}
+{% endif %}
+
+{% if s.imap_fetch_unflagged is defined %}
+# [imap_fetch_unflagged] Fetch only unflagged messages
+imap-fetch-unflagged = {{ s.imap_fetch_unflagged | ternary('true', 'false') }}
+{% endif %}
+
+{% if s.imap_reset_seen_flag is defined %}
+# [imap_reset_seen_flag] Reset seen flag on fetched messages
+imap-reset-seen-flag = {{ s.imap_reset_seen_flag | ternary('true', 'false') }}
+{% endif %}
+
+{% if s.ssl is defined %}
+# [ssl] Enable SSL/TLS connection
+ssl = {{ s.ssl | ternary('true', 'false') }}
+{% endif %}
+
+{% if s.ssl_cert is defined %}
+# [ssl_cert] Path to SSL certificate
+ssl-cert = {{ s.ssl_cert }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# [pop_settings]
+# List of POP proxy configurations (use with --pop mode).
+# Each item may include: pop_server, pop_port, pop_proxy_port, pop_proxy_if, pop_user,
+# pop_max_size, pid_file, ssl.
+# Only defined fields within each configuration item are emitted.
+{% set pop_cfgs = pop_settings | default([]) %}
+{% if pop_cfgs | length > 0 %}
+{% for s in pop_cfgs %}
+# --- POP Proxy Server Configuration ---
+{% if s.pop_server is defined %}
+# [pop_server] The POP proxy server hostname or IP
+pop-server = {{ s.pop_server }}
+{% endif %}
+
+{% if s.pop_port is defined %}
+# [pop_port] The POP proxy listening port
+pop-port = {{ s.pop_port | default(110) }}
+{% endif %}
+
+{% if s.pop_proxy_port is defined %}
+# [pop_proxy_port] The actual backend proxy port
+pop-proxy-port = {{ s.pop_proxy_port | default(10110) }}
+{% endif %}
+
+{% if s.pop_proxy_if is defined %}
+# [pop_proxy_if] The interface to bind the proxy to
+pop-proxy-if = {{ s.pop_proxy_if | default("0.0.0.0") }}
+{% endif %}
+
+{% if s.pop_user is defined %}
+# [pop_user] Username for POP authentication
+pop-user = {{ s.pop_user }}
+{% endif %}
+
+{% if s.pop_max_size is defined %}
+# [pop_max_size] Maximum message size in bytes
+pop-max-size = {{ s.pop_max_size | default(50000) }}
+{% endif %}
+
+{% if s.pid_file is defined %}
+# [pid_file] Path to PID file
+pid-file = {{ s.pid_file }}
+{% endif %}
+
+{% if s.ssl is defined %}
+# [ssl] Enable SSL/TLS for POP connection
+ssl = {{ s.ssl | ternary('true', 'false') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# [max_mail]
+# Threshold to reduce token database when mail count exceeds this
+# Default: 10000
+max_mail = {{ max_mail | default(10000) }}
+
+# [min_mail]
+# Effective minimum mail count for database reduction
+# Default: 8000
+min_mail = {{ min_mail | default(8000) }}
+
+# [mbox]
+# Use Unix 'from' separator for mbox format files
+# Default: false
+mbox = {{ mbox | default(false) | ternary('true', 'false') }}

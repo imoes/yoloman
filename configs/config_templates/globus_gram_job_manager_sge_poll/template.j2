@@ -1,49 +1,145 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================================== -->
 <!-- GridFTP server configuration for Globus Grid Engine (SGE) job polling via GRAM -->
+<!-- Self-documenting template: every directive is described and safe to reuse.     -->
+<!-- ============================================================================== -->
 <GridFTPConfig xmlns="http://www.globus.org/2007/06/GridFTPConfig">
-  <!-- Enable SGE job polling support for GRAM -->
+  <!-- -------------------------------------------------------------------------- -->
+  <!-- GridEnginePoll: SGE job polling section.                                   -->
+  <!-- -------------------------------------------------------------------------- -->
   <GridEnginePoll>
-    <!-- Enable SGE job manager polling -->
-    <Enabled>{{ enabled | lower }}</Enabled>
-    <!-- Polling interval in seconds -->
-    <PollInterval>{{ poll_interval }}</PollInterval>
-    <!-- Maximum jobs to fetch per poll cycle -->
-    <MaxJobsPerPoll>{{ max_jobs_per_poll }}</MaxJobsPerPoll>
-    <!-- SGE qmaster hostname or FQDN -->
-    <QmasterHost>{{ qmaster_host }}</QmasterHost>
-    <!-- SGE cell name -->
-    <CellName>{{ cell_name }}</CellName>
-    <!-- SGE root directory (typically /opt/sge or /usr/sge) -->
-    <Sgeroot>{{ sgeroot }}</Sgeroot>
-    <!-- SGE binary directory (usually $SGE_ROOT/bin/lx-amd64 or similar) -->
-    <SgeBin>{{ sge_bin }}</SgeBin>
-    <!-- Path to SGE qstat binary (optional; if omitted, will infer from Sgeroot/SgeBin) -->
-    {% if qstat_path %}<QstatPath>{{ qstat_path }}</QstatPath>{% endif %}
-    <!-- Path to SGE qacct binary (optional; if omitted, will infer from Sgeroot/SgeBin) -->
-    {% if qacct_path %}<QacctPath>{{ qacct_path }}</QacctPath>{% endif %}
-    <!-- List of execution hosts to restrict polling (leave empty for all) -->
+    <!--
+      enabled: Enable SGE job manager polling.
+      Required for SGE integration.
+      Default: True
+    -->
+    <Enabled>{{ (enabled | default(True)) | lower }}</Enabled>
+
+    <!--
+      poll_interval: Seconds between polling cycles for job state updates.
+      Default: 60
+    -->
+    <PollInterval>{{ (poll_interval | default(60)) | int }}</PollInterval>
+
+    <!--
+      max_jobs_per_poll: Maximum number of jobs to query per poll.
+      Reduce on large clusters to avoid overload.
+      Default: 100
+    -->
+    <MaxJobsPerPoll>{{ (max_jobs_per_poll | default(100)) | int }}</MaxJobsPerPoll>
+
+    <!--
+      qmaster_host: Hostname or FQDN of the SGE qmaster server.
+      Must be reachable by the Globus service.
+      Default: localhost
+    -->
+    <QmasterHost>{{ (qmaster_host | default('localhost')) | string }}</QmasterHost>
+
+    <!--
+      cell_name: SGE cell name (e.g., 'default' or custom cell name).
+      Default: default
+    -->
+    <CellName>{{ (cell_name | default('default')) | string }}</CellName>
+
+    <!--
+      sgeroot: Root directory of the SGE installation on the Globus host.
+      Used for binary discovery and environment setup.
+      Default: /opt/sge
+    -->
+    <Sgeroot>{{ (sgeroot | default('/opt/sge')) | string }}</Sgeroot>
+
+    <!--
+      sge_bin: Directory containing SGE binaries (qstat, qacct, etc.).
+      Adjust for architecture (e.g., 'lx-arm64', 'solaris-x64').
+      Default: /opt/sge/bin/lx-amd64
+    -->
+    <SgeBin>{{ (sge_bin | default('/opt/sge/bin/lx-amd64')) | string }}</SgeBin>
+
+    <!--
+      qstat_path: Full path to qstat binary.
+      Leave empty to auto-detect using sgeroot and sge_bin.
+      If set, emitted as <QstatPath>.
+    -->
+    {% if (qstat_path | default('')) | trim | length > 0 %}
+    <QstatPath>{{ qstat_path | string }}</QstatPath>
+    {% endif %}
+
+    <!--
+      qacct_path: Full path to qacct binary.
+      Leave empty to auto-detect using sgeroot and sge_bin.
+      If set, emitted as <QacctPath>.
+    -->
+    {% if (qacct_path | default('')) | trim | length > 0 %}
+    <QacctPath>{{ qacct_path | string }}</QacctPath>
+    {% endif %}
+
+    <!--
+      exec_hosts: List of execution hostnames to restrict polling to.
+      Empty list means poll all hosts.
+      Default: []
+    -->
     <ExecutionHosts>
-      {% for host in exec_hosts %}      <Host>{{ host }}</Host>
-      {% endfor %}    </ExecutionHosts>
-    <!-- Enable verbose job status logging (true/false) -->
-    <VerboseJobStatus>{{ verbose_job_status | lower }}</VerboseJobStatus>
-    <!-- Path to job state cache file -->
-    <JobStateCacheFile>{{ job_state_cache_file }}</JobStateCacheFile>
-    <!-- Job state cache TTL in seconds -->
-    <JobStateCacheTTL>{{ job_state_cache_ttl }}</JobStateCacheTTL>
-    <!-- Enable use of SGE pe (parallel environment) info for job matching -->
-    <UsePeInfo>{{ use_pe_info | lower }}</UsePeInfo>
-    <!-- SGE resource limits to map to GRAM job resources (e.g., h_vmem, h_cpu) -->
+      {% for host in (exec_hosts | default([])) %}
+      <Host>{{ host | string }}</Host>
+      {% endfor %}
+    </ExecutionHosts>
+
+    <!--
+      verbose_job_status: Log detailed SGE job state (e.g., 'running', 'suspended') to debug log.
+      May increase log size.
+      Default: False
+    -->
+    <VerboseJobStatus>{{ (verbose_job_status | default(False)) | lower }}</VerboseJobStatus>
+
+    <!--
+      job_state_cache_file: Path to cache file storing job states between restarts.
+      Must be writable by the Globus user.
+      Default: /var/lib/globus/job_state_cache.xml
+    -->
+    <JobStateCacheFile>{{ (job_state_cache_file | default('/var/lib/globus/job_state_cache.xml')) | string }}</JobStateCacheFile>
+
+    <!--
+      job_state_cache_ttl: Time-to-live (seconds) for cached job state.
+      Avoid setting too low to prevent excessive polling.
+      Default: 300
+    -->
+    <JobStateCacheTTL>{{ (job_state_cache_ttl | default(300)) | int }}</JobStateCacheTTL>
+
+    <!--
+      use_pe_info: Include SGE parallel environment (PE) info (e.g., slots requested) in job attributes.
+      Required for multi-slot jobs.
+      Default: True
+    -->
+    <UsePeInfo>{{ (use_pe_info | default(True)) | lower }}</UsePeInfo>
+
+    <!--
+      resource_limits: List of SGE resource limits to expose as GLOBUS_GRAM job attributes.
+      Example: h_vmem → Memory, h_cpu → CPUTime.
+      Default: [{'name': 'h_vmem', 'type': 'string', 'globus_attr': 'Memory'}, {'name': 'h_cpu', 'type': 'string', 'globus_attr': 'CPUTime'}]
+    -->
     <ResourceLimits>
-      {% for lim in resource_limits %}      <ResourceLimit>
-        <Name>{{ lim.name }}</Name>
-        <Type>{{ lim.type }}</Type>
-        <GlobusAttribute>{{ lim.globus_attr }}</GlobusAttribute>
+      {% for lim in (resource_limits | default([{'name': 'h_vmem', 'type': 'string', 'globus_attr': 'Memory'}, {'name': 'h_cpu', 'type': 'string', 'globus_attr': 'CPUTime'}])) %}
+      <ResourceLimit>
+        <Name>{{ (lim.name | default('')) | string }}</Name>
+        <Type>{{ (lim.type | default('string')) | string }}</Type>
+        <GlobusAttribute>{{ (lim.globus_attr | default('')) | string }}</GlobusAttribute>
       </ResourceLimit>
-      {% endfor %}    </ResourceLimits>
-    <!-- Enable job cleanup after completion (kill orphan SGE jobs on GLOBUS_FAILED) -->
-    <EnableCleanup>{{ enable_cleanup | lower }}</EnableCleanup>
-    <!-- Maximum number of concurrent poll operations -->
-    <MaxConcurrentPolls>{{ max_concurrent_polls }}</MaxConcurrentPolls>
+      {% endfor %}
+    </ResourceLimits>
+
+    <!--
+      enable_cleanup: If true, kill orphaned SGE jobs when GLOBUS_GRAM job status is FAILED.
+      Use with caution — may affect external job tracking.
+      Default: False
+    -->
+    <EnableCleanup>{{ (enable_cleanup | default(False)) | lower }}</EnableCleanup>
+
+    <!--
+      max_concurrent_polls: Maximum number of simultaneous polling operations.
+      Higher values may improve responsiveness but increase SGE load.
+      Default: 2
+    -->
+    <MaxConcurrentPolls>{{ (max_concurrent_polls | default(2)) | int }}</MaxConcurrentPolls>
+
   </GridEnginePoll>
 </GridFTPConfig>

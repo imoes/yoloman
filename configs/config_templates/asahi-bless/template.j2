@@ -1,0 +1,80 @@
+# asahi-bless configuration template
+# This template generates the command-line arguments for `asahi-bless`, a utility
+# used on Apple Silicon (ARM64) Macs to manage the boot volume selection in NVRAM.
+# It provides a structured way to set the next boot volume, list candidates,
+# or retrieve the current target without manual intervention.
+
+# Path to the nvram device
+# Default: /dev/nvram
+# Description: Specifies the path to the NVRAM device file.
+DEVICE = {{ device | default("/dev/nvram") }}
+
+# Set boot volume for next boot only
+# Default: False
+# Description: If true, sets the boot volume for the next boot cycle only;
+# the default boot device remains unchanged for subsequent reboots.
+{% if next_boot_only | default(False) | bool %}
+NEXT = true
+{% else %}
+NEXT = false
+{% endif %}
+
+# List boot volume candidates
+# Default: False
+# Description: If true, lists available boot volume candidates instead of
+# modifying the boot settings. Useful for discovery before selection.
+{% if list_volumes | default(False) | bool %}
+LIST = true
+{% else %}
+LIST = false
+{% endif %}
+
+# Set boot volume by name or index
+# Default: "" (empty string)
+# Description: Specifies the boot volume to select. Can be a volume name
+# (e.g., "macOS") or an index number. Only used if LIST is false.
+{% if set_boot | default('') | trim != '' %}
+SET_BOOT = "{{ set_boot | default('') | trim }}"
+{% else %}
+SET_BOOT = ""
+{% endif %}
+
+# Set boot volume to macOS if unambiguous
+# Default: False
+# Description: If true and SET_BOOT is empty or ambiguous, attempts to
+# automatically select the macOS boot volume. Requires LIST to be false.
+{% if set_boot_macos | default(False) | bool %}
+SET_BOOT_MACOS = true
+{% else %}
+SET_BOOT_MACOS = false
+{% endif %}
+
+# Do not ask for confirmation
+# Default: False
+# Description: If true, proceeds with the operation without prompting the
+# user for confirmation. Essential for automated/Ansible runs.
+{% if yes | default(False) | bool %}
+YES = true
+{% else %}
+YES = false
+{% endif %}
+
+# Get currently selected boot target
+# Default: False
+# Description: If true, retrieves and prints the currently selected boot target
+# from NVRAM. Overrides other modification flags if combined carefully.
+{% if get_boot | default(False) | bool %}
+GET_BOOT = true
+{% else %}
+GET_BOOT = false
+{% endif %}
+
+# Clear the selected next boot target
+# Default: False
+# Description: If true, clears any previously set "next boot only" target,
+# restoring the default boot sequence.
+{% if clear_next | default(False) | bool %}
+CLEAR_NEXT = true
+{% else %}
+CLEAR_NEXT = false
+{% endif %}

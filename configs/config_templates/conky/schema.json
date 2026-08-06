@@ -44,7 +44,24 @@
   "alignment": {
     "type": "string",
     "default": "top_right",
-    "description": "Where the conky window appears on screen."
+    "description": "Where the conky window appears on screen.",
+    "enum": [
+      "top_left",
+      "top_middle",
+      "top_right",
+      "middle_left",
+      "middle_middle",
+      "middle_right",
+      "bottom_left",
+      "bottom_middle",
+      "bottom_right",
+      "none",
+      "top",
+      "left",
+      "right",
+      "bottom",
+      "center"
+    ]
   },
   "gap_x": {
     "type": "number",
@@ -81,16 +98,13 @@
     "default": [],
     "description": "List of user-defined variables (key-value pairs) for reuse in monitor blocks.",
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Variable name (used as ${custom_name} in config)."
-        },
-        "value": {
-          "type": "string",
-          "description": "Value of the variable."
-        }
+      "name": {
+        "type": "string",
+        "description": "Variable name (used as ${custom_name} in config)."
+      },
+      "value": {
+        "type": "string",
+        "description": "Value of the variable."
       }
     }
   },
@@ -121,63 +135,54 @@
     ],
     "description": "Ordered list of monitor sections to display. Each block defines content and parameters.",
     "items": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": [
-            "text",
-            "cpu",
-            "mem",
-            "swap",
-            "disk",
-            "net",
-            "process",
-            "time",
-            "custom"
-          ],
-          "description": "Type of block to render."
-        },
-        "content": {
-          "type": "string",
-          "description": "Raw text (for 'text' blocks). Escape newlines and quotes as needed."
-        },
-        "disks": {
-          "type": "list",
-          "description": "List of filesystem paths to monitor (for 'disk' blocks).",
-          "items": {
-            "type": "object",
-            "properties": {
-              "path": {
-                "type": "string",
-                "default": "/",
-                "description": "Mount point or path to filesystem."
-              }
-            }
+      "type": {
+        "type": "string",
+        "enum": [
+          "text",
+          "cpu",
+          "mem",
+          "swap",
+          "disk",
+          "net",
+          "process",
+          "time",
+          "custom"
+        ],
+        "description": "Type of block to render."
+      },
+      "content": {
+        "type": "string",
+        "description": "Raw text (for 'text' blocks). Escape newlines and quotes as needed."
+      },
+      "disks": {
+        "type": "list",
+        "description": "List of filesystem paths to monitor (for 'disk' blocks).",
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/",
+            "description": "Mount point or path to filesystem."
           }
-        },
-        "net_if": {
-          "type": "string",
-          "default": "eth0",
-          "description": "Network interface to monitor (for 'net' blocks)."
-        },
-        "processes": {
-          "type": "list",
-          "description": "List of process info entries (for 'process' blocks).",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Label for the process (ignored by conky, for your reference)."
-              }
-            }
-          }
-        },
-        "script": {
-          "type": "string",
-          "description": "Shell or Lua command to execute (for 'custom' blocks)."
         }
+      },
+      "net_if": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Network interface to monitor (for 'net' blocks)."
+      },
+      "processes": {
+        "type": "list",
+        "description": "List of process info entries (for 'process' blocks).",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Label for the process (ignored by conky, for your reference)."
+          }
+        }
+      },
+      "script": {
+        "type": "string",
+        "description": "Shell or Lua command to execute (for 'custom' blocks)."
       }
     }
   }

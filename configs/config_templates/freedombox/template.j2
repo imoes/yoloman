@@ -1,133 +1,156 @@
-# /etc/freedombox/plinth-config.yaml — Main FreedomBox configuration
-# Enable or disable the web interface
-enable_web_interface: {{ enable_web_interface }}
+## SPDX-License-Identifier: AGPL-3.0-or-later
+##
+## DO NOT EDIT. If you do, FreedomBox will not automatically upgrade.
+##
+## Apache configuration managed by FreedomBox. If customization is needed,
+## create a new configuration file with higher priority and override directives.
+##
 
-# Hostname exposed to the internet via dynamic DNS (if enabled)
-hostname: "{{ hostname }}"
+##
+## TLS configuration as recommended by Mozilla's SSL Configuration Generator
+## with 'Intermediate' configuration. See:
+## https://wiki.mozilla.org/Security/Server_Side_TLS
+##
+<IfModule mod_ssl.c>
+    # Disable ciphers that are weak or without forward secrecy.
+    SSLCipherSuite ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
 
-# Network interface to use for the main web service
-interface: "{{ interface }}"
+    # Allow client to choose ciphers as they will know best if they have support
+    # for hardware-accelerated AES.
+    SSLHonorCipherOrder off
 
-# Port for the main FreedomBox web interface (Plinth)
-port: {{ port }}
+    # TLS session tickets (RFC 5077) require restarting web server with an
+    # appropriate frequency. See:
+    # https://httpd.apache.org/docs/current/mod/mod_ssl.html#sslsessiontickets
+    SSLSessionTickets off
 
-# Time zone setting for system logs and services
-timezone: "{{ timezone }}"
+    # Send OCSP responses to the client and reduce their round trips.
+    <IfModule mod_socache_shmcb.c>
+        SSLUseStapling On
+        SSLStaplingCache "shmcb:${APACHE_RUN_DIR}/ssl_stapling(32768)"
+    </IfModule>
+</IfModule>
 
-# Enable or disable automatic security updates
-automatic_security_updates: {{ automatic_security_updates }}
+##
+## Enable HSTS, even for subdomains.
+##
+<If "%{HTTP_HOST} !~ /^.*\.onion$/i">
+    Header set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+</If>
 
-# List of enabled services (each with its own config block below)
-services:
-{% for service in services %}
-  - name: "{{ service.name }}"
-    enabled: {{ service.enabled }}
-{% if service.enabled %}
-{% if service.name == 'nextcloud' %}
-    # Nextcloud-specific settings
-    nextcloud_admin_user: "{{ service.admin_user }}"
-    nextcloud_admin_password: "{{ service.admin_password }}"
-    nextcloud_data_directory: "{{ service.data_directory }}"
-    nextcloud_domain: "{{ service.domain }}"
-    nextcloud_database_type: "{{ service.database_type }}"
-    nextcloud_db_host: "{{ service.db_host }}"
-    nextcloud_db_name: "{{ service.db_name }}"
-    nextcloud_db_user: "{{ service.db_user }}"
-    nextcloud_db_password: "{{ service.db_password }}"
-{% endif %}
-{% if service.name == 'matrix' %}
-    # Synapse (Matrix) settings
-    matrix_domain: "{{ service.domain }}"
-    matrix_admin_user: "{{ service.admin_user }}"
-    matrix_admin_password: "{{ service.admin_password }}"
-    matrix_database_type: "{{ service.database_type }}"
-    matrix_db_host: "{{ service.db_host }}"
-    matrix_db_name: "{{ service.db_name }}"
-    matrix_db_user: "{{ service.db_user }}"
-    matrix_db_password: "{{ service.db_password }}"
-{% endif %}
-{% if service.name == 'tor' %}
-    # Tor hidden service settings
-    tor_onion_services: {% for onion in service.onion_services %}{{ loop.index > 1 | ternary(', ', '') }}{{ onion }}{% endfor %}
-{% endif %}
-{% if service.name == 'mail' %}
-    # Mail service (Dovecot/Postfix) configuration
-    mail_domain: "{{ service.domain }}"
-    mail_admin_email: "{{ service.admin_email }}"
-    mail_smtp_relay: "{{ service.smtp_relay }}"
-    mail_smtp_port: {{ service.smtp_port }}
-    mail_smtp_user: "{{ service.smtp_user }}"
-    mail_smtp_password: "{{ service.smtp_password }}"
-{% endif %}
-{% if service.name == 'xmpp' %}
-    # Jabber/XMPP service (Prosody) configuration
-    xmpp_domain: "{{ service.domain }}"
-    xmpp_admin_jid: "{{ service.admin_jid }}"
-{% endif %}
-{% if service.name == 'print' %}
-    # CUPS print server configuration
-    cups_browsing: {{ service.cups_browsing }}
-{% endif %}
-{% if service.name == 'mediawiki' %}
-    # MediaWiki service configuration
-    mediawiki_domain: "{{ service.domain }}"
-    mediawiki_admin_user: "{{ service.admin_user }}"
-    mediawiki_admin_password: "{{ service.admin_password }}"
-{% endif %}
-{% if service.name == 'git' %}
-    # Git service (Gitea) configuration
-    git_domain: "{{ service.domain }}"
-    git_admin_user: "{{ service.admin_user }}"
-    git_admin_password: "{{ service.admin_password }}"
-{% endif %}
-{% if service.name == 'blog' %}
-    # Blog service (WordPress) configuration
-    blog_domain: "{{ service.domain }}"
-    blog_admin_user: "{{ service.admin_user }}"
-    blog_admin_password: "{{ service.admin_password }}"
-{% endif %}
-{% if service.name == 'notes' %}
-    # Notes service (Joplin Server) configuration
-    notes_domain: "{{ service.domain }}"
-    notes_admin_user: "{{ service.admin_user }}"
-    notes_admin_password: "{{ service.admin_password }}"
-{% endif %}
-{% if service.name == 'feeds' %}
-    # RSS/Atom feeds aggregator (Ttrss or Miniflux) configuration
-    feeds_domain: "{{ service.domain }}"
-    feeds_admin_user: "{{ service.admin_user }}"
-    feeds_admin_password: "{{ service.admin_password }}"
-{% endif %}
-{% if service.name == 'bookmarks' %}
-    # Bookmarks manager (Shaarli) configuration
-    bookmarks_domain: "{{ service.domain }}"
-    bookmarks_admin_user: "{{ service.admin_user }}"
-    bookmarks_admin_password: "{{ service.admin_password }}"
-{% endif %}
-{% if service.name == 'calendar' %}
-    # Calendar/contacts (Radicale) configuration
-    calendar_domain: "{{ service.domain }}"
-    calendar_admin_user: "{{ service.admin_user }}"
-{% endif %}
-{% if service.name == 'disk_usage_monitor' %}
-    # Disk usage alerting thresholds (in percent)
-    disk_usage_warning_percent: {{ service.warning_percent }}
-    disk_usage_critical_percent: {{ service.critical_percent }}
-{% endif %}
-{% endif %}{# service.enabled #}
-{% endfor %}
+##
+## Redirect traffic on home to /plinth as part of turning the machine
+## into FreedomBox server.  Plinth then acts as a portal to reach all
+## other services.
+##
+RedirectMatch "^/$" "/plinth"
 
-# Reverse proxy settings for HTTPS termination (via Apache/Nginx)
-reverse_proxy:
-  enabled: {{ reverse_proxy.enabled }}
-  backend_port: {{ reverse_proxy.backend_port }}
-  ssl_cert_path: "{{ reverse_proxy.ssl_cert_path }}"
-  ssl_key_path: "{{ reverse_proxy.ssl_key_path }}"
+##
+## Disable sending Referer (sic) header from FreedomBox web interface to
+## external websites. This improves privacy by not disclosing FreedomBox
+## domains/URLs to external domains. Apps such as blogs which want to popularize
+## themselves with referrer header may still do so.
+##
+## A strict Content Security Policy.
+## - @fonts are allowed only from FreedomBox itself.
+## - <frame>/<iframe> sources are disabled.
+## - <img> sources are allowed only from FreedomBox itself.
+## - Manifest file is not allowed as there is none yet.
+## - <audio>, <video>, <track> tags are not allowed yet.
+## - <object>, <embed>, <applet> tags are not allowed yet.
+## - Allow JS from FreedomBox itself (no inline and attribute scripts).
+## - Allow inline CSS and CSS files from Freedombox itself.
+## - Web worker sources are allowed only from FreedomBox itself (for JSXC).
+## - All other fetch sources including Ajax are not allowed from FreedomBox
+##   itself.
+## - <base> tag is not allowed.
+## - No plugins types are alllowed since object-src is 'none'.
+## - Form action should be to FreedomBox itself.
+## - This interface may be not embedded in <frame>, <iframe>, etc. tags.
+## - When serving HTTPS, don't allow HTTP assets.
+##
+## Enable strict sandboxing enabled with some exceptions:
+## - Allow running Javascript.
+## - Allow popups as sometimes we use <a target=_blank>
+## - Allow popups to have different sandbox requirements as we launch apps' web
+##   clients.
+## - Allow forms to support configuration forms.
+## - Allow policies to treat same origin differently from other origins
+## - Allow downloads such as backup tarballs.
+##
+## Disable browser guessing of MIME types. FreedoBox already sets good content
+## types for all the common file types.
+##
+<LocationMatch "^/(plinth|freedombox)">
+    Header set Referrer-Policy 'same-origin'
+    Header set Content-Security-Policy "font-src 'self'; frame-src 'none'; img-src 'self' data:; manifest-src 'none'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'self'; default-src 'self'; base-uri 'none'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-downloads; form-action 'self'; frame-ancestors 'none'; block-all-mixed-content;"
+    Header set X-Content-Type-Options 'nosniff'
+</LocationMatch>
 
-# Backup configuration
-backup:
-  enabled: {{ backup.enabled }}
-  destination: "{{ backup.destination }}"
-  schedule: "{{ backup.schedule }}"
-  retention_days: {{ backup.retention_days }}
-  exclude_patterns: [{% for pattern in backup.exclude_patterns %}{{ loop.index > 1 | ternary(', ', '') }}"{{ pattern }}"{% endfor %}]
+##
+## On all sites, provide FreedomBox on a default path: /plinth
+##
+## Requires the following Apache modules to be enabled:
+##   mod_headers
+##   mod_proxy
+##   mod_proxy_http
+##
+<Location /freedombox>
+    ## Plinth backend host (typically localhost)
+    ProxyPass        http://127.0.0.1:8000/plinth
+    ## Send the scheme from user's request to enable Plinth to redirect
+    ## URLs, set cookies, set absolute URLs (if any) properly.
+    RequestHeader    set X-Forwarded-Proto 'https' env=HTTPS
+
+    ## Ignore any X-FORWARDED-FOR headers sent by the client and their
+    ## proxies. Apache will still set this header with the remote
+    ## address of the client. Apache is the first and only trusted entry
+    ## point for FreedomBox. Any code that does not deal with this
+    ## header properly will remain safe. For example:
+    ## https://github.com/jazzband/django-axes/issues/286
+    RequestHeader    unset X-Forwarded-For
+</Location>
+<Location /plinth>
+    ## Plinth backend host (typically localhost)
+    ProxyPass        http://127.0.0.1:8000/plinth
+    RequestHeader    set X-Forwarded-Proto 'https' env=HTTPS
+    RequestHeader    unset X-Forwarded-For
+</Location>
+
+##
+## Serve FreedomBox icon as /favicon.ico for apps that don't present their own
+## icon using <link rel=''>.
+##
+<Location ~ ^/favicon\.ico$>
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+        RewriteRule /favicon\.ico$ "/plinth/static/theme/img/favicon.ico" [PT]
+    </IfModule>
+</Location>
+
+##
+## Serve SVG files compressed using gzip.
+##
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+##
+## Send all logs to systemd journal by default. This may be overridden per host
+## in <VirtualHost>. With all system logs in journald, it is possible to turn
+## off persistent logging to improve SD card lifetime and performance. It is
+## also easy to improve privacy by turning off logging altogether.
+##
+## - To obtain the old style access log run the following command (note that the
+## first field is the name of the virtual host accessed as Apache format logged
+## is vhost_combined):
+##   journalctl --identifier apache-access --output cat > access.log
+##
+## - To obtain the old style error log run the following command:
+##   journalctl --identifier apache-error --output cat > error.log
+##
+ErrorLog "|/usr/bin/systemd-cat --identifier=apache-error"
+# Remove timestamp at the beginning from the default log format. journald
+# records its own timestamp.
+ErrorLogFormat "[%-m:%l] [pid %P:tid %{g}T] %7F: %E: [client\ %a] %M% ,\ referer\ %{Referer}i"
+CustomLog "|/usr/bin/systemd-cat --identifier=apache-access" vhost_combined

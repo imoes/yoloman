@@ -1,0 +1,289 @@
+# curl command-line configuration template
+# This template generates a series of curl flags. It is not a persistent config file in the traditional sense,
+# but rather a snippet of arguments passed to the curl binary.
+# Each block corresponds to a specific curl option.
+# See curl(1) and curl(1) man pages for detailed flag descriptions.
+
+# ==============================================================================
+# Output Control
+# ==============================================================================
+
+# Enable verbose output for debugging
+# --verbose or -v: Makes curl verbose during the operation.
+{% if verbose | default(false) %}--verbose{% endif %}
+
+# Use silent mode to suppress progress meter
+# --silent or -s: Silent mode. Don't show progress meter or error messages.
+{% if silent | default(false) %}--silent{% endif %}
+
+# Show error messages even in silent mode
+# --show-error or -S: When used with --silent, makes curl show errors when they occur.
+{% if show_error | default(false) %}--show-error{% endif %}
+
+# Display progress as simple bar
+# --progress-bar: Displays a simple progress bar instead of the other, more
+# structured meter. It is better for scripting or for older terminal emulators
+# that don't handle the other meter well.
+{% if progress_bar | default(false) %}--progress-bar{% endif %}
+
+# Disable progress meter output
+# --no-progress-meter: Disables the progress meter that curl normally outputs.
+# Note: --silent implies --no-progress-meter, but this is explicit.
+{% if disable_progress | default(false) %}--no-progress-meter{% endif %}
+
+# ==============================================================================
+# Time Limits and Retries
+# ==============================================================================
+
+# Set connection timeout in seconds
+# --connect-timeout <seconds>: Maximum time allowed for the connection phase.
+# If the server does not respond within this time, the operation fails.
+--connect-timeout {{ connection_timeout | default(30) }}
+
+# Set maximum transfer time in seconds
+# --max-time <seconds>: Maximum time the whole operation is allowed to take.
+# This is the total time, including connection and transfer. 0 means unlimited.
+--max-time {{ max_time | default(0) }}
+
+# Retry on transient errors
+# --retry <num>: If a transient error is returned (like 503), curl will retry
+# the request this number of times. 0 means no retry.
+{% if retry is defined %}--retry {{ retry | default(0) }}{% endif %}
+
+# Delay between retries
+# --retry-delay <seconds>: Initial delay between retries.
+# If this is not set, curl uses 0s (immediate retry).
+{% if retry_delay is defined %}--retry-delay {{ retry_delay | default(1) }}{% endif %}
+
+# Maximum retry time
+# --retry-max-time <seconds>: Maximum time limit for the retries.
+# If this time limit is exceeded, curl stops retrying even if the retry count
+# has not been reached. 0 means unlimited.
+{% if retry_max_time is defined %}--retry-max-time {{ retry_max_time | default(0) }}{% endif %}
+
+# Speed limit: abort if slower than X bytes/sec
+# --speed-limit <bytes>: Abort if the transfer speed drops below this value
+# (in bytes per second) for more than speed-time seconds.
+{% if speed_limit is defined %}--speed-limit {{ speed_limit | default(0) }}{% endif %}
+
+# Speed time: period for speed limit check
+# --speed-time <seconds>: The time period for the speed limit check.
+# If the speed is below the limit for this many seconds, abort.
+{% if speed_time is defined %}--speed-time {{ speed_time | default(30) }}{% endif %}
+
+# ==============================================================================
+# Network and DNS
+# ==============================================================================
+
+# Use IPv4 only
+# --ipv4: Resolve name to IPv4 address. Forces curl to use IPv4.
+{% if ipv4_only | default(false) %}--ipv4{% endif %}
+
+# Use IPv6 only
+# --ipv6: Resolve name to IPv6 address. Forces curl to use IPv6.
+{% if ipv6_only | default(false) %}--ipv6{% endif %}
+
+# DNS servers
+# --dns-servers <addresses>: Set custom DNS servers to use instead of the
+# system default. Comma-separated list of IP addresses.
+{% if dns_servers is defined and dns_servers | length > 0 %}--dns-servers {{ dns_servers | join(',') }}{% endif %}
+
+# DNS interface
+# --dns-interface <interface>: Network interface to use for DNS requests.
+# Useful when you have multiple interfaces and want to bind DNS queries to one.
+{% if dns_interface is defined and dns_interface | length > 0 %}--dns-interface {{ dns_interface }}{% endif %}
+
+# ==============================================================================
+# Redirection and Compression
+# ==============================================================================
+
+# Follow HTTP redirects
+# --location or -L: Tells curl to follow 3xx redirect responses.
+# This allows curl to automatically follow Location: headers.
+{% if follow_redirects | default(true) %}--location{% endif %}
+
+# Maximum number of redirects to follow
+# --max-redirs <num>: Maximum number of redirects to follow.
+# Only effective if --location is also used.
+{% if follow_redirects | default(true) %}--max-redirs {{ max_redirects | default(5) }}{% endif %}
+
+# Enable compression
+# --compressed: Requests a compressed response (gzip, deflate, brotli) from
+# the server and automatically decodes it.
+{% if use_compression | default(true) %}--compressed{% endif %}
+
+# Enable HTTP/2
+# --http2: Forces curl to use HTTP/2 for the transfer.
+{% if http2 | default(true) %}--http2{% endif %}
+
+# ==============================================================================
+# Authentication and Credentials
+# ==============================================================================
+
+# Use netrc file for credentials
+# --netrc: Reads login/password information from the .netrc file in the user's
+# home directory.
+{% if use_netrc | default(false) %}--netrc{% endif %}
+
+# Use specific netrc file
+# --netrc-file <file>: Specifies a specific file to read .netrc information from
+# instead of the default ~/.netrc.
+{% if netrc_file is defined and netrc_file | length > 0 %}--netrc-file {{ netrc_file }}{% endif %}
+
+# Username and password for auth
+# --user <user:password>: Specifies the user name and password to use for
+# server authentication. Overrides the netrc file.
+{% if user is defined and user | length > 0 %}--user {{ user }}{% endif %}
+
+# HTTP authentication method
+# --<method>: Specifies the authentication method to use.
+# Valid methods: basic, digest, ntlm, negotiate, etc.
+# Note: curl supports multiple methods; this sets the preference or forces one.
+{% if auth_method is defined and auth_method | length > 0 %}--{{ auth_method }}{% endif %}
+
+# ==============================================================================
+# SSL/TLS and Certificates
+# ==============================================================================
+
+# Skip certificate verification (insecure!)
+# --insecure or -k: Tells curl to proceed and operate even for servers that
+# have an invalid certificate. **UNSAFE FOR PRODUCTION**.
+{% if insecure | default(false) %}--insecure{% endif %}
+
+# CA certificate bundle file
+# --cacert <file>: Specifies a file containing a bundle of CA certificates to
+# use for verifying the peer.
+{% if ca_bundle is defined and ca_bundle | length > 0 %}--cacert {{ ca_bundle }}{% endif %}
+
+# CA certificate directory
+# --capath <dir>: Specifies a directory containing CA certificates in PEM format.
+# Each file must contain one certificate.
+{% if ca_path is defined and ca_path | length > 0 %}--capath {{ ca_path }}{% endif %}
+
+# Client certificate file
+# --cert <cert>: Specifies a client certificate to use for SSL/TLS client auth.
+# Format: <cert>:<passphrase> or just <cert>.
+{% if client_cert is defined and client_cert | length > 0 %}--cert {{ client_cert }}{% if client_cert_passphrase is defined and client_cert_passphrase | length > 0 %}:{{ client_cert_passphrase }}{% endif %}{% endif %}
+
+# Private key passphrase
+# --pass <phrase>: Specifies the passphrase for the private key if the
+# client certificate is encrypted.
+{% if client_key_passphrase is defined and client_key_passphrase | length > 0 %}--pass {{ client_key_passphrase }}{% endif %}
+
+# Client private key file
+# --key <key>: Specifies the client private key to use with the client certificate.
+{% if client_key is defined and client_key | length > 0 %}--key {{ client_key }}{% endif %}
+
+# TLS minimum version
+# --tlsv1.x: Forces curl to use a specific minimum TLS version.
+# Options: 1.0, 1.1, 1.2, 1.3.
+{% if tls_min_version is defined and tls_min_version | length > 0 %}--tlsv1.{{ tls_min_version }}{% endif %}
+
+# TLS maximum version
+# --tls-max <version>: Forces curl to use a specific maximum TLS version.
+# Options: 1.0, 1.1, 1.2, 1.3.
+{% if tls_max_version is defined and tls_max_version | length > 0 %}--tls-max {{ tls_max_version }}{% endif %}
+
+# Disable ALPN (for HTTP/2 debugging)
+# --no-alpn: Disables the ALPN (Application-Layer Protocol Negotiation) TLS
+# extension. Useful for debugging HTTP/2 issues.
+{% if disable_alpn | default(false) %}--no-alpn{% endif %}
+
+# HSTS cache file
+# --hsts <file>: Specifies a file to use for HSTS (HTTP Strict Transport Security)
+# caching.
+{% if hsts_file is defined and hsts_file | length > 0 %}--hsts {{ hsts_file }}{% endif %}
+
+# ==============================================================================
+# Proxy Configuration
+# ==============================================================================
+
+# HTTP proxy address
+# --proxy <host:port>: Specifies the proxy server to use.
+{% if proxy is defined and proxy | length > 0 %}--proxy {{ proxy }}{% endif %}
+
+# Proxy type (socks5, etc.)
+# --proxy-<type>: Specifies the proxy type.
+# Options: socks5, socks5h, socks4, socks4a, etc.
+# If --proxy is set, curl usually detects the type. This forces it.
+{% if proxy_type is defined and proxy_type | length > 0 %}--proxy-{{ proxy_type }}{% endif %}
+
+# Proxy username and password
+# --proxy-user <user:password>: Specifies the user name and password to use
+# for proxy authentication.
+{% if proxy_user is defined and proxy_user | length > 0 %}--proxy-user {{ proxy_user }}{% endif %}
+
+# Proxy authentication method
+# --proxy-<method>: Specifies the authentication method for the proxy.
+# Options: basic, digest, ntlm, negotiate.
+{% if proxy_auth_method is defined and proxy_auth_method | length > 0 %}--proxy-{{ proxy_auth_method }}{% endif %}
+
+# Allow insecure proxies
+# --proxy-insecure: Tells curl to skip TLS verification for the proxy server.
+{% if proxy_insecure | default(false) %}--proxy-insecure{% endif %}
+
+# No proxy list
+# --noproxy <list>: Comma-separated list of hosts that should not be accessed
+# via the proxy.
+{% if no_proxy is defined and no_proxy | length > 0 %}--noproxy {{ no_proxy | join(',') }}{% endif %}
+
+# ==============================================================================
+# Output Handling
+# ==============================================================================
+
+# Output file for single URL
+# --output <file>: Writes output to a file instead of stdout.
+{% if output_file is defined and output_file | length > 0 %}--output {{ output_file }}{% endif %}
+
+# Use remote filename
+# --remote-name or -O: Writes output to a file named after the remote file.
+{% if use_remote_name | default(false) %}--remote-name{% endif %}
+
+# Output directory for remote-name operations
+# --output-dir <dir>: Specifies the directory to save the remote-named file into.
+# Only effective with --remote-name.
+{% if output_dir is defined and output_dir | length > 0 %}--output-dir {{ output_dir }}{% endif %}
+
+# Create directories as needed
+# --create-dirs: Creates necessary local directory paths if they don't exist.
+# Effective for --output and --remote-name.
+{% if create_dirs | default(false) %}--create-dirs{% endif %}
+
+# Resume partial download
+# --continue-at -: Resumes a previous download from the point it stopped.
+# The '-' tells curl to determine the offset automatically.
+{% if resume | default(false) %}--continue-at -{% endif %}
+
+# Rate limiting: max requests per time unit
+# --rate <rate>: Rate limit the transfer speed. Format: <speed>/<unit>.
+# Examples: '5/s' (5 bytes/sec), '10/m' (10 bytes/min).
+{% if rate_limit is defined and rate_limit | length > 0 %}--rate {{ rate_limit }}{% endif %}
+
+# ==============================================================================
+# Cookies
+# ==============================================================================
+
+# Save cookies to file
+# --cookie-jar <file>: Specifies the file to save all cookies in after the
+# operation is completed.
+{% if cookie_jar is defined and cookie_jar | length > 0 %}--cookie-jar {{ cookie_jar }}{% endif %}
+
+# Read cookies from file
+# --cookie <file>: Specifies the file to read cookies from at the start of
+# the operation.
+{% if cookie_file is defined and cookie_file | length > 0 %}--cookie {{ cookie_file }}{% endif %}
+
+# ==============================================================================
+# Headers and User Agent
+# ==============================================================================
+
+# User agent string
+# --user-agent <name>: Specifies the User-Agent: header to send to the server.
+# Default is usually 'curl/<version>'.
+--user-agent {{ user_agent | default('curl/' + curl_version | default('unknown')) }}
+
+# Custom headers (one per line)
+# --header <header>: Adds a custom HTTP header to the request.
+# This block iterates over a list of header strings.
+{% for header in custom_headers | default([]) %}--header "{{ header }}"
+{% endfor %}

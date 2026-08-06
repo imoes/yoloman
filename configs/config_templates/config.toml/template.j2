@@ -1,96 +1,213 @@
-[plugins]
-  # Plugin directories and default runtime settings
-  [plugins."io.containerd.grpc.v1.cri"]
-    # Disable CRI sandbox image pull verification for local images (if needed)
-    sandbox_image = "{{ sandbox_image }}"
-    
-    # Containerd CRI plugin: maximum number of running containers
-    max_container_log_line_size = {{ max_container_log_line_size }}
-    
-    # Container runtime: enable systemd cgroup driver
-    systemd_cgroup = {{ systemd_cgroup | lower }}
-    
-    # Container runtime: enable stream server (for exec/attach)
-    enable_streaming = {{ enable_streaming }}
-    
-    # Container runtime: streaming server bind address and port
-    streaming_server_address = "{{ streaming_server_address }}"
-    streaming_server_port = "{{ streaming_server_port }}"
-    
-    # Container runtime: streaming server TLS configuration (optional)
-    {% if enable_tls_streaming %}
-    [plugins."io.containerd.grpc.v1.cri".streaming_server]
-      enable_tls_streaming = true
-      stream_server_tls_cert = "{{ stream_server_tls_cert }}"
-      stream_server_tls_key = "{{ stream_server_tls_key }}"
-      stream_server_tls_ca = "{{ stream_server_tls_ca }}"
+# ============================================================================
+# containerd Configuration Template (config.toml)
+# ============================================================================
+# This template generates the main containerd configuration file.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and source schema field.
+# All variables use `| default(...)` to ensure safe rendering even if the
+# variable is undefined in the Ansible inventory.
+# ============================================================================
+
+# --- Plugin: CRI (Container Runtime Interface) ---
+# The CRI plugin integrates containerd with Kubernetes.
+[plugins."io.containerd.grpc.v1.cri"]
+
+    # -----------------------------------------------------------------------
+    # sandbox_image (default: 'k8s.gcr.io/pause:3.9')
+    # The pause container image used for sandbox containers in Kubernetes.
+    # -----------------------------------------------------------------------
+    sandbox_image = "{{ sandbox_image | default('k8s.gcr.io/pause:3.9') }}"
+
+    # -----------------------------------------------------------------------
+    # max_container_log_line_size (default: 16384)
+    # Maximum size (in bytes) of a single log line from a container.
+    # Longer lines are truncated to this limit.
+    # -----------------------------------------------------------------------
+    max_container_log_line_size = {{ max_container_log_line_size | default(16384) }}
+
+    # -----------------------------------------------------------------------
+    # systemd_cgroup (default: False)
+    # If true, use the systemd cgroup driver instead of cgroupfs.
+    # This is required if systemd is managing cgroups.
+    # -----------------------------------------------------------------------
+    systemd_cgroup = {{ systemd_cgroup | default(False) | lower }}
+
+    # -----------------------------------------------------------------------
+    # enable_streaming (default: True)
+    # Enable the streaming server for exec/attach operations (kubectl exec -it).
+    # -----------------------------------------------------------------------
+    enable_streaming = {{ enable_streaming | default(True) | lower }}
+
+    # -----------------------------------------------------------------------
+    # streaming_server_address (default: '0.0.0.0')
+    # Bind address for the streaming server (exec/attach).
+    # -----------------------------------------------------------------------
+    streaming_server_address = "{{ streaming_server_address | default('0.0.0.0') }}"
+
+    # -----------------------------------------------------------------------
+    # streaming_server_port (default: '10010')
+    # Port for the streaming server.
+    # -----------------------------------------------------------------------
+    streaming_server_port = "{{ streaming_server_port | default('10010') }}"
+
+    # -----------------------------------------------------------------------
+    # Streaming Server TLS Configuration
+    # -----------------------------------------------------------------------
+    {% if enable_tls_streaming | default(False) %}
+    # TLS is ENABLED for the streaming server.
+    [plugins."io.containerd.grpc.v1.cri".streaming]
+      enable_tls = true
+      # Path to the TLS certificate for the streaming server.
+      stream_server_tls_cert = "{{ stream_server_tls_cert | default('') }}"
+      # Path to the TLS private key for the streaming server.
+      stream_server_tls_key = "{{ stream_server_tls_key | default('') }}"
+      # Path to the TLS CA certificate for the streaming server.
+      stream_server_tls_ca = "{{ stream_server_tls_ca | default('') }}"
     {% else %}
-    [plugins."io.containerd.grpc.v1.cri".streaming_server]
-      enable_tls_streaming = false
+    # TLS is DISABLED or not configured for the streaming server.
+    [plugins."io.containerd.grpc.v1.cri".streaming]
+      enable_tls = false
     {% endif %}
-    
-    # Container runtime: snapshotter to use (e.g., "overlayfs", "native")
-    snapshotter = "{{ snapshotter }}"
-    
-    # Container runtime: default runtime (e.g., "runc")
+
+    # -----------------------------------------------------------------------
+    # snapshotter (default: 'overlayfs')
+    # Name of the snapshotter plugin used for container image layers
+    # (e.g., 'overlayfs', 'native').
+    # -----------------------------------------------------------------------
+    snapshotter = "{{ snapshotter | default('overlayfs') }}"
+
+    # -----------------------------------------------------------------------
+    # Containerd Backend Settings
+    # -----------------------------------------------------------------------
     [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "{{ default_runtime_name }}"
-      
-      # Runtime configurations: list of registered runtimes
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        {% for rt in runtimes %}
+
+        # -------------------------------------------------------------------
+        # default_runtime_name (default: 'runc')
+        # Name of the default runtime to use.
+        # Must match one of the names defined in the 'runtimes' section below.
+        # -------------------------------------------------------------------
+        default_runtime_name = "{{ default_runtime_name | default('runc') }}"
+
+        # -------------------------------------------------------------------
+        # Runtime Configurations
+        # List of registered container runtimes with their types and options.
+        # -------------------------------------------------------------------
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        {% set runtimes_list = runtimes | default([{'name': 'runc', 'runtime_type': 'io.containerd.runc.v2', 'options': {'SystemdCgroup': 'true'}}]) %}
+        {% for rt in runtimes_list %}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."{{ rt.name }}"]
-          runtime_type = "{{ rt.runtime_type }}"
-          {% if rt.engine %}engine = "{{ rt.engine }}"{% endif %}
-          {% if rt.privileged_without_host_devices %}privileged_without_host_devices = {{ rt.privileged_without_host_devices | lower }}{% endif %}
-          {% if rt.runtime_engine %}runtime_engine = "{{ rt.runtime_engine }}"{% endif %}
-          {% if rt.runtime_root %}runtime_root = "{{ rt.runtime_root }}"{% endif %}
-          {% if rt.options %}
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."{{ rt.name }}".options]
-            {% for opt_key, opt_val in rt.options.items() %}
-            {{ opt_key | replace("_", "") | upper }} = "{{ opt_val }}"
+            # Runtime type string (must be registered in containerd binary)
+            runtime_type = "{{ rt.runtime_type }}"
+
+            # Optional runtime engine path (if distinct from default)
+            {% if rt.runtime_engine is defined and rt.runtime_engine %}
+            runtime_engine = "{{ rt.runtime_engine }}"
+            {% endif %}
+
+            # Optional root directory for the runtime
+            {% if rt.runtime_root is defined and rt.runtime_root %}
+            runtime_root = "{{ rt.runtime_root }}"
+            {% endif %}
+
+            # Optional flags to run privileged containers without host devices
+            {% if rt.privileged_without_host_devices is defined and rt.privileged_without_host_devices %}
+            privileged_without_host_devices = {{ rt.privileged_without_host_devices | lower }}
+            {% endif %}
+
+            # Runtime-specific options
+            {% if rt.options is defined and rt.options %}
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."{{ rt.name }}".options]
+            {% for opt_key, opt_val in rt.options | dict2items %}
+                # Option {{ opt_key }}
+                {{ opt_key | upper }} = {{ opt_val | tojson }}
             {% endfor %}
-          {% endif %}
+            {% endif %}
         {% endfor %}
-    
-    # Registry mirrors and auth configuration
+
+    # -----------------------------------------------------------------------
+    # Registry Configuration
+    # Settings for container image registries (mirrors and auth).
+    # -----------------------------------------------------------------------
     [plugins."io.containerd.grpc.v1.cri".registry]
-      {% if registry_mirrors %}
-      config_path = "{{ registry_config_path }}"
-      {% else %}
-      config_path = ""
-      {% endif %}
-      
-      {% for mirror in registry_mirrors %}
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{ mirror.namespace }}"]
-        endpoint = [{{ mirror.endpoints | map('quote') | join(', ') | safe }}]
-      {% endfor %}
-      
-      {% if registry_configs %}
-      {% for cfg in registry_configs %}
-      [plugins."io.containerd.grpc.v1.cri".registry.configs."{{ cfg.hostname }}".auth]
-        username = "{{ cfg.auth_username }}"
-        password = "{{ cfg.auth_password }}"
-      {% endfor %}
-      {% endif %}
-    
-    # Image decryption configuration (optional)
-    {% if enable_image_decryption %}
+
+        # Path to local registry config directory (mirrors, TLS, auth)
+        {% if registry_mirrors | default([]) | length > 0 or registry_configs | default([]) | length > 0 %}
+        config_path = "{{ registry_config_path | default('/etc/containerd/certs') }}"
+        {% else %}
+        config_path = ""
+        {% endif %}
+
+        # Registry Mirrors
+        # Override default pull paths with local mirrors.
+        {% set mirrors_list = registry_mirrors | default([]) %}
+        {% for mirror in mirrors_list %}
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{ mirror.namespace }}"]
+            # List of mirror endpoints
+            endpoint = [{{ mirror.endpoints | default([]) | map('quote') | join(', ') }}]
+        {% endfor %}
+
+        # Registry Auth Configs
+        # Authentication for private registries.
+        {% set configs_list = registry_configs | default([]) %}
+        {% for cfg in configs_list %}
+        [plugins."io.containerd.grpc.v1.cri".registry.configs."{{ cfg.hostname }}".auth]
+            # Username for registry authentication
+            username = "{{ cfg.auth_username | default('') }}"
+            # Password for registry authentication
+            password = "{{ cfg.auth_password | default('') }}"
+        {% endfor %}
+
+    # -----------------------------------------------------------------------
+    # Image Decryption / X.509 Key Pair Streaming
+    # Configuration for decrypting encrypted container images.
+    # -----------------------------------------------------------------------
+    {% if enable_image_decryption | default(False) %}
     [plugins."io.containerd.grpc.v1.cri".x509_key_pair_streaming]
-      tls_cert_file = "{{ tls_cert_file }}"
-      tls_key_file = "{{ tls_key_file }}"
+        # Path to TLS cert file for image decryption streaming
+        tls_cert_file = "{{ tls_cert_file | default('') }}"
+        # Path to TLS key file for image decryption streaming
+        tls_key_file = "{{ tls_key_file | default('') }}"
     {% endif %}
 
-  # GRPC service settings
-  [plugins."io.containerd.grpc.v1.cri".containerd]
-    discard_unpacked_layers = {{ discard_unpacked_layers }}
+# ============================================================================
+# Global Containerd Backend Settings
+# ============================================================================
+[plugins."io.containerd.grpc.v1.cri".containerd]
 
-# Global settings
+    # -----------------------------------------------------------------------
+    # discard_unpacked_layers (default: True)
+    # If true, discard unpacked layers after successful container creation
+    # to save disk space.
+    # -----------------------------------------------------------------------
+    discard_unpacked_layers = {{ discard_unpacked_layers | default(True) | lower }}
+
+# ============================================================================
+# Debug/Logging Configuration
+# ============================================================================
 [debug]
-  level = "{{ debug_level }}"
+    # -----------------------------------------------------------------------
+    # debug_level (default: 'info')
+    # Global logging level: 'debug', 'info', 'warn', 'error', 'fatal', 'panic'.
+    # -----------------------------------------------------------------------
+    level = "{{ debug_level | default('info') }}"
 
+# ============================================================================
+# Metrics Configuration
+# ============================================================================
 [metrics]
-  address = "{{ metrics_address }}"
+    # -----------------------------------------------------------------------
+    # metrics_address (default: '')
+    # Address (host:port) for the metrics endpoint.
+    # Empty string disables the metrics server.
+    # -----------------------------------------------------------------------
+    address = "{{ metrics_address | default('') }}"
 
+# ============================================================================
+# Plugin: Internal Opt
+# ============================================================================
 [plugins."io.containerd.internal.v1.opt"]
-  path = "{{ plugins_opt_path }}"
+    # -----------------------------------------------------------------------
+    # plugins_opt_path (default: '/opt/containerd')
+    # Path for plugin-specific state and data (e.g., certificates, snapshots).
+    # -----------------------------------------------------------------------
+    path = "{{ plugins_opt_path | default('/opt/containerd') }}"

@@ -1,0 +1,46 @@
+# ==============================================================================
+# btrfs-assistant configuration template
+# ==============================================================================
+# This file configures the btrfs-assistant tool, which manages snapshots
+# via snapper and runs maintenance tasks via btrfsmaintenance.
+#
+# All variables must be provided via Ansible inventory or role defaults.
+# Every variable uses a .default() filter to ensure safe rendering even
+# if the variable is undefined.
+# ==============================================================================
+
+# [General Settings]
+
+# Absolute path to the snapper binary used for creating and managing snapshots.
+# Default: /usr/bin/snapper
+snapper = {{ snapper_path | default('/usr/bin/snapper') }}
+
+# Absolute path to the btrfsmaintenance configuration file.
+# This file controls the timing and behavior of maintenance scripts.
+# Default: /etc/default/btrfsmaintenance
+bm_config = {{ bm_config_path | default('/etc/default/btrfsmaintenance') }}
+
+# Absolute path to the btrfs maintenance cron refresh script.
+# This script is executed to reload configuration changes during maintenance.
+# Default: /usr/share/btrfsmaintenance/btrfsmaintenance-refresh-cron.sh
+bm_refresh_script = "{{ bm_refresh_script_path | default('/usr/share/btrfsmaintenance/btrfsmaintenance-refresh-cron.sh') }}"
+
+# [Subvol-Mapping]
+# --------------------------------------------------------------------------
+# Mapping between subvolumes and their snapshot directories.
+#
+# Format: <name> = "<snapshot_subvol>,<source_subvol>,<UUID>"
+# - <name>: Arbitrary identifier for this mapping entry.
+# - <snapshot_subvol>: Path to the subvolume where snapshots are stored.
+# - <source_subvol>: Path to the source subvolume being snapshotted.
+# - <UUID>: UUID of the Btrfs filesystem (optional if not needed).
+#
+# This section is usually empty because snapper handles default nested
+# subvolume layouts automatically. Only fill this if using a non-standard
+# layout.
+# Example:
+# root = "@snapshots,@,48bee883-0eef-4332-9bc5-65f01295e470"
+[Subvol-Mapping]
+{# No subvolume mappings defined by default. Add entries here if your
+   Btrfs layout requires explicit mapping between source and snapshot
+   subvolumes. #}

@@ -49,19 +49,7 @@
     "default": [
       "memory"
     ],
-    "description": "List of output plugins to use (e.g., memory, sql, kafka, syslog, bgp).",
-    "items": {
-      "type": "string",
-      "enum": [
-        "memory",
-        "sql",
-        "kafka",
-        "syslog",
-        "bgp",
-        "nfacctd",
-        "sfacctd"
-      ]
-    }
+    "description": "List of output plugins to use (e.g., memory, sql, kafka, syslog, bgp)."
   },
   "aggregate": {
     "type": "string",
@@ -86,58 +74,37 @@
   "sql_db": {
     "type": "string",
     "default": "pmacct",
-    "description": "Name of the SQL database for accounting data.",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "Name of the SQL database for accounting data."
   },
   "sql_user": {
     "type": "string",
     "default": "pmacct",
-    "description": "SQL username.",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "SQL username."
   },
   "sql_pass": {
     "type": "string",
     "default": "",
-    "description": "SQL password (empty if using peer/auth or keyring).",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "SQL password (empty if using peer/auth or keyring)."
   },
   "sql_host": {
     "type": "string",
     "default": "localhost",
-    "description": "SQL server hostname or IP.",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "SQL server hostname or IP."
   },
   "sql_port": {
     "type": "number",
     "default": 5432,
-    "description": "SQL server port (5432 for PostgreSQL, 3306 for MySQL).",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "SQL server port (5432 for PostgreSQL, 3306 for MySQL)."
   },
   "sql_table": {
     "type": "string",
     "default": "acct",
-    "description": "Table name to store accounting data.",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "Table name to store accounting data."
   },
   "sql_refresh_time": {
     "type": "number",
     "default": 60,
-    "description": "Seconds between SQL table updates.",
-    "conditional": {
-      "sql_enabled": true
-    }
+    "description": "Seconds between SQL table updates."
   },
   "kafka_enabled": {
     "type": "bool",
@@ -147,189 +114,16 @@
   "kafka_topic": {
     "type": "string",
     "default": "pmacct",
-    "description": "Kafka topic name for accounting messages.",
-    "conditional": {
-      "kafka_enabled": true
-    }
+    "description": "Kafka topic name for accounting messages."
   },
   "kafka_brokers": {
-    "type": "list",
-    "default": [
-      "localhost:9092"
-    ],
-    "description": "List of Kafka broker addresses (host:port).",
-    "items": {
-      "type": "string"
-    },
-    "conditional": {
-      "kafka_enabled": true
-    }
-  },
-  "kafka_client_id": {
     "type": "string",
-    "default": "pmacct-producer",
-    "description": "Client ID used when connecting to Kafka.",
-    "conditional": {
-      "kafka_enabled": true
-    }
+    "default": "localhost:9092",
+    "description": "Comma-separated list of Kafka broker addresses."
   },
-  "syslog_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable syslog output plugin."
-  },
-  "syslog_facility": {
+  "nfacctd_conf": {
     "type": "string",
-    "default": "local0",
-    "description": "Syslog facility to use (e.g., local0, daemon).",
-    "conditional": {
-      "syslog_enabled": true
-    }
-  },
-  "syslog_priority": {
-    "type": "string",
-    "default": "info",
-    "description": "Syslog priority level (debug, info, notice, warn, err, crit, alert, emerg).",
-    "conditional": {
-      "syslog_enabled": true
-    }
-  },
-  "bgp_daemon": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable built-in BGP daemon for BGP accounting (requires 'bgp' plugin).",
-    "conditional": {
-      "bgp": "in plugins"
-    }
-  },
-  "bgp_peer_as": {
-    "type": "number",
-    "default": 64512,
-    "description": "Local BGP AS number.",
-    "conditional": {
-      "bgp": "in plugins"
-    }
-  },
-  "bgp_local_as": {
-    "type": "number",
-    "default": 64512,
-    "description": "Local BGP AS number (alias of bgp_peer_as for clarity)."
-  },
-  "bgp_router_id": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "BGP Router ID (IP address format).",
-    "conditional": {
-      "bgp": "in plugins"
-    }
-  },
-  "netflow_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable NetFlow v9/IPFIX input (as nfacctd)."
-  },
-  "netflow_port": {
-    "type": "number",
-    "default": 2055,
-    "description": "UDP port to listen for NetFlow v9/IPFIX flows.",
-    "conditional": {
-      "netflow_enabled": true
-    }
-  },
-  "netflow_addr": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "Bind address for NetFlow/IPFIX listener.",
-    "conditional": {
-      "netflow_enabled": true
-    }
-  },
-  "sflow_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable sFlow input (as sfacctd)."
-  },
-  "sflow_port": {
-    "type": "number",
-    "default": 6343,
-    "description": "UDP port to listen for sFlow packets.",
-    "conditional": {
-      "sflow_enabled": true
-    }
-  },
-  "sflow_addr": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "Bind address for sFlow listener.",
-    "conditional": {
-      "sflow_enabled": true
-    }
-  },
-  "ipfix_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable standalone IPFIX input."
-  },
-  "ipfix_port": {
-    "type": "number",
-    "default": 4739,
-    "description": "UDP port for IPFIX receiver.",
-    "conditional": {
-      "ipfix_enabled": true
-    }
-  },
-  "telemetry_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable gRPC/Streaming telemetry input."
-  },
-  "telemetry_port": {
-    "type": "number",
-    "default": 50051,
-    "description": "gRPC port for telemetry ingestion.",
-    "conditional": {
-      "telemetry_enabled": true
-    }
-  },
-  "telemetry_proto": {
-    "type": "string",
-    "default": "telemetry_v2",
-    "description": "Telemetry protocol version (e.g., telemetry_v2, telemetry_v1).",
-    "conditional": {
-      "telemetry_enabled": true
-    }
-  },
-  "custom_fields": {
-    "type": "list",
-    "default": [],
-    "description": "Custom field mappings (e.g., for application tags).",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Field name (e.g., app_id)"
-        },
-        "value": {
-          "type": "string",
-          "description": "Map value expression (e.g., src_as:42)"
-        }
-      }
-    }
-  },
-  "sampling_rate": {
-    "type": "number",
-    "default": 0,
-    "description": "Global packet sampling rate (0 = no sampling, N = 1 in N)."
-  },
-  "aggregation_map": {
-    "type": "string",
-    "default": "",
-    "description": "Path to file defining custom aggregation maps (advanced)."
-  },
-  "prefix_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to prefix list file for geo/ASN mapping."
+    "default": "nfacctd.conf",
+    "description": "Relative filename of the nfacctd configuration file under /etc/pmacct/."
   }
 }

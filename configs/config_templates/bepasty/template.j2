@@ -1,97 +1,49 @@
-# Base URL where bepasty will be accessible (e.g., 'https://paste.example.com')
-BASE_URL = {{ base_url }}
+# Base URL where bepasty will be publicly accessible (including protocol, e.g., https://paste.example.com)
+BASE_URL = '{{ base_url | default("http://localhost:5000") }}'
 
-# Directory where uploaded files are stored (absolute path)
-UPLOAD_DIR = {{ upload_dir }}
+# Absolute filesystem path where uploaded files are stored
+UPLOAD_DIR = '{{ upload_dir | default("/var/lib/bepasty/uploads") }}'
 
-# Secret key used for signing cookies and tokens (must be kept secret)
-SECRET_KEY = {{ secret_key }}
+# Random, cryptographically secure secret key used for signing sessions and tokens. Must be generated and kept secret.
+SECRET_KEY = '{{ secret_key | default("") }}'
 
-# Enable/disable the public upload form
-PUBLIC_ENABLED = {{ public_enabled }}
+# Enable the public file upload form (anyone can upload if not rate-limited)
+PUBLIC_ENABLED = {{ public_enabled | default(true) | lower }}
 
-# Enable/disable file listing for authenticated users
-LISTING_ENABLED = {{ listing_enabled }}
+# Enable file listing for authenticated users (e.g., admins)
+LISTING_ENABLED = {{ listing_enabled | default(false) | lower }}
 
-# Default expiration time for uploads (in seconds); 0 = never expire
-DEFAULT_EXPIRATION = {{ default_expiration }}
+# Default upload expiration time in seconds (e.g., 86400 = 24 hours). Use 0 for no expiration.
+DEFAULT_EXPIRATION = {{ default_expiration | default(86400) }}
 
-# Maximum file size in bytes (0 = unlimited)
-MAX_FILE_SIZE = {{ max_file_size }}
+# Maximum allowed file size in bytes (e.g., 104857600 = 100 MB). Use 0 for unlimited.
+MAX_FILE_SIZE = {{ max_file_size | default(104857600) }}
 
-# Maximum number of uploads per IP per day (0 = unlimited); applied only if RATE_LIMIT_ENABLED=True
-MAX_UPLOADS_PER_IP_PER_DAY = {{ max_uploads_per_ip_per_day }}
+# List of allowed MIME types. Empty list = allow all types. Example: ['text/plain', 'image/png', 'application/pdf']
+# The list is converted to a Python tuple syntax for bepasty config compatibility: ('type1', 'type2')
+ALLOWED_MIME_TYPES = (
+{%   for m in (allowed_mime_types | default([]) | sort) %}    '{{ m }}',
+{%   endfor %}
+)
 
-# Enable rate limiting per IP
-RATE_LIMIT_ENABLED = {{ rate_limit_enabled }}
+# List of MIME types that should be displayed inline in the browser instead of forcing download.
+# The list is converted to a Python tuple syntax for bepasty config compatibility.
+INLINE_MIME_TYPES = (
+{%   for m in (inline_mime_types | default(['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'text/html']) | sort) %}    '{{ m }}',
+{%   endfor %}
+)
 
-# Allowed MIME types (empty list = allow all); each entry must be a valid MIME type string
-ALLOWED_MIME_TYPES = {{ allowed_mime_types | join(', ') }}
+# Database connection URI (SQLite, PostgreSQL, etc.). Example: 'postgresql://user:pass@localhost/bepasty'
+DATABASE_URL = '{{ database_url | default("sqlite:////var/lib/bepasty/bepasty.db") }}'
 
-# List of MIME types that should be displayed in the browser instead of downloaded
-INLINE_MIME_TYPES = {{ inline_mime_types | join(', ') }}
+# IP address to bind the HTTP server to. Use '0.0.0.0' to listen on all interfaces.
+HOST = '{{ host | default("0.0.0.0") }}'
 
-# Database connection string (e.g., 'sqlite:////var/lib/bepasty/bepasty.db' or 'postgresql://user:pass@host/db')
-DATABASE_URL = {{ database_url }}
+# Port number for the HTTP server.
+PORT = {{ port | default(5000) }}
 
-# Enable HTTPS-only cookies
-SESSION_COOKIE_SECURE = {{ session_cookie_secure }}
+# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+LOG_LEVEL = '{{ log_level | default("INFO") }}'
 
-# Enable SameSite cookie attribute; allowed values: 'Lax', 'Strict', 'None'
-SESSION_COOKIE_SAMESITE = '{{ session_cookie_samesite }}'
-
-# Number of worker processes (0 = auto-detect based on CPU cores)
-WORKERS = {{ workers }}
-
-# Host address to bind to
-BIND_ADDRESS = '{{ bind_address }}'
-
-# Port to listen on
-PORT = {{ port }}
-
-# Logging level: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-LOG_LEVEL = '{{ log_level }}'
-
-# Log file path; empty string = log to stderr
-LOG_FILE = {{ log_file }}
-
-# Enable admin UI (requires authentication)
-ADMIN_ENABLED = {{ admin_enabled }}
-
-# List of admin users (by username or email, depending on auth backend)
-{% for admin in admins %}ADMIN_USERS.append('{{ admin }}')
-{% endfor %}
-
-# Enable password protection for uploads (if PUBLIC_ENABLED=True, this adds optional password field)
-PASSWORD_PROTECTION_ENABLED = {{ password_protection_enabled }}
-
-# Minimum password length (if password protection enabled)
-MIN_PASSWORD_LENGTH = {{ min_password_length }}
-
-# Enable deletion of uploads after expiration (automatic cleanup)
-CLEANUP_EXPIRED_ENABLED = {{ cleanup_expired_enabled }}
-
-# Enable automatic deletion of unclaimed uploads (e.g., those without metadata after X seconds)
-CLEANUP_UNCLAIMED_ENABLED = {{ cleanup_unclaimed_enabled }}
-CLEANUP_UNCLAIMED_AFTER_SECONDS = {{ cleanup_unclaimed_after_seconds }}
-
-# Enable CAPTCHA for public uploads
-CAPTCHA_ENABLED = {{ captcha_enabled }}
-
-# CAPTCHA provider; currently only 'recaptcha-v2' is supported
-CAPTCHA_PROVIDER = '{{ captcha_provider }}'
-{% if captcha_provider == 'recaptcha-v2' %}RECAPTCHA_SITE_KEY = '{{ recaptcha_site_key }}'
-RECAPTCHA_SECRET_KEY = '{{ recaptcha_secret_key }}'
-{% endif %}
-
-# Enable user registration (only relevant if auth backend supports it)
-REGISTRATION_ENABLED = {{ registration_enabled }}
-
-# Enable email verification on registration
-EMAIL_VERIFICATION_ENABLED = {{ email_verification_enabled }}
-
-# SMTP server settings for sending emails (if email features enabled)
-SMTP_SERVER = '{{ smtp_server }}'
-SMTP_PORT = {{ smtp_port }}
-SMTP_USE_TLS = {{ smtp_use_tls }}
-SMTP_FROM = '{{ smtp_from }}'
+# Path to log file. Leave empty to log to stderr instead.
+LOG_FILE = '{{ log_file | default("") }}'

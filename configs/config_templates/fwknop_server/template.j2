@@ -1,91 +1,95 @@
 # fwknopd server configuration
 # /etc/fwknop/server.conf
+#
+# This template is self-documenting. Every directive is preceded by a comment
+# derived from the schema description. All variables use Jinja2 defaults to ensure
+# safe rendering even if the variable is undefined in the Ansible playbook.
 
 ##
 # Network packet capture
 ##
 
-# Network interface on which fwknopd sniffs for incoming SPA packets
-PCAP_INTF               {{ pcap_intf }};
+# Network interface on which fwknopd sniffs for incoming SPA packets (e.g. eth0, ens3, bond0)
+PCAP_INTF               {{ (pcap_intf | default('eth0')) | string }};
 
-# libpcap BPF filter expression; limits capture to SPA traffic only
-PCAP_FILTER             {{ pcap_filter }};
+# libpcap BPF filter expression; restrict to the SPA UDP port to reduce CPU load
+PCAP_FILTER             {{ (pcap_filter | default('udp port 62201')) | string }};
 
-# Put the capture interface into promiscuous mode (rarely needed for SPA)
-ENABLE_PCAP_PROMISC     {{ 'Y' if enable_pcap_promisc else 'N' }};
+# Enable promiscuous mode on the capture interface; normally not required for single-host SPA
+ENABLE_PCAP_PROMISC     {{ 'Y' if (enable_pcap_promisc | default(false) | bool) else 'N' }};
 
-# Microseconds to sleep between pcap_loop iterations (100000 = 0.1 s)
-PCAP_LOOP_SLEEP         {{ pcap_loop_sleep }};
+# Microseconds to sleep between pcap_loop iterations; lower values reduce latency but increase CPU use
+PCAP_LOOP_SLEEP         {{ (pcap_loop_sleep | default(100000)) | int }};
 
-# Maximum bytes inspected per captured packet; 1500 covers any SPA payload
-MAX_SNIFF_BYTES         {{ max_sniff_bytes }};
+# Maximum bytes inspected per captured packet; 1500 safely covers any standard SPA payload
+MAX_SNIFF_BYTES         {{ (max_sniff_bytes | default(1500)) | int }};
 
 ##
 # SPA packet validation
 ##
 
-# Reject SPA packets whose embedded timestamp is older than this many seconds
-MAX_SPA_PACKET_AGE      {{ max_spa_packet_age }};
+# Seconds; SPA packets with an older embedded timestamp are dropped as potential replays
+MAX_SPA_PACKET_AGE      {{ (max_spa_packet_age | default(120)) | int }};
 
-# Enforce the timestamp age check; disable only for offline testing
-ENABLE_SPA_PACKET_AGING {{ 'Y' if enable_spa_packet_aging else 'N' }};
+# Enforce the max_spa_packet_age timestamp check; set false only for testing without NTP sync
+ENABLE_SPA_PACKET_AGING {{ 'Y' if (enable_spa_packet_aging | default(true) | bool) else 'N' }};
 
-# Persist seen packet digests to disk so replay protection survives restarts
-ENABLE_DIGEST_PERSISTENCE {{ 'Y' if enable_digest_persistence else 'N' }};
+# Write seen packet digests to disk so replay attacks are blocked across daemon restarts
+ENABLE_DIGEST_PERSISTENCE {{ 'Y' if (enable_digest_persistence | default(true) | bool) else 'N' }};
 
-# Absolute path to the file storing SPA packet digest history
-DIGEST_FILE             {{ digest_file }};
+# Absolute path to the file where SPA packet digests are stored
+DIGEST_FILE             {{ (digest_file | default('/var/lib/fwknop/digest.cache')) | string }};
 
 ##
 # Optional transport modes
 ##
 
-# Accept SPA payloads embedded in HTTP request bodies (requires matching client option)
-ENABLE_SPA_OVER_HTTP    {{ 'Y' if enable_spa_over_http else 'N' }};
+# Accept SPA payloads embedded in HTTP request bodies; requires the client to use --http-proxy mode
+ENABLE_SPA_OVER_HTTP    {{ 'Y' if (enable_spa_over_http | default(false) | bool) else 'N' }};
 
-# Run a decoy TCP listener that silently drops connections (port-knock camouflage)
-ENABLE_TCP_SERVER       {{ 'Y' if enable_tcp_server else 'N' }};
+# Run a decoy TCP listener that accepts and drops connections to disguise the knock port
+ENABLE_TCP_SERVER       {{ 'Y' if (enable_tcp_server | default(false) | bool) else 'N' }};
 
-# TCP port the decoy listener binds on; active only when ENABLE_TCP_SERVER = Y
-TCPSERV_PORT            {{ tcpserv_port }};
+# TCP port the decoy listener binds on; only effective when enable_tcp_server is true
+TCPSERV_PORT            {{ (tcpserv_port | default(62201)) | int }};
 
-{% if gpg_home_dir %}
+{% if (gpg_home_dir | default('')) | string %}
 ##
 # GPG asymmetric decryption
 ##
 
-# GnuPG home directory containing the server private key for asymmetric SPA decryption
-GPG_HOME_DIR            {{ gpg_home_dir }};
+# GnuPG home directory containing the server private key; leave empty to use pre-shared-key (Rijndael) mode only
+GPG_HOME_DIR            {{ (gpg_home_dir | default('')) | string }};
 {% endif %}
 
 ##
 # iptables firewall backend
 ##
 
-# Allow fwknopd to manage FORWARD chain rules (required for VPN gateways / routed setups)
-ENABLE_IPT_FORWARDING   {{ 'Y' if enable_ipt_forwarding else 'N' }};
+# Allow fwknopd to insert FORWARD chain rules; enable for VPN gateways or hosts that route traffic
+ENABLE_IPT_FORWARDING   {{ 'Y' if (enable_ipt_forwarding | default(false) | bool) else 'N' }};
 
-# Allow DNAT rules that redirect inbound traffic to a local service
-ENABLE_IPT_LOCAL_NAT    {{ 'Y' if enable_ipt_local_nat else 'N' }};
+# Allow DNAT rules redirecting inbound traffic to a local port; useful for single-packet NAT scenarios
+ENABLE_IPT_LOCAL_NAT    {{ 'Y' if (enable_ipt_local_nat | default(false) | bool) else 'N' }};
 
-# Also insert OUTPUT chain rules when granting a client access
-ENABLE_IPT_OUTPUT       {{ 'Y' if enable_ipt_output else 'N' }};
+# Insert OUTPUT chain rules in addition to INPUT when granting a client access
+ENABLE_IPT_OUTPUT       {{ 'Y' if (enable_ipt_output | default(false) | bool) else 'N' }};
 
-# Insert a RELATED,ESTABLISHED conntrack rule in INPUT for clean TCP session teardown
-ENABLE_IPT_CONNTRACK_INPUT {{ 'Y' if enable_ipt_conntrack_input else 'N' }};
+# Add a RELATED,ESTABLISHED conntrack rule to INPUT; required for correct TCP session teardown through the firewall
+ENABLE_IPT_CONNTRACK_INPUT {{ 'Y' if (enable_ipt_conntrack_input | default(true) | bool) else 'N' }};
 
 ##
 # Process and logging
 ##
 
-# Absolute path where fwknopd writes its PID file
-PID_FILE                {{ pid_file }};
+# Absolute path where fwknopd writes its PID; used by systemd and init scripts for process management
+PID_FILE                {{ (pid_file | default('/var/run/fwknopd.pid')) | string }};
 
-# Program name tag that appears in syslog / journald entries
-SYSLOG_IDENTITY         {{ syslog_identity }};
+# Program name tag that appears in every syslog / journald log line from this daemon
+SYSLOG_IDENTITY         {{ (syslog_identity | default('fwknopd')) | string }};
 
-# Syslog facility for daemon log messages (LOG_DAEMON, LOG_LOCAL0 ... LOG_LOCAL7)
-SYSLOG_FACILITY         {{ syslog_facility }};
+# Syslog facility for log messages (LOG_DAEMON, LOG_LOCAL0 through LOG_LOCAL7)
+SYSLOG_FACILITY         {{ (syslog_facility | default('LOG_DAEMON')) | string }};
 
-# Logging verbosity: 0 = normal, 1 = verbose SPA detail, 2+ = full debug
-VERBOSE                 {{ verbose }};
+# Logging verbosity level: 0 = normal operation, 1 = verbose SPA processing detail, 2+ = full debug output
+VERBOSE                 {{ (verbose | default(0)) | int }};

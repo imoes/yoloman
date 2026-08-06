@@ -1,0 +1,15 @@
+# Globus GRAM Job Manager Fork Setup - SEG Configuration
+#
+# This template configures the startup command line for the globus-job-manager
+# process using the fork execution gateway (SEG) module.
+#
+# Variables expected:
+#   sbin_path       : Path to the globus-job-manager binary directory
+#   config_path     : Path to the main globus-gram-job-manager.conf file
+#   job_manager_type: The job manager implementation type (e.g., fork, gridftp)
+#   seg_module      : The SEG (Simple Execution Gateway) module to load
+
+# Format: <log_destination>,<credential_type> <binary_path> <binary_flags>
+# stderr_log: Redirects standard error to the system logger (local facility)
+# local_cred: Use local credentials for job execution
+stderr_log,local_cred - {{ sbin_path | default('/usr/sbin') }}/globus-job-manager globus-job-manager -conf {{ config_path | default('/etc/globus/globus-gram-job-manager.conf') }} -type {{ job_manager_type | default('fork') }} -seg-module {{ seg_module | default('fork') }}

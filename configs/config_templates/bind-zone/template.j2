@@ -1,21 +1,48 @@
-; Zone file for {{ origin }}
-$ORIGIN {{ origin }}.
-$TTL {{ ttl }}
+# BIND9 DNS Zone File Template
+# Generates a standard RFC-compliant zone file for {{ origin | default('example.com') }}.
+# This template handles SOA records, NS records, and custom A/CNAME/MX/etc records.
+#
+# Variables:
+#   origin:       The zone's apex domain name (e.g., example.com)
+#   ttl:          Default Time-To-Live for all records in the zone
+#   serial:       SOA Serial number (increment on every zone change)
+#   refresh:      How often secondary servers should check for updates (seconds)
+#   retry:        How often secondaries should retry if refresh fails (seconds)
+#   expire:       How long secondaries should use the zone data if they can't contact primary (seconds)
+#   minimum:      Negative caching TTL (seconds)
+#   primary_ns:   Hostname of the primary authoritative name server (without FQDN dot)
+#   admin_email:  Email of the zone administrator (host part only; '.' becomes '_')
+#   name_servers: List of all authoritative name server hostnames
+#   records:      List of DNS record dictionaries with 'type', 'name', 'value', and optional 'ttl'
+
+; Zone file for {{ origin | default('example.com') }}
+$ORIGIN {{ origin | default('example.com') }}.
+$TTL {{ ttl | default(86400) }}
 
 ; SOA Record
-@ IN SOA {{ primary_ns }}.{{ origin }}. {{ admin_email }}. (
-  {{ serial }}
-  {{ refresh }}
-  {{ retry }}
-  {{ expire }}
-  {{ minimum }} )
+; Start of Authority defines the zone's primary source and timing parameters.
+; Format: origin IN SOA primary.ns admin.email ( serial refresh retry expire minimum )
+@ IN SOA {{ primary_ns | default('ns1') }}.{{ origin | default('example.com') }}. {{ admin_email | default('admin') | replace('.', '_') }}. (
+  {{ serial | default(2025040501) }}
+  {{ refresh | default(3600) }}
+  {{ retry | default(900) }}
+  {{ expire | default(604800) }}
+  {{ minimum | default(86400) }} )
 
 ; NS Records
-{% for ns in name_servers %}
-@ IN NS {{ ns }}.{{ origin }}.
+; Define the authoritative name servers for this zone.
+{% for ns in name_servers | default(['ns1']) %}
+@ IN NS {{ ns }}.{{ origin | default('example.com') }}.
 {% endfor %}
 
-{% for r in records %}
-; {{ r.type }} Record
-{% if r.name != '@' and r.name != '' %}{{ r.name }}{% else %}@{% endif %} {% if r.ttl %}{{ r.ttl }}{% else %}{{ ttl }}{% endif %} IN {{ r.type }} {{ r.value }}
+; Custom DNS Records
+; Iterates over the 'records' list to generate A, AAAA, CNAME, MX, TXT, etc.
+; Each record dictionary should contain:
+;   - type: The record type (A, AAAA, CNAME, MX, etc.)
+;   - name: The record owner name (use '@' for origin or a short hostname)
+;   - value: The record data (IP address, hostname, etc.)
+;   - ttl: (Optional) Override the zone default TTL for this specific record
+{% for r in records | default([]) %}
+; {{ r.type | default('A') }} Record
+{% if r.name | default('@') != '@' and r.name | default('@') != '' %}{{ r.name }}{% else %}@{% endif %} {% if r.ttl is defined and r.ttl %}{{ r.ttl }}{% else %}{{ ttl | default(86400) }}{% endif %} IN {{ r.type }} {{ r.value }}
 {% endfor %}

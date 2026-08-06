@@ -26,7 +26,7 @@
     "description": "Default policy for traffic that doesn't match any rule. 'drop' is stealthy; 'reject' sends ICMP error back."
   },
   "global.enable_conntrack": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable kernel connection tracking for stateful filtering. Required for allowing return traffic automatically."
   },
@@ -39,71 +39,67 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "A named zone grouping interfaces, with its own policies and security level.",
-      "properties": {
-        "name": {
+      "name": {
+        "type": "string",
+        "description": "Unique zone identifier (e.g., 'lan', 'wan', 'iot').",
+        "example": "lan"
+      },
+      "description": {
+        "type": "string",
+        "default": "Zone description",
+        "description": "Human-readable description for documentation."
+      },
+      "interfaces": {
+        "type": "list",
+        "default": [],
+        "items": {
           "type": "string",
-          "description": "Unique zone identifier (e.g., 'lan', 'wan', 'iot').",
-          "example": "lan"
-        },
-        "description": {
+          "description": "Network interface name to bind to this zone (e.g., eth1, br-lan)."
+        }
+      },
+      "trust_level": {
+        "type": "string",
+        "default": "internal",
+        "enum": [
+          "internal",
+          "external",
+          "dmz",
+          "guest",
+          "iot",
+          "server"
+        ],
+        "description": "Logical trust tier \u2014 used internally for policy generation and reporting."
+      },
+      "enable_stateful": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow return traffic for outbound connections initiated within this zone."
+      },
+      "default_policy": {
+        "type": "string",
+        "default": "drop",
+        "enum": [
+          "accept",
+          "drop"
+        ],
+        "description": "Default policy for traffic entering this zone (before applying service rules)."
+      },
+      "new_conn_rate_limit": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum new connections per second per interface in this zone (0 = no limit). Helps mitigate SYN floods."
+      },
+      "new_conn_rate_burst": {
+        "type": "number",
+        "default": 100,
+        "description": "Burst size for the new connection rate limit."
+      },
+      "allowlisted_hosts": {
+        "type": "list",
+        "default": [],
+        "items": {
           "type": "string",
-          "default": "Zone description",
-          "description": "Human-readable description for documentation."
-        },
-        "interfaces": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "description": "Network interface name to bind to this zone (e.g., eth1, br-lan)."
-          }
-        },
-        "trust_level": {
-          "type": "string",
-          "default": "internal",
-          "enum": [
-            "internal",
-            "external",
-            "dmz",
-            "guest",
-            "iot",
-            "server"
-          ],
-          "description": "Logical trust tier \u2014 used internally for policy generation and reporting."
-        },
-        "enable_stateful": {
-          "type": "boolean",
-          "default": true,
-          "description": "Allow return traffic for outbound connections initiated within this zone."
-        },
-        "default_policy": {
-          "type": "string",
-          "default": "drop",
-          "enum": [
-            "accept",
-            "drop"
-          ],
-          "description": "Default policy for traffic entering this zone (before applying service rules)."
-        },
-        "new_conn_rate_limit": {
-          "type": "number",
-          "default": 50,
-          "description": "Maximum new connections per second per interface in this zone (0 = no limit). Helps mitigate SYN floods."
-        },
-        "new_conn_rate_burst": {
-          "type": "number",
-          "default": 100,
-          "description": "Burst size for the new connection rate limit."
-        },
-        "allowlisted_hosts": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "description": "IP/CIDR or MAC addresses fully trusted in this zone (bypass rate limits and may affect policy enforcement)."
-          }
+          "description": "IP/CIDR or MAC addresses fully trusted in this zone (bypass rate limits and may affect policy enforcement)."
         }
       }
     },
@@ -113,36 +109,32 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "Defines allowed unidirectional traffic flow from one zone to another.",
-      "properties": {
-        "src": {
+      "src": {
+        "type": "string",
+        "description": "Source zone name (must exist in zones list)."
+      },
+      "dst": {
+        "type": "string",
+        "description": "Destination zone name (must exist in zones list)."
+      },
+      "enable_established": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically allow return traffic for connections initiated from src zone."
+      },
+      "allowed_services": {
+        "type": "list",
+        "default": [],
+        "items": {
           "type": "string",
-          "description": "Source zone name (must exist in zones list)."
+          "description": "Service specifiers \u2014 e.g., 'tcp:22', 'udp:53', 'http', 'https', 'ping' (ICMP echo-request)."
         },
-        "dst": {
-          "type": "string",
-          "description": "Destination zone name (must exist in zones list)."
-        },
-        "enable_established": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically allow return traffic for connections initiated from src zone."
-        },
-        "allowed_services": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "description": "Service specifiers \u2014 e.g., 'tcp:22', 'udp:53', 'http', 'https', 'ping' (ICMP echo-request)."
-          },
-          "description": "List of services/ports allowed from src zone to dst zone."
-        },
-        "log_matches": {
-          "type": "boolean",
-          "default": false,
-          "description": "Log each packet matching these rules (use sparingly to avoid log flooding)."
-        }
+        "description": "List of services/ports allowed from src zone to dst zone."
+      },
+      "log_matches": {
+        "type": "bool",
+        "default": false,
+        "description": "Log each packet matching these rules (use sparingly to avoid log flooding)."
       }
     },
     "description": "Bidirectional zone pairs define traffic flows between zones. Each pair is unidirectional; symmetric traffic requires two pairs."
@@ -151,18 +143,14 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "Raw nft command blocks for advanced customization (e.g., custom chains, complex matching). Use with caution.",
-      "properties": {
-        "description": {
-          "type": "string",
-          "description": "Brief explanation of what the block does."
-        },
-        "body": {
-          "type": "string",
-          "description": "Exact nft CLI command(s), e.g., 'add chain ip foomuuri custom { type filter hook input priority -5; }'",
-          "example": "add chain ip foomuuri custom { type filter hook input priority -5; }\\nadd rule ip foomuuri custom ip saddr 10.0.0.0/8 accept"
-        }
+      "description": {
+        "type": "string",
+        "description": "Brief explanation of what the block does."
+      },
+      "body": {
+        "type": "string",
+        "description": "Exact nft CLI command(s), e.g., 'add chain ip foomuuri custom { type filter hook input priority -5; }'",
+        "example": "add chain ip foomuuri custom { type filter hook input priority -5; }\\nadd rule ip foomuuri custom ip saddr 10.0.0.0/8 accept"
       }
     },
     "description": "List of raw nft commands for expert customization \u2014 inserted verbatim into the generated nft ruleset."

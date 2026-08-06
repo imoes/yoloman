@@ -1,0 +1,11 @@
+{# acpi(1) configuration #}
+{% if acpi.enabled | default(true) %}
+{% for device in acpi.devices %}
+# Device: {{ device.name }} ({{ device.type }})
+{% if device.show | default(true) %}show: yes{% else %}show: no{% endif %}
+{% if device.details | default(false) %}details: yes{% else %}details: no{% endif %}
+{% endfor %}
+{% endif %}
+# Temperature unit: {{ acpi.temperature_unit | default('celsius') }}
+# Use /proc instead of /sys: {{ acpi.use_proc | default(false) }}
+# Show non-operational devices: {{ acpi.show_empty | default(false) }}

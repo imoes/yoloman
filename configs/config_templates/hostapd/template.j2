@@ -1,134 +1,26 @@
-# Wi-Fi interface to use for AP mode
-interface={{ ap_interface }}
+# Ansible-managed defaults for the hostapd init script.
+# These variables control how the systemd/init.d wrapper starts hostapd.
+#
+# Note: This template does NOT generate the actual wireless configuration
+# (interface, SSID, security). That is done in the file pointed to by
+# DAEMON_CONF (typically /etc/hostapd/hostapd.conf).
 
-# Driver for the wireless interface
-# Required: specify the driver to use (e.g., nl80211, wext, bsd)
-driver={{ driver }}
-
-# SSID (network name) broadcast by the AP
-ssid={{ ssid }}
-
-# Hardware mode: a = 5 GHz, b = 2.4 GHz, g = 2.4 GHz (IEEE 802.11g), n = 802.11n, ac = 802.11ac, ax = 802.11ax
-hw_mode={{ hw_mode }}
-
-# Channel number (depends on hw_mode band)
-channel={{ channel }}
-
-# Enable 802.11n (2.4/5 GHz) or 802.11ac (5 GHz)
-{% if hw_mode in ['a', 'g'] %}
-ieee80211n=1
+# Path to the main hostapd configuration file.
+# This file defines the wireless interface, SSID, encryption (WPA2/WPA3),
+# and other 802.11 parameters.
+# If left empty, hostapd will not start unless configured via another mechanism.
+{% if daemon_conf is defined %}
+DAEMON_CONF="{{ daemon_conf }}"
 {% else %}
-ieee80211n=0
+DAEMON_CONF="/etc/hostapd/hostapd.conf"
 {% endif %}
 
-# Enable 802.11ax (Wi-Fi 6) — only supported in newer hostapd versions
-{% if ieee80211ax %}
-ieee80211ax=1
+# Additional command-line flags for the hostapd daemon.
+# Common flags: -d (debug), -e (entire config dump), -P (pid file, usually auto).
+# WARNING: Do NOT include -B (daemonize) here; the init script handles it.
+# If left empty, standard daemon behavior is used.
+{% if daemon_opts is defined %}
+DAEMON_OPTS="{{ daemon_opts }}"
 {% else %}
-ieee80211ax=0
+DAEMON_OPTS=""
 {% endif %}
-
-# Country code for regulatory domain (e.g., US, EU, JP) — required for 5 GHz and DFS
-country_code={{ country_code }}
-
-# Enable DFS (Dynamic Frequency Selection) for 5 GHz channels
-{% if enable_dfs %}
-dfs=1
-{% else %}
-dfs=0
-{% endif %}
-
-# Beacon interval in TU (Time Units, 1 TU = 1024 µs)
-beacon_int={{ beacon_int }}
-
-# DTIM period — Delivery Traffic Indication Message interval (in beacons)
-dtim_period={{ dtim_period }}
-
-# MAC address ACL policy: 0=accept if not in deny list, 1=reject if not in accept list, 2=use accept list only for WPA2-Enterprise
-macaddr_acl={{ macaddr_acl }}
-
-# List of accepted MAC addresses (if macaddr_acl=1 or 2)
-{% if mac_accept_list | length > 0 %}
-accept_mac_file={{ mac_accept_list_file }}
-{% endif %}
-
-# List of denied MAC addresses (if macaddr_acl=0)
-{% if mac_deny_list | length > 0 %}
-deny_mac_file={{ mac_deny_list_file }}
-{% endif %}
-
-# WPA key management: WPA-PSK, WPA-EAP, WPA-PSK-SHA256, WPA-EAP-SHA256, OSEN, OWE, SAE, FILS-SHA256, FILS-SHA384, FT-PSK, FT-EAP, FT-SAE, FT-FILS-SHA256, FT-FILS-SHA384
-wpa_key_mgmt={{ wpa_key_mgmt | join(' ') }}
-
-# WPA protocol version: WPA2 (RSN), WPA3, or both (RSN+SAE for WPA2/WPA3 transition mode)
-wpa={{ wpa_version }}
-
-# Pairwise ciphers (CCMP, TKIP, GCMP, GCMP-256, CCMP-256)
-# For WPA3-SAE: CCMP-256 or GCMP-256 recommended
-pairwise={{ pairwise_cipher | join(' ') }}
-
-# Group cipher (same options as pairwise)
-group={{ group_cipher }}
-
-# WPA passphrase (for WPA-PSK) — 8–63 ASCII characters or 64 hex digits
-wpa_passphrase={{ wpa_passphrase }}
-
-# RADIUS authentication server configuration (for WPA-EAP)
-{% if wpa_key_mgmt | select('contains', 'WPA-EAP') | list | length > 0 or wpa_key_mgmt | select('contains', 'FT-EAP') | list | length > 0 %}
-auth_server_addr={{ radius_server }}
-auth_server_port={{ radius_port }}
-auth_server_shared_secret={{ radius_secret }}
-{% else %}
-# No RADIUS used
-{% endif %}
-
-# Optional: secondary RADIUS server for failover
-{% if radius_backup_server is defined and radius_backup_server | length > 0 %}
-auth_server_addr={{ radius_backup_server }}
-{% endif %}
-
-# IEEE 802.1X (EAP) enabled
-ieee8021x=1
-
-# WPA certificate paths for EAP-TLS (server and CA)
-{% if eap_tls_enabled %}
-country_code={{ country_code }}
-cert_server=/etc/hostapd/certs/server.pem
-ca_cert=/etc/hostapd/certs/ca.pem
-private_key=/etc/hostapd/certs/server.key
-private_key_passwd={{ tls_private_key_password }}
-{% endif %}
-
-# Optional: TLS version and cipher preferences
-{% if tls_enabled %}
-openssl_ciphers={{ openssl_ciphers }}
-{% endif %}
-
-# Disable legacy WEP (strongly recommended)
-wep_key_len_broadcast={{ '0' if disable_wep else '5' }}
-wep_key_len_unicast={{ '0' if disable_wep else '5' }}
-wep_rekey_period=0
-
-# WPS (Wi-Fi Simple Setup) — disable for security in enterprise deployments
-{% if wps_enabled %}
-wps_state=2
-ap_setup_locked=0
-wps_pin_requests=/var/run/hostapd_wps_pin_requests
-{% else %}
-wps_state=0
-{% endif %}
-
-# Bridge interface for wired side (if AP should forward to Ethernet)
-bridge={{ bridge_interface }}
-
-# Enable AP mode (default, not strictly needed but explicit is better)
-ap_isolate={{ ap_isolate }}
-
-# Local MAC address randomization for P2P (not for regular AP)
-p2p_no_group_iface=1
-
-# Log level: 0=minimal, 1=default, 2=verbose, 3=debug
-logger_syslog=-1
-logger_stdout=-1
-logger_syslog_level=1
-logger_stdout_level=1

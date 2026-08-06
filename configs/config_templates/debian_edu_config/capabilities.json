@@ -1,0 +1,134 @@
+{
+  "provides": [
+    {
+      "capability": "ntp",
+      "backend": "systemd-timesyncd",
+      "roles": {
+        "host": "ntp_servers"
+      },
+      "provisionable": false
+    },
+    {
+      "capability": "directory",
+      "backend": "openldap",
+      "roles": {
+        "host": "ldap_server_uri",
+        "base_dn": "ldap_base_dn",
+        "bind_dn": "ldap_root_bind_dn",
+        "bind_password": "ldap_root_bind_password"
+      },
+      "provisionable": false
+    },
+    {
+      "capability": "nfs",
+      "backend": "nfs",
+      "roles": {
+        "host": "nfs_server",
+        "export_path": "nfs_home_path"
+      },
+      "provisionable": false
+    },
+    {
+      "capability": "nfs",
+      "backend": "nfs",
+      "roles": {
+        "host": "lts_server",
+        "export_path": "lts_root_path"
+      },
+      "provisionable": false
+    }
+  ],
+  "requires": [
+    {
+      "capability": "dns_resolver",
+      "backends": [
+        "dnsmasq",
+        "systemd-resolved",
+        "bind9"
+      ],
+      "roles": {
+        "host": "ldap_server_uri",
+        "port": null
+      },
+      "backend_field": null,
+      "fields": {
+        "host": "ldap_server_uri",
+        "port": null
+      }
+    },
+    {
+      "capability": "dns_authoritative",
+      "backends": [
+        "bind9",
+        "powerdns"
+      ],
+      "roles": {
+        "host": "domain"
+      },
+      "backend_field": null,
+      "fields": {
+        "host": "domain",
+        "port": null
+      }
+    },
+    {
+      "capability": "web_server",
+      "backends": [
+        "nginx",
+        "apache"
+      ],
+      "roles": {
+        "host": "cups_server"
+      },
+      "backend_field": null,
+      "fields": {
+        "host": "cups_server",
+        "port": null
+      }
+    },
+    {
+      "capability": "log_sink",
+      "backends": [
+        "rsyslog",
+        "journald"
+      ],
+      "roles": {
+        "host": "monitoring_server"
+      },
+      "backend_field": null,
+      "fields": {
+        "host": "monitoring_server",
+        "port": null
+      }
+    },
+    {
+      "capability": "ssh",
+      "backends": [
+        "openssh"
+      ],
+      "roles": {
+        "host": "backup_server"
+      },
+      "backend_field": null,
+      "fields": {
+        "host": "backup_server",
+        "port": null
+      }
+    }
+  ],
+  "peer_injection": [
+    {
+      "capability": "directory",
+      "field": "ldap_server_uri",
+      "kind": "host",
+      "items_style": "bare_map"
+    },
+    {
+      "capability": "nfs",
+      "field": "nfs_server",
+      "kind": "host",
+      "items_style": "bare_map"
+    }
+  ],
+  "confidence": "high"
+}

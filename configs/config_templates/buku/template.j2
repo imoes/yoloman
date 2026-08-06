@@ -1,0 +1,129 @@
+{# buku configuration file (JSON format)
+   This is the canonical declarative configuration for the Buku bookmark manager.
+   Buku itself is CLI-only and stores data in an SQLite database, but this file
+   manages environment/behavior variables via a JSON structure suitable for
+   role-based packaging.
+
+   Valid keys correspond to documented buku options:
+   - `db_path`: path to alternate database file (equivalent to --db, app-only)
+   - `proxy`: HTTP(S) proxy URL (from `https_proxy` env)
+   - `browser`: fallback browser override (from `BROWSER` env)
+   - `editor`: editor command for `--write` (from `EDITOR` env)
+   - `colors`: five-letter ANSI color string (from `BUKU_COLORS` env)
+   - `threads`: max parallel threads for full DB refresh (1–10, default 4)
+   - `auto_import`: import bookmarks from default browser profiles on startup (boolean)
+   - `import_tags_from_folders`: import parent folder names as tags during import (boolean)
+   - `default_import_tags`: list of tags to apply to all newly added bookmarks (list of strings)
+   - `immutable_by_default`: set immutable flag on new bookmarks by default (boolean)
+   - `tag_delimiter`: character(s) to delimit tags in input (string, must be single comma by design)
+   - `default_output_format`: one of 'json', 'monochrome', 'color' (default 'color')
+   - `default_count`: number of results per page (default 10, range 1–100)
+   - `prompt_keys_disabled`: disable interactive prompt keys (boolean)
+   - `disable_color`: disable ANSI colors (boolean, overrides `colors`)
+   - `open_in_background`: open results in background (boolean, for scripted use)
+   - `offline_by_default`: add bookmarks without network fetch (boolean)
+   - `suggest_tags`: show similar tag suggestions when adding (boolean)
+   - `tag_redirect_pattern`: pattern for redirect tags, e.g. 'http {}' (default 'http {}')
+   - `error_tag_pattern`: pattern for error tags, e.g. 'http {}' (default 'http {}')
+   - `del_error_codes`: comma-separated HTTP status codes to delete on error (e.g. '404,500')
+   - `url_redirect`: follow permanent redirects when fetching (boolean)
+   - `export_on_changes`: export affected bookmarks on update (boolean)
+   - `export_format`: export format when using --export, one of 'html', 'xbel', 'md', 'org', 'db' (default 'html')
+   - `import_format`: import format override, one of 'html', 'xbel', 'md', 'org', 'db' (default 'detect')
+   - `firefox_profile`: profile name for Firefox auto-import (string)
+   - `encryption_passes`: number of PBKDF2 iterations for encryption (default 8, range 1–1000)
+   - `encryption_enabled`: require encryption for DB access (boolean)
+   - `nostdin`: do not read from stdin (boolean)
+   - `debug`: enable debug logging (boolean)
+#}
+{
+  # Absolute path to alternate database file (app-only; equivalent to --db)
+  "db_path": {{ db_path | default('') | to_json }},
+
+  # HTTP(S) proxy URL, e.g., 'http://user:pass@proxyhost:8080/'
+  "proxy": {{ proxy | default('') | to_json }},
+
+  # Fallback browser to use, overriding the system default (equivalent to BROWSER env)
+  "browser": {{ browser | default('') | to_json }},
+
+  # Editor command for --write (e.g., 'vim -f'; overrides EDITOR env)
+  "editor": {{ editor | default('') | to_json }},
+
+  # Five-letter ANSI color string (index title URL description comment tag)
+  "colors": {{ colors | default('oKlxm') | to_json }},
+
+  # Max number of parallel network threads for full DB refresh (1–10)
+  "threads": {{ threads | default(4) | to_json }},
+
+  # Auto-import bookmarks from default browser profiles on startup
+  "auto_import": {{ auto_import | default(false) | to_json }},
+
+  # Import parent folder names as tags during HTML/JSON import
+  "import_tags_from_folders": {{ import_tags_from_folders | default(false) | to_json }},
+
+  # Tags to prepend to all newly added bookmarks during import or add
+  "default_import_tags": {{ default_import_tags | default([]) | to_json }},
+
+  # Set immutable flag on all newly added bookmarks
+  "immutable_by_default": {{ immutable_by_default | default(false) | to_json }},
+
+  # Tag delimiter (must be ',' per buku design)
+  "tag_delimiter": {{ tag_delimiter | default(',') | to_json }},
+
+  # Default output style: 'json', 'monochrome', or 'color'
+  "default_output_format": {{ default_output_format | default('color') | to_json }},
+
+  # Number of results shown per page (1–100)
+  "default_count": {{ default_count | default(10) | to_json }},
+
+  # Disable interactive prompt keys (for scripted use)
+  "prompt_keys_disabled": {{ prompt_keys_disabled | default(false) | to_json }},
+
+  # Disable ANSI color codes in output
+  "disable_color": {{ disable_color | default(false) | to_json }},
+
+  # Open results in background (e.g., non-blocking browser calls)
+  "open_in_background": {{ open_in_background | default(false) | to_json }},
+
+  # Disable network fetch by default for add/update
+  "offline_by_default": {{ offline_by_default | default(false) | to_json }},
+
+  # Show similar tag suggestions when adding a bookmark
+  "suggest_tags": {{ suggest_tags | default(false) | to_json }},
+
+  # Pattern for redirect tag, where '{}' is replaced by status or URL scheme
+  "tag_redirect_pattern": {{ tag_redirect_pattern | default('http {}') | to_json }},
+
+  # Pattern for error tag, where '{}' is replaced by HTTP status code
+  "error_tag_pattern": {{ error_tag_pattern | default('http {}') | to_json }},
+
+  # Comma-separated HTTP status codes to delete on error (e.g., '404,500')
+  "del_error_codes": {{ del_error_codes | default('') | to_json }},
+
+  # Follow permanent redirects when fetching titles/descriptions
+  "url_redirect": {{ url_redirect | default(false) | to_json }},
+
+  # Export affected bookmarks on --update (requires --export)
+  "export_on_changes": {{ export_on_changes | default(false) | to_json }},
+
+  # Export format: 'html', 'xbel', 'md', 'org', or 'db'
+  "export_format": {{ export_format | default('html') | to_json }},
+
+  # Import format override: 'html', 'xbel', 'md', 'org', 'db', or 'detect'
+  "import_format": {{ import_format | default('detect') | to_json }},
+
+  # Firefox profile name for auto-import (overrides FIREFOX_PROFILE env)
+  "firefox_profile": {{ firefox_profile | default('') | to_json }},
+
+  # PBKDF2 iterations for encryption key (1–1000)
+  "encryption_passes": {{ encryption_passes | default(8) | to_json }},
+
+  # Require encryption (lock/unlock) for DB access
+  "encryption_enabled": {{ encryption_enabled | default(false) | to_json }},
+
+  # Disable reading from stdin
+  "nostdin": {{ nostdin | default(false) | to_json }},
+
+  # Enable debug logging
+  "debug": {{ debug | default(false) | to_json }}
+}

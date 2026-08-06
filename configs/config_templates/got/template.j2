@@ -1,0 +1,31 @@
+# Configuration for got(1) — Game of Trees version control system
+# Reference: got.conf(5)
+# This file defines remote repositories accessible by `got` commands.
+# Each remote block specifies the connection details for a remote Git-like repository.
+
+# Iterate over the list of remote repositories defined in the 'remotes' schema field.
+# Defaults to an empty list if no remotes are provided, resulting in no remote blocks.
+{% for remote in (remotes | default([])) %}
+# Remote repository definition: {{ remote.name | default("unknown") }}
+# This block configures how to access the repository at `remote.repository`.
+remote "{{ remote.name | default("unknown") }}" {
+
+  # Server: The hostname or SSH URL for the remote repository.
+  # Default: git@github.com
+  server {{ remote.server | default("git@github.com") }}
+
+  # Protocol: The communication protocol (e.g., ssh, https).
+  # Default: ssh
+  protocol {{ remote.protocol | default("ssh") }}
+
+  # Repository: The path to the repository on the remote server.
+  # This field is mandatory in the schema logic but safeguarded here.
+  repository "{{ remote.repository | default("") }}"
+
+{% if remote.branch is defined %}
+  # Branch: The default branch to track for this remote.
+  # If specified, got will default to this branch for operations.
+  branch { "{{ remote.branch | default("master") }}" }
+{% endif %}
+}
+{% endfor %}

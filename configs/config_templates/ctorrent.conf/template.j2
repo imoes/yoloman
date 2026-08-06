@@ -1,99 +1,131 @@
+; ctorrent.conf - ctorrent BitTorrent client configuration
+; This file controls the behavior of the ctorrent daemon, including download directories,
+; bandwidth limits, tracker settings, and optional HTTP interface.
+
 [global]
 # Directory where completed downloads are moved
-completed_directory = {{ values.global.completed_directory }}
+# Default: /var/lib/ctorrent/completed
+completed_directory = {{ (global | default({})).completed_directory | default('/var/lib/ctorrent/completed') }}
 
 # Directory where incomplete downloads are stored
-download_directory = {{ values.global.download_directory }}
+# Default: /var/lib/ctorrent/downloads
+download_directory = {{ (global | default({})).download_directory | default('/var/lib/ctorrent/downloads') }}
 
 # Maximum number of simultaneous downloads (0 = unlimited)
-max_downloads = {{ values.global.max_downloads }}
+# Default: 5
+max_downloads = {{ (global | default({})).max_downloads | default(5) }}
 
 # Maximum total upload bandwidth in KB/s (0 = unlimited)
-max_upload_rate = {{ values.global.max_upload_rate }}
+# Default: 0
+max_upload_rate = {{ (global | default({})).max_upload_rate | default(0) }}
 
 # Maximum total download bandwidth in KB/s (0 = unlimited)
-max_download_rate = {{ values.global.max_download_rate }}
+# Default: 0
+max_download_rate = {{ (global | default({})).max_download_rate | default(0) }}
 
 # Maximum number of peers per torrent
-max_peers_per_torrent = {{ values.global.max_peers_per_torrent }}
+# Default: 50
+max_peers_per_torrent = {{ (global | default({})).max_peers_per_torrent | default(50) }}
 
 # Enable UPnP port mapping
-enable_upnp = {{ 'true' if values.global.enable_upnp else 'false' }}
+# Default: false
+enable_upnp = {{ 'true' if (global | default({})).enable_upnp | default(false) else 'false' }}
 
 # Enable NAT-PMP port mapping
-enable_natpmp = {{ 'true' if values.global.enable_natpmp else 'false' }}
+# Default: false
+enable_natpmp = {{ 'true' if (global | default({})).enable_natpmp | default(false) else 'false' }}
 
 # Listen port for incoming connections
-listen_port = {{ values.global.listen_port }}
+# Default: 6881
+listen_port = {{ (global | default({})).listen_port | default(6881) }}
 
 [http]
 # Enable HTTP interface (web UI)
-enable_http = {{ 'true' if values.http.enable_http else 'false' }}
+# Default: false
+enable_http = {{ 'true' if (http | default({})).enable_http | default(false) else 'false' }}
 
 # Host to bind HTTP server to
-http_host = {{ values.http.http_host }}
+# Default: 127.0.0.1
+http_host = {{ (http | default({})).http_host | default('127.0.0.1') }}
 
 # Port for HTTP interface
-http_port = {{ values.http.http_port }}
+# Default: 8080
+http_port = {{ (http | default({})).http_port | default(8080) }}
 
 # Username for HTTP authentication
-http_username = {{ values.http.http_username }}
+# Default: ctorrent
+http_username = {{ (http | default({})).http_username | default('ctorrent') }}
 
 # Password for HTTP authentication
-http_password = {{ values.http.http_password }}
+# Default: ctorrent
+http_password = {{ (http | default({})).http_password | default('ctorrent') }}
 
 # Enable HTTPS (requires certificate and key)
-enable_https = {{ 'true' if values.http.enable_https else 'false' }}
+# Default: false
+enable_https = {{ 'true' if (http | default({})).enable_https | default(false) else 'false' }}
 
-{% if values.http.tls_cert %}
 # Path to TLS certificate
-https_cert = {{ values.http.tls_cert }}
+# Default: None (disabled if enable_https is false)
+{% if (http | default({})).tls_cert | default(false) %}
+https_cert = {{ (http | default({})).tls_cert }}
 {% endif %}
 
-{% if values.http.tls_key %}
 # Path to TLS private key
-https_key = {{ values.http.tls_key }}
+# Default: None (disabled if enable_https is false)
+{% if (http | default({})).tls_key | default(false) %}
+https_key = {{ (http | default({})).tls_key }}
 {% endif %}
 
 [logging]
 # Enable detailed logging
-enable_logging = {{ 'true' if values.logging.enable_logging else 'false' }}
+# Default: false
+enable_logging = {{ 'true' if (logging | default({})).enable_logging | default(false) else 'false' }}
 
 # Log level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug
-log_level = {{ values.logging.log_level }}
+# Default: 2
+log_level = {{ (logging | default({})).log_level | default(2) }}
 
 # Path to log file
-log_file = {{ values.logging.log_file }}
+# Default: /var/log/ctorrent/ctorrent.log
+log_file = {{ (logging | default({})).log_file | default('/var/log/ctorrent/ctorrent.log') }}
 
 # Maximum size of log file in MB before rotation (0 = disable rotation)
-log_max_size_mb = {{ values.logging.log_max_size_mb }}
+# Default: 10
+log_max_size_mb = {{ (logging | default({})).log_max_size_mb | default(10) }}
 
 # Number of rotated log files to keep
-log_backup_count = {{ values.logging.log_backup_count }}
+# Default: 5
+log_backup_count = {{ (logging | default({})).log_backup_count | default(5) }}
 
 [tracker]
 # List of default trackers to announce to (if none specified in torrent)
 # Format: one tracker per line, each as `tracker = url`
-{% for tracker in values.tracker.urls %}
-tracker = {{ tracker }}
+{% for tracker_url in (tracker | default({})).urls | default([]) %}
+tracker = {{ tracker_url }}
 {% endfor %}
 
 # Enable DHT (distributed hash table)
-enable_dht = {{ 'true' if values.tracker.enable_dht else 'false' }}
+# Default: true
+enable_dht = {{ 'true' if (tracker | default({})).enable_dht | default(true) else 'false' }}
 
 # Enable Peer Exchange (PEX)
-enable_pex = {{ 'true' if values.tracker.enable_pex else 'false' }}
+# Default: true
+enable_pex = {{ 'true' if (tracker | default({})).enable_pex | default(true) else 'false' }}
 
 [bandwidth]
 # Per-torrent upload limit (KB/s, 0 = global max)
-per_torrent_upload_limit = {{ values.bandwidth.per_torrent_upload_limit }}
+# Default: 0
+per_torrent_upload_limit = {{ (bandwidth | default({})).per_torrent_upload_limit | default(0) }}
 
 # Per-torrent download limit (KB/s, 0 = global max)
-per_torrent_download_limit = {{ values.bandwidth.per_torrent_download_limit }}
+# Default: 0
+per_torrent_download_limit = {{ (bandwidth | default({})).per_torrent_download_limit | default(0) }}
 
 # Seed ratio target (e.g., 1.0 = upload same as downloaded)
 # 0 = disable seeding after download completes
-seed_ratio = {{ values.bandwidth.seed_ratio }}
+# Default: 1.0
+seed_ratio = {{ (bandwidth | default({})).seed_ratio | default(1.0) }}
 
 # Seed time target in minutes (0 = disable time-based seeding)
-seed_time = {{ values.bandwidth.seed_time }}
+# Default: 0
+seed_time = {{ (bandwidth | default({})).seed_time | default(0) }}

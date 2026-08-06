@@ -1,111 +1,22 @@
 {
-  "listen.address": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address the server binds to (e.g., '127.0.0.1', '::', or '0.0.0.0' for all interfaces)."
-  },
-  "listen.port": {
-    "type": "number",
-    "default": 79,
-    "description": "TCP port to listen on (default 79 \u2014 standard finger port)."
-  },
-  "user": {
-    "type": "string",
-    "default": "nobody",
-    "description": "Unix user account to drop privileges to after startup."
-  },
-  "group": {
-    "type": "string",
-    "default": "nogroup",
-    "description": "Unix group to drop privileges to after startup."
-  },
-  "root": {
-    "type": "string",
-    "default": "",
-    "description": "Chroot directory (e.g., '/var/efingerd'). Empty string disables chroot for security."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum concurrent client connections allowed."
-  },
-  "verbose": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable detailed logging (including client requests and errors)."
-  },
-  "logfile": {
-    "type": "string",
-    "default": "/var/log/efingerd.log",
-    "description": "Path to log file. Leave empty to log to stderr."
-  },
-  "db_path": {
-    "type": "string",
-    "default": "/etc/efingerd/finger.db",
-    "description": "Path to the fingerprint (user) database file."
-  },
   "timeout": {
     "type": "number",
-    "default": 30,
-    "description": "Connection timeout in seconds before the server drops the client."
+    "default": 60,
+    "description": "Lifetime for spawned services in seconds (equivalent to man page option -t X; default 60)."
   },
-  "allow_anonymous": {
-    "type": "boolean",
-    "default": true,
-    "description": "If enabled, allows finger queries without authentication."
-  },
-  "allowed_ips": {
-    "type": "list",
-    "default": [],
-    "description": "List of IP addresses explicitly allowed to connect. If non-empty, only these IPs may connect (whitelist).",
-    "items": {
-      "type": "string",
-      "description": "IPv4 or IPv6 address (e.g., '192.168.1.0/24' or '2001:db8::/32')."
-    }
-  },
-  "denied_ips": {
-    "type": "list",
-    "default": [],
-    "description": "List of IP addresses explicitly denied access (blacklist). Takes precedence over allowed_ips only when both are set (deny wins).",
-    "items": {
-      "type": "string",
-      "description": "IPv4 or IPv6 address or CIDR range (e.g., '10.0.0.0/8')."
-    }
-  },
-  "response_templates": {
-    "type": "object",
-    "default": {
-      ".*": "User {{ user }} not found."
-    },
-    "description": "Map of regex patterns to custom finger response templates. Use '{{ user }}' to insert queried username.",
-    "items": {
-      "type": "string",
-      "description": "Jinja2-like template string for dynamic response."
-    }
-  },
-  "default_response": {
-    "type": "string",
-    "default": "User {{ user }} not found.",
-    "description": "Fallback response when no response template matches the username."
-  },
-  "ssl_enabled": {
-    "type": "boolean",
+  "nlookup": {
+    "type": "bool",
     "default": false,
-    "description": "Enable SSL/TLS encryption for connections (requires valid certificate/key)."
+    "description": "If true, do not lookup addresses, use IP numbers instead (equivalent to man page option -n)."
   },
-  "ssl_cert": {
-    "type": "string",
-    "default": "/etc/efingerd/ssl/cert.pem",
-    "description": "Path to SSL certificate file (PEM format). Required if SSL is enabled."
+  "no_fullnames": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, do not display users' full names (equivalent to man page option -f)."
   },
-  "ssl_key": {
-    "type": "string",
-    "default": "/etc/efingerd/ssl/key.pem",
-    "description": "Path to SSL private key file (PEM format). Required if SSL is enabled."
-  },
-  "ipv6_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable IPv6 support (dual-stack if IPv4 is also available)."
+  "ignore_efingerd": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, ignore user-specific .efingerd file (equivalent to man page option -u)."
   }
 }

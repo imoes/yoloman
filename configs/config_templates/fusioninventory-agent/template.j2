@@ -1,0 +1,228 @@
+{# =============================================================================
+   # FusionInventory Agent Configuration Template
+   # =============================================================================
+   # This template generates a configuration file for the FusionInventory Agent.
+   # It is self-documenting: every directive is preceded by a comment explaining
+   # its purpose and default value from the schema.
+   #
+   # Variable usage:
+   # - All variables use {{ var | default(VALUE) }} to ensure safe rendering
+   #   even if the variable is undefined in the Ansible context.
+   # - List variables are joined with commas where appropriate.
+   # - Boolean values are rendered as 1 (true) or 0 (false).
+   # - String values are quoted if they might contain special characters,
+   #   though fusioninventory-agent's INI parser is generally lenient.
+   # ============================================================================= #}
+
+{# Server URIs to send inventory results to. Supports multiple comma-separated values. #}
+{% if server | default([]) | length > 0 %}
+# Server to send inventory results to (comma-separated list supported)
+server = {{ server | default([]) | join(',') }}
+{% endif %}
+
+{# Local paths to write inventory results. Supports multiple comma-separated values. #}
+{% if local | default([]) | length > 0 %}
+# Local path to write inventory results (comma-separated list supported)
+local = {{ local | default([]) | join(',') }}
+{% endif %}
+
+{# Maximum delay before first target, in seconds. Also caps network error delay. #}
+{# Default is 3600. Initial delay is random between delaytime/2 and delaytime. #}
+# Maximum delay before first target, in seconds
+delaytime = {{ delaytime | default(3600) }}
+
+{# Do not contact target before scheduled time (server targets ignored). #}
+# Do not contact the target before next scheduled time (only when not server)
+lazy = {% if lazy | default(False) %}1{% else %}0{% endif %}
+
+{# Always send inventory to server, even if not requested. #}
+# Always send data to server, even if not requested
+force = {% if force | default(False) %}1{% else %}0{% endif %}
+
+{# List of tasks to skip. Available: inventory, deploy, netdiscovery, wakeup, ... #}
+{% if no_task | default([]) | length > 0 %}
+# Do not run specified tasks (comma-separated list)
+no-task = {{ no_task | default([]) | join(',') }}
+{% endif %}
+
+{# Tasks to run in order. Supports '...' to append remaining tasks. #}
+{% if tasks | default([]) | length > 0 %}
+# Run specified tasks in order (comma-separated list; use '...' for remaining tasks)
+tasks = {{ tasks | default([]) | join(',') }}
+{% endif %}
+
+{# Inventory categories to skip. Example: battery, cpu, software, etc. #}
+{% if no_category | default([]) | length > 0 %}
+# Do not list specified inventory categories (comma-separated list)
+no-category = {{ no_category | default([]) | join(',') }}
+{% endif %}
+
+{# Scan user home directories for virtual machines. #}
+# Scan user home directories for virtual machines
+scan-homedirs = {% if scan_homedirs | default(False) %}1{% else %}0{% endif %}
+
+{# Scan user profiles for software. #}
+# Scan user profiles for software
+scan-profiles = {% if scan_profiles | default(False) %}1{% else %}0{% endif %}
+
+{# Save inventory as HTML (only for local output). #}
+# Save inventory as HTML (only for local inventory)
+html = {% if html | default(False) %}1{% else %}0{% endif %}
+
+{# Timeout for inventory modules, in seconds. #}
+# Timeout for inventory modules execution, in seconds
+backend-collect-timeout = {{ backend_collect_timeout | default(30) }}
+
+{# Path to additional XML content file (supplements inventory). #}
+{% if additional_content | default('') %}
+# Additional inventory content file (XML format)
+additional-content = {{ additional_content | default('') }}
+{% endif %}
+
+{# Disable P2P for package deployment (default: enabled). #}
+# Do not use peer-to-peer for package deployment
+tasks-deploy-p2p = {% if no_p2p | default(False) %}0{% else %}1{% endif %}
+
+{# HTTP proxy to use (overrides HTTP_PROXY env var). #}
+{% if proxy | default('') %}
+# HTTP proxy to use (overrides HTTP_PROXY env var)
+proxy = {{ proxy | default('') }}
+{% endif %}
+
+{# Username for server authentication. #}
+{% if user | default('') %}
+# Username for server authentication
+user = {{ user | default('') }}
+{% endif %}
+
+{# Password for server authentication. #}
+{% if password | default('') %}
+# Password for server authentication
+password = {{ password | default('') }}
+{% endif %}
+
+{# Directory containing CA certificates for SSL verification. #}
+{% if ca_cert_dir | default('') %}
+# Directory with CA certificates for SSL verification
+ca-cert-dir = {{ ca_cert_dir | default('') }}
+{% endif %}
+
+{# File containing CA certificates for SSL verification. #}
+{% if ca_cert_file | default('') %}
+# File with CA certificates for SSL verification
+ca-cert-file = {{ ca_cert_file | default('') }}
+{% endif %}
+
+{# Skip verification of server SSL certificate. #}
+# Do not verify server SSL certificate
+no-ssl-check = {% if no_ssl_check | default(False) %}1{% else %}0{% endif %}
+
+{# Disable compression of HTTP communication with server. #}
+# Do not compress communication with server
+no-compression = {% if no_compression | default(False) %}1{% else %}0{% endif %}
+
+{# Connection timeout, in seconds. #}
+# Connection timeout, in seconds
+timeout = {{ timeout | default(180) }}
+
+{# Disable embedded web server. #}
+# Disable embedded web server
+no-httpd = {% if no_httpd | default(False) %}1{% else %}0{% endif %}
+
+{# Network interface to bind the embedded web server to (e.g., 127.0.0.1, all). #}
+{% if httpd_ip | default('') %}
+# Network interface for embedded web server
+httpd-ip = {{ httpd_ip | default('') }}
+{% endif %}
+
+{# Port for embedded web server. #}
+# Port for embedded web server
+httpd-port = {{ httpd_port | default(62354) }}
+
+{# List of trusted IP addresses/CIDRs for HTTP requests (auth token skipped). #}
+{% if httpd_trust | default([]) | length > 0 %}
+# Trust requests from specified IPs/CIDRs without auth token
+httpd-trust = {{ httpd_trust | default([]) | join(',') }}
+{% endif %}
+
+{# Enable listener mode (for HTTP responses without local/server targets). #}
+# Enable listener target (for HTTP responses without local/server target)
+listen = {% if listen | default(False) %}1{% else %}0{% endif %}
+
+{# Logger backends (stderr, file, syslog); supports multiple. #}
+{% if logger | default(['stderr']) | length > 0 %}
+# Logger backend(s) (stderr, file, syslog); comma-separated
+logger = {{ logger | default(['stderr']) | join(',') }}
+{% endif %}
+
+{# Log file path (implies 'file' logger backend). #}
+{% if logfile | default('') %}
+# Log file path (implies 'file' logger backend)
+logfile = {{ logfile | default('') }}
+{% endif %}
+
+{# Max log file size in MB; 0 = unlimited. #}
+# Maximum log file size in MB; 0 = unlimited
+logfile-maxsize = {{ logfile_maxsize | default(0) }}
+
+{# Syslog facility (e.g., LOG_USER, LOG_DAEMON). #}
+{% if logfacility | default('LOG_USER') %}
+# Syslog facility
+logfacility = {{ logfacility | default('LOG_USER') }}
+{% endif %}
+
+{# Use ANSI colors in console output (stderr logger). #}
+# Use color in console (stderr logger)
+color = {% if color | default(False) %}1{% else %}0{% endif %}
+
+{# Configuration backend: file, registry, or none. #}
+{% if config_backend | default('file') %}
+# Configuration backend (file, registry, none)
+config = {{ config_backend | default('file') }}
+{% endif %}
+
+{# Path to configuration file (used when config_backend = file). #}
+{% if conf_file | default('') %}
+# Configuration file path (implies 'file' config backend)
+conf-file = {{ conf_file | default('') }}
+{% endif %}
+
+{# Seconds between config reloadings (min 60, 0 = disabled). #}
+# Seconds between config reloadings (min 60, 0 = disabled)
+conf-reload-interval = {{ conf_reload_interval | default(0) }}
+
+{# Max random delay before execution (seconds). #}
+# Wait up to WAIT seconds (random 0..WAIT) before execution
+wait = {{ wait | default(0) }}
+
+{# Run as daemon. #}
+# Run as daemon
+daemon = {% if daemon | default(False) %}1{% else %}0{% endif %}
+
+{# Do not fork when running as daemon. #}
+# Don't fork when running as daemon
+no-fork = {% if no_fork | default(False) %}1{% else %}0{% endif %}
+
+{# PID file path (for daemon mode, not managed by systemd). #}
+{% if pidfile | default('') %}
+# PID file path (for daemon mode, not managed by systemd)
+pidfile = {{ pidfile | default('') }}
+{% endif %}
+
+{# Tag appended to every inventory result. #}
+{% if tag | default('') %}
+# Tag to append to every inventory result
+tag = {{ tag | default('') }}
+{% endif %}
+
+{# Debug level (0–3; repeat --debug to increase). #}
+# Debug mode (repeat flag to increase verbosity, up to 3 times)
+{% if debug | default(0) > 0 %}
+{% for i in range(debug | default(0)) %}
+debug = 1
+{% endfor %}
+{% endif %}
+
+{# Print the agent setup directories and exit. #}
+# Print the agent setup directories and exit
+setup = {% if setup | default(False) %}1{% else %}0{% endif %}

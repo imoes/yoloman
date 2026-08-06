@@ -1,33 +1,51 @@
 # Gitolite configuration file — defines repositories, access rules, and admins
-# This file is managed by Puppet; manual edits will be overwritten
+# This file is managed by Ansible; manual edits will be overwritten
+
 # Admin users — those with full read/write/ssh access to all repos
-{% for admin in admins %}# Admin: {{ admin }}
-{% endfor %}RW+\t\t= {{ admins | join(' ') }}
+# Schema: admins (list) — default=['gitolite-admin']
+# Description: List of Gitolite admin usernames. Admins have full read/write/ssh access to all repositories, including the gitolite-admin repo.
+{% for admin in admins | default(['gitolite-admin']) %}# Admin: {{ admin }}
+{% endfor %}
+RW+		= {{ admins | default(['gitolite-admin']) | join(' ') }}
 
 # Repository definitions with access control
-{% for repo in repositories %}# Repository: {{ repo.name }}
+# Schema: repositories (list) — default=[]
+# Description: List of repositories to create/secure. Each entry defines a repo name and optional access groups.
+{% for repo in repositories | default([]) %}
+# Repository: {{ repo.name }}
 # Description: {{ repo.description | default('No description') }}
 repo {{ repo.name }}
 {% if repo.description %}    DESC    = {{ repo.description }}
-{% endif %}{% if repo.admins %}    RW+     = {{ repo.admins | join(' ') }}
-{% endif %}{% if repo.writers %}    RW      = {{ repo.writers | join(' ') }}
-{% endif %}{% if repo.readers %}    R       = {{ repo.readers | join(' ') }}
+{% endif %}
+{% if repo.admins %}    RW+     = {{ repo.admins | join(' ') }}
+{% endif %}
+{% if repo.writers %}    RW      = {{ repo.writers | join(' ') }}
+{% endif %}
+{% if repo.readers %}    R       = {{ repo.readers | join(' ') }}
 {% endif %}
 {% endfor %}
 
 # Optional: mirror push configuration
-{% for mirror in mirrors %}# Mirror: {{ mirror.name }} -> {{ mirror.target }}
+# Schema: mirrors (list) — default=[]
+# Description: List of repositories to mirror using Gitolite’s mirroring feature. Requires Gitolite v3.6+ and the 'mirror' plugin enabled.
+{% for mirror in mirrors | default([]) %}
+# Mirror: {{ mirror.name }} -> {{ mirror.target }}
 repo {{ mirror.name }}
     option mirror.source
     option mirror.target    = {{ mirror.target }}
 {% endfor %}
 
 # Optional: Git hooks or config overrides (per-repo)
-{% for hook in hooks %}# Hook: {{ hook.name }}
+# Schema: hooks (list) — default=[]
+# Description: List of repositories requiring custom Gitolite config (e.g., hooks, branch restrictions).
+{% for hook in hooks | default([]) %}
+# Hook: {{ hook.name }}
 repo {{ hook.name }}
-{% for key, value in hook.config.items() %}    {{ key }} = {{ value }}
-{% endfor %}{% endfor %}
+{% for key, value in hook.config | default({}) | dict2items %}    {{ key.key }} = {{ key.value }}
+{% endfor %}
+{% endfor %}
 
 # Default rules — catch-all (must be last!)
+# The gitolite-admin repository is always present and managed by admins
 repo gitolite-admin
-    RW+     = {{ admins | join(' ') }}
+    RW+     = {{ admins | default(['gitolite-admin']) | join(' ') }}

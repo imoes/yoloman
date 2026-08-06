@@ -1,0 +1,69 @@
+#!/bin/sh
+
+# ============================================================================
+# doodle - Shell initialization script
+# ============================================================================
+# This script sources the environment configuration for the doodle daemon.
+# It is designed to be idempotent and safe for reuse in Ansible roles.
+#
+# Configuration file: /etc/default/{{ config_file | default('doodle') }}
+# Binary: {{ binary | default('doodle') }}
+# Database directory: {{ doodle_path | default('/var/lib/doodle') }}
+# Database file: {{ doodle_dbpath | default('/var/lib/doodle/doodle.db') }}
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Source the default configuration file.
+# Field: config_file
+# Description: Name of the shell config file in /etc/default/, without path or extension
+# ---------------------------------------------------------------------------
+if [ -r /etc/default/{{ config_file | default('doodle') }} ]
+then
+	. /etc/default/{{ config_file | default('doodle') }}
+else
+    # If no config file exists, exit silently to allow service start without hard failure
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Verify the binary exists and is executable.
+# Field: binary
+# Description: Name of the executable binary
+# ---------------------------------------------------------------------------
+if [ -x {{ binary | default('doodle') }} ]
+then
+    # -----------------------------------------------------------------------
+    # Build a clean DOODLE_PATH by filtering only existing directories from
+    # the colon-separated list provided in the environment or config.
+    # Field: doodle_path
+    # Description: Colon-separated list of directories where doodle looks for data (shell variable: DOODLE_PATH)
+    # -----------------------------------------------------------------------
+    DOODLE_PATH=$(
+        for DIRECTORY in {{ doodle_path | default('/var/lib/doodle') }}
+        do
+            [ -d "${DIRECTORY}" ] && echo "${DIRECTORY}"
+        done
+    )
+
+    # -----------------------------------------------------------------------
+    # Start the doodle daemon if we have a valid path.
+    # Field: daemon_opts
+    # Description: Additional options passed to the daemon on invocation
+    # -----------------------------------------------------------------------
+    if [ -n "${DOODLE_PATH}" ]
+    then
+        {{ binary | default('doodle') }} ${DAEMON_OPTS} {{ daemon_opts | default('') }} -b ${DOODLE_PATH}
+
+        # -------------------------------------------------------------------
+        # Ensure proper permissions on the database directory and file.
+        # Field: ownership_user
+        # Description: User owner of the database directory (used in chown)
+        # Field: ownership_group
+        # Description: Group owner of the database directory (used in chown)
+        # Field: doodle_dbpath
+        # Description: Path to the doodle database file (used in chmod and chown)
+        # -------------------------------------------------------------------
+        chown {{ ownership_user | default('root') }}:{{ ownership_group | default('doodle') }} "$(dirname ${DOODLE_DBPATH})" -R
+        chmod 0660 "${DOODLE_DBPATH}"
+    fi
+fi

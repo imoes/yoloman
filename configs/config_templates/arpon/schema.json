@@ -1,130 +1,28 @@
 {
-  "daemon_enable": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to enable and start the arpon daemon automatically."
-  },
-  "user": {
-    "type": "string",
-    "default": "daemon",
-    "description": "System user account under which arpon runs (must have minimal privileges)."
-  },
-  "group": {
-    "type": "string",
-    "default": "daemon",
-    "description": "System group associated with the arpon user."
-  },
-  "pidfile": {
-    "type": "string",
-    "default": "/var/run/arpon/arpon.pid",
-    "description": "Absolute path to the file used to store the daemon's process ID."
-  },
-  "interfaces": {
+  "arp_table_entries": {
     "type": "list",
     "default": [
-      "eth0"
-    ],
-    "description": "Network interface(s) to monitor for ARP traffic. Multiple interfaces may be listed.",
-    "items": {
-      "type": "string",
-      "description": "Interface name (e.g., 'eth0', 'wlan0')"
-    }
-  },
-  "loglevel": {
-    "type": "number",
-    "default": 1,
-    "description": "Verbosity of logging: 0=quiet, 1=normal (recommended), 2=verbose, 3=debug."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to a dedicated log file. If empty, logging goes to syslog instead."
-  },
-  "remote_log_host": {
-    "type": "string",
-    "default": "",
-    "description": "Hostname or IP of a remote syslog server (leave blank to disable remote logging)."
-  },
-  "remote_log_port": {
-    "type": "number",
-    "default": 514,
-    "description": "UDP/TCP port used for remote syslog (typically 514)."
-  },
-  "mode": {
-    "type": "string",
-    "default": "hybrid",
-    "description": "ARP inspection mode: 'dhcp' (DHCP Snooping-based), 'static' (static table), or 'hybrid' (both)."
-  },
-  "arp_table_path": {
-    "type": "string",
-    "default": "/etc/ethers",
-    "description": "Path to file containing static IP-to-MAC mappings (used in static/hybrid mode)."
-  },
-  "dhcp_lease_file": {
-    "type": "string",
-    "default": "/var/lib/dhcp/dhcpd.leases",
-    "description": "Path to the DHCP server lease file to monitor for ARP entries (used in dhcp/hybrid mode)."
-  },
-  "detect_spoof": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to detect ARP spoofing attempts (e.g., duplicate IPs, MAC mismatches)."
-  },
-  "prevent_spoof": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to actively block or drop malicious ARP packets (may affect network stability)."
-  },
-  "rescan_interval": {
-    "type": "number",
-    "default": 60,
-    "description": "Seconds between periodic re-checks of the ARP cache."
-  },
-  "threshold": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of suspicious ARP events before triggering an action."
-  },
-  "anomaly_cmd": {
-    "type": "string",
-    "default": "",
-    "description": "Optional command or script to run when an ARP anomaly is detected (e.g., '/usr/local/bin/alert-arp.sh')."
-  },
-  "whitelist": {
-    "type": "list",
-    "default": [],
-    "description": "List of MAC addresses to exempt from ARP inspection.",
-    "items": {
-      "type": "string",
-      "description": "MAC address in standard colon-separated format (e.g., '00:11:22:33:44:55')"
-    }
-  },
-  "fixed_arp": {
-    "type": "list",
-    "default": [],
-    "description": "Static IP-to-MAC mappings to be registered with arpon regardless of mode.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ip": {
-          "type": "string",
-          "description": "IPv4 address (e.g., '192.168.1.1')"
-        },
-        "mac": {
-          "type": "string",
-          "description": "Corresponding MAC address (e.g., '00:11:22:33:44:55')"
-        }
+      {
+        "ip": "192.168.1.1",
+        "mac": "58:ac:78:10:b9:77"
+      },
+      {
+        "ip": "192.168.1.3",
+        "mac": "d4:be:d9:fe:8b:45"
+      },
+      {
+        "ip": "192.168.1.4",
+        "mac": "90:94:e4:bb:1c:10"
+      },
+      {
+        "ip": "10.0.1.1",
+        "mac": "58:ac:78:88:1a:bb"
+      },
+      {
+        "ip": "10.0.10.1",
+        "mac": "90:94:e4:7e:f4:59"
       }
-    }
-  },
-  "start_delay": {
-    "type": "number",
-    "default": 5,
-    "description": "Seconds to wait after system boot before starting arpon (allows networking to stabilize)."
-  },
-  "daemon_opts": {
-    "type": "string",
-    "default": "",
-    "description": "Extra command-line arguments to pass directly to the arpon binary (e.g., '-D -t 30')."
+    ],
+    "description": "List of static IP-to-MAC entries shown commented in shipped config. Index order matches eth0 (first three) then eth1 (last two)."
   }
 }

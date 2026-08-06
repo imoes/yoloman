@@ -1,0 +1,71 @@
+{
+  "compose_version": "3.8",
+  "project_name": "my_app",
+  "services": [
+    {
+      "web": {
+        "build": {
+          "context": ".",
+          "dockerfile": "Dockerfile"
+        },
+        "image": "my_app:latest",
+        "ports": [
+          "8080:8080"
+        ],
+        "volumes": [
+          "./data:/app/data"
+        ],
+        "environment": [
+          "APP_ENV=production",
+          "LOG_LEVEL=info"
+        ],
+        "depends_on": [
+          "db"
+        ],
+        "networks": [
+          "frontend",
+          "backend"
+        ],
+        "profiles": [
+          "web"
+        ],
+        "restart": "unless-stopped"
+      }
+    },
+    {
+      "db": {
+        "image": "postgres:15-alpine",
+        "volumes": [
+          "pgdata:/var/lib/postgresql/data"
+        ],
+        "environment": [
+          "POSTGRES_USER=app",
+          "POSTGRES_PASSWORD=secret",
+          "POSTGRES_DB=myapp"
+        ],
+        "networks": [
+          "backend"
+        ],
+        "restart": "always"
+      }
+    }
+  ],
+  "networks": [
+    {
+      "frontend": {
+        "driver": "bridge"
+      }
+    },
+    {
+      "backend": {
+        "driver": "bridge",
+        "internal": true
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "pgdata": {}
+    }
+  ]
+}

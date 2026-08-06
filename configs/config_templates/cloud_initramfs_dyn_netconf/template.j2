@@ -4,7 +4,8 @@
 # interface name and write an ifupdown snippet into /run so the installed
 # system can bring up the PXE boot interface with the correct protocol.
 
-PREREQ="{{ prereq }}"
+{# Space-separated list of init-bottom script names that must complete before this hook runs; controls initramfs execution order #}
+PREREQ="{{ prereq | default('udev') }}"
 
 # Print prerequisite script names so initramfs orders execution correctly
 prereqs()
@@ -21,16 +22,14 @@ esac
 
 . /scripts/functions
 
-# Destination directory for per-interface ifupdown snippets; must reside on a
-# tmpfs that survives the pivot_root into the real root filesystem
-RUN_INTERFACES_DIR="{{ run_interfaces_dir }}"
+{# Directory where the generated ifupdown interface snippet is written; must be on a tmpfs that survives pivot_root into the real root #}
+RUN_INTERFACES_DIR="{{ run_interfaces_dir | default('/run/network/interfaces.d') }}"
 
-# Seconds the DHCP client waits for a lease before declaring failure
-DHCP_TIMEOUT={{ dhcp_timeout }}
+{# Seconds the DHCP client waits for a lease before giving up; reduce on fast LANs, increase on slow or congested networks #}
+DHCP_TIMEOUT={{ dhcp_timeout | default(300) }}
 
-# Route metric for the PXE boot interface; higher values deprioritise it
-# relative to interfaces configured later by cloud-init
-INTERFACE_METRIC={{ interface_metric }}
+{# Route metric assigned to the PXE boot interface; set higher than cloud-init managed interfaces to deprioritise it once fully booted #}
+INTERFACE_METRIC={{ interface_metric | default(100) }}
 
 # Create the snippet directory if it does not already exist
 [ -d "${RUN_INTERFACES_DIR}" ] || mkdir -p "${RUN_INTERFACES_DIR}"
@@ -45,10 +44,11 @@ for x in $(cat /proc/cmdline); do
     esac
 done
 
-{% if fallback_interface %}
+{% if fallback_interface | default('') %}
 # Use the configured fallback interface when no BOOTIF is present
+# Fallback interface name to configure when no BOOTIF kernel parameter is present; leave empty to skip configuration entirely on non-PXE boots
 if [ -z "${BOOTIF}" ]; then
-    IFACE="{{ fallback_interface }}"
+    IFACE="{{ fallback_interface | default('') }}"
 else
     # Strip hardware-type prefix 01- and normalise dashes to colons
     BOOTIF="${BOOTIF#01-}"
@@ -82,19 +82,21 @@ done
 
 # Write the ifupdown snippet consumed by cloud-init and ifupdown-extra on first boot
 {
-{% if dhcp4 %}
+{% if dhcp4 | default(True) %}
     # Bring the interface up automatically and acquire an IPv4 address via DHCP
+    # Write an 'inet dhcp' stanza so the resolved boot interface acquires an IPv4 address via DHCP
     printf "auto %s\n" "${IFACE}"
     printf "iface %s inet dhcp\n" "${IFACE}"
     printf "\tmetric %s\n" "${INTERFACE_METRIC}"
     printf "\ttimeout %s\n" "${DHCP_TIMEOUT}"
-{% for opt in dhcp4_options %}
-    # {{ opt.description }}
+    {% for opt in dhcp4_options | default([]) %}
+    # Extra ifupdown key-value option from dhcp4_options list
     printf "\t{{ opt.key }} {{ opt.value }}\n"
-{% endfor %}
+    {% endfor %}
 {% endif %}
-{% if dhcp6 %}
+{% if dhcp6 | default(False) %}
     # Request an IPv6 address via DHCPv6 on the boot interface
+    # Append an 'inet6 dhcp' stanza to request an IPv6 address via DHCPv6 on the boot interface
     printf "iface %s inet6 dhcp\n" "${IFACE}"
 {% endif %}
 } > "${RUN_INTERFACES_DIR}/${IFACE}"

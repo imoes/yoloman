@@ -1,73 +1,176 @@
 # IIPImage Server Configuration File
-# Enable verbose logging
-{% if debug %}Verbose: yes{% else %}Verbose: no{% endif %}
+# This file configures the IIPImage server (image serving and Deep Zoom tiling).
+# All variables use Jinja2 `default()` to ensure valid output even if the variable is undefined.
 
-# Maximum number of open files (per-process limit)
-MaxImageWidth: {{ max_image_width }}
-MaxImageHeight: {{ max_image_height }}
+# -------------------------------------------------------
+# Logging and Debugging
+# -------------------------------------------------------
 
-# Memory cache size in MB
-CacheSize: {{ cache_size_mb }}
+# Enable verbose logging for troubleshooting.
+# Default: False
+{% if (debug | default(False)) %}Verbose: yes{% else %}Verbose: no{% endif %}
 
-# JPEG compression quality (0–100)
-Quality: {{ quality }}
+# -------------------------------------------------------
+# Image Constraints
+# -------------------------------------------------------
 
-# Enable DCM (Deep Zoom) support
-{% if dcm_enabled %}DCM: on{% else %}DCM: off{% endif %}
+# Maximum width (in pixels) allowed for loaded images.
+# Prevents loading excessively wide images that consume too much memory.
+# Default: 8192
+MaxImageWidth: {{ max_image_width | default(8192) }}
 
-# List of directories to serve images from
-{% for dir in image_directories %}# Directory: {{ dir.path }}
-{% if dir.read_only %}# (read-only)
-{% endif %}{{ dir.path }}
+# Maximum height (in pixels) allowed for loaded images.
+# Prevents loading excessively tall images that consume too much memory.
+# Default: 8192
+MaxImageHeight: {{ max_image_height | default(8192) }}
+
+# -------------------------------------------------------
+# Caching (Server-side Memory)
+# -------------------------------------------------------
+
+# Total memory cache size in MB for decoded image data.
+# Controls how much RAM the server uses to store fully decoded images.
+# Default: 2048
+CacheSize: {{ cache_size_mb | default(2048) }}
+
+# -------------------------------------------------------
+# Image Quality
+# -------------------------------------------------------
+
+# JPEG compression quality (0–100). Higher = better quality but larger files.
+# Affects the final JPEG output generated from tiles.
+# Default: 85
+Quality: {{ quality | default(85) }}
+
+# -------------------------------------------------------
+# Deep Zoom / DCM Support
+# -------------------------------------------------------
+
+# Enable Deep Zoom (DCM) support for tiled image streaming.
+# Allows the server to generate pyramid tiles for zoomable viewers.
+# Default: False
+{% if (dcm_enabled | default(False)) %}DCM: on{% else %}DCM: off{% endif %}
+
+# Pixel dimension of square tiles used in Deep Zoom pyramid.
+# Common values: 128, 256, 512. Must match client expectations.
+# Default: 256
+{% if (dcm_enabled | default(False)) %}TileSize: {{ tile_size | default(256) }}{% endif %}
+
+# Maximum number of tiles cached per image in memory.
+# Limits memory usage when serving high-zoom levels.
+# Default: 1000
+{% if (dcm_enabled | default(False)) %}MaxTileCacheSize: {{ max_tile_cache_size | default(1000) }}{% endif %}
+
+# Tile compression format: 'jpeg' (fast, lossy) or 'tiff' (lossless, larger).
+# Controls the on-disk/in-memory format of the generated tiles.
+# Default: 'jpeg'
+{% if (dcm_enabled | default(False)) %}Compression: {{ compression_format | default('jpeg') }}{% endif %}
+
+# Minimum pyramid level to serve (0 = full resolution).
+# Used to skip generating or serving ultra-high-resolution tiles if not needed.
+# Default: 0
+{% if (dcm_enabled | default(False)) %}MinLevel: {{ min_level | default(0) }}{% endif %}
+
+# Maximum pyramid level to generate (deeper = more zoom levels).
+# Controls the depth of the image pyramid.
+# Default: 16
+{% if (dcm_enabled | default(False)) %}MaxLevel: {{ max_level | default(16) }}{% endif %}
+
+# Enable progressive tile loading for very large images.
+# Slower start but smoother UX as tiles load in order of importance.
+# Default: False
+{% if (dcm_enabled | default(False)) %}{% if (progressive_loading | default(False)) %}Progressive: on{% else %}Progressive: off{% endif %}{% endif %}
+
+# -------------------------------------------------------
+# Image Source Directories
+# -------------------------------------------------------
+
+# List of image source directories to serve.
+# Each entry defines a directory path and optional access mode.
+# Default: [] (empty list, no directories served)
+{% for dir in (image_directories | default([])) %}# Directory: {{ dir.path | default('') }}
+{% if dir.read_only is defined and dir.read_only %}# (read-only)
+{% endif %}{{ dir.path | default('') }}
 {% endfor %}
 
-# Bind to specified host and port
-BindAddress: {{ bind_address }}
-BindPort: {{ bind_port }}
+# -------------------------------------------------------
+# Network / Binding Configuration
+# -------------------------------------------------------
 
-# Optional FastCGI socket path (if used)
-{% if use_fastcgi_socket %}# Use FastCGI socket instead of TCP
-FCGISocket: {{ fastcgi_socket_path }}
+# IP address to bind the server to.
+# Use '127.0.0.1' for local-only access, '0.0.0.0' for all interfaces.
+# Default: '127.0.0.1'
+BindAddress: {{ bind_address | default('127.0.0.1') }}
+
+# TCP port for the IIPImage server (used if FastCGI socket is disabled).
+# Default: 8000
+BindPort: {{ bind_port | default(8000) }}
+
+# Use a FastCGI Unix socket instead of TCP.
+# Recommended for integration with nginx or Apache.
+# Default: False
+{% if (use_fastcgi_socket | default(False)) %}# Use FastCGI socket instead of TCP
+FCGISocket: {{ fastcgi_socket_path | default('/var/run/iipimage.sock') }}
 {% endif %}
 
-# Set default tile size for Deep Zoom
-TileSize: {{ tile_size }}
+# Path to the FastCGI Unix socket (only used if use_fastcgi_socket is true).
+# Default: '/var/run/iipimage.sock'
+{# Note: FCGISocket is emitted conditionally above based on use_fastcgi_socket #}
 
-# Maximum number of tiles to cache per image
-MaxTileCacheSize: {{ max_tile_cache_size }}
+# -------------------------------------------------------
+# Watermarking
+# -------------------------------------------------------
 
-# Compression format for tiles (JPEG or TIFF)
-Compression: {{ compression_format }}
-
-# Optional watermark image (path relative to image root or absolute)
-{% if watermark_path %}Watermark: {{ watermark_path }}
+# Optional absolute or relative path to a PNG watermark overlay image.
+# If empty, no watermark is applied.
+# Default: ''
+{% if (watermark_path | default('')) %}Watermark: {{ watermark_path | default('') }}
 {% endif %}
 
-# Enable client-side caching (Expires headers)
-{% if client_caching_enabled %}Caching: on
-CachingTime: {{ client_cache_ttl_seconds }}
+# -------------------------------------------------------
+# Client-Side Caching
+# -------------------------------------------------------
+
+# Enable HTTP Expires headers to improve client-side caching.
+# Sends cache-control headers to browsers/proxies.
+# Default: True
+{% if (client_caching_enabled | default(True)) %}Caching: on
+CachingTime: {{ client_cache_ttl_seconds | default(3600) }}
 {% else %}Caching: off{% endif %}
 
-# Optional log file path
-{% if log_file %}Logfile: {{ log_file }}
+# Duration (seconds) to cache tiles in the client browser.
+# Only used if client_caching_enabled is true.
+# Default: 3600
+
+# -------------------------------------------------------
+# Logging Output
+# -------------------------------------------------------
+
+# Path to the server log file.
+# If empty, defaults to /var/log/iipimage.log.
+# Default: '/var/log/iipimage.log' (or empty string)
+{% if (log_file | default('/var/log/iipimage.log')) %}Logfile: {{ log_file | default('/var/log/iipimage.log') }}
 {% else %}Logfile: /var/log/iipimage.log{% endif %}
 
-# Enable JPEG 2000 support (requires OpenJPEG)
-{% if jpeg2000_enabled %}JPEG2000: on
-JPEG2000ThreadCount: {{ jpeg2000_threads }}
+# -------------------------------------------------------
+# Advanced Format Support
+# -------------------------------------------------------
+
+# Enable JPEG 2000 support (requires OpenJPEG library).
+# Allows serving JP2/K2000 images.
+# Default: False
+{% if (jpeg2000_enabled | default(False)) %}JPEG2000: on
+JPEG2000ThreadCount: {{ jpeg2000_threads | default(2) }}
 {% else %}JPEG2000: off{% endif %}
 
-# Enable TIFF multi-page support
-{% if tiff_multipage_enabled %}TIFFMultipage: on{% else %}TIFFMultipage: off{% endif %}
+# Number of threads for JPEG 2000 decoding (if enabled).
+# Default: 2
+{# Note: JPEG2000ThreadCount is emitted conditionally above based on jpeg2000_enabled #}
 
-# Enable support for large TIFF files (>4GB)
-{% if large_tiff_support %}LargeTIFF: on{% else %}LargeTIFF: off{% endif %}
+# Enable support for multi-page TIFF files (e.g., scanned documents).
+# Default: True
+{% if (tiff_multipage_enabled | default(True)) %}TIFFMultipage: on{% else %}TIFFMultipage: off{% endif %}
 
-# Minimum resolution level for downscaling
-MinLevel: {{ min_level }}
-
-# Maximum resolution level for upscaling
-MaxLevel: {{ max_level }}
-
-# Enable progressive loading (slow-load mode for very large images)
-{% if progressive_loading %}Progressive: on{% else %}Progressive: off{% endif %}
+# Enable support for TIFF files larger than 4 GB (requires BigTIFF support in libtiff).
+# Default: True
+{% if (large_tiff_support | default(True)) %}LargeTIFF: on{% else %}LargeTIFF: off{% endif %}

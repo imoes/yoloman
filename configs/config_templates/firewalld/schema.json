@@ -1,75 +1,38 @@
 {
-  "firewall_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether firewalld should be enabled and started at boot (systemd)."
-  },
   "default_zone": {
     "type": "string",
     "default": "public",
-    "description": "The initial zone assigned to interfaces with no explicit zone binding (e.g., 'public', 'internal', 'trusted')."
-  },
-  "min_uid": {
-    "type": "number",
-    "default": 0,
-    "description": "Minimum numeric user ID allowed to manage firewalld via D-Bus (set to -1 for no lower limit)."
-  },
-  "max_uid": {
-    "type": "number",
-    "default": -1,
-    "description": "Maximum numeric user ID allowed to manage firewalld via D-Bus (set to -1 for no upper limit)."
+    "description": "The initial zone assigned to interfaces with no explicit zone binding (e.g., 'public', 'internal', 'trusted').",
+    "enum": [
+      "drop",
+      "public",
+      "home"
+    ]
   },
   "log_denied": {
     "type": "string",
     "default": "off",
-    "description": "Whether to log packets that are dropped or rejected. Valid values: 'off', 'unicast', 'broadcast', 'multicast'."
-  },
-  "auto_install": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically install required kernel modules (e.g., nftables) when firewalld starts."
+    "description": "Whether to log packets that are dropped or rejected. Valid values: 'off', 'unicast', 'broadcast', 'multicast', 'all'.",
+    "enum": [
+      "off",
+      "unicast",
+      "broadcast",
+      "multicast",
+      "all"
+    ]
   },
   "backend": {
     "type": "string",
     "default": "nftables",
-    "description": "Firewall backend. Use 'nftables' for modern kernels; 'iptables' for legacy (not recommended)."
+    "description": "Firewall backend. Use 'nftables' for modern kernels; 'iptables' for legacy.",
+    "enum": [
+      "nftables",
+      "iptables"
+    ]
   },
-  "runtime_only": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, firewalld runs in runtime-only mode (changes are not saved to persistent config)."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum number of concurrent D-Bus connections allowed."
-  },
-  "ipv6_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable support for IPv6 networking in firewalld policies."
-  },
-  "direct_rules_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable direct rules \u2014 allows raw iptables/nftables commands via firewalld (advanced users only)."
-  },
-  "custom_config_paths": {
-    "type": "list",
-    "default": [],
-    "description": "List of directories where custom zone/service/policy XML files are stored (added to search path before defaults).",
-    "items": {
-      "type": "string",
-      "description": "Absolute path to a configuration directory (e.g., '/etc/firewalld/custom-zones')."
-    }
-  },
-  "runtime_config_paths": {
-    "type": "list",
-    "default": [],
-    "description": "List of directories for runtime-only XML files (not saved persistently).",
-    "items": {
-      "type": "string",
-      "description": "Absolute path to a runtime config directory (e.g., '/run/firewalld/runtime-configs')."
-    }
+  "reload_policy": {
+    "type": "string",
+    "default": "INPUT:DROP,FORWARD:DROP,OUTPUT:DROP",
+    "description": "Policy during reload. Can be 'DROP', 'REJECT', 'ACCEPT' or per-table like 'OUTPUT:ACCEPT,INPUT:DROP,FORWARD:REJECT'."
   }
 }

@@ -1,33 +1,76 @@
-# Indicator Network configuration for Lomiri
-# Controls how the network indicator behaves in the system UI
-# Enable/disable the network indicator service
-enabled: {{ enabled }}
+# ==============================================================================
+# Indicator Network configuration for Lomiri / Ubuntu Touch
+# ==============================================================================
+# This file controls the behavior of the network indicator applet (the system tray
+# icon that shows Wi-Fi, Ethernet, Bluetooth, and mobile data status).
+#
+# Format: Simple Key-Value YAML-like structure.
+# ==============================================================================
 
-# Path to the network manager D-Bus service
-network_manager_service: '{{ network_manager_service }}'
+# --------------------------------------------------------------------------
+# enabled: bool
+# Description: Enable the network indicator service.
+#              If disabled, no network status will be shown in the system tray.
+# --------------------------------------------------------------------------
+enabled: {{ enabled | default(true) | lower }}
 
-# Network interface monitoring
+# --------------------------------------------------------------------------
+# monitor_interfaces: list of strings
+# Description: List of network interfaces to monitor for connection status.
+#              Only interfaces in this list will be polled for link state and
+#              IP address changes.
+# --------------------------------------------------------------------------
 monitor_interfaces:
-{% for iface in monitor_interfaces %}  - {{ iface }}
+{% for iface in monitor_interfaces | default(['wlan0', 'eth0', 'wwan0']) %}  - {{ iface }}
 {% endfor %}
 
-# Show/hide specific connection types in the indicator
-show_ethernet: {{ show_ethernet }}
-show_wifi: {{ show_wifi }}
-show_bluetooth: {{ show_bluetooth }}
-show_mobile: {{ show_mobile }}
+# --------------------------------------------------------------------------
+# show_ethernet: bool
+# Description: Display Ethernet (wired) connection status in the network
+#              indicator menu.
+# --------------------------------------------------------------------------
+show_ethernet: {{ show_ethernet | default(true) | lower }}
 
-# Refresh interval (in milliseconds) for connection status updates
-status_refresh_interval: {{ status_refresh_interval }}
+# --------------------------------------------------------------------------
+# show_wifi: bool
+# Description: Display Wi-Fi (wireless) connection status in the network
+#              indicator menu.
+# --------------------------------------------------------------------------
+show_wifi: {{ show_wifi | default(true) | lower }}
 
-# Maximum number of connection entries to display in the indicator menu
-max_connection_entries: {{ max_connection_entries }}
+# --------------------------------------------------------------------------
+# show_bluetooth: bool
+# Description: Display Bluetooth network status (e.g., tethering) in the
+#              indicator. Note: This does not enable Bluetooth itself,
+#              only reports tethering/connection status via Bluetooth.
+# --------------------------------------------------------------------------
+show_bluetooth: {{ show_bluetooth | default(false) | lower }}
 
-# Default Wi-Fi SSID to connect to when auto-join is enabled
-auto_join_ssid: '{{ auto_join_ssid }}'
+# --------------------------------------------------------------------------
+# show_mobile: bool
+# Description: Display cellular/mobile data connection status (e.g., 3G/4G/5G)
+#              in the indicator.
+# --------------------------------------------------------------------------
+show_mobile: {{ show_mobile | default(true) | lower }}
 
-# Show connection quality indicator (signal strength bars)
-show_signal_strength: {{ show_signal_strength }}
+# --------------------------------------------------------------------------
+# max_connection_entries: int
+# Description: Maximum number of saved Wi-Fi connections to display in the
+#              indicator menu. Limits the UI clutter when many networks are
+#              saved.
+# --------------------------------------------------------------------------
+max_connection_entries: {{ max_connection_entries | default(10) | int }}
 
-# Enable verbose logging to systemd journal (for debugging)
-debug_logging: {{ debug_logging }}
+# --------------------------------------------------------------------------
+# show_signal_strength: bool
+# Description: Show signal strength indicator (bars or percentage) next to
+#              Wi-Fi and mobile data connections in the menu.
+# --------------------------------------------------------------------------
+show_signal_strength: {{ show_signal_strength | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# debug_logging: bool
+# Description: Enable verbose logging to the systemd journal.
+#              Set to true only for troubleshooting indicator issues.
+# --------------------------------------------------------------------------
+debug_logging: {{ debug_logging | default(false) | lower }}

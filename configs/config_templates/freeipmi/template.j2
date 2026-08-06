@@ -1,0 +1,33 @@
+# /etc/freeipmi/freeipmi.conf — FreeIPMI global configuration
+# Default configuration file used by all FreeIPMI tools.
+# See freeipmi.conf(5) manpage for full documentation.
+
+# Default authentication algorithm for IPMI LAN sessions.
+# Valid values: none, md2, md5, straight_password, OEM.
+AuthenticationType {{ authentication_type | default('md5') }}
+
+# Default privilege level for IPMI sessions.
+# Valid values: callback, user, operator, admin.
+PrivilegeLevel {{ privilege_level | default('admin') }}
+
+# RMCP+ cipher suite ID for IPMI 2.0 RAKPv23.
+# -1 = auto-select; valid 0–15 per IPMI spec.
+CipherSuiteId {{ cipher_suite_id | default(-1) }}
+
+# IPMI protocol version.
+# Valid values: 1.5, 2.0.
+ProtocolVersion {{ protocol_version | default('1.5') }}
+
+# Workarounds: comma-separated list of vendor-specific quirks.
+# Valid values: skipchecks, force_ipmi15, etc. (See freeipmi.conf(5)).
+{% if workarounds is defined and workarounds | length > 0 %}
+Workaround {{ workarounds | join(',') }}
+{% endif %}
+
+# Path to the in-band BMC device driver.
+# Examples: /dev/ipmi0, /dev/bmc, /dev/i2c-0.
+InBandDriverPath {{ in_band_driver_path | default('/dev/ipmi0') }}
+
+# IPMI slave address (hex) for in-band communication.
+# Default: 0x20.
+InBandSlaveAddress {{ in_band_slave_address | default('0x20') }}

@@ -1,0 +1,49 @@
+# ============================================================
+# btrfs-heatmap configuration template
+# Self-documenting: every setting includes its source description.
+# ============================================================
+
+# Hilbert curve order (integer between 2 and 16); 0 or omitted lets btrfs-heatmap auto-choose
+# Schema default: 0
+{% set _order = (order | default(0)) | int %}
+{% if _order != 0 %}
+order = {{ _order }}
+{% else %}
+order = 0
+{% endif %}
+
+# Image size exponent: width/height = 2^size (2 ≤ size ≤ 16)
+# Schema default: 10
+{% set _size = (size | default(10)) | int %}
+size = {{ _size }}
+
+# Sorting mode: 'physical' (dev_extent order, default) or 'virtual' (chunk/stripe order)
+# Schema default: 'physical'
+{% set _sort = (sort | default('physical')) | string | lower %}
+sort = {{ _sort }}
+
+# Virtual address (vaddr) of the block group to visualize; 0 or omitted for full filesystem view
+# Schema default: '0'
+{% set _bg = (blockgroup | default('0')) | string %}
+blockgroup = {{ _bg }}
+
+# Space-filling curve type: 'hilbert', 'linear', or 'snake'
+# Schema default: 'hilbert'
+{% set _curve = (curve | default('hilbert')) | string | lower %}
+curve = {{ _curve }}
+
+# Verbosity level (non-negative integer); use -v, -vv etc. by setting 1, 2, etc.
+# Schema default: 0
+{% set _verbose = (verbose | default(0)) | int %}
+verbose = {{ _verbose }}
+
+# Output filename, directory, or '-' for stdout; empty string lets btrfs-heatmap auto-choose
+# Schema default: ''
+{% set _output = (output | default('')) | string %}
+{% if _output == '-' %}
+output = -
+{% elif _output | length > 0 %}
+output = {{ _output }}
+{% else %}
+output = ''
+{% endif %}

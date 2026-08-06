@@ -79,11 +79,7 @@
     "default": [
       "eth0"
     ],
-    "description": "List of network interfaces (by name) on which Kea DHCP will listen and respond to requests.",
-    "items": {
-      "type": "string",
-      "description": "Network interface name (e.g., 'eth0', 'enp0s31f6')."
-    }
+    "description": "List of network interfaces (by name) on which Kea DHCP will listen and respond to requests. For DHCPv4, 'raw' sockets are used if dhcp-socket-type is 'raw', otherwise 'unix' for UDP/TCP over UDP. The value 'all' can be used to listen on all interfaces."
   },
   "lease_lfc_interval": {
     "type": "number",
@@ -123,100 +119,6 @@
   "subnets": {
     "type": "list",
     "default": [],
-    "description": "List of IPv4 subnets managed by this Kea server. Each defines a network, IP range, and client options.",
-    "items": {
-      "type": "object",
-      "description": "A single IPv4 subnet configuration.",
-      "fields": {
-        "id": {
-          "type": "number",
-          "default": 1,
-          "description": "Numeric subnet identifier (must be unique per subnet)."
-        },
-        "network": {
-          "type": "string",
-          "default": "192.168.10.0",
-          "description": "IPv4 network address (e.g., '192.168.10.0')."
-        },
-        "prefix": {
-          "type": "number",
-          "default": 24,
-          "description": "Subnet mask prefix length (e.g., 24 for 255.255.255.0)."
-        },
-        "gateway": {
-          "type": "string",
-          "default": "192.168.10.1",
-          "description": "Default gateway/router IP address for clients in this subnet."
-        },
-        "dns_servers": {
-          "type": "list",
-          "default": [
-            "192.168.10.1"
-          ],
-          "description": "List of DNS server IPs to supply via DHCP option 6.",
-          "items": {
-            "type": "string",
-            "description": "IPv4 DNS server address."
-          }
-        },
-        "domain_name": {
-          "type": "string",
-          "default": "lan.example.com",
-          "description": "Default domain name to assign via DHCP option 15."
-        },
-        "pools": {
-          "type": "list",
-          "default": [
-            {
-              "start": "192.168.10.100",
-              "end": "192.168.10.200"
-            }
-          ],
-          "description": "IP address ranges for dynamic allocation.",
-          "items": {
-            "type": "object",
-            "description": "A contiguous pool of IPv4 addresses.",
-            "fields": {
-              "start": {
-                "type": "string",
-                "default": "192.168.10.100",
-                "description": "First IP address in the pool."
-              },
-              "end": {
-                "type": "string",
-                "default": "192.168.10.200",
-                "description": "Last IP address in the pool."
-              }
-            }
-          }
-        },
-        "reservations": {
-          "type": "list",
-          "default": [],
-          "description": "Static DHCP reservations (by MAC address).",
-          "items": {
-            "type": "object",
-            "description": "A fixed lease assignment for a known client.",
-            "fields": {
-              "mac": {
-                "type": "string",
-                "default": "aa:bb:cc:dd:ee:ff",
-                "description": "Client hardware (MAC) address in lowercase colon-separated hex."
-              },
-              "ip": {
-                "type": "string",
-                "default": "192.168.10.10",
-                "description": "Static IP address to assign to this client."
-              },
-              "hostname": {
-                "type": "string",
-                "default": "printer1",
-                "description": "Hostname to use for DDNS (if enabled) and client identification."
-              }
-            }
-          }
-        }
-      }
-    }
+    "description": "List of IPv4 subnets managed by this Kea server. Each defines a network, IP range, and client options."
   }
 }

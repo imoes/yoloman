@@ -1,0 +1,21 @@
+# amideco configuration (section 5 man page)
+# Controls the operation mode of amideco: 'list' (-l), 'extract' (-x), or 'both' (-l -x).
+# Defaults to 'extract' if not specified.
+{% set mode_val = mode | default('extract') %}
+{% if mode_val == 'list' %}# List BIOS structure
+-l
+{% elif mode_val == 'extract' %}# Extract BIOS modules
+-x
+{% elif mode_val == 'both' %}# List and extract
+-l -x
+{% else %}# Invalid mode specified, defaulting to extract
+-x
+{% endif %}
+
+# If true, adds the -d flag to create the output directory before extraction.
+# Defaults to false (no directory creation).
+{% if create_dir | default(false) | bool %}-d{% endif %}
+
+# Path to the AMI BIOS image file to decompress or list.
+# Defaults to 'bios.bin' in the current working directory.
+{{ input_file | default('bios.bin') }}

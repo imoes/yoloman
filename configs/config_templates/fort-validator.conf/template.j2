@@ -1,70 +1,76 @@
 # Configuration for fort-validator, a RPKI validation tool
-# Global settings controlling validation behavior and logging
-# Root CA trust anchors and repository locations
-# Resource limit enforcement and worker parallelism
+# This template is self-documenting: every setting includes its schema description.
 
-log_level: {{ log_level }}
+# Logging verbosity level (e.g., debug, info, warn, error)
+# Default: 'info'
+log_level: {{ log_level | default('info') }}
 
-# How many minutes to wait before refreshing the trust anchor list
-refresh_interval: {{ refresh_interval }}
+# Number of minutes between automatic trust anchor list refreshes
+# Default: 3600
+refresh_interval: {{ refresh_interval | default(3600) }}
 
 # Maximum number of concurrent validation sessions
-max_sessions: {{ max_sessions }}
+# Default: 10
+max_sessions: {{ max_sessions | default(10) }}
 
-# Enable/Disable strict mode (strict validation rejects invalid data)
-strict_mode: {{ strict_mode }}
+# If true, strict validation rejects invalid or malformed data; if false, warnings are logged but processing continues
+# Default: True
+strict_mode: {{ strict_mode | default(True) }}
 
-# Maximum depth for certificate chain validation
-max_chain_depth: {{ max_chain_depth }}
+# Maximum allowed depth for certificate chains during validation
+# Default: 10
+max_chain_depth: {{ max_chain_depth | default(10) }}
 
-# Paths to trust anchor locator (TAL) files
+# List of file paths (or glob patterns) to Trust Anchor Locator (TAL) files
+# Default: ['/etc/fort-validator/ta/*.tal']
 tal_files:
-{% for tal in tal_files %}
+{% for tal in tal_files | default(['/etc/fort-validator/ta/*.tal']) %}
   - {{ tal }}
 {% endfor %}
 
-# List of repositories to use for validation
+# List of default RPKI repositories to include by default (by TAL URI + name)
+# Default: [{'uri': 'https://rpki.afrinic.net/repository/afrinic.tal', 'name': 'AFRINIC'}, {'uri': 'https://rpki.arin.net/repository/arin.tal', 'name': 'ARIN'}, {'uri': 'https://rpki.ripe.net/repository/ripe.tal', 'name': 'RIPE NCC'}]
 repositories:
-{% for repo in repositories %}
+{% for repo in repositories | default([{'uri': 'https://rpki.afrinic.net/repository/afrinic.tal', 'name': 'AFRINIC'}, {'uri': 'https://rpki.arin.net/repository/arin.tal', 'name': 'ARIN'}, {'uri': 'https://rpki.ripe.net/repository/ripe.tal', 'name': 'RIPE NCC'}]) %}
   - uri: {{ repo.uri }}
     name: {{ repo.name | default(repo.uri) }}
 {% endfor %}
 
-# Optional: Override CA trust anchor certificates
+# Optional explicit trust anchor certificates to use instead of TAL-derived ones
+# Default: []
 trust_anchors:
-{% for ta in trust_anchors %}
+{% for ta in trust_anchors | default([]) %}
   - name: {{ ta.name }}
     cert_file: {{ ta.cert_file }}
 {% endfor %}
 
-# Optional: Custom CA repository endpoints (e.g., for testing)
+# Optional custom CA repository endpoints (e.g., for testing or private RPKI deployments)
+# Default: []
 ca_repos:
-{% for repo in ca_repos %}
+{% for repo in ca_repos | default([]) %}
   - uri: {{ repo.uri }}
     name: {{ repo.name | default(repo.uri) }}
 {% endfor %}
 
-# Optional: Local file cache path (defaults to system temp if omitted)
-{% if cache_dir %}
-cache_dir: {{ cache_dir }}
-{% endif %}
+# Path to a persistent local cache directory for repository data; defaults to system temp if omitted
+# Default: '/var/cache/fort-validator'
+cache_dir: {{ cache_dir | default('/var/cache/fort-validator') }}
 
-# Optional: Enable/disable HTTP/2 support for repositories
-{% if http2_enabled is defined %}
-http2_enabled: {{ 'true' if http2_enabled else 'false' }}
-{% endif %}
+# Enable HTTP/2 protocol support for repository downloads
+# Default: True
+http2_enabled: {{ http2_enabled | default(True) }}
 
-# Optional: Timeout settings (in seconds)
+# Connection and I/O timeout settings in seconds
+# Default: {'connect': 10, 'read': 60, 'write': 30}
 timeouts:
-  connect: {{ timeouts.connect }}
-  read: {{ timeouts.read }}
-  write: {{ timeouts.write }}
+  connect: {{ (timeouts | default({'connect': 10, 'read': 60, 'write': 30})).connect }}
+  read: {{ (timeouts | default({'connect': 10, 'read': 60, 'write': 30})).read }}
+  write: {{ (timeouts | default({'connect': 10, 'read': 60, 'write': 30})).write }}
 
-# Optional: Rate limiting per repository
-{% if rate_limits is defined %}
+# Per-repository rate limits to avoid throttling; each entry specifies a repository URI and max requests per minute
+# Default: []
 rate_limits:
-{% for rl in rate_limits %}
+{% for rl in rate_limits | default([]) %}
   - uri: {{ rl.uri }}
     requests_per_minute: {{ rl.requests_per_minute }}
 {% endfor %}
-{% endif %}

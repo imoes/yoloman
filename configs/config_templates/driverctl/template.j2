@@ -1,0 +1,35 @@
+{# ============================================================================== #}
+{# driverctl configuration file                                                      #}
+{# File location: /etc/driverctl.d/99-custom.driverctl (example)                     #}
+{# Purpose: Define device driver overrides for specific PCI/USB devices.             #}
+{# Format per line: <device-bdf> <driver> [flags]                                  #}
+{#   <device-bdf>: PCI BDF address (e.g., 0000:01:00.0) or USB ID                  #}
+{#   <driver>: Driver name to bind, or 'none' to unbind/detach                     #}
+{#   [flags]: Optional flags like --nosave, --noprobe                              #}
+{# ============================================================================== #}
+
+{# List of device override entries. Each item defines one override line.          #}
+{# Schema field: device_overrides (default: [])                                   #}
+{# Each entry expects: device (str), driver (str), flags (list[str])              #}
+{% set overrides = device_overrides | default([]) %}
+
+{# Iterate over each device override defined in the role variables.               #}
+{% for override in overrides %}
+{# Device BDF address (required)                                                  #}
+{# Default: '' (empty) if missing                                                 #}
+{% set dev = override.device | default('') %}
+
+{# Driver name or 'none' (required)                                               #}
+{# Default: '' (empty) if missing                                                 #}
+{% set drv = override.driver | default('') %}
+
+{# Optional flags list                                                            #}
+{# Default: empty list                                                            #}
+{% set fl = override.flags | default([]) %}
+
+{# Only emit a line if a device and driver are specified.                         #}
+{% if dev and drv %}
+{{ dev }} {{ drv }}{{ fl | join(' ') | trim }}
+{% endif %}
+
+{% endfor %}

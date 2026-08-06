@@ -1,60 +1,134 @@
-# Content filtering backend configuration for Debian Edu Router
-# Enables integration with Squid/SquidGuard for HTTP/HTTPS content filtering
-# Based on Debian Edu's router plugin for educational filtering policies
+# ==============================================================================
+# Debian Edu Router Plugin: Content Filtering Configuration
+# ==============================================================================
+#
+# This template configures the content filtering layer for the Debian Edu Router.
+# It manages policy enforcement via backend proxies (Squid/SquidGuard),
+# defining allowed/blocked content categories, SSL inspection, bandwidth limits,
+# and logging behavior.
+#
+# ==============================================================================
 
-# Enable content filtering globally
-ENABLED={{ enabled }}
+# --------------------------------------------------------------------------
+# Global Switch: Enable or Disable the Content Filtering Plugin
+# --------------------------------------------------------------------------
+# When set to false, all filtering rules are ignored, and traffic passes freely.
+# Use this for emergency bypasses or testing non-filtered configurations.
+ENABLED={{ enabled | default(True) }}
 
-# Backend type: 'squid' or 'squidguard'
-BACKEND={{ backend }}
+# --------------------------------------------------------------------------
+# Backend Selection: Choose the Filtering Engine
+# --------------------------------------------------------------------------
+# 'squid': Uses basic URL filtering capabilities directly via Squid ACLs.
+# 'squidguard': Uses SquidGuard for advanced, category-based filtering with
+#                database-backed rules (recommended for granular control).
+BACKEND={{ backend | default('squidguard') }}
 
-# Squid proxy listening port
-SQUID_PORT={{ squid.port }}
+# --------------------------------------------------------------------------
+# Squid Proxy Backend Configuration
+# --------------------------------------------------------------------------
+# Only relevant if backend is 'squid' or if the system relies on a Squid
+# instance for HTTP interception.
 
-# Squid configuration file path (for reference or override if needed)
-SQUID_CONF={{ squid.conf_path }}
+# Listening port for the Squid proxy service.
+SQUID_PORT={{ (squid | default({})).port | default(3128) }}
 
-# SquidGuard database path
-SQUIDGUARD_DB={{ squidguard.db_path }}
+# Path to the main Squid configuration file.
+SQUID_CONF={{ (squid | default({})).conf_path | default('/etc/squid/squid.conf') }}
 
-# SquidGuard configuration file path
-SQUIDGUARD_CONF={{ squidguard.conf_path }}
+# --------------------------------------------------------------------------
+# SquidGuard Backend Configuration
+# --------------------------------------------------------------------------
+# Detailed settings for the SquidGuard filtering engine.
+# These paths are critical for the engine to find its rule databases and config.
 
-# Filtering categories to enforce (comma-separated, used by both backends)
-FILTER_CATEGORIES={{ categories | join(', ') }}
+# Path to the directory containing the SquidGuard category databases.
+SQUIDGUARD_DB={{ (squidguard | default({})).db_path | default('/var/lib/squidguard/db') }}
 
-# SSL inspection: enable or disable (note: SSL MITM has privacy & compatibility implications)
-SSL_INSPECTION={{ ssl_inspection }}
+# Path to the SquidGuard main configuration file.
+SQUIDGUARD_CONF={{ (squidguard | default({})).conf_path | default('/etc/squidguard/squidGuard.conf') }}
 
-# Allowlist domains (one per line, added to /etc/squid/whitelist.conf during deployment)
-{% for domain in allowlist.domains %}ALLOW_DOMAIN={{ domain }}
+# Timeout (in seconds) for checking/updating URLs during filtering checks.
+URL_TIMEOUT={{ (squidguard | default({})).url_timeout | default(5) }}
+
+# Refresh interval (in seconds) for the SquidGuard category databases.
+DB_REFRESH={{ (squidguard | default({})).db_refresh | default(3600) }}
+
+# --------------------------------------------------------------------------
+# Filtering Policy: Categories to Block
+# --------------------------------------------------------------------------
+# A comma-separated list of categories defined in the SquidGuard DB.
+# Traffic matching these categories will be blocked.
+# Common categories: 'adult', 'malware', 'phishing', 'social', 'violence'.
+FILTER_CATEGORIES={{ categories | default(['adult', 'malware', 'phishing', 'social']) | join(', ') }}
+
+# --------------------------------------------------------------------------
+# HTTPS Traffic Inspection (SSL/MITM)
+# --------------------------------------------------------------------------
+# Enable HTTPS inspection to filter encrypted traffic.
+# WARNING: This requires installing a custom CA certificate on all client
+# devices. It may break sites with certificate pinning and raises privacy
+# considerations.
+SSL_INSPECTION={{ ssl_inspection | default(False) }}
+
+# --------------------------------------------------------------------------
+# Allowlist: Domains Explicitly Permitted
+# --------------------------------------------------------------------------
+# These domains are exempt from filtering, regardless of their category.
+# Typically used for educational resources or internal tools.
+{% for domain in (allowlist | default({'domains': ['edu.jisc.ac.uk', 'nationaleducation.fr'] })).domains %}ALLOW_DOMAIN={{ domain }}
 {% endfor %}
 
-# Blocklist domains (one per line, added to /etc/squid/blacklist.conf during deployment)
-{% for domain in blocklist.domains %}BLOCK_DOMAIN={{ domain }}
+# --------------------------------------------------------------------------
+# Blocklist: Domains Explicitly Denied
+# --------------------------------------------------------------------------
+# These domains are always blocked, overriding allowlists or category rules.
+# Use this for known malicious or non-productive sites.
+{% for domain in (blocklist | default({'domains': []})).domains %}BLOCK_DOMAIN={{ domain }}
 {% endfor %}
 
-# Whitelist users/groups (for exceptions)
-{% for group in exception_groups %}EXCEPT_GROUP={{ group }}
+# --------------------------------------------------------------------------
+# Exception Groups: Users/Groups Exempt from Filtering
+# --------------------------------------------------------------------------
+# Unix groups (e.g., 'teachers', 'admins') whose members bypass filtering.
+# Requires an authentication helper (e.g., PAM, LDAP) configured in the router.
+{% for group in exception_groups | default([]) %}EXCEPT_GROUP={{ group }}
 {% endfor %}
 
-# Logging level: 0=none,1=critical,2=error,3=warning,4=notice,5=info,6=debug
-LOG_LEVEL={{ log.level }}
-LOG_FILE={{ log.file_path }}
+# --------------------------------------------------------------------------
+# Logging Configuration
+# --------------------------------------------------------------------------
 
-# Timeout for URL recheck (seconds, used by SquidGuard)
-URL_TIMEOUT={{ squidguard.url_timeout }}
+# Log level for the content filter.
+# 0: None, 1: Critical, 2: Error, 3: Warning, 4: Notice, 5: Info, 6: Debug
+LOG_LEVEL={{ (log | default({'level': 2})).level | default(2) }}
 
-# Refresh interval for category databases (seconds)
-DB_REFRESH={{ squidguard.db_refresh }}
+# Path to the log file for content filtering events.
+LOG_FILE={{ (log | default({'file_path': '/var/log/debian-edu-router/content-filter.log'})).file_path | default('/var/log/debian-edu-router/content-filter.log') }}
 
-# Bandwidth throttling: max KB/s per user (0=unlimited)
-MAX_BANDWIDTH_KBPS={{ bandwidth.max_kbps }}
+# --------------------------------------------------------------------------
+# Bandwidth Throttling & Limits
+# --------------------------------------------------------------------------
+# Controls resource usage to prevent network saturation by heavy users.
 
-# Concurrent connection limit per client
-MAX_CONNECTIONS={{ bandwidth.max_connections }}
+# Maximum bandwidth per user (in KB/s).
+# Set to 0 for no limit.
+MAX_BANDWIDTH_KBPS={{ (bandwidth | default({'max_kbps': 0, 'max_connections': 8})).max_kbps | default(0) }}
 
-# Proxy chaining (for upstream proxy fallback)
-{% if upstream_proxy.enabled %}UPSTREAM_PROXY={{ upstream_proxy.host }}:{{ upstream_proxy.port }}
-{% else %}#UPSTREAM_PROXY=none
+# Maximum concurrent connections per client IP.
+# Prevents a single user from monopolizing connections.
+MAX_CONNECTIONS={{ (bandwidth | default({'max_kbps': 0, 'max_connections': 8})).max_connections | default(8) }}
+
+# --------------------------------------------------------------------------
+# Upstream Proxy Chaining
+# --------------------------------------------------------------------------
+# Optional: Route filtered traffic through another upstream proxy (e.g., for
+# additional caching or geo-restriction handling).
+
+{% if (upstream_proxy | default({'enabled': False})).enabled | default(False) %}
+# Upstream proxy is enabled and configured.
+UPSTREAM_PROXY={{ (upstream_proxy | default({'host': 'cache.example.org', 'port': 3128})).host }}:{{ (upstream_proxy | default({'host': 'cache.example.org', 'port': 3128})).port }}
+{% else %}
+# Upstream proxy is disabled; direct internet access (filtered by local backend).
+UPSTREAM_PROXY=none
 {% endif %}

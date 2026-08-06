@@ -1,0 +1,211 @@
+{# ============================================================================= #}
+{# guestmount Configuration Template                                               #}
+{# This template generates the command-line arguments for `guestmount` (libguestfs).#}
+{# It is self-documenting: every variable reference is sourced from the schema,    #}
+{# and every directive is preceded by a comment explaining its purpose.            #}
+{# ============================================================================= #}
+
+{# ----------------------------------------------------------------------------- #}
+{# Required: Disk Images                                                         #}
+{# List of disk image paths to add. Each item in the 'disks' list becomes an -a   #}
+{# argument. If 'disks' is empty, no -a arguments are generated unless -d is used. #}
+{# ----------------------------------------------------------------------------- #}
+{% for item in disks | default([]) %}
+{# {{ item.description | default('Disk image') }}
+   Path to the disk image file.
+   Schema field: disks[].path (implicit)
+#}
+-a {{ item.path }}
+{% endfor %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Required/Optional: Mount Specifications                                       #}
+{# List of mount points. Each item in 'mounts' becomes a -m argument.             #}
+{# Syntax: -m DEVICE[:MOUNTPOINT[:OPTIONS[:FSTYPE]]]                             #}
+{# ----------------------------------------------------------------------------- #}
+{% for item in mounts | default([]) %}
+{# {{ item.description | default('Mount specification') }}
+   Device: {{ item.dev | default('') }}
+   Mountpoint: {{ item.mountpoint | default('/') }}
+   Options: {{ item.options | default('') }}
+   Filesystem Type: {{ item.fstype | default('') }}
+#}
+-m {{ item.dev | default('') }}{% if item.mountpoint is defined and item.mountpoint != '' %}:{% if item.mountpoint != '/' %}{{ item.mountpoint }}{% else %}/{% endif %}{% if item.options is defined and item.options != '' %}:{{ item.options }}{% endif %}{% if item.fstype is defined and item.fstype != '' %}:{{ item.fstype }}{% endif %}{% endif %}
+{% endfor %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Read-Only Mode                                                      #}
+{# If 'ro' is true, mount read-only; otherwise read-write.                       #}
+{# ----------------------------------------------------------------------------- #}
+{# Mount access mode (ro=readonly, rw=read-write) #}
+{% if ro is defined %}
+{% if ro %}--ro{% else %}--rw{% endif %}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Libvirt Domain                                                      #}
+{# Specify a libvirt domain name or UUID to auto-mount. Requires -i for inspection #}
+{# ----------------------------------------------------------------------------- #}
+{# Libvirt domain name or UUID #}
+{% if domain is defined and domain != '' %}
+-d {{ domain }}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Inspection                                                          #}
+{# Enable inspection to auto-detect guest filesystems and mount points.          #}
+{# ----------------------------------------------------------------------------- #}
+{# Enable auto-inspection of guest filesystems #}
+{% if inspector is defined and inspector %}
+-i
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: FUSE Options                                                        #}
+{# Additional options to pass to the FUSE mount command.                         #}
+{# ----------------------------------------------------------------------------- #}
+{% for opt in fuse_opts | default([]) %}
+{# {{ opt.description | default('FUSE option') }}
+   Option: {{ opt.name | default('') }} = {{ opt.value | default('') }}
+#}
+-o {{ opt.name | default('') }}{% if opt.value is defined and opt.value != '' %}={{ opt.value }}{% endif %}
+
+{% endfor %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Block Size                                                          #}
+{# Force the sector size for the image.                                          #}
+{# ----------------------------------------------------------------------------- #}
+{# Sector size in bytes (e.g., 512, 4096) #}
+{% if blocksize is defined and blocksize != 512 %}
+--blocksize={{ blocksize | default(512) }}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Format                                                              #}
+{# Force the image format (raw, qcow2, vmdk, etc.).                              #}
+{# ----------------------------------------------------------------------------- #}
+{# Force image format (raw, qcow2, vmdk, etc.) #}
+{% if format is defined and format != '' %}
+--format={{ format }}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Trace                                                               #}
+{# Enable tracing of libguestfs calls for debugging.                             #}
+{# ----------------------------------------------------------------------------- #}
+{# Enable libguestfs call tracing #}
+{% if trace is defined and trace %}
+--trace
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Verbose                                                             #}
+{# Enable verbose output.                                                        #}
+{# ----------------------------------------------------------------------------- #}
+{# Enable verbose output #}
+{% if verbose is defined and verbose %}
+--verbose
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: PID File                                                            #}
+{# Path to write the worker PID for safe shutdown.                               #}
+{# ----------------------------------------------------------------------------- #}
+{# PID file path for safe shutdown #}
+{% if pid_file is defined and pid_file != '' %}
+--pid-file={{ pid_file }}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Keys for Encrypted Devices                                          #}
+{# Pass key material for LUKS or encrypted disks.                                #}
+{# Format: --key TARGET:KIND:SOURCE                                              #}
+{# ----------------------------------------------------------------------------- #}
+{% for key in keys | default([]) %}
+{# {{ key.description | default('Encryption key') }}
+   Target: {{ key.target | default('') }}
+   Kind: {{ key.kind | default('') }}
+   Source: {{ key.source | default('') }}
+#}
+--key {{ key.target | default('') }}:{{ key.kind | default('') }}:{{ key.source | default('') }}
+
+{% endfor %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Dir Cache Timeout                                                   #}
+{# Directory cache timeout in seconds.                                           #}
+{# ----------------------------------------------------------------------------- #}
+{# Directory cache timeout in seconds (default 60) #}
+{% if dir_cache_timeout is defined and dir_cache_timeout != 60 %}
+--dir-cache-timeout={{ dir_cache_timeout | default(60) }}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: No Fork                                                             #}
+{# Do not fork into background; keep in foreground.                              #}
+{# ----------------------------------------------------------------------------- #}
+{# Do not fork into background #}
+{% if no_fork is defined and no_fork %}
+--no-fork
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: No Sync                                                             #}
+{# Disable automatic sync on unmount.                                            #}
+{# ----------------------------------------------------------------------------- #}
+{# Disable sync on unmount #}
+{% if no_sync is defined and no_sync %}
+--no-sync
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: File Descriptor                                                     #}
+{# File descriptor for signaling readiness.                                      #}
+{# ----------------------------------------------------------------------------- #}
+{# File descriptor for readiness signaling #}
+{% if fd is defined and fd != 0 %}
+--fd={{ fd | default(0) }}
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Echo Keys                                                           #}
+{# Echo key input (security risk, debugging only).                               #}
+{# ----------------------------------------------------------------------------- #}
+{# Echo passphrases to stderr (security risk) #}
+{% if echo_keys is defined and echo_keys %}
+--echo-keys
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Keys from Stdin                                                     #}
+{# Read keys from standard input.                                                #}
+{# ----------------------------------------------------------------------------- #}
+{# Read keys from stdin #}
+{% if keys_from_stdin is defined and keys_from_stdin %}
+--keys-from-stdin
+
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Optional: Connect URI                                                         #}
+{# Libvirt URI to connect to.                                                    #}
+{# ----------------------------------------------------------------------------- #}
+{# Libvirt connection URI (e.g., qemu:///system) #}
+{% if connect_uri is defined and connect_uri != '' %}
+-c {{ connect_uri }}
+
+{% endif %}

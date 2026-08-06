@@ -1,0 +1,54 @@
+{# ============================================================================== #}
+{# ddrutility configuration template                                               #}
+{#                                                                                #}
+{# ddrutility is a set of data recovery tools (ddru_findbad, ddru_ntfsbitmap, etc.) #}
+{# According to package documentation, no persistent configuration file exists.     #}
+{# This template serves as a self-documenting manifest of expected parameters       #}
+{# for orchestration and integration purposes.                                     #}
+{#                                                                                #}
+{# Schema Fields:                                                                 #}
+{#   - enabled (bool): Whether to emit active configuration or commented output.   #}
+{#   - version (str):  Package version string (e.g., '2.8').                       #}
+{#   - help_flag (bool): Include placeholder note for --help invocation.           #}
+{#   - version_flag (bool): Include placeholder note for --version invocation.     #}
+{#   - email (str):    Bug-report email address from manpage.                      #}
+{#   - homepage (str): Project homepage URL from manpage.                          #}
+{# ============================================================================== #}
+
+{# --- Global Switch: Enable/Disable Configuration --- #}
+{# Whether ddrutility is enabled in the current environment; controls whether to emit active configuration vs comments. #}
+{% if (enabled | default(true)) %}
+# ddrutility is enabled
+{% else %}
+# ddrutility is disabled
+{% endif %}
+
+{# --- Version Identifier --- #}
+{# Package version string (e.g., '2.8') as reported by --version. #}
+{% if (version | default('2.8')) is defined %}
+VERSION="{{ (version | default('2.8')) }}"
+{% endif %}
+
+{# --- Help Flag Placeholder --- #}
+{# If true, include placeholder note about invoking --help for subcommands. #}
+{% if (help_flag | default(false)) %}
+# Request help: ddru_findbad --help  # example for subcommand
+{% endif %}
+
+{# --- Version Flag Placeholder --- #}
+{# If true, include placeholder note about invoking --version for subcommands. #}
+{% if (version_flag | default(false)) %}
+# Request version info: ddru_diskutility --version  # example
+{% endif %}
+
+{# --- Contact Information --- #}
+{# Bug-report email address from manpage. #}
+{% if (email | default('maximus57@hotmail.com')) is defined %}
+# Bug reports to: {{ (email | default('maximus57@hotmail.com')) }}
+{% endif %}
+
+{# --- Project Homepage --- #}
+{# Project homepage URL from manpage. #}
+{% if (homepage | default('http://sourceforge.net/projects/ddrutility/')) is defined %}
+# Project homepage: {{ (homepage | default('http://sourceforge.net/projects/ddrutility/')) }}
+{% endif %}

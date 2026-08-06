@@ -1,0 +1,62 @@
+{# Claws Mail S/MIME Plugin Configuration Template #}
+{# ================================================= #}
+{# This template generates a configuration file for the Claws Mail S/MIME plugin (smime.so). #}
+{# It controls automatic signature verification, decryption, certificate locations, and #}
+{# optional LDAP-based certificate lookups. #}
+{# #}
+{# All variables use Jinja2 `default()` filters with schema-specified defaults to ensure #}
+{# the output is always valid, even if the variable is not provided by Ansible. #}
+{# #}
+{# Native comment syntax for this config format is `#`. #}
+
+# S/MIME plugin settings for Claws Mail
+
+{# verify_signed_on_recv: boolean #}
+{# Description: Enable automatic verification of signed messages on receive #}
+{# Default: True #}
+{# Renders as 'true' or 'false' (lowercase) #}
+verify_signed_on_recv = {{ verify_signed_on_recv | default(True) | lower }}
+
+{# decrypt_on_recv: boolean #}
+{# Description: Enable automatic decryption of encrypted messages on receive #}
+{# Default: True #}
+{# Renders as 'true' or 'false' (lowercase) #}
+decrypt_on_recv = {{ decrypt_on_recv | default(True) | lower }}
+
+{# ca_dir: string #}
+{# Description: Directory containing CA certificates used to verify S/MIME certificates #}
+{# Default: '/etc/ssl/certs' #}
+ca_dir = {{ ca_dir | default('/etc/ssl/certs') }}
+
+{# cert_dir: string #}
+{# Description: Directory containing the user’s own S/MIME certificates and private keys #}
+{# Default: '~/.claws-mail/certs' #}
+cert_dir = {{ cert_dir | default('~/.claws-mail/certs') }}
+
+{# extra_cert_dirs: list of strings #}
+{# Description: Additional directories to search for certificates (comma-separated when rendered) #}
+{# Default: [] (empty list) #}
+{# Only writes the directive if at least one extra directory is defined. #}
+{%- if extra_cert_dirs is defined and extra_cert_dirs | length > 0 %}
+extra_cert_dirs = {{ extra_cert_dirs | join(',') }}
+{%- endif %}
+
+{# show_cert_info: boolean #}
+{# Description: Enable display of certificate information (issuer, subject, validity) in message headers #}
+{# Default: False #}
+{# Renders as 'true' or 'false' (lowercase) #}
+show_cert_info = {{ show_cert_info | default(False) | lower }}
+
+{# ldap_cert_lookup: boolean #}
+{# Description: Enable automatic certificate lookup via LDAP (requires claws-mail-ldap plugin) #}
+{# Default: False #}
+{# Renders as 'true' or 'false' (lowercase) #}
+ldap_cert_lookup = {{ ldap_cert_lookup | default(False) | lower }}
+
+{# ldap_url: string #}
+{# Description: LDAP URL for certificate lookup (e.g., ldap://ldap.example.com:389/dc=example,dc=com?certificate?one?) #}
+{# Default: '' (empty string) #}
+{# Only writes the directive if a URL is explicitly provided (non-empty). #}
+{%- if ldap_url is defined and ldap_url | trim | length > 0 %}
+ldap_url = {{ ldap_url }}
+{%- endif %}

@@ -1,0 +1,55 @@
+# /etc/ax25/axmail.conf - axMail configuration file
+#
+# Self-documenting Jinja2 template for axMail.
+# Every directive is annotated with its schema description and safe defaults.
+
+# Idle timeout in seconds before disconnecting inactive connections.
+IdleTimeout	{{ IdleTimeout | default(900) }}
+
+# Local AX.25 hostname (AMP-R domain recommended).
+HostName	{{ HostName | default('<your>.ampr.org') }}
+
+# Sysop's email address for mail handling.
+SysopMail      {{ SysopMail | default('<your@email.address>') }}
+
+# Which users are allowed to use axmail (all, nologin, passwd, axhome).
+#   all     : All users who have an account (or have just created one)
+#   nologin : Those who have "+" as password (the axmail-only accounts)
+#   passwd  : Those who have a password set (NOT those with "+" as password)
+#   axhome  : Those who put all ham home dirs within one branch
+AllowMail	{{ AllowMail | default('all') }}
+
+# Method of user identification (none, passwd).
+#   none    : Trust the callsign given on command line
+#   passwd  : Ask for a plaintext password (brrrr...)
+Identification	{{ Identification | default('none') }}
+
+# ------ Parameters for automatically created user accounts
+
+# Allow automatic creation of user accounts (yes/no).
+AutoCreate	{{ AutoCreate | default('yes') }}
+
+# Whether auto-created accounts can log in (yes/no/crazy).
+#   yes   : User is prompted for password, when the account is created
+#   no    : Password is set to "+" (cannot login) (preferred, axmail-only
+#           account)
+#   crazy : Password is left empty (can login without password)
+LoginAllowed	{{ LoginAllowed | default('no') }}
+
+# Group name or ID for auto-created accounts.
+AutoGroup	{{ AutoGroup | default('ax25') }}
+
+# First user ID to use for auto-created accounts.
+First_uid	{{ First_uid | default(2000) }}
+
+# Maximum user ID to use for auto-created accounts.
+Last_uid	{{ Last_uid | default(2999) }}
+
+# Base directory for home directories of new users.
+HomeDir		{{ HomeDir | default('/home') }}
+
+# Shell assigned to auto-created accounts.
+Shell		{{ Shell | default('/bin/false') }}
+
+# Fax gateway email address (must be quoted in config).
+FaxGate		{{ FaxGate | default('"your@faxgate.com"') }}

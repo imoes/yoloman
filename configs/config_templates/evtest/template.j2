@@ -1,0 +1,93 @@
+{# =============================================================================
+   # evtest Configuration Template
+   # =============================================================================
+   #
+   # This template generates the evtest configuration file. evtest is a utility
+   # for reading input events from Linux input subsystem devices (evdev).
+   #
+   # The configuration supports two main sections:
+   # 1. capture_sessions: Persistent capture sessions for input devices.
+   # 2. query_commands: One-shot queries to test specific event types/values.
+   #
+   # Self-documentation: Every directive is prefixed with a comment derived from
+   # the Ansible variable schema to explain its purpose.
+   # ============================================================================= #}
+
+{# -----------------------------------------------------------------------------
+   # Section: Capture Sessions
+   # capture_sessions: List of input devices to capture events from. Each entry
+   # configures an evtest capture session. If empty, no capture sessions are
+   # configured.
+   # ----------------------------------------------------------------------------- #}
+
+{# Iterate over each configured capture session. Default to empty list if undefined. #}
+{% for session in (capture_sessions | default([])) %}
+
+    {# Header comment for the capture sessions block, printed only once. #}
+    {% if loop.first %}
+# Capture sessions configured for evtest
+    {% endif %}
+
+    {# Conditional comment: Explains that EVIOCGRAB is enabled, blocking other readers. #}
+    {% if session.grab | default(false) %}
+# EVIOCGRAB enabled: other processes will be blocked from reading events
+    {% endif %}
+
+    {# INI-style section header for this specific device session.
+       device: The path to the input device file (e.g., /dev/input/event0).
+       We sanitize the device path for use as an INI section name. #}
+    {% set session_name = (session.device | default('unknown')) | replace('/', '_') | replace('.', '_') %}
+[evtest-{{ session_name }}]
+
+    {# device: Path to the input device node to capture from. #}
+Device={{ session.device | default('') }}
+
+    {# grab: If true, evtest uses EVIOCGRAB to exclusively grab the device.
+       Default is false if not specified. #}
+    {% if session.grab | default(false) %}
+Grab=true
+    {% endif %}
+
+{# End of iteration for capture_sessions #}
+{% endfor %}
+
+{# -----------------------------------------------------------------------------
+   # Section: Query Commands
+   # query_commands: List of one-shot queries to perform. Each entry defines an
+   # evtest query for a specific event type and value. If empty, no queries are
+   # configured.
+   # ----------------------------------------------------------------------------- #}
+
+{# Iterate over each configured query command. Default to empty list if undefined. #}
+{% for cmd in (query_commands | default([])) %}
+
+    {# Header comment for the query commands block, printed only once. #}
+    {% if loop.first %}
+# Query commands for evtest
+    {% endif %}
+
+    {# INI-style section header for this query.
+       device: The input device path.
+       type: The Linux event type (e.g., EV_KEY, EV_SW).
+       Sanitize paths and type names for safe INI section naming. #}
+    {% set cmd_device = (cmd.device | default('unknown')) | replace('/', '_') | replace('.', '_') %}
+    {% set cmd_type = (cmd.type | default('unknown')) | replace('_', '-') %}
+[evtest-query-{{ cmd_device }}-{{ cmd_type }}]
+
+    {# device: Path to the input device to query. #}
+Device={{ cmd.device | default('') }}
+
+    {# type: The event type to query (e.g., EV_KEY, EV_SW, EV_SND, EV_LED).
+       See linux/input-event-codes.h for valid types. #}
+Type={{ cmd.type | default('') }}
+
+    {# value: The specific event code/value to test.
+       Only applicable for certain event types like EV_KEY, EV_SW, EV_SND, EV_LED.
+       If the type is not one of these, Value is omitted to maintain validity. #}
+    {% set valid_types = ['EV_KEY', 'EV_SW', 'EV_SND', 'EV_LED'] %}
+    {% if cmd.type | default('') in valid_types %}
+Value={{ cmd.value | default(0) }}
+    {% endif %}
+
+{# End of iteration for query_commands #}
+{% endfor %}

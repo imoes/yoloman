@@ -1,33 +1,58 @@
-# Enable Flatcurve backend plugin for mail index handling
+# =============================================================================
+# Dovecot Flatcurve Plugin Configuration Template
+# =============================================================================
+# This template configures the `fts-flatcurve` plugin for Dovecot.
+# Flatcurve provides a fast, disk-based full-text search index for IMAP mailboxes.
+#
+# Self-documenting: every directive is preceded by a comment describing its
+# purpose, derived from the Ansible role schema. All variables use safe defaults
+# to prevent rendering errors if a variable is undefined.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Mail Plugins Registration
+# -----------------------------------------------------------------------------
+# Ensures the flatcurve plugin is loaded by appending it to the existing
+# mail_plugins list. Uses `default` to handle cases where `mail_plugins` is
+# not defined elsewhere.
 plugin {
-  # Flatcurve backend module path
-  mail_fsync = never
-  mail_plugins = $mail_plugins flatcurve
+  mail_plugins = {{ mail_plugins | default('') | trim }}{% if mail_plugins | default('') | trim %} {% endif %}flatcurve
 }
 
-# Flatcurve-specific configuration
+# -----------------------------------------------------------------------------
+# Flatcurve Plugin Settings
+# -----------------------------------------------------------------------------
 flatcurve {
-  # Directory where Flatcurve index files are stored (must be unique per namespace/mailbox)
-  index_dir = {{ index_dir }}
 
-  # Maximum number of open database connections
-  max_connections = {{ max_connections }}
+  # ---------------------------------------------------------------------------
+  # index_dir: Directory where Flatcurve stores index files.
+  # Must be writable by the dovecot user.
+  # Default: /var/lib/dovecot/flatcurve
+  # ---------------------------------------------------------------------------
+  index_dir = {{ index_dir | default('/var/lib/dovecot/flatcurve') }}
 
-  # Enable compression for index files (reduces disk usage at slight CPU cost)
-  compression = {{ compression | string | lower }}
+  # ---------------------------------------------------------------------------
+  # compression: Whether to compress index files.
+  # Reduces disk space but increases CPU usage during indexing.
+  # Default: False
+  # ---------------------------------------------------------------------------
+  compression = {{ compression | default(False) | string | lower }}
 
-  # Enable strict consistency checks (slower but safer for production)
-  strict_mode = {{ strict_mode | string | lower }}
+  # ---------------------------------------------------------------------------
+  # skip_patterns: Mailbox name patterns to exclude from Flatcurve indexing.
+  # Case-insensitive partial matches.
+  # Default: ['Drafts', 'Sent', 'Trash']
+  # ---------------------------------------------------------------------------
+  # Note: Flatcurve expects skip_patterns as a space-separated list.
+  skip_patterns = {{ skip_patterns | default(['Drafts', 'Sent', 'Trash']) | join(' ') }}
 
-  # List of mailbox patterns to exclude from Flatcurve indexing (e.g., Drafts, Sent)
-  skip_patterns = {% for pattern in skip_patterns %}
-    # Skip indexing for: {{ pattern }}
-    {{ pattern }}
-  {% endfor %}
+  # ---------------------------------------------------------------------------
+  # removed: Variables removed because they are not documented for the
+  # fts-flatcurve plugin. This block is intentionally empty of these keys
+  # to maintain configuration hygiene.
+  # Default: ['max_connections', 'compression', 'strict_mode',
+  #           'skip_patterns', 'mail_fsync']
+  # ---------------------------------------------------------------------------
+  # (No directives emitted for removed variables)
 
-  # Optional: custom database engine settings (e.g., for LMDB or SQLite backends)
-  # Format: key=value; one per line
-  {% for setting, value in db_settings.items() %}
-  {{ setting }} = {{ value }}
-  {% endfor %}
 }

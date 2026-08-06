@@ -1,60 +1,141 @@
-# WebDAV client configuration for davfs2
-# Enable WebDAV server certificate verification (set to 0 to disable)
-use_cert_verification  {{ dav_cert_verification }}
+# davfs2 configuration file 2020-08-03
+# version 13
+# ------------------------------------
 
-# Path to custom CA certificates file for HTTPS verification
-# (leave commented to use system defaults)
-ca_cert_file  {{ dav_ca_cert_file }}
+# Copyright (C) 2006, 2007, 2008, 2009, 2012, 2013, 2014 Werner Baumann
 
-# Path to client certificate (PEM format, optional)
-client_cert  {{ dav_client_cert }}
+# Copying and distribution of this file, with or without modification, are
+# permitted in any medium without royalty provided the copyright notice
+# and this notice are preserved.
 
-# Path to private key for client certificate (optional)
-client_key  {{ dav_client_key }}
 
-# Enable/Disable compression of requests
-use_compression  {{ dav_compression }}
+# Please read the davfs2.conf (5) man page for a description of the
+# configuration options and syntax rules.
 
-# Timeout for WebDAV requests (seconds)
-cache_timeout  {{ dav_cache_timeout }}
 
-# Maximum number of concurrent connections per server
-max_conns  {{ dav_max_conns }}
+# Available options and default values
+# ====================================
 
-# Minimum space (in KB) to keep free on cache directory
-cache_size  {{ dav_cache_size_kb }}
+# General Options
+# ---------------
 
-# Directory used for local caching of file contents
-# (set to empty string to disable caching)
-cache_dir  {{ dav_cache_dir }}
+# dav_user        davfs2            # system wide config file only
+# dav_group       davfs2            # system wide config file only
+# buf_size        16                 # KiByte
 
-# Enable/Disable use of local cache for metadata
-use_mmap  {{ dav_use_mmap }}
+# WebDAV Related Options
+# ----------------------
 
-# Enable/Disable locking (set to 0 for read-only mounts or problematic servers)
-use_locks  {{ dav_use_locks }}
+# use_proxy       1                 # system wide config file only
+# proxy             # system wide config file only
 
-# Enable/Disable use of HTTP/1.1 persistent connections
-keep_alive  {{ dav_keep_alive }}
+# trust_ca_cert   {{ dav_ca_cert_file | default('') }}
+# Path to a custom CA certificate bundle file (PEM format). If empty, system defaults are used.
 
-# Default file permissions for newly created files (octal)
-file_mode  {{ dav_file_mode }}
+# servercert                        # deprecated: use trust_ca_cert
 
-# Default directory permissions for newly created directories (octal)
-dir_mode  {{ dav_dir_mode }}
+# trust_server_cert  {{ dav_cert_verification | default(True) }}
+# Whether to verify WebDAV server certificates over HTTPS. Disable only for testing or with self-signed certs (not recommended in production).
 
-# User and group to use for cache file ownership (if caching enabled)
-cache_owner  {{ dav_cache_owner }}
-cache_group  {{ dav_cache_group }}
+# clientcert    {{ dav_client_cert | default('') }}
+# Path to a client certificate (PEM format). Required only if the server requires mutual TLS authentication.
 
-# Optional HTTP headers to send with every request (one per line)
-# Format: header_name: header_value
-{% for header in dav_extra_headers %}
-add_header  {{ header.name }}: {{ header.value }}
+# secrets         ~/.davfs2/secrets # user config file only
+# ask_auth        1
+
+# use_locks       {{ dav_use_locks | default(True) }}
+# Enable WebDAV file locking. Disable if the server does not support locking or causes hangs.
+
+# lock_owner      <user-name>
+# lock_timeout    1800              # seconds
+# lock_refresh    60                # seconds
+# use_expect100   0
+# if_match_bug    0
+# drop_weak_etags 0
+# n_cookies       0
+# precheck        1
+# ignore_dav_header 0
+
+# use_compression {{ dav_compression | default(False) }}
+# Enable HTTP compression (gzip) for uploads. May improve performance over slow links but can increase CPU usage.
+
+# min_propset     0
+# follow_redirect 0
+# sharepoint_href_bug 0
+# server_charset
+# connect_timeout 10                # seconds
+# read_timeout    30                # seconds
+# retry           30                # seconds
+# max_retry       300               # seconds
+
+# add_header
+# List of custom HTTP headers to add to every WebDAV request. Useful for auth proxies or vendor-specific features.
+{% if dav_extra_headers | default([]) | length > 0 %}
+{% for header in dav_extra_headers %}add_header {{ header | string }}
 {% endfor %}
+{% endif %}
 
-# Optional proxy server (host:port); leave empty to disable
-proxy  {{ dav_proxy }}
+# Cache Related Options
+# ---------------------
 
-# Enable/Disable WebDAV protocol debug logging (to syslog)
-debug  {{ dav_debug }}
+# backup_dir      lost+found
+
+# cache_dir       {{ dav_cache_dir | default('/var/cache/davfs2') }} # system wide cache
+#                 ~/.davfs2/cache   # per user cache
+# Local directory for file content caching. Set to '' (empty string) to disable caching entirely (read-only fallback only).
+
+# cache_size      {{ dav_cache_size_kb | default(10240) }} # MiByte
+# Minimum free space (KB) to maintain on the cache directory. When free space drops below this, davfs2 will purge old cached content.
+
+# table_size      1024
+
+# dir_refresh     {{ dav_cache_timeout | default(60) }} # seconds
+# Time in seconds before cached metadata is considered stale. Lower values reduce consistency but improve freshness.
+
+# file_refresh    1                 # second
+# delay_upload    10
+# gui_optimize    0
+# minimize_mem    0
+
+# Debugging Options
+# -----------------
+
+# debug           {{ dav_debug | default(False) }}   # possible values: config, kernel, cache, http, xml,
+                  #      httpauth, locks, ssl, httpbody, secrets, most
+# Enable debug logging (requires restart to take effect).
+
+# Network Options
+# ---------------
+
+# proxy             {{ dav_proxy | default('') }}
+# Proxy server in 'host:port' format (e.g., 'proxy.example.com:3128'). Leave blank to connect directly.
+
+# Performance & Security
+# ----------------------
+
+# use_mmap          {{ dav_use_mmap | default(True) }}
+# Use memory-mapped I/O for cached files (improves performance). Disable only if compatibility issues arise.
+
+# max_conns         {{ dav_max_conns | default(2) }}
+# Maximum number of concurrent connections per WebDAV server. Increase for better throughput on high-latency links.
+
+# keep_alive        {{ dav_keep_alive | default(True) }}
+# Use HTTP/1.1 persistent connections to reduce handshake overhead. Generally safe to enable.
+
+# File Permissions
+# ----------------
+
+# file_mode         {{ dav_file_mode | default('0640') }}
+# Octal file permissions for newly created files (e.g., '0644', '0600').
+
+# dir_mode          {{ dav_dir_mode | default('0750') }}
+# Octal permissions for newly created directories (e.g., '0755', '0700').
+
+# Cache Ownership
+# ---------------
+
+# cache_owner       {{ dav_cache_owner | default('root') }}
+# User (name or UID) to own cache files and directories. Must have read/write access to cache_dir.
+
+# cache_group       {{ dav_cache_group | default('root') }}
+# Group (name or GID) to own cache files and directories.

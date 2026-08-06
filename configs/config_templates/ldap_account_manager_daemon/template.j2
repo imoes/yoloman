@@ -1,85 +1,180 @@
-# Listen address and port for the LAM daemon
-bind_address: {{ daemon.bind_address }}
-port: {{ daemon.port }}
+# ==============================================================================
+# LAM Daemon (LDAP Account Manager Daemon) Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of the lamdaemon service, which
+# acts as a bridge between web clients and LDAP directories.
+# ==============================================================================
 
-# Path to the PID file
-pid_file: {{ paths.pid_file }}
+# ------------------------------------------------------------------------------
+# Network Binding
+# ------------------------------------------------------------------------------
 
-# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level: {{ daemon.log_level }}
+# IP address the daemon listens on. Use 0.0.0.0 to listen on all interfaces.
+# Default: 127.0.0.1 (localhost only)
+bind_address: {{ (daemon | default({})).bind_address | default('127.0.0.1') }}
 
-# Log file path (empty for stdout)
-log_file: {{ paths.log_file }}
+# TCP port for incoming LAM daemon connections.
+# Default: 7902
+port: {{ (daemon | default({})).port | default(7902) }}
 
-# Timeout for LDAP operations (seconds)
-ldap_timeout: {{ daemon.ldap_timeout }}
+# ------------------------------------------------------------------------------
+# Process Management
+# ------------------------------------------------------------------------------
 
-# Enable/Disable SSL/TLS for connections to LDAP server
-ldap_use_tls: {{ daemon.ldap_use_tls | lower }}
+# Full path to the PID file for the daemon process.
+# Ensure the directory exists and is writable by the daemon user.
+# Default: /var/run/lamdaemon/lamdaemon.pid
+pid_file: {{ (paths | default({})).pid_file | default('/var/run/lamdaemon/lamdaemon.pid') }}
 
-# LDAP server URI(s) — comma-separated or space-separated list
-ldap_uris: {{ daemon.ldap_uris | join(', ') }}
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
 
-# Base DN for user/group searches
-ldap_basedn: {{ ldap.basedn }}
+# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+# Use DEBUG for troubleshooting connectivity issues.
+# Default: INFO
+log_level: {{ (daemon | default({})).log_level | default('INFO') }}
 
-# LDAP bind DN (service account)
-ldap_binddn: {{ ldap.binddn }}
+# Path to the log file. Leave empty to log to stdout.
+# Default: /var/log/lamdaemon/lamdaemon.log
+log_file: {{ (paths | default({})).log_file | default('/var/log/lamdaemon/lamdaemon.log') }}
 
-# LDAP bind password — use secure credential store in production
-ldap_bindpw: {{ ldap.bindpw }}
+# ------------------------------------------------------------------------------
+# LDAP Connectivity
+# ------------------------------------------------------------------------------
 
-# LDAP schema version (e.g., '2.5', '3')
-ldap_schema_version: {{ ldap.schema_version }}
+# Maximum time (seconds) to wait for LDAP operations before timing out.
+# Default: 30
+ldap_timeout: {{ (daemon | default({})).ldap_timeout | default(30) }}
 
-# Maximum number of concurrent requests
-max_connections: {{ daemon.max_connections }}
+# Whether to use STARTTLS for LDAP connections.
+# Recommended for production to encrypt traffic between LAM and LDAP.
+# Default: True
+ldap_use_tls: {{ ((daemon | default({})).ldap_use_tls | default(True)) | lower }}
 
-# User quota enforcement mode: 'strict', 'soft', 'off'
-quota_mode: {{ quota.mode }}
+# Comma-separated list of LDAP URIs (servers) in order of preference.
+# Supports ldap:// and ldaps:// schemes.
+# Default: ['ldap://localhost']
+ldap_uris: {{ (daemon | default({})).ldap_uris | default(['ldap://localhost']) | join(', ') }}
 
-# Default home directory prefix
-home_dir_prefix: {{ paths.home_dir_prefix }}
+# ------------------------------------------------------------------------------
+# LDAP Authentication & Directory Structure
+# ------------------------------------------------------------------------------
 
-# Default shell for new users
-default_shell: {{ users.default_shell }}
+# Base DN where user and group entries are stored.
+# This defines the root of the search tree for user/group lookups.
+# Default: dc=example,dc=com
+ldap_basedn: {{ (ldap | default({})).basedn | default('dc=example,dc=com') }}
 
-# Default UID/GID start offset
-uid_start: {{ users.uid_start }}
-gid_start: {{ users.gid_start }}
+# DN of the service account used to bind to LDAP.
+# This account needs read permissions on the directory.
+# Default: cn=lamdaemon,ou=Services,dc=example,dc=com
+ldap_binddn: {{ (ldap | default({})).binddn | default('cn=lamdaemon,ou=Services,dc=example,dc=com') }}
 
-# LDAP object classes for users and groups
-user_objectclass: {{ users.user_objectclass }}
-group_objectclass: {{ users.group_objectclass }}
+# Password for the LDAP bind DN.
+# In production, prefer secure credential storage (e.g., vault, file permissions 600).
+# Default: '' (empty)
+ldap_bindpw: {{ (ldap | default({})).bindpw | default('') }}
 
-# LDAP attribute mappings
-user_uid_attr: {{ users.uid_attr }}
-user_cn_attr: {{ users.cn_attr }}
-group_cn_attr: {{ users.group_cn_attr }}
-group_member_attr: {{ users.group_member_attr }}
+# LDAP schema version supported by the server.
+# Determines how attributes like GID/UID are handled (e.g., RFC 2307 vs 2307bis).
+# Default: '2.5'
+ldap_schema_version: {{ (ldap | default({})).schema_version | default('2.5') }}
 
-# Optional: LDAP referrals (follow or ignore)
-follow_referrals: {{ ldap.follow_referrals | lower }}
+# Whether to follow LDAP referrals (not recommended unless explicitly needed).
+# Default: False
+follow_referrals: {{ ((ldap | default({})).follow_referrals | default(False)) | lower }}
 
-# Optional: SSL/TLS certificate verification (true/false or path to CA cert)
-ldap_tls_cacert: {{ ldap.tls_cacert | default('') }}
+# Optional: SSL/TLS certificate verification.
+# Path to CA certificate bundle for TLS verification. Leave empty to skip verification (not recommended).
+# Default: /etc/ssl/certs/ca-certificates.crt
+ldap_tls_cacert: {{ (ldap | default({})).tls_cacert | default('/etc/ssl/certs/ca-certificates.crt') }}
 
-# Optional: Custom SASL mechanism (e.g., 'EXTERNAL')
-sasl_mech: {{ ldap.sasl_mech | default('') }}
+# Optional: Custom SASL mechanism for authentication (e.g., 'EXTERNAL').
+# Leave empty for simple bind (password-based).
+# Default: ''
+sasl_mech: {{ (ldap | default({})).sasl_mech | default('') }}
 
-# Service restart grace period (seconds)
-restart_grace_period: {{ daemon.restart_grace_period }}
+# ------------------------------------------------------------------------------
+# Daemon Limits
+# ------------------------------------------------------------------------------
 
-# Enable/disable background quota scanning
-quota_scan_enabled: {{ quota.scan_enabled | lower }}
+# Maximum number of concurrent incoming connections.
+# Default: 100
+max_connections: {{ (daemon | default({})).max_connections | default(100) }}
 
-# Quota scan interval (minutes)
-quota_scan_interval: {{ quota.scan_interval }}
+# Seconds to wait for in-flight requests to complete during service restart.
+# Default: 10
+restart_grace_period: {{ (daemon | default({})).restart_grace_period | default(10) }}
 
-# List of groups to exclude from quota management (empty means none)
-{% if quota.excluded_groups %}
+# ------------------------------------------------------------------------------
+# User & Group Mapping
+# ------------------------------------------------------------------------------
+
+# Prefix for user home directories.
+# Default: /home
+home_dir_prefix: {{ (paths | default({})).home_dir_prefix | default('/home') }}
+
+# Default login shell for new users.
+# Default: /bin/bash
+default_shell: {{ (users | default({})).default_shell | default('/bin/bash') }}
+
+# Starting UID number for new users.
+# Default: 1000
+uid_start: {{ (users | default({})).uid_start | default(1000) }}
+
+# Starting GID number for new groups.
+# Default: 1000
+gid_start: {{ (users | default({})).gid_start | default(1000) }}
+
+# Comma-separated list of objectClass values for user entries.
+# Must include at least posixAccount for Unix integration.
+# Default: 'inetOrgPerson,posixAccount'
+user_objectclass: {{ (users | default({})).user_objectclass | default('inetOrgPerson,posixAccount') }}
+
+# ObjectClass for group entries.
+# Default: 'posixGroup'
+group_objectclass: {{ (users | default({})).group_objectclass | default('posixGroup') }}
+
+# LDAP attribute used for user login names.
+# Common values: 'uid' (LDAP standard) or 'sAMAccountName' (Active Directory).
+# Default: 'uid'
+user_uid_attr: {{ (users | default({})).uid_attr | default('uid') }}
+
+# LDAP attribute used for user/common-name display name.
+# Default: 'cn'
+user_cn_attr: {{ (users | default({})).cn_attr | default('cn') }}
+
+# LDAP attribute for group display name.
+# Default: 'cn'
+group_cn_attr: {{ (users | default({})).group_cn_attr | default('cn') }}
+
+# LDAP attribute listing group members.
+# Use 'memberUid' for RFC 2307 (uid values) or 'member' for RFC 2307bis (full DNs).
+# Default: 'memberUid'
+group_member_attr: {{ (users | default({})).group_member_attr | default('memberUid') }}
+
+# ------------------------------------------------------------------------------
+# Quota Management
+# ------------------------------------------------------------------------------
+
+# Quota enforcement mode: 'strict' (block over quota), 'soft' (warn but allow), or 'off' (disabled).
+# Default: 'soft'
+quota_mode: {{ (quota | default({})).mode | default('soft') }}
+
+# Enable background scanning to enforce quotas and update usage stats.
+# Default: True
+quota_scan_enabled: {{ ((quota | default({})).scan_enabled | default(True)) | lower }}
+
+# Minutes between quota scans.
+# Default: 60
+quota_scan_interval: {{ (quota | default({})).scan_interval | default(60) }}
+
+# List of LDAP group CNs that should not be subject to quota checks.
+# If empty, no groups are excluded.
+{% if (quota | default({})).excluded_groups is defined and (quota | default({})).excluded_groups | length > 0 %}
 quota_excluded_groups:
-{% for group in quota.excluded_groups %}- {{ group }}
+{% for group in (quota | default({})).excluded_groups %}- {{ group }}
 {% endfor %}
 {% else %}
 quota_excluded_groups: []

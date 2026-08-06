@@ -1,57 +1,77 @@
 [general]
-# Base directory for spooling files
-spool_dir = {{ spool_dir }}
+# Base directory where files are staged for processing.
+spool_dir = {{ spool_dir | default('/var/spool/filespooler') }}
 
-# Maximum age (in seconds) for queued files before cleanup
-max_file_age = {{ max_file_age }}
+# Maximum time (in seconds) to retain a queued file before automatic deletion.
+max_file_age = {{ max_file_age | default(86400) }}
 
-# Number of worker threads for file processing
-worker_count = {{ worker_count }}
+# Number of worker threads to process queued files.
+worker_count = {{ worker_count | default(4) }}
 
-# Enable verbose logging (true/false)
-verbose = {{ verbose }}
+# Enable detailed logging for debugging and monitoring.
+verbose = {{ verbose | default(false) }}
 
-# Maximum size (in bytes) of a single spooled file
-max_file_size = {{ max_file_size }}
+# Maximum size (in bytes) allowed for a single file in the spool.
+max_file_size = {{ max_file_size | default(104857600) }}
 
-# Maximum number of files to keep in spool directory
-max_file_count = {{ max_file_count }}
+# Maximum number of files allowed in the spool directory before rejection.
+max_file_count = {{ max_file_count | default(10000) }}
 
 [listener]
-# Host and port for the incoming connection listener
-host = {{ listener.host }}
-port = {{ listener.port }}
+# Network listener settings for receiving incoming file uploads.
+# Host address to bind the listener to.
+host = {{ (listener | default({'host': '0.0.0.0'})).host | default('0.0.0.0') }}
 
-# Enable TLS for listener connections
-tls_enabled = {{ listener.tls_enabled }}
+# Port number for the listener service.
+port = {{ (listener | default({'port': 8080})).port | default(8080) }}
 
-# Path to TLS certificate (only if TLS enabled)
-{% if listener.tls_enabled %}cert_file = {{ listener.cert_file }}
-{% endif %}key_file = {{ listener.key_file }}
+# Enable TLS encryption for incoming connections (true/false).
+tls_enabled = {{ (listener | default({'tls_enabled': False})).tls_enabled | default(false) }}
 
-{% for backend in backends %}
-[backend:{{ backend.name }}]
-# Backend: {{ backend.description }}
-{% if backend.enabled %}enabled = true
+# Path to TLS certificate file (required if tls_enabled is true).
+cert_file = {{ (listener | default({'cert_file': '/etc/filespooler/tls/server.crt'})).cert_file | default('/etc/filespooler/tls/server.crt') }}
+
+# Path to TLS private key file (required if tls_enabled is true).
+key_file = {{ (listener | default({'key_file': '/etc/filespooler/tls/server.key'})).key_file | default('/etc/filespooler/tls/server.key') }}
+
+# List of file destination backends. Each backend handles final storage or forwarding.
+{% for backend in backends | default([{'name': 'default', 'description': 'Primary local file storage backend', 'enabled': True, 'type': 'local', 'local': {'storage_dir': '/var/spool/filespooler/storage'}}]) %}
+[backend:{{ backend.name | default('default') }}]
+# Backend description: {{ backend.description | default('') }}
+
+# Whether this backend is active (true/false).
+{% if backend.enabled | default(true) %}enabled = true
 {% else %}enabled = false
-{% endif %}type = {{ backend.type }}
-{% if backend.type == 'local' %}
-# Local backend: path to local storage directory
-storage_dir = {{ backend.local.storage_dir }}
-{% elif backend.type == 's3' %}
-# S3 backend: AWS-compatible storage
-region = {{ backend.s3.region }}
-endpoint = {{ backend.s3.endpoint }}
-bucket = {{ backend.s3.bucket }}
-access_key = {{ backend.s3.access_key }}
-secret_key = {{ backend.s3.secret_key }}
-{% elif backend.type == 'ftp' %}
-# FTP backend: legacy file transfer
-host = {{ backend.ftp.host }}
-port = {{ backend.ftp.port }}
-username = {{ backend.ftp.username }}
-{% if backend.ftp.use_tls %}use_tls = true
-{% endif %}password = {{ backend.ftp.password }}
+{% endif %}
+# Storage type: local, s3, ftp, etc.
+type = {{ backend.type | default('local') }}
+
+# Backend-specific configuration
+{% if backend.type | default('local') == 'local' %}
+# Local backend configuration: path to the local storage directory.
+# Requires backend.local dict to be defined.
+storage_dir = {{ (backend.local | default({})).storage_dir | default('/var/spool/filespooler/storage') }}
+
+{% elif backend.type | default('local') == 's3' %}
+# S3 backend configuration: AWS-compatible object storage settings.
+# Requires backend.s3 dict to be defined.
+region = {{ (backend.s3 | default({})).region | default('us-east-1') }}
+endpoint = {{ (backend.s3 | default({})).endpoint | default('') }}
+bucket = {{ (backend.s3 | default({})).bucket | default('') }}
+access_key = {{ (backend.s3 | default({})).access_key | default('') }}
+secret_key = {{ (backend.s3 | default({})).secret_key | default('') }}
+
+{% elif backend.type | default('local') == 'ftp' %}
+# FTP backend configuration: legacy file transfer protocol settings.
+# Requires backend.ftp dict to be defined.
+host = {{ (backend.ftp | default({})).host | default('') }}
+port = {{ (backend.ftp | default({})).port | default(21) }}
+username = {{ (backend.ftp | default({})).username | default('') }}
+
+# Enable TLS for FTP control connection (true/false).
+{% if (backend.ftp | default({})).use_tls | default(false) %}use_tls = true
+{% endif %}
+password = {{ (backend.ftp | default({})).password | default('') }}
 {% endif %}
 
 {% endfor %}

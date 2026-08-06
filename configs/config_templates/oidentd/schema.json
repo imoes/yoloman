@@ -1,131 +1,41 @@
 {
+  "oidentd_limit_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous oidentd connections to allow."
+  },
+  "oidentd_user": {
+    "type": "string",
+    "default": "oident",
+    "description": "User account under which oidentd runs."
+  },
+  "oidentd_group": {
+    "type": "string",
+    "default": "oident",
+    "description": "Group under which oidentd runs."
+  },
+  "oidentd_behind_proxy": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether the host is behind a masquerading router acting as an oidentd proxy. Must be 'yes' or 'no'.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
   "global_options": {
     "type": "object",
-    "default": {},
+    "default": "",
     "description": "Key-value pairs for global oidentd settings (e.g., 'default_allow yes')."
   },
   "users": {
     "type": "list",
     "default": [],
-    "description": "List of users with custom ident response rules.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "System username (e.g., 'www-data', 'postgres'). Required."
-        },
-        "rules": {
-          "type": "list",
-          "default": [],
-          "description": "List of ident rules for this user. Each rule can match by IP/port and define response behavior.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "description": {
-                "type": "string",
-                "default": "",
-                "description": "Optional comment explaining the rule."
-              },
-              "source_ip": {
-                "type": "string",
-                "default": "",
-                "description": "Source IP address or CIDR (e.g., '192.168.1.0/24', '10.0.0.5')."
-              },
-              "destination_ip": {
-                "type": "string",
-                "default": "",
-                "description": "Destination IP address or CIDR."
-              },
-              "destination_port": {
-                "type": "number",
-                "default": null,
-                "description": "Destination TCP port (e.g., 80 for HTTP, 443 for HTTPS)."
-              },
-              "action": {
-                "type": "string",
-                "default": "",
-                "description": "Action to take: 'allow', 'deny', 'reject', or 'fake'."
-              },
-              "fallback": {
-                "type": "string",
-                "default": "",
-                "description": "Fallback behavior if rule matches partially: 'continue' or 'stop'."
-              },
-              "allow_spoof": {
-                "type": "boolean",
-                "default": false,
-                "description": "Whether to allow spoofing of the ident response username."
-              },
-              "allow_spoof_port": {
-                "type": "boolean",
-                "default": false,
-                "description": "Whether to allow spoofing the port in the response (e.g., to hide service type)."
-              },
-              "response_type": {
-                "type": "string",
-                "default": "",
-                "description": "Override response type: 'user', 'system', or 'random'."
-              },
-              "response_user": {
-                "type": "string",
-                "default": "",
-                "description": "Username to return in ident response (used with response_type 'user')."
-              },
-              "response_system": {
-                "type": "string",
-                "default": "",
-                "description": "System name to return (used with response_type 'system')."
-              }
-            },
-            "required": [
-              "action"
-            ]
-          }
-        }
-      },
-      "required": [
-        "name"
-      ]
-    }
+    "description": "List of users with custom ident response rules."
   },
   "global_rules": {
     "type": "list",
     "default": [],
-    "description": "Global rules (evaluated before per-user rules). Format mirrors per-user rule elements.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Optional comment."
-        },
-        "source_ip": {
-          "type": "string",
-          "default": "",
-          "description": "Source IP or CIDR."
-        },
-        "destination_ip": {
-          "type": "string",
-          "default": "",
-          "description": "Destination IP or CIDR."
-        },
-        "destination_port": {
-          "type": "number",
-          "default": null,
-          "description": "Destination port."
-        },
-        "action": {
-          "type": "string",
-          "default": "",
-          "description": "Action: 'allow', 'deny', 'reject', or 'fake'."
-        }
-      },
-      "required": [
-        "action"
-      ]
-    }
+    "description": "Global rules (evaluated before per-user rules)."
   }
 }

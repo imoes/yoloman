@@ -1,96 +1,117 @@
-# OpenSSL configuration file
-# This config file is parsed by OpenSSL's CONF library (see config(5))
-# It supports sections, variables, includes, and modular initialization.
+{# OpenSSL Configuration File Template #}
+{# This file is parsed by OpenSSL's CONF library. It defines global settings, #}
+{# module selectors (providers, engines, random), and specific subsystem configs. #}
 
 # --- Global pragmas (control parsing behavior) ---
-{% if config_diagnostics is defined %}
+
 # Enables diagnostic output: configuration errors will fail initialization instead of being silently ignored
-config_diagnostics = {{ config_diagnostics }}
-{% endif %}
-{% if openssl_conf is defined %}
+# Default: 0 (silent failures)
+config_diagnostics = {{ config_diagnostics | default(0) }}
+
 # Points to the initialization section containing module configuration definitions
-openssl_conf = {{ openssl_conf }}
-{% endif %}
+# Default: 'openssl_init'
+openssl_conf = {{ openssl_conf | default('openssl_init') }}
 
 # Optional: include additional config fragments
-{% for include_path in includes %}
+# Default: [] (empty list)
+{% for include_path in (includes | default([])) %}
 # Includes an external configuration file or directory (if path points to a directory, all .cnf/.conf files are included)
 .include = {{ include_path }}
 {% endfor %}
 
 # --- Default section (global settings & fallbacks) ---
+
 # Default values for environment variable fallbacks (e.g., for paths)
-{% if env_defaults %}
-# Map environment variable defaults (used via $ENV::name expansion later)
-{% for varname, value in env_defaults.items() %}
+# Default: {} (empty map)
+{% for varname, value in (env_defaults | default({}) | dict2items) %}
 # Default value for environment variable {{ varname }}
 {{ varname }} = {{ value }}
 {% endfor %}
-{% endif %}
 
 # --- Initialization section (module selectors) ---
+
 # Section named by `openssl_conf` above: maps OpenSSL subsystems to their configuration sections
-[{{ openssl_conf }}]
-{% if oid_section is defined %}
+[{{ openssl_conf | default('openssl_init') }}]
+
 # Section containing custom ASN.1 Object Identifiers (OIDs)
-oid_section = {{ oid_section }}
+# Default: '' (empty, no custom OID section)
+{% if oid_section | default('') %}
+oid_section = {{ oid_section | default('') }}
 {% endif %}
-{% if providers is defined %}
+
 # Section defining cryptographic providers (e.g., default, fips)
-providers = {{ providers }}
+# Default: '' (empty, no providers section)
+{% if providers | default('') %}
+providers = {{ providers | default('') }}
 {% endif %}
-{% if alg_section is defined %}
+
 # Section defining EVP algorithm properties (e.g., default_properties)
-alg_section = {{ alg_section }}
+# Default: '' (empty, no alg section)
+{% if alg_section | default('') %}
+alg_section = {{ alg_section | default('') }}
 {% endif %}
-{% if ssl_conf is defined %}
+
 # Section containing named SSL/TLS configurations (e.g., server, client, system_default)
-ssl_conf = {{ ssl_conf }}
+# Default: '' (empty, no ssl config section)
+{% if ssl_conf | default('') %}
+ssl_conf = {{ ssl_conf | default('') }}
 {% endif %}
-{% if engines is defined %}
+
 # Section defining ENGINE configurations (legacy hardware acceleration modules)
-engines = {{ engines }}
+# Default: '' (empty, no engines section)
+{% if engines | default('') %}
+engines = {{ engines | default('') }}
 {% endif %}
-{% if random is defined %}
+
 # Section defining random number generator settings
-random = {{ random }}
+# Default: '' (empty, no random section)
+{% if random | default('') %}
+random = {{ random | default('') }}
 {% endif %}
 
 # --- Custom OIDs section (if defined) ---
-{% if oid_section is defined %}
-[{{ oid_section }}]
-{% for oid_name, oid_value in oids.items() %}
+{% if oid_section | default('') %}
+[{{ oid_section | default('') }}]
+{% for oid_name, oid_value in (oids | default({}) | dict2items) %}
 # ASN.1 Object Identifier: short name {{ oid_name }} maps to value {{ oid_value }}
 {{ oid_name }} = {{ oid_value }}
 {% endfor %}
 {% endif %}
 
 # --- Providers section (if defined) ---
-{% if providers is defined %}
-[{{ providers }}]
-{% for provider_name, provider_section in providers_config.items() %}
+{% if providers | default('') %}
+[{{ providers | default('') }}]
+{% for provider_name, provider_section in (providers_config | default({}) | dict2items) %}
 # Declares provider {{ provider_name }} and points to its configuration section
 {{ provider_name }} = {{ provider_section }}
 {% endfor %}
 
 # Provider-specific configuration blocks
-{% for provider_name, provider_section in providers_config.items() %}
+{% for provider_name, provider_section in (providers_config | default({}) | dict2items) %}
 [{{ provider_section }}]
-{% if provider_identities[provider_name] is defined %}
+
+{% set p_id = provider_identities | default({}) %}
+{% if p_id.get(provider_name) is defined %}
 # Overrides the default name for provider {{ provider_name }}
-identity = {{ provider_identities[provider_name] }}
+identity = {{ p_id[provider_name] }}
 {% endif %}
-{% if provider_modules[provider_name] is defined %}
+
+{% set p_mod = provider_modules | default({}) %}
+{% if p_mod.get(provider_name) is defined %}
 # Specifies path to shared library for provider {{ provider_name }}
-module = {{ provider_modules[provider_name] }}
+module = {{ p_mod[provider_name] }}
 {% endif %}
-{% if provider_activated[provider_name] is defined %}
+
+{% set p_act = provider_activated | default({}) %}
+{% if p_act.get(provider_name) is defined %}
 # Activates provider {{ provider_name }} (value is ignored)
-activate = {{ provider_activated[provider_name] | lower if provider_activated[provider_name] is string else '' }}
+activate = {{ p_act[provider_name] | lower if p_act[provider_name] is string else '' }}
 {% endif %}
-{% if provider_extra[provider_name] is defined %}
+
+{% set p_ext = provider_extra | default({}) %}
+{% if p_ext.get(provider_name) is mapping and p_ext.get(provider_name) %}
 # Additional provider-specific parameters
-{% for key, value in provider_extra[provider_name].items() %}
+{% for key, value in (p_ext[provider_name] | default({}) | dict2items) %}
 {{ key }} = {{ value }}
 {% endfor %}
 {% endif %}
@@ -98,46 +119,50 @@ activate = {{ provider_activated[provider_name] | lower if provider_activated[pr
 {% endif %}
 
 # --- EVP properties section (if defined) ---
-{% if alg_section is defined %}
-[{{ alg_section }}]
+{% if alg_section | default('') %}
+[{{ alg_section | default('') }}]
 # Default cryptographic properties query string (e.g., for FIPS mode)
-{% if evp_default_properties %}
-default_properties = {{ evp_default_properties }}
-{% else %}
-# (none set — use OpenSSL defaults)
+{% if evp_default_properties | default('') %}
+default_properties = {{ evp_default_properties | default('') }}
 {% endif %}
 {% endif %}
 
 # --- SSL/TLS configuration section (if defined) ---
-{% if ssl_conf is defined %}
-[{{ ssl_conf }}]
-{% for conf_name, conf_section in ssl_configs.items() %}
+{% if ssl_conf | default('') %}
+[{{ ssl_conf | default('') }}]
+
+{% for conf_name, conf_section in (ssl_configs | default({}) | dict2items) %}
 # Named SSL/TLS configuration: {{ conf_name }} maps to section {{ conf_section }}
 {{ conf_name }} = {{ conf_section }}
 {% endfor %}
 
 # Per-configuration blocks (e.g., [server_tls_config], [client_tls_config], [tls_system_default])
-{% for conf_name, conf_section in ssl_configs.items() %}
+{% for conf_name, conf_section in (ssl_configs | default({}) | dict2items) %}
 [{{ conf_section }}]
-{% if conf_section == 'tls_system_default' and (min_proto_tls or min_proto_dtls) %}
+
+{% if conf_section == 'tls_system_default' and ((min_proto_tls | default('')) or (min_proto_dtls | default(''))) %}
 # Applies minimum protocol versions globally (applied at SSL_CTX creation time)
-{% if min_proto_tls %}
-MinProtocol = TLSv{{ min_proto_tls }}
+{% if min_proto_tls | default('') %}
+MinProtocol = TLSv{{ min_proto_tls | default('') }}
 {% endif %}
-{% if min_proto_dtls %}
-MinProtocol = DTLSv{{ min_proto_dtls }}
+{% if min_proto_dtls | default('') %}
+MinProtocol = DTLSv{{ min_proto_dtls | default('') }}
 {% endif %}
 {% endif %}
-{% if server_certs and conf_name == 'server' %}
+
+{% set sc = server_certs | default({}) %}
+{% if sc.get(conf_name) is mapping and sc.get(conf_name) %}
 # Server certificate loading (multiple key types supported)
-{% for cert_type, cert_file in server_certs.items() %}
+{% for cert_type, cert_file in (sc[conf_name] | default({}) | dict2items) %}
 # Load {{ cert_type }} certificate from {{ cert_file }}
 {{ cert_type }}.Certificate = {{ cert_file }}
 {% endfor %}
 {% endif %}
-{% if extra_ssl_opts[conf_section] is defined %}
+
+{% set exo = extra_ssl_opts | default({}) %}
+{% if exo.get(conf_section) is mapping and exo.get(conf_section) %}
 # Additional SSL_CONF_cmd directives
-{% for cmd, val in extra_ssl_opts[conf_section].items() %}
+{% for cmd, val in (exo[conf_section] | default({}) | dict2items) %}
 {{ cmd }} = {{ val }}
 {% endfor %}
 {% endif %}
@@ -145,40 +170,51 @@ MinProtocol = DTLSv{{ min_proto_dtls }}
 {% endif %}
 
 # --- Engine configuration section (if defined) ---
-{% if engines is defined %}
-[{{ engines }}]
-{% for engine_name, engine_section in engines_config.items() %}
+{% if engines | default('') %}
+[{{ engines | default('') }}]
+
+{% for engine_name, engine_section in (engines_config | default({}) | dict2items) %}
 # Declares engine {{ engine_name }} and points to its config section
 {{ engine_name }} = {{ engine_section }}
 {% endfor %}
 
 # Engine-specific configuration blocks
-{% for engine_name, engine_section in engines_config.items() %}
+{% for engine_name, engine_section in (engines_config | default({}) | dict2items) %}
 [{{ engine_section }}]
-{% if engine_ids[engine_name] is defined %}
+
+{% set eid = engine_ids | default({}) %}
+{% if eid.get(engine_name) is defined %}
 # Overrides the default engine ID for {{ engine_name }}
-engine_id = {{ engine_ids[engine_name] }}
+engine_id = {{ eid[engine_name] }}
 {% endif %}
-{% if engine_paths[engine_name] is defined %}
+
+{% set epath = engine_paths | default({}) %}
+{% if epath.get(engine_name) is defined %}
 # Loads dynamic engine from the specified shared library path
 # Equivalent to dynamic.so_path + LIST_ADD + LOAD commands
-{% if engine_paths[engine_name] %}
-dynamic_path = {{ engine_paths[engine_name] }}
+{% if epath[engine_name] %}
+dynamic_path = {{ epath[engine_name] }}
 {% endif %}
 {% endif %}
-{% if engine_inits[engine_name] is defined %}
+
+{% set einit = engine_inits | default({}) %}
+{% if einit.get(engine_name) is defined %}
 # Controls initialization: 1 = immediate init, 0 = defer
-init = {{ engine_inits[engine_name] }}
+init = {{ einit[engine_name] }}
 {% endif %}
-{% if engine_default_algs[engine_name] is defined %}
+
+{% set eda = engine_default_algs | default({}) %}
+{% if eda.get(engine_name) is defined %}
 # Sets default algorithms for the engine
-{% if engine_default_algs[engine_name] %}
-default_algorithms = {{ engine_default_algs[engine_name] }}
+{% if eda[engine_name] %}
+default_algorithms = {{ eda[engine_name] }}
 {% endif %}
 {% endif %}
-{% if engine_ctrls[engine_name] is defined %}
+
+{% set ectr = engine_ctrls | default({}) %}
+{% if ectr.get(engine_name) is mapping and ectr.get(engine_name) %}
 # Additional ENGINE ctrl commands
-{% for cmd, val in engine_ctrls[engine_name].items() %}
+{% for cmd, val in (ectr[engine_name] | default({}) | dict2items) %}
 # Send ctrl command {{ cmd }} with value {{ val }}
 {{ cmd }} = {{ val }}
 {% endfor %}
@@ -187,30 +223,36 @@ default_algorithms = {{ engine_default_algs[engine_name] }}
 {% endif %}
 
 # --- Random configuration section (if defined) ---
-{% if random is defined %}
-[{{ random }}]
-{% if rng_type %}
+{% if random | default('') %}
+[{{ random | default('') }}]
+
+{% if rng_type | default('') %}
 # Specifies the random bit generator algorithm
-random = {{ rng_type }}
+random = {{ rng_type | default('') }}
 {% endif %}
-{% if rng_cipher and rng_type == 'CTR-DRBG' %}
+
+{% if rng_cipher | default('') and rng_type | default('') == 'CTR-DRBG' %}
 # Cipher to use for CTR-DRBG (ignored by HASH/HMAC-DRBG)
-cipher = {{ rng_cipher }}
+cipher = {{ rng_cipher | default('') }}
 {% endif %}
-{% if rng_digest and rng_type in ['HASH-DRBG', 'HMAC-DRBG'] %}
+
+{% if rng_digest | default('') and rng_type | default('') in ['HASH-DRBG', 'HMAC-DRBG'] %}
 # Digest to use for HASH/HMAC-DRBG (ignored by CTR-DRBG)
-digest = {{ rng_digest }}
+digest = {{ rng_digest | default('') }}
 {% endif %}
-{% if rng_properties %}
+
+{% if rng_properties | default('') %}
 # Property query string for RNG and underlying algorithms
-properties = {{ rng_properties }}
+properties = {{ rng_properties | default('') }}
 {% endif %}
-{% if rng_seed %}
+
+{% if rng_seed | default('') %}
 # Randomness source (e.g., /dev/urandom)
-seed = {{ rng_seed }}
+seed = {{ rng_seed | default('') }}
 {% endif %}
-{% if rng_seed_properties %}
+
+{% if rng_seed_properties | default('') %}
 # Property query for the randomness source
-seed_properties = {{ rng_seed_properties }}
+seed_properties = {{ rng_seed_properties | default('') }}
 {% endif %}
 {% endif %}

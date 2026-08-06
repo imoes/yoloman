@@ -1,0 +1,22 @@
+# dvhtool configuration
+# This template configures dvhtool, a utility for reading and writing disk volume headers
+# (DVB, ATSC, DAB, etc.) on block devices or file images.
+
+# Specifies the disk device path (e.g., /dev/sda) or file image containing the
+# disk volume header to operate on.
+device: {{ device | default('/dev/sda') }}
+
+# Defines a list of operations (actions) to perform with dvhtool.
+# Note: dvhtool typically executes only one action per invocation;
+# if multiple operations are listed, the last one specified takes precedence.
+operations:
+{% if operations is defined and operations | length > 0 %}
+{% for op in operations %}  - action: {{ op.action | default('read') }}
+{% if op.name is defined %}    name: {{ op.name | default('') }}
+{% endif %}
+{% if op.file is defined %}    file: {{ op.file | default('') }}
+{% endif %}
+{% endfor %}
+{% else %}  # No operations specified; default empty list to ensure valid YAML structure if parsed
+  []
+{% endif %}

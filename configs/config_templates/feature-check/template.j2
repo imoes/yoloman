@@ -1,0 +1,32 @@
+# ==============================================================================
+# feature-check configuration for program feature introspection
+# ==============================================================================
+# This configuration drives the 'feature-check' utility which queries an executable
+# to discover its supported features and validate them against criteria.
+# ==============================================================================
+
+# Path to the executable program to query for supported features.
+# The tool will execute this binary with the configured option to retrieve feature data.
+# Example: /usr/bin/true, /usr/bin/curl
+PROGRAM: {{ program | default('/usr/bin/true') }}
+
+# Command-line option passed to the program to obtain its feature list.
+# When the program is executed, this argument is appended to the command.
+# Example: --features, --list
+FEATURE_OPT: {{ feature_opt | default('--features') }}
+
+# Prefix string to match in program output to locate the feature list.
+# Lines in the program's output that start with this string are parsed as feature entries.
+# This isolates the relevant data from other potential stdout messages.
+FEATURE_PREFIX: {{ feature_prefix | default('Features: ') }}
+
+# Output format for the feature list when using feature-check -l.
+# Specifies how the feature list is structured when printed.
+# Valid values: 'json' or 'tsv'
+OUTPUT_FORMAT: {{ output_format | default('tsv') }}
+
+# Default feature check expression used when no explicit feature is provided.
+# Syntax: 'feature-name [operator] version'
+# Operators: eq, ge, gt, le, lt, ne
+# If left empty, no default check is performed unless explicitly requested.
+DEFAULT_CHECK: {{ default_check | default('') }}

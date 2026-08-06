@@ -1,0 +1,91 @@
+#! /bin/sh
+set -e
+
+# Source the GRUB mkconfig library to access helper functions like
+# `prepare_grub_to_access_device` and `save_default_entry`.
+. /usr/lib/grub/grub-mkconfig_lib
+
+# Detect available boot methods based on the current system architecture.
+# iPXE support is limited to specific architectures:
+# - i386/amd64: support both legacy BIOS (lkrn) and EFI (efi)
+# - arm64/riscv64/loong64: support only EFI
+case $(dpkg --print-architecture) in
+  *i386) have_lkrn=1; have_efi=0 ;;
+  *amd64) have_lkrn=1; have_efi=1 ;;
+  *arm64) have_efi=1; have_lkrn=0 ;;
+  *riscv64) have_efi=1; have_lkrn=0 ;;
+  *loong64) have_efi=1; have_lkrn=0 ;;
+  # Unsupported architectures exit silently
+  *) exit 0 ;;
+esac
+
+# Generate the GRUB commands required to access the boot device.
+# This typically involves setting up the root device or disk identifier.
+# The output is indented to match the menuentry block structure.
+prepare_boot_cache="$(prepare_grub_to_access_device {{ GRUB_DEVICE_BOOT | default('/dev/disk/by-uuid/placeholder-uuid') }} | sed -e "s/^/\t/")"
+
+# Determine the path to the iPXE binary based on available capabilities.
+# Priority is given to EFI if available, otherwise falls back to legacy BIOS (lkrn).
+if [ $have_lkrn -eq 1 ]; then
+  IPXE=/boot/ipxe.lkrn
+elif [ $have_efi -eq 1 ]; then
+  IPXE=/boot/ipxe.efi
+else
+  IPXE=""
+fi
+
+# Check if the selected iPXE image actually exists on the filesystem.
+# If it does not exist, we skip adding the network boot entry entirely.
+if test -e "$IPXE" ; then
+  # Convert the absolute path to a path relative to the GRUB root (usually /boot or /).
+  IPXEPATH=$( make_system_path_relative_to_its_root "$IPXE" )
+  # Strip the file extension (.lkrn or .efi) to use as the base name for related files (like .ipxe scripts).
+  IPXEPATH=${IPXEPATH%.*}
+  
+  echo "Found iPXE image: $IPXE" >&2
+  
+  # Begin the GRUB menu entry for Network Boot (iPXE).
+  cat << EOF
+menuentry "Network boot (iPXE)" --users "" --class network --id ipxe {
+${prepare_boot_cache}
+EOF
+
+  # Save the default entry to this menu item.
+  save_default_entry | grub_add_tab
+
+  # Handle platform-specific boot commands (EFI vs Legacy BIOS).
+  
+  # If we have both EFI and Legacy support, start an if-condition for EFI.
+  if [ $have_efi -eq 1 ] && [ $have_lkrn -eq 1 ]; then
+	echo 'if [ "$grub_platform" = "efi" ]; then'
+  fi
+
+  # EFI boot: chainload to the .efi image.
+  if [ $have_efi -eq 1 ]; then
+    echo "chainloader $IPXEPATH.efi"
+  fi;
+
+  # If we have both EFI and Legacy support, open the else branch for Legacy.
+  if [ $have_efi -eq 1 ] && [ $have_lkrn -eq 1 ]; then
+	echo 'else'
+  fi
+
+  # Legacy BIOS boot: load the .lkrn image using linux16.
+  if [ $have_lkrn -eq 1 ]; then
+    cat <<EOF
+      linux16 $IPXEPATH.lkrn
+      # If the user provided an iPXE script, load it to customize network boot parameters.
+      if [ -f $IPXEPATH.ipxe ]; then
+        initrd16 $IPXEPATH.ipxe
+      fi
+EOF
+  fi
+
+  # Close the platform-specific if-statement if it was opened.
+  if [ $have_efi -eq 1 ] && [ $have_lkrn -eq 1 ]; then
+	echo 'fi'
+  fi
+
+  # End the menuentry block.
+  echo "}"
+fi

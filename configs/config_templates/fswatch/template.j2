@@ -1,0 +1,80 @@
+# fswatch configuration
+# This template generates a command-line argument list for fswatch.
+# All variables default to safe, standard values if not provided by the caller.
+
+# One event per batch to reduce command invocation overhead
+# This option forces fswatch to emit a separate event for each change,
+# rather than batching them, reducing the overhead of command invocation
+# when using --on-event or similar.
+--one-per-batch
+
+# Latency in seconds; must be ≥ 0.1. Controls event batching delay.
+# When batching is enabled (default), this sets the time window (in seconds)
+# during which events are collected before being emitted.
+# Default: 1.0
+--latency {{ latency | default(1.0) }}
+
+# Timestamp printing (UTC or local depending on utc_timestamp)
+# If true, print timestamps in UTC; otherwise print local time.
+# Default: false (local time)
+{% if utc_timestamp | default(false) %}--utc-time{% else %}--timestamp{% endif %}
+
+# Output NUL-delimited for safe path handling
+# This ensures that file paths containing newlines are handled correctly.
+--print0
+
+# Event filtering
+# List of event names to include in output (e.g., 'created', 'modified').
+# If empty, all events are included.
+# Default: []
+{% for event_name in event_filter | default([]) %}
+--event {{ event_name }}{% endfor %}
+
+# Path filtering: Include patterns
+# List of regex patterns for paths to include.
+# Only paths matching these patterns will be reported.
+# Default: []
+{% for pattern in include_patterns | default([]) %}
+--include '{{ pattern }}'{% endfor %}
+
+# Path filtering: Exclude patterns
+# List of regex patterns for paths to exclude.
+# Paths matching these patterns are ignored, even if they match include patterns.
+# Default: []
+{% for pattern in exclude_patterns | default([]) %}
+--exclude '{{ pattern }}'{% endfor %}
+
+# Case-insensitive matching
+# If true, apply case-insensitive matching to include/exclude patterns.
+# Default: false
+{% if case_insensitive | default(false) %}-I{% endif %}
+
+# Use extended regex
+# If true, interpret patterns as extended regular expressions (ERE).
+# This allows for more complex pattern matching syntax.
+# Default: false
+{% if extended_regex | default(false) %}-E{% endif %}
+
+# Monitor type to use
+# Valid values: 'FSEvents', 'kqueue', 'inotify', 'poll'.
+# Empty string uses platform default (e.g., inotify on Linux, FSEvents on macOS).
+# Default: '' (platform default)
+{% if monitor | default('') %}
+-m {{ monitor | default('') }}{% endif %}
+
+# Recursive watching
+# If true, watch subdirectories recursively.
+# Default: true
+{% if recursive | default(true) %}-r{% endif %}
+
+# Follow symbolic links
+# If true, follow symbolic links to directories when monitoring.
+# Default: false
+{% if follow_links | default(false) %}-L{% endif %}
+
+# Directory or file paths to watch
+# List of file or directory paths to monitor.
+# These are the root paths for the watch operation.
+# Default: []
+{% for path in watch_paths | default([]) %}
+{{ path }}{% endfor %}

@@ -1,90 +1,193 @@
-# Amanda Server Configuration
-# This file configures the Amanda Backup Server (amanda_server)
-# For full documentation, see https://wiki.zmanda.com/index.php/Amanda_server.conf
+# ==============================================================================
+# Amanda Server Configuration (amanda_server)
+# ==============================================================================
+#
+# This file configures the Amanda Backup Server.
+# For full documentation, see:
+#   https://wiki.zmanda.com/index.php/Amanda_server.conf
+#
+# This template is self-documenting: every directive is preceded by a comment
+# explaining its purpose and default value.
+# ==============================================================================
 
-# Global configuration
-org "{{ org }}"
-dumpuser "{{ dumpuser }}"
+# ------------------------------------------------------------------------------
+# Global Configuration
+# ------------------------------------------------------------------------------
 
-# Tape device and changer configuration
-tapedev "{{ tapedev }}"
-changer "{{ changer }}"
-tapeutil "{{ tapeutil }}"
+# Organization name — used in email notifications and logs.
+org "{{ org | default('MyCompany Backup') }}"
 
-# Tape properties
+# System user account that runs Amanda backup processes (must have access to tape device).
+dumpuser "{{ dumpuser | default('backup') }}"
+
+# ------------------------------------------------------------------------------
+# Tape Device and Changer Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the primary tape device (e.g., /dev/st0 for SCSI tape).
+tapedev "{{ tapedev | default('/dev/st0') }}"
+
+# Changer command or script for auto-changers (e.g., 'ch-grup' for autoloader with changer scripts).
+changer "{{ changer | default('ch-grup') }}"
+
+# Tape utility command for tape control (e.g., 'mt-st', 'mt', or custom script).
+tapeutil "{{ tapeutil | default('mt-st') }}"
+
+# Alternative changer device for tape-puller changers (e.g., '/dev/sg1'). Leave blank if not used.
 tpchanger "{{ tpchanger | default('') }}"
+
+# Parameters passed to the changer (e.g., 'ch-grup /dev/sg1').
 changerparams "{{ changerparams | default('') }}"
 
-# Network and identity
-tapecycle {{ tapecycle }}
-tapesize "{{ tapesize }}"
-maxdumps {{ maxdumps }}
+# ------------------------------------------------------------------------------
+# Tape Properties
+# ------------------------------------------------------------------------------
 
-# Timing and concurrency
-defaultcycle {{ defaultcycle }}
-maxdumpsize {{ maxdumpsize }}
-maxdumpfile_size "{{ maxdumpfile_size }}"
+# Number of tape cycles before rotation is enforced (minimum number of full backup cycles per tape).
+tapecycle {{ tapecycle | default(1) }}
 
-# Security and auth
-auth "{{ auth }}"
+# Maximum total backup data size per tape (e.g., '10G', '2000000K', or 'auto').
+tapesize "{{ tapesize | default('10G') }}"
 
+# Maximum number of parallel dump processes (concurrent backups).
+maxdumps {{ maxdumps | default(8) }}
+
+# ------------------------------------------------------------------------------
+# Timing and Concurrency
+# ------------------------------------------------------------------------------
+
+# Full backup cycle duration — defines how often a full backup runs (e.g., '2 weeks', '7 days').
+defaultcycle "{{ defaultcycle | default('2 weeks') }}"
+
+# Maximum size of a single dump (before splitting or compression).
+maxdumpsize "{{ maxdumpsize | default('10G') }}"
+
+# Maximum size of an individual dump file before splitting.
+maxdumpfile_size "{{ maxdumpfile_size | default('2G') }}"
+
+# ------------------------------------------------------------------------------
+# Security and Authentication
+# ------------------------------------------------------------------------------
+
+# Authentication method between server and clients (e.g., 'ssh', 'bsd', 'password').
+auth "{{ auth | default('ssh') }}"
+
+# ------------------------------------------------------------------------------
 # Logging
-tlog "{{ tlog | default('') }}"
-elog "{{ elog | default('') }}"
+# ------------------------------------------------------------------------------
 
-# Reporting
-mailto "{{ mailto | default('') }}"
-mailfrom "{{ mailfrom | default('') }}"
+# Path to the Amanda transaction log file.
+tlog "{{ tlog | default('/var/log/amanda/amanda.log') }}"
+
+# Path to the Amanda error log file.
+elog "{{ elog | default('/var/log/amanda/amanda-elog') }}"
+
+# ------------------------------------------------------------------------------
+# Reporting / Email Notifications
+# ------------------------------------------------------------------------------
+
+# Default recipient for all Amanda notifications (alerts, summaries).
+mailto "{{ mailto | default('admin@example.com') }}"
+
+# Sender email address for Amanda notifications.
+mailfrom "{{ mailfrom | default('amanda@example.com') }}"
+
+# Recipient for success reports only (leave blank to use 'mailto').
 mailto_success "{{ mailto_success | default('') }}"
-mailto_failure "{{ mailto_failure | default('') }}"
 
-# Disklist and client configuration
-# The following hosts and their disklists are managed by Amanda
-{% for host in hosts %}
-# Host: {{ host.name }} — {{ host.comment | default('') | replace('\n', ' ') }}
-{% if host.disklist_file %}
+# Recipient for failure alerts only (leave blank to use 'mailto').
+mailto_failure "{{ mailto_failure | default('ops-alerts@example.com') }}"
+
+# ------------------------------------------------------------------------------
+# Disklist and Client Configuration
+# ------------------------------------------------------------------------------
+#
+# The following hosts and their disklists are managed by Amanda.
+# Each host entry specifies either an external disklist file or inline disk entries.
+
+{% set hosts_list = hosts | default([{'name': 'client1.example.com', 'comment': 'Production Web Server', 'disklist_file': '/etc/amanda/disklists/client1'}, {'name': 'client2.example.com', 'comment': 'Database Server', 'disks': [{'name': '/', 'mountpoint': '/', 'level': '0', 'comment': 'Root partition'}, {'name': '/var/lib/mysql', 'mountpoint': '/var/lib/mysql', 'level': '0', 'comment': 'MySQL data'}]}]) %}
+
+{% for host in hosts_list %}
+# Host: {{ host.name | default('') }} — {{ host.comment | default('') | replace('\n', ' ') }}
+
+{% if host.disklist_file is defined and host.disklist_file %}
+# External disklist file path: {{ host.disklist_file }}
 disklist {{ host.disklist_file }}
 {% else %}
 # Inline disklist (legacy — prefer external file)
-{% for disk in host.disks %}
-"{{ disk.name }}" "{{ disk.mountpoint }}" {{ disk.level | default('0') }} {{ disk.comment | default('') | replace('\n', ' ') }}
+{% set disks_list = host.disks | default([]) %}
+{% for disk in disks_list %}
+"{{ disk.name | default('') }}" "{{ disk.mountpoint | default('') }}" {{ disk.level | default('0') }} {{ disk.comment | default('') | replace('\n', ' ') }}
 {% endfor %}
 {% endif %}
 {% endfor %}
 
-# Device-specific settings (optional)
-{% for dev in devices %}
-# Device: {{ dev.name }}
-{% if dev.labeltype == 'amlabel' %}
-dev-label "{{ dev.labeltype }}" {{ dev.labelname | default(dev.name) }} {{ dev.labelparams | default('') }}
-{% elif dev.labeltype == 'none' %}
+# ------------------------------------------------------------------------------
+# Device-Specific Settings (Optional)
+# ------------------------------------------------------------------------------
+#
+# Device-specific labeling configuration (e.g., for tape labeling strategy).
+
+{% set devices_list = devices | default([{'name': 'tape1', 'labeltype': 'amlabel', 'labelname': 'Tape-%03d', 'labelparams': ''}]) %}
+
+{% for dev in devices_list %}
+# Device: {{ dev.name | default('') }}
+{% set lt = dev.labeltype | default('amlabel') %}
+{% if lt == 'amlabel' %}
+dev-label "amlabel" {{ dev.labelname | default(dev.name) }} {{ dev.labelparams | default('') }}
+{% elif lt == 'none' %}
 dev-label "none"
 {% else %}
-dev-label "{{ dev.labeltype }}"
+dev-label "{{ lt }}"
 {% endif %}
 {% endfor %}
 
-# Encryption and compression (if configured)
-{% if use_encryption %}
-encrypt "{{ encryption_type }}"
+# ------------------------------------------------------------------------------
+# Encryption and Compression (if configured)
+# ------------------------------------------------------------------------------
+
+# Enable encryption of backup data on tape (requires OpenSSL and compatible device).
+{% if use_encryption | default(False) %}
+# Encryption algorithm (e.g., 'aes256', '3des'). Only used if use_encryption=true.
+encrypt "{{ encryption_type | default('aes256') }}"
 {% endif %}
 
-{% if use_compression %}
-compress "{{ compression_type }}"
+# Enable compression of backup data before writing to tape.
+{% if use_compression | default(True) %}
+# Compression algorithm (e.g., 'lzo', 'gzip', 'none'). Only used if use_compression=true.
+compress "{{ compression_type | default('lzo') }}"
 {% endif %}
 
-# Index and log directories
-directory "{{ directory }}"
+# ------------------------------------------------------------------------------
+# Index and Log Directories
+# ------------------------------------------------------------------------------
 
-# Schedule defaults
-{% if schedule %}
-# Schedule: {{ schedule.name }}
-{% for rule in schedule.rules %}
-schedule "{{ rule.name }}" {{ rule.pattern }} {{ rule.level | default('0') }}
+# Base directory for Amanda state files (index, log, lock, etc.).
+directory "{{ directory | default('/var/lib/amanda') }}"
+
+# ------------------------------------------------------------------------------
+# Schedule Defaults
+# ------------------------------------------------------------------------------
+
+# Backup schedule definition. Each rule maps a time pattern to a dump level.
+{% set schedule_def = schedule | default({'name': 'daily', 'rules': [{'name': 'daily-sunday', 'pattern': 'Sun', 'level': '0'}, {'name': 'daily-mon-sat', 'pattern': 'Mon-Sat', 'level': '1'}]}) %}
+
+{% if schedule_def is defined and schedule_def %}
+# Schedule: {{ schedule_def.name | default('') }}
+{% set rules_list = schedule_def.rules | default([]) %}
+{% for rule in rules_list %}
+schedule "{{ rule.name | default('') }}" {{ rule.pattern | default('') }} {{ rule.level | default('0') }}
 {% endfor %}
 {% endif %}
 
-# Extra options
-{% for key, value in extra_options.items() %}
-{{ key }} {{ value }}
+# ------------------------------------------------------------------------------
+# Extra Options
+# ------------------------------------------------------------------------------
+#
+# Free-form extra configuration directives (e.g., 'dumptimeout 600', 'identtimeout 60').
+# Keys are option names; values are arguments.
+
+{% set extra_opts = extra_options | default({}) %}
+{% for key, value in extra_opts | dict2items %}
+{{ key.key }} {{ key.value }}
 {% endfor %}

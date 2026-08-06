@@ -1,38 +1,112 @@
-# Enable/Disable igmpproxy globally
-enabled: {{ enabled }}
+# ==============================================================================
+# IGMPPROXY Configuration Template
+# ==============================================================================
+# This template generates the configuration file for `igmpproxy`,
+# a lightweight IGMP proxy daemon used to multicast IP traffic
+# between network interfaces (typically between a WAN/upstream
+# and LAN/downstream interfaces).
+#
+# Self-Documenting Principles:
+# - Every directive is preceded by a comment explaining its purpose
+#   and mapping to the schema field.
+# - All variable references use `| default(...)` to ensure safe rendering
+#   even if the variable is undefined in the Ansible inventory.
+# - Jinja2 control structures are properly nested and closed.
+# ==============================================================================
 
-# Logging verbosity: 0 (silent) to 5 (debug)
-loglevel: {{ loglevel }}
+# --- Global Service Settings ---
 
-# Log file path (empty string for stderr/stdout)
-logfile: "{{ logfile }}"
+# enabled: Enable or disable the igmpproxy service at boot.
+# Type: boolean. If false, the service should be managed externally
+# or the daemon will not be started.
+enabled: {{ enabled | default(True) | lower }}
 
-# Maximum number of upstream interfaces
-upstream: {{ upstream }}
+# loglevel: Logging verbosity level: 0 (none) to 5 (debug).
+# Type: integer. Controls how much detail igmpproxy logs to the
+# specified logfile or stderr.
+loglevel: {{ loglevel | default(4) }}
 
-# List of downstream (member) networks
-{% for net in downstream %}
-# Downstream interface: {{ net.interface }} on network {{ net.subnet }}
-{{ net.interface }} {{ net.subnet }}
-  # Allow upstream forwarding only for these groups (optional)
-  {% if net.allowed_groups %}
-  # Allowed multicast groups
+# logfile: Path to log file. Leave empty to log to stderr
+# (systemd: stdout).
+# Type: string (path). If empty or not set, logs go to standard
+# error output.
+logfile: "{{ logfile | default('') }}"
+
+# --- Interface Configuration ---
+
+# upstream: Name of the upstream network interface (connected to
+# the multicast source).
+# Type: string (interface name). This interface receives multicast
+# traffic from the source network (e.g., the internet or a core
+# network) and forwards it downstream.
+# Note: Only one upstream interface is typically supported or
+# recommended in standard igmpproxy configurations.
+upstream: {{ upstream | default('eth0') }}
+
+# downstream: List of downstream (client-facing) interfaces and
+# their associated subnets and roles. Each item defines an interface
+# that serves local multicast clients.
+# Type: list of dicts. Each dict must contain:
+#   - interface: string (interface name)
+#   - role: string (should be 'downstream')
+#   - subnet: string (CIDR notation, used for documentation)
+#   - allowed_groups: list of strings (multicast group IPs)
+#   - excluded_groups: list of strings (multicast group IPs)
+#
+# The rendered config uses the 'phyint' directive for each
+# downstream interface.
+{% for net in downstream | default([]) %}
+# --- Downstream Interface: {{ net.interface | default('unknown') }} ---
+# This interface serves the subnet: {{ net.subnet | default('N/A') }}
+# Role: {{ net.role | default('downstream') }}
+phyint {{ net.interface | default('eth1') }} {{ net.role | default('downstream') }}
+
+  {% if net.allowed_groups | default([]) | length > 0 %}
+  # --- Allowed Multicast Groups (Whitelist) ---
+  # Only these specific multicast groups are allowed to be
+  # forwarded from upstream to this downstream interface.
+  # If this section is omitted, all groups (except excluded)
+  # are permitted.
   {% for group in net.allowed_groups %}
-  {{ group }}
+  whitelist {{ group }}
   {% endfor %}
   {% endif %}
-  # Exclude these groups from forwarding (optional)
-  {% if net.excluded_groups %}
-  # Excluded multicast groups
+
+  {% if net.excluded_groups | default([]) | length > 0 %}
+  # --- Excluded Multicast Groups ---
+  # These groups are explicitly excluded from forwarding.
+  # Note: igmpproxy does not have a direct "exclude" directive
+  # for downstream interfaces in the same syntax as "whitelist".
+  # Exclusions are typically handled by NOT including them in
+  # the whitelist, or by using upstream filtering.
+  # The groups listed below are documented here for clarity
+  # but may not result in explicit config directives unless
+  # translated via whitelist logic elsewhere.
+  # Groups to exclude:
   {% for group in net.excluded_groups %}
-  {{ group }}
+  # excluded: {{ group }}
   {% endfor %}
   {% endif %}
 {% endfor %}
 
-# Global settings
-# Maximum time (seconds) between upstream queries
-query_interval: {{ query_interval }}
+# --- Global Timing & Behavior Settings ---
 
-# Timeout (seconds) for member report wait
-threshold: {{ threshold }}
+# query_interval: Interval (seconds) between IGMP queries from
+# upstream interface.
+# Type: integer. The upstream interface sends IGMP General Queries
+# at this interval to discover which multicast groups are active
+# on downstream networks.
+query_interval: {{ query_interval | default(125) }}
+
+# threshold: TTL threshold for downstream interfaces.
+# Type: integer. Packets arriving at a downstream interface with a
+# TTL less than this value are dropped. Default is 1.
+threshold: {{ threshold | default(1) }}
+
+# quickleave: Enable quickleave mode to reduce multicast latency
+# when clients leave groups.
+# Type: boolean. When enabled, igmpproxy immediately stops
+# forwarding traffic to a downstream interface if it receives
+# a Leave Group message, rather than waiting for the standard
+# query interval. This improves responsiveness.
+quickleave {{ quickleave | default(True) | lower }}

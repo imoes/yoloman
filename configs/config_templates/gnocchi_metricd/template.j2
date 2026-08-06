@@ -1,93 +1,186 @@
-# Enable metrics storage backend (e.g., 'storage')
-# [storage]
+# =============================================================================
+# Gnocchi Metric Daemon Configuration
+# =============================================================================
+# This template configures gnocchi-metricd, the daemon responsible for ingesting,
+# processing, and storing metrics in the Gnocchi time-series database system.
+# It handles storage backend selection, authentication with Keystone, and
+# coordination between multiple metricd instances.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# [storage] Section
+# -----------------------------------------------------------------------------
+# Configures the backend driver used to store raw metric data points.
+# Supported drivers: file, redis, elasticsearch, ceph.
 [storage]
-# Driver to use for metric storage (e.g., 'file', 'ceph', 'redis', 'elasticsearch')
+
+# Storage backend driver selection.
+# Options: 'file', 'redis', 'elasticsearch', 'ceph'.
 # Default: file
-driver = {{ storage_driver }}
+driver = {{ storage_driver | default('file') }}
 
-# Base path for file-based storage (ignored for non-file drivers)
-# Only used if `driver = file`
-file_basepath = {{ file_basepath }}
+# Base path for file-based metric storage.
+# Only used when driver = 'file'. Ignored by other drivers.
+file_basepath = {{ file_basepath | default('/var/lib/gnocchi') }}
 
-# Redis host and port (used if `driver = redis`)
-redis_host = {{ redis_host }}
-redis_port = {{ redis_port }}
-redis_password = {{ redis_password }}
-redis_db = {{ redis_db }}
+# -------------------------------------------------------------------------
+# Redis Configuration (used if driver = 'redis')
+# -------------------------------------------------------------------------
 
-# Elasticsearch cluster URL(s) (comma-separated list if `driver = elasticsearch`)
-# Example: 'http://host1:9200,http://host2:9200'
-elasticsearch_url = {{ elasticsearch_url }}
+# Redis server hostname or IP address.
+redis_host = {{ redis_host | default('localhost') }}
 
-# Elasticsearch index prefix
-elasticsearch_index_prefix = {{ elasticsearch_index_prefix }}
+# Redis server port.
+redis_port = {{ redis_port | default(6379) }}
 
-# Elasticsearch number of shards and replicas for new indices
-elasticsearch_number_of_shards = {{ elasticsearch_number_of_shards }}
-elasticsearch_number_of_replicas = {{ elasticsearch_number_of_replicas }}
+# Redis password for authentication (leave empty if no auth required).
+redis_password = {{ redis_password | default('') }}
 
-# Ceph configuration (if `driver = ceph`)
-ceph_conffile = {{ ceph_conffile }}
-ceph_pool = {{ ceph_pool }}
+# Redis database number (index) to use for Gnocchi data.
+redis_db = {{ redis_db | default(0) }}
 
-# Enable SSL/TLS for Elasticsearch or Redis (if supported)
-elasticsearch_verify_ssl = {{ elasticsearch_verify_ssl | lower }}
+# -------------------------------------------------------------------------
+# Elasticsearch Configuration (used if driver = 'elasticsearch')
+# -------------------------------------------------------------------------
 
-# [metricd] section: metric processing daemon configuration
-# [metricd]
+# Comma-separated list of Elasticsearch URLs.
+# Example: 'http://localhost:9200,http://es-node2:9200'
+elasticsearch_url = {{ elasticsearch_url | default('http://localhost:9200') }}
+
+# Prefix for Elasticsearch index names.
+# Metrics and resources will be stored in indices like 'gnocchi_metrics_...'.
+elasticsearch_index_prefix = {{ elasticsearch_index_prefix | default('gnocchi') }}
+
+# Number of shards per Elasticsearch index for new metric data.
+elasticsearch_number_of_shards = {{ elasticsearch_number_of_shards | default(1) }}
+
+# Number of replicas per Elasticsearch index for new metric data.
+elasticsearch_number_of_replicas = {{ elasticsearch_number_of_replicas | default(0) }}
+
+# Whether to verify SSL/TLS certificates when connecting to Elasticsearch.
+elasticsearch_verify_ssl = {{ elasticsearch_verify_ssl | default(true) | lower }}
+
+# -------------------------------------------------------------------------
+# Ceph Configuration (used if driver = 'ceph')
+# -------------------------------------------------------------------------
+
+# Path to the Ceph cluster configuration file.
+ceph_conffile = {{ ceph_conffile | default('/etc/ceph/ceph.conf') }}
+
+# Name of the Ceph pool where Gnocchi stores metric data.
+ceph_pool = {{ ceph_pool | default('gnocchi') }}
+
+# -----------------------------------------------------------------------------
+# [metricd] Section
+# -----------------------------------------------------------------------------
+# Daemon-specific tuning for metric ingestion and processing performance.
 [metricd]
-# Number of worker processes for metric processing
-workers = {{ metricd_workers }}
 
-# Timeout for metric processing (seconds)
-metric_processing_timeout = {{ metric_processing_timeout }}
+# Number of worker processes to spawn for handling metric ingestion.
+# Increase this value for higher throughput in multi-core environments.
+workers = {{ metricd_workers | default(1) }}
 
-# Maximum metrics to process per batch
-metrics_per_batch = {{ metrics_per_batch }}
+# Maximum time in seconds a single metric processing worker may run.
+# Workers exceeding this timeout are restarted.
+metric_processing_timeout = {{ metric_processing_timeout | default(300) }}
 
-# Maximum metrics to queue before backpressure
-metrics_queue_max = {{ metrics_queue_max }}
+# Maximum number of metrics to process in a single batch operation.
+metrics_per_batch = {{ metrics_per_batch | default(1000) }}
 
-# Retry configuration
-retry_attempts = {{ retry_attempts }}
-retry_delay = {{ retry_delay }}
+# Maximum number of metrics allowed in the internal queue.
+# When this limit is reached, backpressure mechanisms may be triggered.
+metrics_queue_max = {{ metrics_queue_max | default(10000) }}
 
-# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level = {{ log_level }}
+# -------------------------------------------------------------------------
+# Retry Configuration
+# -------------------------------------------------------------------------
 
-# Enable or disable incoming metric ingestion (e.g., for read-only mode)
-enable_ingestion = {{ enable_ingestion | lower }}
+# Maximum number of retry attempts for transient failures (e.g., network errors).
+retry_attempts = {{ retry_attempts | default(3) }}
 
-# [keystone_authtoken] section: authentication with OpenStack Identity
-# [keystone_authtoken]
+# Delay in seconds between retry attempts.
+retry_delay = {{ retry_delay | default(1) }}
+
+# -------------------------------------------------------------------------
+# Logging Configuration
+# -------------------------------------------------------------------------
+
+# Logging verbosity level.
+# Options: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+log_level = {{ log_level | default('INFO') }}
+
+# -----------------------------------------------------------------------------
+# [keystone_authtoken] Section
+# -----------------------------------------------------------------------------
+# Authentication configuration for connecting to OpenStack Keystone Identity.
+# Gnocchi uses this to validate service tokens and manage API access.
 [keystone_authtoken]
+
+# Authentication type used by the Keystone middleware.
 auth_type = password
-auth_url = {{ keystone_auth_url }}
-project_domain_name = {{ keystone_project_domain_name }}
-user_domain_name = {{ keystone_user_domain_name }}
-project_name = {{ keystone_project_name }}
-username = {{ keystone_username }}
-password = {{ keystone_password }}
+
+# URL of the Keystone Identity API v3 endpoint.
+keystone_auth_url = {{ keystone_auth_url | default('http://localhost:5000/v3') }}
+
+# Default domain name for projects in Keystone.
+keystone_project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+
+# Default domain name for users in Keystone.
+keystone_user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# OpenStack project name under which the Gnocchi service operates.
+keystone_project_name = {{ keystone_project_name | default('service') }}
+
+# Username for the Gnocchi service account in Keystone.
+keystone_username = {{ keystone_username | default('gnocchi') }}
+
+# Password for the Gnocchi service account in Keystone.
+keystone_password = {{ keystone_password | default('') }}
+
+# Require service tokens to have specific roles assigned.
 service_token_roles_required = true
 
-# [coordination] section: distributed coordination (e.g., for HA)
-# [coordination]
+# -----------------------------------------------------------------------------
+# [coordination] Section
+# -----------------------------------------------------------------------------
+# Distributed coordination backend for high-availability setups.
+# Ensures only one active worker performs specific tasks to avoid duplication.
 [coordination]
-# URL for coordination backend (e.g., 'redis://', 'file://')
-url = {{ coordination_url }}
 
-# [indexer] section: storage for metadata (e.g., 'sqlalchemy')
-# [indexer]
+# URL for the coordination backend.
+# Common values: 'redis://localhost:6379' or 'file:///var/lib/gnocchi/coordination'.
+url = {{ coordination_url | default('file:///var/lib/gnocchi/coordination') }}
+
+# -----------------------------------------------------------------------------
+# [indexer] Section
+# -----------------------------------------------------------------------------
+# Backend for storing Gnocchi metadata (resources, measurements, archive policies).
+# Uses SQLAlchemy connection strings.
 [indexer]
-url = {{ indexer_url }}
 
-# [archive_policy] section: archive policy settings (optional override)
-# [archive_policy]
-[archive_policy]
+# SQLAlchemy connection URL for the metadata database.
+# Example for MySQL: 'mysql+pymysql://gnocchi:pass@localhost/gnocchi'
+# Example for PostgreSQL: 'postgresql+psycopg2://gnocchi:pass@localhost/gnocchi'
+url = {{ indexer_url | default('mysql+pymysql://gnocchi:password@localhost/gnocchi') }}
+
+# -----------------------------------------------------------------------------
+# [archive_policy] Section
+# -----------------------------------------------------------------------------
+# Predefined Archive Policies.
+# Archive policies define how metric data is aggregated and retained over time.
+# Each entry defines a policy name, its aggregation methods, and storage definition.
+{% if archive_policies is defined and archive_policies | length > 0 %}
 {% for policy in archive_policies %}
-# Archive policy: {{ policy.name }}
+# Archive Policy Definition: {{ policy.name }}
 [archive_policy:{{ policy.name }}]
-back_window = {{ policy.back_window }}
-definition = {{ policy.definition | join(', ') }}
-aggregation_methods = {{ policy.aggregation_methods | join(', ') }}
+# Number of time intervals to keep in the most granular storage level.
+back_window = {{ policy.back_window | default(0) }}
+# Storage definition: list of tuples (granularity, points_to_keep).
+# Example: '1 second * 3600, 1 minute * 10080'
+definition = {{ policy.definition | default([]) | join(', ') }}
+# Aggregation methods to calculate for this policy.
+# Common methods: mean, max, min, sum, std, count, last.
+aggregation_methods = {{ policy.aggregation_methods | default(['mean', 'max', 'min', 'sum']) | join(', ') }}
+
 {% endfor %}
+{% endif %}

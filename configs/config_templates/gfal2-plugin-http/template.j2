@@ -1,0 +1,148 @@
+# ==============================================================================
+# Configuration file for gfal2-plugin-http
+# ==============================================================================
+# This template configures the HTTP plugin for Gfal2, handling HTTP-based data
+# transfers, Third Party Copies (TPC), and cloud storage backends (S3, GCloud).
+#
+# All variables are sourced from the Ansible inventory/variables. If a variable
+# is not defined, the schema default is used.
+# ==============================================================================
+
+[HTTP PLUGIN]
+
+# Enable HTTP Third Party Copies
+# Default: True
+# Allows the server to copy data directly between two other servers.
+ENABLE_REMOTE_COPY={{ http_enable_remote_copy | default(true) }}
+
+# Enable streamed copies (data passes via the client)
+# Default: True
+# If enabled, data is streamed through the client machine during transfer.
+ENABLE_STREAM_COPY={{ http_enable_stream_copy | default(true) }}
+
+# Enable TPC fallback mechanism
+# Default: True
+# If direct TPC fails, this allows falling back to other transfer methods.
+ENABLE_FALLBACK_TPC_COPY={{ http_enable_fallback_tpc_copy | default(true) }}
+
+# Default mode for HTTP copy
+# Default: '3rd pull'
+# Allowed values: '3rd pull', '3rd push', 'streamed'
+# Determines the preferred method for HTTP copy operations.
+# - '3rd pull': The destination pulls from the source.
+# - '3rd push': The source pushes to the destination.
+# - 'streamed': Data flows through the client.
+DEFAULT_COPY_MODE={{ http_default_copy_mode | default('3rd pull') }}
+
+# Enable or disable the SSL CA check
+# Default: False
+# When True, SSL certificate validation is skipped (INSECURE mode).
+# Use with caution in production; prefer valid CA-signed certificates.
+INSECURE={{ http_insecure | default(false) }}
+
+# Enable or disable Davix Metalink support
+# Default: False
+# Allows fetching resources via Metalink protocol using Davix.
+METALINK={{ http_metalink | default(false) }}
+
+# Force Davix log level (0–5)
+# Default: 0
+# Controls the verbosity of Davix internal logging.
+# 0: Inherits Gfal2 verbosity level.
+# 1: Critical messages only.
+# 2: Warnings and higher.
+# 3: Verbose, reasonable detail.
+# 4: Debug (most logging data).
+# 5: Trace (dump of almost everything).
+# Recommended: 0 for production, 3 or 4 for debugging.
+LOG_LEVEL={{ http_log_level | default(0) }}
+
+# Enable Davix logging of sensitive information
+# Default: False
+# Logs potentially sensitive data (headers, URLs, etc.).
+# WARNING: Do not enable in production environments to avoid data leaks.
+LOG_SENSITIVE={{ http_log_sensitive | default(false) }}
+
+# Enable Davix logging of HTTP request/response body
+# Default: False
+# Logs the full body of HTTP requests and responses.
+# WARNING: Meant for debugging only. Can expose sensitive payloads and
+# significantly increase log volume. Never use in production.
+LOG_CONTENT={{ http_log_content | default(false) }}
+
+# Use HTTP Keep-Alive
+# Default: True
+# Maintains persistent connections to improve performance for multiple requests.
+KEEP_ALIVE={{ http_keep_alive | default(true) }}
+
+# Attempt to retrieve SE-issued tokens
+# Default: True
+# Enables automatic retrieval of Security Enhanced (SE) tokens for authentication.
+RETRIEVE_BEARER_TOKEN={{ http_retrieve_bearer_token | default(true) }}
+
+# ==============================================================================
+# AWS S3 related options
+# ==============================================================================
+[S3]
+
+# AWS Secret key
+# Default: '' (empty/commented out)
+# Set this to enable S3 access. Must be used with ACCESS_KEY.
+# If left empty, the line is commented out to prevent authentication errors.
+{% if s3_secret_key | default('') %}
+SECRET_KEY={{ s3_secret_key | default('') }}
+{% else %}
+# SECRET_KEY=
+{% endif %}
+
+# AWS Access key
+# Default: '' (empty/commented out)
+# Set this to enable S3 access. Must be used with SECRET_KEY.
+# If left empty, the line is commented out.
+{% if s3_access_key | default('') %}
+ACCESS_KEY={{ s3_access_key | default('') }}
+{% else %}
+# ACCESS_KEY=
+{% endif %}
+
+# AWS Short lived token
+# Default: '' (empty/commented out)
+# Optional temporary security token (STS). If left empty, the line is commented out.
+{% if s3_token | default('') %}
+TOKEN={{ s3_token | default('') }}
+{% else %}
+# TOKEN=
+{% endif %}
+
+# AWS Region
+# Default: '' (empty/commented out)
+# Specifies the AWS region for the S3 bucket. If left empty, the line is commented out.
+{% if s3_region | default('') %}
+REGION={{ s3_region | default('') }}
+{% else %}
+# REGION=
+{% endif %}
+
+# ==============================================================================
+# Google Cloud Storage related options
+# ==============================================================================
+[GCLOUD]
+
+# Google JSON auth file path
+# Default: '' (empty/commented out)
+# Path to the service account JSON key file. If left empty, the line is commented out.
+{% if gcloud_json_auth_file | default('') %}
+JSON_AUTH_FILE={{ gcloud_json_auth_file | default('') }}
+{% else %}
+# JSON_AUTH_FILE=
+{% endif %}
+
+# Google JSON auth content as string
+# Default: '' (empty/commented out)
+# Direct JSON content for authentication. If left empty, the line is commented out.
+# Use either JSON_AUTH_FILE or JSON_AUTH_STRING, not both if avoidable.
+{% if gcloud_json_auth_string | default('') %}
+JSON_AUTH_STRING={{ gcloud_json_auth_string | default('') }}
+{% else %}
+# JSON_AUTH_STRING=
+{% endif %}

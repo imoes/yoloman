@@ -1,0 +1,32 @@
+# diskscan configuration template
+# Self-documenting: every directive is preceded by its schema description.
+# Variables use `| default(...)` to ensure safe rendering even if the role
+# omits optional fields.
+
+# List of block devices to scan, each with optional override parameters.
+# Must be root-owned block devices (e.g., /dev/sda).
+# Defaults to an empty list if not provided.
+{% for device in devices | default([], true) %}
+# Absolute path to the block device (e.g., /dev/sda1). Required per entry.
+# Scan mode: 'seq' (sequential) or 'random'. Defaults to sequential.
+# Block size in bytes for scanning; must be a multiple of the sector size (typically 512). Default is 1 MiB.
+# If true, attempt to fix areas nearing failure. Only safe on unmounted devices.
+{{ device.device_path | default('') }}{% if device.scan_mode is defined %} {{ device.scan_mode | default('seq') }}{% endif %}{% if device.block_size is defined %} --size={{ device.block_size | default(1048576) }}{% endif %}{% if device.fix is defined and device.fix %} --fix{% endif %}
+{% endfor %}
+
+# Verbosity level: 0 (silent), 1 (normal), 2 (more), 3 (most).
+# Each level adds a -v flag.
+{% set v = verbose | default(0) %}
+{% if v > 0 %}-v{% endif %}{% if v > 1 %} -v{% endif %}{% if v > 2 %} -v{% endif %}
+
+# Path to JSON output file for summary and exceptional events.
+# If empty, output goes to stdout.
+{% if output_file | default('') %}
+-o {{ output_file | default('') }}
+{% endif %}
+
+# Path to JSON file for raw scan log.
+# If empty, raw log is not written.
+{% if raw_log_file | default('') %}
+-r {{ raw_log_file | default('') }}
+{% endif %}

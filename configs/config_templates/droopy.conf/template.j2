@@ -1,62 +1,44 @@
-# droopy configuration file
-# Server address to listen on (host:port)
-host: {{ host }}
+# Droopy configuration file
+# Droopy is a simple web-based file uploader. This configuration file
+# controls the behavior of the Droopy service instance.
 
-# TCP port to listen on
-port: {{ port }}
+# Directory to upload files to.
+# Specifies the local directory on the host where uploaded files are stored.
+# Default: current directory ('.')
+directory: {{ webdir | default('.') }}
 
-# Directory to serve files from
-webdir: {{ webdir }}
+# Message displayed on the web interface.
+# A welcome or informational message shown to users on the upload page.
+# Default: empty string
+message: {{ message | default('') }}
 
-# Enable HTTPS? (requires certificate and key files)
-ssl: {{ ssl.enabled | lower }}
+# Picture displayed on the web interface.
+# Path to an image file to display on the upload page.
+# Default: empty string
+picture: {{ picture | default('') }}
 
-# Path to SSL certificate file (only used if ssl is enabled)
-ssl_cert: {{ ssl.cert_path | default('') }}
+# Provide download links for uploaded files.
+# If true, users can download files they (or others) have uploaded.
+# Value must be 'true' or 'false'.
+# Default: false
+dl: {{ dl | default(false) | lower }}
 
-# Path to SSL private key file (only used if ssl is enabled)
-ssl_key: {{ ssl.key_path | default('') }}
-
-# Maximum file upload size in bytes
-max_upload_size: {{ max_upload_size }}
-
-# Enable directory listing (true/false)
-dir_listing: {{ dir_listing | lower }}
-
-# Authentication method: none, basic, digest
-auth_method: {{ auth_method }}
-
-# Basic auth credentials: list of users (format: username:password)
-{% for user in auth_users %}# {{ user.username }} ({{ user.description | default('user') }})
-auth_user_{{ loop.index }}: {{ user.username }}:{{ user.password }}
+# Authentication credentials (USER:PASS)
+# List of users allowed to upload files. Each entry in `auth_users`
+# defines a username and password. The format in the config file is
+# 'username:password' per line.
+# Default: empty list (no authentication)
+{% for user in auth_users | default([]) %}auth: {{ user.username }}:{{ user.password }}
 {% endfor %}
 
-# List of allowed MIME types for upload (empty = all allowed)
-{% if allowed_mimetypes %}# Allowed MIME types (space-separated list)
-allowed_mimetypes: {% for mt in allowed_mimetypes %}{{ mt }} {% endfor %}
-{% else %}# No MIME type restrictions
-allowed_mimetypes: 
-{% endif %}
+# SSL/TLS configuration.
+# Path to the SSL PEM certificate file used to enable HTTPS.
+# Only applied if the Droopy process is started with the --ssl flag.
+# Default: empty string (no SSL)
+ssl: {{ ssl | default('') }}
 
-# Log level: debug, info, warn, error
-log_level: {{ log_level }}
-
-# Path to log file (empty = stderr)
-log_file: {{ log_file | default('') }}
-
-# Enable CORS? (sets Access-Control-Allow-Origin: *)
-cors: {{ cors | lower }}
-
-# Custom HTML header (raw HTML, optional)
-{% if html_header %}# Custom HTML header (inserted in <head>)
-html_header: |
-{% for line in html_header.split('\n') %}  {{ line }}
-{% endfor %}
-{% endif %}
-
-# Custom HTML footer (raw HTML, optional)
-{% if html_footer %}# Custom HTML footer (inserted before </body>)
-html_footer: |
-{% for line in html_footer.split('\n') %}  {{ line }}
-{% endfor %}
-{% endif %}
+# File permissions mode for uploaded files.
+# Octal value (e.g., '0644', '0755') specifying permissions for
+# files saved to the `directory`.
+# Default: empty string (use system/umask default)
+chmod: {{ chmod | default('') }}

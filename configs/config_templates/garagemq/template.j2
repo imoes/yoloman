@@ -1,102 +1,26 @@
-# Global server settings
-server:
-  # Host and port for the AMQP listener
-  listen: "{{ server.listen }}"
-
-  # Maximum number of incoming connections
-  max_connections: {{ server.max_connections }}
-
-  # TLS configuration (optional)
-{% if server.tls.enabled %}
-  tls:
-    enabled: true
-    cert_file: "{{ server.tls.cert_file }}"
-    key_file: "{{ server.tls.key_file }}"
-{% else %}
-  tls:
-    enabled: false
-{% endif %}
-
-# Authentication and authorization
-auth:
-  # Enable/disable authentication
-{% if auth.enabled %}
-  enabled: true
-  # Method: 'plain' (username/password), 'scram-sha-256', or 'external' (e.g., TLS client certs)
-  method: "{{ auth.method }}"
-  # Path to password file for 'plain' method (YAML map: username: hash)
-  password_file: "{{ auth.password_file }}"
-{% else %}
-  enabled: false
-{% endif %}
-
-# Virtual hosts (vhosts)
-# Each vhost is an isolated namespace for queues and exchanges
-{% for vhost in vhosts %}
-vhosts:
-  - name: "{{ vhost.name }}"
-{% endfor %}
-
-# Default user permissions per vhost (admin users can be added via CLI or HTTP API)
-# This section configures *default* user (if auth.enabled), otherwise empty
-{% if auth.enabled and auth.default_user %}
-default_user:
-  username: "{{ auth.default_user.username }}"
-  permissions:
-    vhost: "{{ auth.default_user.permissions.vhost }}"
-    configure: "{{ auth.default_user.permissions.configure }}"
-    write: "{{ auth.default_user.permissions.write }}"
-    read: "{{ auth.default_user.permissions.read }}"
-{% endif %}
-
-# Logging
-log:
-  # Level: 'debug', 'info', 'warn', 'error'
-  level: "{{ log.level }}"
-  # Output: 'stdout', 'stderr', or file path
-  output: "{{ log.output }}"
-
-# Storage engine
-storage:
-  # 'memory' (ephemeral) or 'disk' (persistent, using BoltDB)
-  driver: "{{ storage.driver }}"
-{% if storage.driver == 'disk' %}
-  # Directory for persistent storage
-  path: "{{ storage.path }}"
-{% endif %}
-
-# Cluster (optional — for multi-node setups)
-{% if cluster.enabled %}
-cluster:
-  enabled: true
-  node_name: "{{ cluster.node_name }}"
-{% for peer in cluster.peers %}
-  peers:
-    - address: "{{ peer.address }}"
-{% endfor %}
-{% else %}
-cluster:
-  enabled: false
-{% endif %}
-
-# Metrics (Prometheus-style, `/metrics` endpoint)
-{% if metrics.enabled %}
-metrics:
-  enabled: true
-  listen: "{{ metrics.listen }}"
-{% else %}
-metrics:
-  enabled: false
-{% endif %}
-
-# Heartbeat interval in seconds (controls AMQP connection keepalive)
-heartbeat: {{ heartbeat }}
-
-# Maximum frame size in bytes (AMQP 0-9-1, default: 131072)
-frame_max: {{ frame_max }}
-
-# Maximum channels per connection
-max_channels: {{ max_channels }}
-
-# Queue TTL (time-to-live in ms) for auto-delete queues
-queue_ttl: {{ queue_ttl }}
+proto: amqp-rabbit
+users:
+  - username: {{ auth.default_user.username }}
+    password: {{ auth.default_user.password_hash }} # {{ auth.default_user.username }} md5
+tcp:
+  ip: {{ server.listen.split(':')[0] }}
+  port: {{ server.listen.split(':')[1] }}
+  nodelay: false
+  readBufSize: 196608
+  writeBufSize: 196608
+admin:
+  ip: {{ server.listen.split(':')[0] }}
+  port: {{ admin_port }}
+queue:
+  shardSize: {{ queue_shard_size }}
+  maxMessagesInRam: {{ queue_max_messages_in_ram }}
+db:
+  defaultPath: {{ db_default_path }}
+  engine: {{ db_engine }}
+vhost:
+  defaultPath: {{ vhosts[0].name }}
+security:
+  passwordCheck: {{ auth.method }}
+connection:
+  channelsMax: {{ connection.channels_max }}
+  frameMaxSize: {{ connection.frame_max_size }}

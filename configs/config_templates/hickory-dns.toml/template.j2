@@ -1,86 +1,171 @@
-# Hickory DNS configuration
-# Listen addresses for the DNS server (TCP/UDP)
+# Hickory DNS Server Configuration
+# Managed by Ansible. See variables schema for descriptions.
+
+# ==============================================================================
+# Network Listening
+# ==============================================================================
+
+# IP addresses and port(s) the DNS server will listen on for standard DNS traffic (UDP/TCP).
 listen_on = [
-{% for addr in listen_addresses %}  {{ addr | tojson }}{% if not loop.last %},{% endif %}
+{% for addr in listen_addresses | default(['0.0.0.0:53', '[::]:53']) %}  {{ addr | tojson }}{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-# DNS over HTTPS (DoH) endpoints
-# Enable DoH support (requires TLS certificates)
-{% if doh_enabled %}doh_enabled = true
-doh_address = "{{ doh_address }}"
-{% if doh_certs %}doh_certs = "{{ doh_certs }}"
-doh_key = "{{ doh_key }}"
-{% else %}doh_certs = ""
-doh_key = ""
+# ==============================================================================
+# DNS over HTTPS (DoH)
+# ==============================================================================
+
+# Enable DNS over HTTPS (DoH) support. Requires valid TLS certificate and key paths below.
+{% if doh_enabled | default(False) %}
+doh_enabled = true
+{% else %}
+doh_enabled = false
 {% endif %}
-{% else %}doh_enabled = false
-doh_address = ""
+
+# Address and port for DoH endpoint (e.g., '0.0.0.0:443').
+doh_address = "{{ doh_address | default('0.0.0.0:443') }}"
+
+# Path to TLS certificate for DoH (PEM format).
+{% if doh_enabled | default(False) %}
+doh_certs = "{{ doh_certs | default('/etc/hickory-dns/certs/doh.crt') }}"
+{% else %}
 doh_certs = ""
+{% endif %}
+
+# Path to TLS private key for DoH (PEM format).
+{% if doh_enabled | default(False) %}
+doh_key = "{{ doh_key | default('/etc/hickory-dns/certs/doh.key') }}"
+{% else %}
 doh_key = ""
 {% endif %}
 
-# DNS over TLS (DoT) endpoints
-# Enable DoT support (requires TLS certificates)
-{% if dot_enabled %}dot_enabled = true
-dot_address = "{{ dot_address }}"
-{% if dot_certs %}dot_certs = "{{ dot_certs }}"
-dot_key = "{{ dot_key }}"
-{% else %}dot_certs = ""
-dot_key = ""
+# ==============================================================================
+# DNS over TLS (DoT)
+# ==============================================================================
+
+# Enable DNS over TLS (DoT) support. Requires valid TLS certificate and key paths below.
+{% if dot_enabled | default(False) %}
+dot_enabled = true
+{% else %}
+dot_enabled = false
 {% endif %}
-{% else %}dot_enabled = false
-dot_address = ""
+
+# Address and port for DoT endpoint (e.g., '0.0.0.0:853').
+dot_address = "{{ dot_address | default('0.0.0.0:853') }}"
+
+# Path to TLS certificate for DoT (PEM format).
+{% if dot_enabled | default(False) %}
+dot_certs = "{{ dot_certs | default('/etc/hickory-dns/certs/dot.crt') }}"
+{% else %}
 dot_certs = ""
+{% endif %}
+
+# Path to TLS private key for DoT (PEM format).
+{% if dot_enabled | default(False) %}
+dot_key = "{{ dot_key | default('/etc/hickory-dns/certs/dot.key') }}"
+{% else %}
 dot_key = ""
 {% endif %}
 
-# Upstream resolvers for recursive lookups
-# Use system resolvers or custom upstreams
-{% if upstream_mode == 'system' %}upstream_mode = "system"
-{% else %}upstream_mode = "custom"
+# ==============================================================================
+# Upstream Resolvers
+# ==============================================================================
+
+# Resolver upstream behavior: 'system' (use system resolvers), or 'custom' (specify upstreams manually).
+# Note: If 'custom', the 'upstreams' list is used.
+{% if upstream_mode | default('system') == 'system' %}
+upstream_mode = "system"
+{% else %}
+upstream_mode = "custom"
+{% endif %}
+
+# List of upstream DNS resolvers to use when upstream_mode is 'custom'.
+# This is a deprecated key. Use the 'upstream' key with a list of 'resolver' objects if available in newer versions.
+{% if upstream_mode | default('system') == 'custom' %}
 upstreams = [
-{% for upstream in upstreams %}  {{ upstream | tojson }}{% if not loop.last %},{% endif %}
+{% for upstream in upstreams | default(['1.1.1.1:53', '8.8.8.8:53']) %}  {{ upstream | tojson }}{% if not loop.last %},{% endif %}
 {% endfor %}]
 {% endif %}
 
-# Resolver settings
-[resolver]
-# TTL and cache behavior
-cache_size = {{ cache_size }}
-min_ttl = {{ min_ttl }}
-max_ttl = {{ max_ttl }}
+# ==============================================================================
+# Resolver Settings
+# ==============================================================================
 
-# Query behavior
-{%- if recursive_query_mode == 'off' %}
+[resolver]
+
+# Maximum number of DNS records to hold in the resolver cache.
+cache_size = {{ cache_size | default(10000) }}
+
+# Minimum TTL (seconds) enforced for cached records (prevents overly short caching).
+min_ttl = {{ min_ttl | default(60) }}
+
+# Maximum TTL (seconds) enforced for cached records (e.g., 7 days).
+max_ttl = {{ max_ttl | default(604800) }}
+
+# ==============================================================================
+# Recursive Query Handling
+# ==============================================================================
+
+# Recursive query handling: 'off' (refuse recursion), 'local_only' (allow recursion for local/private zones), or 'full' (allow full recursion).
+{%- if recursive_query_mode | default('local_only') == 'off' %}
 recursive_query_mode = "off"
-{%- elif recursive_query_mode == 'local_only' %}
+{%- elif recursive_query_mode | default('local_only') == 'local_only' %}
 recursive_query_mode = "local_only"
 {%- else %}
 recursive_query_mode = "full"
 {%- endif %}
 
-# Log level
-log_level = "{{ log_level }}"
+# ==============================================================================
+# Logging
+# ==============================================================================
 
-# Hosted zones (authoritative only)
-{% if hosted_zones %}[hosted_zones]
-{% for zone in hosted_zones %}[hosted_zones.{{ zone.zone_name | replace('.', '_') }}]
-zone_file = "{{ zone.zone_file }}"
-{% if zone.zone_type %}zone_type = "{{ zone.zone_type }}"
-{% endif %}{% if zone.masters %}masters = [
+# Logging verbosity: 'error', 'warn', 'info', 'debug', or 'trace'.
+log_level = "{{ log_level | default('info') }}"
+
+# ==============================================================================
+# Hosted Zones (Authoritative)
+# ==============================================================================
+
+# List of authoritative zones served by this server. Each zone defines its own zone file and optional settings.
+{% if hosted_zones | default([]) %}
+[hosted_zones]
+{% for zone in hosted_zones | default([]) %}
+[hosted_zones.{{ zone.zone_name | default('') | replace('.', '_') }}]
+# Path to the zone file for this authoritative zone.
+zone_file = "{{ zone.zone_file | default('') }}"
+
+# Zone type (e.g., primary, secondary).
+{% if zone.zone_type is defined and zone.zone_type %}
+zone_type = "{{ zone.zone_type }}"
+{% endif %}
+
+# List of master servers for secondary zones.
+{% if zone.masters is defined and zone.masters %}
+masters = [
 {% for master in zone.masters %}  {{ master | tojson }}{% if not loop.last %},{% endif %}
 {% endfor %}]
 {% endif %}
-{% if zone.allow_notify %}allow_notify = [
+
+# List of IPs allowed to send NOTIFY messages for this zone.
+{% if zone.allow_notify is defined and zone.allow_notify %}
+allow_notify = [
 {% for ip in zone.allow_notify %}  {{ ip | tojson }}{% if not loop.last %},{% endif %}
 {% endfor %}]
 {% endif %}
 {% endfor %}
 {% endif %}
 
-# Rate limiting
+# ==============================================================================
+# Rate Limiting
+# ==============================================================================
+
+# Enable per-client query rate limiting to mitigate abuse or DDoS.
 [rate_limit]
-enabled = {{ rate_limit_enabled }}
-{% if rate_limit_enabled %}max_qps = {{ rate_limit_max_qps }}
-window = {{ rate_limit_window }}
+enabled = {{ rate_limit_enabled | default(False) | lower }}
+
+{% if rate_limit_enabled | default(False) %}
+# Maximum queries per second allowed per client before throttling.
+max_qps = {{ rate_limit_max_qps | default(100) }}
+
+# Time window (seconds) over which QPS is measured.
+window = {{ rate_limit_window | default(10) }}
 {% endif %}

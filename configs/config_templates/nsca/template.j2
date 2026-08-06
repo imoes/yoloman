@@ -1,52 +1,80 @@
-# PID file location for the nsca daemon
-pid_file={{ pid_file }}
+#!/bin/sh
 
-# Port on which nsca listens for incoming encrypted checks
-server_port={{ server_port }}
+### BEGIN INIT INFO
+# Provides:          nsca
+# Required-Start:    $local_fs $remote_fs $syslog $named $network $time
+# Required-Stop:     $local_fs $remote_fs $syslog $named $network
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start/Stop the Nagios Service Check Acceptor (nsca) daemon
+### END INIT INFO
 
-# IP address(es) nsca binds to (empty string = all interfaces)
-bind_to_address={{ bind_to_address }}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/nsca
+NAME=nsca
+DESC="Nagios Service Check Acceptor"
+CONF=/etc/nsca.cfg
+OPTS="--daemon -c $CONF"
+PIDFILE="{{ pid_file }}"
 
-# Maximum number of concurrent connections
-max_connections={{ max_connections }}
+test -f $DAEMON || exit 0
 
-# Command file (Nagios external command pipe)
-command_file={{ command_file }}
+if ! [ -x "/lib/lsb/init-functions" ]; then
+    . /lib/lsb/init-functions
+else
+    echo "E: /lib/lsb/init-functions not found, lsb-base (>= 3.0-6) needed"
+    exit 1
+fi
 
-# Decryption password (shared with nagios server; must match sender config)
-password={{ password }}
+# support a default file
+if [ -f /etc/default/nsca ]; then
+    . /etc/default/nsca
+fi
 
-# Decryption method: 0 = simple XOR, 1 = DES (deprecated), 2 = AES-256-CBC
-encryption_method={{ encryption_method }}
+# if the pid_file is specified in the configuration file, nsca will
+# take care of the pid handling for us.  if it isn't we should continue
+# as we have before
+PIDFILE="$(confget -f $CONF pid_file)"
+# if pidfile isn't set
+if [ -z "$PIDFILE" ];  then
+    # then this is the default PIDFILE
+    log_failure_msg "Please set pid_file in /etc/nsca.conf"
+    exit 1
+fi
 
-# Number of seconds to wait before dropping a connection (0 = no timeout)
-connection_timeout={{ connection_timeout }}
+if [ ! -d "/run/nagios" ]; then
+    mkdir -p /run/nagios || { log_failure_msg "couldn't create /run/nagios"; exit 1; }
+fi
 
-# Number of seconds to wait before reaping dead children (0 = disabled)
-child_timeout={{ child_timeout }}
+case "$1" in
+start)
+    log_daemon_msg "Starting $DESC" "$NAME"
+    start_daemon -p $PIDFILE $DAEMON $OPTS
+    log_end_msg $?
+;;
+stop)
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+    log_end_msg $?
+;;
+reload|force-reload)
+    log_daemon_msg "Reloading $DESC configuration files" "$NAME"
+    start-stop-daemon --stop --signal HUP --quiet --pidfile $PIDFILE
+    log_end_msg $?
+;;
+restart)
+    $0 stop
+    $0 start
+;;
+status)
+    status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+;;
+*)
+    log_failure_msg "Usage: $N {start|stop|restart|reload|force-reload|status}"
+    exit 1
+;;
+esac
 
-# Enable or disable daemon mode (1 = daemonize, 0 = run in foreground)
-daemonize={{ daemonize }}
-
-# Log level: 0 = none, 1 = errors, 2 = warnings, 3 = info, 4 = debug
-debug_level={{ debug_level }}
-
-# Log file path (empty = syslog)
-log_file={{ log_file }}
-
-# Allow multiple instances on same host (1 = allow, 0 = disallow)
-allow_multiple_instances={{ allow_multiple_instances }}
-
-{% if additional_hosts %}
-# Additional allowed sender hosts (comma-separated IPs or hostnames)
-allowed_hosts={{ additional_hosts | join(',') }}
-{% endif %}
-
-# User to drop privileges to (empty = run as current user)
-run_as_user={{ run_as_user }}
-
-# Group to drop privileges to (empty = run as current group)
-run_as_group={{ run_as_group }}
-
-# Set umask for created files
-umask={{ umask }}
+exit 0

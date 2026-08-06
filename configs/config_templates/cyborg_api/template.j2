@@ -1,73 +1,112 @@
 [DEFAULT]
-# Global debug mode (verbose logging)
-{% if debug %}debug = true{% else %}debug = false{% endif %}
+# Enable verbose debug logging.
+debug = {{ debug | default(False) | ternary('true', 'false') }}
 
-# Logging level
-log_level = {{ log_level }}
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
 
-# Log file path (empty for stderr)
-{% if log_file %}log_file = {{ log_file }}{% endif %}
+# Path to log file. Leave empty to log to stderr.
+{% if log_file | default('') %}
+log_file = {{ log_file | default('') }}
+{% endif %}
 
-# Hostname/IP the API service listens on
-bind_host = {{ bind_host }}
+# IP address or hostname the Cyborg API server binds to.
+bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# Port the API service listens on
-bind_port = {{ bind_port }}
+# Port on which the Cyborg API server listens.
+bind_port = {{ bind_port | default(6666) }}
 
-# Maximum number of workers for the API service
-{% if api_workers %}workers = {{ api_workers }}{% endif %}
+# Number of worker processes for the API service.
+{% if api_workers | default(1) > 0 %}
+workers = {{ api_workers | default(1) }}
+{% endif %}
 
-# Enable SSL/TLS for the API endpoint
-{% if enable_ssl %}ssl_cert_file = {{ ssl_cert_file }}
-ssl_key_file = {{ ssl_key_file }}{% endif %}
+# Enable TLS/SSL encryption for the API endpoint.
+{% if enable_ssl | default(False) %}
+# Path to SSL certificate file (required if enable_ssl is true).
+ssl_cert_file = {{ ssl_cert_file | default('') }}
+# Path to SSL private key file (required if enable_ssl is true).
+ssl_key_file = {{ ssl_key_file | default('') }}
+{% endif %}
 
 [api]
-# Enable CORS headers (for cross-origin requests)
-enable_cors = {{ enable_cors }}
+# Enable Cross-Origin Resource Sharing (CORS) headers.
+enable_cors = {{ enable_cors | default(False) | ternary('true', 'false') }}
 
-# Allowed origins for CORS (comma-separated list or wildcard)
-{% if cors_allowed_origins | length > 0 %}cors_allowed_origins = {{ cors_allowed_origins | join(', ') }}{% endif %}
+# List of allowed origins for CORS (e.g., ['https://dashboard.example.com']).
+{% if cors_allowed_origins | default([]) | length > 0 %}
+cors_allowed_origins = {{ cors_allowed_origins | default([]) | join(', ') }}
+{% endif %}
 
-# Rate limiting settings
-{% if rate_limiting_enabled %}rate_limit_enable = true
-rate_limit_threshold = {{ rate_limit_threshold }}
-rate_limit_period = {{ rate_limit_period }}{% else %}rate_limit_enable = false{% endif %}
+# Enable rate limiting for API requests.
+rate_limit_enable = {{ rate_limiting_enabled | default(False) | ternary('true', 'false') }}
+{% if rate_limiting_enabled | default(False) %}
+# Maximum number of requests allowed in the period before rate limiting kicks in.
+rate_limit_threshold = {{ rate_limit_threshold | default(100) }}
+# Time window (in seconds) for rate limiting.
+rate_limit_period = {{ rate_limit_period | default(60) }}
+{% endif %}
 
 [keystone_authtoken]
-# Identity service (Keystone) authentication configuration
-auth_type = {{ keystone_auth_type }}
-auth_url = {{ keystone_auth_url }}
-project_domain_name = {{ keystone_project_domain_name }}
-user_domain_name = {{ keystone_user_domain_name }}
-project_name = {{ keystone_project_name }}
-username = {{ keystone_username }}
-password = {{ keystone_password }}
-{% if keystone_interface %}interface = {{ keystone_interface }}{% endif %}
+# Authentication method for Keystone integration (e.g., 'password').
+auth_type = {{ keystone_auth_type | default('password') }}
 
-# TLS verification settings for Keystone
-{% if keystone_cafile %}cafile = {{ keystone_cafile }}{% endif %}
-{% if keystone_insecure | lower == 'true' %}insecure = true{% else %}insecure = false{% endif %}
+# Keystone identity service endpoint URL.
+auth_url = {{ keystone_auth_url | default('http://localhost:5000/v3') }}
+
+# Keystone project domain name.
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+
+# Keystone user domain name.
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# Service project (tenant) name in Keystone.
+project_name = {{ keystone_project_name | default('services') }}
+
+# Service username for Cyborg in Keystone.
+username = {{ keystone_username | default('cyborg') }}
+
+# Password for the Cyborg service user in Keystone.
+password = {{ keystone_password | default('') }}
+
+# Keystone endpoint interface (public, internal, admin).
+{% if keystone_interface | default('internal') %}
+interface = {{ keystone_interface | default('internal') }}
+{% endif %}
+
+# Path to CA certificate bundle for verifying Keystone TLS connections.
+{% if keystone_cafile | default('') %}
+cafile = {{ keystone_cafile | default('') }}
+{% endif %}
+
+# Set to 'true' to disable TLS certificate verification for Keystone.
+insecure = {{ keystone_insecure | default('false') | lower | ternary('true', 'false') }}
 
 [driver]
-# Default acceleration device driver
-{% if default_driver %}default_driver = {{ default_driver }}{% endif %}
+# Default accelerator device driver (e.g., 'fpga_intel_pac').
+{% if default_driver | default('') %}
+default_driver = {{ default_driver | default('') }}
+{% endif %}
 
 [resource_tracker]
-# Resource tracking refresh interval (seconds)
-{% if resource_tracker_interval %}resource_tracker_interval = {{ resource_tracker_interval }}{% endif %}
+# Interval (seconds) between resource tracker updates.
+{% if resource_tracker_interval | default(60) > 0 %}
+resource_tracker_interval = {{ resource_tracker_interval | default(60) }}
+{% endif %}
 
 [accelerator]
-# Accelerator device discovery and management settings
-{% if accelerator_discovery_auto %}auto_discovery = true{% else %}auto_discovery = false{% endif %}
+# Automatically discover acceleration devices on the host.
+auto_discovery = {{ accelerator_discovery_auto | default(True) | ternary('true', 'false') }}
 
-# List of known accelerators (manually configured devices)
-{% for dev in known_accelerators %}# Device: {{ dev.name }}
-{{ dev.name }}_device_id = {{ dev.device_id }}
-{{ dev.name }}_vendor = {{ dev.vendor }}
-{{ dev.name }}_model = {{ dev.model }}
-{{ dev.name }}_accel_type = {{ dev.accel_type }}
+# List of manually configured acceleration devices (used when auto_discovery is false).
+{% for dev in known_accelerators | default([]) %}
+# Device: {{ dev.name | default('unknown') }}
+{{ dev.name | default('unknown') }}_device_id = {{ dev.device_id | default('') }}
+{{ dev.name | default('unknown') }}_vendor = {{ dev.vendor | default('') }}
+{{ dev.name | default('unknown') }}_model = {{ dev.model | default('') }}
+{{ dev.name | default('unknown') }}_accel_type = {{ dev.accel_type | default('') }}
 {% endfor %}
 
 [database]
-# Database connection string (SQLAlchemy format)
-connection = {{ db_connection }}
+# Database connection string (SQLAlchemy format). Use PostgreSQL/MySQL in production.
+connection = {{ db_connection | default('sqlite:////var/lib/cyborg/cyborg.sqlite') }}

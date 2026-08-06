@@ -1,80 +1,66 @@
 {
   "poll_interval": {
     "type": "number",
-    "default": 10,
-    "description": "Interval (in seconds) between polls for device-mapper events."
+    "default": {
+      "value": 10,
+      "unit": "seconds"
+    },
+    "description": "Interval (in seconds) between polls for device-mapper events. Configurable via LVM poll_interval setting. Default derived from lvm.conf(5)."
   },
   "dbus_socket": {
     "type": "string",
-    "default": "",
-    "description": "Path to D-Bus system socket for event subscription. Leave empty to disable D-Bus."
+    "default": {
+      "value": "/run/dbus/system_bus_socket",
+      "unit": "path"
+    },
+    "description": "Path to D-Bus system socket for event subscription. Default is /run/dbus/system_bus_socket per dmeventd configuration. Leave empty to disable D-Bus."
   },
   "max_workers": {
     "type": "number",
-    "default": 4,
-    "description": "Maximum number of worker threads to handle concurrent events."
+    "default": {
+      "value": 0,
+      "note": "0 = system auto-tune"
+    },
+    "description": "Maximum number of worker threads to handle concurrent events. 0 means auto-determined."
   },
   "log_level": {
     "type": "number",
-    "default": 2,
-    "description": "Verbosity level: 0=ERROR, 1=WARN, 2=INFO (recommended), 3=DEBUG."
+    "default": {
+      "value": 0,
+      "note": "See -d flag in man page"
+    },
+    "description": "Verbosity level controlled via -d flag in man page. 0=no debug, 1-3 increasing verbosity. Default 0 = no debug output."
   },
   "pid_file": {
     "type": "string",
-    "default": "/run/dmeventd.pid",
+    "default": {
+      "value": "/run/dmeventd.pid",
+      "unit": "path"
+    },
     "description": "Absolute path to the PID file for the dmeventd daemon."
   },
   "log_file": {
     "type": "string",
-    "default": "",
-    "description": "Absolute path to a log file. Empty means logs only to syslog/journald."
+    "default": {
+      "value": "",
+      "note": "Logs to syslog by default"
+    },
+    "description": "Absolute path to a log file. Empty means logs only to syslog/journald. Use -l flag to log to stdout/stderr."
   },
   "background_processing": {
     "type": "bool",
-    "default": true,
-    "description": "When true, events are processed asynchronously in background threads."
+    "default": {
+      "value": true,
+      "note": "Use -f to force foreground"
+    },
+    "description": "When true, events are processed asynchronously in background threads. Use -f flag to override and run in foreground."
   },
   "targets": {
     "type": "list",
-    "default": [],
-    "description": "List of device types and paths to monitor for events (e.g., LVM logical volumes).",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Logical name for the target (e.g., 'lvm2', 'thin-pool', 'snapshot')."
-      },
-      "path": {
-        "type": "string",
-        "default": "",
-        "description": "Device mapper path pattern or full DM device path (e.g., '/dev/mapper/vg-lv')."
-      },
-      "polling_enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable polling (vs. relying solely on async notifications) for this target."
-      },
-      "event_types": {
-        "type": "list",
-        "default": [
-          "ERROR",
-          "THRESHOLD",
-          "STATUS"
-        ],
-        "description": "List of event types to monitor (e.g., 'ERROR', 'THRESHOLD', 'STATUS').",
-        "items": {
-          "type": "string",
-          "enum": [
-            "ERROR",
-            "THRESHOLD",
-            "STATUS",
-            "MIRROR",
-            "SNAPSHOT",
-            "THIN"
-          ],
-          "description": "Type of event to trigger on. Common: 'ERROR', 'THRESHOLD', 'STATUS'."
-        }
-      }
-    }
+    "default": {
+      "value": [],
+      "note": "Configured via LVM plugins"
+    },
+    "description": "Monitoring targets configured via LVM plugins (mirror, raid, snapshot, thin, vdo). Default empty list - targets configured via lvm.conf(5). Each item contains: name, path, polling_enabled, event_types."
   }
 }

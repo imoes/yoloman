@@ -1,0 +1,280 @@
+##VERSION: $Id: 098f1a6ea09983825bf6156d57a871f5fcf27b35-20210515150130$
+#
+# Copyright 2012 Double Precision, Inc.  See COPYING for
+# distribution information.
+#
+# Do not alter lines that begin with ##, they are used when upgrading
+# this configuration.
+#
+# authsqliterc created from authsqliterc.dist by sysconftool
+#
+# ============================================================================
+# COURIER AUTHENTICATION LIBRARY - SQLITE BACKEND CONFIGURATION
+# ============================================================================
+#
+# This file configures the courier-authlib to use an SQLite database for
+# user authentication and account information retrieval.
+#
+# FORMAT: Each directive must be on its own line, followed by whitespace
+# (spaces or tabs) and then the value. No trailing spaces allowed.
+#
+# ============================================================================
+
+##NAME: LOCATION:0
+#
+# SQLITE_DATABASE: Path to the SQLite database file containing user accounts.
+# The database file must exist and be readable by the courier-authlib process
+# user. It must contain the table specified by SQLITE_USER_TABLE.
+#
+SQLITE_DATABASE		{{ sqlite_database | default('/var/lib/courier/users.db') }}
+
+##NAME: SQLITE_USER_TABLE:0
+#
+# SQLITE_USER_TABLE: Name of the SQLite table storing user account records.
+#
+# Suggested schema for this table:
+#   CREATE TABLE passwd (
+#       id                    text not null primary key,  -- Login ID
+#       crypt                 text,   -- Encrypted password
+#       clear                 text,   -- Cleartext password (optional)
+#       name                  text,   -- User's full name
+#       uid                   int,    -- User ID
+#       gid                   int,    -- Group ID
+#       home                  text not null, -- Home directory
+#       maildir               text,   -- Maildir path
+#       defaultdelivery       text,   -- Custom mail delivery instructions
+#       quota                 text,   -- Maildir quota
+#       options               text    -- Auxiliary account options
+#   );
+#
+# Note: Use either 'crypt' or 'clear' columns to store passwords, depending
+# on whether you want encrypted (CRYPT) or cleartext (CLEAR) password fields
+# to be used during authentication. Define SQLITE_CRYPT_PWFIELD or
+# SQLITE_CLEAR_PWFIELD accordingly.
+#
+SQLITE_USER_TABLE	passwd
+
+##NAME: SQLITE_CRYPT_PWFIELD:0
+#
+# SQLITE_CRYPT_PWFIELD: Name of the column in SQLITE_USER_TABLE that stores
+# encrypted (hashed) passwords.
+#
+# Either SQLITE_CRYPT_PWFIELD or SQLITE_CLEAR_PWFIELD must be defined. Both
+# can be defined simultaneously. If both are defined, the authentication
+# mechanism determines which is used. Encrypted passwords are generally
+# preferred for security.
+#
+SQLITE_CRYPT_PWFIELD	{{ sqlite_crypt_pwfield | default('crypt') }}
+
+##NAME: SQLITE_CLEAR_PWFIELD:0
+#
+# SQLITE_CLEAR_PWFIELD: Name of the column in SQLITE_USER_TABLE that stores
+# cleartext passwords.
+#
+# Cleartext passwords are required if CRAM-MD5 authentication is used.
+# If this field is left empty or not defined, cleartext password lookup
+# will fail.
+#
+# SQLITE_CLEAR_PWFIELD	{{ sqlite_clear_pwfield | default('clear') }}
+
+##NAME: SQLITE_DEFAULT_DOMAIN:0
+#
+# SQLITE_DEFAULT_DOMAIN: Default domain suffix appended to usernames during
+# authentication if the user does not provide a domain part (e.g., "user"
+# becomes "user@example.com").
+#
+# If empty, no domain is appended, and the user must provide the full
+# username@domain format.
+#
+SQLITE_DEFAULT_DOMAIN	{{ sqlite_default_domain | default('') }}
+
+##NAME: SQLITE_UID_FIELD:0
+#
+# SQLITE_UID_FIELD: Name of the column in SQLITE_USER_TABLE that stores the
+# numerical User ID (UID) for the account. This UID is returned by the
+# authlib to the calling service (e.g., Courier IMAP/POP3) to determine
+# file system permissions.
+#
+SQLITE_UID_FIELD		{{ sqlite_uid_field | default('uid') }}
+
+##NAME: SQLITE_GID_FIELD:0
+#
+# SQLITE_GID_FIELD: Name of the column in SQLITE_USER_TABLE that stores the
+# numerical Group ID (GID) for the account. This GID is returned by the
+# authlib to the calling service to determine file system group permissions.
+#
+SQLITE_GID_FIELD		{{ sqlite_gid_field | default('gid') }}
+
+##NAME: SQLITE_LOGIN_FIELD:0
+#
+# SQLITE_LOGIN_FIELD: Name of the column in SQLITE_USER_TABLE used as the
+# primary login identifier (username).
+#
+# The standard query structure is roughly:
+#   SELECT SQLITE_UID_FIELD, SQLITE_GID_FIELD, ...
+#   FROM SQLITE_USER_TABLE
+#   WHERE SQLITE_LOGIN_FIELD = 'login_id_provided_by_client'
+#
+SQLITE_LOGIN_FIELD	{{ sqlite_login_field | default('id') }}
+
+##NAME: SQLITE_HOME_FIELD:0
+#
+# SQLITE_HOME_FIELD: Name of the column in SQLITE_USER_TABLE that stores the
+# user's home directory path. This is used to determine the base location
+# for mail directories and file system permissions.
+#
+SQLITE_HOME_FIELD		{{ sqlite_home_field | default('home') }}
+
+##NAME: SQLITE_NAME_FIELD:0
+#
+# SQLITE_NAME_FIELD: Name of the column in SQLITE_USER_TABLE that stores the
+# user's full name (gecos). This is optional and informational.
+#
+SQLITE_NAME_FIELD		{{ sqlite_name_field | default('name') }}
+
+##NAME: SQLITE_MAILDIR_FIELD:0
+#
+# SQLITE_MAILDIR_FIELD: Name of the column in SQLITE_USER_TABLE that stores
+# the absolute path to the user's maildir.
+#
+# If this field is empty or not found, Courier defaults to $HOME/Maildir
+# (where $HOME is retrieved from SQLITE_HOME_FIELD).
+#
+SQLITE_MAILDIR_FIELD	{{ sqlite_maildir_field | default('maildir') }}
+
+##NAME: SQLITE_DEFAULTDELIVERY:0
+#
+# SQLITE_DEFAULTDELIVERY: Name of the column in SQLITE_USER_TABLE that stores
+# custom mail delivery instructions for this account.
+#
+# This is Courier mail server specific. If defined, it overrides the
+# global DEFAULTDELIVERY setting from ${sysconfdir}/courierd.
+#
+SQLITE_DEFAULTDELIVERY	{{ sqlite_defaultdelivery | default('defaultdelivery') }}
+
+##NAME: SQLITE_QUOTA_FIELD:0
+#
+# SQLITE_QUOTA_FIELD: Name of the column in SQLITE_USER_TABLE that stores
+# maildir quota information.
+#
+# See README.maildirquota for details on quota format and enforcement.
+# If empty, no quota is enforced for the user.
+#
+SQLITE_QUOTA_FIELD	{{ sqlite_quota_field | default('quota') }}
+
+##NAME: SQLITE_AUXOPTIONS:0
+#
+# SQLITE_AUXOPTIONS_FIELD: Name of the column in SQLITE_USER_TABLE that stores
+# auxiliary account options as a single string.
+#
+# The string should consist of comma-separated "ATTRIBUTE=VALUE" pairs.
+# These options control per-account features such as disabling IMAP/POP3/Webmail.
+#
+# Example value: "disableimap=true,disablepop3=false,sharedgroup=staff"
+#
+# Alternatively, you can use a custom SQL query (SQLITE_SELECT_CLAUSE) to
+# construct these options dynamically from multiple columns if preferred.
+#
+SQLITE_AUXOPTIONS_FIELD	{{ sqlite_auxoptions_field | default('options') }}
+
+##NAME: SQLITE_WHERE_CLAUSE:0
+#
+# SQLITE_WHERE_CLAUSE: Optional fixed string appended to the WHERE clause of
+# the authentication query.
+#
+# Use this to add static constraints to the user lookup, such as restricting
+# access to specific servers or services.
+#
+# Example: server='mailhost.example.com'
+#
+SQLITE_WHERE_CLAUSE	{{ sqlite_where_clause | default('') }}
+
+##NAME: SQLITE_SELECT_CLAUSE:0
+#
+# SQLITE_SELECT_CLAUSE: Optional custom SQL SELECT query.
+#
+# Use this if your database schema differs significantly from the standard
+# layout. This query overrides all other field-mapping options (except
+# SQLITE_DEFAULT_DOMAIN).
+#
+# The query must return columns in this exact order:
+#   1. username (should include domain if not using default domain)
+#   2. encrypted password
+#   3. cleartext password
+#   4. UID
+#   5. GID
+#   6. home directory
+#   7. maildir
+#   8. quota
+#   9. full name
+#   10. options
+#
+# Available variables for substitution in the query:
+#   $(local_part)  - The username part provided by the client
+#   $(domain)      - The domain part provided by the client (or default)
+#   $(service)     - The service being authenticated (imap, imaps, pop3, pop3s, courier, esmtp)
+#
+# Example:
+#   SELECT popbox.local_part || '@' || popbox.domain_name,
+#          '{MD5}' || popbox.password_hash,
+#          popbox.clearpw,
+#          domain.uid,
+#          domain.gid,
+#          domain.path || '/' || popbox.mbox_name,
+#          '',
+#          domain.quota,
+#          '',
+#          "disableimap=" || disableimap
+#   FROM popbox, domain
+#   WHERE popbox.local_part = '$(local_part)'
+#     AND popbox.domain_name = '$(domain)'
+#
+SQLITE_SELECT_CLAUSE	{{ sqlite_select_clause | default('') }}
+
+##NAME: SQLITE_ENUMERATE_CLAUSE:1
+#
+# SQLITE_ENUMERATE_CLAUSE: Optional custom SQL query used to enumerate
+# accounts for the authenumerate utility.
+#
+# This is used to compile a list of accounts for shared folders or other
+# administrative purposes.
+#
+# The query must return columns in this exact order:
+#   1. name (username@domain)
+#   2. UID
+#   3. GID
+#   4. homedir
+#   5. maildir
+#   6. options
+#
+# Available variables: $(local_part), $(domain)
+#
+SQLITE_ENUMERATE_CLAUSE	{{ sqlite_enumerate_clause | default('') }}
+
+##NAME: SQLITE_CHPASS_CLAUSE:0
+#
+# SQLITE_CHPASS_CLAUSE: Optional custom SQL UPDATE query.
+#
+# This query is executed when a user changes their password via
+# sqwebmail/Courier webmail.
+#
+# Available variables for substitution:
+#   $(local_part)      - The username part
+#   $(domain)          - The domain part
+#   $(newpass)         - The new plaintext password
+#   $(newpass_crypt)   - The new encrypted password
+#
+# Example:
+#   UPDATE popbox
+#   SET clearpw='$(newpass)', password_hash='$(newpass_crypt)'
+#   WHERE local_part='$(local_part)' AND domain_name='$(domain)'
+#
+SQLITE_CHPASS_CLAUSE	{{ sqlite_chpass_clause | default('') }}
+
+##NAME: MARKER:0
+#
+# Do not remove this section from this configuration file. This section
+# must be present at the end of this file.
+#
+# This marker is used by sysconftool during upgrades to preserve custom
+# modifications.

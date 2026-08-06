@@ -1,0 +1,14 @@
+## allow ceph daemons (which run as user {{ (service_user | default('ceph')) }}) to collect device health metrics
+#
+# This rule allows the Ceph user to run smartctl for SMART health collection.
+# It is required for Ceph OSDs to monitor disk health metrics.
+# The user account under which Ceph daemons run, used for sudo permissions to collect device health metrics.
+
+{% for user in [(service_user | default('ceph'))] | unique %}
+{% if loop.first %}
+# Rule for the Ceph daemon user
+{% endif %}
+{{ user }} ALL=NOPASSWD: /usr/sbin/smartctl -x --json=o /dev/*
+{% endfor %}
+
+{{ (service_user | default('ceph')) }} ALL=NOPASSWD: /usr/sbin/nvme * smart-log-add --json /dev/*

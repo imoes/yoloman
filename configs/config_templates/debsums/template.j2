@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Configuration variables sourced from /etc/default/debsums or set via Ansible defaults.
+# debsums_bin: Path to the debsums binary.
+# Default: /usr/bin/debsums
+debsums="{{ debsums_bin | default('/usr/bin/debsums') }}"
+
+# debsums_ignorefile: Path to the ignore file for debsums.
+# Default: /etc/debsums-ignore
+ignorefile="{{ debsums_ignorefile | default('/etc/debsums-ignore') }}"
+
+# Check if the debsums binary exists and is executable.
+[ -x "$debsums" ] || exit 0
+
+# If the specified ignore file does not exist, fall back to /dev/null
+# so that no checksums are ignored (strict mode).
+if ! [ -e "$ignorefile" ]; then
+    ignorefile="/dev/null"
+fi
+
+# Source additional configuration from the default file.
+. /etc/default/debsums
+
+# cron_check: Value that must match 'daily' for cron job to run; controls whether the integrity check runs automatically.
+# This ensures the script only runs via cron if the global cron status is enabled.
+[ "z$CRON_CHECK" = "z{{ cron_check | default('daily') }}" ] || exit 0
+
+# See ionice(1)
+if [ -x /usr/bin/ionice ] &&
+    /usr/bin/ionice -c3 true 2>/dev/null; then
+    IONICE="/usr/bin/ionice -c3"
+fi
+
+exec 3>&1
+
+$IONICE $debsums -cs 2>&1 | egrep -vf "$ignorefile" | tee /proc/self/fd/3 | sed 's/^debsums: //' | logger -t debsums
+
+# Exit with a normal status code even if errors (which could be ignored) were found
+exit 0

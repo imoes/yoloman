@@ -1,5 +1,43 @@
-# Route domain to a specific MX host or direct delivery
+# Courier MTA routing configuration
+# Defines how outgoing mail for specific domains is delivered.
+# Each line specifies a domain, the destination mail server, optional port, and delivery flags.
+#
+# Schema Field: routes
+# Description: List of domain-to-host routing entries for outbound ESMTP mail delivery.
+# Default: [] (empty list - no specific routes, uses standard MX lookup)
+#
+# Variable Access Pattern:
+# The 'routes' variable is expected to be a list of mappings (objects) with keys:
+#   - domain: string, required. The domain name to route.
+#   - host: string, required. The hostname or IP of the destination mail server.
+#   - port: integer, optional. The port to connect to (default 25 if omitted or not specified).
+#   - flags: string, optional. Additional delivery flags (e.g., 'relay', 'tls').
+
+# Iterate over the list of route definitions. Use default([]) to prevent errors if 'routes' is undefined.
+{% for route in (routes | default([])) %}
+{# Ensure the current item is treated as a mapping; dict2items converts the map to [key, value] pairs but here we just access the map directly if it's a dict.
+   However, to be safe against non-iterable types, we rely on the schema guarantee.
+   We access fields using the dot notation or bracket notation if available.
+   Since Jinja doesn't support safe navigation on undefined dicts without defaults, we assume the structure is valid per schema or use a macro/inline check.
+   Given the simple structure, we assume 'route' is a dict-like object.
+   To be strictly safe against 'route' being undefined in the loop (shouldn't happen if list is empty), we proceed. #}
+
+{# Domain Name #}
 # Format: domain: host:port, flags
-# Example: example.com: mail.example.com:25
-{% for route in routes %}{{ route.domain }}: {{ route.host }}{% if route.port is defined and route.port != 25 %}:{{ route.port }}{% endif %}{% if route.flags is defined %}, {{ route.flags }}{% endif %}
+{# Output the domain. Default to empty string if missing to avoid rendering 'None' or crashing, though schema implies it's required. #}
+{{ route.domain | default('') }}:
+
+{# Destination Host #}
+{{ route.host | default('') }}
+
+{# Optional Port #}
+{# Only include port if it is defined, is a number, and differs from the standard SMTP port 25. #}
+{% if (route.port is defined) and (route.port is number) and (route.port != 25) %}
+:{{ route.port | int }}
+{% endif %}
+
+{# Optional Flags #}
+{# If flags are defined, append them as a comma-separated list. #}
+{% if (route.flags is defined) and (route.flags) %}, {{ route.flags }}{% endif %}
+
 {% endfor %}

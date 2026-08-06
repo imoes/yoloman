@@ -1,43 +1,71 @@
-# Listen on the default system bus address
-Listen={{ listen_address }}
+# D-Bus Broker Configuration Template
+# This template configures the D-Bus broker (dbus-broker). It is self-documenting:
+# every directive is preceded by its schema description as a comment.
+# All variables use `| default(...)` to ensure safe rendering even if the variable is undefined.
 
-# Enable debug logging if requested
-{% if debug %}# Enable debug mode
+# Listen on the specified address (typically a Unix domain socket)
+# Schema: listen_address (str, default='unix:path=/run/dbus/system_bus_socket')
+# Address on which the D-Bus broker listens for connections.
+Listen={{ (listen_address | default('unix:path=/run/dbus/system_bus_socket')) | string }}
+
+# Debug and Verbose settings
+# Schema: debug (bool, default=False)
+# If true, enables debug logging (very verbose). Use only for troubleshooting.
+{% if (debug | default(False) | bool) %}
+# Enable debug mode
 Debug=true
-{% else %}# Enable verbose logging
+{% else %}
+# Enable verbose logging
 Verbose=true
 {% endif %}
 
-# Maximum number of pending connections per client
-MaxPendingConnections={{ max_pending_connections }}
+# Connection Limits
+# Schema: max_pending_connections (int, default=1024)
+# Maximum number of pending (not yet accepted) connections per client.
+MaxPendingConnections={{ (max_pending_connections | default(1024)) | int }}
 
-# Maximum number of active clients
-MaxActiveClients={{ max_active_clients }}
+# Schema: max_active_clients (int, default=256)
+# Maximum number of simultaneously connected clients.
+MaxActiveClients={{ (max_active_clients | default(256)) | int }}
 
-# Maximum number of services a client may own
-MaxOwnedServices={{ max_owned_services }}
+# Service Ownership Limits
+# Schema: max_owned_services (int, default=128)
+# Maximum number of unique service names a single client may own.
+MaxOwnedServices={{ (max_owned_services | default(128)) | int }}
 
-# Maximum number of match rules per client
-MaxMatchRulesPerClient={{ max_match_rules_per_client }}
+# Message Matching Limits
+# Schema: max_match_rules_per_client (int, default=256)
+# Maximum number of match rules a single client may register (for signal filtering).
+MaxMatchRulesPerClient={{ (max_match_rules_per_client | default(256)) | int }}
 
-# Maximum number of file descriptors a client may hold
-MaxFileDescriptorsPerClient={{ max_file_descriptors_per_client }}
+# File Descriptor Limits
+# Schema: max_file_descriptors_per_client (int, default=1024)
+# Maximum number of file descriptors a single client may pass over D-Bus (via unix fd passing).
+MaxFileDescriptorsPerClient={{ (max_file_descriptors_per_client | default(1024)) | int }}
 
-# Timeout (ms) before an unresponsive client is disconnected
-ClientTimeout={{ client_timeout }}
+# Client Timeout
+# Schema: client_timeout (int, default=25000)
+# Time (in milliseconds) after which the broker considers a client dead if no ping response is received.
+ClientTimeout={{ (client_timeout | default(25000)) | int }}
 
-# Enable support for legacy D-Bus activation (systemd socket activation)
-{% if enable_activation %}# Enable activation support
+# Activation Support
+# Schema: enable_activation (bool, default=True)
+# If true, enables systemd-based service activation (e.g., on-demand startup of services via D-Bus requests).
+{% if (enable_activation | default(True) | bool) %}
+# Enable activation support
 EnableActivation=true
-{% else %}# Disable activation support
+{% else %}
+# Disable activation support
 EnableActivation=false
 {% endif %}
 
-# Optional: Define service directories for activation (if activation enabled)
-{% for dir in service_directories %}# Service directory: {{ dir.path }}
-ServiceDirectory={{ dir.path }}
+# Service Directories
+# Schema: service_directories (list of str, default=['/usr/share/dbus-1/services', '/usr/local/share/dbus-1/services'])
+# List of directories where service definition files (.service files) reside, used for activation.
+{% for dir in (service_directories | default(['/usr/share/dbus-1/services', '/usr/local/share/dbus-1/services'])) %}
+# Service directory: {{ dir }}
+ServiceDirectory={{ dir }}
 {% endfor %}
 
-# Optional: Define additional security policy groups (not recommended in most deployments)
-# Note: D-Bus broker does NOT support per-user/policy blocks like dbus-daemon.
+# Security Note: D-Bus broker does NOT support per-user/policy blocks like dbus-daemon.
 # All policies are implicit and minimal; customization is strongly discouraged.

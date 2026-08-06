@@ -1,0 +1,60 @@
+# certstream-server-go configuration (YAML)
+#
+# Self-documenting Jinja2 template for certstream-server-go.
+# Every variable is sourced from Ansible variables with explicit defaults
+# derived from the package schema.
+#
+# Variables expected by this template:
+#   config_path   : Path to the config file (CLI override via -config)
+#   address       : IP address to bind the server to
+#   port          : Port to listen on for incoming connections
+#   timeout       : Timeout in seconds for fetching certificate data from CT logs
+#   ctfe_servers  : List of Certificate Transparency Log servers to monitor.
+#                   Each entry must include 'url' and may include 'name' and 'enabled'.
+#   verbose       : Enable verbose logging (includes full certificate content)
+#   pid_file      : Optional path to write process PID file
+#
+# Usage in Ansible:
+#   template:
+#     src: certstream-server-go.conf.j2
+#     dest: /etc/certstream-server-go/config.yml
+
+# Path to the configuration file, overridden by -config CLI flag
+# Default: 'config.yml'
+config: {{ config_path | default('config.yml') }}
+
+# Address and port to listen on for certificate updates
+# Binds to all interfaces by default (0.0.0.0)
+# address: IP address to bind the server to
+address: {{ address | default('0.0.0.0') }}
+# port: Port to listen on for incoming connections
+port: {{ port | default(9999) }}
+
+# Timeout for fetching certificate updates from CTFE servers
+# Unit: seconds
+# Default: 30
+timeout: {{ timeout | default(30) }}
+
+# List of Certificate Transparency Log servers to poll
+# Each entry specifies server URL and optional metadata
+# Default: empty list
+ctfe_servers:
+{% for server in (ctfe_servers | default([])) %}
+  # --- CT Log Server Entry ---
+  # The unique URL of the Certificate Transparency Log server to monitor
+  - url: {{ server.url | default('(no-url-provided)') }}
+    # Optional display name for this log; defaults to the URL if omitted
+    name: {{ server.name | default(server.url) | default('(unnamed)') }}
+    # Whether to include this log in polling (default: true)
+    enabled: {{ server.enabled | default(true) | lower }}
+{% endfor %}
+
+# Enable detailed logging
+# When true, logs include full certificate data (not recommended in production)
+# Default: false
+verbose: {{ verbose | default(false) | lower }}
+
+# Path to write PID file (optional)
+# If empty string, no PID file is written
+# Default: ''
+pid_file: {{ pid_file | default('') }}

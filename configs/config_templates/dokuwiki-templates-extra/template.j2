@@ -1,0 +1,54 @@
+{# ============================================================================== #}
+{# DokuWiki Templates Extra Configuration                                       #}
+{# Self-documenting Jinja2 template for dokuwiki-templates-extra                #}
+{# This file configures additional DokuWiki templates and global cookie/base     #}
+{# URL settings. Each template block is commented with its schema description.  #}
+{# ============================================================================== #}
+
+{# ----------------------------------------------------------------------------- #}
+{# templates: List of templates to enable or configure in dokuwiki-templates-extra. #}
+{# Each item represents one template package installed in the system.            #}
+{# ----------------------------------------------------------------------------- #}
+{% for tpl in (templates | default([])) %}
+{# template.name: Template name (e.g., 'ad-hominem') #}
+{# template.enabled: Whether this template is enabled in the current configuration #}
+{# template.options: List of key-value configuration options specific to the template #}
+{#   (only ad-hominem has documented options) #}
+
+# Template: {{ tpl.name | default('') }}
+{% if tpl.enabled | default(true) %}
+# Enable template: DOKUWIKI_TEMPLATE_<NAME>=1
+DOKUWIKI_TEMPLATE_{{ tpl.name | default('') | upper }}=1
+{% else %}
+# Disable template: DOKUWIKI_TEMPLATE_<NAME>=1 (commented out)
+# DOKUWIKI_TEMPLATE_{{ tpl.name | default('') | upper }}=1
+{% endif %}
+
+{# Template-specific options for ad-hominem #}
+{% if tpl.name | default('') == 'ad-hominem' %}
+{% if tpl.options | default([]) | length > 0 %}
+# Template-specific options for ad-hominem
+{% for opt in tpl.options | default([]) %}
+# {{ opt.key | default('') }}={{ opt.value | default('') }}
+{{ opt.key | default('') }}={{ opt.value | default('') }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+{% endfor %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Global DokuWiki settings                                                      #}
+{# ----------------------------------------------------------------------------- #}
+
+{# base_url: Base URL of the DokuWiki installation (e.g., 'https://wiki.example.com/') #}
+DOKUWIKI_BASEURL="{{ base_url | default('') }}"
+
+{# cookie_path: Path for session cookies #}
+DOKUWIKI_COOKIE_PATH="{{ cookie_path | default('/') }}"
+
+{# cookie_domain: Domain for session cookies (empty string for auto-detect) #}
+DOKUWIKI_COOKIE_DOMAIN="{{ cookie_domain | default('') }}"
+
+{# cookie_secure: Whether to set secure flag on cookies (true only for HTTPS) #}
+DOKUWIKI_COOKIE_SECURE="{{ cookie_secure | default(false) | lower }}"

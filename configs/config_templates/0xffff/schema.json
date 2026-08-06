@@ -1,36 +1,182 @@
 {
-  "settings": {
-    "type": "object",
-    "description": "Map of sysctl key-value pairs (keys must be valid sysctl param names; values are strings/numbers/booleans, auto-converted to appropriate representation). Use `settings` as a dictionary for flexibility, but common keys include `fs.file-max`, `vm.swappiness`, etc. For this specific service, we focus on file descriptor limits."
+  "device_id": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable device identification (show all device info)"
   },
-  "fs.file-max": {
+  "root_device": {
     "type": "number",
-    "default": {
-      "value": 65535,
-      "comment": "Common production-safe default for high-load systems"
-    },
-    "description": "Maximum number of file handles the kernel will allocate system-wide"
+    "default": 0,
+    "description": "Root device: 0=flash, 1=mmc, 2=usb"
   },
-  "vm.swappiness": {
-    "type": "number",
-    "default": {
-      "value": 10,
-      "comment": "Production-sane lower swappiness to reduce swapping on servers"
-    },
-    "description": "Tendency of the kernel to swap memory pages (0-100). Lower values reduce swapping."
+  "usb_host_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable USB host mode (disable if false)"
   },
-  "fs.inotify.max_user_instances": {
-    "type": "number",
-    "default": {
-      "value": 8192
-    },
-    "description": "Maximum number of inotify instances per user (increase for services like file watchers, Docker, etc.)"
+  "rd_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable R&D mode (disable if false)"
   },
-  "fs.inotify.max_user_watches": {
-    "type": "number",
-    "default": {
-      "value": 524288
-    },
-    "description": "Maximum number of inotify watches per user"
+  "rd_flags": {
+    "type": "list",
+    "default": [],
+    "description": "List of R&D flags to enable/disable (see man page for valid values)"
+  },
+  "hw_revision": {
+    "type": "string",
+    "default": "",
+    "description": "Hardware revision string (e.g., '2101,2102')"
+  },
+  "nolo_version": {
+    "type": "string",
+    "default": "",
+    "description": "NOLO bootloader version string"
+  },
+  "kernel_version": {
+    "type": "string",
+    "default": "",
+    "description": "Kernel version string"
+  },
+  "initfs_version": {
+    "type": "string",
+    "default": "",
+    "description": "Initial RAM filesystem version string"
+  },
+  "sw_release_version": {
+    "type": "string",
+    "default": "",
+    "description": "Software release version string"
+  },
+  "emmc_content_version": {
+    "type": "string",
+    "default": "",
+    "description": "Content eMMC version string"
+  },
+  "boot_cmdline": {
+    "type": "string",
+    "default": "",
+    "description": "Kernel command line for boot; empty string = boot with no cmdline"
+  },
+  "reboot": {
+    "type": "bool",
+    "default": false,
+    "description": "Reboot device after operation"
+  },
+  "load_to_ram": {
+    "type": "bool",
+    "default": false,
+    "description": "Load kernel & initfs images to RAM and boot"
+  },
+  "flash_images": {
+    "type": "bool",
+    "default": false,
+    "description": "Flash all specified images"
+  },
+  "cold_flash": {
+    "type": "bool",
+    "default": false,
+    "description": "Cold flash secondary images (for dead device with erased bootloader)"
+  },
+  "check_mtd": {
+    "type": "string",
+    "default": "",
+    "description": "Check for bad blocks on specified MTD device; empty = all devices"
+  },
+  "dump_to_fiasco": {
+    "type": "string",
+    "default": "",
+    "description": "Path to dump all device images into one FIASCO image file"
+  },
+  "dump_to_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Directory to dump all device images to"
+  },
+  "unpack_fiasco": {
+    "type": "string",
+    "default": "",
+    "description": "Directory to unpack FIASCO image to"
+  },
+  "generate_fiasco": {
+    "type": "string",
+    "default": "",
+    "description": "Path to generate new FIASCO image file; if ends with %sw, use SW release version"
+  },
+  "identify_images": {
+    "type": "bool",
+    "default": false,
+    "description": "Identify and list FIASCO image contents"
+  },
+  "simulate": {
+    "type": "bool",
+    "default": false,
+    "description": "Simulate operations without flashing or writing"
+  },
+  "disable_checks": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable hash, checksum, and image type checking"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose/noisy output"
+  },
+  "image_filter_type": {
+    "type": "string",
+    "default": "",
+    "description": "Filter images by image type (e.g., kernel, initfs)",
+    "enum": [
+      "xloader",
+      "2nd",
+      "secondary",
+      "kernel",
+      "initfs",
+      "rootfs",
+      "mmc",
+      "cmt-2nd",
+      "cmt-algo",
+      "cmt-mcusw"
+    ]
+  },
+  "image_filter_device": {
+    "type": "string",
+    "default": "",
+    "description": "Filter images by device (e.g., RX-51)",
+    "enum": [
+      "SU-18",
+      "RX-34",
+      "RX-44",
+      "RX-48",
+      "RX-51",
+      "RM-680",
+      "RM-696"
+    ]
+  },
+  "image_filter_hw": {
+    "type": "string",
+    "default": "",
+    "description": "Filter images by HW revision",
+    "enum": [
+      "SU-18",
+      "RX-34",
+      "RX-44",
+      "RX-48",
+      "RX-51",
+      "RM-680",
+      "RM-696"
+    ]
+  },
+  "input_images": {
+    "type": "list",
+    "default": [],
+    "description": "List of input images to specify for flashing/generation; each is a dict with fields dev/hw/ver/type/file/lay (all optional except type and file). See man -m arg section for format [[[dev:[hw:]]ver:]type:]file[%lay]."
+  },
+  "fiasco_image": {
+    "type": "string",
+    "default": "",
+    "description": "Path to existing FIASCO image to use (e.g., for flashing or unpacking)"
   }
 }

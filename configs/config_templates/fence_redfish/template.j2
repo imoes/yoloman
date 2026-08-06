@@ -1,53 +1,150 @@
-# Redfish fence agent configuration
-# This file defines connection parameters for Redfish-enabled hardware
-# used by the fence_redfish agent in a Red Hat cluster environment.
+# ==============================================================================
+# fence_redfish — Redfish Fence Agent Configuration
+# ==============================================================================
+# This template generates the configuration file for the fence_redfish agent,
+# used by Red Hat Cluster Suite (pcs/corosync) to perform out-of-band power
+# management (fencing) of cluster nodes via Redfish/BMC interfaces.
+#
+# Structure:
+#   [defaults] : Global connection parameters applied to all hosts unless overridden.
+#   [hostname] : Per-host overrides for specific BMCs.
+#
+# SECURITY NOTE: Passwords are stored in plaintext in this config file.
+# In production, ensure this file has strict permissions (600) and consider
+# using external secret management if supported by your cluster stack.
 
-# Global defaults (can be overridden per host)
 [defaults]
+# --------------------------------------------------------------------------
 # Base URL for the Redfish service (e.g., https://bmc.example.com)
-baseurl = {{ defaults.baseurl }}
+# Specifies the IP or hostname of the BMC/iDRAC/ILO plus the standard port.
+# --------------------------------------------------------------------------
+baseurl = {{ (defaults | default({})).baseurl | default('') }}
 
+# --------------------------------------------------------------------------
 # Username for Redfish authentication
-login = {{ defaults.login }}
+# The service account used to log in to the BMC.
+# --------------------------------------------------------------------------
+login = {{ (defaults | default({})).login | default('') }}
 
-# Password for Redfish authentication (use secrets manager in production; here for compatibility)
-password = {{ defaults.password }}
+# --------------------------------------------------------------------------
+# Password for Redfish authentication
+# The password associated with the `login` user.
+# --------------------------------------------------------------------------
+password = {{ (defaults | default({})).password | default('') }}
 
-# SSH identity file (if using key-based auth via SSH tunnel fallback; optional)
-identity_file = {{ defaults.identity_file | default('') }}
+# --------------------------------------------------------------------------
+# SSH identity file (optional)
+# Path to a private key file if the agent falls back to SSH tunneling
+# or if Redfish requires SSH-based authentication methods.
+# --------------------------------------------------------------------------
+identity_file = {{ (defaults | default({})).identity_file | default('') }}
 
-# Power operation timeout (seconds)
-login_timeout = {{ defaults.login_timeout }}
+# --------------------------------------------------------------------------
+# Login timeout (seconds)
+# Maximum time to wait for the initial authentication handshake.
+# --------------------------------------------------------------------------
+login_timeout = {{ (defaults | default({})).login_timeout | default(5) }}
 
-# Connection retry limit
-retries = {{ defaults.retries }}
+# --------------------------------------------------------------------------
+# Retries (integer)
+# Number of times to retry the operation upon failure before giving up.
+# --------------------------------------------------------------------------
+retries = {{ (defaults | default({})).retries | default(2) }}
 
-# Delay between retries (seconds)
-retry_wait = {{ defaults.retry_wait }}
+# --------------------------------------------------------------------------
+# Retry wait (seconds)
+# Delay between consecutive retry attempts.
+# --------------------------------------------------------------------------
+retry_wait = {{ (defaults | default({})).retry_wait | default(1) }}
 
-# Whether to skip SSL certificate verification (not recommended for production)
-# Set to 'on' to disable verification, 'off' or omit for strict validation
-ssl_verify = {{ 'on' if defaults.ssl_verify == false else 'off' }}
+# --------------------------------------------------------------------------
+# SSL verification (on/off)
+# Whether to verify the SSL/TLS certificate of the BMC.
+# Set to 'on' to disable verification (INSECURE, use for self-signed certs).
+# Set to 'off' to enforce strict certificate validation (SECURE).
+# --------------------------------------------------------------------------
+ssl_verify = {{ 'on' if ((defaults | default({})).ssl_verify is defined and not ((defaults | default({})).ssl_verify)) else 'off' }}
 
-# Optional: Use secure token (e.g., from token auth or SSH proxy)
-use_token = {{ 'on' if defaults.use_token else 'off' }}
+# --------------------------------------------------------------------------
+# Use token (on/off)
+# If 'on', indicates that a pre-obtained session token should be used
+# instead of basic username/password authentication.
+# --------------------------------------------------------------------------
+use_token = {{ 'on' if ((defaults | default({})).use_token is defined and ((defaults | default({})).use_token)) else 'off' }}
 
-# Per-host overrides: each [hostname] section overrides global defaults
-# Hostnames are typically the same as in the cluster node list
-{% for host in hosts %}[{{ host.name }}]
-# Redfish base URL for {{ host.name }}
-baseurl = {{ host.baseurl }}
+# --------------------------------------------------------------------------
+# Per-Host Overrides
+# --------------------------------------------------------------------------
+# Each block below defines settings for a specific cluster node's BMC.
+# Fields not specified here inherit from [defaults].
+# --------------------------------------------------------------------------
 
-# Credentials (if different from global)
-login = {{ host.login | default(defaults.login) }}
-password = {{ host.password | default(defaults.password) }}
+{% for host in (hosts | default([])) %}
+[{{ (host | default({})).name | default('unknown') }}]
+# --------------------------------------------------------------------------
+# Redfish Base URL for {{ (host | default({})).name | default('unknown') }}
+# Overrides the global baseurl for this specific host's BMC.
+# --------------------------------------------------------------------------
+baseurl = {{ (host | default({})).baseurl | default((defaults | default({})).baseurl) }}
 
-# Optional per-host overrides
-# (Only non-default values need to be specified; omitted values inherit from [defaults])
-{% if host.identity_file %}identity_file = {{ host.identity_file }}{% endif %}
-{% if host.login_timeout is defined and host.login_timeout != defaults.login_timeout %}login_timeout = {{ host.login_timeout }}{% endif %}
-{% if host.retries is defined and host.retries != defaults.retries %}retries = {{ host.retries }}{% endif %}
-{% if host.retry_wait is defined and host.retry_wait != defaults.retry_wait %}retry_wait = {{ host.retry_wait }}{% endif %}
-{% if host.ssl_verify is defined and host.ssl_verify != defaults.ssl_verify %}ssl_verify = {{ 'on' if host.ssl_verify == false else 'off' }}{% endif %}
-{% if host.use_token is defined and host.use_token != defaults.use_token %}use_token = {{ 'on' if host.use_token else 'off' }}{% endif %}
+# --------------------------------------------------------------------------
+# Redfish Login Username
+# Overrides the global login if different from the default account.
+# --------------------------------------------------------------------------
+login = {{ (host | default({})).login | default((defaults | default({})).login) }}
+
+# --------------------------------------------------------------------------
+# Redfish Login Password
+# Overrides the global password if different from the default account.
+# --------------------------------------------------------------------------
+password = {{ (host | default({})).password | default((defaults | default({})).password) }}
+
+# --------------------------------------------------------------------------
+# SSH Identity File (Optional Override)
+# Only emitted if explicitly defined for this host.
+# --------------------------------------------------------------------------
+{% if (host | default({})).identity_file is defined %}
+identity_file = {{ (host | default({})).identity_file }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Login Timeout (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).login_timeout is defined %}
+login_timeout = {{ (host | default({})).login_timeout }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Retries (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).retries is defined %}
+retries = {{ (host | default({})).retries }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Retry Wait (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).retry_wait is defined %}
+retry_wait = {{ (host | default({})).retry_wait }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# SSL Verification (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).ssl_verify is defined %}
+ssl_verify = {{ 'on' if ((host | default({})).ssl_verify == false) else 'off' }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Use Token (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).use_token is defined %}
+use_token = {{ 'on' if (host | default({})).use_token else 'off' }}
+{% endif %}
+
 {% endfor %}

@@ -1,91 +1,246 @@
-{# General-Purpose Mail Filter Daemon (mailfromd) configuration file #}
-{# Listen address and port for SMTP connection #}
-SET SMTP_PORT={{ smtp_port }}
+#! /bin/sh
+# This file is part of Mailfromd.
+# Copyright (C) 2005-2024 Sergey Poznyakoff
+#               2024      Roland Rosenfeld
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-{# Network interface(s) to bind to (empty string = all interfaces) #}
-SET SMTP_BINDTO="{{ smtp_bindto | default('') }}"
+### BEGIN INIT INFO
+# Provides:          mailfromd
+# Required-Start:    $local_fs $remote_fs $syslog $named $network $time
+# Required-Stop:     $local_fs $remote_fs $syslog $named $network
+# Should-Start:      postfix
+# Should-Stop:       postfix
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Mailfromd-Milter
+# Description:       mailfromd general purpose milter
+### END INIT INFO
 
-{# Maximum number of simultaneous connections #}
-SET MAX_CONNECTIONS={{ max_connections }}
+STATEDIR=/run/mailfromd
+PIDFILE=$STATEDIR/mailfromd.pid
+DAEMON=/usr/sbin/mailfromd
+OWNER={{ run_user }}
+GROUP={{ run_group }}
+ARGS=""
 
-{# Timeout values (in seconds) #}
-SET CONNECT_TIMEOUT={{ connect_timeout }}
-SET MAIL_TIMEOUT={{ mail_timeout }}
-SET DATA_TIMEOUT={{ data_timeout }}
-SET COMMAND_TIMEOUT={{ command_timeout }}
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
 
-{# Maximum message size (in bytes, 0 = unlimited) #}
-SET MAX_MESSAGE_SIZE={{ max_message_size }}
+mailfromd_start() {
+    if ! [ -d $STATEDIR ]; then
+	mkdir $STATEDIR
+	chwon $OWNER:$GROUP $STATEDIR
+    fi
+    if mailfromd_status -q; then
+	cat >&2 <<-EOT
+	Mailfromd seems to be running.
+	Try \`$0 status' to examine, or \`$0 restart' to force restart.
+	EOT
+	exit 1
+    fi
+    echo "Starting mailfromd..."
+    rm -f $PIDFILE
+    if eval $DAEMON $ARGS ; then
+	if [ ! -r $PIDFILE ]; then
+	    sleep 1
+	    test -r $PIDFILE || echo "mailfromd NOT started" >&2
+        fi
+    else
+	echo "mailfromd failed to start" >&2
+    fi
+}
 
-{# Maximum recipients per message #}
-SET MAX_RECIPIENTS={{ max_recipients }}
+mailfromd_stop() {
+    echo "Stopping mailfromd..."
+    if [ -r $PIDFILE ]; then
+	PID=`head -n 1 $PIDFILE`
+	kill -TERM -$PID 2>/dev/null
+	N=0
+	while [ -r $PIDFILE ]
+	do
+	    N=$(($N + 1))
+	    if [ $N -gt 5 ]; then
+	        break
+	    fi
+            sleep 1
+	done
+	if [ -r $PIDFILE ]; then
+	    echo "Still running. Killing it..." >&2
+	    kill -KILL $PID 2>/dev/null
+	    rm $PIDFILE
+	fi
+    else
+	echo "mailfromd is not running" >&2
+    fi
+}
 
-{# Logging verbosity level: 0=silent, 1=minimal, 2=normal, 3=verbose, 4=debug #}
-SET VERBOSITY={{ verbosity }}
+mailfromd_status() {
+    local q=$1
+    if [ -r $PIDFILE ]; then
+        PID=`head -n 1 $PIDFILE`
+	PROC=`ps -p $PID -ocmd=`
+	if [ "$q" = "-q" ]; then
+	    test "$PROC" = "$DAEMON"
+	else
+	    if [ "$PROC" = "$DAEMON" ]; then
+		echo "mailfromd master process running (pid $PID)"
+	    else
+		echo "mailfromd is not running"
+		echo "pidfile $PIDFILE is stale ($PROC is running with reported PID)"
+	    fi
+	fi
+    else
+	name=`basename $DAEMON`
+	set -- `ps -C $name -opid=,cmd=`
+	if [ $# -eq 2 ]; then
+	    if [ "$q" = "-q" ]; then
+		test "$2" = "$DAEMON"
+	    else
+		if [ "$2" = "$DAEMON" ]; then
+		    echo "mailfromd master process running (pid $1)"
+		    echo "pidfile $PIDFILE doesn't exist or is not readable"
+		else
+		    echo "mailfromd is not running"
+        fi
+	    fi
+	else
+	    if [ "$q" = "-q" ]; then
+		/bin/false
+	    else
+		echo "mailfromd is not running"
+	    fi
+	fi
+    fi
+}
 
-{# PID file location #}
-SET PIDFILE="{{ pidfile }}"
+mailfromd_reload() {
+    echo "Reloading mailfromd..."
+    if mailfromd_status -q; then
+	PID=`head -n 1 $PIDFILE`
+	kill -HUP $PID 2>/dev/null
+	if [ ! -r $PIDFILE ]; then
+	    sleep 1
+	    test -r $PIDFILE || echo "mailfromd failed to reload" >&2
+        fi
+    else
+	echo "mailfromd is not running"
+    fi
+}
 
-{# Run user and group (must exist) #}
-SET USER="{{ run_user }}"
-SET GROUP="{{ run_group }}"
+mailfromd_configtest() {
+    case $# in
+    0) CFGOPT=;;
+    1) CFGOPT=$1;;
+    *) echo "$0: too many arguments, try \`$0 help' for more info" >&2
+       exit 1;;
+    esac
+    $DAEMON $CFGOPT --lint
+}
 
-{# chroot directory (empty string = disabled) #}
-SET CHROOT="{{ chroot }}"
+export_cf_macros() {
+    echo "O Milter.macros.$1=$2"
+}
 
-{# Enable/disable TLS support #}
-{% if tls_enabled %}
-SET TLS="yes"
-SET TLS_CERT="{{ tls_cert }}"
-SET TLS_KEY="{{ tls_key }}"
-{% else %}
-SET TLS="no"
-{% endif %}
+export_mc_macros() {
+    un=`echo $1 | tr a-z A-Z`
+    echo "define(\`confMILTER_MACROS_$un', ifdef(\`confMILTER_MACROS_$un',\`confMILTER_MACROS_$un\`,' ')\`$2')"
+}
 
-{# Enable/disable SPF checking #}
-{% if spf_enabled %}
-SET SPF="yes"
-{% else %}
-SET SPF="no"
-{% endif %}
 
-{# Enable/disable greylisting #}
-{% if greylisting_enabled %}
-SET GREYLIST="yes"
-SET GREYLIST_DIR="{{ greylisting_dir }}"
-SET GREYLIST_DELAY={{ greylisting_delay }}
-{% else %}
-SET GREYLIST="no"
-{% endif %}
+mailfromd_macros() {
+    EXPORT=export_mc_macros
+    CFGOPT=
+    while [ $# -ne 0 ]
+    do
+       case $1 in
+       -c|--cf) EXPORT=export_cf_macros; shift;;
+       --)   shift; break;;
+       -*)   echo "$0: unknown command line option: $1" >&2; exit 1;;
+       *)    if [ $# -eq 1 ]; then
+                 if [ -r $1 ]; then
+                     CFGOPT="$1"
+                 else
+                     echo "$0: \`$1' does not exist or is unreadable" >&2
+		     exit 1
+                 fi
+                 break
+	     else
+	         echo "$0: too many arguments, try \`$0 help' for more info" >&2
+	         exit 1
+	     fi;;
+       esac
+    done
 
-{# DNSBL (RBL) lists to query — one per line, each as a quoted string #}
-{% for rbl in dnsbl_lists %}
-DNSBL_ADD("{{ rbl }}")
-{% endfor %}
+    IOUTPUT=
+    $DAEMON $CFGOPT --dump-macros |
+    while read state rest
+    do
+        if [ -z "$IOTPUT" ]; then
+	    if [ "$state" != "helo" ]; then
+	        $EXPORT helo i
+	    else
+	        rest="i, $rest"
+	    fi
+	    IOTPUT=yes
+	fi
+	$EXPORT $state "$rest"
+    done
+    exit 0
+}
 
-{# MTA relay host (empty string = direct delivery) #}
-SET RELAY="{{ relay_host | default('') }}"
+case $1 in
+start) mailfromd_start;;
+stop)  mailfromd_stop;;
+reload)
+       mailfromd_reload;;
+restart|force-reload)
+       mailfromd_stop
+       sleep 1
+       mailfromd_start;;
+status)
+       mailfromd_status;;
+configtest)
+       shift
+       mailfromd_configtest $@;;
+macros)
+       shift
+       mailfromd_macros $@;;
+help)  cat <<EOT
+usage: $0 COMMAND [OPTIONS]
+COMMANDS are:
+   start             Start the daemon.
+   stop              Stop the running instance of the daemon.
+   reload            Reload the daemon by sending SIGHUP to its running copy.
+   restart           Restart the daemon.
+   force-reload      Restart the daemon.
+   status            Display status of the running instance.
+   configtest [FILE] Check configuration file syntax.  If FILE is not
+                     given, the default one is assumed.
+   macros [OPTIONS] [FILE]
+                     Generate milter export statements for Sendmail
+		     configuration files.  Optional FILE specifies
+		     alternative mailfromd configuration file.
+		     OPTIONS are:
+		       -c, --cf  Generate output, suitable for sendmail.cf
+		                 file (by default, \`.mc' format is assumed).
 
-{# Enable/disable SMTP authentication (SASL) #}
-{% if sasl_enabled %}
-SET SASL="yes"
-SET SASL_MECH="{{ sasl_mech | default('PLAIN LOGIN') }}"
-{% else %}
-SET SASL="no"
-{% endif %}
+EOT
+       ;;
+*)     echo "Usage: $0 {start|stop|reload|restart|status|configtest|macros}" >&2
+       echo "Try \`$0 help' for more info" >&2
+esac
 
-{# Enable/disable rate limiting #}
-{% if rate_limiting_enabled %}
-SET RATE_LIMIT="yes"
-SET RATE_LIMIT_PER_IP={{ rate_limit_per_ip }}
-SET RATE_LIMIT_WINDOW={{ rate_limit_window }}
-{% else %}
-SET RATE_LIMIT="no"
-{% endif %}
-
-{# Additional custom directives (raw text, e.g., macro definitions) #}
-{% if extra_directives %}
-{% for directive in extra_directives %}
-{{ directive }}
-{% endfor %}
-{% endif %}
+# End of rc.mailfromd

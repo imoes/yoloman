@@ -1,180 +1,62 @@
 {
   "msf": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "device": "/dev/msf0"
-    },
-    "description": "Configure MSF (UK) radio clock input: enable/disable and specify serial device path.",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable reception of MSF time signals."
-      },
-      "device": {
-        "type": "string",
-        "default": "/dev/msf0",
-        "description": "Serial device path for the MSF receiver (e.g., /dev/ttyUSB0)."
-      }
-    }
+    "default": null,
+    "description": "Configure MSF (UK) radio clock input: enable/disable and specify serial device path."
   },
   "wwvb": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "device": "/dev/wwvb0"
-    },
-    "description": "Configure WWVB (USA) radio clock input: enable/disable and specify serial device path.",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable reception of WWVB time signals."
-      },
-      "device": {
-        "type": "string",
-        "default": "/dev/wwvb0",
-        "description": "Serial device path for the WWVB receiver."
-      }
-    }
+    "default": null,
+    "description": "Configure WWVB (USA) radio clock input: enable/disable and specify serial device path."
   },
   "dcf77": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "device": "/dev/dcf770"
-    },
-    "description": "Configure DCF77 (Germany) radio clock input: enable/disable and specify serial device path.",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable reception of DCF77 time signals."
-      },
-      "device": {
-        "type": "string",
-        "default": "/dev/dcf770",
-        "description": "Serial device path for the DCF77 receiver."
-      }
-    }
+    "default": null,
+    "description": "Configure DCF77 (Germany) radio clock input: enable/disable and specify serial device path."
   },
   "min_snr": {
     "type": "number",
-    "default": 10,
+    "default": null,
     "description": "Minimum acceptable signal-to-noise ratio (0\u2013100). Lower values accept weaker signals."
   },
   "min_signal_strength": {
     "type": "number",
-    "default": 20,
+    "default": null,
     "description": "Minimum acceptable signal strength (arbitrary units, 0\u2013100)."
   },
   "max_offset_ms": {
     "type": "number",
-    "default": 100,
+    "default": null,
     "description": "Maximum offset (milliseconds) between decoded time and system clock before the signal is rejected."
   },
   "log_level": {
     "type": "number",
-    "default": 2,
+    "default": null,
     "description": "Logging verbosity: 0 (quiet) to 5 (debug). Recommended: 2 for production."
   },
   "device_params": {
     "type": "list",
-    "default": [],
-    "description": "List of optional device tuning parameters (e.g., AGC timeout, sync pulse width). Each entry adds a `device_<param> <value>` line.",
-    "items": {
-      "type": "object",
-      "items": {
-        "param": {
-          "type": "string",
-          "default": "",
-          "description": "Parameter name (e.g., 'agc_timeout', 'pulse_width')"
-        },
-        "value": {
-          "type": "string",
-          "default": "",
-          "description": "Parameter value (string or number)"
-        },
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description shown as comment in config."
-        }
-      }
-    }
+    "default": null,
+    "description": "List of optional device tuning parameters (e.g., AGC timeout, sync pulse width). Each entry adds a `device_<param> <value>` line."
   },
   "fallback_ntp": {
     "type": "list",
-    "default": [
-      "0.pool.ntp.org",
-      "1.pool.ntp.org"
-    ],
+    "default": null,
     "description": "List of NTP server hostnames to use if all radio clocks are unavailable."
   },
   "serial": {
     "type": "object",
-    "default": {
-      "baud": 9600,
-      "parity": "N",
-      "stopbits": 1
-    },
-    "description": "Serial port communication settings for radio receivers.",
-    "items": {
-      "baud": {
-        "type": "number",
-        "default": 9600,
-        "description": "Baud rate for serial communication."
-      },
-      "parity": {
-        "type": "string",
-        "default": "N",
-        "description": "Parity setting: 'N' (none), 'E' (even), 'O' (odd)."
-      },
-      "stopbits": {
-        "type": "number",
-        "default": 1,
-        "description": "Number of stop bits (1 or 2)."
-      }
-    }
+    "default": null,
+    "description": "Serial port communication settings for radio receivers."
   },
   "pps": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "device": "/dev/pps0"
-    },
-    "description": "Enable/disable PPS (pulse-per-second) discipline input.",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable PPS discipline to improve time accuracy."
-      },
-      "device": {
-        "type": "string",
-        "default": "/dev/pps0",
-        "description": "Device path for PPS input (e.g., /dev/pps0 or /dev/pps1)."
-      }
-    }
+    "default": null,
+    "description": "PPS (pulse-per-second) input configuration."
   },
-  "debug": {
-    "type": "object",
-    "default": {
-      "dump_file": ""
-    },
-    "description": "Optional debugging settings.",
-    "items": {
-      "dump_file": {
-        "type": "string",
-        "default": "",
-        "description": "Path to write raw decoded timecodes (diagnostic use only). Leave empty to disable."
-      }
-    }
-  },
-  "nice": {
-    "type": "number",
-    "default": 0,
-    "description": "Process priority (nice value): -20 (highest) to 19 (lowest)."
+  "PORT": {
+    "type": "string",
+    "default": "",
+    "description": "Port or device path passed to radioclkd. Usually a serial device (e.g., /dev/ttyUSB0) or empty if configured via /etc/radioclk.conf."
   }
 }

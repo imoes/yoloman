@@ -1,81 +1,52 @@
-# Configuration for passt (user-mode networking daemon)
-# This file is sourced by the systemd service or invoked directly.
-# See passt(1), passt.conf(5) for details.
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# PASST - Plug A Simple Socket Transport
+#  for qemu/UNIX domain socket mode
+#
+# PASTA - Pack A Subtle Tap Abstraction
+#  for network namespace/tap device mode
+#
+# contrib/apparmor/abstractions/passt - Abstraction for passt(1)
+#
+# Copyright (c) 2022 Red Hat GmbH
+# Author: Stefano Brivio <sbrivio@redhat.com>
 
-{% if pidfile %}# Location of the PID file
-PIDFILE={{ pidfile }}
-{% endif %}{% if socket_dir %}# Directory for Unix domain sockets (used for binding to QEMU, etc.)
-SOCKET_DIR={{ socket_dir }}
-{% endif %}{% if log_level %}# Logging verbosity: debug, info, notice, warning, error
-LOG_LEVEL={{ log_level }}
-{% endif %}{% if log_file %}# Log file path (stdout if empty)
-LOG_FILE={{ log_file }}
-{% endif %}
-# Network configuration
-{% if mode == 'tap' %}# TAP interface mode: passt creates a TAP interface and bridges it
-# Interface to connect to the guest VM
-TAP_IFNAME={{ tap_ifname }}
-{% if bridge %}# Optional: bridge to attach the TAP interface to
-BRIDGE={{ bridge }}
-{% endif %}{% if bridge_mac %}# MAC address for the bridge-facing side of the TAP device (auto-generated if omitted)
-BRIDGE_MAC={{ bridge_mac }}
-{% endif %}
-{% elif mode == 'macvtap' %}# MACVTAP mode: passt attaches to an existing interface using macvtap
-MACVTAP_IFNAME={{ macvtap_ifname }}
-MACVTAP_MODE={{ macvtap_mode }}
-{% elif mode == 'tap-socket' %}# Socket-based TAP: passt receives TAP frames over a Unix socket (e.g., from QEMU)
-SOCKET_PATH={{ socket_path }}
-{% elif mode == 'auto' %}# Auto-detect: passt tries TAP, then MACVTAP, then falls back to socket
-AUTO_MODE=1
-{% else %}# Default mode: TAP with auto-detected interface
-TAP_IFNAME=auto
-{% endif %}
+  abi <abi/4.0>,
 
-# IP configuration
-{% if ip6_prefix %}# IPv6 prefix for guest (e.g., 'fd00::/64')
-IP6_PREFIX={{ ip6_prefix }}
-{% endif %}{% if ip4_prefix %}# IPv4 prefix for guest (e.g., '192.168.1.0/24')
-IP4_PREFIX={{ ip4_prefix }}
-{% endif %}
+  include <abstractions/base>
 
-# Gateway & DNS
-{% if ip4_gw %}# IPv4 gateway (router) address
-IP4_GW={{ ip4_gw }}
-{% endif %}{% if ip6_gw %}# IPv6 gateway (router) address
-IP6_GW={{ ip6_gw }}
-{% endif %}
-{% if dns_server %}# Upstream DNS server(s); one per line or space-separated
-{% for server in dns_server %}DNS_SERVER={{ server }}
-{% endfor %}{% endif %}
-{% if dns_search %}# DNS search domains
-{% for domain in dns_search %}DNS_SEARCH={{ domain }}
-{% endfor %}{% endif %}
+  include <abstractions/nameservice>        # get_dns(), conf.c
 
-# Port forwarding
-{% for fwd in port_forward %}# Forward {{ fwd.proto }}:{{ fwd.listen_port }} -> {{ fwd.target }}:{{ fwd.target_port }}
-{% if fwd.proto == 'tcp' %}PORT_FORWORD_TCP={{ fwd.listen_port }}={{ fwd.target }}:{{ fwd.target_port }}
-{% elif fwd.proto == 'udp' %}PORT_FORWORD_UDP={{ fwd.listen_port }}={{ fwd.target }}:{{ fwd.target_port }}
-{% elif fwd.proto == 'both' %}PORT_FORWORD_BOTH={{ fwd.listen_port }}={{ fwd.target }}:{{ fwd.target_port }}
-{% endif %}
-{% endfor %}
+  capability net_bind_service,              # isolation.c, conf.c
+  capability setuid,
+  capability setgid,
+  capability sys_admin,
+  capability setpcap,
+  capability net_admin,
+  capability sys_ptrace,
+  userns,
 
-# NAT configuration
-{% if nat %}# Enable NAT (default: true)
-NAT={{ 'true' if nat else 'false' }}
-{% endif %}{% if nat_table %}# NAT table name (iptables/nftables)
-NAT_TABLE={{ nat_table }}
-{% endif %}
+  /                                         r,      # isolate_prefork(), isolation.c
+  mount options=(rw, runbindable) -> /,
+  mount     ""    -> "/",
+  mount     ""    -> "/tmp/",
+  pivot_root    "/tmp/" -> "/tmp/",
+  umount    "/",
 
-# Security & isolation
-{% if user %}# Run as unprivileged user
-USER={{ user }}
-{% endif %}{% if group %}# Run as unprivileged group
-GROUP={{ group }}
-{% endif %}{% if no_new_privs %}# Prevent privilege escalation (seccomp+no_new_privs)
-NO_NEW_PRIVS={{ 'true' if no_new_privs else 'false' }}
-{% endif %}
+  owner @{PROC}/@{pid}/uid_map      r,      # conf_ugid()
 
-# PID file and cleanup
-{% if cleanup %}# Drop privileges and cleanup on exit
-CLEANUP={{ 'true' if cleanup else 'false' }}
-{% endif %}
+  @{PROC}/sys/net/ipv4/ip_local_port_range r,      # fwd_probe_ephemeral()
+
+  network netlink raw,                      # nl_sock_init_do(), netlink.c
+
+  network inet stream,                      # tcp.c
+  network inet6 stream,
+
+  network inet dgram,                       # udp.c
+  network inet6 dgram,
+
+  network unix stream,                      # tap.c
+
+  network unix dgram,                       # __openlog(), log.c
+
+  /usr/bin/passt.avx2               ix,      # arch_avx2_exec(), arch.c

@@ -1,0 +1,43 @@
+# e2scrub configuration file
+#
+# This file configures e2scrub, a tool for automatic periodic
+# filesystem checking (fsck) on online filesystems using snapshots.
+# It is typically managed by an Ansible role deploying e2fsprogs.
+#
+# All variables below must have defaults as defined in the schema.
+
+# Enable automatic periodic runs of e2scrub_all (either via cron or via a systemd timer).
+# Accepted values: 0 (disabled), 1 (enabled).
+# Default: false
+periodic_e2scrub={{ periodic_e2scrub | default(false) | ternary(1, 0) }}
+
+# E-mail destination used by e2scrub_fail when problems are found with the file system.
+# This address receives notification emails when e2scrub encounters errors.
+# Default: 'root'
+recipient={{ recipient | default('root') }}
+
+# E-mail sender used by e2scrub_fail when problems are found with the file system.
+# This address appears in the 'From:' field of notification emails.
+# Default: 'e2scrub@host.domain.name'
+sender={{ sender | default('e2scrub@host.domain.name') }}
+
+# Size (in MB) of snapshots created to run fsck on online filesystems.
+# The snapshot must be large enough to hold changes during the fsck run.
+# Default: 256
+snap_size_mb={{ snap_size_mb | default(256) }}
+
+# Enable fstrim for all mounted filesystems that support it.
+# This helps reclaim unused blocks on SSDs. Accepted values: 0 (disabled), 1 (enabled).
+# Default: false
+fstrim={{ fstrim | default(false) | ternary(1, 0) }}
+
+# Arguments passed into e2fsck when performing the filesystem check.
+# These options are appended directly to the e2fsck command line.
+# Default: '-vtt'
+e2fsck_opts="{{ e2fsck_opts | default('-vtt') }}"
+
+# Scrub all logical volumes, not just mounted ones.
+# If enabled, e2scrub will attempt to check LVs even if they are not currently mounted.
+# Accepted values: 0 (disabled), 1 (enabled).
+# Default: false
+scrub_all={{ scrub_all | default(false) | ternary(1, 0) }}

@@ -1,131 +1,128 @@
 [server]
-# Server hostname or IP to bind to
-host = "{{ host }}"
+# Server IP address to bind to. Use '0.0.0.0' to listen on all interfaces.
+host = "{{ host | default('0.0.0.0') }}"
 
-# Port to listen on
-port = {{ port }}
+# Main UDP port for client connections. Standard for Quake III Arena-compatible servers.
+port = {{ port | default(27910) }}
 
-# Maximum number of clients
-maxclients = {{ maxclients }}
+# Maximum number of player slots (including spectators).
+maxclients = {{ maxclients | default(12) }}
 
-# Map to load on startup
-map = "{{ map }}"
+# Default map to load on server startup.
+map = "{{ map | default('q3dm0') }}"
 
-# Whether to enable dedicated server mode
-dedicated = {{ dedicated | lower }}
+# Run as a dedicated server (no local console or graphics).
+dedicated = {{ dedicated | default(True) | lower }}
 
 [net]
-# Network interface to bind to (e.g., 'eth0' or '0.0.0.0' for all)
-bind = "{{ bind }}"
+# Network interface or IP to bind to for game traffic. Use '0.0.0.0' for all interfaces.
+bind = "{{ bind | default('0.0.0.0') }}"
 
-# UDP port for client connections (must match main port unless using proxy)
-net_port = {{ net_port }}
+# UDP port for client connections (must match main 'port' unless using a proxy or relay).
+net_port = {{ net_port | default(27910) }}
 
-# Maximum packet rate per client (in packets/sec)
-maxrate = {{ maxrate }}
+# Maximum network bandwidth per client (in bytes/sec). Adjust for dialup or high-latency clients.
+maxrate = {{ maxrate | default(25000) }}
 
 [rcon]
-# Remote console password (leave empty to disable RCON)
-password = "{{ rcon_password }}"
+# Password for remote console (RCON). Leave blank to disable RCON. Use strong passwords.
+password = "{{ rcon_password | default('') }}"
 
-# RCON interface (e.g., '0.0.0.0' for all, or specific IP)
-address = "{{ rcon_address }}"
+# IP address to bind RCON to. Use '0.0.0.0' for remote access (not recommended for security).
+address = "{{ rcon_address | default('127.0.0.1') }}"
 
-# RCON port
-port = {{ rcon_port }}
+# Port for RCON connections.
+port = {{ rcon_port | default(27911) }}
 
-# Enable RCON over TCP (on/off)
-enable_tcp = {{ rcon_tcp_enabled | lower }}
+# Enable TCP-based RCON. Use only with TLS/proxy for production.
+enable_tcp = {{ rcon_tcp_enabled | default(False) | lower }}
 
 [game]
-# Game type (e.g., 'dm', 'tdm', 'ctf')
-game_type = "{{ game_type }}"
+# Game mode: 'dm' (Deathmatch), 'tdm' (Team Deathmatch), 'ctf' (Capture the Flag).
+game_type = "{{ game_type | default('dm') }}"
 
-# Time limit per match in minutes
-timelimit = {{ timelimit }}
+# Match time limit in minutes. 0 means no time limit (frag-based only).
+timelimit = {{ timelimit | default(20) }}
 
-# Frag limit (0 = disabled)
-fraglimit = {{ fraglimit }}
+# Match frag limit. 0 disables frag-based ending (use timelimit or roundlimit).
+fraglimit = {{ fraglimit | default(0) }}
 
-# Round limit (0 = disabled)
-roundlimit = {{ roundlimit }}
+# Match round limit. 0 disables round-based ending.
+roundlimit = {{ roundlimit | default(0) }}
 
-# Enable friendly fire
-friendlyfire = {{ friendlyfire | lower }}
+# Allow team members to damage each other.
+friendlyfire = {{ friendlyfire | default(False) | lower }}
 
-# Enable team balancing
-teambalance = {{ teambalance | lower }}
+# Automatically balance teams based on player counts.
+teambalance = {{ teambalance | default(True) | lower }}
 
-# Minimum number of players to start a match
-minplayers = {{ minplayers }}
+# Minimum players required to start a match (0 = start anytime).
+minplayers = {{ minplayers | default(0) }}
 
-# Custom server name shown in server browser
-hostname = "{{ hostname }}"
+# Server name displayed in the server browser and console.
+hostname = "{{ hostname | default('mvdsv Server') }}"
 
-# Server URL (for server browser and downloads)
-url = "{{ url }}"
+# Server website URL shown in server browser. Include http(s):// prefix.
+url = "{{ url | default('') }}"
 
-# Log level (0=silent, 1=error, 2=warn, 3=info, 4=debug)
-loglevel = {{ loglevel }}
+# Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug. Recommend 3 for production.
+loglevel = {{ loglevel | default(3) }}
 
 [sv]
-# Allow downloads from server
-allow_download = {{ allow_download | lower }}
+# Allow clients to download custom models/sounds/maps from this server.
+allow_download = {{ allow_download | default(True) | lower }}
 
-# Path to custom player models and skins (relative to base dir)
-# e.g., 'custom' -> /usr/share/games/mvdsv/custom
-modelpath = "{{ modelpath }}"
+# Path (relative to base directory) where custom player models are stored.
+modelpath = "{{ modelpath | default('custom') }}"
 
-# Path to custom sounds (relative to base dir)
-soundpath = "{{ soundpath }}"
+# Path (relative to base directory) for custom sounds.
+soundpath = "{{ soundpath | default('custom') }}"
 
-# Path to custom maps (relative to base dir)
-# e.g., 'maps' -> /usr/share/games/mvdsv/maps
-mappath = "{{ mappath }}"
+# Path (relative to base directory) where custom maps are stored.
+mappath = "{{ mappath | default('maps') }}"
 
-# Enable sv_pausable (allows pause in dedicated mode if enabled)
-pausable = {{ sv_pausable | lower }}
+# Allow server pause in dedicated mode (only with -pause flag or RCON).
+pausable = {{ sv_pausable | default(False) | lower }}
 
-# Enable sv_unlag (anti-lag compensation)
-unlag = {{ sv_unlag | lower }}
+# Enable anti-lag compensation (unlag) for fair play.
+unlag = {{ sv_unlag | default(True) | lower }}
 
-# Time window for antilag prediction (in seconds)
-unlag_lagtime = {{ sv_unlag_lagtime }}
+# Maximum time window (in seconds) for unlag prediction. Lower for low-latency networks.
+unlag_lagtime = {{ sv_unlag_lagtime | default(0.1) }}
 
 [log]
-# Enable logging to file
-file_logging = {{ log_file_enabled | lower }}
+# Enable logging to a file (see logfile setting).
+file_logging = {{ log_file_enabled | default(True) | lower }}
 
-# Path to log file
-logfile = "{{ log_filepath }}"
+# Path to the server log file.
+logfile = "{{ log_filepath | default('/var/log/mvdsv/server.log') }}"
 
-# Rotate logs when size exceeds this (in bytes)
-# Set to 0 to disable rotation
-max_log_size = {{ log_max_size }}
+# Maximum size (in bytes) before log rotation. 0 disables rotation.
+max_log_size = {{ log_max_size | default(10485760) }}
 
-# Number of old logs to keep
-max_log_files = {{ log_max_files }}
+# Number of rotated log files to retain.
+max_log_files = {{ log_max_files | default(5) }}
 
-# Log to console
-console_logging = {{ log_console_enabled | lower }}
+# Output logs to console/stdout.
+console_logging = {{ log_console_enabled | default(True) | lower }}
 
 [plugins]
-# List of plugins to load (empty = none)
-{% for plugin in plugins %}
+# List of plugins to load on startup.
+{% for plugin in (plugins | default([])) %}
 # Load plugin: {{ plugin.name }}
 {{ plugin.name | replace('.', '_') }} = "{{ plugin.path }}"
-{% if plugin.options %}
-# Plugin options: {{ plugin.options | tojson() }}
-{{ plugin.name | replace('.', '_') }}_options = "{{ plugin.options | tojson() }}"
+{% if plugin.options is defined and plugin.options %}
+# Plugin options: {{ plugin.options | tojson }}
+{{ plugin.name | replace('.', '_') }}_options = "{{ plugin.options | tojson }}"
 {% endif %}
 {% endfor %}
 
 [admin]
-# Enable admin system
-enabled = {{ admin_enabled | lower }}
+# Enable built-in admin system for permissions and authentication.
+enabled = {{ admin_enabled | default(True) | lower }}
 
-# Admin file path (INI file with users/permissions)
-file = "{{ admin_file }}"
+# Path to admin user/permission configuration file.
+file = "{{ admin_file | default('/etc/mvdsv/admins.cfg') }}"
 
-# Enable automatic ban file sync
-autosync = {{ admin_autosync | lower }}
+# Automatically sync ban list and admin files with disk on changes.
+autosync = {{ admin_autosync | default(True) | lower }}

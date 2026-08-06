@@ -1,54 +1,179 @@
-# Interface(s) to monitor (comma-separated list of device names)
-interfaces = {{ interfaces | join(', ') }}
+#
+# Copyright (c) 2005-2010 Thierry FOURNIER
+# $Id: arpalert.conf.in 690 2008-03-31 18:36:43Z $
+# 
+# Default config file
+# 
 
-# MAC address(es) to allow (whitelist); if empty, no whitelist is enforced
-allowed_macs = {{ allowed_macs | join(', ') }}
+# Path to file containing allowed MAC addresses (whitelist).
+maclist file = "{{ maclist_file | default('/etc/arpalert/maclist.allow') }}"
 
-# MAC address(es) to deny (blacklist)
-denied_macs = {{ denied_macs | join(', ') }}
+# Path to file containing denied MAC addresses (blacklist).
+maclist alert file = "{{ maclist_alert_file | default('/etc/arpalert/maclist.deny') }}"
 
-# Action to take on unauthorized ARP change (valid: 'log', 'drop', 'kill')
-action = "{{ action }}"
+# Path to file for persistent ARP lease dump.
+maclist leases file = "{{ maclist_leases_file | default('/var/lib/arpalert/arpalert.leases') }}"
 
-# Log level: 0=quiet, 1=normal, 2=verbose
-log_level = {{ log_level }}
+# Path to PID file for the running daemon.
+lock file = "{{ pid_file | default('/var/run/arpalert.pid') }}"
 
-# Log file path (empty string uses syslog)
-log_file = "{{ log_file }}"
+# Whether to use syslog (true) or file-based logging (false).
+use syslog = {{ use_syslog | default(True) }}
 
-# PID file path
-pid_file = "{{ pid_file }}"
+# Verbosity of logging (0–7). Default is 6 (full detail).
+log level = {{ log_level | default(6) }}
 
-# Time (in seconds) between scans of the ARP table
-scan_interval = {{ scan_interval }}
+# System user to drop privileges to after starting.
+user = {{ run_as_user | default('arpalert') }}
 
-# Maximum delay (in seconds) to wait before reacting to an ARP change
-max_delay = {{ max_delay }}
+# Rights for file creation.
+umask = 177
 
-# Alert on new MAC for known IPs (true/false)
-alert_new_ip_mac = {{ alert_new_ip_mac | lower }}
+# Whether to dump captured packets to stdout (for debugging).
+dump packet = {{ dump_packet | default(False) }}
 
-# Alert on duplicate IP (true/false)
-alert_duplicate_ip = {{ alert_duplicate_ip | lower }}
+# Whether to run as a background daemon (true) or foreground (false).
+daemon = {{ daemon | default(False) }}
 
-# Alert on duplicate MAC (true/false)
-alert_duplicate_mac = {{ alert_duplicate_mac | lower }}
+# Number of seconds between ARP table scans (matches 'dump inter' in config).
+dump inter = {{ scan_interval | default(30) }}
 
-# List of gateways (IPs) to ignore (e.g., internal routers)
-ignore_gateways = {{ ignore_gateways | join(', ') }}
+# Configure the network for catch only arp request.
+# The detection type "new_mac" is desactived.
+# This mode is used for CPU saving if Arpalert is running on a router
+catch only arp = true
 
-# List of static IP-to-MAC bindings (format: ip=mac; one per line)
-{% for binding in static_bindings %}
-static = {{ binding.ip }} = {{ binding.mac }}
-{% endfor %}
+# List of network interface(s) to monitor for ARP changes.
+# Comma separated interfaces to lesson.
+# if not precised, the soft select the first interface.
+# by default select the first interface encontered
+#interface = {{ interfaces | default(['eth0']) | join(", ") }}
 
-# Command to execute on alert (optional; %ip%, %mac% placeholders)
-{% if alert_cmd %}
-alert_cmd = {{ alert_cmd | replace('%', '%%') }}
-{% endif %}
+# Command to execute when an alert occurs.
+# Supports %ip%, %mac%, %mac% vendor, %device%, %type% placeholders.
+# type of alert:
+# 0: ip change
+# 1: mac address only detected but not in whithe list
+# 2: mac address in black list
+# 3: new mac address
+# 4: unauthorized arp request
+# 5: abusive number of arp request detected 
+# 6: ethernet mac address different from arp mac address
+# 7: global flood detection
+# 8: new mac adress without ip
+# 9: mac change
+# 10: mac expire
+action on detect = "{{ action_cmd | default('') }}"
 
-# Daemonize (run as background process; true/false)
-daemonize = {{ daemonize | lower }}
+# Module launched on each detection.
+mod on detect = ""
 
-# User to drop privileges to (when daemonizing)
-run_as_user = "{{ run_as_user }}"
+# This chain is transfered to the init function of module loaded.
+mod config = ""
+
+# Script execution timeout (seconds).
+execution timeout = 10
+
+# Maximun simultaneous lanched script.
+max alert = 20
+
+# What data are dumped in leases file.
+dump black list = false
+dump white list = false
+dump new address = true
+
+# After this time a mac adress is removed from memory (seconds) (default 1 month).
+mac timeout = 259200
+
+# Allow arpalert to expire authorized mac addresses.
+expire authorized mac addresses = false
+
+# After this limit the memory hash is cleaned (protect to arp flood).
+max entry = 1000000
+
+# This permit to send only one mismatch alert in this time (in seconds).
+anti flood interval = 5  
+
+# If the number of arp request in seconds exceed this value, all alerts are ignored for 
+# "anti flood interval" time.
+anti flood global = 50
+
+# Vendor name.
+# Add the mac vendor field in logs, alerts script and/or module execution.
+mac vendor file = "/etc/arpalert/oui.txt"
+log mac vendor = true
+alert mac vendor = true
+mod mac vendor = true
+
+# Log if the adress is referenced in hash but is not in white list.
+log referenced address = false
+alert on referenced address = false
+mod on referenced address = false
+
+# Log if the mac adress is in black list.
+log deny address = true
+alert on deny address = true
+mod on deny address = true
+
+# Log if the adress isn't referenced.
+log new address = true
+alert on new address = true
+mod on new address = true
+
+# Log if the adress isn't referenced (for mac adress only).
+log new mac address = true
+alert on new mac address = true
+mod on new mac address = true
+
+# Log if the ip adress id different from the last arp request with the same mac adress.
+log ip change = true
+alert on ip change = true
+mod on ip change = true
+
+# Log if the ip adress id different from the last arp request with the same mac adress.
+log mac change = true
+alert on mac change = true
+mod on mac change = true
+
+# Unauthorized arp request:
+# Log all the request not authorized in auth file.
+log unauth request = false
+alert on unauth request = false
+mod on unauth request = false
+
+# Dont analyse arp request for unknow hosts (not in white list).
+ignore unknown sender = false
+
+# Ignore arp request with mac adresse of the lessoned interfaces for the authorizations checks.
+ignore me = true
+
+# Ignore windows self test.
+ignore self test = false
+
+# Suspend time method:
+# 1: ignore all unauth alerts during "anti flood interval" time
+# 2: ignore only tuple (mac address, ip address) during "anti flood interval" time.
+unauth ignore time method = 2
+
+# Log if the number of request per seconds are > "max request".
+log request abus = true
+alert on request abus = true
+mod on request abus = true
+
+# Maximun request authorized by second.
+max request = 1000000
+
+# Log if the ethernet mac address are different than the arp amc address (only for requestor).
+log mac error = true
+alert on mac error = true
+mod on mac error = true
+
+# Log if have too many arp request per seconds.
+log flood = true
+alert on flood	= true
+mod on flood = true
+
+# Log if the adress is removed after mac timeout.
+log expire mac address = false
+alert on expire mac address = false
+mod on expire mac address = false

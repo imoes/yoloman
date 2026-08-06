@@ -1,0 +1,137 @@
+# =============================================================================
+# fpdns configuration file
+#
+# This file generates a command-line invocation for `fpdns` (Fingerprint DNS).
+# It configures target servers, query parameters, output format, and operational
+# constraints. Each section is annotated with its schema description for clarity.
+# See `man fpdns(1p)` for detailed command-line flag semantics.
+# =============================================================================
+
+{#
+  # servers: List of server hostnames or IP addresses to fingerprint.
+  # Use ['-'] to read from stdin.
+  #
+  # If the list is provided, each server is emitted as a positional argument.
+  # If empty or omitted, fpdns will read the list from standard input.
+#}
+{% if servers is defined and servers | length > 0 %}
+# Servers to fingerprint (space-separated positional args)
+{% for server in servers %}
+{{ server }}
+{% endfor %}
+{% else %}
+# No servers defined; fpdns will read targets from stdin (use ['-']).
+# If servers were intended, please provide the `servers` list in the role vars.
+{% endif %}
+
+{#
+  # port: Port to query on the remote DNS server.
+  # Default: 53 (standard DNS port).
+#}
+-p {{ port | default(53) }}
+
+{#
+  # srcaddr: Source IP address to use for outgoing queries.
+  # Default: '' (empty string).
+  #
+  # If empty, the system default routing/source IP is used.
+#}
+-Q {{ srcaddr | default('') }}
+
+{#
+  # timeout: Query timeout in seconds.
+  # Default: 5
+  #
+  # Determines how long fpdns waits for a response before timing out.
+#}
+-t {{ timeout | default(5) }}
+
+{#
+  # retry: Number of retry attempts per query.
+  # Default: 1
+  #
+  # If the initial query fails, this many additional attempts will be made.
+#}
+-r {{ retry | default(1) }}
+
+{#
+  # max_children: Maximum number of forked child processes for parallel fingerprinting.
+  # Default: 10
+  #
+  # Controls concurrency. Higher values speed up large scans but increase resource usage.
+#}
+-F {{ max_children | default(10) }}
+
+{#
+  # separator: Separator between fields in output.
+  # Default: ' ' (space)
+  #
+  # Defines the delimiter used in the output line structure.
+#}
+-S {{ separator | default(' ') }}
+
+{#
+  # use_tcp: Whether to use TCP instead of UDP for queries.
+  # Default: False
+  #
+  # TCP is more reliable for large responses or fragmented packets but is slower.
+#}
+{% if use_tcp | default(False) %}
+# Use TCP instead of UDP for queries
+-T
+{% endif %}
+
+{#
+  # force_version_query: Force CH TXT version query (in case of ambiguous responses).
+  # Default: False
+  #
+  # Forces a specific query type (CH TXT) to identify the DNS software version.
+#}
+{% if force_version_query | default(False) %}
+# Force CH TXT version query
+-f
+{% endif %}
+
+{#
+  # short_output: Enable short output format (useful for surveys).
+  # Default: False
+  #
+  # Reduces verbosity for easier parsing in automated surveys.
+#}
+{% if short_output | default(False) %}
+# Short output format
+-s
+{% endif %}
+
+{#
+  # check_all_auth: Query all authoritative servers of the specified domain.
+  # Default: False
+  #
+  # Enables comprehensive scanning by checking every NS record's target.
+#}
+{% if check_all_auth | default(False) %}
+# Query all authoritative servers of domain
+-D
+{% endif %}
+
+{#
+  # debug: Enable debugging output.
+  # Default: False
+  #
+  # Outputs verbose diagnostic information to stderr.
+#}
+{% if debug | default(False) %}
+# Enable debugging
+-d
+{% endif %}
+
+{#
+  # show_version: Show version of fpdns.
+  # Default: False
+  #
+  # If true, prints the tool's version and exits.
+#}
+{% if show_version | default(False) %}
+# Show fpdns version
+-v
+{% endif %}

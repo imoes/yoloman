@@ -1,26 +1,76 @@
-# Enable the ejabberd_mod_s2s_log module for logging Server-to-Server (S2S) connections
-{% if modules.ejabberd_mod_s2s_log.enabled %}
-modules:
-  mod_s2s_log:
-    # Log file path for S2S connection logs
-    log_file: "{{ modules.ejabberd_mod_s2s_log.log_file }}"
-    # Verbosity level: 0=none, 1=errors only, 2=errors+info, 3=debug
-    log_level: {{ modules.ejabberd_mod_s2s_log.log_level }}
-    # Maximum number of days to retain log entries before rotation
-    max_days: {{ modules.ejabberd_mod_s2s_log.max_days }}
-    # Maximum size (in bytes) of a log file before rotation
-    max_size: {{ modules.ejabberd_mod_s2s_log.max_size }}
-    # Format of log entries: 'json' or 'text'
-    format: "{{ modules.ejabberd_mod_s2s_log.format }}"
-    # Optional: custom log filters (e.g., only log failed connections)
-{% for filter in modules.ejabberd_mod_s2s_log.filters %}
-{%   if filter.enabled %}
-    # {{ filter.name }}: {{ filter.description }}
-{%   endif %}
+# ejabberd_mod_s2s_log configuration template
+# This template generates the configuration block for the ejabberd Mod S2S Log module.
+# It is intended to be included in the main ejabberd.yml under the 'modules:' key.
+# See: https://docs.ejabberd.im/admin/configuration/modules/
+
+# Top-level key 'modules' is assumed to be present in the caller's scope (ejabberd.yml).
+# This template only emits the 'mod_s2s_log' sub-block.
+
+{# --- Module Enable/Disable Control --- #}
+{# 'modules' is the top-level schema container. We check if the specific module entry exists and is enabled. #}
+{% set mod_config = (modules | default({})).ejabberd_mod_s2s_log | default({}) %}
+{% set mod_enabled = mod_config.enabled | default(false) %}
+
+{% if mod_enabled %}
+# ==============================================================================
+# mod_s2s_log: Server-to-Server Connection Logging
+# ==============================================================================
+# Enables logging of all Server-to-Server (S2S) XMPP connections handled by ejabberd.
+# Useful for auditing, debugging inter-domain connectivity issues, and compliance.
+# ==============================================================================
+
+mod_s2s_log:
+  {# log_file: Path to the log file. #}
+  {# Default: 'log/s2s.log' #}
+  log_file: "{{ mod_config.log_file | default('log/s2s.log') }}"
+
+  {# log_level: Verbosity of the log. #}
+  {# 0: No logging #}
+  {# 1: Log errors only #}
+  {# 2: Log errors and informational messages #}
+  {# 3: Log debug messages (very verbose) #}
+  {# Default: 2 #}
+  log_level: {{ mod_config.log_level | default(2) }}
+
+  {# max_days: Maximum number of days to keep log entries before automatic rotation/deletion. #}
+  {# Default: 30 #}
+  max_days: {{ mod_config.max_days | default(30) }}
+
+  {# max_size: Maximum size of the log file in bytes before rotation. #}
+  {# Set to 0 to disable size-based rotation (only time-based via max_days). #}
+  {# Default: 104857600 (100 MB) #}
+  max_size: {{ mod_config.max_size | default(104857600) }}
+
+  {# format: Format of log entries. #}
+  {# 'text': Human-readable plain text #}
+  {# 'json': Machine-readable JSON lines #}
+  {# Default: 'text' #}
+  format: "{{ mod_config.format | default('text') }}"
+
+  {# filters: Optional list of filters to refine which connections are logged. #}
+  {# This allows logging only specific peers or connection states. #}
+{% set filters_list = mod_config.filters | default([]) %}
+{% if filters_list | length > 0 %}
+  filters:
+{% for filter in filters_list %}
+  {# Filter definition: {{ filter.name | default('unnamed_filter') }} #}
+  {# Description: {{ filter.description | default('No description provided') }} #}
+{% if filter.enabled | default(true) %}
+    - name: "{{ filter.name | default('') }}"
+      {# rule: The condition to match. e.g., 'peer_domain', 'status'. #}
+      rule: "{{ filter.rule | default('') }}"
+      {# action: What to do if matched. e.g., 'log', 'drop', 'ignore'. #}
+      action: "{{ filter.action | default('log') }}"
+{% else %}
+    # Filter disabled: {{ filter.name | default('unnamed_filter') }}
+{% endif %}
 {% endfor %}
 {% else %}
-# ejabberd_mod_s2s_log is disabled — no module configuration applied
+  {# No filters defined; all S2S connections matching log_level are logged. #}
 {% endif %}
 
-# Note: The above config is placed under the 'modules:' section in ejabberd.yml.
-# Ensure this is at YAML root level (i.e., sibling to 'listen:', 'hosts:', etc.)
+{% else %}
+# mod_s2s_log is DISABLED.
+# No configuration block emitted.
+# To enable, set modules.ejabberd_mod_s2s_log.enabled to true in your Ansible variables.
+{% endif %}

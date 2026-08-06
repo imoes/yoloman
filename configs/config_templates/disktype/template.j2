@@ -1,0 +1,28 @@
+# disktype(1) configuration file
+# This file defines parameters for the disktype utility, which detects disk
+# and partition types. It controls verbosity, recursion into compressed images,
+# the targets to scan, and formats to ignore.
+
+# Enable verbose output to show detailed detection steps and format variants.
+# Default: false
+verbose: {{ verbose | default(false) }}
+
+# Enable recursive analysis (e.g., decompress gzip/bzip2 and re-analyze contents).
+# Default: true
+recursive: {{ recursive | default(true) }}
+
+# List of file paths or device nodes to analyze; may include disk images and
+# raw block devices.
+# Default: ['/dev/sda', '/path/to/image.iso']
+paths:
+{% for path in paths | default(['/dev/sda', '/path/to/image.iso']) %}
+  - {{ path }}
+{% endfor %}
+
+# List of format names (as recognized by disktype) to skip during analysis;
+# e.g., 'tar', 'gzip' to avoid noise from archives/compression headers.
+# Default: []
+suppress:
+{% for fmt in suppress | default([]) %}
+  - {{ fmt }}
+{% endfor %}

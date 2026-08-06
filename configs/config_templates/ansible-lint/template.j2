@@ -1,0 +1,87 @@
+# Configuration file for ansible-lint
+# Generated from documented command-line options.
+#
+# This YAML configuration maps directly to ansible-lint's CLI flags.
+# Each field is self-documenting with its schema description and safe defaults.
+# If a variable is undefined in the Ansible playbook, the default value is used.
+
+# Path to configuration file. If empty, ansible-lint searches for:
+# .ansible-lint, .config/ansible-lint.yml, or .config/ansible-lint.yaml.
+# Equivalent to --config-file.
+config_file: {{ config_file | default('') }}
+
+# List of file or directory paths to exclude from linting.
+# Equivalent to --exclude.
+exclude_paths:
+{% for path in exclude_paths | default([]) %}  - {{ path }}
+{% endfor %}
+
+# List of paths to custom rule directories.
+# Equivalent to --rules-dir.
+# Use -R on CLI to keep default rules; here, adding dirs appends to defaults.
+rules_dir:
+{% for dir in rules_dir | default([]) %}  - {{ dir }}
+{% endfor %}
+
+# Output format: brief, full, md, json, codeclimate, quiet, pep8, sarif.
+# Equivalent to --format.
+format: {{ format | default('none') }}
+
+# Rule profile: min, basic, moderate, safety, shared, production.
+# Equivalent to --profile.
+profile: {{ profile | default('none') }}
+
+# List of rule IDs or tags to skip during linting.
+# Equivalent to --skip-list.
+skip_list:
+{% for item in skip_list | default([]) %}  - {{ item }}
+{% endfor %}
+
+# List of rule IDs or tags to warn about instead of erroring.
+# Equivalent to --warn-list.
+warn_list:
+{% for item in warn_list | default(['experimental', 'jinja[spacing]', 'fqcn[deep]']) %}  - {{ item }}
+{% endfor %}
+
+# List of optional rule tags to activate.
+# Equivalent to --enable-list.
+enable_list:
+{% for item in enable_list | default([]) %}  - {{ item }}
+{% endfor %}
+
+# Controls write/transform behavior for --write.
+# Accepts 'all', 'none', or a comma-separated list of rule IDs/tags.
+# Equivalent to --write-list.
+write_list: {{ write_list | default('none') }}
+
+# Path to SARIF output file when using --format sarif.
+# Equivalent to --sarif-file.
+sarif_file: {{ sarif_file | default('') }}
+
+# Path to ignore file for violations (suppresses warnings for listed items).
+# Equivalent to --ignore-file.
+ignore_file: {{ ignore_file | default('.ansible-lint-ignore') }}
+
+# If true, return non-zero exit code for warnings as well as errors.
+# Equivalent to --strict.
+strict: {{ strict | default(false) }}
+
+# If true, enable parseable (pep8) output (same as --parseable).
+# Equivalent to --parseable.
+parseable: {{ parseable | default(false) }}
+
+# If true, display paths relative to current working directory.
+# Equivalent to --show-relpath.
+show_relpath: {{ show_relpath | default(false) }}
+
+# If true, disable installation of requirements.yml and schema refreshing.
+# Equivalent to --offline.
+offline: {{ offline | default(false) }}
+
+# If true, force colored output even without terminal support.
+# Equivalent to --force-color.
+force_color: {{ force_color | default(false) }}
+
+# If true, disable colored output (same as NO_COLOR=1).
+# Equivalent to --no-color.
+no_color: {{ no_color | default(false) }}

@@ -1,0 +1,145 @@
+# ============================================================================
+# Bumblebee Configuration Template
+# ============================================================================
+# This file configures the Bumblebee daemon and the optirun client tool.
+# Bumblebee allows running OpenGL applications on discrete GPUs (NVIDIA)
+# while using the integrated graphics for display output (Optimus technology).
+#
+# Format: INI-style. Sections: [bumblebeed], [optirun], [driver-nvidia],
+# [driver-nouveau]. Values are NOT quoted.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Section: [bumblebeed] - Core Daemon Configuration
+# --------------------------------------------------------------------------
+# Any change made in this section will need a server restart to take effect.
+[bumblebeed]
+
+# The secondary Xorg server DISPLAY number.
+# This is the display where the discrete GPU's X server runs.
+# Default: :8
+VirtualDisplay={{ bumblebeed_virtual_display | default(':8') }}
+
+# Whether to keep the unused Xorg server running.
+# Set to true if waiting for X to be ready is too long and you don't need power management at all.
+# Default: False
+KeepUnusedXServer={{ bumblebeed_keep_unused_x_server | default(False) }}
+
+# The name of the Bumblebee server group (GID name).
+# The daemon runs under this group for permissions.
+# Default: bumblebee
+ServerGroup={{ bumblebeed_server_group | default('bumblebee') }}
+
+# Whether to turn the GPU card off at Bumblebee server exit.
+# Set to false if the card should be ON when Bumblebee server exits.
+# Default: False
+TurnCardOffAtExit={{ bumblebeed_turn_card_off_at_exit | default(False) }}
+
+# If true, the '-f' option on optirun is ignored.
+# Controls the default behavior of the '-f' (force) flag.
+# Default: False
+NoEcoModeOverride={{ bumblebeed_no_eco_mode_override | default(False) }}
+
+# The driver used by Bumblebee server.
+# If empty, auto-detection is performed. Valid values: 'nvidia', 'nouveau'.
+# Default: '' (auto)
+Driver={{ bumblebeed_driver | default('') }}
+
+# Directory with a dummy config file to pass as -configdir to secondary X.
+# Contains Xorg configuration snippets specific to the discrete GPU.
+# Default: /etc/bumblebee/xorg.conf.d
+XorgConfDir={{ bumblebeed_xorg_conf_dir | default('/etc/bumblebee/xorg.conf.d') }}
+
+# Xorg binary to run.
+# Path to the Xorg executable used by the secondary server.
+# Default: /usr/lib/xorg/Xorg
+XorgBinary={{ bumblebeed_xorg_binary | default('/usr/lib/xorg/Xorg') }}
+
+# --------------------------------------------------------------------------
+# Section: [optirun] - Client Options
+# --------------------------------------------------------------------------
+# These options take effect on the next optirun executed.
+[optirun]
+
+# Acceleration/rendering bridge.
+# Valid values: 'auto', 'virtualgl', 'primus'.
+# Default: auto
+Bridge={{ optirun_bridge | default('auto') }}
+
+# Method for VirtualGL frame transport.
+# Valid values: 'proxy', 'jpeg', 'rgb', 'xv', 'yuv'.
+# Only relevant if Bridge=virtualgl.
+# Default: proxy
+VGLTransport={{ optirun_vgl_transport | default('proxy') }}
+
+# List of paths searched for the primus libGL.so.1 when using the primus bridge.
+# Colon-separated list of directories.
+# Default: /usr/lib/x86_64-linux-gnu/primus:/usr/lib/i386-linux-gnu/primus
+PrimusLibraryPath={{ optirun_primus_library_path | default('/usr/lib/x86_64-linux-gnu/primus:/usr/lib/i386-linux-gnu/primus') }}
+
+# Whether to allow program run under optirun even if Bumblebee server or NVIDIA card is unavailable.
+# If true, falls back to the integrated graphics card (IGC).
+# Default: False
+AllowFallbackToIGC={{ optirun_allow_fallback_to_igc | default(False) }}
+
+# --------------------------------------------------------------------------
+# Section: [driver-nvidia] - NVIDIA Driver Specific Options
+# --------------------------------------------------------------------------
+# This section is ONLY parsed if Driver=nvidia (or auto-detection resolves to nvidia).
+#
+# PMMethod values:
+#   auto     - Automatically detect which PM method to use
+#   bbswitch - New in BB 3, recommended if available
+#   switcheroo - vga_switcheroo method, use at your own risk
+#   none     - Disable PM completely
+[driver-nvidia]
+
+# Kernel driver module name to load.
+# Defaults to 'nvidia' if empty or unset.
+# Default: nvidia
+KernelDriver={{ driver_nvidia_kernel_driver | default('nvidia') }}
+
+# Power management method for NVIDIA.
+# Valid values: 'auto', 'bbswitch', 'switcheroo', 'none'.
+# Default: auto
+PMMethod={{ driver_nvidia_pm_method | default('auto') }}
+
+# Colon-separated path to the NVIDIA libraries.
+# Directories where libnvidia-*.so files are located.
+# Default: /usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/i386-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu
+LibraryPath={{ driver_nvidia_library_path | default('/usr/lib/x86_64-linux-gnu/nvidia:/usr/lib/i386-linux-gnu/nvidia:/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu') }}
+
+# Comma-separated path of the directory containing nvidia_drv.so and the default Xorg modules path.
+# Default: /usr/lib/nvidia,/usr/lib/xorg/modules
+XorgModulePath={{ driver_nvidia_xorg_module_path | default('/usr/lib/nvidia,/usr/lib/xorg/modules') }}
+
+# Xorg config file for NVIDIA driver.
+# The secondary X server uses this config file.
+# Default: /etc/bumblebee/xorg.conf.nvidia
+XorgConfFile={{ driver_nvidia_xorg_conf_file | default('/etc/bumblebee/xorg.conf.nvidia') }}
+
+# If set to true, will always unload the kernel module(s) even with PMMethod=none.
+# Useful for newer Optimus models on which the kernel power management works out of the box
+# to power the card on/off without bbswitch.
+# Default: False
+AlwaysUnloadKernelDriver={{ driver_nvidia_always_unload_kernel_driver | default(False) }}
+
+# --------------------------------------------------------------------------
+# Section: [driver-nouveau] - Nouveau Driver Specific Options
+# --------------------------------------------------------------------------
+# This section is ONLY parsed if Driver=nouveau (or auto-detection resolves to nouveau).
+[driver-nouveau]
+
+# Kernel driver module name to load.
+# Default: nouveau
+KernelDriver={{ driver_nouveau_kernel_driver | default('nouveau') }}
+
+# Power management method for Nouveau.
+# Valid values are similar to NVIDIA (auto, bbswitch, switcheroo, none).
+# Default: auto
+PMMethod={{ driver_nouveau_pm_method | default('auto') }}
+
+# Xorg config file for Nouveau driver.
+# The secondary X server uses this config file.
+# Default: /etc/bumblebee/xorg.conf.nouveau
+XorgConfFile={{ driver_nouveau_xorg_conf_file | default('/etc/bumblebee/xorg.conf.nouveau') }}

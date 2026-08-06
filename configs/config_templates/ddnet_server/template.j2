@@ -1,117 +1,132 @@
-# Server listen address (IP:port or hostname:port)
-bind = {{ bind_address }}
+{#
+  DDNet Server Configuration Template
+  ================================
+  This template generates the `server.cfg` file for a DDNet server.
+  It is self-documenting: every configuration directive is preceded by
+  a comment derived from the schema description.
 
-# TCP port to listen on (ignored if bind includes port)
-port = {{ port }}
+  All variables use Jinja2 `default()` filters to ensure safe rendering
+  even if the variable is undefined in the Ansible inventory.
+#}
 
-# Game password (empty = no password required)
-password = "{{ password }}"
+# IP address and port the server binds to. Use '0.0.0.0:port' for all IPv4 interfaces, or ':::port' for IPv6.
+bind = {{ (bind_address | default('0.0.0.0:8303')) }}
 
-# RCON password (for remote administration)
-rcon_password = "{{ rcon_password }}"
+# TCP port for game connections (ignored if port is included in bind_address).
+port = {{ (port | default(8303)) }}
 
-# Server name displayed in server list
-server_name = "{{ server_name }}"
+# Password required to join the server. Leave empty for public server.
+password = "{{ (password | default('')) }}"
 
-# Server message of the day (shown on connect)
-motd = "{{ motd }}"
+# Password for remote administration via RCON. Must be set to enable RCON.
+rcon_password = "{{ (rcon_password | default('')) }}"
 
-# Max players (0 = unlimited, but system limits apply)
-max_clients = {{ max_clients }}
+# Display name of the server shown in server browser.
+server_name = "{{ (server_name | default('My DDNet Server')) }}"
 
-# Max players per IP (0 = unlimited)
-max_clients_per_ip = {{ max_clients_per_ip }}
+# Message of the day shown to players on connect.
+motd = "{{ (motd | default('Welcome to DDNet!')) }}"
 
-# Enable spectator mode
-spectator_mode = {{ spectator_mode | lower }}
+# Maximum number of players allowed on the server simultaneously.
+max_clients = {{ (max_clients | default(32)) }}
 
-# Max spectators
-max_spectators = {{ max_spectators }}
+# Maximum number of connections allowed per IP address (to prevent abuse).
+max_clients_per_ip = {{ (max_clients_per_ip | default(4)) }}
 
-# Game mode (e.g., "ddrace", "ddnet", "standard")
-game_type = "{{ game_type }}"
+# Whether spectator mode is enabled (players can join as observers).
+spectator_mode = {{ (spectator_mode | default(True) | lower) }}
 
-# Map to load at startup (empty = random from mapgroup)
-map = "{{ map }}"
+# Maximum number of spectators allowed (requires spectator_mode = true).
+max_spectators = {{ (max_spectators | default(10)) }}
 
-# Default map group (if map is empty)
-map_group = "{{ map_group }}"
+# Game mode: 'ddrace' (DDRace rules), 'ddnet' (DDNet rules), or 'standard' (classic Teeworlds).
+game_type = "{{ (game_type | default('ddrace')) }}"
 
-# Enable voting system
-vote_enabled = {{ vote_enabled | lower }}
+# Initial map to load (e.g., 'dm1'). Empty to use map_group or random map.
+map = "{{ (map | default('')) }}"
 
-# Allow votes for map change
-vote_kick = {{ vote_kick | lower }}
+# Map group (folder) to pull maps from when no map is specified (e.g., 'ddnet', 'race').
+map_group = "{{ (map_group | default('ddnet')) }}"
 
-# Allow votes for map restart
-vote_restart = {{ vote_restart | lower }}
+# Enable players to initiate votes (kick, map change, etc.).
+vote_enabled = {{ (vote_enabled | default(True) | lower) }}
 
-# Allow votes for spectator mode
-vote_spectator = {{ vote_spectator | lower }}
+# Allow voting to kick players.
+vote_kick = {{ (vote_kick | default(True) | lower) }}
 
-# Kick timeout after vote passes (seconds)
-vote_kick_timeout = {{ vote_kick_timeout }}
+# Allow voting to restart the current map.
+vote_restart = {{ (vote_restart | default(True) | lower) }}
 
-# Time between map changes (seconds, 0 = manual)
-map_change_interval = {{ map_change_interval }}
+# Allow voting to change spectator mode.
+vote_spectator = {{ (vote_spectator | default(True) | lower) }}
 
-# Time between map group rotations (seconds, 0 = manual)
-map_group_rotation_interval = {{ map_group_rotation_interval }}
+# Seconds after which a passed kick vote is executed.
+vote_kick_timeout = {{ (vote_kick_timeout | default(300)) }}
 
-# Log file path (empty = no file logging)
-log_file = "{{ log_file }}"
+# Seconds between automatic map changes (0 = manual only).
+map_change_interval = {{ (map_change_interval | default(0)) }}
 
-# Enable debug logging
-debug = {{ debug | lower }}
+# Seconds between automatic map group rotations (0 = manual only).
+map_group_rotation_interval = {{ (map_group_rotation_interval | default(0)) }}
 
-# Admin accounts (one per line; use "name" or "name:ip" or "ip")
-{% for admin in admins %}admin = "{{ admin.name }}"{% if admin.ip %}#{{ admin.ip }}{% endif %}
+# Path to server log file (e.g., '/var/log/ddnet/server.log'). Empty disables file logging.
+log_file = "{{ (log_file | default('')) }}"
+
+# Enable verbose debug logging (only for troubleshooting).
+debug = {{ (debug | default(False) | lower) }}
+
+# List of admin accounts with optional IP restrictions.
+{% for admin in (admins | default([])) %}
+# Admin: {{ admin.name | default('') }}
+{% if admin.ip is defined %}admin = "{{ admin.name }}#{{ admin.ip }}"{% else %}admin = "{{ admin.name }}"{% endif %}
 {% endfor %}
 
-# Rate limit for connections (0 = disabled)
-rate_limit = {{ rate_limit }}
+# Maximum packets per second per client before rate-limiting kicks in (0 = disabled).
+rate_limit = {{ (rate_limit | default(10)) }}
 
-# Enable IPv6 (if supported and bind includes IPv6)
-ipv6 = {{ ipv6 | lower }}
+# Enable IPv6 support if the server and network support it.
+ipv6 = {{ (ipv6 | default(False) | lower) }}
 
-# Enable DDNet-specific features (e.g., double-jump, hook-collision)
-ddnet_compat = {{ ddnet_compat | lower }}
+# Enable DDNet-specific gameplay features (e.g., double-jump, hook collisions).
+ddnet_compat = {{ (ddnet_compat | default(True) | lower) }}
 
-# Allow clients to send custom skin data
-allow_custom_skins = {{ allow_custom_skins | lower }}
+# Allow players to upload custom skins to the server.
+allow_custom_skins = {{ (allow_custom_skins | default(True) | lower) }}
 
-# Path to custom skins directory (if allow_custom_skins = true)
-skins_dir = "{{ skins_dir }}"
+# Directory where custom skins are stored (if allow_custom_skins is true).
+skins_dir = "{{ (skins_dir | default('/var/lib/ddnet/skins')) }}"
 
-# Enable DDRace-style teams
-ddrace_teams = {{ ddrace_teams | lower }}
+# Enable DDRace-style team play (teams of up to 8 players).
+ddrace_teams = {{ (ddrace_teams | default(True) | lower) }}
 
-# Minimum time (seconds) between client connections from same IP
-anti_flood = {{ anti_flood }}
+# Minimum milliseconds between connections from the same IP to prevent spam/flood.
+anti_flood = {{ (anti_flood | default(500)) }}
 
-# Enable server announcement to master list
-announce = {{ announce | lower }}
+# Announce the server to the official DDNet master server list.
+announce = {{ (announce | default(True) | lower) }}
 
-# Master server announce address (optional; defaults to official DDNet master)
-{% if announce_master %}announce_master = "{{ announce_master }}"{% endif %}
+# Custom master server address for announcements (leave empty to use official list).
+{% if (announce_master | default('')) != '' %}
+announce_master = "{{ (announce_master | default('')) }}"
+{% endif %}
 
-# Server version string (optional; leave empty for auto)
-version = "{{ version }}"
+# Override server version string (leave empty to auto-detect).
+version = "{{ (version | default('')) }}"
 
-# Server region code (e.g., "us", "eu")
-region = "{{ region }}"
+# Region code for server listing (e.g., 'us', 'eu', 'as').
+region = "{{ (region | default('us')) }}"
 
-# Server country code (ISO 3166-1 alpha-2)
-country = "{{ country }}"
+# ISO 3166-1 alpha-2 country code (e.g., 'DE', 'JP') for server listing.
+country = "{{ (country | default('')) }}"
 
-# Server location (user-facing string, e.g., "New York, USA")
-location = "{{ location }}"
+# Human-readable server location for players (e.g., 'Frankfurt, Germany').
+location = "{{ (location | default('Unknown')) }}"
 
-# Enable TLS for webadmin (if webadmin enabled)
-webadmin_tls = {{ webadmin_tls | lower }}
+# Enable HTTPS for the webadmin panel.
+webadmin_tls = {{ (webadmin_tls | default(False) | lower) }}
 
-# Webadmin port (0 = disabled)
-webadmin_port = {{ webadmin_port }}
+# Port for webadmin HTTP/HTTPS interface (0 = disabled).
+webadmin_port = {{ (webadmin_port | default(0)) }}
 
-# Webadmin bind address
-webadmin_bind = "{{ webadmin_bind }}"
+# IP address to bind the webadmin interface to (e.g., '127.0.0.1' for localhost only).
+webadmin_bind = "{{ (webadmin_bind | default('127.0.0.1')) }}"

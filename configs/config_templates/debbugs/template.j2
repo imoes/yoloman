@@ -1,0 +1,26 @@
+{# Configuration for surfraw's debbugs elvis #}
+# Debbugs search URL template (used by 'sr debbugs' and 'surfraw debbugs')
+# Searches Debian Bug Tracking System (https://bugs.debian.org/)
+# This file is read by /usr/lib/surfraw/conf.d/debbugs
+
+# Base URL for the Debian Bug Tracking System
+# Default: https://bugs.debian.org/
+# Example: https://bugs.debian.org/
+SB_URL = {{ sb_url | default("https://bugs.debian.org/") }}
+
+# Default search method: 'src' (source package), 'pkg' (binary package), or 'bug' (bug number)
+# Default: src
+# Options: src, pkg, bug
+SB_DEFAULT_METHOD = {{ sb_default_method | default("src") }}
+
+# Whether to include the bug number in the URL when searching by bug number
+# Default: 1 (yes)
+# Options: 0 (no), 1 (yes)
+SB_BUG_INCLUDE_NUM = {{ sb_bug_include_num | default(true) | ternary("1", "0") }}
+
+# List of additional search methods (for custom extensions)
+# Each item defines a method name, its URL template, and description
+# Format: {"name": "...", "url": "...", "desc": "..."}
+{% for method in sb_extra_methods | default([]) %}# Method "{{ method.name }}": {{ method.desc }}
+SB_METHOD_{{ method.name | upper }}_URL = {{ method.url }}
+{% endfor %}

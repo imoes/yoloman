@@ -1,66 +1,123 @@
-# Enable daemon to listen on all interfaces for NTP clients
+# Chrony NTP Server Configuration Template
+#
+# This configuration defines a Chrony daemon instance acting as an NTP server
+# and/or client. It handles local time synchronization via upstream sources
+# and serves time to local network clients.
+
+# =============================================================================
+# Command Interface Binding
+# =============================================================================
+# Listen for chronyc commands on all IPv4 and IPv6 interfaces.
+# This allows remote management of the daemon.
 bindcmdaddress 0.0.0.0
 bindcmdaddress ::
 
-# Allow NTP clients from these networks (CIDR notation)
-{% for network in allowed_networks %}allow {{ network }}
+# =============================================================================
+# Access Control: Allowed Networks
+# =============================================================================
+# List of IP networks (CIDR notation) allowed to query this Chrony server.
+# Clients from other networks will be denied access.
+# Default: ['192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12']
+{% for network in (allowed_networks | default(['192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12'])) %}
+allow {{ network }}
 {% endfor %}
 
-# Enable rate limiting to prevent abuse
-cmdratelimit {{ cmd_rate_limit }}
-
-# Specify local reference clock (e.g., GPS or PPS) as a fallback when external sources unavailable
-{% if use_local_clock %}refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 trust
+# =============================================================================
+# Local Reference Clock (Hardware)
+# =============================================================================
+# Enable a local hardware reference clock (e.g., PTP) as a stratum-0 fallback.
+# Requires compatible hardware connected to /dev/ptp0.
+# Default: False
+{% if (use_local_clock | default(False) | bool) %}
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 trust
 {% endif %}
 
-# Define upstream NTP servers — pool or server entries
-{% for server in ntp_servers %}server {{ server.host }} iburst{% if server.options %} {{ server.options | join(' ') }}{% endif %}
+# =============================================================================
+# Upstream NTP Sources
+# =============================================================================
+# Specify upstream NTP servers or pools to synchronize with.
+# Each entry may include extra options (e.g., 'iburst', 'prefer').
+# Default:
+#   - 0.pool.ntp.org
+#   - 1.pool.ntp.org iburst
+#   - 2.pool.ntp.org
+#   - 3.pool.ntp.org iburst
+{% for server in (ntp_servers | default([{'host': '0.pool.ntp.org', 'options': []}, {'host': '1.pool.ntp.org', 'options': ['iburst']}, {'host': '2.pool.ntp.org', 'options': []}, {'host': '3.pool.ntp.org', 'options': ['iburst']}])) %}
+server {{ server.host }}{% if server.options | default([]) %} iburst {{ server.options | join(' ') }}{% else %} iburst{% endif %}
 {% endfor %}
 
-# Enable drift file to persist clock rate adjustments across reboots
+# =============================================================================
+# Drift File
+# =============================================================================
+# Enable drift file to persist clock rate adjustments across reboots.
+# This helps the daemon converge faster after restarts.
 driftfile /var/lib/chrony/drift
 
-# Enable RTC tracking
+# =============================================================================
+# RTC Synchronization
+# =============================================================================
+# Enable RTC (Real-Time Clock) tracking.
+# Chrony will periodically update the system hardware clock based on software time.
 rtcsync
 
-# Log activity to this directory
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+# Log activity to this directory.
 logdir /var/log/chrony
 
-# Log specific metrics
-{% for metric in log_metrics %}log {{ metric }}
+# Log specific metrics categories.
+# Options include: all, measurements, statistics, tracking, rawdata, ratelimit, change.
+# Default: ['measurements', 'statistics', 'tracking']
+{% for metric in (log_metrics | default(['measurements', 'statistics', 'tracking'])) %}
+log {{ metric }}
 {% endfor %}
 
-# Minimum sources required before stepping (0–7; default 1)
-minsources {{ min_sources }}
+# =============================================================================
+# Source Selection
+# =============================================================================
+# Minimum number of sources (from which at least one is acceptable) before
+# Chrony will step the clock.
+# Range: 0–7. Default: 1
+# minsources 0 allows stepping with any single source, which might be less stable.
+minsources {{ (min_sources | default(1)) }}
 
-# Maximum allowed clock error before stepping (seconds)
-maxslewrate {{ max_slew_rate }}
+# =============================================================================
+# Authentication Keyfile
+# =============================================================================
+# Key file for command authentication (optional).
+# If defined, chronyc commands require authentication using keys in this file.
+keyfile /etc/chrony/chrony.keys
 
-# Key file for command authentication (optional)
-{% if auth_enabled %}keyfile /etc/chrony/chrony.keys
-makestep {{ makestep_threshold }} {{ makestep_interval }}
-{% endif %}
-
-# Enable NTPv4 only (recommended for interoperability)
+# =============================================================================
+# Timekeeping Adjustments
+# =============================================================================
+# Enable NTPv4 only (recommended for interoperability).
+# Ensures correct leap second handling and packet versioning.
 rtconutc
 
-# Disable hardware timestamping if unreliable (optional override)
-{% if disable_hwtimestamp %}nohwtimestamp
+# =============================================================================
+# Hardware Timestamping Override
+# =============================================================================
+# Disable hardware timestamping if unreliable (optional override).
+# Use this if the system's PTP/PHC support is buggy or unsupported.
+# Default: False (enabled)
+{% if (disable_hwtimestamp | default(False) | bool) %}
+nohwtimestamp
 {% endif %}
 
-# Enable NTP server functionality explicitly
-{% if server_enabled %}ntpsync
-{% endif %}
+# =============================================================================
+# Initial Sync Step Threshold
+# =============================================================================
+# Source step threshold for initial sync.
+# If the clock is ahead of the reference by this threshold (seconds), it will
+# be stepped backward on initial sync.
+# Default: 0.1 seconds. Set to 0 to disable stepping (only slew).
+stepback {{ (stepback_threshold | default(0.1)) }}
 
-# Source step threshold for initial sync (0 = no step, >0 = step within N seconds)
-stepback {{ stepback_threshold }}
-
-# Enable tracking statistics
+# =============================================================================
+# Tracking Statistics
+# =============================================================================
+# Enable tracking statistics to record system clock offset data.
+# Stored in the state directory (default /var/lib/chrony).
 trackstats
-
-# Maximum age (in seconds) of source data before discarding
-sourcestale {{ sources_stale_threshold }}
-
-# Enable SECCOMP sandbox for improved security (if supported)
-{% if seccomp_enabled %}seccomp
-{% endif %}

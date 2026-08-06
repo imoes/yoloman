@@ -1,0 +1,84 @@
+# fierce DNS scanner configuration
+# This template configures the `fierce` tool, a DNS reconnaissance/scan utility.
+# It supports domain testing, subdomain enumeration, and IP range scanning.
+#
+# Note: fierce is a command-line tool; this file acts as a wrapper configuration
+# to generate a command-line invocation or a persistent config file depending on
+# how the consuming Ansible role uses it. The format below mirrors fierce's
+# native configuration style.
+
+[main]
+
+# domain name to test (required)
+# The primary domain against which fierce will perform its scans.
+--domain {{ (domain | default('')) | string }}
+
+{% if connect | default(False) %}
+# attempt HTTP connection to non-RFC 1918 hosts
+# When enabled, fierce will attempt to fetch the root page to determine the
+# server IP for hosts that are not private (RFC 1918) addresses.
+--connect
+{% endif %}
+
+{% if wide | default(False) %}
+# scan entire class C of discovered records
+# If a host resolves to a specific IP, fierce will scan the entire /24 subnet
+# associated with that IP to find other hosts.
+--wide
+{% endif %}
+
+{% if traverse is not none %}
+# scan IPs near discovered records
+# Scans IP addresses near discovered records. The value is an integer offset.
+# If null or undefined, this flag is omitted.
+--traverse {{ (traverse | default(None)) | string }}
+{% endif %}
+
+{% if search | default([]) %}
+# filter on these domains when expanding lookup
+# A list of domains to filter on when fierce expands its lookup scope.
+--search {{ (search | default([])) | join(' ') }}
+{% endif %}
+
+{% if range | default('') %}
+# scan an internal IP range in CIDR notation
+# Specifies an internal IP range (in CIDR notation) for fierce to scan.
+--range {{ (range | default('')) | string }}
+{% endif %}
+
+{% if delay is not none %}
+# time to wait between lookups in seconds
+# Sets the delay (in seconds) between DNS queries to avoid overwhelming servers.
+# If null or undefined, this flag is omitted.
+--delay {{ (delay | default(None)) | string }}
+{% endif %}
+
+{% if subdomains | default([]) %}
+# use these subdomains
+# A list of subdomains to include in the scan.
+--subdomains {{ (subdomains | default([])) | join(' ') }}
+{% endif %}
+
+{% if subdomain_file | default('') %}
+# use subdomains specified in this file
+# Path to a file containing one subdomain per line to include in the scan.
+--subdomain-file {{ (subdomain_file | default('')) | string }}
+{% endif %}
+
+{% if dns_servers | default([]) %}
+# use these DNS servers for reverse lookups
+# A list of DNS server addresses to use for performing reverse DNS lookups.
+--dns-servers {{ (dns_servers | default([])) | join(' ') }}
+{% endif %}
+
+{% if dns_file | default('') %}
+# use DNS servers specified in this file for reverse lookups
+# Path to a file containing one DNS server address per line.
+--dns-file {{ (dns_file | default('')) | string }}
+{% endif %}
+
+{% if tcp | default(False) %}
+# use TCP instead of UDP
+# Forces fierce to use TCP for DNS queries instead of the default UDP.
+--tcp
+{% endif %}

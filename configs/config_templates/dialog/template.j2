@@ -1,0 +1,208 @@
+{# ============================================================================= #}
+{# dialog Runtime Configuration File (DIALOGRC)                                 #}
+{# This template generates a self-documenting configuration for the dialog utility.  #}
+{# See dialog(1) and DIALOGRC(5) for the authoritative manual pages.              #}
+{# ============================================================================= #}
+
+{# --- Color and Visual Modes --------------------------------------------------- #}
+
+{# Enable interpretation of \Z escape sequences in dialog text for custom formatting. #}
+{% set _colors = colors | default(false) %}
+colors {{ _colors }}
+
+{# Extend color support to programbox, tailbox, and textbox widgets. #}
+{# Values: 0 = no extension, 1 = extended, 2 = full support. #}
+{% set _color_mode = color_mode | default(0) %}
+color-mode {{ _color_mode }}
+
+{# --- Window Titles and Headers ------------------------------------------------ #}
+
+{# Backtitle string displayed at the top of the screen, behind all dialogs. #}
+{# Usually contains the name of the menu system or script using dialog. #}
+{% set _backtitle = backtitle | default('') %}
+backtitle "{{ _backtitle }}"
+
+{# Default title for all dialogs. #}
+{# Can be overridden per-dialog via --title option. #}
+{% set _title = title | default('') %}
+title "{{ _title }}"
+
+{# --- Button Configuration ----------------------------------------------------- #}
+
+{# Show a help button after OK/Cancel buttons. #}
+{# If enabled, use --help-button in the CLI or set this to true. #}
+{% set _help_button = help_button | default(false) %}
+{% if _help_button %}help-button{% else %}no-help-button{% endif %}
+
+{# Show help text for the currently selected list item in the status bar. #}
+{% set _item_help = item_help | default(false) %}
+{% if _item_help %}item-help{% else %}no-item-help{% endif %}
+
+{# Use item tags instead of item text in the help output. #}
+{% set _help_tags = help_tags | default(false) %}
+{% if _help_tags %}help-tags{% else %}no-help-tags{% endif %}
+
+{# Tag of the default item in checklist, menu, and form widgets. #}
+{# This item will be pre-selected when the widget opens. #}
+{% set _default_item = default_item | default('ok') %}
+default-item "{{ _default_item }}"
+
+{# Name of the default button (the one that triggers when pressing Enter). #}
+{# Valid values: ok, yes, cancel, no, help, extra. #}
+{% set _default_button = default_button | default('ok') %}
+default-button "{{ _default_button }}"
+
+{# Make 'No' the default response in yes/no boxes. #}
+{# If false, 'Yes' is the default. #}
+{% set _defaultno = defaultno | default(false) %}
+{% if _defaultno %}defaultno{% else %}no-defaultno{% endif %}
+
+{# Suppress the Cancel button entirely from dialogs. #}
+{% set _no_cancel = no_cancel | default(false) %}
+{% if _no_cancel %}no-cancel{% else %}no-no-cancel{% endif %}
+
+{# Suppress the OK button entirely from dialogs. #}
+{% set _no_ok = no_ok | default(false) %}
+{% if _no_ok %}no-ok{% else %}no-no-ok{% endif %}
+
+{# Show an 'Extra' button in addition to OK/Cancel/Yes/No. #}
+{% set _extra_button = extra_button | default(false) %}
+{% if _extra_button %}extra-button{% else %}no-extra-button{% endif %}
+
+{# --- Visual Decorations ------------------------------------------------------- #}
+
+{# Disable the drop shadow effect on dialog boxes. #}
+{% set _no_shadow = no_shadow | default(false) %}
+{% if _no_shadow %}no-shadow{% else %}no-no-shadow{% endif %}
+
+{# Disable mouse support for dialog interaction. #}
+{% set _no_mouse = no_mouse | default(false) %}
+{% if _no_mouse %}no-mouse{% else %}no-no-mouse{% endif %}
+
+{# Disable hotkeys (accelerator keys) in list widgets. #}
+{% set _no_hot_list = no_hot_list | default(false) %}
+{% if _no_hot_list %}no-hot-list{% else %}no-no-hot-list{% endif %}
+
+{# Hide the tag column in list widgets. #}
+{% set _no_tags = no_tags | default(false) %}
+{% if _no_tags %}no-tags{% else %}no-no-tags{% endif %}
+
+{# Read list entries as tags only, hiding the display text. #}
+{% set _no_items = no_items | default(false) %}
+{% if _no_items %}no-items{% else %}no-no-items{% endif %}
+
+{# Include list items in the tab traversal order. #}
+{% set _visit_items = visit_items | default(false) %}
+{% if _visit_items %}visit-items{% else %}no-visit-items{% endif %}
+
+{# Use ASCII characters instead of box-drawing characters for borders. #}
+{% set _ascii_lines = ascii_lines | default(false) %}
+{% if _ascii_lines %}ascii-lines{% else %}no-ascii-lines{% endif %}
+
+{# Skip drawing box lines/borders entirely. #}
+{% set _no_lines = no_lines | default(false) %}
+{% if _no_lines %}no-lines{% else %}no-no-lines{% endif %}
+
+{# Show a scrollbar in scrollable list and textbox widgets. #}
+{% set _scrollbar = scrollbar | default(false) %}
+{% if _scrollbar %}scrollbar{% else %}no-scrollbar{% endif %}
+
+{# Preserve whitespace in dialog text (disable tab/space reduction). #}
+{% set _no_collapse = no_collapse | default(false) %}
+{% if _no_collapse %}no-collapse{% else %}no-no-collapse{% endif %}
+
+{# Trim leading and trailing whitespace from dialog text. #}
+{% set _trim = trim | default(false) %}
+{% if _trim %}trim{% else %}no-trim{% endif %}
+
+{# --- Screen and Layout Management --------------------------------------------- #}
+
+{# Use the alternate screen buffer (like vim or less). #}
+{# Prevents the dialog from scrolling the main terminal history. #}
+{% set _keep_tite = keep_tite | default(false) %}
+{% if _keep_tite %}keep-tite{% else %}no-keep-tite{% endif %}
+
+{# Retain previous widgets on screen when stacking dialogs. #}
+{% set _keep_window = keep_window | default(false) %}
+{% if _keep_window %}keep-window{% else %}no-keep-window{% endif %}
+
+{# Clear the screen between stacked widgets. #}
+{% set _clear = clear | default(false) %}
+{% if _clear %}clear{% else %}no-clear{% endif %}
+
+{# --- Input Handling ----------------------------------------------------------- #}
+
+{# Echo password characters as visible characters instead of masking them. #}
+{# Useful for debugging; insecure for production. #}
+{% set _insecure = insecure | default(false) %}
+{% if _insecure %}insecure{% else %}no-insecure{% endif %}
+
+{# Maximum length (in characters) for input fields. #}
+{% set _max_input = max_input | default(2048) %}
+max-input {{ _max_input }}
+
+{# Tab width (number of spaces) when tab-correct is enabled. #}
+{% set _tab_len = tab_len | default(8) %}
+tab-len {{ _tab_len }}
+
+{# Interpret literal newlines (Enter keys) in text as line breaks. #}
+{% set _cr_wrap = cr_wrap | default(false) %}
+{% if _cr_wrap %}cr-wrap{% else %}no-cr-wrap{% endif %}
+
+{# Disable conversion of literal \\n strings to actual newlines. #}
+{% set _no_nl_expand = no_nl_expand | default(false) %}
+{% if _no_nl_expand %}no-nl-expand{% else %}no-no-nl-expand{% endif %}
+
+{# --- Date/Time and Formatting ------------------------------------------------- #}
+
+{# First day of the week for calendar widgets. #}
+{# Values: 0-6 (Sun-Sat), 'locale', or abbreviations (Mo, Tu, We, Th, Fr, Sa, Su). #}
+{% set _week_start = week_start | default('0') %}
+week-start {{ _week_start }}
+
+{# Use ISO week numbering (weeks start on Monday; first week contains Thursday). #}
+{% set _iso_week = iso_week | default(false) %}
+{% if _iso_week %}iso-week{% else %}no-iso-week{% endif %}
+
+{# strftime format string for calendar widget output. #}
+{# Example: "%Y-%m-%d" for YYYY-MM-DD. #}
+{% set _date_format = date_format | default('') %}
+date-format "{{ _date_format }}"
+
+{# strftime format string for timebox widget output. #}
+{# Example: "%H:%M:%S" for HH:MM:SS. #}
+{% set _time_format = time_format | default('') %}
+time-format "{{ _time_format }}"
+
+{# Separator to split list data into columns. #}
+{# Used when displaying multi-column lists. #}
+{% set _column_separator = column_separator | default('') %}
+column-separator "{{ _column_separator }}"
+
+{# Separator between checklist items in the output. #}
+{# Alias of the --output-separator option. #}
+{% set _separator = separator | default('') %}
+separator "{{ _separator }}"
+
+{# Separator between values when chaining multiple widgets in output. #}
+{% set _separate_widget = separate_widget | default('') %}
+separate-widget "{{ _separate_widget }}"
+
+{# --- Color Definitions -------------------------------------------------------- #}
+
+{# Color definitions for curses colors 0-7 (black, red, green, yellow, blue, magenta, cyan, white). #}
+{# Each entry must define standard (base) and highlight (bold) colors. #}
+{# If color_list is not provided, default system colors are used. #}
+{% set _color_list = color_list | default([]) %}
+{% for color in _color_list %}
+color {{ loop.index0 }} {{ color.standard }} {{ color.highlight }}
+{% endfor %}
+
+{# --- Key Bindings ------------------------------------------------------------- #}
+
+{# Custom key bindings for widgets. #}
+{# Each binding specifies the widget, the curses key, and the dialog key. #}
+{% set _key_bindings = key_bindings | default([]) %}
+{% for binding in _key_bindings %}
+bindkey {{ binding.widget }} {{ binding.curses_key }} {{ binding.dialog_key }}
+{% endfor %}

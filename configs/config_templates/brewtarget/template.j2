@@ -1,0 +1,88 @@
+# ============================================================================
+# Brewtarget Configuration Template
+# ============================================================================
+# This file configures the Brewtarget application. It is self-documenting:
+# every setting is commented with its purpose and default value.
+# Variables are sourced from Ansible facts/vars and rendered with safe defaults.
+# ============================================================================
+
+# Directory where Brewtarget stores configuration files.
+CONFIG_DIR={{ config_dir | default('/etc/brewtarget') }}
+
+# Directory where Brewtarget stores application data such as default ingredient databases.
+DATA_DIR={{ data_dir | default('/usr/share/brewtarget') }}
+
+# Language and locale for the interface (e.g., 'en_US', 'sv_SE').
+LANG={{ lang | default('en_US') }}
+
+# ============================================================================
+# Database Configuration (PostgreSQL)
+# ============================================================================
+# Hostname or IP address of the PostgreSQL server used for recipe and ingredient storage.
+DATABASE_HOST={{ (database_host | default('localhost')) | string }}
+
+# Port number of the PostgreSQL server.
+DATABASE_PORT={{ database_port | default(5432) }}
+
+# Name of the PostgreSQL database used by Brewtarget.
+DATABASE_NAME={{ (database_name | default('brewtarget')) | string }}
+
+# Username for authenticating to the PostgreSQL database.
+DATABASE_USER={{ (database_user | default('brewtarget')) | string }}
+
+# Password for authenticating to the PostgreSQL database.
+# Leave empty to use peer or other auth method.
+# Note: If using peer auth, leave this blank or use a placeholder if the app requires non-empty.
+DATABASE_PASS={{ database_pass | default('') }}
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+# Verbosity of the log output: 'debug', 'info', 'warning', 'error'.
+LOG_LEVEL={{ log_level | default('info') }}
+
+# Path (relative or absolute) to the log file.
+LOG_FILE={{ log_file | default('brewtarget.log') }}
+
+# ============================================================================
+# User Interface / Appearance
+# ============================================================================
+# Font scaling factor (1.0 = 100%). Used for UI scaling on high-DPI displays.
+FONT_SCALE={{ font_scale | default(1.0) }}
+
+# Unit system: 'metric', 'imperial'. Controls default display units for volumes, masses, temperatures.
+UNITS={{ units | default('metric') }}
+
+# Default directory where user-created recipes are saved.
+DEFAULT_RECIPE_DIR={{ default_recipe_dir | default('~/Documents/Brewtarget') }}
+
+# ============================================================================
+# Backup Configuration
+# ============================================================================
+# Enable automatic backup of the recipe database.
+BACKUP_ENABLED={{ backup_enabled | default(true) | lower }}
+
+# Number of days between automatic backups.
+BACKUP_INTERVAL_DAYS={{ backup_interval_days | default(7) }}
+
+# Number of days to retain backups before deletion.
+BACKUP_RETENTION_DAYS={{ backup_retention_days | default(30) }}
+
+# Additional directories where backups should be stored (e.g., for redundancy or offsite backup).
+# If backups is empty, no additional directories are added.
+{% if backups is defined and backups | length > 0 %}
+{% for backup_loc in backups %}
+BACKUP_DIR_{{ loop.index }}={{ backup_loc }}
+{% endfor %}
+{% endif %}
+
+# ============================================================================
+# Custom Database Paths
+# ============================================================================
+# Absolute or relative path to a custom style database file (e.g., 'styles.xml').
+# Leave empty to use the default bundled style database.
+STYLE_DATABASE_PATH={{ style_database_path | default('') }}
+
+# Absolute or relative path to a custom ingredient database file (e.g., 'ingredients.xml').
+# Leave empty to use the default bundled ingredient database.
+INGREDIENT_DATABASE_PATH={{ ingredient_database_path | default('') }}

@@ -1,40 +1,37 @@
 # gnunet.conf — GNU GNUNET FUSE client configuration
 # This file configures the FUSE filesystem client for GNU GNUNET, enabling secure P2P mounted filesystems.
-# GNUNET_HOME sets the base directory for GNUNET data and configuration.
-# For this FUSE client, we typically inherit settings from the main GNUNET config.
 # The FUSE-specific options are defined under the [fuse] section.
 
 [FUSE]
-# Enable or disable the FUSE filesystem client.
-ENABLE = {{ enable_fuse|lower }}
+# Enable or disable the FUSE filesystem client. Set to true to activate the mount.
+ENABLE = {{ enable_fuse | default(false) | lower }}
 
-# Mount point where the GNUNET FUSE filesystem will be exposed.
-MOUNTPOINT = {{ mountpoint }}
+# Absolute path where the GNUNET FUSE filesystem will be mounted. Must exist and be accessible.
+MOUNTPOINT = {{ mountpoint | default('/mnt/gnunet-fuse') }}
 
-# User ID to run the FUSE process as (for security and permission control).
-UID = {{ uid }}
+# Numeric user ID of the process owner. Typically 0 (root) unless running in user namespace.
+UID = {{ uid | default(0) }}
 
-# Group ID to run the FUSE process as.
-GID = {{ gid }}
+# Numeric group ID of the process owner.
+GID = {{ gid | default(0) }}
 
-# File system access permissions (octal, e.g., 0700). 0755 is common for multi-user access.
-PERMISSIONS = {{ permissions }}
+# Octal permission bits for the mountpoint (e.g., '0700' for owner-only, '0755' for world-readable).
+PERMISSIONS = {{ permissions | default('0755') }}
 
-# Maximum number of pending I/O operations (concurrent reads/writes).
-MAX_PENDING = {{ max_pending }}
+# Maximum number of concurrent I/O requests. Higher values improve throughput on fast systems.
+MAX_PENDING = {{ max_pending | default(32) }}
 
-# Enable or disable lazy directory listing (improves performance with large directories).
-LAZY_LISTING = {{ lazy_listing|lower }}
+# If enabled, directory entries are fetched on-demand rather than fully upfront — improves responsiveness with large directories.
+LAZY_LISTING = {{ lazy_listing | default(true) | lower }}
 
-# Timeout (in seconds) before idle mounts are automatically unmounted.
-IDLE_TIMEOUT = {{ idle_timeout }}
+# Seconds of inactivity after which the mount is automatically unmounted (to save resources).
+IDLE_TIMEOUT = {{ idle_timeout | default(300) }}
 
-# Path to the GNUNET peer identity key file (used to bind this mount to a specific peer identity).
-IDENTITY_KEY_FILE = {{ identity_key_file }}
+# Path to the peer's private identity key (used to authenticate this mount to other peers).
+IDENTITY_KEY_FILE = {{ identity_key_file | default('${HOME}/.gnunet/identity/private_key') }}
 
-# Optional: Additional mount options passed to libfuse (comma-separated, no spaces).
-# Examples: allow_other,allow_root,default_permissions,utime_ok
-MOUNT_OPTIONS = {{ mount_options | join(',') }}
+# Additional FUSE mount options (strings) — e.g., 'allow_other', 'allow_root', 'utime_ok'. Leave empty for defaults.
+MOUNT_OPTIONS = {{ mount_options | default([]) | join(',') }}
 
-# Logging level for FUSE subsystem: ERROR, WARNING, NOTICE, INFO, DEBUG.
-LOG_LEVEL = {{ log_level }}
+# Verbosity of logging for the FUSE subsystem.
+LOG_LEVEL = {{ log_level | default('INFO') }}

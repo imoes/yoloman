@@ -1,27 +1,61 @@
-# Enable the ejabberd_mod_webpresence module
+# Ansible-generated configuration for ejabberd_mod_webpresence module
+# This configuration enables the mod_webpresence module within ejabberd,
+# exposing an HTTP(S) endpoint for XMPP presence data publishing.
+#
+# See the schema for field descriptions and defaults.
+# All variables use defaults matching the schema to ensure safe rendering
+# even if omitted from the Ansible inventory/vars.
+---
 modules:
   mod_webpresence:
-    # List of accounts allowed to publish presence (JIDs as strings)
+    # List of full JIDs (e.g., 'user@example.com') of users permitted to publish presence.
+    # Defaults to an empty list if not provided.
     allowed_users:
-{% for jid in allowed_users %}      - "{{ jid }}"
-{% endfor %}
-    # HTTP port for presence publisher endpoint (e.g., /presence)
-    http_port: {{ http_port }}
-    # Base URL used for generating presence URIs (must be reachable by external clients)
-    base_url: "{{ base_url }}"
-    # Enable TLS for the HTTP endpoint? (true/false)
-    tls: {{ tls | lower }}
-    # Path to TLS certificate (only used if tls: true)
-    certfile: "{{ certfile }}"
-    # Path to TLS private key (only used if tls: true)
-    keyfile: "{{ keyfile }}"
-    # HTTP timeout (seconds) for requests to this endpoint
-    timeout: {{ timeout }}
-    # Maximum payload size (in bytes) allowed in presence PUT requests
-    max_payload_size: {{ max_payload_size }}
-    # Enable debug logging for this module?
-    debug: {{ debug | lower }}
-    # Additional HTTP headers to add to responses (e.g., CORS support)
+    {%- for jid in (allowed_users | default([])) %}
+      - "{{ jid }}"
+    {%- endfor %}
+
+    # Port on which the web presence HTTP endpoint listens.
+    # Defaults to 5285 if not provided.
+    http_port: {{ http_port | default(5285) }}
+
+    # Publicly accessible base URL where presence resources are served.
+    # Used to generate full URIs in presence data.
+    # Defaults to 'https://presence.example.com' if not provided.
+    base_url: "{{ base_url | default('https://presence.example.com') }}"
+
+    # Whether to serve the presence endpoint over HTTPS.
+    # Converted to lowercase YAML boolean (true/false).
+    # Defaults to True if not provided.
+    tls: {{ tls | default(True) | lower }}
+
+    # Absolute path to the TLS certificate file (PEM format).
+    # Required when TLS is enabled.
+    # Defaults to '/etc/ejabberd/ssl/presence.crt' if not provided.
+    certfile: "{{ certfile | default('/etc/ejabberd/ssl/presence.crt') }}"
+
+    # Absolute path to the TLS private key file (PEM format).
+    # Required when TLS is enabled.
+    # Defaults to '/etc/ejabberd/ssl/presence.key' if not provided.
+    keyfile: "{{ keyfile | default('/etc/ejabberd/ssl/presence.key') }}"
+
+    # Request timeout (in seconds) for incoming HTTP requests to the presence publisher.
+    # Defaults to 30 if not provided.
+    timeout: {{ timeout | default(30) }}
+
+    # Maximum allowed size (in bytes) of the presence payload in PUT/POST requests.
+    # Defaults to 65536 if not provided.
+    max_payload_size: {{ max_payload_size | default(65536) }}
+
+    # Enable verbose debug logging for module internals.
+    # Converted to lowercase YAML boolean (true/false).
+    # Defaults to False if not provided.
+    debug: {{ debug | default(False) | lower }}
+
+    # HTTP headers to include in all responses (e.g., for CORS, security, or caching).
+    # Defaults to {'Access-Control-Allow-Origin': '*'} if not provided.
+    # Rendered as a YAML mapping using dict2items to access key/value pairs correctly.
     extra_headers:
-{% for header, value in extra_headers.items() %}      "{{ header }}": "{{ value }}"
-{% endfor %}
+    {%- for item in (extra_headers | default({'Access-Control-Allow-Origin': '*'}) | dict2items) %}
+      "{{ item.key }}": "{{ item.value }}"
+    {%- endfor %}

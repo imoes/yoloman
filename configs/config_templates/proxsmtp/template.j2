@@ -1,70 +1,68 @@
-# ProxSMTP global settings
-# --------------------------
-{% if global_pid_file %}pid_file = {{ global_pid_file }}{% endif %}
-{% if global_log_file %}log_file = {{ global_log_file }}{% endif %}
-log_level = {{ global_log_level }}
-max_connections = {{ global_max_connections }}
-listen_addr = {{ global_listen_addr }}
-listen_port = {{ global_listen_port }}
+#! /bin/sh -e
+### BEGIN INIT INFO
+# Provides:             proxsmtp
+# Required-Start:       $syslog $network $remote_fs
+# Required-Stop:        $syslog $network $remote_fs
+# Default-Start:        2 3 4 5
+# Default-Stop:         0 1 6
+# Short-Description:    Start the proxsmtp proxies
+# Description:          Start all the proxsmtp proxies from /etc/proxsmtp/*.conf
+### END INIT INFO
 
-# TLS/SSL configuration (optional)
-{% if tls_enabled %}# TLS is enabled
-tls_enabled = true
-tls_cert = {{ tls_cert_path }}
-tls_key = {{ tls_key_path }}
-{% if tls_ca_file %}tls_ca_file = {{ tls_ca_file }}{% endif %}
-{% else %}# TLS is disabled
-tls_enabled = false
-{% endif %}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=proxsmtp
+DAEMON=/usr/sbin/proxsmtpd
 
-# Backend SMTP servers (one or more)
-{% for server in backend_servers %}# Backend server: {{ server.name }}
-[backend:{{ server.name }}]
-address = {{ server.address }}
-port = {{ server.port }}
-{% if server.tls %}tls = true
-{% else %}tls = false
-{% endif %}
-{% if server.timeout %}timeout = {{ server.timeout }}
-{% endif %}
-{% endfor %}
+ . /lib/lsb/init-functions
 
-# ACLs and filtering rules
-{% for rule in acl_rules %}# ACL rule: {{ rule.name }}
-[rule:{{ rule.name }}]
-match_sender = {{ rule.match_sender | join(', ') }}
-{% if rule.match_recipient %}match_recipient = {{ rule.match_recipient | join(', ') }}
-{% endif %}
-{% if rule.match_header %}match_header = {{ rule.match_header | join(', ') }}
-{% endif %}
-action = {{ rule.action }}
-{% if rule.action == 'rewrite' and rule.rewrite_to %}rewrite_to = {{ rule.rewrite_to }}
-{% endif %}
-{% if rule.action == 'reject' and rule.reject_message %}reject_message = {{ rule.reject_message }}
-{% endif %}
-{% endfor %}
+lsconfs() {
+    ls /etc/$NAME/*.conf 2>/dev/null
+}
 
-# Relay domains / trusted networks
-{% for relay in relay_domains %}# Relay domain/network: {{ relay.name }}
-[relay:{{ relay.name }}]
-{% if relay.domain %}domain = {{ relay.domain }}
-{% endif %}
-{% if relay.network %}network = {{ relay.network }}
-{% endif %}
-auth_required = {{ relay.auth_required | string | lower }}
-{% endfor %}
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
 
-# Auth backends (optional)
-{% if auth_backend %}# Auth backend: {{ auth_backend.name }}
-[auth_backend]
-type = {{ auth_backend.type }}
-{% if auth_backend.type == 'ldap' %}
-uri = {{ auth_backend.uri }}
-base_dn = {{ auth_backend.base_dn }}
-bind_dn = {{ auth_backend.bind_dn }}
-bind_password = {{ auth_backend.bind_password }}
-{% elif auth_backend.type == 'sql' %}
-connection_string = {{ auth_backend.connection_string }}
-user_query = {{ auth_backend.user_query }}
-{% endif %}
-{% endif %}
+mkdir -p {{ global_run_dir }}
+
+# Gracefully exit if there is no available config files
+lsconfs > /dev/null || exit 0
+
+d_start() {
+    start_daemon -p "$1" $DAEMON -p "$1" -f "$2"
+}
+
+d_stop() {
+    killproc -p "$1" `basename $DAEMON`
+}
+
+d_all() {
+    cmd="$2"
+
+    log_daemon_msg "$1 smtp proxies"
+    lsconfs | while read conf; do
+        inst=`basename "$conf" .conf"
+
+        log_progress_msg "$inst"
+        $cmd "{{ global_run_dir }}/$inst.pid" "$conf"
+    done
+    log_end_msg 0
+}
+
+case "$1" in
+    start)
+        d_all "Starting" d_start
+	;;
+    stop)
+        d_all "Stopping" d_stop
+        ;;
+    force-reload|restart)
+        d_all "Stopping" d_stop
+        d_all "Starting" d_start
+	;;
+    *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

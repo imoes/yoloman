@@ -1,33 +1,85 @@
-# Idle user logout configuration for autolog
-# This file is managed by configuration management; manual edits will be overwritten.
+# Autolog configuration template.
+# Autolog monitors user sessions and kills processes that have been idle
+# for longer than the configured timeout.
 
-# Global timeout in seconds of inactivity before logout
-# Set to 0 to disable automatic logout
-IDLE_TIMEOUT={{ idle_timeout }}
+# ---------------------------------------------------------------------------
+# General configuration for ppp-.* users (e.g., serial line logins).
+# idle: Timeout in minutes. -1 means exempt from killing.
+# line: The TTY line pattern to match.
+# ---------------------------------------------------------------------------
+name=ppp-.*	idle={{ idle_exemptions_ppp | default(-1) }} line=ttyS2
 
-# Grace period in seconds before actual logout (user can extend session)
-GRACE_PERIOD={{ grace_period }}
+# ---------------------------------------------------------------------------
+# Configuration for pty.* sessions (virtual terminals, SSH sessions).
+# idle: Timeout in minutes before attempting to kill.
+# grace: Time in seconds to wait after warning before killing.
+# nomail: Do not send an email to the user upon termination.
+# nolog: Do not log the termination event.
+# ---------------------------------------------------------------------------
+line=pty.*	idle={{ idle_pty | default(30) }} grace={{ grace_pty | default(30) }} nomail nolog
 
-# Enable/disable the daemon (true/false)
-ENABLED={{ enabled | lower }}
+# ---------------------------------------------------------------------------
+# Configuration for users belonging to the 'games' group.
+# idle: Timeout in minutes.
+# grace: Time in seconds to wait after warning before killing.
+# ---------------------------------------------------------------------------
+group=games	idle={{ idle_games | default(10) }} grace={{ grace_games | default(60) }}
 
-# List of users to exclude from idle logout (comma-separated)
-EXCLUDE_USERS={{ exclude_users | join(',') }}
+# ---------------------------------------------------------------------------
+# Configuration for users matching the 'lynx.*' pattern (e.g., lynx terminal users).
+# idle: Timeout in minutes.
+# grace: Time in seconds to wait after warning before killing.
+# clear: Clear the session state completely.
+# ---------------------------------------------------------------------------
+group=lynx.*	idle={{ idle_lynx | default(10) }} grace={{ grace_lynx | default(60) }} clear
 
-# List of sessions to protect from logout (e.g., ssh, vnc, x11)
-PROTECTED_SESSIONS={{ protected_sessions | join(',') }}
+# ---------------------------------------------------------------------------
+# Protected users section.
+# Currently only root is protected/exempt.
+# idle: Timeout in minutes. -1 means exempt.
+# ---------------------------------------------------------------------------
+name=root	idle={{ idle_root | default(-1) }}
 
-# Log file path (empty for syslog)
-LOG_FILE={{ log_file | default('') }}
+# ---------------------------------------------------------------------------
+# Idle limits for the 'student' group.
+# idle: Timeout in minutes.
+# grace: Time in seconds to wait after warning before killing.
+# ---------------------------------------------------------------------------
+group=student	idle={{ idle_student | default(15) }} grace={{ grace_student | default(180) }}
 
-# Log level: debug, info, warn, error
-LOG_LEVEL={{ log_level }}
+# ---------------------------------------------------------------------------
+# Session limits for the 'users' group.
+# idle: Timeout in minutes.
+# grace: Time in seconds to wait after warning before killing.
+# hard: Kill process after total session time (rather than just idle time).
+# ban: Ban duration in minutes if the user tries to extend the session limit.
+# clear: Clear the session state completely.
+# ---------------------------------------------------------------------------
+group=users	idle={{ idle_users | default(60) }} grace={{ grace_users | default(120) }}      hard ban={{ ban_users | default(20) }} clear
 
-# Enable extended session tracking (e.g., mouse movement, keystrokes)
-EXTENDED_TRACKING={{ extended_tracking | lower }}
+# ---------------------------------------------------------------------------
+# Configuration for guest users.
+# idle: Timeout in minutes.
+# grace: Time in seconds to wait after warning before killing.
+# hard: Kill process after total session time.
+# ban: Ban duration in minutes if the user tries to extend the session limit.
+# clear: Clear the session state completely.
+# ---------------------------------------------------------------------------
+name=guest	idle={{ idle_guest | default(60) }} grace={{ grace_guest | default(60) }}       hard ban={{ ban_guest | default(5) }}  clear
 
-{% for service in services %}
-# Service-specific settings for {{ service.name }}
-# Timeout for {{ service.name }} sessions: {{ service.timeout }}s
-{{ service.name | upper | replace(' ', '_') }}_TIMEOUT={{ service.timeout }}
-{% endfor %}
+# ---------------------------------------------------------------------------
+# Process list command configuration.
+# Uncomment one of the following lines to change how autolog retrieves
+# the list of running processes. Ensure the output format matches the
+# expected pattern (USERNAME PID).
+# ---------------------------------------------------------------------------
+# ps=ps -ef
+# ps=ps aux
+# ps=ps ax o user o pid
+
+# ---------------------------------------------------------------------------
+# Prevent autolog from killing "lost" processes.
+# Uncomment the line below to disable killing of processes that
+# autolog determines are not truly idle or lost.
+# ---------------------------------------------------------------------------
+nolostkill

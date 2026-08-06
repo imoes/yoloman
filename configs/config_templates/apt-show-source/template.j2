@@ -1,0 +1,33 @@
+# apt-show-source configuration file
+# This tool queries the local dpkg database and APT cache for source package information.
+# It does not expose network services, nor does it require external backends.
+
+# Path to dpkg status file (equivalent to -stf/--status-file)
+# Default: /var/lib/dpkg/status
+# Specifies the location of the package status database to read.
+status_file: {{ status_file | default('/var/lib/dpkg/status') }}
+
+# Path to APT lists directory (equivalent to -ld/--list-dir)
+# Default: /var/lib/apt/lists
+# Specifies where APT stores its list of available packages.
+list_dir: {{ list_dir | default('/var/lib/apt/lists') }}
+
+# Package name to query (equivalent to -p/--package)
+# Default: '' (empty string)
+# If provided, restricts output to a specific package.
+package: {{ package | default('') }}
+
+# Print version only when package is specified (equivalent to --version-only)
+# Default: False
+# Boolean flag. If true and a package is specified, only the version is printed.
+version_only: {{ version_only | default(False) | bool | lower }}
+
+# List all source-packages (equivalent to -a/--all)
+# Default: False
+# Boolean flag. If true, lists all available source packages.
+all: {{ all | default(False) | bool | lower }}
+
+# Enable verbose output (equivalent to -v/--verbose)
+# Default: False
+# Boolean flag. If true, enables verbose debugging messages.
+verbose: {{ verbose | default(False) | bool | lower }}

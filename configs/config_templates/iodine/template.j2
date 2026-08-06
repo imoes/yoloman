@@ -1,90 +1,67 @@
-# iodine server configuration file
-# Listen on this IP address (use 0.0.0.0 for all interfaces)
-listen = {{ server.listen_ip }}
+# =============================================================================
+# iodine DNS Tunneling Server Configuration
+# =============================================================================
+# NOTE: iodined (the server daemon) typically does not read a static configuration
+# file. It is configured via command-line arguments. This template generates the
+# appropriate CLI flags for the systemd ExecStart line or an init script wrapper.
+#
+# Variables expected:
+#   server_ip       - IP address the iodined server listens on (Default: 10.0.0.2)
+#   tunnel_network  - IP network assigned to clients (Default: 10.0.0.1/24)
+#   password        - Authentication password for clients (Default: '')
+#   capability_file - Path to the capability file for DNS resolution (Default: /var/lib/iodine/capfile)
+#   pid_file        - Path to the PID file (Default: /run/iodined.pid)
+#   log_file        - Path to the log file (Default: /var/log/iodine.log)
+# =============================================================================
 
-# Listen on this UDP port for DNS queries (default: 53)
-port = {{ server.port }}
+# ExecStart example generated for systemd:
+# iodined -p {{ pid_file | default('/run/iodined.pid') }} \
+#         -f {{ log_file | default('/var/log/iodine.log') }} \
+#         -c {{ capability_file | default('/var/lib/iodine/capfile') }} \
+#         -t {{ server_ip | default('10.0.0.2') }} \
+#         -s {{ tunnel_network | default('10.0.0.1/24') }} \
+#         {% if password | default('') | length > 0 -%}
+#         --password {{ password | default('') }} \
+#         {% endif -%}
+#         iodine.domain
 
-# Root domain to serve (must be a domain you control, e.g., tunnel.example.com)
-domain = {{ server.domain }}
+# -----------------------------------------------------------------------------
+# Parameter Breakdown
+# -----------------------------------------------------------------------------
 
-# Secret shared between client and server for authentication (must be 20 chars minimum for SHA1)
-secret = {{ server.secret }}
+# PID File
+# Path to the PID file for the iodined daemon.
+# CLI Flag: -p <path>
+-p {{ pid_file | default('/run/iodined.pid') }}
 
-# Maximum number of concurrent tunnels (clients)
-max_tunnels = {{ server.max_tunnels }}
+# Log File
+# Path to the log file for iodined.
+# CLI Flag: -f <path>
+-f {{ log_file | default('/var/log/iodine.log') }}
 
-# Maximum tunnel idle time in seconds before eviction
-idle_timeout = {{ server.idle_timeout }}
+# Capability File
+# Path to the capability file used for DNS resolution within the tunnel.
+# CLI Flag: -c <path>
+-c {{ capability_file | default('/var/lib/iodine/capfile') }}
 
-# Enable compression of DNS tunnel payload (true/false)
-compress = {{ server.compress | lower }}
+# Server IP
+# The IP address the iodined server listens on for tunnel traffic.
+# CLI Flag: -t <ip>
+-t {{ server_ip | default('10.0.0.2') }}
 
-# Maximum packet size in bytes (must be ≥ 512 and ≤ 4096; typical: 1024–2048)
-max_pktsize = {{ server.max_pktsize }}
+# Tunnel Network
+# The IP network assigned to clients connecting via the tunnel.
+# CLI Flag: -s <network>
+-s {{ tunnel_network | default('10.0.0.1/24') }}
 
-# Enable verbose logging (true/false); use syslog for production
-verbose = {{ server.verbose | lower }}
-
-# Log level: 0=quiet, 1=errors, 2=info, 3=debug
-log_level = {{ server.log_level }}
-
-# Optional: specify the interface to bind DNS packets to (e.g., eth0)
-{% if server.interface %}
-interface = {{ server.interface }}
+# Password
+# Password required for client authentication.
+# Only included if a non-empty password is defined to avoid passing empty strings unnecessarily.
+{% if password | default('') | length > 0 %}
+# CLI Flag: --password <password>
+--password {{ password | default('') }}
 {% endif %}
 
-# Optional: chroot directory (e.g., /var/chroot/iodine)
-{% if server.chroot %}
-chroot = {{ server.chroot }}
-{% endif %}
-
-# Optional: drop privileges to this user/group after binding ports
-{% if server.user %}
-user = {{ server.user }}
-{% endif %}
-{% if server.group %}
-group = {{ server.group }}
-{% endif %}
-
-# Optional: forward DNS queries for subdomains to this upstream resolver
-# Use format: resolver = <IP> or resolver = <IP>#<port>
-{% if server.upstream_resolver %}
-resolver = {{ server.upstream_resolver }}
-{% endif %}
-
-# Optional: set TTL (seconds) for DNS responses (default: 300)
-{% if server.ttl %}
-ttl = {{ server.ttl }}
-{% endif %}
-
-# Optional: allow only specific IPs (list of CIDRs or IPs)
-{% if server.allow_ips %}
-{% for ip in server.allow_ips %}
-allow = {{ ip }}
-{% endfor %}
-{% endif %}
-
-# Optional: deny specific IPs (list of CIDRs or IPs)
-{% if server.deny_ips %}
-{% for ip in server.deny_ips %}
-deny = {{ ip }}
-{% endfor %}
-{% endif %}
-
-# Optional: specify the DNS record type to use for the data channel
-# Valid: 'TXT' (default), 'MX', 'SOA'
-{% if server.record_type %}
-record_type = {{ server.record_type }}
-{% endif %}
-
-# Optional: specify the DNS record type to use for status/heartbeat queries
-{% if server.status_record_type %}
-status_record_type = {{ server.status_record_type }}
-{% endif %}
-
-# Optional: redirect all non-tunnel DNS to a fixed response (e.g., for captive portal bypass)
-# redirect = <IP>  # returns A record of <IP> for unknown queries
-{% if server.redirect %}
-redirect = {{ server.redirect }}
-{% endif %}
+# Base Domain
+# The domain name associated with the tunnel.
+iodine.domain

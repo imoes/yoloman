@@ -1,75 +1,56 @@
-# File Access Policy Daemon (fapolicyd) configuration
-# This is the main configuration file for fapolicyd.
-# For full documentation, see: man 8 fapolicyd
-# and: https://github.com/linux-audit/fapolicyd
+#
+# This file controls the configuration of the file access policy daemon.
+# See the fapolicyd.conf man page for explanation.
+#
 
-# Enable or disable fapolicyd at boot (1 = enabled, 0 = disabled)
-# Note: This sets the 'enabled' state in systemd; actual enforcement is controlled below.
-enabled = {{ enabled }}
+# Whether the daemon runs in permissive mode.
+# 0=strict, 1=permissive.
+permissive = {{ permisive | default(0) }}
 
-# Logging configuration
-# Log level: 0 (none), 1 (errors only), 2 (warnings), 3 (info), 4 (debug)
-log_level = {{ log_level }}
+# Nice value for the daemon process priority.
+nice_val = {{ nice_val | default(14) }}
 
-# Log file path (use 'syslog' to send to system logger)
-log_file = {{ log_file }}
+# Size of the internal event queue.
+q_size = {{ q_size | default(800) }}
 
-# Enable or disable real-time logging of access decisions
-# When enabled, decisions are logged as they occur (immediate audit trail)
-# When disabled, decisions are buffered (higher performance, lower latency impact)
-trust_network = {{ trust_network }}
+# User ID to drop privileges to.
+uid = {{ uid | default('fapolicyd') }}
 
-# Trust the network-based file access rules (1 = yes, 0 = no)
-# This allows fapolicyd to trust network-based policy sources (e.g., NIS, LDAP)
-# Only enable if your network policy distribution is secured
-network_trust = {{ network_trust }}
+# Group ID to drop privileges to.
+gid = {{ gid | default('fapolicyd') }}
 
-# Maximum number of events to buffer before dropping (for high-throughput systems)
-# If buffer fills, newer events may be dropped — tune based on system capacity
-event_buffer_size = {{ event_buffer_size }}
+# Whether to generate stat-based reports.
+do_stat_report = {{ do_stat_report | default(1) }}
 
-# Path to the rules directory containing policy files
-# Each `.rules` file here is parsed in alphabetical order
-rules_dir = {{ rules_dir }}
+# Whether to generate detailed access reports.
+detailed_report = {{ detailed_report | default(1) }}
 
-# Paths to trusted binaries and libraries
-# Files matching these paths are trusted (no access decisions logged)
-# Format: one per line, supports wildcards
-# Add as many as needed
-{% for trust_path in trust_paths %}trust_path = {{ trust_path }}
-{% endfor %}
+# Maximum size (MB) of the database cache.
+db_max_size = {{ db_max_size | default(50) }}
 
-# File access logging format
-# Valid values: "simple", "json", "syslog"
-# 'simple': human-readable text
-# 'json': machine-parseable JSON (useful for log aggregation)
-# 'syslog': send via syslog (requires rsyslog or equivalent)
-format = {{ format }}
+# Subject cache size.
+subj_cache_size = {{ subj_cache_size | default(1549) }}
 
-# Enable or disable file integrity checking
-# When enabled, files are checksummed at access time; may impact performance
-integrity_check = {{ integrity_check }}
+# Object cache size.
+obj_cache_size = {{ obj_cache_size | default(8191) }}
 
-# Maximum age (in seconds) of file metadata before rechecking
-# Set to 0 to disable metadata caching (higher accuracy, lower performance)
-metadata_cache_ttl = {{ metadata_cache_ttl }}
+# Comma-separated list of filesystems to watch.
+watch_fs = {{ watch_fs | default('ext2,ext3,ext4,tmpfs,xfs,vfat,iso9660,btrfs') }}
 
-# Enable or disable support for AppArmor/SELinux labels (if available)
-# Required for integrated labeling-based policies
-security_label = {{ security_label }}
+# Trusted database or source name.
+trust = {{ trust | default('debdb') }}
 
-# Path to the PID file
-# Used by init/systemd to track daemon status
-pid_file = {{ pid_file }}
+# Integrity checking method (e.g., none, sha256).
+integrity = {{ integrity | default('none') }}
 
-# Number of worker threads for policy evaluation
-# Set to 0 to auto-detect (usually number of CPUs)
-# Increase for high-throughput environments
-workers = {{ workers }}
+# Comma-separated fields for syslog format.
+syslog_format = {{ syslog_format | default('rule,dec,perm,auid,pid,exe,:,path,ftype,trust') }}
 
-# Enable or disable rule compilation caching
-# Caching improves startup time but may delay rule changes
-rule_cache = {{ rule_cache }}
+# If 1, only use SHA256 checksums for RPM packages.
+rpm_sha256_only = {{ rpm_sha256_only | default(0) }}
 
-# Path to the rule cache file
-rule_cache_file = {{ rule_cache_file }}
+# Whether to allow marking files via filesystem operations.
+allow_filesystem_mark = {{ allow_filesystem_mark | default(0) }}
+
+# Interval in seconds between periodic reports (0 = disabled).
+report_interval = {{ report_interval | default(0) }}

@@ -1,92 +1,108 @@
-[global]
-; Directory where configuration files for other modules are stored
-config_dir = {{ config_dir }}
+; Absolute path to the directory containing module-specific configuration files.
+config_dir = {{ config_dir | default('/etc/ldap-account-manager/config') }}
 
-; Path to the LDAP server (hostname or IP, optionally with port)
-ldap_host = {{ ldap_host }}
+; LDAP server hostname or IP address. Optionally include port (e.g., 'ldap.example.com:389').
+; If a port is embedded here, the ldap_port directive is ignored.
+ldap_host = {{ ldap_host | default('localhost') }}
 
-; Port of the LDAP server (389 for LDAP, 636 for LDAPS if not embedded in ldap_host)
-ldap_port = {{ ldap_port }}
+; LDAP server port. Only used if port is not embedded in ldap_host.
+; Use 389 for standard LDAP, 636 for LDAPS.
+ldap_port = {{ ldap_port | default(389) }}
 
-; Base DN for the LDAP directory
-ldap_base = {{ ldap_base }}
+; The base distinguished name (DN) for LDAP searches.
+ldap_base = {{ ldap_base | default('dc=example,dc=com') }}
 
-; Bind DN (user DN) for authentication to LDAP
-ldap_binddn = {{ ldap_binddn }}
+; DN of the account used to bind to the LDAP directory for read/write operations.
+ldap_binddn = {{ ldap_binddn | default('cn=admin,dc=example,dc=com') }}
 
-; Password for the bind DN
-ldap_bindpw = {{ ldap_bindpw }}
+; Password for the bind DN. Recommended to use a service account with minimal required privileges.
+ldap_bindpw = {{ ldap_bindpw | default('') }}
 
-; Use TLS (start_tls) for LDAP connections
-ldap_usetls = {{ ldap_usetls | lower }}
+; Enable TLS (via STARTTLS) for unencrypted LDAP connections.
+ldap_usetls = {{ ldap_usetls | default(true) | lower }}
 
-; Path to the CA certificate file for LDAPS/TLS verification (optional)
+; Absolute path to the CA certificate file to verify LDAPS/TLS server certificates.
+; Leave empty to skip verification (not recommended for production).
 ldap_cacertfile = {{ ldap_cacertfile | default('') }}
 
-; Use LDAPv3 protocol (required for modern LDAP servers)
-ldap_version = {{ ldap_version }}
+; LDAP protocol version. Must be 3 for modern servers.
+ldap_version = {{ ldap_version | default(3) }}
 
-; Number of seconds to wait for LDAP operations
-ldap_timeout = {{ ldap_timeout }}
+; Timeout in seconds for LDAP operations (connection and search).
+ldap_timeout = {{ ldap_timeout | default(10) }}
 
 [language]
-; Default language for the web interface (ISO 639-1 code)
-default_lang = {{ default_lang }}
+; Default language for the web interface (ISO 639-1 two-letter code).
+default_lang = {{ default_lang | default('en') }}
 
-; Supported languages (comma-separated list of ISO 639-1 codes)
-supported_languages = {{ supported_languages | join(', ') }}
+; List of languages supported by the web interface (comma-separated ISO 639-1 codes).
+supported_languages = {{ supported_languages | default(['en', 'de', 'fr', 'es', 'nl', 'it', 'pt', 'ja', 'zh', 'ru']) | join(', ') }}
 
 [logging]
-; Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
-log_level = {{ log_level }}
+; Logging verbosity: 0=none, 1=errors, 2=warnings, 3=info, 4=debug.
+log_level = {{ log_level | default(1) }}
 
-; Log file path (empty = syslog)
+; Absolute path to the log file. If empty, logs go to syslog (recommended in containerized environments).
 log_file = {{ log_file | default('') }}
 
 [session]
-; Session lifetime in seconds
-session_lifetime = {{ session_lifetime }}
+; Session lifetime in seconds before requiring re-authentication.
+session_lifetime = {{ session_lifetime | default(3600) }}
 
-; Enable session cookie secure flag (only if served over HTTPS)
-session_secure = {{ session_secure | lower }}
+; Set session cookie as 'Secure' (only sent over HTTPS). Required for production.
+session_secure = {{ session_secure | default(true) | lower }}
 
 [security]
-; Require HTTPS for the web interface
-https_required = {{ https_required | lower }}
+; Enforce HTTPS access to the admin interface. Disable only for local development.
+https_required = {{ https_required | default(true) | lower }}
 
-; Allow only specific IP ranges to access the admin interface (empty = allow all)
-allowed_ips = {{ allowed_ips | join(', ') }}
+; List of allowed IP addresses or CIDR ranges for admin access.
+; Empty list means allow all (not recommended for production).
+allowed_ips = {{ allowed_ips | default([]) | join(', ') }}
 
-; Maximum number of login attempts before lockout
-max_login_attempts = {{ max_login_attempts }}
+; Maximum number of consecutive failed login attempts before account lockout.
+max_login_attempts = {{ max_login_attempts | default(5) }}
 
-; Lockout duration in seconds after max attempts
-lockout_duration = {{ lockout_duration }}
+; Lockout duration in seconds after exceeding max_login_attempts.
+lockout_duration = {{ lockout_duration | default(900) }}
 
 [password_policy]
-; Enable password policy enforcement
-password_policy_enabled = {{ password_policy_enabled | lower }}
+; Enable enforcement of password complexity rules for new/changed passwords.
+password_policy_enabled = {{ password_policy_enabled | default(true) | lower }}
 
-; Minimum password length
-min_password_length = {{ min_password_length }}
+; Minimum password length required.
+min_password_length = {{ min_password_length | default(12) }}
 
-; Require at least one uppercase letter
-require_uppercase = {{ require_uppercase | lower }}
+; Require at least one uppercase letter in passwords.
+require_uppercase = {{ require_uppercase | default(true) | lower }}
 
-; Require at least one lowercase letter
-require_lowercase = {{ require_lowercase | lower }}
+; Require at least one lowercase letter in passwords.
+require_lowercase = {{ require_lowercase | default(true) | lower }}
 
-; Require at least one digit
-require_digit = {{ require_digit | lower }}
+; Require at least one digit in passwords.
+require_digit = {{ require_digit | default(true) | lower }}
 
-; Require at least one special character
-require_special = {{ require_special | lower }}
+; Require at least one special character in passwords.
+require_special = {{ require_special | default(false) | lower }}
 
 [modules]
-; Enable modules (comma-separated list: users, groups, hosts, nfs, smb, sudo, ssh, etc.)
-enabled_modules = {{ enabled_modules | join(', ') }}
+; List of LAM modules to enable. Common modules: users, groups, hosts, nfs, smb, sudo, ssh, printers, mail.
+enabled_modules = {{ enabled_modules | default(['users', 'groups']) | join(', ') }}
 
-{% for module, module_config in modules_config.items() %}; Module-specific configuration for {{ module }}
-[{{ module }}]
-{% for key, value in module_config.items() %}{{ key }} = {{ value }}
-{% endfor %}{% endfor %}
+; Module-specific configurations.
+; Iterates over the modules_config list, creating a section for each module and its key-value pairs.
+{% for module_item in modules_config | default([]) %}
+{% if module_item is mapping %}
+  {% set mod_name = module_item.get('name') | default('unknown') %}
+  ; Module-specific configuration for {{ mod_name }}
+  [{{ mod_name }}]
+  {% for key, value in module_item | dict2items %}
+  {% if key != 'name' %}
+  {{ key }} = {{ value }}
+  {% endif %}
+  {% endfor %}
+{% else %}
+  ; Module-specific configuration for {{ module_item }}
+  [{{ module_item }}]
+{% endif %}
+{% endfor %}

@@ -1,139 +1,297 @@
-# Server identification and network information
+# =============================================================================
+# ircd-ir2 Configuration Template
+# =============================================================================
+# This template generates the main configuration file for the ircd-ir2 daemon.
+# It is self-documenting: every configuration block is preceded by a comment
+# explaining its purpose and mapping to the Ansible schema.
+#
+# Variables are sourced from the Ansible play/role variables. If a variable is
+# not defined, the schema default is used automatically via the `default()` filter.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# serverinfo: Global server identification and network metadata
+# -----------------------------------------------------------------------------
+# Describes the server's identity, the IRC network it belongs to, and client
+# capacity limits.
 serverinfo {
-    name = "{{ serverinfo.name }}";
-    description = "{{ serverinfo.description }}";
-    network_name = "{{ serverinfo.network_name }}";
-    network_desc = "{{ serverinfo.network_desc }}";
-    max_clients = {{ serverinfo.max_clients }};
+    # Server's hostname (must be DNS-resolvable by other servers)
+    name = "{{ (serverinfo | default({})).name | default('irc.example.com') }}";
+
+    # Human-readable server description
+    description = "{{ (serverinfo | default({})).description | default('Example IRC Server') }}";
+
+    # Network name, used in protocol messages (e.g., :network.name 003)
+    network_name = "{{ (serverinfo | default({})).network_name | default('ExampleNet') }}";
+
+    # Publicly visible network description
+    network_desc = "{{ (serverinfo | default({})).network_desc | default('A friendly local IRC network') }}";
+
+    # Maximum concurrent client connections allowed
+    max_clients = {{ (serverinfo | default({})).max_clients | default(150) }};
 }
 
-# Operator definitions — administrative users with privileged access
+# -----------------------------------------------------------------------------
+# opers: List of IRC operators (admin users) with special privileges
+# -----------------------------------------------------------------------------
+# Defines administrative accounts that can perform privileged actions like
+# klining users, restarting the server, or killing connections.
 opers {
-{% for op in opers %}
-    {{ op.name }} {
-        password = "{{ op.password }}";
-        class = "{{ op.class }}";
+{% for op in (opers | default([])) %}
+    # Operator username (e.g., 'admin', 'ircop')
+    {{ (op | default({})).name | default('admin') }} {
+        # MD5 or plaintext operator password (use secure hashing in production)
+        # Note: In production, consider using a hash plugin or external auth.
+        password = "{{ (op | default({})).password | default('') }}";
+
+        # Reference to a defined class (e.g., 'oper_class') for resource limits
+        class = "{{ (op | default({})).class | default('oper_class') }}";
+
+        # Operator capabilities (e.g., 'kline', 'global', 'restart')
         flags {
-{% for flag in op.flags %}
+{% for flag in ((op | default({})).flags | default(['kline', 'unkline', 'dline', 'unkline', 'global', 'restart', 'kill', 'admin'])) %}
             {{ flag }};
 {% endfor %}
         };
-        max_local = {{ op.max_local }};
-        max_remote = {{ op.max_remote }};
-        whois_display = "{{ op.whois_display }}";
-{% if op.gecos %}
-        gecos = "{{ op.gecos }}";
+
+        # Maximum local connections allowed for this operator
+        max_local = {{ (op | default({})).max_local | default(3) }};
+
+        # Maximum remote (server-to-server) connections
+        max_remote = {{ (op | default({})).max_remote | default(1) }};
+
+        # Custom text shown in /WHOIS (e.g., 'Server Admin')
+        whois_display = "{{ (op | default({})).whois_display | default('') }}";
+
+        # Optional GECOS (real name) shown in /WHOIS
+{% if (op | default({})).gecos is defined and (op | default({})).gecos != '' %}
+        gecos = "{{ (op | default({})).gecos }}";
 {% endif %}
     };
 {% endfor %}
 }
 
-# Listen directives — ports and hosts the server binds to
+# -----------------------------------------------------------------------------
+# listeners: IP:port endpoints the server listens on
+# -----------------------------------------------------------------------------
+# Configures the network interfaces and ports where the IRC server accepts
+# incoming client connections. Supports SSL/TLS termination.
 listen {
-{% for listener in listeners %}
-    host = "{{ listener.host }}";
-    port = {{ listener.port }};
-    ssl = {{ listener.ssl | lower }};
-{% if listener.ssl_cert %}
-    ssl_cert = "{{ listener.ssl_cert }}";
+{% for listener in (listeners | default([{'host': '*', 'port': 6667, 'ssl': False, 'ssl_cert': '', 'ssl_key': '', 'options': []}])) %}
+    # IP address or hostname to bind to ('*' = all interfaces)
+    host = "{{ (listener | default({})).host | default('*') }}";
+
+    # TCP port for client connections (6667 = standard non-SSL)
+    port = {{ (listener | default({})).port | default(6667) }};
+
+    # Enable TLS/SSL encryption on this listener
+    ssl = {{ (listener | default({})).ssl | default(False) | lower }};
+
+{% if (listener | default({})).ssl_cert is defined and (listener | default({})).ssl_cert != '' %}
+    # Path to TLS certificate (only used if ssl = true)
+    ssl_cert = "{{ (listener | default({})).ssl_cert | default('/etc/ircd-irc2/server.crt') }}";
 {% endif %}
-{% if listener.ssl_key %}
-    ssl_key = "{{ listener.ssl_key }}";
+
+{% if (listener | default({})).ssl_key is defined and (listener | default({})).ssl_key != '' %}
+    # Path to TLS private key (only used if ssl = true)
+    ssl_key = "{{ (listener | default({})).ssl_key | default('/etc/ircd-irc2/server.key') }}";
 {% endif %}
+
+    # Listener-specific options (e.g., 'ssl_only', 'ssl_client_verify')
     options {
-{% for opt in listener.options %}
+{% for opt in ((listener | default({})).options | default([])) %}
         {{ opt }};
 {% endfor %}
     };
 {% endfor %}
 }
 
-# Client connection limits and timeouts
+# -----------------------------------------------------------------------------
+# client: Per-client resource and timeout controls
+# -----------------------------------------------------------------------------
+# Sets global limits for client connections, timeouts for inactivity, registration,
+# and nick changes. Helps prevent resource exhaustion and abuse.
 client {
-    max_clients = {{ client.max_clients }};
-    max_connections_per_ip = {{ client.max_connections_per_ip }};
-    ping_timeout = {{ client.ping_timeout }};
-    connect_timeout = {{ client.connect_timeout }};
-    away_timeout = {{ client.away_timeout }};
-    nick_timeout = {{ client.nick_timeout }};
-    dead_ip_timeout = {{ client.dead_ip_timeout }};
+    # Hard cap on total client connections
+    max_clients = {{ (client | default({})).max_clients | default(200) }};
+
+    # Max simultaneous connections per IP address
+    max_connections_per_ip = {{ (client | default({})).max_connections_per_ip | default(3) }};
+
+    # Seconds of inactivity before sending PING and eventually disconnecting
+    ping_timeout = {{ (client | default({})).ping_timeout | default(120) }};
+
+    # Time to wait for client to complete registration
+    connect_timeout = {{ (client | default({})).connect_timeout | default(30) }};
+
+    # Seconds before marking a user as away automatically
+    away_timeout = {{ (client | default({})).away_timeout | default(900) }};
+
+    # Seconds to wait before allowing nick change after registration
+    nick_timeout = {{ (client | default({})).nick_timeout | default(15) }};
+
+    # Time before purging a disconnected IP from memory
+    dead_ip_timeout = {{ (client | default({})).dead_ip_timeout | default(300) }};
 }
 
-# Channel settings
+# -----------------------------------------------------------------------------
+# channel: Per-user and per-channel limits
+# -----------------------------------------------------------------------------
+# Configures limits on channel usage, bans, nick changes, and flood protection
+# at the channel level.
 channel {
-    max_channels_per_user = {{ channel.max_channels_per_user }};
-    max_bans = {{ channel.max_bans }};
-    max_nick_changes = {{ channel.max_nick_changes }};
-    max_join = {{ channel.max_join }};
-    kick_on_invalid_chanmsg = {{ channel.kick_on_invalid_chanmsg | lower }};
+    # Maximum channels a user may join
+    max_channels_per_user = {{ (channel | default({})).max_channels_per_user | default(10) }};
+
+    # Maximum ban masks per channel
+    max_bans = {{ (channel | default({})).max_bans | default(40) }};
+
+    # Maximum nick changes allowed per minute
+    max_nick_changes = {{ (channel | default({})).max_nick_changes | default(5) }};
+
+    # Maximum channels a user may join per minute
+    max_join = {{ (channel | default({})).max_join | default(5) }};
+
+    # Kick user who sends channel messages without being joined
+    kick_on_invalid_chanmsg = {{ (channel | default({})).kick_on_invalid_chanmsg | default(True) | lower }};
 }
 
-# Logging configuration
+# -----------------------------------------------------------------------------
+# log: Server logging configuration
+# -----------------------------------------------------------------------------
+# Defines logging verbosity and output destinations. Supports multiple log files
+# with rotation based on size.
 log {
-    level = "{{ log.level }}";
-{% for file in log.files %}
-    file "{{ file.name }}" {
-        path = "{{ file.path }}";
-{% if file.max_size %}
-        max_size = {{ file.max_size }};
+    # Logging verbosity level
+    level = "{{ (log | default({})).level | default('DEBUG') }}";
+
+{% for file in ((log | default({})).files | default([{'name': 'default', 'path': '/var/log/ircd/ircd.log', 'max_size': 10485760}])) %}
+    # Log file alias (used internally)
+    file "{{ (file | default({})).name | default('default') }}" {
+        # Absolute path to the log file
+        path = "{{ (file | default({})).path | default('/var/log/ircd/ircd.log') }}";
+
+{% if (file | default({})).max_size is defined and (file | default({})).max_size != 0 %}
+        # Max log file size (bytes) before rotation (0 = no rotation)
+        max_size = {{ (file | default({})).max_size | default(10485760) }};
 {% endif %}
     };
 {% endfor %}
 }
 
-# Kline/Dline/Zline block definitions — IP/user/host exclusion and banning
+# -----------------------------------------------------------------------------
+# kline: Kline/Dline/Zline block definitions — IP/user/host exclusion and banning
+# -----------------------------------------------------------------------------
+# Defines persistent bans (klines) for users, IPs, or hosts. These bans are
+# applied at the connection or registration phase.
 kline {
-{% for k in klines %}
-    mask = "{{ k.mask }}";
-    reason = "{{ k.reason }}";
-    set_by = "{{ k.set_by }}";
-{% if k.duration %}
-    duration = {{ k.duration }};
+{% for k in (klines | default([])) %}
+    # Glob-style ban mask (e.g., 'baduser@*.evil.com')
+    mask = "{{ (k | default({})).mask | default('user@*') }}";
+
+    # Public reason for the kline
+    reason = "{{ (k | default({})).reason | default('Abuse') }}";
+
+    # Operator who set the kline (appears in logs)
+    set_by = "{{ (k | default({})).set_by | default('ircop@irc.example.com') }}";
+
+{% if (k | default({})).duration is defined and (k | default({})).duration != 0 %}
+    # Ban duration in seconds (0 = permanent)
+    duration = {{ (k | default({})).duration | default(0) }};
 {% endif %}
 {% endfor %}
 }
 
-# Modules to load
+# -----------------------------------------------------------------------------
+# loadmodule: Modules to load
+# -----------------------------------------------------------------------------
+# Specifies dynamic shared objects (.so) to be loaded by the IRC daemon at
+# startup. Modules extend protocol support, add commands, or modify behavior.
 loadmodule {
-{% for mod in modules %}
-    path = "{{ mod.path }}";
+{% for mod in (modules | default([])) %}
+    # Absolute path to the module shared object (.so)
+    path = "{{ (mod | default({})).path | default('/usr/lib/ircd-irc2/modules/m_ircv3.so') }}";
 {% endfor %}
 }
 
-# General server options
+# -----------------------------------------------------------------------------
+# options: Global runtime options
+# -----------------------------------------------------------------------------
+# High-level server behavior flags, including SSL defaults, DNS/IDENT behavior,
+# privacy settings, and flood protection thresholds.
 options {
-    ssl = {{ options.ssl | lower }};
-    ssl_cert = "{{ options.ssl_cert }}";
-    ssl_key = "{{ options.ssl_key }}";
-    ssl_ca = "{{ options.ssl_ca }}";
-    enable_dns = {{ options.enable_dns | lower }};
-    enable_ident = {{ options.enable_ident | lower }};
-    hide_servers = {{ options.hide_servers | lower }};
-    hide_oper = {{ options.hide_oper | lower }};
-    default_server = "{{ options.default_server }}";
-    default_floodcount = {{ options.default_floodcount }};
-    default_sendq = {{ options.default_sendq }};
-    default_recvq = {{ options.default_recvq }};
+    # Enable SSL/TLS globally (required for SSL listeners)
+    ssl = {{ (options | default({})).ssl | default(True) | lower }};
+
+    # Default SSL certificate for non-listener SSL usage
+    ssl_cert = "{{ (options | default({})).ssl_cert | default('/etc/ircd-irc2/server.crt') }}";
+
+    # Default SSL private key
+    ssl_key = "{{ (options | default({})).ssl_key | default('/etc/ircd-irc2/server.key') }}";
+
+    # Optional CA bundle for validating client certificates
+    ssl_ca = "{{ (options | default({})).ssl_ca | default('') }}";
+
+    # Enable DNS lookups for hostname resolution
+    enable_dns = {{ (options | default({})).enable_dns | default(True) | lower }};
+
+    # Enable IDENT (auth) lookups (insecure; disable unless required)
+    enable_ident = {{ (options | default({})).enable_ident | default(False) | lower }};
+
+    # Hide servers from /LINKS and /STATS output
+    hide_servers = {{ (options | default({})).hide_servers | default(False) | lower }};
+
+    # Hide oper users from /USERS listing
+    hide_oper = {{ (options | default({})).hide_oper | default(True) | lower }};
+
+    # Primary server hostname shown to clients
+    default_server = "{{ (options | default({})).default_server | default('irc.example.com') }}";
+
+    # Number of commands before flood protection kicks in
+    default_floodcount = {{ (options | default({})).default_floodcount | default(10) }};
+
+    # Default send queue limit for clients (bytes)
+    default_sendq = {{ (options | default({})).default_sendq | default(102400) }};
+
+    # Default receive queue limit for clients (bytes)
+    default_recvq = {{ (options | default({})).default_recvq | default(8192) }};
 }
 
-# Link directives for server-to-server connections (uplink/downlink)
+# -----------------------------------------------------------------------------
+# link: Link directives for server-to-server connections (uplink/downlink)
+# -----------------------------------------------------------------------------
+# Configures server-to-server (S2S) links. Each entry defines a remote server,
+# authentication credentials, network binding, and resource class.
 link {
-{% for link_item in links %}
-    name = "{{ link_item.name }}";
-    password = "{{ link_item.password }}";
+{% for link_item in (links | default([])) %}
+    # Remote server’s name (must match its serverinfo.name)
+    name = "{{ (link_item | default({})).name | default('us.irc.example.com') }}";
+
+    # Shared password for server-to-server authentication
+    password = "{{ (link_item | default({})).password | default('secret') }}";
+
     outgoing {
-        host = "{{ link_item.outgoing.host }}";
-{% if link_item.outgoing.port %}
-        port = {{ link_item.outgoing.port }};
+        # Local IP to use when connecting outbound
+        host = "{{ ((link_item | default({})).outgoing | default({})).host | default('10.0.0.5') }}";
+
+{% if ((link_item | default({})).outgoing | default({})).port is defined and ((link_item | default({})).outgoing | default({})).port != 0 %}
+        # Port of the remote server (default 7000 for server links)
+        port = {{ ((link_item | default({})).outgoing | default({})).port | default(7000) }};
 {% endif %}
-{% if link_item.outgoing.ssl %}
-        ssl = {{ link_item.outgoing.ssl | lower }};
+
+{% if ((link_item | default({})).outgoing | default({})).ssl is defined and ((link_item | default({})).outgoing | default({})).ssl %}
+        # Use TLS for server link
+        ssl = {{ ((link_item | default({})).outgoing | default({})).ssl | default(True) | lower }};
 {% endif %}
     };
-    class = "{{ link_item.class }}";
-{% if link_item.flags %}
+
+    # Reference to a defined class for link-specific limits
+    class = "{{ (link_item | default({})).class | default('server_class') }}";
+
+{% if (link_item | default({})).flags is defined and (link_item | default({})).flags | length > 0 %}
+    # Link flags (e.g., 'autoconnect', 'zip', 'silent')
     flags {
-{% for f in link_item.flags %}
+{% for f in ((link_item | default({})).flags | default([])) %}
         {{ f }};
 {% endfor %}
     };
@@ -141,15 +299,31 @@ link {
 {% endfor %}
 }
 
-# Classes for bandwidth/resource grouping
+# -----------------------------------------------------------------------------
+# classes: Classes for bandwidth/resource grouping
+# -----------------------------------------------------------------------------
+# Defines resource classes that control ping frequency, connection limits, and
+# buffer sizes for different types of connections (users, operators, servers).
 classes {
-{% for cls in classes %}
-    name = "{{ cls.name }}";
-    ping_freq = {{ cls.ping_freq }};
-    connect_freq = {{ cls.connect_freq }};
-    max_sendq = {{ cls.max_sendq }};
-    max_recvq = {{ cls.max_recvq }};
-    max_users = {{ cls.max_users }};
+{% for cls in (classes | default([{'name': 'server_class', 'ping_freq': 60, 'connect_freq': 60, 'max_sendq': 409600, 'max_recvq': 8192, 'max_users': 1}, {'name': 'oper_class', 'ping_freq': 90, 'connect_freq': 90, 'max_sendq': 262144, 'max_recvq': 8192, 'max_users': 1}])) %}
+    # Class name (referenced by link/oper entries)
+    name = "{{ (cls | default({})).name | default('server_class') }}";
+
+    # Interval (seconds) between PING checks
+    ping_freq = {{ (cls | default({})).ping_freq | default(60) }};
+
+    # Minimum time between new connections
+    connect_freq = {{ (cls | default({})).connect_freq | default(60) }};
+
+    # Max buffer size (bytes) for outgoing data
+    max_sendq = {{ (cls | default({})).max_sendq | default(409600) }};
+
+    # Max buffer size (bytes) for incoming data
+    max_recvq = {{ (cls | default({})).max_recvq | default(8192) }};
+
+    # Max users allowed under this class (0 = unlimited)
+    max_users = {{ (cls | default({})).max_users | default(1) }};
 }
+{% endfor %}
 
 # End of configuration

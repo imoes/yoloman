@@ -1,54 +1,54 @@
-# FireHOL configuration — generated template
-# Set default policy for built-in chains (INPUT, OUTPUT, OUTPUT)
-{% if default_policy_input %}DEFAULT_INPUT_POLICY="{{ default_policy_input }}"{% else %}# DEFAULT_INPUT_POLICY="ACCEPT"{% endif %}
-{% if default_policy_output %}DEFAULT_OUTPUT_POLICY="{{ default_policy_output }}"{% else %}# DEFAULT_OUTPUT_POLICY="ACCEPT"{% endif %}
-{% if default_policy_forward %}DEFAULT_FORWARD_POLICY="{{ default_policy_forward }}"{% else %}# DEFAULT_FORWARD_POLICY="DROP"{% endif %}
+# FireHOL application default file
+# Sourced by the init script `/etc/init.d/firehol`.
+#
+# This file configures the boot-time behavior and basic initialization
+# parameters for the FireHOL firewall framework.
+#
+# =================================================================
+# STARTUP CONTROL
+# =================================================================
 
-{% if log_dropped_packets %}# Log dropped packets (requires sysctl: net.netfilter.nf_log_all=1)
-LOG_DROPPED_PACKETS="YES"{% else %}# LOG_DROPPED_PACKETS="NO"{% endif %}
+# Control whether FireHOL starts automatically at boot.
+# Allowed values:
+#   NO   - FireHOL is disabled at boot (default).
+#   YES  - FireHOL is started automatically during system boot.
+#   AUTO - FireHOL is managed externally (e.g., by ifupdown scripts);
+#          internal waiting lists are cleared in this mode.
+#
+# Schema: start_firehol
+# Default: 'NO'
+START_FIREHOL={{ start_firehol | default('NO') }}
 
-{% if interface_tracking %}# Enable interface tracking for stateful rules
-INTERFACE_TRACKING="YES"{% else %}# INTERFACE_TRACKING="NO"{% endif %}
+# =================================================================
+# INTERFACE DEPENDENCIES
+# =================================================================
 
-# Enable stateful connection tracking
-STATE_TRACKING="YES"
+# If you want FireHOL to wait for a specific network interface
+# to be up before activating the firewall rules, add the interface
+# name here (e.g., eth0).
+#
+# Note: If START_FIREHOL is set to 'AUTO', this list is typically
+# emptied by the external management scheme.
+#
+# Schema: wait_for_iface
+# Default: empty list []
+WAIT_FOR_IFACE={{ wait_for_iface | default([]) | join(' ') }}
 
-# Define server services (interfaces, protection levels, allowed ports)
-{% for service in server_services %}
-# Server: {{ service.name }}
-# Interface: {{ service.interface }}
-# Protection level: {{ service.level }}
-{% if service.level == 'transparent' %}# Transparent: pass all without filtering (dangerous)
-{% elif service.level == 'client' %}# Client: allow only outbound connections from this host
-{% elif service.level == 'loopback' %}# Loopback: allow only localhost traffic
-{% elif service.level == 'refuse' %}# Refuse: drop all incoming and allow only outbound
-{% else %}# Simple: allow specified services (default is 'server')
-{% endif %}
+# =================================================================
+# ACTIVATION BEHAVIOR
+# =================================================================
 
-{% if service.level in ['server', 'transparent', 'client', 'refuse', 'loopback'] %}server_{{ service.level }}_ports="{{ service.ports | join(', ') }}"
-interface "{{ service.interface }}" {{ service.level }}
-{% endif %}
-{% endfor %}
-
-{% if client_rules %}# Client-side rules (outbound traffic control)
-{% for rule in client_rules %}# Allow outbound {{ rule.description }}
-client {{ rule.action }} to {{ rule.destination }} port {{ rule.port }}
-{% endfor %}{% endif %}
-
-{% if lan_networks %}# LAN-specific rules (if applicable)
-{% for lan in lan_networks %}# LAN: {{ lan.name }}
-# CIDR: {{ lan.cidr }}
-# Interface: {{ lan.interface }}
-{% if lan.mode == 'trusted' %}# Trusted LAN — allow all traffic
-class LAN_{{ lan.name }} "{{ lan.cidr }}"
-{% endif %}
-{% if lan.mode == 'restricted' %}# Restricted LAN — allow only specific services
-{% for service in lan.allowed_services %}server {{ service }} in "{{ lan.interface }}"
-{% endfor %}{% endif %}
-{% endfor %}{% endif %}
-
-# Apply rules at boot?
-{% if auto_apply %}AUTO_APPLY="YES"{% else %}# AUTO_APPLY="NO"{% endif %}
-
-# Path to iptables-save/restore (usually auto-detected)
-IPTABLES="/usr/sbin/iptables"
+# Disallow pre-established traffic to continue whilst the firewall is
+# activated.
+#
+# 0 (default): Kill/allow existing connections to be dropped or handled
+#              according to the firewall policies as they are applied.
+# 1:           Allow existing pre-established connections to continue
+#              uninterrupted while new rules are applied.
+#
+# This setting helps prevent service interruption during firewall restarts
+# if the underlying application allows persistent connections.
+#
+# Schema: firehol_established_activation_accept
+# Default: 0
+FIREHOL_ESTABLISHED_ACTIVATION_ACCEPT={{ firehol_established_activation_accept | default(0) }}

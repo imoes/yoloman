@@ -1,111 +1,227 @@
-# Listen on specified interfaces and ports
-Listen {{ cupsd.ListenAddress }}:{{ cupsd.ListenPort }}
+# CUPS Daemon Configuration Template
+# Self-documenting configuration for the CUPS (Common UNIX Printing System) daemon.
+# This template generates a configuration file compatible with cupsd.
+# Variables are sourced from the 'cupsd' dictionary.
 
-# Bind to localhost only if restricted access is required
-{% if cupsd.BindLocalhostOnly %}
+# ==========================================
+# Network Listening Configuration
+# ==========================================
+
+# Listen on specified interfaces and ports.
+# Default: Listen on all interfaces on port 631 (standard CUPS port).
+# If cupsd.ListenAddress is omitted, it defaults to '*' (all interfaces).
+# If cupsd.ListenPort is omitted, it defaults to 631.
+{% set cupsd_cfg = (cupsd | default({})) %}
+Listen {{ (cupsd_cfg.ListenAddress | default('*')) }}:{{ (cupsd_cfg.ListenPort | default('631')) }}
+
+# Bind to localhost only if restricted access is required.
+# This adds an additional Listen directive for localhost.
+# Use this for security hardening to prevent remote access to the admin interface.
+{% if (cupsd_cfg.BindLocalhostOnly | default(false) | bool) %}
 # Restrict listening to localhost only for security
-Listen localhost:{{ cupsd.ListenPort }}
+Listen localhost:{{ (cupsd_cfg.ListenPort | default('631')) }}
 {% endif %}
 
-# Allow connections from specified networks (comma-separated CIDR or hostnames)
-{% if cupsd.AllowFrom %}
+# ==========================================
+# Access Control
+# ==========================================
+
+# Allow connections from specified networks (comma-separated CIDR or hostnames).
+# If not specified, defaults to allowing localhost (127.0.0.1).
+# In a production environment, restrict this to specific trusted subnets.
+{% set allow_from = cupsd_cfg.AllowFrom | default([]) %}
+{% if allow_from | length > 0 %}
 # Permit access from these addresses
-{% for addr in cupsd.AllowFrom %}AllowFrom {{ addr }}
+{% for addr in allow_from %}
+AllowFrom {{ addr }}
 {% endfor %}
 {% else %}
 # Default: allow all local network connections
 AllowFrom 127.0.0.1
 {% endif %}
 
-# Server name for identification (used in web interface and banners)
-ServerName {{ cupsd.ServerName }}
+# ==========================================
+# Server Identification
+# ==========================================
 
-# ServerAlias for alternate names or DNS round-robin
-{% if cupsd.ServerAlias %}ServerAlias {{ cupsd.ServerAlias }}
+# Server name for identification (used in web interface and banners).
+# Defaults to the hostname of the machine if not provided.
+# NOTE: 'lookup' is an Ansible filter, not a Jinja2 built-in. It is used here
+# because the template is processed by Ansible. If pure Jinja2 is required,
+# replace with a static default or a variable passed from the play.
+ServerName {{ (cupsd_cfg.ServerName | default('')) or 'localhost' }}
+
+# ServerAlias for alternate names or DNS round-robin.
+# Allows the server to respond to multiple hostnames.
+{% if (cupsd_cfg.ServerAlias | default('')) %}
+ServerAlias {{ (cupsd_cfg.ServerAlias | default('')) }}
 {% endif %}
 
-# Enable SSL/TLS for web interface (port 443)
-{% if cupsd.SSLEnabled %}
+# ==========================================
+# SSL/TLS Configuration
+# ==========================================
+
+# Enable SSL/TLS for web interface (port 443).
+# Requires SSL certificate and key files to be configured elsewhere.
+{% if (cupsd_cfg.SSLEnabled | default(false) | bool) %}
 # Secure web interface configuration
 Port 443
 SSLOption RequireSSL
 {% endif %}
 
-# Set user/group under which the daemon runs
-{% if cupsd.RunAsUser %}User {{ cupsd.RunAsUser }}
+# ==========================================
+# Process Ownership
+# ==========================================
+
+# Set user/group under which the daemon runs.
+# Defaults to 'daemon' or 'cups' depending on the distribution if not specified.
+{% if (cupsd_cfg.RunAsUser | default('')) %}
+User {{ (cupsd_cfg.RunAsUser | default('')) }}
 {% endif %}
-{% if cupsd.RunAsGroup %}Group {{ cupsd.RunAsGroup }}
-{% endif %}
-
-# Logging verbosity: debug, info, notice, warn, error, crit
-LogLevel {{ cupsd.LogLevel }}
-
-# Log file location
-LogFile {{ cupsd.LogFile }}
-
-# Access log location (separate from main log)
-{% if cupsd.AccessLogFile %}AccessLog {{ cupsd.AccessLogFile }}
+{% if (cupsd_cfg.RunAsGroup | default('')) %}
+Group {{ (cupsd_cfg.RunAsGroup | default('')) }}
 {% endif %}
 
-# Enable logging of print jobs
-{% if cupsd.JobLog %}JobLog {{ cupsd.JobLog }}
+# ==========================================
+# Logging Configuration
+# ==========================================
+
+# Logging verbosity: debug, info, notice, warn, error, crit.
+# Defaults to 'info' for standard operation. Use 'debug' for troubleshooting.
+LogLevel {{ (cupsd_cfg.LogLevel | default('info')) }}
+
+# Log file location.
+# Defaults to /var/log/cups/error_log if not specified.
+LogFile {{ (cupsd_cfg.LogFile | default('/var/log/cups/error_log')) }}
+
+# Access log location (separate from main log).
+# Logs HTTP requests to the web interface.
+{% if (cupsd_cfg.AccessLogFile | default('')) %}
+AccessLog {{ (cupsd_cfg.AccessLogFile | default('')) }}
 {% endif %}
 
-# Maximum number of concurrent jobs
-MaxJobs {{ cupsd.MaxJobs }}
-
-# Retain job history for this many days (0 = none)
-MaxJobTime {{ cupsd.MaxJobTime }}
-
-# Keep print files until job completes or timeout
-{% if cupsd.KeepFiles %}KeepFiles {{ cupsd.KeepFiles | lower }}
+# Enable logging of print jobs.
+# Logs job details for auditing and troubleshooting.
+{% if (cupsd_cfg.JobLog | default(false) | bool) %}
+JobLog On
 {% endif %}
 
-# Browsing printer information over the network
-{% if cupsd.BrowsingEnabled %}
+# ==========================================
+# Job Management
+# ==========================================
+
+# Maximum number of concurrent jobs.
+# Defaults to 100. Adjust based on system resources.
+MaxJobs {{ (cupsd_cfg.MaxJobs | default('100')) }}
+
+# Retain job history for this many days (0 = none).
+# Controls how long job records are kept in the history.
+MaxJobTime {{ (cupsd_cfg.MaxJobTime | default('0')) }}
+
+# Keep print files until job completes or timeout.
+# Ensures spooled files are available for retry or reprinting.
+{% if (cupsd_cfg.KeepFiles | default(false) | bool) %}
+KeepFiles On
+{% endif %}
+
+# ==========================================
+# Printer Browsing
+# ==========================================
+
+# Browsing printer information over the network.
+# Uses CUPS-SLP and/or mDNS to announce/discover printers.
+{% if (cupsd_cfg.BrowsingEnabled | default(false) | bool) %}
 # Broadcast printer availability via mDNS and/or CUPS-SLP
 Browsing On
-BrowseLocalProtocols{{ ' cups' if 'cups' in cupsd.BrowseProtocols else '' }}{{ ' mdns' if 'mdns' in cupsd.BrowseProtocols else '' }}
+{% set browse_protocols = (cupsd_cfg.BrowseProtocols | default([])) %}
+BrowseLocalProtocols {{ browse_protocols | join(' ') if browse_protocols else 'cups' }}
 {% else %}
 # Disable printer broadcasting
 Browsing Off
 {% endif %}
 
-# Web interface configuration
-{% if cupsd.WebInterfaceEnabled %}
+# ==========================================
+# Web Interface
+# ==========================================
+
+# Web interface configuration.
+# Enables or disables the remote management web UI.
+{% if (cupsd_cfg.WebInterfaceEnabled | default(false) | bool) %}
 # Enable remote web interface access (not recommended for untrusted networks)
-WebInterface{{ ' On' if cupsd.WebInterfaceEnabled else ' Off' }}
+WebInterface On
 {% endif %}
 
-# Default printer policy
-{% if cupsd.DefaultAuthType %}DefaultAuthType {{ cupsd.DefaultAuthType }}
+# ==========================================
+# Authentication & Policies
+# ==========================================
+
+# Default printer policy authentication type.
+# Examples: Any, None, Basic, Digest.
+{% if (cupsd_cfg.DefaultAuthType | default('')) %}
+DefaultAuthType {{ (cupsd_cfg.DefaultAuthType | default('')) }}
 {% endif %}
 
-# Policy settings for job operations
-{% for policy in cupsd.Policies %}# Policy: {{ policy.name }}
-{% if policy.AuthInfoRequired != None %}AuthInfoRequired {{ policy.AuthInfoRequired }}
+# Policy settings for job operations.
+# Defines allowed/denied operations for specific contexts (e.g. @everybody).
+{% set policies = (cupsd_cfg.Policies | default([])) %}
+{% for policy in policies %}
+# Policy: {{ (policy | default({})).name | default('unnamed') }}
+{% set p = policy | default({}) %}
+{% if (p.AuthInfoRequired | default('')) %}
+AuthInfoRequired {{ p.AuthInfoRequired }}
 {% endif %}
-{% if policy.OperationAllow %}{% for op in policy.OperationAllow %}{{ op }}
-{% endfor %}{% endif %}
-{% if policy.OperationDeny %}{% for op in policy.OperationDeny %}{{ op }}
-{% endfor %}{% endif %}
-
+{% set op_allow = p.OperationAllow | default([]) %}
+{% if op_allow | length > 0 %}
+{% for op in op_allow %}
+{{ op }}
+{% endfor %}
+{% endif %}
+{% set op_deny = p.OperationDeny | default([]) %}
+{% if op_deny | length > 0 %}
+{% for op in op_deny %}
+{{ op }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 
-# Default printer location and description (if not auto-discovered)
-{% if cupsd.DefaultPrinterName %}DefaultPrinter {{ cupsd.DefaultPrinterName }}
+# ==========================================
+# Default Printer Settings
+# ==========================================
+
+# Default printer name.
+# Sets the default printer for users if not explicitly chosen.
+{% if (cupsd_cfg.DefaultPrinterName | default('')) %}
+DefaultPrinter {{ (cupsd_cfg.DefaultPrinterName | default('')) }}
 {% endif %}
 
-# Path to printer drivers (if custom drivers used)
-{% if cupsd.PrintcapFile %}PrintcapFile {{ cupsd.PrintcapFile }}
-{% endif %}
-{% if cupsd.PrintcapFormat %}PrintcapFormat {{ cupsd.PrintcapFormat }}
+# ==========================================
+# Printcap & File Management
+# ==========================================
+
+# Path to printer drivers (if custom drivers used).
+# Usually not required as CUPS manages drivers internally.
+{% if (cupsd_cfg.PrintcapFile | default('')) %}
+PrintcapFile {{ (cupsd_cfg.PrintcapFile | default('')) }}
 {% endif %}
 
-# Enable/disable shared printers
-{% if cupsd.SharePrinters %}SharePrinters {{ cupsd.SharePrinters | lower }}
+# Format of the printcap file.
+# Typically 'bsd' or 'sysv'.
+{% if (cupsd_cfg.PrintcapFormat | default('')) %}
+PrintcapFormat {{ (cupsd_cfg.PrintcapFormat | default('')) }}
 {% endif %}
 
-# Remote administration settings
-{% if cupsd.RemoteAdminEnabled %}RemoteAdmin{{ ' On' if cupsd.RemoteAdminEnabled else ' Off' }}
+# Enable/disable shared printers.
+# Allows this CUPS server to share printers with other CUPS servers.
+{% if (cupsd_cfg.SharePrinters | default(false) | bool) %}
+SharePrinters On
+{% endif %}
+
+# ==========================================
+# Remote Administration
+# ==========================================
+
+# Remote administration settings.
+# Enables or disables remote admin access via the web interface.
+{% if (cupsd_cfg.RemoteAdminEnabled | default(false) | bool) %}
+RemoteAdmin On
 {% endif %}

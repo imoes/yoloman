@@ -1,112 +1,11 @@
 {
-  "standalone": {
-    "type": "bool",
-    "default": true,
-    "description": "Run in standalone mode (recommended for dedicated servers); if false, use inetd/xinetd."
-  },
-  "ipv6": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable IPv6 listening (only effective in standalone mode)."
-  },
-  "bind_address": {
+  "standalone_or_inetd": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address or hostname the server will bind to (e.g., '0.0.0.0' for all interfaces, or '127.0.0.1' for localhost only)."
-  },
-  "port": {
-    "type": "number",
-    "default": 21,
-    "description": "FTP control port to listen on."
-  },
-  "max_clients": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum number of simultaneous connected clients."
-  },
-  "max_clients_per_ip": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum connections allowed per client IP (0 = unlimited)."
-  },
-  "timeout": {
-    "type": "number",
-    "default": 300,
-    "description": "Idle timeout in seconds (session disconnects after this period of inactivity)."
-  },
-  "min_uid": {
-    "type": "number",
-    "default": 1000,
-    "description": "Minimum system UID allowed to log in (prevents system accounts like root from authenticating)."
-  },
-  "require_valid_shell": {
-    "type": "bool",
-    "default": true,
-    "description": "Require users to have a valid shell listed in /etc/shells (enhances security by blocking nologin accounts)."
-  },
-  "tls": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable TLS/SSL encryption for secure FTP connections (FTPS)."
-  },
-  "tls_cipher_suite": {
-    "type": "string",
-    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
-    "description": "Colon-separated list of allowed TLS ciphersuites (used only if TLS enabled)."
-  },
-  "tls_certificate_path": {
-    "type": "string",
-    "default": "/etc/ssl/private/pure-ftpd.pem",
-    "description": "Path to the combined certificate+private key PEM file for TLS."
-  },
-  "force_tls": {
-    "type": "bool",
-    "default": true,
-    "description": "Force all clients to use TLS (disables plaintext FTP)."
-  },
-  "passive_port_min": {
-    "type": "number",
-    "default": 40000,
-    "description": "Low end of the passive data port range (must match firewall rules)."
-  },
-  "passive_port_max": {
-    "type": "number",
-    "default": 40100,
-    "description": "High end of the passive data port range (must match firewall rules)."
-  },
-  "public_host": {
-    "type": "string",
-    "default": "",
-    "description": "Public IP or hostname to advertise for passive connections (required if behind NAT/firewall)."
-  },
-  "anonymous_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Allow anonymous FTP login (disabled by default for security)."
-  },
-  "unix_authentication": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable authentication via system users (via PAM). Disable to use pure-authd or LDAP."
-  },
-  "ldap_configs": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "key": {
-        "type": "string",
-        "description": "Configuration parameter name (e.g., 'LDAPConfigFile')."
-      },
-      "value": {
-        "type": "string",
-        "description": "Value to write to the conf file."
-      }
-    },
-    "description": "List of LDAP-related configuration overrides (key = filename, value = content). Only used if LDAP auth is enabled."
-  },
-  "custom_settings": {
-    "type": "object",
-    "default": {},
-    "description": "Key-value pairs for any additional Pure-FTPd configuration files (e.g., { 'AltLog': 'clf:/var/log/pure-ftpd/transfer.log' })."
+    "default": "inetd",
+    "description": "Mode to run Pure-FTPd in: 'standalone' for dedicated servers, 'inetd' for managed services.",
+    "enum": [
+      "inetd",
+      "standalone"
+    ]
   }
 }

@@ -1,0 +1,199 @@
+{# ext3grep command-line configuration template #}
+{# This template generates the command-line arguments for the `ext3grep` utility. #}
+{# ext3grep is a tool for recovering deleted files from ext3/ext4 filesystems. #}
+
+{# Global options controlling output and behavior #}
+{# Ensure options is a dict even if None was passed #}
+{% set opts = (options | default(None)) %}
+{% if opts is not mapping %}
+    {% set opts = {} %}
+{% endif %}
+
+{# Print contents of superblock #}
+{% if (opts.get('superblock', false) | default(false)) %}
+--superblock
+{% endif %}
+
+{# Print contents of block or inode #}
+{% if (opts.get('print', false) | default(false)) %}
+--print
+{% endif %}
+
+{# Print directories, one line per entry #}
+{% if (opts.get('ls', false) | default(false)) %}
+--ls
+{% endif %}
+
+{# List of accepted filenames (can be empty) #}
+{% for accept in (opts.get('accept', []) | default([])) %}
+--accept {{ accept | default('') }}
+{% endfor %}
+
+{# Print contents of journal #}
+{% if (opts.get('journal', false) | default(false)) %}
+--journal
+{% endif %}
+
+{# Show inode of each directory component in paths #}
+{% if (opts.get('show_path_inodes', false) | default(false)) %}
+--show-path-inodes
+{% endif %}
+
+{# Filtering options #}
+{# Ensure filters is a dict even if None was passed #}
+{% set f = (filters | default(None)) %}
+{% if f is not mapping %}
+    {% set f = {} %}
+{% endif %}
+
+{# Group ID to filter by #}
+{% if (f.get('group', '') | default('')) %}
+--group {{ f.get('group', '') | default('') }}
+{% endif %}
+
+{# Directory pattern to filter by #}
+{% if (f.get('directory', '') | default('')) %}
+--directory {{ f.get('directory', '') | default('') }}
+{% endif %}
+
+{# Only process entries deleted on or after this dtime #}
+{% if (f.get('after', '') | default('')) %}
+--after {{ f.get('after', '') | default('') }}
+{% endif %}
+
+{# Only process entries deleted before this dtime #}
+{% if (f.get('before', '') | default('')) %}
+--before {{ f.get('before', '') | default('') }}
+{% endif %}
+
+{# Only show/process deleted entries #}
+{% if (f.get('deleted', false) | default(false)) %}
+--deleted
+{% endif %}
+
+{# Only show/process allocated inodes/blocks #}
+{% if (f.get('allocated', false) | default(false)) %}
+--allocated
+{% endif %}
+
+{# Only show/process unallocated inodes/blocks #}
+{% if (f.get('unallocated', false) | default(false)) %}
+--unallocated
+{% endif %}
+
+{# Do not suppress entries with reallocated inodes #}
+{% if (f.get('reallocated', false) | default(false)) %}
+--reallocated
+{% endif %}
+
+{# Do not suppress entries with zeroed inodes #}
+{% if (f.get('zeroed_inodes', false) | default(false)) %}
+--zeroed-inodes
+{% endif %}
+
+{# Recursive depth limit for directory processing #}
+{% if (f.get('depth', '') | default('')) %}
+--depth {{ f.get('depth', '') | default('') }}
+{% endif %}
+
+{# Action-specific options #}
+{# Ensure actions is a dict even if None was passed #}
+{% set a = (actions | default(None)) %}
+{% if a is not mapping %}
+    {% set a = {} %}
+{% endif %}
+
+{# Inode number to convert to block #}
+{% if (a.get('inode_to_block', '') | default('')) %}
+--inode-to-block {{ a.get('inode_to_block', '') | default('') }}
+{% endif %}
+
+{# Inode number to show info for #}
+{% if (a.get('inode', '') | default('')) %}
+--inode {{ a.get('inode', '') | default('') }}
+{% endif %}
+
+{# Block number to show info for #}
+{% if (a.get('block', '') | default('')) %}
+--block {{ a.get('block', '') | default('') }}
+{% endif %}
+
+{# Histogram basis (atime|ctime|mtime|dtime|group) #}
+{% if (a.get('histogram', 'dtime') | default('dtime')) %}
+--histogram={{ a.get('histogram', 'dtime') | default('dtime') }}
+{% endif %}
+
+{# Journal block number to show info for #}
+{% if (a.get('journal_block', '') | default('')) %}
+--journal-block {{ a.get('journal_block', '') | default('') }}
+{% endif %}
+
+{# Transaction sequence number to show info for #}
+{% if (a.get('journal_transaction', '') | default('')) %}
+--journal-transaction {{ a.get('journal_transaction', '') | default('') }}
+{% endif %}
+
+{# Write paths of files to stdout (implies --ls) #}
+{% if (a.get('dump_names', false) | default(false)) %}
+--dump-names
+{% endif %}
+
+{# Fixed string to search at block start #}
+{% if (a.get('search_start', '') | default('')) %}
+--search-start {{ a.get('search_start', '') | default('') }}
+{% endif %}
+
+{# Fixed string to search within blocks #}
+{% if (a.get('search', '') | default('')) %}
+--search {{ a.get('search', '') | default('') }}
+{% endif %}
+
+{# Block number to find inodes that refer to it #}
+{% if (a.get('search_inode', '') | default('')) %}
+--search-inode {{ a.get('search_inode', '') | default('') }}
+{% endif %}
+
+{# Return allocated inode table entries that are zeroed #}
+{% if (a.get('search_zeroed_inodes', false) | default(false)) %}
+--search-zeroed-inodes
+{% endif %}
+
+{# Directory path for which to print directory block table #}
+{% if (a.get('inode_dirblock_table', '') | default('')) %}
+--inode-dirblock-table {{ a.get('inode_dirblock_table', '') | default('') }}
+{% endif %}
+
+{# Inode number to show copies still in the journal #}
+{% if (a.get('show_journal_inodes', '') | default('')) %}
+--show-journal-inodes {{ a.get('show_journal_inodes', '') | default('') }}
+{% endif %}
+
+{# Path of file to restore (relative to root, no leading slash) #}
+{% if (a.get('restore_file', '') | default('')) %}
+--restore-file {{ a.get('restore_file', '') | default('') }}
+{% endif %}
+
+{# Restore all files (use with --after) #}
+{% if (a.get('restore_all', false) | default(false)) %}
+--restore-all
+{% endif %}
+
+{# Show all inodes shared by two or more files #}
+{% if (a.get('show_hardlinks', false) | default(false)) %}
+--show-hardlinks
+{% endif %}
+
+{# Print version information and exit #}
+{% if (opts.get('version', false) | default(false)) %}
+--version
+{% endif %}
+
+{# Print help message and exit #}
+{% if (opts.get('help', false) | default(false)) %}
+--help
+{% endif %}
+
+{# Target filesystem images or device files to analyze #}
+{% for path in (paths | default([])) %}
+{{ path | default('') }}
+{% endfor %}

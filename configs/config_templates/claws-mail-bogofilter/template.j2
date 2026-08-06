@@ -1,0 +1,34 @@
+# ============================================================
+# Claws-Mail Bogofilter Plugin Configuration
+# ============================================================
+# This template configures the bogofilter spam-filtering plugin
+# for Claws Mail. It handles plugin loading, optional external
+# config path, and runtime thresholds.
+# ============================================================
+
+# --- Plugin Loading ---
+# List of shared-object paths (.so) for the bogofilter plugin.
+# Claws Mail will attempt to load each plugin in order.
+# Usually only the default path is needed.
+{% for plugin_path in plugin_paths | default(['/usr/lib/claws-mail/plugins/bogofilter.so']) %}{{ plugin_path }}
+{% endfor %}
+
+# --- External Bogofilter Configuration ---
+# If set, points to a custom bogofilter config file.
+# Leave empty or unset to use bogofilter's default locations
+# (typically ~/.bogofilter or /etc/bogofilter).
+{% if bogofilter_config_path | default('') %}
+# Custom bogofilter configuration file path
+# {{ bogofilter_config_path | default('') }}
+{% endif %}
+
+# --- Spam Threshold ---
+# Messages scoring >= this value are treated as spam.
+# Range: 0.0 (no spam) to 1.0 (all spam).
+# Standard default is 0.5.
+# spam_threshold = {{ spam_threshold | default(0.5) }}
+
+# --- Learning Mode ---
+# Enable automatic learning from user-marked spam/ham folders.
+# true = learning enabled; false = manual learning only.
+# enable_learning = {{ enable_learning | default(true) }}

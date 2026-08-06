@@ -1,130 +1,129 @@
 [DEFAULT]
-# The name of the deployment (e.g., 'openstack')
-# This is used for logging, caching, and to identify the deployment
-# in multi-tenant or multi-region environments
+# Logical name for this deployment; used in logs and to disambiguate multi-tenancy.
+deployment_name = {{ keystone_default_deployment_name | default('openstack') }}
 
 [assignment]
-# Driver used for assignment management (e.g., 'sql')
-# Determines how roles, projects, and users are assigned and managed
+# Backend driver for managing role/project/user assignments.
+driver = {{ keystone_assignment_driver | default('sql') }}
 
 [auth]
-# Methods allowed for authenticating users (e.g., 'password', 'token')
-# Controls which authentication mechanisms are available to clients
+# Supported authentication methods for clients (e.g., password, token, oauth1).
+methods = {{ keystone_auth_methods | default(['password', 'token']) | join(', ') }}
 
 [catalog]
-# Driver used for catalog management (e.g., 'sql', 'template')
-# Dictates how service endpoints are stored and retrieved
+# Backend driver for service catalog (list of endpoints per service).
+driver = {{ keystone_catalog_driver | default('sql') }}
 
 [credential]
-# Driver used for credential storage (e.g., 'fernet', 'sql')
-# Specifies how credentials (e.g., user passwords) are stored and protected
+# Storage backend for credentials (e.g., fernet for encrypted key rotation).
+driver = {{ keystone_credential_driver | default('fernet') }}
 
 [database]
-# SQL connection string for the keystone database (e.g., 'mysql+pymysql://keystone:PASS@HOST/keystone')
-# Used to connect to the backend database for persistence
+# Database connection URI. Supports MySQL, PostgreSQL, SQLite (for dev).
+connection = {{ keystone_database_connection | default('mysql+pymysql://keystone:keystone@localhost/keystone') }}
 
 [federation]
-# Driver used for federated identity (e.g., 'sql')
-# Enables integration with external identity providers (SAML, OpenID Connect)
+# Backend for federated identity (SAML, OpenID Connect, etc.).
+driver = {{ keystone_federation_driver | default('sql') }}
 
 [fernet_tokens]
-# Directory where Fernet token keys are stored
-# Used only when token format is Fernet; keys must be rotated periodically
+# Path to directory storing Fernet token keys. Must be writable and synced across nodes.
+key_repository = {{ keystone_fernet_tokens_key_repository | default('/etc/keystone/fernet-keys/') }}
 
 [identity]
-# Driver used for identity management (e.g., 'sql')
-# Specifies how users and groups are stored and managed
+# Backend driver for user/group management.
+driver = {{ keystone_identity_driver | default('sql') }}
 
 [ldap]
-# LDAP server URL (e.g., 'ldap://ldap.example.com')
-# Used when identity or assignment backend is LDAP
+# LDAP server URL (required only if using LDAP backend).
+url = {{ keystone_ldap_url | default('') }}
 
 [memcache]
-# Memcached servers (comma-separated list, e.g., 'mem1:11211,mem2:11211')
-# Enables caching via memcached for improved performance
+# List of memcached servers for caching (e.g., ['host1:11211', 'host2:11211']).
+servers = {{ keystone_memcache_servers | default([]) | join(',') }}
 
 [oauth1]
-# Driver used for OAuth1 support (e.g., 'sql')
-# Enables support for OAuth1 tokens and consumers
+# Backend for OAuth1 token/consumer storage.
+driver = {{ keystone_oauth1_driver | default('sql') }}
 
 [paste_deploy]
-# Configuration file for the PasteDeploy router (e.g., 'config:/etc/keystone/keystone-paste.ini')
-# Defines WSGI pipeline and middleware for the keystone service
+# PasteDeploy config path defining WSGI pipeline and middleware.
+config_file = {{ keystone_paste_deploy_config | default('config:/etc/keystone/keystone-paste.ini') }}
 
 [policy]
-# Driver used for policy enforcement (e.g., 'sql')
-# Dictates how RBAC policies are stored and evaluated
+# Backend for RBAC policy rules.
+driver = {{ keystone_policy_driver | default('sql') }}
 
 [resource]
-# Driver used for resource management (e.g., 'sql')
-# Specifies how projects (tenants) and domains are handled
+# Backend driver for managing projects and domains.
+driver = {{ keystone_resource_driver | default('sql') }}
 
 [s3]
-# Driver used for S3 compatibility (e.g., 'sql')
-# Enables support for S3-compatible object storage authentication
+# Backend for S3-compatible credential storage.
+driver = {{ keystone_s3_driver | default('sql') }}
 
 [signing]
-# Directory where PKI token signing certificates are stored
-# Used only when token format is PKI; deprecated in newer versions
+# Path to PKI signing certificate (legacy PKI tokens only).
+certfile = {{ keystone_signing_certfile | default('') }}
+# Path to PKI signing private key (legacy PKI tokens only).
+keyfile = {{ keystone_signing_keyfile | default('') }}
 
 [token]
-# Provider class for token management (e.g., 'fernet', 'uuid', 'pki')
-# Determines token format and handling (Fernet is recommended in modern deployments)
-
-# Expiration time for tokens in seconds (e.g., 3600)
-# Tokens will expire after this duration unless revoked
-# Maximum number of concurrent tokens a user may hold
-# Enables token revocation via token blacklist (e.g., 'sql')
-# Driver used for token storage (e.g., 'sql', 'fernet', 'redis')
-# Redis connection URL when using Redis-backed token storage (e.g., 'redis://redis:6379')
-
-# Whether to expire tokens immediately upon revocation (e.g., false)
-# When true, revoking a token instantly invalidates it (requires driver support)
-# Enable PKI token revocation cache (e.g., false)
-# Enables token caching for performance (e.g., true)
-# Time-to-live for cached tokens in seconds (e.g., 600)
-# Number of revocation events to cache (e.g., 1000)
+# Token format: 'fernet' (recommended), 'uuid', or legacy 'pki'.
+provider = {{ keystone_token_provider | default('fernet') }}
+# Token lifetime in seconds. Shorter = more secure, more overhead.
+expiration = {{ keystone_token_expiration | default(3600) }}
+# Max simultaneous active tokens per user.
+max_concurrent = {{ keystone_token_max_concurrent | default(10) }}
+# Backend for token revocation list (e.g., sql, redis, memcache).
+revocation_driver = {{ keystone_token_revocation_driver | default('sql') }}
+# Backend for caching token metadata (e.g., sql, memcache).
+cache_driver = {{ keystone_token_cache_driver | default('sql') }}
+# Redis connection URL for token storage or caching (e.g., 'redis://redis:6379').
+redis_url = {{ keystone_redis_url | default('') }}
+# Enable caching of token lookups for improved performance.
+use_cache = {{ keystone_token_use_cache | default(True) | lower }}
+# TTL for cached token entries (seconds).
+cache_ttl = {{ keystone_token_cache_ttl | default(600) }}
+# Max revocation events to cache.
+revocation_cache_size = {{ keystone_token_revocation_cache_size | default(1000) }}
+# Immediately expire revoked tokens (requires driver support).
+expire_on_revocation = {{ keystone_token_expire_on_revocation | default(False) | lower }}
+# Enable PKI revocation cache (legacy PKI tokens only).
+pki_revocation_cache = {{ keystone_token_pki_revocation_cache | default(False) | lower }}
 
 [tokenless_auth]
-# Driver used for tokenless authentication (e.g., 'sql')
-# Allows authentication without issuing tokens (e.g., for certain OAuth1 flows)
+# Backend for tokenless auth flows (e.g., OAuth1).
+driver = {{ keystone_tokenless_auth_driver | default('sql') }}
 
 [trust]
-# Driver used for trust management (e.g., 'sql')
-# Enables delegation of roles via trust tokens
+# Backend for delegated trust tokens.
+driver = {{ keystone_trust_driver | default('sql') }}
 
 [endpoint_filter]
-# Driver used for endpoint filtering (e.g., 'sql')
-# Enables project-level endpoint filtering
+# Backend for project-level endpoint filtering.
+driver = {{ keystone_endpoint_filter_driver | default('sql') }}
 
 [endpoint_policy]
-# Driver used for endpoint policy (e.g., 'sql')
-# Controls access to service endpoints based on policy rules
+# Backend for endpoint access control policies.
+driver = {{ keystone_endpoint_policy_driver | default('sql') }}
 
 [eventlet_server]
-# Host address to bind the keystone service to (e.g., '0.0.0.0')
-# Listening interface for the main API server
-
-# Port to bind the keystone service to (e.g., 5000)
-# Public API endpoint port (v2 and v3)
-
-# Port for admin API endpoint (e.g., 35357)
-# Admin API port for privileged operations
-
-# Maximum number of worker processes (e.g., 1)
-# Controls concurrency via multiprocessing; set >1 for multi-core systems
-
-# Enable SSL/TLS for the API endpoints (e.g., false)
-# Enables HTTPS when set to true
-
-# Path to SSL certificate file (e.g., '/etc/keystone/ssl/cert.pem')
-# Required when SSL is enabled
-
-# Path to SSL private key file (e.g., '/etc/keystone/ssl/key.pem')
-# Required when SSL is enabled
-
-# Path to CA bundle for client verification (e.g., '/etc/keystone/ssl/cacert.pem')
-# Enables mutual TLS (mTLS) when provided
-
-# Number of request body size allowed (in bytes) (e.g., 114688)
-# Prevents oversized payloads (DOCS: default ~112 KiB)
+# Network interface for public API server (v2/v3).
+bind_host = {{ keystone_eventlet_server_bind_host | default('0.0.0.0') }}
+# Port for public API endpoints (e.g., /v3/auth/tokens).
+public_port = {{ keystone_eventlet_server_public_port | default(5000) }}
+# Port for admin-only API endpoints (e.g., user management).
+admin_port = {{ keystone_eventlet_server_admin_port | default(35357) }}
+# Number of worker processes for handling requests.
+workers = {{ keystone_eventlet_server_workers | default(1) }}
+# Enable HTTPS for the API endpoints.
+enable_ssl = {{ keystone_eventlet_server_enable_ssl | default(False) | lower }}
+# Path to SSL certificate file (required if SSL is enabled).
+ssl_certfile = {{ keystone_eventlet_server_ssl_certfile | default('/etc/keystone/ssl/cert.pem') }}
+# Path to SSL private key file (required if SSL is enabled).
+ssl_keyfile = {{ keystone_eventlet_server_ssl_keyfile | default('/etc/keystone/ssl/key.pem') }}
+# Path to CA bundle for client certificate verification (mTLS).
+ssl_ca_certs = {{ keystone_eventlet_server_ssl_ca_certs | default('') }}
+# Maximum size (in bytes) of request body allowed (DOCS: default ~112 KiB).
+max_request_body_size = {{ keystone_eventlet_server_max_request_body_size | default(114688) }}

@@ -1,34 +1,104 @@
-# Default LDAP server URI (can be ldap://, ldaps://, or ldap://host1 ldap://host2 for failover)
-URI {{ uri }}
+#
+# LDAP Defaults Configuration
+#
+# See ldap.conf(5) for details on all available options.
+# This file should be world readable but not world writable for security best practices.
 
-# Default LDAP base DN for searches
-BASE {{ base_dn }}
+# Default base DN for LDAP searches (e.g., 'dc=myorg,dc=local')
+# Used by client tools as the starting point for directory lookups.
+BASE {{ base_dn | default('dc=example,dc=com') }}
 
-# LDAP protocol version to use (typically 3)
-LDAP_VERSION {{ ldap_version }}
+# Maximum number of entries to return from a search; 0 means unlimited.
+# Prevents accidental retrieval of massive result sets that could degrade performance.
+# SIZELIMIT {{ sizelimit | default(1000) }}
 
-# Network timeout in seconds
-TIMELIMIT {{ timelimit }}
+# Maximum time (seconds) to wait for a server connection and response.
+# 0 means unlimited, which may cause client hangs on unresponsive servers.
+# TIMELIMIT {{ timelimit | default(10) }}
 
-# Search time limit in seconds
-SIZELIMIT {{ sizelimit }}
+# LDAP server URI(s) — space-separated for failover.
+# Supports ldap://, ldaps://, and ldapi:// schemes.
+# Order determines priority; clients typically try URIs in sequence.
+URI {{ uri | default('ldap://127.0.0.1/') }}
 
-# Enable SSL/TLS (set to 'yes' or 'no')
+# LDAP protocol version to use (1, 2, or 3).
+# Version 3 is the modern standard with better security and functionality.
+# Version 2 is deprecated and insecure.
+VERSION {{ ldap_version | default(3) }}
+
+# TLS Certificate Verification Settings
+# --------------------------------------
+
+# Path to CA certificate bundle for TLS verification.
+# This file contains trusted root CAs used to verify the LDAP server's certificate.
+# Ensure this path points to a valid, readable certificate bundle.
 TLS_CACERT {{ tls_ca_cert_path | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# TLS certificate verification mode.
+# 'demand' (required): Server must present a valid certificate signed by a trusted CA.
+# 'allow': Client accepts any certificate (insecure, disables server identity verification).
+# 'try': Attempt verification but allow connection if it fails (partial verification).
+# 'never': Skip all certificate verification (insecure).
 TLS_REQCERT {{ tls_reqcert | default('demand') }}
 
-# SASL authentication options (if used)
-{% if sasl_enabled %}SASL_MECH {{ sasl_mech }}
-SASL_REALM {{ sasl_realm }}
-SASL_AUTHCID {{ sasl_authcid }}{% endif %}
+# How to handle referrals returned by the server.
+# 'follow': Automatically chase referrals to other servers (requires proper URI configuration).
+# 'stop': Do not chase referrals; return the referral object to the client.
+REFERRALS {{ referrals | default('follow') }}
 
-# referrals handling (set to 'follow' or 'stop')
-REFERRALS {{ referrals }}
+# SASL (Simple Authentication and Security Layer) Settings
+# ---------------------------------------------------------
 
-# Default bind DN (for tools like ldapsearch, ldapadd, etc.)
-{% if bind_dn %}BINDDN {{ bind_dn }}
-BINDPW {{ bind_pw | default('') }}{% endif %}
+# Disable canonicalization of the SASL authorization identity.
+# 'on': Do not canonicalize the authcid before sending it to the server.
+# This is often required for GSSAPI/Kerberos environments to match expected principal formats.
+{% if sasl_enabled | default(False) | bool %}
+SASL_NOCANON on
+{% endif %}
 
-# Additional search filters or scope (optional overrides)
-{% for option in extra_options %}# {{ option.comment | default('Custom option') }}
-{{ option.key }} {{ option.value }}{% endfor %}
+# SASL mechanism to use when SASL is enabled.
+# Common values: 'GSSAPI' (Kerberos), 'EXTERNAL' (TLS certificate), 'PLAIN' (username/password).
+# If SASL is disabled, this value is ignored.
+SASL_MECH {{ sasl_mech | default('GSSAPI') }}
+
+# SASL realm (Kerberos realm for GSSAPI).
+# Leave empty to auto-detect from the environment or keytab.
+# Only used when SASL_MECH is set to a realm-dependent mechanism like GSSAPI.
+{% if sasl_realm | default('') | string %}
+SASL_REALM {{ sasl_realm | default('') | string }}
+{% endif %}
+
+# SASL authentication identity (principal name for GSSAPI).
+# Explicitly specifies the client identity to present to the server.
+# Often omitted to allow the system's default credential cache to determine the identity.
+{% if sasl_authcid | default('') | string %}
+SASL_AUTHCID {{ sasl_authcid | default('') | string }}
+{% endif %}
+
+# Bind Credentials for Default Bind Operations
+# ---------------------------------------------
+
+# Default bind DN for client tools.
+# Used for operations that require authentication but do not specify a bind DN explicitly.
+# Example: 'cn=admin,dc=example,dc=com'
+# Leave empty to bind anonymously (no authentication).
+{% if bind_dn | default('') | string %}
+BINDDN {{ bind_dn | default('') | string }}
+{% endif %}
+
+# Password for default bind DN.
+# SECURITY WARNING: Storing passwords in plain text in configuration files is risky.
+# If empty, tools will prompt interactively or use credential helpers.
+# Consider using external secret management instead of this file for sensitive environments.
+{% if bind_pw | default('') | string %}
+BINDPW {{ bind_pw | default('') | string }}
+{% endif %}
+
+# Extra Options
+# -------------
+# Additional configuration key-value pairs for advanced or vendor-specific options.
+# These are written as raw directives directly into the configuration.
+# Format: KEY VALUE
+{% for option in extra_options | default([]) | list %}
+{{ option.key }} {{ option.value }}
+{% endfor %}

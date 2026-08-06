@@ -1,0 +1,32 @@
+# Dropwatch configuration file.
+# Dropwatch is a Linux tool for monitoring kernel network packet drops.
+# All settings below are optional; defaults are applied if the variable
+# is not provided or is explicitly undefined in the Ansible host vars.
+
+# Set the translation method for drop locations (e.g., 'kas' to use /proc/kallsyms).
+# Valid values depend on the kernel and installed debuginfo packages.
+set alertmethod {{ alertmethod | default('kas') }}
+
+# Set the maximum number of alerts before stopping.
+# Use 0 for no limit (continuous monitoring).
+set alertlimit {{ alertlimit | default(0) }}
+
+# Set alert mode: 'summary' for drop location stats, 'packet' for full packet data.
+set alertmode {{ alertmode | default('summary') }}
+
+# Set truncation length for packets (0 = no truncation; only effective in 'packet' alertmode).
+set trunc {{ trunc | default(0) }}
+
+# Set kernel per-CPU queue length for packet alerts.
+set queue {{ queue | default(1000) }}
+
+# Enable monitoring of software-originated drops.
+set sw {{ sw | default(true) | string | lower }}
+
+# Enable monitoring of hardware-originated drops.
+set hw {{ hw | default(false) | string | lower }}
+
+# Automatically issue 'start' command on load.
+{% if start | default(false) %}
+start
+{% endif %}

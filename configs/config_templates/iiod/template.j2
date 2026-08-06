@@ -1,39 +1,60 @@
-# Listen address and port for the IIO daemon
-bind_address = {{ bind_address }}
-bind_port = {{ bind_port }}
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          iiod
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: IIO Daemon
+# Description: industrial I/O (IIO) Daemon service
+#  Debian init.d script for the IIO Daemon
+#  Copyright © 2014 Analog Devices Inc.
+### END INIT INFO
 
-# Maximum number of concurrent client connections
-max_connections = {{ max_connections }}
+. /lib/lsb/init-functions
 
-# Enable/Disable SSL/TLS for secure connections
-use_ssl = {{ use_ssl }}
+# Server-side demuxing by default
+IIOD_OPTS=-D
 
-# Path to SSL certificate (only used if use_ssl is enabled)
-ssl_cert = "{{ ssl_cert }}"
+if test -f /etc/default/iiod; then
+    . /etc/default/iiod
+fi
 
-# Path to SSL private key (only used if use_ssl is enabled)
-ssl_key = "{{ ssl_key }}"
+case "$1" in
+	start)
+		log_daemon_msg "Starting IIO Daemon" "iiod" || true
+		if start-stop-daemon -S -b -q -m -p /var/run/iiod.pid -x /usr/sbin/iiod -- $IIOD_OPTS; then
+			log_end_msg 0 || true
+		else
+			log_end_msg 1 || true
+		fi
+		;;
 
-# List of IIO devices to expose (if empty, all devices are exposed)
-{% if devices %}# Explicitly expose only the following IIO devices
-{% for dev in devices %}device = "{{ dev.name }}"{% if dev.description %} # {{ dev.description }}{% endif %}
-{% endfor %}{% else %}# Expose all available IIO devices (default)
-device = "*"
-{% endif %}
+	stop)
+		log_daemon_msg "Stopping IIO Daemon" "iiod" || true
+		if start-stop-daemon -K -q -p /var/run/iiod.pid; then
+			log_end_msg 0 || true
+		else
+			log_end_msg 1 || true
+		fi
+		;;
 
-# Transport layer(s) to enable
-{% for transport in transports %}transport = "{{ transport.name }}"{% if transport.options %} # options: {{ transport.options }}{% endif %}
-{% endfor %}
+	restart|force-reload)
+		$0 stop
+		$0 start
+		;;
 
-# Authentication mode: none | passwd | cert
-auth_mode = "{{ auth_mode }}"
+	status)
+		if [ -f /var/run/iiod.pid ] ; then
+			status_of_proc -p /var/run/iiod.pid /usr/sbin/iiod iiod && exit 0 || exit $?
+		else
+			status_of_proc /usr/sbin/iiod iiod && exit 0 || exit $?
+		fi
+		;;
 
-# Path to password file (only used if auth_mode = passwd)
-{% if auth_mode == 'passwd' %}passwd_file = "{{ passwd_file }}"
-{% endif %}
+	*)
+		log_action_msg "Usage: /etc/init.d/iiod.sh {start|stop|restart|status}" || true
+		exit 1
+esac
 
-# Logging level: debug | info | warn | error
-log_level = "{{ log_level }}"
-
-# Path to log file (empty = stderr)
-log_file = "{{ log_file }}"
+exit 0

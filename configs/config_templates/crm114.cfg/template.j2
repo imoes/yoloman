@@ -1,51 +1,81 @@
-# CRM114 main configuration file — controls spam/ham classification behavior
+# =============================================================================
+# CRM114 Configuration Template
+# =============================================================================
+# This file configures the CRM114 (Cross-Platform Rule-based Machine-learning
+# Network) spam filtering engine. It defines where data is stored, how messages
+# are preprocessed, which classifier algorithms are used, and how results are
+# formatted.
+#
+# SELF-DOCUMENTING: Every variable is documented with its source description
+# and a safe default derived from the schema.
+# =============================================================================
+
 [general]
-# Directory where CRM114 keeps its trained data (classifiers, dictionaries, etc.)
-{{ data_dir }}
 
-# Path to the mail spool or mailbox used for training and testing
-{{ mail_spool | default('none') }}
+# Directory where CRM114 stores trained classifier data, dictionaries, and
+# persistent state. This directory must be writable by the CRM114 process user.
+data_dir = {{ data_dir | default('/var/lib/crm114') }}
 
-# Enable verbose logging for troubleshooting (true|false)
-{{ debug | default('false') }}
+# Path to the mailbox (e.g., Maildir, MBox) used for training or batch
+# classification. Set to 'none' to disable batch training/spool processing.
+mail_spool = {{ mail_spool | default('none') }}
 
-# Maximum memory (in MB) to use during classification (0 = no limit)
-{{ max_memory | default('0') }}
+# Enable detailed logging to aid debugging. Set to true only for
+# troubleshooting; disable in production for performance and log hygiene.
+debug = {{ debug | default(false) | lower }}
+
+# Maximum memory (in MB) CRM114 may use. 0 means no limit. This acts as a
+# safeguard against runaway memory consumption during large training batches.
+max_memory = {{ max_memory | default(0) }}
 
 [preprocessor]
-# List of preprocessor filters to apply before classification (each filter path)
-{% for filter in preprocessors %}{{ filter }}
+# Ordered list of preprocessor filter paths (e.g., to strip HTML, decode MIME,
+# normalize whitespace). Each item is a path to a preprocessor module or script.
+{% for filter in preprocessors | default([]) %}
+preprocessor = {{ filter }}
 {% endfor %}
 
 [classifier]
-# Name of the classifier to use (e.g., 'dispm', 'svm', 'bcl')
-{{ classifier_name }}
+# Name of the core classifier algorithm to use (e.g., dispm, svm, bcl).
+# 'dispm' is the default discriminative pattern matcher.
+classifier = {{ classifier_name | default('dispm') }}
 
-# Training method (e.g., 'online', 'batch')
-{{ training_method }}
+# Training mode — 'online' for incremental updates as new mail arrives,
+# 'batch' for full retraining on a collected dataset.
+training_method = {{ training_method | default('online') }}
 
-# Minimum word frequency threshold (words below this are ignored)
-{{ min_word_freq | default('2') }}
+# Minimum occurrence frequency for a token to be included in the model.
+# Tokens appearing fewer times than this are ignored to reduce noise.
+min_word_freq = {{ min_word_freq | default(2) }}
 
-# Maximum number of features (tokens) to retain in the model
-{{ max_features | default('10000') }}
+# Upper limit on the number of tokens the model will consider. Helps control
+# model size and training time.
+max_features = {{ max_features | default(10000) }}
 
-# Threshold above which an email is classified as spam (0.0–1.0)
-{{ spam_threshold | default('0.95') }}
+# Probability threshold above which an email is classified as spam.
+# Range is 0.0–1.0. Higher values mean fewer false positives but potentially
+# more false negatives (spam getting through).
+spam_threshold = {{ spam_threshold | default(0.95) }}
 
 [discriminators]
-# List of discriminators (tokenizers/filters) to apply to text before classification
-{% for disc in discriminators %}{{ disc }}
+# List of discriminator/filter names (e.g., 'word' = tokenization, 'bword' =
+# bi-grams). These filters transform raw text before the classifier sees it.
+{% for disc in discriminators | default(['word', 'bword']) %}
+discriminator = {{ disc }}
 {% endfor %}
 
 [extensions]
-# Optional extensions (e.g., bayes, regexp, keyword)
-{% for ext in extensions %}{{ ext }}
+# Optional CRM114 extension modules to enable (e.g., bayes, regexp).
+# These extend the core engine with specialized handling capabilities.
+{% for ext in extensions | default([]) %}
+extension = {{ ext }}
 {% endfor %}
 
 [output]
-# Format for classification output: 'mail', 'text', 'json', etc.
-{{ output_format }}
+# Output format for classification results. Common values include 'mail'
+# (modified message headers/body), 'text' (simple status string), or 'json'.
+output_format = {{ output_format | default('mail') }}
 
-# Append classification metadata to message headers? (true|false)
-{{ add_headers | default('false') }}
+# When true, append X-CRM114-Status and related headers to classified messages.
+# Useful for mail servers that need to inspect classification metadata.
+add_headers = {{ add_headers | default(false) | lower }}

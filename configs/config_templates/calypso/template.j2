@@ -5,85 +5,13 @@ host = {{ server.host }}
 # Port the server listens on
 port = {{ server.port }}
 
-# SSL certificate file (optional; leave empty to disable HTTPS)
+# Enable SSL (binary flag; certificate/key paths are handled via command-line args or internal defaults if not exposed in this config scope)
+# Note: The man page indicates SSL is controlled via -s/--ssl and -k/--key/-c/--certificate flags.
+# This template maps the available CLI options to config keys for consistency.
+ssl_enabled = {{ server.ssl_enabled | lower }}
+
+# SSL certificate file
 ssl_certificate = {{ server.ssl_certificate | default('', true) }}
 
-# SSL private key file (optional; required if ssl_certificate is set)
+# SSL private key file
 ssl_key = {{ server.ssl_key | default('', true) }}
-
-[storage]
-# Backend type — must be 'git'
-backend = git
-
-# Path to the Git repository root (contains per-user git repos)
-path = {{ storage.path }}
-
-# Directory to store temporary files (e.g., during sync)
-tmp_dir = {{ storage.tmp_dir }}
-
-# Enable repository auto-creation for new users
-auto_create = {{ storage.auto_create | lower }}
-
-# Git repository template path (optional; used for new repos)
-git_template = {{ storage.git_template | default('', true) }}
-
-[auth]
-# Authentication method: 'none', 'basic', or 'digest'
-method = {{ auth.method }}
-
-# Path to htpasswd file (required for 'basic' and 'digest')
-htpasswd_file = {{ auth.htpasswd_file | default('', true) }}
-
-# Digest realm (used only with 'digest' auth)
-realm = {{ auth.realm | default('CalDAV/CardDAV', true) }}
-
-# Enable LDAP authentication (requires python-ldap)
-ldap_enable = {{ auth.ldap_enable | lower }}
-
-# LDAP server URI
-ldap_uri = {{ auth.ldap_uri | default('', true) }}
-
-# LDAP base DN for user search
-ldap_base_dn = {{ auth.ldap_base_dn | default('', true) }}
-
-# LDAP filter for user lookup (e.g., '(uid=%s)')
-ldap_user_filter = {{ auth.ldap_user_filter | default('(uid=%s)', true) }}
-
-# LDAP bind DN (optional; leave empty for anonymous bind)
-ldap_bind_dn = {{ auth.ldap_bind_dn | default('', true) }}
-
-# LDAP bind password
-ldap_bind_password = {{ auth.ldap_bind_password | default('', true) }}
-
-[logging]
-# Log level: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-level = {{ logging.level }}
-
-# Path to log file (empty means log to stderr)
-file = {{ logging.file | default('', true) }}
-
-[paths]
-# Path prefix for web UI (optional)
-web_ui_path = {{ paths.web_ui_path | default('', true) }}
-
-# Default calendar name (used when none specified)
-default_calendar = {{ paths.default_calendar }}
-
-# Enable collection discovery via /.well-known/caldav and /.well-known/carddav
-well_known = {{ paths.well_known | lower }}
-
-{% for repo in repositories %}
-[repository:{{ repo.name }}]
-# User or group name for this repository
-user = {{ repo.user }}
-
-# Owner display name (for WebUI & CalDAV reports)
-displayname = {{ repo.displayname }}
-
-# Path relative to storage.path (e.g., 'alice.git')
-path = {{ repo.path }}
-
-# Default ACL permissions ('ro' or 'rw'); overridden by LDAP if enabled
-acl = {{ repo.acl }}
-
-{% endfor %}

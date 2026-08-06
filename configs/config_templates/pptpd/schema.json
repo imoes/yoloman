@@ -1,4 +1,9 @@
 {
+  "daemon_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line options passed to the pptpd daemon."
+  },
   "bind_address": {
     "type": "string",
     "default": "127.0.0.1",
@@ -17,7 +22,11 @@
   "mppe": {
     "type": "string",
     "default": "required",
-    "description": "MPPE encryption policy. 'required' or 'required-128' recommended for security."
+    "description": "MPPE encryption policy. 'required' or 'required-128' recommended for security.",
+    "enum": [
+      "required",
+      "disable"
+    ]
   },
   "ms_chap_v2": {
     "type": "bool",
@@ -32,22 +41,7 @@
         "remote": "192.168.0.100-192.168.0.200"
       }
     ],
-    "description": "IP address pools: local is the server IP (as seen by clients), remote is the client IP range(s).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "local": {
-          "type": "string",
-          "default": "",
-          "description": "Local (server-side) IP for this pool."
-        },
-        "remote": {
-          "type": "string",
-          "default": "",
-          "description": "Remote (client-side) IP address range (e.g., 10.0.0.10-10.0.0.100, or single IP)."
-        }
-      }
-    }
+    "description": "IP address pools: local is the server IP (as seen by clients), remote is the client IP range(s)."
   },
   "dns_servers": {
     "type": "list",
@@ -55,20 +49,12 @@
       "8.8.8.8",
       "8.8.4.4"
     ],
-    "description": "DNS servers to push to VPN clients (IPv4). Use internal servers for enterprise networks.",
-    "items": {
-      "type": "string",
-      "description": "IPv4 DNS server address."
-    }
+    "description": "DNS servers to push to VPN clients (IPv4). Use internal servers for enterprise networks."
   },
   "wins_servers": {
     "type": "list",
     "default": [],
-    "description": "WINS servers to push to VPN clients (for NetBIOS name resolution). Typically empty for modern networks.",
-    "items": {
-      "type": "string",
-      "description": "IPv4 WINS server address."
-    }
+    "description": "WINS servers to push to VPN clients (for NetBIOS name resolution). Typically empty for modern networks."
   },
   "debug": {
     "type": "bool",

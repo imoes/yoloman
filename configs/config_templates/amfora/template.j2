@@ -1,0 +1,59 @@
+{# amfora(1) is a Gemini browser; config is a TOML file ~/.config/amfora/config.toml #}
+{# Self-documenting: every setting includes its default, type, and purpose in a comment above the key. #}
+{# Variables are sourced from Ansible inventory/vars and always have safe defaults. #}
+
+[general]
+# Run amfora in headless mode (no UI). Default: false.
+headless = {{ headless | default(false) }}
+
+# Show sidebar with bookmarks and history. Default: true.
+show_sidebar = {{ show_sidebar | default(true) }}
+
+# Language code for UI localization. Default: "en".
+language = "{{ language | default('en') }}"
+
+# Start page URL when amfora launches. Default: "https://geminiprotocol.net/".
+start_url = "{{ start_url | default('https://geminiprotocol.net/') }}"
+
+[rendering]
+# Maximum column width for text wrapping in characters. Default: 80.
+line_width = {{ line_width | default(80) }}
+
+# Enable display of inline images (requires an external viewer). Default: true.
+show_images = {{ show_images | default(true) }}
+
+# Command used to open linked files (e.g., images). Default: "xdg-open".
+image_viewer = "{{ image_viewer | default('xdg-open') }}"
+
+# Font scaling factor (must be > 0). Default: 1.0.
+font_scale = {{ font_scale | default(1.0) }}
+
+[history]
+# Maximum number of history entries to retain. Default: 1000.
+max_entries = {{ max_entries | default(1000) }}
+
+# Enable history logging of visited URLs. Default: true.
+enable_history = {{ enable_history | default(true) }}
+
+[bookmarks]
+# Initial bookmarks to pre-populate; each entry is a map with 'title' and 'url'.
+# If no bookmarks are defined, this section remains empty.
+{% for item in (bookmarks | default([])) %}
+# Bookmark: {{ item.title | default('') }}
+{{ item.url | default('') }}
+{% endfor %}
+
+[security]
+# Verify server TLS certificate against system CA store. Default: true.
+verify_certificate = {{ verify_certificate | default(true) }}
+
+# Require valid TLS certificate (does not affect gemini:// which is unencrypted). Default: true.
+strict_tls = {{ strict_tls | default(true) }}
+
+[proxy]
+# SOCKS5 proxy URL (e.g., 'socks5://localhost:9050'). Default: empty (no proxy).
+{% if proxy_url is defined and proxy_url | length > 0 %}
+socks5 = "{{ proxy_url }}"
+{% else %}
+# socks5 = ""
+{% endif %}

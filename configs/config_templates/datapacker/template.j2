@@ -1,0 +1,35 @@
+{#
+  Datapacker systemd unit configuration template.
+  This template generates a systemd [Service] section for the 'datapacker'
+  bin-packing utility. It handles command-line arguments and input file
+  specifications safely using Jinja2 loops.
+#}
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+{#
+  Command-line arguments passed to datapacker.
+  Schema: datapacker_args (list) - List of command-line arguments for datapacker
+          (e.g., '-s 600m -a hardlink -b /dest/%03d'). Each item must be a
+          single argument string.
+#}
+ExecStart=/usr/bin/datapacker \
+{% for arg in (datapacker_args | default([])) %}\
+{{ arg }} \
+{% endfor %}\
+{#
+  Input files or glob patterns to pack into bins.
+  Schema: input_files (list) - List of file paths or glob patterns to pack into
+          bins. Must be non-empty. May include '-' to read from stdin (combined
+          with -0/-d/-p flags).
+#}
+{% for file in (input_files | default([])) %}\
+{{ file }} \
+{% endfor %}
+
+{#
+  Environment variables for execution context.
+  Ensures standard system paths are available for the service execution.
+#}
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

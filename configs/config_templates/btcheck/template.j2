@@ -1,0 +1,39 @@
+# ==============================================================================
+# btcheck(1) Configuration File
+# ==============================================================================
+# This file configures the btcheck torrent integrity checking utility.
+# It is managed by Ansible. Do not edit manually.
+# See btcheck(1) for details on each option.
+
+# ------------------------------------------------------------------------------
+# Command-line options passed to btcheck(1) on each invocation.
+# Valid values are: -h, -V, -v, -q, -n, -z, -i, -l.
+# Defaults to an empty list (no extra options).
+# ------------------------------------------------------------------------------
+BTCHECK_OPTS="{{ options | default([]) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# Working directory for data checking.
+# btcheck performs data checking in this directory when the torrent's info
+# directory is absent or unreadable. If empty, btcheck uses the current directory.
+# ------------------------------------------------------------------------------
+{% if working_directory | default('') | length > 0 %}
+BTCHECK_WORKDIR="{{ working_directory | default('') }}"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Custom data directory prefix.
+# Prepended to the torrent's declared data directory. Useful for chroot or
+# containerized setups. Leave empty to use the torrent's declared path as-is.
+# ------------------------------------------------------------------------------
+{% if data_prefix | default('') | length > 0 %}
+BTCHECK_DATAPREFIX="{{ data_prefix | default('') }}"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Timeout in seconds for hash computation per file.
+# Set to 0 to disable the timeout entirely.
+# ------------------------------------------------------------------------------
+{% if timeout | default(0) > 0 %}
+BTCHECK_TIMEOUT={{ timeout | default(0) }}
+{% endif %}

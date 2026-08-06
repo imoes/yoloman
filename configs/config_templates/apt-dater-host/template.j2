@@ -1,0 +1,69 @@
+# ==============================================================================
+# apt-dater-host configuration template
+# ==============================================================================
+# This configuration file is used by the `apt-dater-host` service to define
+# how package management tasks (upgrade, install, cleanup) are performed.
+# ==============================================================================
+
+# Package tool to use (e.g., apt-get or aptitude).
+# Supported values depend on the system's available package managers.
+# Default: apt-get
+$DPKGTOOL="{{ DPKGTOOL | default('apt-get') }}";
+
+# Method to perform upgrades. Possible values depend on $DPKGTOOL:
+#   - upgrade: Standard upgrade (apt-get, aptitude on Etch)
+#   - safe-upgrade: Safe upgrade (aptitude)
+#   - dist-upupgrade: Recommended default; handles dependency changes intelligently (apt-get)
+# Default: dist-upgrade
+$APTUPGRADE='{{ APTUPGRADE | default("dist-upgrade") }}';
+
+# Enable use of the --assume-yes flag for apt commands to automate non-interactively.
+# 1 = yes (automatic), 0 = no (interactive)
+# Default: 1
+$ASSUMEYES={{ ASSUMEYES | default(1) }};
+
+# Command used to elevate privileges to root.
+# Common values: sudo, su
+# Default: sudo
+$GETROOT="{{ GETROOT | default("sudo") }}";
+
+# Clean package cache after upgrade or install to save disk space.
+# 1 = yes (cleanup enabled), 0 = no (cleanup disabled)
+# Default: 0
+$CLEANUP={{ CLEANUP | default(0) }};
+
+# Path to the file storing the host's unique installation UUID.
+# This UUID helps apt-dater identify and manage specific hosts.
+# Default: /etc/apt-dater-host.uuid
+$UUIDFILE = '{{ UUIDFILE | default("/etc/apt-dater-host.uuid") }}';
+
+# If this host is part of (multiple) cluster(s), you might set a
+# symbolic name. Hosts with the same cluster name won't be upgraded
+# simultaneously by apt-dater (requires apt-dater 0.9 or above).
+# Comma-separated list of cluster names. Empty string means no clustering.
+# Default: ''
+#@CLUSTERS = qw({{ CLUSTERS | default("") }});
+
+# Check if needrestart is available. This requires the needrestart
+# package to be installed.
+# Default: /usr/sbin/needrestart (if executable) or undef
+$NEEDRESTART = (-x '/usr/sbin/needrestart' ? '/usr/sbin/needrestart' : undef);
+
+# On apt-based systems needrestart should to be called by apt directly,
+# no need to run it in an interactive mode from within apt-dater-host.
+#$RUNNEEDREST++;
+
+##
+## If this host is a mission critical system and
+## needs scheduled downtimes for upgrades, enable
+## (some) of the following $FORBID_* lines:
+##
+
+# prevent apt-dater-host from refreshing package lists
+#$FORBID_REFRESH=1;
+
+# prevent apt-dater-host from upgrading packages
+#$FORBID_UPGRADE=1;
+
+# prevent apt-dater-host from installing packages
+#$FORBID_INSTALL=1;

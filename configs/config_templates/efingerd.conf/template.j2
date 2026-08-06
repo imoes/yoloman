@@ -1,59 +1,20 @@
-# Listen address and port
-listen = {{ listen.address }}:{{ listen.port }}
+# efingerd configuration file
+# This is the main configuration file for efingerd.
+# It controls the behavior of the efingerd service, which provides
+# finger-like information via TCP.
 
-# User and group to run as
-user = {{ user }}
-group = {{ group }}
+# Lifetime for spawned services in seconds (equivalent to man page option -t X; default 60).
+# Controls how long child processes (e.g. for shell commands) are allowed to run.
+timeout = {{ timeout | default(60) }}
 
-# Root directory for chroot (empty string disables chroot)
-root = {{ root }}
+# If true, do not lookup addresses, use IP numbers instead (equivalent to man page option -n).
+# Disabling DNS lookups can improve performance and avoid delays if DNS is slow/unreliable.
+n = {{ nlookup | default(False) | lower }}
 
-# Maximum number of concurrent connections
-max_connections = {{ max_connections }}
+# If true, do not display users' full names (equivalent to man page option -f).
+# When disabled (default), efingerd may display the user's full name from the system.
+f = {{ no_fullnames | default(False) | lower }}
 
-# Enable/disable verbose logging
-verbose = {{ verbose }}
-
-# Log file path (empty string logs to stderr)
-logfile = {{ logfile }}
-
-# Fingerprint database path
-db_path = {{ db_path }}
-
-# Timeout for client connections (seconds)
-timeout = {{ timeout }}
-
-# Allow anonymous queries
-allow_anonymous = {{ allow_anonymous }}
-
-# List of allowed IPs (empty = allow all); deny if not listed
-{% for ip in allowed_ips %}# Allowed IP: {{ ip }}
-{% endfor %}
-{% for ip in allowed_ips %}allow_ip = {{ ip }}
-{% endfor %}
-
-# List of denied IPs (empty = deny none)
-{% for ip in denied_ips %}# Denied IP: {{ ip }}
-{% endfor %}
-{% for ip in denied_ips %}deny_ip = {{ ip }}
-{% endfor %}
-
-# Custom finger response templates (key = username pattern, value = template string)
-{% for pattern, template in response_templates.items() %}# Template for pattern: {{ pattern }}
-response_template[{{ pattern | regex_replace('[\\[\\]\\^\\$\\.\\|\\(\\)\\{\\}\\+\\?]', '\\\\&') }}] = {{ template | tojson | replace('"', "'") }}
-{% endfor %}
-
-# Default response (if no pattern matches)
-default_response = {{ default_response | tojson | replace('"', "'") }}
-
-# Enable/disable SSL/TLS
-ssl_enabled = {{ ssl_enabled }}
-
-{% if ssl_enabled %}
-# SSL certificate and key paths
-ssl_cert = {{ ssl_cert }}
-ssl_key = {{ ssl_key }}
-{% endif %}
-
-# Enable/disable IPv6 support
-ipv6_enabled = {{ ipv6_enabled }}
+# If true, ignore user-specific .efingerd file (equivalent to man page option -u).
+# When disabled (default), efingerd reads per-user configuration files.
+u = {{ ignore_efingerd | default(False) | lower }}

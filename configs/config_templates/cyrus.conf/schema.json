@@ -1,106 +1,64 @@
 {
-  "services": {
+  "sections": {
     "type": "list",
     "default": [
       {
-        "daemon": "defaults",
-        "service": "imap",
-        "type": "socket",
-        "cmd": "imapd -s"
+        "name": "START",
+        "entries": [
+          {
+            "name": "recover",
+            "args": "cmd=\"ctl_cyrusdb -r\""
+          }
+        ],
+        "description": "Processes to run before any SERVICES are spawned."
       },
       {
-        "daemon": "defaults",
-        "service": "pop3",
-        "type": "socket",
-        "cmd": "pop3d -s"
+        "name": "SERVICES",
+        "entries": [
+          {
+            "name": "imap",
+            "args": "cmd=\"imapd\" listen=\"imap\" prefork=1"
+          },
+          {
+            "name": "imaps",
+            "args": "cmd=\"imapd -s\" listen=\"imaps\" prefork=0"
+          },
+          {
+            "name": "lmtpunix",
+            "args": "cmd=\"lmtpd\" listen=\"/var/imap/socket/lmtp\""
+          },
+          {
+            "name": "lmtp",
+            "args": "cmd=\"lmtpd\" listen=\"localhost:lmtp\""
+          }
+        ],
+        "description": "Processes spawned to handle client connections."
       },
       {
-        "daemon": "defaults",
-        "service": "sieve",
-        "type": "socket",
-        "cmd": "timsieved -s"
+        "name": "EVENTS",
+        "entries": [
+          {
+            "name": "checkpoint",
+            "args": "cmd=\"ctl_cyrusdb -c\" period=30"
+          }
+        ],
+        "description": "Processes run at specific intervals."
       },
       {
-        "daemon": "defaults",
-        "service": "lmtp",
-        "type": "socket",
-        "cmd": "lmtpd -l"
+        "name": "DAEMON",
+        "entries": [
+          {
+            "name": "idled",
+            "args": "cmd=\"idled\""
+          }
+        ],
+        "description": "Long running daemons managed by master."
       }
     ],
-    "description": "List of daemon/service definitions. Each entry maps a daemon name to a service, socket type, and command to execute.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "daemon": {
-          "type": "string",
-          "default": "defaults",
-          "description": "Daemon section header (e.g., 'defaults'). Usually 'defaults' for global defaults."
-        },
-        "service": {
-          "type": "string",
-          "default": "imap",
-          "description": "Service name: 'imap', 'pop3', 'nntp', 'sieve', 'lmtp', etc."
-        },
-        "type": {
-          "type": "string",
-          "default": "socket",
-          "allowed_values": [
-            "socket",
-            "inet"
-          ],
-          "description": "Socket type: 'socket' for Unix domain sockets, 'inet' for TCP ports."
-        },
-        "cmd": {
-          "type": "string",
-          "default": "imapd -s",
-          "description": "Command to execute, including options. Use -s for socket mode, -p for port, -l for listening on all interfaces, etc."
-        }
-      }
-    }
+    "description": "List of configuration sections (START, SERVICES, EVENTS, DAEMON)."
   },
-  "sieve_options": {
-    "type": "list",
-    "default": [],
-    "description": "Optional Sieve-specific configuration directives (e.g., sieve_maxscriptsize, sieve_trace_dir). Not standard in cyrus.conf, but often included as comments or via includes.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "key": {
-          "type": "string",
-          "default": "",
-          "description": "Option key (e.g., 'sieve_maxscriptsize')"
-        },
-        "value": {
-          "type": "string",
-          "default": "",
-          "description": "Option value (e.g., '1024')"
-        }
-      }
-    }
-  },
-  "port_imap": {
-    "type": "number",
-    "default": 143,
-    "description": "TCP port for IMAP (used if 'inet' sockets are enabled instead of sockets)."
-  },
-  "port_pop3": {
-    "type": "number",
-    "default": 110,
-    "description": "TCP port for POP3 (used if 'inet' sockets are enabled instead of sockets)."
-  },
-  "port_sieve": {
-    "type": "number",
-    "default": 4190,
-    "description": "TCP port for ManageSieve (used if 'inet' sockets are enabled)."
-  },
-  "socket_path": {
-    "type": "string",
-    "default": "/var/lib/imap/socket",
-    "description": "Base directory for Unix domain sockets (e.g., /var/lib/imap/socket/lmtp)."
-  },
-  "enable_inet": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, configure inet (TCP) sockets for services instead of Unix domain sockets."
+  "entry_fields": {
+    "type": "object",
+    "description": "Fields for entries within a section. Note: The template flattens name and args, so schema validation is structural based on the example defaults provided."
   }
 }

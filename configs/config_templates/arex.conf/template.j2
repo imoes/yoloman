@@ -1,50 +1,118 @@
+# ==============================================================================
+# Arc AREX Service Configuration
+# ==============================================================================
+# This configuration file defines the parameters for the Arc AREX service,
+# which acts as the REST API interface for job submission and management.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [general] - Global Arc Service Settings
+# ------------------------------------------------------------------------------
 [general]
-# Arc AREX service general settings
-service_name = {{ service_name }}
-version = {{ version }}
-log_level = {{ log_level }}
-work_dir = {{ work_dir }}
+
+# service_name: Name of the AREX service instance.
+# Default: 'arc-arex'
+# This identifier is used for logging, status reporting, and internal service discovery.
+service_name = {{ service_name | default('arc-arex') }}
+
+# version: Arc version (for logging purposes).
+# Default: '6.15.0'
+# Specifies the software version associated with this configuration instance.
+version = {{ version | default('6.15.0') }}
+
+# log_level: Global log level (e.g., DEBUG, INFO, WARNING, ERROR).
+# Default: 'INFO'
+# Controls the verbosity of the service logs.
+log_level = {{ log_level | default('INFO') }}
+
+# work_dir: Base working directory for Arc services.
+# Default: '/var/lib/arc'
+# The root directory where the service stores runtime data, state files, and temporary working spaces.
+work_dir = {{ work_dir | default('/var/lib/arc') }}
 
 # Authentication and authorization
-authz = {{ authz }}
+# The following sections configure LDAP integration for user/group resolution.
+# If ldap_url is empty, LDAP authentication is disabled and local/auth-system methods are used.
 
+{% if (storage | default({})).ldap_url | default('') %}
+# ldap_url: LDAP URL for user/group resolution.
+# Default: '' (empty string, disables LDAP)
+# Example: 'ldap://ldap.example.com:389' or 'ldaps://ldap.example.com:636'
+# This setting is ONLY included if a non-empty LDAP URL is provided.
+ldap_url = {{ (storage | default({})).ldap_url | default('') }}
+{% endif %}
+
+{% if (storage | default({})).ldap_basedn | default('') %}
+# ldap_basedn: Base DN for LDAP searches.
+# Default: '' (empty string, disables LDAP)
+# Example: 'dc=example,dc=com'
+# This setting is REQUIRED if ldap_url is set to a non-empty value.
+# It defines the search root for user and group lookups.
+ldap_basedn = {{ (storage | default({})).ldap_basedn | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [arex] - AREX REST API Service Configuration
+# ------------------------------------------------------------------------------
 [arex]
-# AREX service configuration
-port = {{ arex.port }}
-host = {{ arex.host }}
-use_ssl = {{ arex.use_ssl }}
+
+# port: TCP port for the AREX REST API.
+# Default: 8080
+# The network port on which the AREX service listens for incoming HTTP/HTTPS requests.
+port = {{ (arex | default({})).port | default(8080) }}
+
+# host: Network interface to bind the AREX service to.
+# Default: '0.0.0.0'
+# '0.0.0.0' binds to all interfaces. Use '127.0.0.1' to restrict access to localhost.
+host = {{ (arex | default({})).host | default('0.0.0.0') }}
+
+# use_ssl: Enable SSL/TLS encryption for the AREX API.
+# Default: False
+# When true, the service expects SSL certificates to be configured externally or via related params.
+use_ssl = {{ (arex | default({})).use_ssl | default(False) }}
 
 # Worker configuration
-max_workers = {{ arex.max_workers }}
-worker_timeout = {{ arex.worker_timeout }}
+# max_workers: Maximum number of concurrent job processing workers.
+# Default: 10
+# Controls the parallelism of job execution. Higher values may improve throughput but increase resource usage.
+max_workers = {{ (arex | default({})).max_workers | default(10) }}
+
+# worker_timeout: Timeout in seconds for worker job execution.
+# Default: 3600
+# If a job exceeds this duration, the worker will terminate it. Set to 0 for no timeout.
+worker_timeout = {{ (arex | default({})).worker_timeout | default(3600) }}
 
 # Execution backend
-executor = {{ arex.executor }}
+# executor: Executor backend (e.g., local, slurm, lsf, pbs).
+# Default: 'local'
+# Specifies the job scheduler or execution environment interface used to run jobs.
+executor = {{ (arex | default({})).executor | default('local') }}
 
 # Path to job working directory
-job_root = {{ arex.job_root }}
+# job_root: Path where job work directories and metadata are stored.
+# Default: '/var/spool/arc/jobs'
+# The filesystem location where Arc creates individual job directories and stores state.
+job_root = {{ (arex | default({})).job_root | default('/var/spool/arc/jobs') }}
 
+# ------------------------------------------------------------------------------
+# [storage] - Data Storage Configuration
+# ------------------------------------------------------------------------------
 [storage]
-# Local storage configuration
-path = {{ storage.path }}
-max_size = {{ storage.max_size }}
 
-# LDAP or other identity source (optional)
-{% if storage.ldap_url %}
-# LDAP connection for user/group lookup
-ldap_url = {{ storage.ldap_url }}
-{% endif %}
-{% if storage.ldap_basedn %}
-ldap_basedn = {{ storage.ldap_basedn }}
-{% endif %}
+# path: Local path for user data and job-related files.
+# Default: '/var/lib/arc/storage'
+# The directory where persistent user data, logs, and job artifacts are stored on disk.
+path = {{ (storage | default({})).path | default('/var/lib/arc/storage') }}
 
-{% for service in services %}
-# Service-specific configuration for: {{ service.name }}
-[{{ service.name }}]
-{% if service.enabled is defined %}enabled = {{ service.enabled }}{% else %}enabled = true{% endif %}
-{% if service.port is defined %}port = {{ service.port }}{% endif %}
-{% if service.host is defined %}host = {{ service.host }}{% endif %}
-{% if service.use_ssl is defined %}use_ssl = {{ service.use_ssl }}{% endif %}
-{% if service.log_level is defined %}log_level = {{ service.log_level }}{% endif %}
-{% if service.work_dir is defined %}work_dir = {{ service.work_dir }}{% endif %}
-{% endfor %}
+# max_size: Maximum total size (in bytes) of user storage per user.
+# Default: 10737418240 (10 GB)
+# Quota limit for storage usage per user. Enforced by the storage backend.
+max_size = {{ (storage | default({})).max_size | default(10737418240) }}
+
+# services: List of additional service instances (e.g., ARCo, ARC-REST extensions) to configure.
+# Default: []
+# This list is currently unused in the base AREX configuration but reserved for future extension points.
+# If populated, it would contain dictionaries defining sub-services.
+{% if services | default([]) %}
+# services = {{ services | default([]) | tojson }}
+{% endif %}

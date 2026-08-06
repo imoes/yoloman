@@ -1,7 +1,8 @@
 {
   "snmptrapd": {
     "listen_addresses": [
-      "0.0.0.0"
+      "127.0.0.1",
+      "::1"
     ],
     "listen_ports": [
       162
@@ -9,31 +10,14 @@
     "communities": [
       {
         "name": "public"
-      },
-      {
-        "name": "private"
       }
     ],
-    "v3_users": [
-      {
-        "name": "trapuser",
-        "auth": "SHA",
-        "priv": "AES"
-      }
-    ],
-    "handlers": [
-      {
-        "oid": "1.3.6.1.4.1.9.9.41.1.1.1",
-        "script": "/usr/local/bin/handle-cisco-trap.sh"
-      },
-      {
-        "oid": "1.3.6.1.6.3.1.1.4.1.0.1.3.6.1.4.1.2021.11",
-        "script": "/usr/local/bin/handle-load-trap.sh"
-      }
-    ],
-    "log_output": "syslog",
+    "v3_users": [],
+    "handlers": [],
+    "log_output": "/var/log/snmptrapd.log",
     "drop_privileges": true,
-    "priv_user": "snmp",
+    "priv_user": "nobody",
     "debug": false
-  }
+  },
+  "trapd_opts": "-LSwd -p /run/snmptrapd.pid"
 }

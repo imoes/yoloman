@@ -1,0 +1,43 @@
+[global]
+# Cluster name; used for config file search and client identification.
+# Default value: 'ceph'
+cluster = {{ (cluster_name | default('ceph')) | string }}
+
+[client.mirror]
+# Unique ID for this mirror daemon instance.
+# Default value: 'mirror'
+id = {{ (id | default('mirror')) | string }}
+# Name of this client instance; fixed to 'client.mirror' for this role.
+name = client.mirror
+
+# Path to the Ceph configuration file.
+# Default value: '/etc/ceph/ceph.conf'
+conf = {{ (conf_path | default('/etc/ceph/ceph.conf')) | string }}
+
+# Comma-separated list of monitor addresses in the form 'host[:port]'.
+# If empty or omitted, ceph.conf is used for monitor discovery.
+# Default value: [] (empty list)
+{% if mon_host is defined and mon_host | length > 0 %}
+mon_host = {{ mon_host | join(',') | string }}
+{% endif %}
+
+# Absolute path to the client keyring file.
+# If empty, the standard Ceph location is used.
+# Default value: '' (empty string)
+{% if keyring_path is defined and keyring_path | trim != '' %}
+keyring = {{ keyring_path | string }}
+{% endif %}
+
+# Absolute path to the log file.
+# If empty, default logging behavior is used.
+# Default value: '' (empty string)
+{% if log_file is defined and log_file | trim != '' %}
+log_file = {{ log_file | string }}
+{% endif %}
+
+# Debug level string in the form 'debug_level/debug_memory_level' (e.g., '20/20').
+# If empty, default debug settings are used.
+# Default value: '' (empty string)
+{% if debug_cephfs_mirror is defined and debug_cephfs_mirror | trim != '' %}
+debug_cephfs_mirror = {{ debug_cephfs_mirror | string }}
+{% endif %}

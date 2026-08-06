@@ -1,0 +1,19 @@
+# Configuration for filter(1) — Debian mail filtering utility
+# Rules file for filtering incoming messages into mailboxes.
+# Each line is a complete rule conforming to filter's syntax:
+#   if (expression) then action
+# See filter(1) man page for full syntax details.
+#
+# This template is self-documenting: variables default to safe empty values,
+# and every directive is preceded by its schema description.
+
+# List of filter rules. Each rule is a string conforming to filter's syntax.
+# Default: empty list (no filtering applied).
+{% set _rules = rules | default([]) %}
+{% for rule in _rules %}
+# Rule: {{ rule | default('') }}
+{{ rule | default('') | trim() }}
+{% endfor %}
+{% if not _rules %}
+# No filter rules configured. Mail passes through unfiltered.
+{% endif %}

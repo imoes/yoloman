@@ -1,33 +1,38 @@
-# Listen interface for ARP responses
-INTERFACE="{{ interface }}"
+# Options for the Fake arp daemon (farpd)
+#
+# This configuration file defines the network interface and scope
+# for the Fake ARP daemon, which provides gratuitous ARP responses
+# to prevent ARP cache poisoning and ensure high availability in
+# clustered environments.
 
-# IP address to respond with for ARP requests
-TARGET_IP="{{ target_ip }}"
+# =============================================================================
+# Network Interface Configuration
+# =============================================================================
+# Interface where farpd will listen. The daemon binds to this specific
+# network interface to send and receive ARP requests.
+# Default: 'eth0'
+INTERFACE="{{ interface | default('eth0') }}"
 
-# MAC address to claim (hex format, colon-separated)
-TARGET_MAC="{{ target_mac }}"
+# =============================================================================
+# Network Scope Configuration
+# =============================================================================
+# IPv4 network (CIDR or IP range) for which farpd will answer ARP requests.
+# If this value is empty (""), farpd will attempt to answer for all addresses
+# assigned to the interface.
+#
+# IMPORTANT: The default value 'unconfigured' is a special sentinel value.
+# If left as 'unconfigured', farpd will NOT start. You MUST provide a valid
+# network specification (e.g., '192.168.1.0/24') or an empty string to
+# enable the service.
+NETWORK="{{ network | default('unconfigured') }}"
 
-# Enable verbose logging to syslog
-{{ '# ' if not debug else '' }}DEBUG={{ debug | string | lower }}
-
-# Maximum number of pending ARP requests (0 = unlimited)
-MAX_PENDING={{ max_pending }}
-
-# Prefix for log messages (syslog identifier)
-LOG_PREFIX="{{ log_prefix }}"
-
-# List of allowed source IP ranges (CIDR notation, one per line)
-{% for cidr in allowed_sources %}ALLOWED_SRC="{{ cidr }}"
-{% endfor %}
-
-# Toggle gratuitous ARP on startup
-{{ '# ' if not gratuitous_arp else '' }}GRATUITOUS_ARP={{ gratuitous_arp | string | lower }}
-
-# Delay (milliseconds) before sending gratuitous ARP
-GRATUITOUS_DELAY={{ gratuitous_delay }}
-
-# Timeout (seconds) for stale ARP entries cleanup
-ARP_TIMEOUT={{ arp_timeout }}
-
-# Command to run after ARP reply is sent (optional, passed interface, src_ip, target_ip)
-POST_REPLY_HOOK="{{ post_reply_hook }}"
+# =============================================================================
+# Daemon Lifecycle Configuration
+# =============================================================================
+# Time to wait for the daemon to die before restarting it (in seconds).
+# This value is currently commented out in the default configuration.
+# To enable automatic restart logic or graceful shutdown timeouts,
+# uncomment the line below and set the desired integer value.
+#
+# Note: Ensure the systemd service file or init script supports this variable.
+# DODTIME="{{ dodtime | default(5) }}"

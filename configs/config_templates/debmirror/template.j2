@@ -1,74 +1,103 @@
 # /etc/debmirror.conf
-# Managed by configuration template -- do not edit by hand
+# Managed by Ansible -- do not edit by hand
+#
+# This is the configuration file for debmirror(1).
+# It defines the upstream Debian mirror, the local storage location,
+# which architectures/distributions/sections to pull, and network tuning.
 
-# Hostname of the upstream Debian mirror to pull from
-$host = "{{ mirror_host }}";
+# Hostname of the upstream Debian mirror (e.g. ftp.debian.org, ftp.de.debian.org, or a local CDN)
+# See: https://www.debian.org/mirror/list
+$host = "{{ mirror_host | default('ftp.debian.org') }}";
 
-# Absolute path on the remote host that is the root of the Debian archive
-$inPath = "{{ remote_path }}";
+# Absolute path on the remote mirror host that forms the root of the Debian archive.
+# Almost always '/debian' for official mirrors.
+$inPath = "{{ remote_path | default('/debian') }}";
 
-# Local filesystem directory where the mirror will be stored
-$outPath = "{{ local_path }}";
+# Absolute local filesystem path where the mirrored package files will be stored.
+# Ensure the directory exists and has sufficient free space.
+$outPath = "{{ local_path | default('/var/spool/debmirror') }}";
 
-# CPU architectures to mirror; source packages are controlled separately via $nosource
-@arch = ({% for a in arch %}"{{ a }}"{% if not loop.last %}, {% endif %}{% endfor %});
+# CPU architectures to mirror. Use 'all' to include architecture-independent packages.
+# Common values: 'amd64', 'arm64', 'i386', 'all'.
+@arch = (
+{%- for a in (arch | default(['amd64'])) %}
+    "{{ a }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+);
 
-# Distribution suites to mirror (codenames or suite aliases such as stable or bookworm-updates)
-@dist = ({% for d in dist %}"{{ d }}"{% if not loop.last %}, {% endif %}{% endfor %});
+# Distribution suites to mirror (codenames or aliases like 'stable', 'bookworm-updates', 'bookworm-security').
+@dist = (
+{%- for d in (dist | default(['bookworm', 'bookworm-updates', 'bookworm-security'])) %}
+    "{{ d }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+);
 
-# Repository sections to include in the mirror
-@section = ({% for s in section %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %});
+# Repository sections to include. 'main' is essential; 'contrib' and 'non-free*' provide additional/driver packages.
+@section = (
+{%- for s in (section | default(['main', 'contrib', 'non-free', 'non-free-firmware'])) %}
+    "{{ s }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+);
 
-# Transfer protocol to use when fetching from the upstream host: http, ftp, hftp, rsync
-$proto = "{{ proto }}";
+# Transfer protocol: 'http' (recommended for public mirrors), 'ftp', 'hftp', or 'rsync' (fastest for sustained sync).
+$proto = "{{ proto | default('http') }}";
 
-# Use passive mode for FTP connections; required behind NAT or a stateful firewall (0/1)
-$passive = {{ 1 if passive else 0 }};
+# Enable passive FTP mode (1/0). Leave on unless the server explicitly requires active mode.
+# Ignored if proto != 'ftp'.
+$passive = {{ passive | default(True) | ternary(1, 0) }};
 
-# Skip mirroring source packages (.dsc, orig, diff) to reduce disk usage (0/1)
-$nosource = {{ 1 if nosource else 0 }};
+# Omit source packages (.dsc, .diff, .orig) to save ~30-40% disk space (1/0).
+# Set to 0 if you need a buildable mirror.
+$nosource = {{ nosource | default(False) | ternary(1, 0) }};
 
-# Delete local files that are no longer present in the upstream mirror after each run (0/1)
-$cleanup = {{ 1 if cleanup else 0 }};
+# Remove local files that no longer exist on the upstream mirror (1/0).
+# Recommended for keeping the mirror clean and small.
+$cleanup = {{ cleanup | default(True) | ternary(1, 0) }};
 
-# Mirror i18n Translation files so package managers can show localised descriptions (0/1)
-$i18n = {{ 1 if i18n else 0 }};
+# Mirror i18n Translation files for non-English package descriptions (1/0).
+$i18n = {{ i18n | default(True) | ternary(1, 0) }};
 
-# Continue mirroring when package-info entries are missing instead of aborting (0/1)
-$ignore_missing_info = {{ 1 if ignore_missing_info else 0 }};
+# Suppress fatal errors when package-info entries are missing (1/0).
+# Useful for partial or unofficial mirrors.
+$ignore_missing_info = {{ ignore_missing_info | default(False) | ternary(1, 0) }};
 
-# How to handle upstream Packages diff files: use (apply diffs), mirror, generate, none
-$diff_mode = "{{ diff_mode }}";
+# Diff handling strategy: 'use' (apply upstream diffs), 'mirror' (store diffs), 'generate' (create locally), 'none'.
+$diff_mode = "{{ diff_mode | default('use') }}";
 
-# Seconds to wait for a network connection before declaring a timeout
-$timeout = {{ timeout }};
+# Seconds to wait before abandoning a stalled network connection.
+$timeout = {{ timeout | default(300) }};
 
-# Number of times to retry a failed file transfer before giving up
-$retries = {{ retries }};
+# Number of times to retry a failed file download.
+$retries = {{ retries | default(5) }};
 
-# Maximum number of packages downloaded per invocation; 0 means no limit
-$max_batch = {{ max_batch }};
+# Maximum number of package files to download in a single run. 0 means unlimited.
+$max_batch = {{ max_batch | default(0) }};
 
-# GPG keyring used to verify the cryptographic signature on upstream Release files
-$keyring = "{{ keyring }}";
+# Path to the GPG keyring file used to verify Release file signatures.
+$keyring = "{{ keyring | default('/usr/share/keyrings/debian-archive-keyring.gpg') }}";
 
-# Path to the log file; set to an empty string to write log output to stdout
-$log_file = "{{ log_file }}";
+# Path to the log file. Set to '' to send logs to stdout (useful for systemd).
+$log_file = "{{ log_file | default('/var/log/debmirror.log') }}";
 
-{% if proto == "rsync" and rsync_bwlimit > 0 %}
-# Bandwidth cap passed to rsync; limits transfer speed in KB/s
-$rsync_extra = "--bwlimit={{ rsync_bwlimit }}";
-
+# Bandwidth cap in KB/s passed to rsync via --bwlimit. 0 disables the cap.
+# Only used when proto is 'rsync'.
+{% if proto | default('http') == "rsync" and rsync_bwlimit | default(0) > 0 %}
+$rsync_extra = "--bwlimit={{ rsync_bwlimit | default(0) }}";
 {% endif %}
-{% if exclude %}
-# Perl-compatible regex patterns matched against file paths; matching files are skipped
-@exclude = ({% for e in exclude %}"{{ e }}"{% if not loop.last %}, {% endif %}{% endfor %});
 
+# Perl-compatible regex patterns matched against file paths; matching files are skipped.
+{% if exclude | default([]) | length > 0 %}
+@exclude = (
+{%- for e in exclude | default([]) %}
+    "{{ e }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+);
 {% endif %}
-{% if postscript %}
-# Shell command or script path executed once after each successful mirror run
-$postscript = "{{ postscript }}";
 
+# Shell command or script path executed once after a successful mirror run.
+{% if postscript | default('') | length > 0 %}
+$postscript = "{{ postscript | default('') }}";
 {% endif %}
-# Required: a Perl config file included with 'do' must return a true value
+
+# Required: a Perl config file included with 'do' must return a true value.
 1;

@@ -1,42 +1,86 @@
 #!/run/ebtables --load
-# Load ebtables rules from file on service start
+# Load ebtables rules from file on service start.
+#
+# This template manages the ebtables ruleset for bridging.
+# ebtables operates at the Ethernet frame layer (Layer 2).
+#
+# The generated script flushes existing rules, sets secure defaults (DROP),
+# allows essential baseline traffic (loopback, established, ARP),
+# and then applies user-defined rules for INPUT, OUTPUT, and FORWARD chains.
 
-# Flush existing rules
--A INPUT --jump ACCEPT
--A OUTPUT --jump ACCEPT
--A FORWARD --jump ACCEPT
+# Flush existing rules to ensure a clean slate.
+# Using 'flush' without arguments clears all rules in all tables/chains.
+-F
 
-# Flush and set default policies to DROP (security-first stance)
+# Flush specific chains to be explicit about cleanup.
+# Note: ebtables 'flush' command clears all. These lines are redundant if -F is used,
+# but kept for clarity or if specific chain flushing logic is desired in a custom wrapper.
+# For this template, we rely on the standard flush behavior or explicit chain clears.
+# However, to match the original intent of flushing specific chains:
+-F INPUT
+-F OUTPUT
+-F FORWARD
+
+# Flush and set default policies to DROP (security-first stance).
+# Default DROP means all traffic not explicitly allowed is discarded.
 -P INPUT DROP
 -P OUTPUT DROP
 -P FORWARD DROP
 
-# Allow loopback traffic on bridge (for local containers/VMs)
+# Allow loopback traffic on bridge (for local containers/VMs).
+# Note: 'lo' is usually Layer 3, but ebtables can filter on bridge ports.
+# This allows traffic entering and leaving the bridge via the loopback interface.
 -A INPUT -i lo --jump ACCEPT
 -A OUTPUT -o lo --jump ACCEPT
 
-# Allow established/related connections (stateful filtering)
+# Allow established/related connections (stateful filtering).
+# This ensures that return traffic for allowed outbound connections is permitted.
 -A INPUT -m state --state ESTABLISHED,RELATED --jump ACCEPT
 -A FORWARD -m state --state ESTABLISHED,RELATED --jump ACCEPT
 -A OUTPUT -m state --state ESTABLISHED,RELATED --jump ACCEPT
 
-# Explicitly allow ARP (required for bridge operation)
+# Explicitly allow ARP (required for bridge operation).
+# ARP is critical for MAC address resolution and must be allowed for bridging to function.
 -A INPUT -p ARP --jump ACCEPT
 -A FORWARD -p ARP --jump ACCEPT
 -A OUTPUT -p ARP --jump ACCEPT
 
-{% for rule in input_rules %}# {{ rule.comment | default('Input rule') }}
--A INPUT {{ rule.match }} --jump {{ rule.target }}
+# =============================================================================
+# User-Defined Rules
+# =============================================================================
+# The following sections apply rules from the Ansible variables:
+# - input_rules
+# - output_rules
+# - forward_rules
+# Each rule is expected to have 'match' (criteria) and 'target' (action).
+# An optional 'comment' is provided for logging/documentation in the generated file.
+
+# --- INPUT Chain Rules ---
+# Rules for traffic entering the bridge from local ports.
+# Variable: input_rules (list of dicts)
+{% for rule in input_rules | default([], true) %}
+# {{ rule.comment | default('Input rule') }}
+-A INPUT {{ rule.match | default('') }} --jump {{ rule.target | default('ACCEPT') }}
 {% endfor %}
 
-{% for rule in output_rules %}# {{ rule.comment | default('Output rule') }}
--A OUTPUT {{ rule.match }} --jump {{ rule.target }}
+# --- OUTPUT Chain Rules ---
+# Rules for traffic leaving the bridge to local ports.
+# Variable: output_rules (list of dicts)
+{% for rule in output_rules | default([], true) %}
+# {{ rule.comment | default('Output rule') }}
+-A OUTPUT {{ rule.match | default('') }} --jump {{ rule.target | default('ACCEPT') }}
 {% endfor %}
 
-{% for rule in forward_rules %}# {{ rule.comment | default('Forward rule') }}
--A FORWARD {{ rule.match }} --jump {{ rule.target }}
+# --- FORWARD Chain Rules ---
+# Rules for traffic bridged through this host (pass-through).
+# Variable: forward_rules (list of dicts)
+{% for rule in forward_rules | default([], true) %}
+# {{ rule.comment | default('Forward rule') }}
+-A FORWARD {{ rule.match | default('') }} --jump {{ rule.target | default('ACCEPT') }}
 {% endfor %}
 
-# Save ruleset to persistent storage on service stop
-# (ebtables does not auto-save; must be handled by init/systemd or script)
+# Save ruleset to persistent storage on service stop.
+# ebtables does not auto-save; this must be handled by init/systemd or a script.
+# Typically, the systemd service file includes PostStopExec or similar to run:
 # /sbin/ebtables --save
+# /sbin/ebtables-save > /etc/ebtables/rules.v4

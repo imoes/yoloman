@@ -1,0 +1,75 @@
+#
+# This file controls the configuration of the audit remote logging subsystem, audisp-remote.
+#
+
+# Hostname or IP address of the remote audit server.
+remote_server = {{ remote_server | default('') }}
+
+# Port number to connect to on the remote server.
+port = {{ port | default(60) }}
+
+# Transport protocol to use (tcp, udp, etc).
+transport = tcp
+
+# File path for queueing events if the connection fails temporarily.
+queue_file = /var/spool/audit/remote.log
+
+# Processing mode: immediate (send now) or batch.
+mode = immediate
+
+# Maximum number of events that can be queued in memory.
+queue_depth = {{ queue_depth | default(10240) }}
+
+# Format of the remote log records.
+format = managed
+
+# Seconds to wait before retrying a failed network operation.
+network_retry_time = {{ network_retry_time | default(1) }}
+
+# Maximum number of attempts to send a single record before giving up.
+max_tries_per_record = {{ max_tries_per_record | default(3) }}
+
+# Maximum time in seconds to attempt sending a single record.
+max_time_per_record = {{ max_time_per_record | default(5) }}
+
+# Seconds of inactivity before a heartbeat is sent (0 = disabled).
+heartbeat_timeout = {{ heartbeat_timeout | default(0) }}
+
+# Action to take on network failure (stop, syslog, etc.).
+network_failure_action = stop
+
+# Action to take when disk usage is low (ignore, syslog, etc.).
+disk_low_action = ignore
+
+# Action to take when disk is full (warn_once, syslog, etc.).
+disk_full_action = warn_once
+
+# Action to take on disk error (warn_once, syslog, etc.).
+disk_error_action = warn_once
+
+# Action to take when remote connection ends (reconnect, stop, etc.).
+remote_ending_action = reconnect
+
+# Action for generic errors (syslog, ignore, etc.).
+generic_error_action = syslog
+
+# Action for generic warnings (syslog, ignore, etc.).
+generic_warning_action = syslog
+
+# Action for queue errors (stop, syslog, etc.).
+queue_error_action = stop
+
+# Action for overflow events (syslog, ignore, etc.).
+overflow_action = syslog
+
+# Action for startup failures (warn_once_continue, stop, etc.).
+startup_failure_action = warn_once_continue
+
+# Kerberos principal for authenticated remote logging (optional).
+##krb5_principal = 
+
+# Kerberos client name for the audit service.
+##krb5_client_name = auditd
+
+# Path to the Kerberos key file.
+##krb5_key_file = /etc/audisp/audisp-remote.key

@@ -1,0 +1,66 @@
+# ==============================================================================
+# gcin Input Method Environment Configuration
+# ==============================================================================
+# This file defines the environment variables required to configure the
+# gcin (Global Chinese Input Environment) input method framework.
+# It is designed to be sourced by shell login scripts or included by
+# configuration management systems.
+#
+# All variables include safe defaults based on the schema definition to
+# prevent runtime errors if variables are omitted.
+# ==============================================================================
+
+# --- Locale Settings ---
+
+# LC_CTYPE: Locale type for input method support (typically Traditional Chinese locale)
+# Defines the character classification locale used by gcin.
+export LC_CTYPE={{ LC_CTYPE | default('zh_TW.UTF-8') }}
+
+# --- X11 Integration ---
+
+# XMODIFIERS: X11 input method selector
+# Tells X11 applications to use the gcin input method module.
+export XMODIFIERS={{ XMODIFIERS | default('@im=gcin') }}
+
+# --- GTK Integration ---
+
+# GTK_IM_MODULE: GTK input method module
+# Specifies the input method module for GTK2/GTK3 applications.
+export GTK_IM_MODULE={{ GTK_IM_MODULE | default('gcin') }}
+
+# --- Qt Integration ---
+
+# QT_IM_MODULE: Qt input method module
+# Specifies the input method module for Qt4/Qt5/Qt6 applications.
+export QT_IM_MODULE={{ QT_IM_MODULE | default('gcin') }}
+
+# --- Debugging & Diagnostics ---
+
+# GCIN_IM_CLIENT_NO_AUTO_EXEC: Disable auto-evoke in gcin protocol
+# When enabled (True), prevents the automatic launching of the gcin daemon
+# by client applications.
+export GCIN_IM_CLIENT_NO_AUTO_EXEC={{ GCIN_IM_CLIENT_NO_AUTO_EXEC | default(False) }}
+
+# GCIN_OUTPUT_FILTER: Path to program used to filter output before sending to clients
+# Allows piping the input method output through an external program.
+# Leave empty to disable filtering.
+export GCIN_OUTPUT_FILTER={{ GCIN_OUTPUT_FILTER | default('') }}
+
+# GCIN_TABLE_DIR: Additional directory for IM tables beyond /usr/share/gcin/table
+# Specifies custom directories containing IME table data files.
+# Leave empty to use only the default system directory.
+export GCIN_TABLE_DIR={{ GCIN_TABLE_DIR | default('') }}
+
+# GCIN_CONNECT_MSG_ON: Enable display of socket connection messages
+# When enabled (True), displays notification messages when clients connect
+# to the gcin socket.
+export GCIN_CONNECT_MSG_ON={{ GCIN_CONNECT_MSG_ON | default(True) }}
+
+# GCIN_DBG_TMP: Enable additional debug messages
+# When enabled (True), outputs verbose debug information to stderr/logs.
+export GCIN_DBG_TMP={{ GCIN_DBG_TMP | default(False) }}
+
+# GCIN_ERR_COREDUMP: Enable core dump on error for debugging
+# When enabled (True), attempts to generate a core dump if gcin crashes.
+# Useful for debugging but should not be used in production.
+export GCIN_ERR_COREDUMP={{ GCIN_ERR_COREDUMP | default(False) }}

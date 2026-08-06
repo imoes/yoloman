@@ -1,0 +1,281 @@
+# SpamAssassin FuzzyOcr Plugin Configuration
+#
+# This file configures the FuzzyOcr plugin for SpamAssassin.
+# It handles OCR-based spam detection for images attached to emails.
+
+# Syntax:
+# loadplugin <Plugin_Name> <Location>
+#  <Location> path where Plugin resides.
+
+loadplugin FuzzyOcr
+
+ifplugin FuzzyOcr
+
+# --- Rules ---
+
+# Trigger: Mail contains an image with common spam text inside.
+body     FUZZY_OCR                   eval:fuzzyocr_check()
+
+# Trigger: Mail contains an image with wrong content-type set.
+body     FUZZY_OCR_WRONG_CTYPE       eval:dummy_check()
+
+# Trigger: Mail contains a corrupted image.
+body     FUZZY_OCR_CORRUPT_IMG       eval:dummy_check()
+
+# Trigger: Mail contains an image with wrong file extension.
+body     FUZZY_OCR_WRONG_EXTENSION   eval:dummy_check()
+
+# Trigger: Mail contains an image with known hash.
+body     FUZZY_OCR_KNOWN_HASH        eval:dummy_check()
+
+# Descriptions for the rules above.
+describe FUZZY_OCR                   Mail contains an image with common spam text inside
+describe FUZZY_OCR_WRONG_CTYPE       Mail contains an image with wrong content-type set
+describe FUZZY_OCR_WRONG_EXTENSION   Mail contains an image with wrong file extension
+describe FUZZY_OCR_CORRUPT_IMG       Mail contains a corrupted image
+describe FUZZY_OCR_KNOWN_HASH        Mail contains an image with known hash
+
+# Priority for these rules.
+priority FUZZY_OCR 900
+
+###
+### Plugin Configuration 
+###
+
+###
+### Logging options
+###
+
+# Verbosity level: 0=Errors only, 1=Errors+Warnings, 2=+Info, 3=Full debug
+# Default value: 1
+focr_verbose {{ focr_verbose | default(1) }}
+
+# Log Message-Id, From, To headers in log entries.
+# Default value: 1
+focr_log_pmsinfo {{ focr_log_pmsinfo | default(1) }}
+
+# Send logging output to stderr.
+# Default value: 1
+focr_log_stderr {{ focr_log_stderr | default(1) }}
+
+# Logfile path (empty = disabled).
+# Default value: ''
+focr_logfile {{ focr_logfile | default('') }}
+
+###
+### Wordlists 
+###
+
+# Path to global wordlist.
+# Default value: /etc/spamassassin/FuzzyOcr.words
+focr_global_wordlist {{ focr_global_wordlist | default('/etc/spamassassin/FuzzyOcr.words') }}
+
+# Relative or absolute path to personal wordlist.
+# Default value: fuzzyocr.words
+focr_personal_wordlist {{ focr_personal_wordlist | default('fuzzyocr.words') }}
+
+# Disable personalization (home directory usage).
+# Default value: 0
+focr_no_homedirs {{ focr_no_homedirs | default(0) }}
+
+# Strip numbers from wordlists and OCR results.
+# Default value: 1
+focr_strip_numbers {{ focr_strip_numbers | default(1) }}
+
+###
+### Helper Applications
+###
+
+# Comma-separated list of helper binaries to load (first line).
+# Default value: pnmnorm, pnminvert, ppmtopgm
+focr_bin_helper {{ focr_bin_helper | default('pnmnorm, pnminvert, ppmtopgm') }}
+
+# Comma-separated list of helper binaries to load (second line, e.g. tesseract).
+# Default value: tesseract
+focr_bin_helper {{ focr_bin_helper_2 | default('tesseract') }}
+
+# Search path for helper binaries.
+# Default value: /usr/local/netpbm/bin:/usr/local/bin:/usr/bin
+focr_path_bin {{ focr_path_bin | default('/usr/local/netpbm/bin:/usr/local/bin:/usr/bin') }}
+
+###
+### Scansets 
+###
+
+# Path to preprocessor definitions file.
+# Default value: /etc/spamassassin/FuzzyOcr.preps
+focr_preprocessor_file {{ focr_preprocessor_file | default('/etc/spamassassin/FuzzyOcr.preps') }}
+
+# Path to scanset definitions file.
+# Default value: /etc/spamassassin/FuzzyOcr.scansets
+focr_scanset_file {{ focr_scanset_file | default('/etc/spamassassin/FuzzyOcr.scansets') }}
+
+# Skip remaining scansets after one hits focr_counts_required.
+# Default value: 1
+focr_minimal_scanset {{ focr_minimal_scanset | default(1) }}
+
+# Enable autosorting of scansets by effectiveness.
+# Default value: 1
+focr_autosort_scanset {{ focr_autosort_scanset | default(1) }}
+
+# Max value of effectiveness counter per scanset.
+# Default value: 10
+focr_autosort_buffer {{ focr_autosort_buffer | default(10) }}
+
+###
+### Scan Settings
+###
+
+# Plugin timeout in seconds.
+# Default value: 10
+focr_timeout {{ focr_timeout | default(10) }}
+
+# Use global timeout instead of per-helper.
+# Default value: 0
+focr_global_timeout {{ focr_global_timeout | default(0) }}
+
+# Minimum image height to scan.
+# Default value: 4
+focr_min_height {{ focr_min_height | default(4) }}
+
+# Minimum image width to scan.
+# Default value: 4
+focr_min_width {{ focr_min_width | default(4) }}
+
+# Maximum image height to scan.
+# Default value: 800
+focr_max_height {{ focr_max_height | default(800) }}
+
+# Maximum image width to scan.
+# Default value: 800
+focr_max_width {{ focr_max_width | default(800) }}
+
+# Maximum GIF file size in bytes.
+# Default value: 80000
+focr_max_size_gif {{ focr_max_size_gif | default(80000) }}
+
+# Maximum JPEG file size in bytes.
+# Default value: 100000
+focr_max_size_jpeg {{ focr_max_size_jpeg | default(100000) }}
+
+# Maximum PNG file size in bytes.
+# Default value: 80000
+focr_max_size_png {{ focr_max_size_png | default(80000) }}
+
+# Maximum BMP file size in bytes.
+# Default value: 500000
+focr_max_size_bmp {{ focr_max_size_bmp | default(500000) }}
+
+# Maximum TIFF file size in bytes.
+# Default value: 500000
+focr_max_size_tiff {{ focr_max_size_tiff | default(500000) }}
+
+# Skip GIF files.
+# Default value: 0
+focr_skip_gif {{ focr_skip_gif | default(0) }}
+
+# Skip JPEG files.
+# Default value: 0
+focr_skip_jpeg {{ focr_skip_jpeg | default(0) }}
+
+# Skip PNG files.
+# Default value: 0
+focr_skip_png {{ focr_skip_png | default(0) }}
+
+# Skip BMP files.
+# Default value: 0
+focr_skip_bmp {{ focr_skip_bmp | default(0) }}
+
+# Skip TIFF files.
+# Default value: 0
+focr_skip_tiff {{ focr_skip_tiff | default(0) }}
+
+# Additional score for every additional match after focr_counts_required matches.
+# Default value: 0.375
+focr_add_score {{ focr_add_score | default(0.375) }}
+
+# Factor for two-pass scoring.
+# Default value: 1.5
+focr_twopass_scoring_factor {{ focr_twopass_scoring_factor | default(1.5) }}
+
+# Score for wrong content-type.
+# Default value: 1.5
+focr_wrongctype_score {{ focr_wrongctype_score | default(1.5) }}
+
+# Score for wrong file extension.
+# Default value: 1.5
+focr_wrongext_score {{ focr_wrongext_score | default(1.5) }}
+
+# Score for corrupted image.
+# Default value: 2.5
+focr_corrupt_score {{ focr_corrupt_score | default(2.5) }}
+
+# Score for corrupted unfixable image.
+# Default value: 5
+focr_corrupt_unfixable_score {{ focr_corrupt_unfixable_score | default(5) }}
+
+# Disable OCR if message has more points than this value.
+# Default value: 30
+focr_autodisable_score {{ focr_autodisable_score | default(30) }}
+
+# Disable OCR if message has less points than this value.
+# Default value: -5
+focr_autodisable_negative_score {{ focr_autodisable_negative_score | default(-5) }}
+
+###
+### Hashing Options (Optional)
+###
+
+# Enable image hashing: 0=disabled, 1=digest_hash, 2=digest_db, 3=mysql.
+# Default value: 0
+focr_enable_image_hashing {{ focr_enable_image_hashing | default(0) }}
+
+# Skip updating hashing database at startup.
+# Default value: 0
+focr_skip_updates {{ focr_skip_updates | default(0) }}
+
+# Automatically add hashes of spam images to database.
+# Default value: 1
+focr_hashing_learn_scanned {{ focr_hashing_learn_scanned | default(1) }}
+
+# Score images with low word count using formula.
+# Default value: 0
+focr_score_ham {{ focr_score_ham | default(0) }}
+
+# Path to digest_hash database file.
+# Default value: /etc/spamassassin/FuzzyOcr.hashdb
+focr_digest_db {{ focr_digest_db | default('/etc/spamassassin/FuzzyOcr.hashdb') }}
+
+# Path to SPAM hash database file.
+# Default value: /etc/spamassassin/FuzzyOcr.db
+focr_db_hash {{ focr_db_hash | default('/etc/spamassassin/FuzzyOcr.db') }}
+
+# Path to HAM hash database file.
+# Default value: /etc/spamassassin/FuzzyOcr.safe.db
+focr_db_safe {{ focr_db_safe | default('/etc/spamassassin/FuzzyOcr.safe.db') }}
+
+# Auto-prune: Expire records from hashing databases after these many days.
+# Default value: 15
+focr_db_max_days {{ focr_db_max_days | default(15) }}
+
+###
+### MySQL options (Type 3 Hashing)
+###
+
+# Update database table with different data.
+# Default value: 1
+focr_mysql_update_hash {{ focr_mysql_update_hash | default(1) }}
+
+###
+### Miscellaneous Options
+###
+
+# Keep intermediate bad images for debugging: 0=cleanup, 1=keep on error, 2=always keep.
+# Default value: 1
+focr_keep_bad_images {{ focr_keep_bad_images | default(1) }}
+
+#################################################################
+# DO NOT REMOVE THIS LINE, IT IS REQUIRED UNDER ALL CIRCUMSTANCES
+focr_end_config
+
+endif

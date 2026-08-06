@@ -1,0 +1,36 @@
+{# GNOME Keysign configuration file #}
+{# This template generates the main configuration for gnome-keysign. #}
+{# All variables use schema defaults to ensure safe rendering even if missing. #}
+
+[main]
+
+# Enable or disable automatic key download over the local network via mDNS
+# Schema field: auto_download (boolean, default: true)
+auto_download = {{ auto_download | default(true) | lower }}
+
+# Enable or disable manual fingerprint entry as fallback when QR scanning fails
+# Schema field: manual_fingerprint_entry (boolean, default: true)
+manual_fingerprint_entry = {{ manual_fingerprint_entry | default(true) | lower }}
+
+# Email address to use as the sender for encrypted signature emails
+# If empty, defaults to GnuPG's configured default
+# Schema field: signing_email (string, default: '')
+{% if (signing_email is defined) and (signing_email != '') %}
+signing_email = {{ signing_email | default('') }}
+{% endif %}
+
+# List of local network interface names allowed for key exchange
+# Empty list means all interfaces are allowed
+# Schema field: allowed_interfaces (list, default: [])
+{% if (allowed_interfaces is defined) and (allowed_interfaces | length > 0) %}
+allowed_interfaces = {{ allowed_interfaces | join(',') }}
+{% endif %}
+
+# Maximum time in seconds to wait for QR code scanning before timeout
+# Schema field: qr_timeout (integer, default: 60)
+qr_timeout = {{ qr_timeout | default(60) | int }}
+
+# Enable audio-based fingerprint transmission (e.g., via speaker/mic)
+# Only functional on supported platforms
+# Schema field: audio_fingerprint_mode (boolean, default: false)
+audio_fingerprint_mode = {{ audio_fingerprint_mode | default(false) | lower }}

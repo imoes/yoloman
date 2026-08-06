@@ -1,44 +1,47 @@
-# httptunnel configuration — server mode settings
 [server]
-# Port to listen on for HTTP tunnel connections
-port = {{ port }}
+# TCP port on which the httptunnel server listens for incoming connections.
+port = {{ port | default(8080) }}
 
-# Maximum number of simultaneous client connections
-max_connections = {{ max_connections }}
+# Maximum number of concurrent client connections allowed.
+max_connections = {{ max_connections | default(100) }}
 
-# Path to the directory where tunneled files are stored (if file forwarding is enabled)
-tunnel_dir = {{ tunnel_dir }}
+# Directory path used to store files when file forwarding is enabled (i.e., not in pure tunnel mode).
+tunnel_dir = {{ tunnel_dir | default('/var/lib/httptunnel') }}
 
-# Enable/disable file forwarding (pass-through mode)
-forward_files = {{ forward_files | lower }}
+# Whether to forward files to clients instead of creating a raw TCP tunnel. Set to false for transparent tunneling.
+forward_files = {{ forward_files | default(true) | lower }}
 
-# Optional: bind to a specific interface (e.g., '127.0.0.1' or 'eth0')
-{% if bind_interface %}
-bind_interface = {{ bind_interface }}
+# Optional IP address or network interface name to bind to (e.g., '127.0.0.1' or 'eth0'). Leave empty to bind to all interfaces.
+{% if bind_interface | default('') %}
+bind_interface = {{ bind_interface | default('') }}
 {% endif %}
 
-# Optional: TLS/SSL support
-{% if tls_enabled %}
+# Enable TLS encryption for secure communication. Requires certificate and key paths if enabled.
+{% if tls_enabled | default(false) %}
 tls_enabled = true
-tls_cert = {{ tls_cert_path }}
-tls_key = {{ tls_key_path }}
+# Path to the TLS certificate file (PEM format). Required if TLS is enabled.
+tls_cert = {{ tls_cert_path | default('/etc/httptunnel/tls/server.crt') }}
+# Path to the TLS private key file (PEM format). Required if TLS is enabled.
+tls_key = {{ tls_key_path | default('/etc/httptunnel/tls/server.key') }}
 {% else %}
 tls_enabled = false
 {% endif %}
 
-# Optional: custom HTTP response headers (e.g., for CORS or security headers)
-{% if http_headers %}
+# Optional: List of custom HTTP headers to include in responses (e.g., for CORS, security headers, or debugging).
+{% if http_headers | default([]) | length > 0 %}
 [headers]
-{% for header in http_headers %}{{ header.name }} = {{ header.value }}
+{% for header in http_headers | default([]) %}{{ header.name }} = {{ header.value }}
 {% endfor %}
 {% endif %}
 
-# Optional: per-client rate limiting (in bytes/sec)
-{% if rate_limit_enabled %}
+# Optional: Enable per-client upload/download rate limiting.
+{% if rate_limit_enabled | default(false) %}
 [rate_limit]
 enabled = true
-upload_rate = {{ upload_rate }}
-download_rate = {{ download_rate }}
+# Maximum upload rate per client (bytes per second), e.g., 1 MiB/s.
+upload_rate = {{ upload_rate | default(1048576) }}
+# Maximum download rate per client (bytes per second), e.g., 5 MiB/s.
+download_rate = {{ download_rate | default(5242880) }}
 {% else %}
 [rate_limit]
 enabled = false

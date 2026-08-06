@@ -103,27 +103,18 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "Loadable c-icap modules (e.g., services, filters, modules).",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Module name (used in config references)."
-        },
-        "path": {
-          "type": "string",
-          "description": "Full path to the shared object (.so) file."
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description for documentation."
-        }
+      "name": {
+        "type": "string",
+        "description": "Module name (used in config references)."
       },
-      "required": [
-        "name",
-        "path",
-        "description"
-      ]
+      "path": {
+        "type": "string",
+        "description": "Full path to the shared object (.so) file."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description for documentation."
+      }
     },
     "description": "List of modules to load at startup (e.g., antivirus, content scanning)."
   },
@@ -131,49 +122,32 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "description": "ICAP service definitions (e.g., for AV scanning or content modification).",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Unique service name (must match service directives in ACLs/rules)."
-        },
-        "type": {
-          "type": "string",
-          "description": "Service type: 'service', 'service-reqmod', 'service-respmod'."
-        },
-        "module": {
-          "type": "string",
-          "description": "Name of the module providing the service (must match a loaded module)."
-        },
-        "options": {
-          "type": "list",
-          "description": "Key-value config options specific to this service.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "key": {
-                "type": "string",
-                "description": "Configuration option name (e.g., 'Timeout', 'MaxContentLength')."
-              },
-              "value": {
-                "type": "string",
-                "description": "Option value (string representation, e.g., '10', '2048'."
-              }
-            },
-            "required": [
-              "key",
-              "value"
-            ]
+      "name": {
+        "type": "string",
+        "description": "Unique service name (must match service directives in ACLs/rules)."
+      },
+      "type": {
+        "type": "string",
+        "description": "Service type: 'service', 'service-reqmod', 'service-respmod'."
+      },
+      "module": {
+        "type": "string",
+        "description": "Name of the module providing the service (must match a loaded module)."
+      },
+      "options": {
+        "type": "list",
+        "description": "Key-value config options specific to this service.",
+        "items": {
+          "key": {
+            "type": "string",
+            "description": "Configuration option name (e.g., 'Timeout', 'MaxContentLength')."
+          },
+          "value": {
+            "type": "string",
+            "description": "Option value (string representation, e.g., '10', '2048'."
           }
         }
-      },
-      "required": [
-        "name",
-        "type",
-        "module",
-        "options"
-      ]
+      }
     },
     "description": "List of ICAP services to register (e.g., clamav, dummy)."
   },
@@ -181,21 +155,14 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "HTTP header name (e.g., 'X-Forwarded-For')."
-        },
-        "value": {
-          "type": "string",
-          "description": "Header value (supports macros like '%a' for client IP)."
-        }
+      "name": {
+        "type": "string",
+        "description": "HTTP header name (e.g., 'X-Forwarded-For')."
       },
-      "required": [
-        "name",
-        "value"
-      ]
+      "value": {
+        "type": "string",
+        "description": "Header value (supports macros like '%a' for client IP)."
+      }
     },
     "description": "Custom HTTP request headers to inject into requests sent to ICAP services."
   },
@@ -203,21 +170,14 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "HTTP header name to add to responses."
-        },
-        "value": {
-          "type": "string",
-          "description": "Header value (supports macros and static strings)."
-        }
+      "name": {
+        "type": "string",
+        "description": "HTTP header name to add to responses."
       },
-      "required": [
-        "name",
-        "value"
-      ]
+      "value": {
+        "type": "string",
+        "description": "Header value (supports macros and static strings)."
+      }
     },
     "description": "Custom HTTP response headers to inject into client responses."
   },
@@ -225,26 +185,18 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "ACL name used in service rules (e.g., 'localnet')."
-        },
-        "match_type": {
-          "type": "string",
-          "description": "ACL match type: 'src', 'dst', 'method', etc."
-        },
-        "pattern": {
-          "type": "string",
-          "description": "Pattern to match (e.g., '192.168.0.0/24', 'CONNECT')."
-        }
+      "name": {
+        "type": "string",
+        "description": "ACL name used in service rules (e.g., 'localnet')."
       },
-      "required": [
-        "name",
-        "match_type",
-        "pattern"
-      ]
+      "match_type": {
+        "type": "string",
+        "description": "ACL match type: 'src', 'dst', 'method', etc."
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Pattern to match (e.g., '192.168.0.0/24', 'CONNECT')."
+      }
     },
     "description": "Access control lists for use in service routing and security rules."
   },
@@ -252,30 +204,22 @@
     "type": "list",
     "default": [],
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Rule description label."
-        },
-        "condition": {
-          "type": "string",
-          "description": "Optional ACL condition (e.g., 'acl localnet src 192.168.0.0/24')."
-        },
-        "action": {
-          "type": "string",
-          "description": "Action: 'allow', 'deny', 'service', 'redirect'."
-        },
-        "service_name": {
-          "type": "string",
-          "description": "Name of the ICAP service to route to (if action is 'service')."
-        }
+      "name": {
+        "type": "string",
+        "description": "Rule description label."
       },
-      "required": [
-        "name",
-        "action",
-        "service_name"
-      ]
+      "condition": {
+        "type": "string",
+        "description": "Optional ACL condition (e.g., 'acl localnet src 192.168.0.0/24')."
+      },
+      "action": {
+        "type": "string",
+        "description": "Action: 'allow', 'deny', 'service', 'redirect'."
+      },
+      "service_name": {
+        "type": "string",
+        "description": "Name of the ICAP service to route to (if action is 'service')."
+      }
     },
     "description": "Service routing rules: map traffic to ICAP services based on conditions."
   },

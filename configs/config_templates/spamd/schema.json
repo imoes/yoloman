@@ -21,8 +21,8 @@
   },
   "max_children": {
     "type": "number",
-    "default": 20,
-    "description": "Maximum number of child processes to spawn for handling concurrent requests."
+    "default": 5,
+    "description": "Maximum number of child processes to spawn for handling concurrent requests. Note: original default shipped as 5 in config comment."
   },
   "daemonize": {
     "type": "bool",
@@ -47,7 +47,14 @@
   "syslog_facility": {
     "type": "string",
     "default": "mail",
-    "description": "Syslog facility to use when logging to syslog (e.g., 'mail', 'daemon', 'local0')."
+    "description": "Syslog facility to use when logging to syslog (e.g., 'mail', 'daemon', 'local0').",
+    "enum": [
+      "mail",
+      "daemon",
+      "stderr",
+      "file",
+      "null"
+    ]
   },
   "log_packets": {
     "type": "bool",
@@ -92,10 +99,11 @@
   "extra_args": {
     "type": "list",
     "default": [],
-    "description": "Additional command-line arguments to pass to spamd (e.g., '--save-prefs', '--pidfile=/run/spamd.pid').",
-    "items": {
-      "type": "string",
-      "description": "Single command-line flag/option for spamd (must be a valid argument, e.g., '--save-prefs' or '--max-children-idle=10')."
-    }
+    "description": "Additional command-line arguments to pass to spamd (e.g., '--save-prefs', '--pidfile=/run/spamd.pid')."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/spamd.pid",
+    "description": "Path to the PID file for spamd."
   }
 }

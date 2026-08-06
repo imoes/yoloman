@@ -1,109 +1,105 @@
-[DEFAULT]
-# Logging configuration
-log_dir = {{ logging.log_dir }}
-log_file = {{ logging.log_file }}
-
-# Debug mode
-debug = {{ debug }}
-
-# Verbose output
-verbose = {{ verbose }}
+# Ceilometer IPMI Agent Configuration
+# This file is managed by Ansible. Do not edit manually.
 
 [DEFAULT]
-# Transport URL for sending notifications to the message bus
-transport_url = {{ messaging.transport_url }}
+# Directory where log files are stored.
+log_dir = {{ (logging | default({})).log_dir | default('/var/log/ceilometer') }}
 
-[DEFAULT]
-# Authentication for the messaging system
-transport_url = {{ messaging.transport_url }}
+# Name of the main log file.
+log_file = {{ (logging | default({})).log_file | default('ceilometer-agent-ipmi.log') }}
 
-[DEFAULT]
-# Credential and endpoint configuration for connecting to the OpenStack services
-os_password = {{ keystone_auth.password }}
-os_username = {{ keystone_auth.username }}
-os_project_name = {{ keystone_auth.project_name }}
-os_user_domain_name = {{ keystone_auth.user_domain_name }}
-os_project_domain_name = {{ keystone_auth.project_domain_name }}
-os_auth_url = {{ keystone_auth.auth_url }}
+# Enable debug-level logging for verbose troubleshooting.
+debug = {{ debug | default(false) | lower }}
 
-[DEFAULT]
-# IPMI-specific configuration
-ipmi_driver = {{ ipmi.driver }}
+# Enable verbose logging (more detailed than INFO).
+verbose = {{ verbose | default(true) | lower }}
 
-[DEFAULT]
-# IPMI polling interval in seconds
-ipmi_polling_interval = {{ ipmi.polling_interval }}
+# RabbitMQ or other message bus transport URL for event/metric transport.
+transport_url = {{ (messaging | default({})).transport_url | default('rabbit://openstack:openstack@controller:5672/') }}
 
-[DEFAULT]
-# Maximum number of IPMI BMCs to poll in parallel
-ipmi_max_concurrent_polls = {{ ipmi.max_concurrent_polls }}
+# Notification driver: 'message' (default), 'log', or 'noop'.
+notification_driver = {{ (notification | default({})).driver | default('message') }}
 
-[DEFAULT]
-# List of IPMI BMCs to poll
-{% for bmc in ipmi.bmcs %}
-# {{ bmc.name }}
-bmc_address_{{ loop.index }} = {{ bmc.address }}
-bmc_username_{{ loop.index }} = {{ bmc.username }}
-bmc_password_{{ loop.index }} = {{ bmc.password }}
-{% if bmc.interface %}
-bmc_interface_{{ loop.index }} = {{ bmc.interface }}
-{% endif %}
+# Path to the event definitions file for Ceilometer events.
+event_definitions_file = {{ (events | default({})).definitions_file | default('/etc/ceilometer/event_definitions.yaml') }}
+
+# Notification topics to publish Ceilometer messages to.
+notification_topics = {{ (notification | default({})).topics | default(['ceilometer', 'notifications']) | join(',') }}
+
+# Keystone user password for authentication to OpenStack services.
+[keystone_authtoken]
+password = {{ (keystone_auth | default({})).password | default('') }}
+
+# Keystone username used by the Ceilometer IPMI agent.
+username = {{ (keystone_auth | default({})).username | default('ceilometer') }}
+
+# Keystone project (tenant) name for the Ceilometer service account.
+project_name = {{ (keystone_auth | default({})).project_name | default('service') }}
+
+# Keystone domain name for the user.
+user_domain_name = {{ (keystone_auth | default({})).user_domain_name | default('Default') }}
+
+# Keystone domain name for the project.
+project_domain_name = {{ (keystone_auth | default({})).project_domain_name | default('Default') }}
+
+# Keystone identity service endpoint URL.
+auth_url = {{ (keystone_auth | default({})).auth_url | default('http://controller:5000/v3') }}
+
+# Path to CA certificate bundle for SSL verification (optional).
+cacert = {{ (keystone_auth | default({})).cacert | default('') }}
+
+# Disable SSL certificate verification (not recommended in production).
+insecure = {{ (keystone_auth | default({})).insecure | default(false) | lower }}
+
+# Enable SSL/TLS verification for Keystone connections.
+ssl_verify = {{ (keystone_auth | default({})).ssl_verify | default(true) | lower }}
+
+# IPMI driver library to use (e.g., pyghmi.ipmi, freeipmi).
+[ipmi]
+driver = {{ (ipmi | default({})).driver | default('pyghmi.ipmi') }}
+
+# Interval (in seconds) between IPMI polling cycles.
+polling_interval = {{ (ipmi | default({})).polling_interval | default(600) }}
+
+# Maximum number of BMCs that can be polled simultaneously.
+max_concurrent_polls = {{ (ipmi | default({})).max_concurrent_polls | default(10) }}
+
+# Number of retry attempts for failed IPMI commands.
+retry_attempts = {{ (ipmi | default({})).retry_attempts | default(3) }}
+
+# Delay (in seconds) between IPMI retry attempts.
+retry_delay = {{ (ipmi | default({})).retry_delay | default(5) }}
+
+# Timeout (in seconds) for each IPMI command.
+timeout = {{ (ipmi | default({})).timeout | default(10) }}
+
+# List of IPMI Baseboard Management Controllers (BMCs) to monitor.
+{#
+  Generates INI key-value pairs for each BMC:
+  bmcs.<index>.ip = <ip>
+  bmcs.<index>.username = <username>
+  bmcs.<index>.password = <password>
+  bmcs.<index>.privilege = <privilege>
+#}
+{% for bmc in (ipmi | default({})).bmcs | default([]) | list %}
+bmcs.{{ loop.index0 }}.ip = {{ bmc.ip | default('') }}
+bmcs.{{ loop.index0 }}.username = {{ bmc.username | default('') }}
+bmcs.{{ loop.index0 }}.password = {{ bmc.password | default('') }}
+bmcs.{{ loop.index0 }}.privilege = {{ bmc.privilege | default('operator') }}
 {% endfor %}
 
-[DEFAULT]
-# Metrics to collect from each BMC
-{% for metric in ipmi.metrics %}
-# Enable {{ metric.name }} metric
-metric_{{ loop.index }} = {{ metric.name }}
-{% if metric.interval is defined %}
-metric_{{ loop.index }}_interval = {{ metric.interval }}
-{% endif %}
+# List of IPMI metrics to collect (e.g., power, temperature, fan, voltage).
+# Format: name1,name2,...
+metrics = {{ (ipmi | default({})).metrics | default([{'name': 'power'}, {'name': 'temperature'}, {'name': 'fan'}]) | map(attribute='name') | join(',') }}
+
+# Optional mapping between BMC IP addresses and OpenStack compute node hostnames.
+{#
+  Generates INI key-value pairs for hostname mapping:
+  hostnames.<ip> = <hostname>
+#}
+{% for entry in (ipmi | default({})).hostnames | default([]) | list %}
+hostnames.{{ entry.ip | default('') }} = {{ entry.hostname | default('') }}
 {% endfor %}
 
-[DEFAULT]
-# Compute node hostname mapping (optional, for identification inceilometer)
-{% for hostname in ipmi.hostnames %}
-# Mapping for host {{ hostname.name }}
-hostname_mapping_{{ loop.index }} = {{ hostname.ipmi_address }}:{{ hostname.compute_hostname }}
-{% endfor %}
-
-[DEFAULT]
-# Notification routing and fanout settings
-notification_driver = {{ notification.driver }}
-{% for topic in notification.topics %}
-notification_topics = {{ topic }}
-{% endfor %}
-
-[DEFAULT]
-# Pipeline configuration (if used)
-pipeline_cfg_file = {{ pipeline.config_file }}
-
-[DEFAULT]
-# Event notifications
-event_definitions_file = {{ events.definitions_file }}
-
-[DEFAULT]
-# Source of metrics (e.g., 'ipmi', 'gnocchi')
-metric_source = {{ metric_source }}
-
-[DEFAULT]
-# Retry configuration for IPMI polling
-ipmi_retry_attempts = {{ ipmi.retry_attempts }}
-ipmi_retry_delay = {{ ipmi.retry_delay }}
-
-[DEFAULT]
-# Timeout for IPMI commands (in seconds)
-ipmi_timeout = {{ ipmi.timeout }}
-
-[DEFAULT]
-# SSL/TLS verification for keystone
-os_cacert = {{ keystone_auth.cacert }}
-os_insecure = {{ keystone_auth.insecure }}
-
-[DEFAULT]
-# Disable SSL hostname verification (for self-signed certs)
-os_ssl_verify = {{ keystone_auth.ssl_verify }}
-
-[DEFAULT]
-# Logging format
-log_format = {{ logging.format }}
+# Source of metric data. For this agent, must be 'ipmi'.
+metric_source = {{ metric_source | default('ipmi') }}

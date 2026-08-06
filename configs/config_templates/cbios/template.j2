@@ -1,0 +1,37 @@
+# ==============================================================================
+# C-BIOS Configuration Template
+# ==============================================================================
+# This template configures C-BIOS, an MSX BIOS emulator/enhancer.
+# It sets the hardware variant, BIOS localization, and optional BIOS ROM path.
+# All variables are provided by the Ansible role/supplying task.
+# ==============================================================================
+
+# BIOS_VARIANT: Selects the MSX hardware variant to emulate/configure.
+# Valid values: MSX1, MSX2, MSX2+
+# Default: MSX1
+{% set variant = cbios_variant | default('MSX1') %}
+{% if variant in ['MSX1', 'MSX2', 'MSX2+'] %}
+BIOS_VARIANT={{ variant }}
+{% else %}
+# Invalid variant '{{ variant }}' provided; falling back to MSX1.
+BIOS_VARIANT=MSX1
+{% endif %}
+
+# BIOS_LOCALE: Sets the BIOS localization (language/region specific strings).
+# Valid values: INTL (International), JP (Japanese), BR (Brazilian)
+# Default: INTL
+{% set locale = cbios_locale | default('INTL') %}
+{% if locale in ['INTL', 'JP', 'BR'] %}
+BIOS_LOCALE={{ locale }}
+{% else %}
+# Invalid locale '{{ locale }}' provided; falling back to INTL.
+BIOS_LOCALE=INTL
+{% endif %}
+
+# BIOS_PATH: Optional explicit path to a custom BIOS ROM file.
+# If omitted or empty, C-BIOS uses the package-installed ROM file.
+# Default: '' (empty)
+{% set bios_path = cbios_bios_path | default('') %}
+{% if bios_path and bios_path != '' %}
+BIOS_PATH={{ bios_path }}
+{% endif %}

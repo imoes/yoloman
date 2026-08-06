@@ -1,26 +1,51 @@
 # /etc/default/keyboard — System keyboard layout configuration
-# This file is read by keyboard-setup init scripts during boot or manually via 'setupcon'
+# =============================================================================
+# This file is read by keyboard-setup init scripts during boot or manually via 'setupcon'.
+# It configures the X Keyboard Extension (XKB) for the system console and X/Wayland sessions.
+#
+# Schema Source: kbd
+# =============================================================================
 
-# XKB (X Keyboard Extension) layout — primary layout(s)
-# Use comma-separated list for multiple layouts (e.g., 'us,ru')
-XKB_LAYOUT={{ layout }}
+# XKB Layout
+# ------------
+# Primary keyboard layout(s).
+# Use comma-separated values for multilingual setups (e.g., 'us,ru').
+# Default: 'us'
+XKB_LAYOUT={{ layout | default('us') }}
 
-# XKB variant — optional variant(s) per layout
-# Leave empty or use comma-separated variants matching the layout order
+# XKB Variant
+# ------------
+# Optional layout variant(s) corresponding to each layout.
+# Leave empty if using default variant(s).
+# Default: ''
 XKB_VARIANT={{ variant | default('') | trim }}
 
-# XKB options — additional layout/behavior options
+# XKB Options
+# ------------
+# XKB options to customize behavior (e.g., switching layout with Alt+Shift, swapping Caps Lock and Ctrl).
 # Examples: 'grp:alt_shift_toggle', 'caps:swapescape'
+# Leave empty for defaults.
+# Default: ''
 XKB_OPTIONS={{ options | default('') | trim }}
 
-# Keyboard model — physical keyboard model (e.g., 'pc105', 'logiink360')
-# Most systems use 'pc105' for standard 105-key keyboards
+# Keyboard Model
+# ---------------
+# Physical keyboard model.
+# 'pc105' is standard for most PCs. Other common values include 'pc104', 'pc102', 'sun5'.
+# Default: 'pc105'
 XKB_MODEL={{ model | default('pc105') }}
 
-# Keyboard rule — rule set used (usually 'base' or 'evdev')
-# 'base' is standard for most Linux distributions
+# Keyboard Rules
+# ---------------
+# XKB ruleset.
+# 'base' works for most distributions; 'evdev' is used on some systems for better hardware support.
+# Default: 'base'
 XKB_RULES={{ rules | default('base') }}
 
-# Keyboard device to reconfigure (optional, leave empty to apply system-wide)
-# Typically left blank unless configuring a specific input device
+# Keyboard Device
+# ----------------
+# Optional input device path to apply layout only to a specific keyboard.
+# Leave blank to configure all keyboards system-wide.
+# Example: '/dev/input/event0'
+# Default: ''
 KEYBOARD_DEVICE={{ device | default('') | trim }}

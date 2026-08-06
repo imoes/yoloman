@@ -1,66 +1,107 @@
-# Enables the Hyper-V key value pair (KVP) daemon
-KVP_ENABLED={{ kvp_enabled }}
+# =============================================================================
+# hyperv_daemons configuration
+# =============================================================================
+# This file configures the Hyper-V Linux Integration Services daemons.
+# Each daemon can be individually enabled/disabled, binary overridden, and
+# passed extra command-line arguments.
+# =============================================================================
 
-# Enables the Hyper-V shutdown daemon
-SHUTDOWN_ENABLED={{ shutdown_enabled }}
+# -----------------------------------------------------------------------------
+# KVP Daemon (Key-Value Pair)
+# Description: Enable the Hyper-V Key-Value Pair (KVP) daemon for exchanging
+#              data between guest and host.
+# -----------------------------------------------------------------------------
+KVP_ENABLED={{ kvp_enabled | default(true) }}
 
-# Enables the Hyper-V time synchronization daemon
-TIME_SYNC_ENABLED={{ time_sync_enabled }}
+# Description: Override path to the KVP daemon binary.
+#              Leave empty to use system default (/usr/sbin/hv_kvp_daemon).
+KVP_BIN={{ (kvp_bin | default('')) if kvp_bin is defined else '' }}
 
-# Enables the Hyper-V heartbeat daemon
-HEARTBEAT_ENABLED={{ heartbeat_enabled }}
+# -----------------------------------------------------------------------------
+# Shutdown Daemon
+# Description: Enable the Hyper-V shutdown daemon to handle graceful guest
+#              shutdown requests from the host.
+# -----------------------------------------------------------------------------
+SHUTDOWN_ENABLED={{ shutdown_enabled | default(true) }}
 
-# Enables the Hyper-V file copy daemon
-FCOPY_ENABLED={{ fcopy_enabled }}
+# Description: Override path to the shutdown daemon binary.
+#              Leave empty to use system default (/usr/sbin/hv_shutdown).
+SHUTDOWN_BIN={{ (shutdown_bin | default('')) if shutdown_bin is defined else '' }}
 
-# Path to the KVP daemon binary (leave blank to use default)
-KVP_BIN={{ kvp_bin | default('') }}
+# -----------------------------------------------------------------------------
+# Time Sync Daemon
+# Description: Enable the Hyper-V time synchronization daemon to keep guest
+#              system time in sync with the host.
+# -----------------------------------------------------------------------------
+TIME_SYNC_ENABLED={{ time_sync_enabled | default(true) }}
 
-# Path to the shutdown daemon binary (leave blank to use default)
-SHUTDOWN_BIN={{ shutdown_bin | default('') }}
+# Description: Override path to the time sync daemon binary.
+#              Leave empty to use system default (/usr/sbin/hv_timesync_daemon).
+TIME_SYNC_BIN={{ (time_sync_bin | default('')) if time_sync_bin is defined else '' }}
 
-# Path to the time sync daemon binary (leave blank to use default)
-TIME_SYNC_BIN={{ time_sync_bin | default('') }}
+# -----------------------------------------------------------------------------
+# Heartbeat Daemon
+# Description: Enable the Hyper-V heartbeat daemon to report guest health
+#              status to the host.
+# -----------------------------------------------------------------------------
+HEARTBEAT_ENABLED={{ heartbeat_enabled | default(true) }}
 
-# Path to the heartbeat daemon binary (leave blank to use default)
-HEARTBEAT_BIN={{ heartbeat_bin | default('') }}
+# Description: Override path to the heartbeat daemon binary.
+#              Leave empty to use system default (/usr/sbin/hv_vss_daemon).
+HEARTBEAT_BIN={{ (heartbeat_bin | default('')) if heartbeat_bin is defined else '' }}
 
-# Path to the file copy daemon binary (leave blank to use default)
-FCOPY_BIN={{ fcopy_bin | default('') }}
+# -----------------------------------------------------------------------------
+# File Copy Daemon
+# Description: Enable the Hyper-V file copy daemon to allow file transfers
+#              from host to guest (requires Hyper-V Integration Services).
+# -----------------------------------------------------------------------------
+FCOPY_ENABLED={{ fcopy_enabled | default(false) }}
 
-# Extra arguments passed to KVP daemon
-{% if kvp_extra_args %}
-KVP_OPTS="{{ kvp_extra_args | join(' ') }}"
+# Description: Override path to the file copy daemon binary.
+#              Leave empty to use system default (/usr/sbin/hv_fcopy_daemon).
+FCOPY_BIN={{ (fcopy_bin | default('')) if fcopy_bin is defined else '' }}
+
+# -----------------------------------------------------------------------------
+# Extra Arguments
+# -----------------------------------------------------------------------------
+# Description: List of extra command-line arguments for the KVP daemon
+#              (e.g., ['-v', '--timeout', '30']).
+{% if kvp_extra_args | default([]) | length > 0 %}
+KVP_OPTS="{{ kvp_extra_args | default([]) | join(' ') }}"
 {% endif %}
 
-# Extra arguments passed to shutdown daemon
-{% if shutdown_extra_args %}
-SHUTDOWN_OPTS="{{ shutdown_extra_args | join(' ') }}"
+# Description: List of extra command-line arguments for the shutdown daemon.
+{% if shutdown_extra_args | default([]) | length > 0 %}
+SHUTDOWN_OPTS="{{ shutdown_extra_args | default([]) | join(' ') }}"
 {% endif %}
 
-# Extra arguments passed to time sync daemon
-{% if time_sync_extra_args %}
-TIME_SYNC_OPTS="{{ time_sync_extra_args | join(' ') }}"
+# Description: List of extra command-line arguments for the time sync daemon.
+{% if time_sync_extra_args | default([]) | length > 0 %}
+TIME_SYNC_OPTS="{{ time_sync_extra_args | default([]) | join(' ') }}"
 {% endif %}
 
-# Extra arguments passed to heartbeat daemon
-{% if heartbeat_extra_args %}
-HEARTBEAT_OPTS="{{ heartbeat_extra_args | join(' ') }}"
+# Description: List of extra command-line arguments for the heartbeat daemon.
+{% if heartbeat_extra_args | default([]) | length > 0 %}
+HEARTBEAT_OPTS="{{ heartbeat_extra_args | default([]) | join(' ') }}"
 {% endif %}
 
-# Extra arguments passed to file copy daemon
-{% if fcopy_extra_args %}
-FCOPY_OPTS="{{ fcopy_extra_args | join(' ') }}"
+# Description: List of extra command-line arguments for the file copy daemon.
+{% if fcopy_extra_args | default([]) | length > 0 %}
+FCOPY_OPTS="{{ fcopy_extra_args | default([]) | join(' ') }}"
 {% endif %}
 
-# Log level (0=quiet, 1=errors, 2=info, 3=debug)
-{% if log_level is defined %}
-LOG_LEVEL={{ log_level }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+# Description: Verbosity level: 0 (quiet), 1 (errors only), 2 (info), 3 (debug).
+LOG_LEVEL={{ log_level | default(2) }}
 
-# Custom environment variables (space-separated KEY=value pairs)
-{% if env_vars %}
-{% for pair in env_vars %}
+# -----------------------------------------------------------------------------
+# Environment Variables
+# -----------------------------------------------------------------------------
+# Description: Custom environment variables to export before launching daemons
+#              (e.g., ['HYPERV_LOG_DIR=/var/log/hyperv']).
+#              Each item must be a 'KEY=value' string.
+{% for pair in env_vars | default([]) %}
 {{ pair }}
 {% endfor %}
-{% endif %}

@@ -1,0 +1,26 @@
+# PAM configuration file for Cyrus Murder mupdate service.
+#
+# This file configures the PAM (Pluggable Authentication Modules) stack for
+# the Cyrus Murder (mupdate) daemon. It dictates how authentication and
+# account validation are handled for Cyrus users.
+#
+# If you want to use Cyrus in a setup where users don't have
+# accounts on the local machine, you'll need to make sure
+# you use something like pam_permit for account checking.
+#
+# Remember that SASL (and therefore Cyrus) accesses PAM
+# modules through saslauthd, and that SASL can only deal with
+# plaintext passwords if PAM is used.
+#
+
+# PAM include directive for authentication.
+# This file is included to determine how user credentials are verified
+# (e.g., password checking, LDAP lookups, etc.).
+# Default: common-auth
+@include {{ common_auth_include | default('common-auth') }}
+
+# PAM include directive for account management.
+# This file is included to determine if the user's account is valid,
+# expired, or has other restrictions (e.g., login times, shell restrictions).
+# Default: common-account
+@include {{ common_account_include | default('common-account') }}

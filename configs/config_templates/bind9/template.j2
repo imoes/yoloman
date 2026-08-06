@@ -1,72 +1,113 @@
-// Forward DNS resolution: enable recursive queries
+# BIND9 named.conf.options - Enriched Jinja2 Template
+# This template generates the 'options' block for BIND9 (named) configuration.
+# It is self-documenting: every directive is preceded by a comment derived from its schema definition.
+
 options {
-{% if allow_query %}
-	// Allow clients (ACL-based) to query this server
-	allow-query		{ {{ allow_query | join('; ') }}; };
-{% endif %}
+    # Working directory for zone files, transfer files, and other runtime data.
+    directory "{{ working_directory | default('/var/cache/bind') }}";
 
-{% if allow_recursion %}
-	// Permit recursive queries from specified networks
-	allow-recursion	{ {{ allow_recursion | join('; ') }}; };
-{% else %}
-	// Default: only allow recursion from local networks
-	allow-recursion	{ localhost; localnets; };
-{% endif %}
+    # Main DNS port to listen on (typically 53 for both TCP and UDP).
+    port {{ port | default(53) }};
 
-{% if dnssec_validation %}
-	// Enable DNSSEC validation (auto or strict)
-	dnssec-validation	{{ "auto" if dnssec_validation == true else dnssec_validation }};
-{% endif %}
+    # List of IPv4 addresses (and optional ports) to bind DNS services to.
+    # If empty, defaults to all interfaces ('any').
+    listen-on {
+        {% set lo = listen_on | default([]) %}
+        {% if lo | length > 0 %}
+            {%- for addr in lo %}
+            {{ addr }};
+            {%- if not loop.last %} {% endif -%}
+            {%- endfor %}
+        {% else %}
+            any
+        {% endif %}
+    };
 
-{% if listen_on %}
-	// Interface(s) and port(s) to listen on
-	listen-on		{ {{ (listen_on | map(attribute='address') | join(', ')) }} };
-{% else %}
-	listen-on		port {{ port }} { any; };
-{% endif %}
+    # List of IPv6 addresses to bind DNS services to.
+    # If empty, disables IPv6 listening ('none').
+    listen-on-v6 {
+        {% set lov6 = listen_on_v6 | default([]) %}
+        {% if lov6 | length > 0 %}
+            {%- for addr in lov6 %}
+            {{ addr }};
+            {%- if not loop.last %} {% endif -%}
+            {%- endfor %}
+        {% else %}
+            none
+        {% endif %}
+    };
 
-{% if listen_on_v6 %}
-	listen-on-v6		{ {{ (listen_on_v6 | map(attribute='address') | join(', ')) }} };
-{% else %}
-	listen-on-v6		{ none; };
-{% endif %}
+    # List of IP addresses, networks (CIDR), or named ACLs allowed to query this server.
+    # If empty, defaults to 'any'.
+    allow-query {
+        {% set aq = allow_query | default(['any']) %}
+        {% if aq | length > 0 %}
+            {%- for entry in aq %}
+            {{ entry }};
+            {%- if not loop.last %} {% endif -%}
+            {%- endfor %}
+        {% else %}
+            any
+        {% endif %}
+    };
 
-{% if forwarders %}
-	// Forward unresolved queries to upstream resolvers
-	forwarders		{
-{% for forwarder in forwarders %}
-		{{ forwarder.address }};
-{% endfor %}
-	};
-{% endif %}
+    # List of networks permitted to perform recursive queries.
+    # If empty, defaults to 'localhost' and 'localnets'.
+    allow-recursion {
+        {% set ar = allow_recursion | default([]) %}
+        {% if ar | length > 0 %}
+            {%- for entry in ar %}
+            {{ entry }};
+            {%- if not loop.last %} {% endif -%}
+            {%- endfor %}
+        {% else %}
+            localhost localnets
+        {% endif %}
+    };
 
-	// DNS forwarding behavior
-	forward			{{ forward_policy }};
+    # Enable DNSSEC validation: 'auto', 'yes', 'no', or 'strict'.
+    # Use 'auto' for recommended behavior.
+    dnssec-validation {{ dnssec_validation | default('auto') }};
 
-{% if max_cache_size %}
-	// Maximum size of cache (in MB)
-	max-cache-size	{{ max_cache_size }};
-{% endif %}
+    # List of upstream DNS servers to forward unresolved queries to.
+    # If empty, no forwarders are configured.
+    forwarders {
+        {% set fwd = forwarders | default([]) %}
+        {% if fwd | length > 0 %}
+            {%- for fs in fwd %}
+            {{ fs }};
+            {%- if not loop.last %} {% endif -%}
+            {%- endfor %}
+        {% endif %}
+    };
 
-{% if querylog %}
-	// Log queries for debugging (disable in production by default)
-	querylog		yes;
-{% else %}
-	querylog		no;
-{% endif %}
+    # Forwarding behavior: 'first' (try forwarders, then recursive),
+    # 'only' (only forward), or 'none'.
+    forward {{ forward_policy | default('first') }};
 
-	// PID file location
-	pid-file		"{{ pid_file }}";
+    # Maximum cache size in megabytes (MB) for the answer cache.
+    # Set to 0 for unlimited (not recommended).
+    max-cache-size {{ max_cache_size | default('90%') }};
 
-	// Directory for zone files (unless overridden per-zone)
-	directory		"{{ working_directory }}";
+    # Enable query logging (to syslog). Useful for troubleshooting;
+    # disable in production unless needed.
+    querylog {{ querylog | default(False) | lower }};
 
-	// Statistics file location
-	statistics-file	"{{ stats_file }}";
+    # Path to the PID file used to track the running daemon process.
+    pid-file "{{ pid_file | default('/run/named/named.pid') }}";
 
-	// DNS over HTTPS (DoH) endpoint — optional
-{% if doh_endpoint %}
-	doh-listen-on	{ address({{ doh_endpoint.address }}) port {{ doh_endpoint.port }} tls "{{ doh_endpoint.tls_cert }}" key "{{ doh_endpoint.tls_key }}"; };
-{% endif %}
+    # Path to the statistics output file (used by 'rndc stats').
+    statistics-file "{{ stats_file | default('/var/cache/bind/named.stats') }}";
 
+    # Configure DNS over HTTPS (DoH). Requires BIND 9.16+ and TLS certificates.
+    # If not configured, this block is omitted entirely.
+    {% if doh_endpoint is defined and doh_endpoint is not none %}
+    dns-over-https {
+        listen {{ doh_endpoint.listen | default('localhost') }};
+        max-connections {{ doh_endpoint.max_connections | default(100) }};
+        path "{{ doh_endpoint.path | default('/dns-query') }}";
+        certificate-file "{{ doh_endpoint.certificate_file | default('/etc/ssl/certs/named.pem') }}";
+        certificate-key-file "{{ doh_endpoint.certificate_key_file | default('/etc/ssl/private/named.key') }}";
+    };
+    {% endif %}
 };

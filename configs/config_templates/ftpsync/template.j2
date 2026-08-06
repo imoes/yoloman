@@ -1,0 +1,70 @@
+# ftpsync.conf(5) configuration file
+# This template generates the configuration for `ftpsync`, a tool used to synchronize
+# FTP directories. It handles archive selection, staging, multi-hop transfers,
+# post-sync callbacks, and trigger mechanisms.
+
+# -----------------------------------------------------------------------------
+# Archive Selection
+# -----------------------------------------------------------------------------
+# sync_archives: List of archive names to sync. Each item corresponds to an archive
+# defined in ftpsync.conf(5). If empty, the default 'sync:all' is used to sync
+# everything.
+{% if sync_archives is defined and sync_archives | length > 0 %}
+# Sync specific archives defined in the list
+{% for archive in sync_archives %}
+sync:archive:{{ archive }}
+{% endfor %}
+{% else %}
+# No specific archives defined; perform a complete sync of all archives
+sync:all
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Synchronization Stages
+# -----------------------------------------------------------------------------
+# stage_only: Controls which stage(s) of the synchronization process to execute.
+#   0 (default): Run full sync (all stages).
+#   1: Run only stage 1 (typically preparation/download).
+#   2: Run only stage 2 (typically deployment/commit).
+{% if stage_only is defined %}
+{% if stage_only == 1 %}
+# Stage 1 only sync
+sync:stage1
+{% elif stage_only == 2 %}
+# Stage 2 only sync
+sync:stage2
+{% endif %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Multi-Hop Synchronization
+# -----------------------------------------------------------------------------
+# multi_hop: Enable multi-hop sync. This is usually used in conjunction with
+# stage 1 to transfer data through intermediate servers before reaching the
+# final destination.
+{% if multi_hop is defined and multi_hop == true %}
+# Multi-hop sync (usually in addition to stage1)
+sync:mhop
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Post-Sync Callback
+# -----------------------------------------------------------------------------
+# callback: If enabled, triggers a callback action upon successful completion
+# of the synchronization process.
+{% if callback is defined and callback == true %}
+# Call back when done
+sync:callback
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Trigger Mechanism
+# -----------------------------------------------------------------------------
+# trigger_mode: Overrides the auto-detected trigger mode. Accepts 'ssh' or 'cron'.
+# This should only be set if automatic detection is failing or if a specific
+# mode is strictly required.
+{% if trigger_mode is defined %}
+# Force trigger mode: 'ssh' or 'cron'
+# Note: Usually auto-detected; use only when needed
+-T {{ trigger_mode }}
+{% endif %}

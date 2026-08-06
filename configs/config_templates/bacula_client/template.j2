@@ -1,57 +1,99 @@
+# Bacula File Daemon (bacula-fd) Configuration Template
+# This file configures the Bacula client daemon that performs actual data backup.
+# It must match the Director's Client resource and allowed Director resources.
+
+# -----------------------------------------------------------------------------
 # Director (backup server) that is allowed to connect to this File Daemon
+# -----------------------------------------------------------------------------
+# Name of the backup director (server) allowed to control this client. Must match the Director resource name in the server config.
 Director {
-  Name = {{ director_name }}
-  DIRport = {{ director_port }}
-  # Password used for authentication (must match Director's Password)
-  Password = "{{ director_password }}"
-}
-
-# Local File Daemon configuration
-FileDaemon {
-  Name = {{ fd_name }}
-  # Unique FD ID (used for identification by Director)
-  FDport = {{ fd_port }}
-  # Working directory for spooling and logs
-  WorkingDirectory = "{{ working_dir }}"
-  # PID file location
-  PidDirectory = "{{ pid_dir }}"
-  # Maximum concurrent jobs
-  MaximumConcurrentJobs = {{ max_concurrent_jobs }}
-  # Local hostname (optional; if omitted, system hostname is used)
-  FDAddress = {{ fd_address | default('localhost') }}
-  # TLS configuration
-  {{ tls_enabled | ternary('TLS Enable = yes', '# TLS Enable = no') }}
-  {{ tls_enabled | ternary('TLS CA Certificate File = "' ~ tls_ca_cert ~ '"', '') }}
-  {{ tls_enabled | ternary('TLS Certificate File = "' ~ tls_cert_file ~ '"', '') }}
-  {{ tls_enabled | ternary('TLS Key File = "' ~ tls_key_file ~ '"', '') }}
-  {{ tls_enabled | ternary('TLS Verify Peer = ' ~ ('yes' if tls_verify_peer else 'no'), '') }}
-  {{ tls_enabled | ternary('TLS Cipher List = "' ~ tls_cipher_list ~ '"', '') }}
-}
-
-# Console (local CLI) access — typically for `bconsole`
-Console {
-  Name = {{ console_name }}
-  # Password for local console access
-  Password = "{{ console_password }}"
-  # ACLs: what the console can do
-  CommandACL = {{ console_commands | join(', ') }}
+  # Name of the backup director (server) allowed to control this client.
+  Name = {{ (director_name | default('Director')) }}
+  # Port on which the Director listens for connections from this File Daemon (typically 9101).
+  DIRport = {{ director_port | default(9101) }}
+  # Password for authenticating the Director to this File Daemon. Should be a strong, unique secret.
+  Password = "{{ director_password | default('') }}"
 }
 
 # Additional directors (optional) — e.g., for redundancy or multi-server setups
-{% for d in extra_directors %}
+{% for d in (extra_directors | default([])) %}
 Director {
-  Name = {{ d.name }}
-  DIRport = {{ d.port }}
-  Password = "{{ d.password }}"
+  # Name of the additional backup director.
+  Name = {{ d.name | default('') }}
+  # Port on which the additional Director listens.
+  DIRport = {{ d.port | default(9101) }}
+  # Password for the additional Director.
+  Password = "{{ d.password | default('') }}"
 }
 {% endfor %}
 
+# -----------------------------------------------------------------------------
+# Local File Daemon configuration
+# -----------------------------------------------------------------------------
+# Name of this File Daemon (client). Should be unique across your backup infrastructure.
+FileDaemon {
+  # Name of this File Daemon (client).
+  Name = {{ fd_name | default('Client') }}
+  # Port on which this File Daemon listens for connections from Directors (default: 9102).
+  FDport = {{ fd_port | default(9102) }}
+  # Directory for spooling backup data and storing state files. Must be writable by the bacula-fd process.
+  WorkingDirectory = "{{ working_dir | default('/var/lib/bacula') }}"
+  # Directory where the bacula-fd process writes its PID file.
+  PidDirectory = "{{ pid_dir | default('/run/bacula') }}"
+  # Maximum number of simultaneous backup/jobs allowed. Higher values increase parallelism but CPU/memory usage.
+  MaximumConcurrentJobs = {{ max_concurrent_jobs | default(20) }}
+  # Network address (IP or hostname) this File Daemon binds to. Use '0.0.0.0' to listen on all interfaces.
+  FDAddress = {{ fd_address | default('localhost') }}
+
+  # -----------------------------------------------------------------------------
+  # TLS Configuration
+  # -----------------------------------------------------------------------------
+  # Enable TLS encryption for Director-FD communication (recommended in production for security).
+  {% if tls_enabled | default(False) %}
+  # TLS is enabled for this File Daemon.
+  TLS Enable = yes
+  # Path to the CA certificate file for verifying TLS connections (required if TLS is enabled).
+  TLS CA Certificate File = "{{ tls_ca_cert | default('/etc/bacula/ssl/bacula-ca.crt') }}"
+  # Path to this File Daemon's TLS certificate (required if TLS is enabled).
+  TLS Certificate File = "{{ tls_cert_file | default('/etc/bacula/ssl/bacula-fd.crt') }}"
+  # Path to this File Daemon's TLS private key (required if TLS is enabled).
+  TLS Key File = "{{ tls_key_file | default('/etc/bacula/ssl/bacula-fd.key') }}"
+  # If true, strictly verify the Director's certificate against the CA (recommended for security).
+  TLS Verify Peer = {{ 'yes' if tls_verify_peer | default(True) else 'no' }}
+  # OpenSSL cipher list for TLS negotiation. Adjust for compliance or legacy compatibility.
+  TLS Cipher List = "{{ tls_cipher_list | default('HIGH:MEDIUM:+3DES:!aNULL') }}"
+  {% else %}
+  # TLS is disabled; ensure this is acceptable for your security policy.
+  # TLS Enable = no
+  {% endif %}
+}
+
+# -----------------------------------------------------------------------------
+# Console (local CLI) access — typically for `bconsole`
+# -----------------------------------------------------------------------------
+# Name of the local console resource used by `bconsole` to connect locally (for administration).
+Console {
+  # Name of the local console resource.
+  Name = {{ console_name | default('bconsole') }}
+  # Password for the local console (bconsole). Should match the Console resource in the Director.
+  Password = "{{ console_password | default('') }}"
+  # List of commands the console is allowed to execute. Restrict to least-privilege as needed.
+  CommandACL = {{ console_commands | default(['status', 'show', 'run', 'restore', 'list', 'query', 'sqlquery', 'sqltrace', 'mount', 'prune', 'purge', 'cancel', 'enable', 'disable', 'create', 'delete', 'copy', 'move', 'verify', 'update', 'partitions', 'tree', 'params', 'debug']) | join(', ') }}
+}
+
+# -----------------------------------------------------------------------------
 # Storage Daemon definition (if using direct SD communication — less common)
-{% if storage_daemon %}
+# -----------------------------------------------------------------------------
+# Optional Storage Daemon definition for direct client→SD communication (rare; most traffic goes Director→Client→SD).
+{% if storage_daemon is defined %}
 Storage {
-  Name = {{ storage_daemon.name }}
-  Address = {{ storage_daemon.address }}
-  SDport = {{ storage_daemon.port }}
-  Password = "{{ storage_daemon.password }}"
+  # Name of the Storage Daemon.
+  Name = {{ storage_daemon.name | default('') }}
+  # Network address (IP or hostname) of the Storage Daemon.
+  Address = {{ storage_daemon.address | default('') }}
+  # Port on which the Storage Daemon listens.
+  SDport = {{ storage_daemon.port | default(9103) }}
+  # Password for authenticating with the Storage Daemon.
+  Password = "{{ storage_daemon.password | default('') }}"
 }
 {% endif %}

@@ -1,22 +1,55 @@
-# Gaviota chess tablebase configuration
-# Path to the root directory containing Gaviota tablebase files (.gtb)
-path: {{ tablebase_path }}
+# =============================================================================
+# Gaviota Chess Tablebase Configuration Template
+# =============================================================================
+#
+# This template configures the Gaviota tablebase engine, used primarily by
+# chess engines (like Stockfish) for endgame tablebase lookups.
+#
+# Self-documenting: every setting is described below its directive.
+# Variables are sourced from the Ansible role's variable scope, with safe
+# defaults derived from the schema definition.
+# =============================================================================
 
-# Number of tablebase files to preload into memory (0 = load on demand)
-# Adjust based on available RAM; higher values improve speed at cost of memory
-preload_limit: {{ preload_limit }}
+# --- Path Configuration ---
 
-# Enable or disable compression support (most .gtb files are uncompressed)
-# Keep enabled unless you use specially compressed tablebases
-compression: {{ compression | string | lower }}
+# Absolute filesystem path to the directory containing Gaviota tablebase files (.gtb).
+# The engine will search this directory recursively for valid tablebase files.
+path: {{ tablebase_path | default('/var/lib/chess-tablebases/gaviota') }}
 
-# Optional: Enable debug logging for tablebase loading/lookup
-# Set to true to log detailed diagnostics to stderr
-debug: {{ debug | string | lower }}
+# --- Performance Tuning ---
 
-# Optional: List of tablebase subsets to preload (by prefix or suffix)
-# Leave empty to preload all found in 'path'
-{% if preload_patterns %}
+# Maximum number of tablebase files to preload into memory on startup.
+# - 0: Load on demand (lazy loading). Best for large sets with limited RAM.
+# - >0: Preload exactly N files into memory. Improves lookup speed but consumes more RAM.
+# Adjust based on available system memory; higher values improve speed at cost of memory.
+preload_limit: {{ preload_limit | default(0) }}
+
+# Enable or disable support for compressed tablebase files (e.g., .gtb.gz).
+# - true: Enable support. Use this if your tablebase files are compressed.
+# - false: Disable. Use only if you are certain all files are uncompressed to
+#           avoid overhead from trying to decompress them.
+# Keep enabled unless you use specially uncompressed tablebases or have specific
+# performance requirements disabling compression checks.
+compression: {{ compression | default(true) | string | lower }}
+
+# --- Diagnostic Options ---
+
+# Enable verbose diagnostic logging to stderr during tablebase initialization
+# and lookup operations.
+# - true: Enable debug logging. Useful for troubleshooting missing files or
+#         format errors.
+# - false: Disable. Recommended for production use to keep logs clean.
+debug: {{ debug | default(false) | string | lower }}
+
+# --- Selective Preloading Patterns ---
+
+# Optional list of patterns (prefixes or suffixes) to selectively preload only
+# matching tablebase subsets into memory.
+# Examples: 'KQvK' (King-Queen vs King), '4men' (4-piece endings).
+# Leave empty to preload all available files (subject to preload_limit).
+{% if preload_patterns | default([]) | length > 0 %}
 # Patterns for selective preloading
-{% for pattern in preload_patterns %}preload_pattern: {{ pattern }}
-{% endfor %}{% endif %}
+{% for pattern in preload_patterns | default([]) %}
+preload_pattern: {{ pattern | string }}
+{% endfor %}
+{% endif %}

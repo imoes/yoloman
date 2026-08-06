@@ -1,40 +1,39 @@
 # /etc/lft.conf — Layer-Four Traceroute configuration
-# Global timeout for all probes (in seconds)
-# Increase if high latency links are expected
-Timeout: {{ timeout }}
+# Self-documenting template: every directive is preceded by its schema description.
 
-# Default TTL to start tracing from (usually 1)
-StartTTL: {{ start_ttl }}
+# Global timeout (seconds) for each probe response. Increase for high-latency or congested networks.
+Timeout: {{ (timeout | default(2)) }}
 
-# Maximum TTL to probe (limit how far the trace goes)
-MaxTTL: {{ max_ttl }}
+# Initial TTL value to start the traceroute from. Usually 1.
+StartTTL: {{ (start_ttl | default(1)) }}
 
-# Number of parallel probe streams per hop (1–10 recommended)
-# Higher values may increase accuracy but also network load
-ProbesPerHop: {{ probes_per_hop }}
+# Maximum TTL value to probe. Limits the hop count of the trace.
+MaxTTL: {{ (max_ttl | default(30)) }}
 
-# Enable or disable use of ICMP ECHO (fallback when UDP is blocked)
-UseICMP: {% if use_icmp %}yes{% else %}no{% endif %}
+# Number of probe packets sent per hop for averaging. Higher values improve reliability at cost of time.
+ProbesPerHop: {{ (probes_per_hop | default(3)) }}
 
-# Enable or disable verbose logging
-Verbose: {% if verbose %}yes{% else %}no{% endif %}
+# Fallback to ICMP ECHO probes if UDP probes are blocked by firewalls.
+UseICMP: {% if (use_icmp | default(false) | bool) %}yes{% else %}no{% endif %}
 
-# Destination ports to probe for each target
-# Define multiple targets with custom port lists below
-{% for target in targets %}# Traceroute to {{ target.hostname }} using ports: {{ target.ports | join(', ') }}
-Host: {{ target.hostname }}
-{% if target.ports %}Ports: {{ target.ports | join(',') }}
+# Enable detailed logging of packet contents and timing for debugging.
+Verbose: {% if (verbose | default(false) | bool) %}yes{% else %}no{% endif %}
+
+# List of destination hosts to trace, each with optional ports and source IP.
+# Iterates over the targets list provided by the schema.
+{% for target in (targets | default([])) %}# Traceroute to {{ (target.hostname | default('unknown')) }} using ports: {{ (target.ports | default([])) | join(', ') }}
+Host: {{ (target.hostname | default('')) }}
+{% if (target.ports | default([])) %}Ports: {{ (target.ports | default([])) | join(',') }}
 {% endif %}
-{% if target.source_ip %}SourceIP: {{ target.source_ip }}
+{% if (target.source_ip | default('')) %}SourceIP: {{ (target.source_ip | default('')) }}
 {% endif %}
 {% endfor %}
 
-# Optional: default ports if not specified per-host
-# Used only when Host entry lacks Ports line
-DefaultPorts: {{ default_ports | join(',') }}
+# Ports used as fallback when a target entry omits Ports.
+DefaultPorts: {{ (default_ports | default([80, 443])) | join(',') }}
 
-# Interface to bind source socket (leave blank for auto)
-Interface: {{ interface if interface else 'auto' }}
+# Network interface name to bind source sockets (e.g., eth0). Leave blank for automatic selection.
+Interface: {{ (interface | default('')) or 'auto' }}
 
-# Rate limit: max packets per second per target (0 = no limit)
-RateLimit: {{ rate_limit }}
+# Maximum packets per second per target. Set to 0 for no limit. Use to avoid overwhelming targets.
+RateLimit: {{ (rate_limit | default(0)) }}

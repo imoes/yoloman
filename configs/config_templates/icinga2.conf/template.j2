@@ -1,39 +1,103 @@
-# Icinga 2 main configuration file
-# This file includes global settings, zones, endpoints, and includes.
+# Icinga 2 main configuration file (icinga2.conf)
+# This file manages global settings, cluster endpoints, zone topology, and global zones.
+# It serves as the central entry point for Icinga 2's configuration.
 
-# Global settings
-{% if global_settings.log_level is defined %}log_level = {{ global_settings.log_level }}{% endif %}
-{% if global_settings.log_file is defined %}log_file = "{{ global_settings.log_file }}"{% endif %}
-{% if global_settings.pid_file is defined %}pid_file = "{{ global_settings.pid_file }}"{% endif %}
-{% if global_settings.enable_remote_commands is defined %}enable_remote_commands = {{ global_settings.enable_remote_commands }}{% endif %}
-{% if global_settings.ignore_on_weekend is defined %}ignore_on_weekend = {{ global_settings.ignore_on_weekend }}{% endif %}
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+# global_settings: default='3'
+# Description: Global Icinga 2 settings. log_level is the only globally supported setting in icinga2.conf;
+# other values (log_file, pid_file, enable_remote_commands, ignore_on_weekend) may be supported depending
+# on the specific Icinga 2 version and compilation options.
+# The variable 'global_settings' is expected to be a dictionary (mapping) of settings.
+# Accessing keys from a potentially undefined dictionary requires defaulting the parent first.
 
-# Feature configuration (enabling/disabling features)
+{# Log Level: Integer (0-6). Default '3' corresponds to 'Notice'. #}
+log_level = {{ (global_settings | default({})).log_level | default(3) }}
+
+{# Log File: Path to log file. Optional. If not specified, logs go to stdout or syslog. #}
+{% if (global_settings | default({})).log_file is defined %}
+log_file = "{{ (global_settings | default({})).log_file }}"
+{% endif %}
+
+{# PID File: Path to PID file. Optional. #}
+{% if (global_settings | default({})).pid_file is defined %}
+pid_file = "{{ (global_settings | default({})).pid_file }}"
+{% endif %}
+
+{# Enable Remote Commands: Boolean. Optional. #}
+{% if (global_settings | default({})).enable_remote_commands is defined %}
+enable_remote_commands = {{ (global_settings | default({})).enable_remote_commands | lower }}
+{% endif %}
+
+{# Ignore on Weekend: Boolean. Optional. #}
+{% if (global_settings | default({})).ignore_on_weekend is defined %}
+ignore_on_weekend = {{ (global_settings | default({})).ignore_on_weekend | lower }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Feature Configuration
+# -----------------------------------------------------------------------------
+# Include all configuration snippets from the features-enabled directory.
+# This allows enabling/disabling Icinga 2 features (checker, notification, etc.)
+# without editing this main file directly.
 include <features-enabled/*.conf>
 
-# Zone and endpoint definitions
-{% for endpoint in endpoints %}
+# -----------------------------------------------------------------------------
+# Endpoints
+# -----------------------------------------------------------------------------
+# endpoints: default=[]
+# Description: List of Endpoint objects defining cluster nodes. Each endpoint
+# defines a node's identity (name) and network address (host/port) for
+# high-availability clustering.
+{% for endpoint in (endpoints | default([])) %}
 object Endpoint "{{ endpoint.name }}" {
   host = "{{ endpoint.host }}"
-{% if endpoint.port is defined %}  port = {{ endpoint.port }}{% endif %}
+{% if endpoint.port is defined %}
+  port = {{ endpoint.port }}
+{% endif %}
 }
 {% endfor %}
 
-{% for zone in zones %}
+# -----------------------------------------------------------------------------
+# Zones
+# -----------------------------------------------------------------------------
+# zones: default=[]
+# Description: List of Zone objects defining the cluster topology hierarchy.
+# Zones group endpoints. A zone can have a parent zone and child endpoints.
+{% for zone in (zones | default([])) %}
 object Zone "{{ zone.name }}" {
-{% if zone.endpoints is defined and zone.endpoints|length > 0 %}  endpoints = [ {% for ep in zone.endpoints %}"{{ ep }}"{% if not loop.last %}, {% endif %}{% endfor %} ]{% endif %}
-{% if zone.parent is defined %}  parent = "{{ zone.parent }}"{% endif %}
+{% if zone.endpoints is defined and zone.endpoints | length > 0 %}
+  endpoints = [ {% for ep in zone.endpoints %}"{{ ep }}"{% if not loop.last %}, {% endif %}{% endfor %} ]
+{% endif %}
+{% if zone.parent is defined %}
+  parent = "{{ zone.parent }}"
+{% endif %}
 }
 {% endfor %}
 
-# Global zones
-{% if global_zones is defined %}
-{% for name, config in global_zones.items() %}
-object Zone "{{ name }}" {% if config.is_global %}global = true{% endif %}{% if config.endpoints is defined and config.endpoints|length > 0 %} {
+# -----------------------------------------------------------------------------
+# Global Zones
+# -----------------------------------------------------------------------------
+# global_zones: default=''
+# Description: Global zones (e.g., for templates, global hosts/commands).
+# Keys are zone names; values define `is_global` flag and optional `endpoints`.
+# Global zones are available to all parent zones in the hierarchy.
+# Uses dict2items to iterate the mapping safely.
+{% if global_zones is defined and global_zones | length > 0 %}
+{% for item in global_zones | dict2items %}
+{% set name = item.key %}
+{% set config = item.value %}
+object Zone "{{ name }}" {% if config.is_global is defined and config.is_global %}global = true{% endif %}{% if config.endpoints is defined and config.endpoints | length > 0 %} {
   endpoints = [ {% for ep in config.endpoints %}"{{ ep }}"{% if not loop.last %}, {% endif %}{% endfor %} ]
 }{% endif %}
 {% endfor %}
 {% endif %}
 
-# Includes for host, service, and user definitions
+# -----------------------------------------------------------------------------
+# Object Definitions
+# -----------------------------------------------------------------------------
+# Include host, service, user, and other object definitions.
+# These are typically separated into the conf.d directory for modularity.
 include /etc/icinga2/conf.d/*.conf
+include_once /etc/icinga2/zones.d/*.conf

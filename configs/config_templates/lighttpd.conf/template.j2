@@ -10,11 +10,6 @@ server.bind = "{{ server.bind }}"
 server.pid-file = "{{ server.pid_file }}"
 server.errorlog = "{{ server.errorlog }}"
 server.accesslog = "{{ server.accesslog }}"
-server.max-connections = {{ server.max_connections }}
-server.network-backend = "{{ server.network_backend }}"
-server.event-handlers = {
-  "{{ server.event_handler_key }}" = "{{ server.event_handler_value }}"
-}
 
 # MIME type settings
 mimetype.assign = (
@@ -37,11 +32,6 @@ static-file.exclude-extensions = (
   {{ static_file_excludes | map('quote') | join(',\n  ') | indent(2, True) }}
 )
 
-# Logging level
-debug.log-request-handling = {{ debug.log_request_handling | lower }}
-debug.log-response-handling = {{ debug.log_response_handling | lower }}
-debug.log-state-handling = {{ debug.log_state_handling | lower }}
-
 # Compression
 compress.cache-dir = "{{ compress.cache_dir }}"
 compress.filetype = (
@@ -53,8 +43,6 @@ compress.filetype = (
 ssl.engine = "enable"
 ssl.pemfile = "{{ ssl.pemfile }}"
 ssl.ca-file = "{{ ssl.ca_file }}"
-ssl.use-sslv2 = {{ ssl.use_sslv2 | lower }}
-ssl.use-sslv3 = {{ ssl.use_sslv3 | lower }}
 {% else %}
 ssl.engine = "disable"
 {% endif %}
@@ -76,13 +64,6 @@ fastcgi.server = (
 {% for rule in rewrite.rules %}
 $HTTP["url"] =~ "{{ rule.pattern }}" {
   url.redirect = ( "{{ rule.match_pattern }}" => "{{ rule.target }}" )
-}
-{% endfor %}
-
-# Rate limiting
-{% for host in rate_limit.hosts %}
-$HTTP["host"] == "{{ host.name }}" {
-  connection.rate-limit = {{ host.rate_limit }}
 }
 {% endfor %}
 

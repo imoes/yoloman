@@ -1,54 +1,134 @@
 # dhcpd.conf — ISC DHCP Server configuration with BPF support
-# Enable BPF (BSD Packet Filter) for raw packet capture
-{% if config.bpf_enabled | default(true) %}bpf;{% endif %}
+#
+# This template generates a valid ISC configuration file.
+# It supports global options, subnet declarations with DHCP pools,
+# static host reservations, and shared network definitions.
+# BPF (BSD Packet Filter) support is enabled by default for raw packet capture.
 
-# Global DHCP options
-{% if config.default_lease_time is defined %}default-lease-time {{ config.default_lease_time }};{% endif %}
-{% if config.max_lease_time is defined %}max-lease-time {{ config.max_lease_time }};{% endif %}
+# [config.bpf_enabled]
+# Enable BPF (BSD Packet Filter) for raw packet capture.
+# Default: true
+{% if (config | default({})).bpf_enabled | default(true) %}bpf;{% endif %}
 
-# Authoritative server mode
+# Global DHCP server options
+# These settings apply to all managed subnets unless overridden locally.
+
+# [config.default_lease_time]
+# The default lease time in seconds for DHCP leases.
+# Default: 86400 (24 hours)
+default-lease-time {{ (config | default({})).default_lease_time | default(86400) }};
+
+# [config.max_lease_time]
+# The maximum lease time in seconds. Clients cannot request a lease longer than this.
+# Default: 172800 (48 hours)
+max-lease-time {{ (config | default({})).max_lease_time | default(172800) }};
+
+# [config.authoritative]
+# Enable authoritative mode. The server asserts that it is the
+# authoritative DHCP server for all networks on its directly attached
+# link segments. Use this if you are SURE this is the only DHCP server
+# on the network.
 authoritative;
 
-# Define subnets and their configurations
-{% for subnet in config.subnets %}
-# Subnet: {{ subnet.network }}/{{ subnet.prefix }} — interface: {{ subnet.interface }}
-subnet {{ subnet.network }} netmask {{ subnet.netmask | default(subnet_netmask_from_prefix(subnet.prefix)) }} {
-{% if subnet.range_start is defined and subnet.range_end is defined %}  range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
-{% if subnet.gateway is defined %}  option routers {{ subnet.gateway }};{% endif %}
-{% if subnet.dns_servers is defined %}  option domain-name-servers {{ subnet.dns_servers | join(', ') }};{% endif %}
-{% if subnet.domain_name is defined %}  option domain-name "{{ subnet.domain_name }}";{% endif %}
-{% if subnet.ntp_servers is defined %}  option ntp-servers {{ subnet.ntp_servers | join(', ') }};{% endif %}
-{% if subnet.broadcast_address is defined %}  option broadcast-address {{ subnet.broadcast_address }};{% endif %}
-{% if subnet.subnet_mask is defined %}  option subnet-mask {{ subnet.subnet_mask }};{% endif %}
-{% if subnet.router_search_domains is defined %}  option domain-search {{ subnet.router_search_domains | join('" "') | add_quotes() }};{% endif %}
-{% if subnet.ip_forward is defined and subnet.ip_forward %}  # IP forwarding enabled for this subnet
+# --------------------------------------------------------------------------
+# Subnet Definitions
+# [config.subnets]
+# A list of subnet objects to declare in the DHCP configuration.
+# Each subnet object may contain: network, prefix, netmask, range_start,
+# range_end, gateway, dns_servers, domain_name, ntp_servers, broadcast_address,
+# subnet_mask, router_search_domains, ip_forward, nis_domain, nis_servers,
+# static_routes, hosts.
+# --------------------------------------------------------------------------
+{% for subnet in (config | default({})).subnets | default([]) %}
+# Subnet: {{ (subnet.network | default('0.0.0.0')) }}/{{ (subnet.prefix | default(24)) }} — interface: {{ subnet.interface | default('any') }}
+subnet {{ subnet.network | default('0.0.0.0') }} netmask {{ subnet.netmask | default('255.255.255.0') }} {
+
+  # [subnet.range_start / subnet.range_end]
+  # Define the range of IP addresses available for dynamic DHCP assignment.
+  {% if (subnet.range_start is defined and subnet.range_end is defined) %}  range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
+
+  # [subnet.gateway]
+  # The default router (gateway) for this subnet.
+  {% if subnet.gateway is defined %}  option routers {{ subnet.gateway }};{% endif %}
+
+  # [subnet.dns_servers]
+  # DNS servers to provide to clients (option 006).
+  {% if subnet.dns_servers is defined %}  option domain-name-servers {{ subnet.dns_servers | join(', ') }};{% endif %}
+
+  # [subnet.domain_name]
+  # The domain name to provide to clients (option 015).
+  {% if subnet.domain_name is defined %}  option domain-name "{{ subnet.domain_name }}";{% endif %}
+
+  # [subnet.ntp_servers]
+  # NTP servers to provide to clients (option 042).
+  {% if subnet.ntp_servers is defined %}  option ntp-servers {{ subnet.ntp_servers | join(', ') }};{% endif %}
+
+  # [subnet.broadcast_address]
+  # The broadcast address for this subnet (option 028).
+  {% if subnet.broadcast_address is defined %}  option broadcast-address {{ subnet.broadcast_address }};{% endif %}
+
+  # [subnet.subnet_mask]
+  # The subnet mask to provide to clients (option 001).
+  {% if subnet.subnet_mask is defined %}  option subnet-mask {{ subnet.subnet_mask }};{% endif %}
+
+  # [subnet.router_search_domains]
+  # Domain search list for clients (option 119).
+  {% if subnet.router_search_domains is defined %}  option domain-search "{% for d in subnet.router_search_domains %}{% if loop.index > 1 %} "{% endif %}{{ d }}{% endfor %}";{% endif %}
+
+  # [subnet.ip_forward]
+  # Enable IP forwarding option for clients (option 095) if set to true.
+  {% if subnet.ip_forward is defined and subnet.ip_forward %}
+  # IP forwarding enabled for this subnet
   option ip-forward true;{% endif %}
-{% if subnet.nis_domain is defined %}  option nis-domain "{{ subnet.nis_domain }}";{% endif %}
-{% if subnet.nis_servers is defined %}  option nis-servers {{ subnet.nis_servers | join(', ') }};{% endif %}
-{% if subnet.static_routes is defined %}
+
+  # [subnet.nis_domain]
+  # NIS domain name (option 004).
+  {% if subnet.nis_domain is defined %}  option nis-domain "{{ subnet.nis_domain }}";{% endif %}
+
+  # [subnet.nis_servers]
+  # NIS servers to provide to clients (option 004).
+  {% if subnet.nis_servers is defined %}  option nis-servers {{ subnet.nis_servers | join(', ') }};{% endif %}
+
+  # [subnet.static_routes]
+  # Static classless routes for clients (option 121).
+  {% if subnet.static_routes is defined %}
   # Static routes for clients
-{% for route in subnet.static_routes %}  option rfc3442-classless-static-routes {{ route.destination }} {{ route.netmask }} {{ route.next_hop }};{% endfor %}
-{% endif %}
-{% if subnet.hosts is defined %}
+  {% for route in subnet.static_routes %}  option rfc3442-classless-static-routes {{ route.destination }} {{ route.netmask }} {{ route.next_hop }};{% endfor %}
+  {% endif %}
+
+  # [subnet.hosts]
+  # Static host reservations for this subnet.
+  {% if subnet.hosts is defined %}
   # Static host mappings
-{% for host in subnet.hosts %}  host {{ host.name | replace(' ', '_') }} {
+  {% for host in subnet.hosts %}  host {{ host.name | replace(' ', '_') }} {
     hardware ethernet {{ host.mac }};
     fixed-address {{ host.address }};
-{% if host.hostname is defined %}    option host-name "{{ host.hostname }}";{% endif %}
+    {% if host.hostname is defined %}    option host-name "{{ host.hostname }}";{% endif %}
   }
-{% endfor %}
-{% endif %}
+  {% endfor %}
+  {% endif %}
 }
 {% endfor %}
 
-# Shared network definitions (for multi-homed setups)
-{% for shared_net in config.shared_networks %}
-# Shared network: {{ shared_net.name }}
+# --------------------------------------------------------------------------
+# Shared Network Definitions
+# [config.shared_networks]
+# A list of shared network objects for multi-homed setups.
+# Each shared network may contain: name, subnets, interfaces.
+# --------------------------------------------------------------------------
+{% for shared_net in (config | default({})).shared_networks | default([]) %}
+# Shared network: {{ shared_net.name | replace(' ', '_') }}
 shared-network {{ shared_net.name | replace(' ', '_') }} {
-{% for subnet in shared_net.subnets %}  subnet {{ subnet.network }} netmask {{ subnet.netmask | default(subnet_netmask_from_prefix(subnet.prefix)) }} {
-{% if subnet.range_start is defined and subnet.range_end is defined %}    range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
+
+  # Declare subnets belonging to this shared network.
+  {% for subnet in shared_net.subnets | default([]) %}
+  subnet {{ subnet.network | default('0.0.0.0') }} netmask {{ subnet.netmask | default('255.255.255.0') }} {
+    {% if (subnet.range_start is defined and subnet.range_end is defined) %}    range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
   }
-{% endfor %}
-{% if shared_net.interfaces is defined %}  interface {{ shared_net.interfaces | join(', ') }};{% endif %}
+  {% endfor %}
+
+  # [shared_net.interfaces]
+  # List of interfaces that belong to this shared network.
+  {% if shared_net.interfaces is defined %}  interface {{ shared_net.interfaces | join(', ') }};{% endif %}
 }
 {% endfor %}

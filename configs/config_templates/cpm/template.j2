@@ -1,0 +1,128 @@
+# ##############################################################################
+# resource file for the Console Password Manager (cpm)
+# ##############################################################################
+
+# Whether to ask to quit on exit.
+# Options: yes, no
+AskToQuit {{ ask_to_quit | default('yes') }}
+
+# Whether to keep the passphrase in memory during runtime.
+# WARNING: if you use this feature, please keep in mind that your passphrase
+#          stays in memory during program runtime!
+# This only works if you use one of your own private keys for signing; as soon
+# as there is more than one, caching is disabled.
+# Options: yes, no
+KeepPassphrase {{ keep_passphrase | default('yes') }}
+
+# Whether to create backup files.
+# Options: yes, no
+CreateBackup {{ create_backup | default('yes') }}
+
+# Character used to hide passphrase typing.
+# If you don't want anything to be seen, set it to "_"
+HideCharacter "{{ hide_character | default('*') }}"
+
+# Default compression level of the XML data in the encrypted file.
+# 0 - no compression
+# 1 - best speed
+# ...
+# 9 - best compression
+# WARNING: turning compression off reduces the quality of the encryption since
+#          much more text is known in the encrypted file;
+#          a 'known plaintext attack' might be more successful if no
+#          compression is used!
+# Range: 0–9
+Compression {{ compression | default(9) }}
+
+# Height of the infobox.
+# Range: 5–25
+InfoboxHeight {{ infobox_height | default(5) }}
+
+
+# overwrite the default database filename
+# it defaults to $HOME/.cpmdb
+# DatabaseFile /tmp/testdb
+
+
+# default encoding keys
+# these keys are only used as default for new database files; after a file
+# exists, the actually used keys are used instead.
+# EncryptionKey "harry_b@mm.st"
+
+
+# password creation configuration
+
+# Default password length.
+PasswordLength {{ password_length | default(10) }}
+
+# Default character set for password generation.
+PasswordAlphabet "{{ password_alphabet | default('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-=@#$%_;:,.') }}"
+
+# Whether to validate passwords using cracklib.
+# Set to yes if passwords should be checked via cracklib and display a warning if the
+# password is bad.
+# Options: yes, no
+CrackLibCheck {{ cracklib_check | default('yes') }}
+
+
+# default template names
+# these template names are only used as long as nothing else is defined in
+# the database file.
+# if you specify "password" as a second argument, this template is considered
+# to hold passwords and is - if enabled - checked via cracklib
+
+# Default template name for hosts.
+TemplateName "{{ template_name_host | default('host') }}"
+
+# Default template name for services.
+TemplateName "{{ template_name_service | default('service') }}"
+
+# Default template name for users.
+TemplateName "{{ template_name_user | default('user') }}"
+
+# Default template name for passwords.
+TemplateName "{{ template_name_password | default('password') }}" "{{ template_name_password_type | default('password') }}"
+
+
+# Whether to lock template structure.
+# if TemplateLock is set to yes, it's not possible to extend the depth of
+# existing templates.
+# Options: yes, no
+TemplateLock {{ template_lock | default('yes') }}
+
+
+# search patterns for the commandline call and their response
+# WARNING: please keep in mind that the result pattern must also be fully
+#          resolvable for each hit, the searchpattern matches!
+
+# CLI search pattern for host lookup and its response format.
+SearchPattern "{{ search_pattern_host | default('host <host>') }}" "{{ search_response_host | default('<host>') }}"
+
+# CLI search pattern for service lookup and its response format.
+SearchPattern "{{ search_pattern_service | default('service <service>') }}" "{{ search_response_service | default('<service>') }}"
+
+# CLI search pattern for user lookup and its response format.
+SearchPattern "{{ search_pattern_user | default('user <user>') }}" "{{ search_response_user | default('<user>') }}"
+
+# CLI search pattern for full credentials lookup and its response format.
+SearchPattern "{{ search_pattern_full | default('<service> <user>@<host>') }}" "{{ search_response_full | default('<service> <user>@<host> <password>') }}"
+
+# CLI search pattern for service@host lookup and its response format.
+SearchPattern "{{ search_pattern_service_host | default('<service>@<host>') }}" "{{ search_response_service_host | default('<service> <user>@<host> <password>') }}"
+
+# CLI search pattern for user@host lookup and its response format.
+SearchPattern "{{ search_pattern_user_host | default('<user>@<host>') }}" "{{ search_response_user_host | default('<service> <user>@<host> <password>') }}"
+
+
+# Default search type on the commandline interface.
+# Possible values are "regex" or "regular".
+SearchType {{ search_type | default('regex') }}
+
+# Whether search is case sensitive.
+# Default type of case matching for the commandline interface.
+# if set to yes, the search runs case sensitive, otherwise not.
+# Options: yes, no
+MatchCaseSensitive {{ match_case_sensitive | default('yes') }}
+
+
+# ##############################################################################

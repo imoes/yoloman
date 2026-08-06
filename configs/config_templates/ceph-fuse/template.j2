@@ -1,0 +1,45 @@
+# ceph-fuse configuration template
+# Generates command-line arguments for ceph-fuse based on Ansible variables.
+# Each variable uses | default(<schema_default>) to ensure safe rendering.
+# See schema fields for descriptions and default values.
+
+# mount_options: List of FUSE and ceph-fuse mount options (e.g., ['allow_other', 'big_writes', 'client_mountpoint=/some/path']).
+# Each item is passed as a separate argument or concatenated depending on usage context.
+{% for opt in mount_options | default([]) %}{{ opt }}
+{% endfor %}
+
+# mon_addr: Monitor address:port (e.g., '10.0.0.1:6789') to bypass ceph.conf lookup.
+{% if mon_addr | default('') != '' %}-m {{ mon_addr | default('') }}
+{% endif %}
+
+# client_id: Client ID (e.g., 'admin') — used with -n client.ID. Must be a valid CephX username component.
+{% if client_id | default('') != '' %}-n client.{{ client_id | default('') }}
+{% endif %}
+
+# keyring_path: Explicit path to client keyring file.
+{% if keyring_path | default('') != '' %}-k {{ keyring_path | default('') }}
+{% endif %}
+
+# root_directory: Root directory within CephFS to mount (instead of full Ceph tree).
+{% if root_directory | default('') != '' %}--client_mountpoint={{ root_directory | default('') }}
+{% endif %}
+
+# fs_name: Name of the CephFS to mount (if not using the default).
+{% if fs_name | default('') != '' %}--client_fs={{ fs_name | default('') }}
+{% endif %}
+
+# foreground: If true, run in foreground (no daemonization, no pidfile).
+{% if foreground | default(False) %}-f
+{% endif %}
+
+# debug: If true, enable FUSE debugging output to stderr.
+{% if debug | default(False) %}-d
+{% endif %}
+
+# single_threaded: If true, disable multi-threaded operation (-s).
+{% if single_threaded | default(False) %}-s
+{% endif %}
+
+# pidfile_path: Path to pidfile to write when running in background (ignored if foreground=true).
+{% if pidfile_path | default('') != '' and not (foreground | default(False)) %}--pid_file={{ pidfile_path | default('') }}
+{% endif %}

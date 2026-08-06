@@ -1,0 +1,20 @@
+# -----------------------------------------------------------------------------
+# fcheck Cron Job Configuration Template
+#
+# This template generates a cron entry for the fcheck system checker.
+# It runs every 2 hours at minute 30. The job checks if fcheck is executable,
+# runs a dry-check with low priority (nice/ionice), and if it fails (returns
+# non-zero), it sends an email alert to the configured address and then
+# performs a full check/logging run. Finally, it cleans up the temporary log file.
+#
+# Variables used:
+#   - fcheck_cron_user:        The user account under which the cron job runs.
+#   - fcheck_sbin_path:        Path to the fcheck binary.
+#   - fcheck_config_path:      Path to the fcheck configuration file.
+#   - fcheck_log_output_path:  Path to the temporary output log file.
+#   - fcheck_notify_email:     Email address for alert notifications.
+# -----------------------------------------------------------------------------
+
+# Cron schedule: Every 2 hours at minute 30
+# Format: minute hour day-of-month month day-of-week user command
+30 */2 * * * {{ fcheck_cron_user | default('root') }} test -x {{ fcheck_sbin_path | default('/usr/sbin/fcheck') }} && if ! nice ionice -c3 {{ fcheck_sbin_path | default('/usr/sbin/fcheck') }} -asxrf {{ fcheck_config_path | default('/etc/fcheck/fcheck.cfg') }} >{{ fcheck_log_output_path | default('/var/run/fcheck.out') }} 2>&1; then mailx -s "ALERT: [fcheck] `hostname --fqdn`" {{ fcheck_notify_email | default('root') }} </{{ fcheck_log_output_path | default('/var/run/fcheck.out') }} ; {{ fcheck_sbin_path | default('/usr/sbin/fcheck') }} -cadsxlf {{ fcheck_config_path | default('/etc/fcheck/fcheck.cfg') }} ; fi ; rm -f {{ fcheck_log_output_path | default('/var/run/fcheck.out') }}

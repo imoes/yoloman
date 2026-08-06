@@ -1,155 +1,17 @@
 {
-  "server": {
-    "type": "object",
-    "description": "Core server settings",
-    "properties": {
-      "port": {
-        "type": "number",
-        "default": 8080,
-        "description": "HTTP port to listen on"
-      },
-      "host": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "IP address to bind to"
-      },
-      "music_dir": {
-        "type": "string",
-        "default": "/var/lib/ample/music",
-        "description": "Root directory containing MP3 files (recursive scanning)"
-      },
-      "metadata_cache": {
-        "type": "bool",
-        "default": true,
-        "description": "Cache MP3 ID3 metadata to disk for faster startup"
-      },
-      "max_connections": {
-        "type": "number",
-        "default": 100,
-        "description": "Maximum number of simultaneous client connections"
-      },
-      "log_level": {
-        "type": "string",
-        "default": "info",
-        "enum": [
-          "debug",
-          "info",
-          "warn",
-          "error"
-        ],
-        "description": "Verbosity of server logs"
-      },
-      "log_file": {
-        "type": "string",
-        "default": "/var/log/ample/ample.log",
-        "description": "Path to log file, or '-' to log to stdout"
-      }
-    }
-  },
-  "web": {
-    "type": "object",
-    "description": "Web interface configuration",
-    "properties": {
-      "title": {
-        "type": "string",
-        "default": "Ample MP3 Server",
-        "description": "Title displayed in the web interface and browser tab"
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable the built-in web UI for browsing and playback"
-      },
-      "admin_user": {
-        "type": "string",
-        "default": "admin",
-        "description": "Username for admin access (optional; leave blank to disable)"
-      },
-      "admin_pass": {
-        "type": "string",
-        "default": "",
-        "description": "Password for admin access (required if admin_user is set)"
-      }
-    }
-  },
-  "stream": {
-    "type": "object",
-    "description": "Streaming behavior settings",
-    "properties": {
-      "quality": {
-        "type": "number",
-        "default": 192,
-        "enum": [
-          64,
-          96,
-          128,
-          160,
-          192,
-          256,
-          320
-        ],
-        "description": "Target MP3 bitrate for streaming (kbps)"
-      },
-      "allow_download": {
-        "type": "bool",
-        "default": true,
-        "description": "Allow users to download original files instead of streaming"
-      }
-    }
-  },
-  "playlists": {
-    "type": "object",
-    "description": "Playlist support settings",
-    "properties": {
-      "supported_formats": {
-        "type": "list",
-        "default": [
-          "m3u",
-          "pls"
-        ],
-        "items": {
-          "type": "string",
-          "enum": [
-            "m3u",
-            "pls",
-            "xspf"
-          ],
-          "description": "Supported playlist formats (lowercase)"
-        },
-        "description": "List of playlist formats the server accepts and generates"
-      }
-    }
-  },
-  "transcode": {
-    "type": "object",
-    "description": "Real-time transcoding (requires ffmpeg)",
-    "properties": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable on-the-fly transcoding for incompatible clients"
-      },
-      "cmd": {
-        "type": "string",
-        "default": "ffmpeg -i %i -ar 44100 -ac 2 -b:a %qk -f mp3 -",
-        "description": "FFmpeg command template. Use `%i` for input file, `%q` for bitrate (kbps), `%o` for output file."
-      }
-    }
-  },
-  "shuffle": {
-    "type": "object",
-    "description": "Shuffle/randomization settings",
-    "properties": {
-      "seed": {
-        "type": "number",
-        "default": 0,
-        "description": "Random seed for playlist shuffling; 0 means truly random (based on system entropy)"
-      }
-    }
-  },
-  "timezone": {
+  "start_ample": {
     "type": "string",
-    "default": "UTC",
-    "description": "Time zone for log timestamps and time-based operations"
+    "default": "no",
+    "description": "Whether the ample service should start by default"
+  },
+  "defuser": {
+    "type": "string",
+    "default": "nobody",
+    "description": "User account under which the ample service runs"
+  },
+  "defgroup": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "Group under which the ample service runs"
   }
 }

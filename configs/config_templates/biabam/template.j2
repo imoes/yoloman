@@ -1,0 +1,29 @@
+{# biabam(1) configuration template #}
+{# biabam is a simple tool to send emails via SMTP from the command line or scripts. #}
+{# This template generates a configuration file for biabam. #}
+
+{# Mail subject line (optional) #}
+{# If omitted, biabam will prompt for the subject or use an empty string. #}
+{% if subject is defined and subject | length > 0 %}
+subject: {{ subject | default('') }}
+{% endif %}
+
+{# List of email recipients (comma-separated in rendered config) #}
+{# Each recipient address is joined by commas without spaces, as expected by biabam. #}
+{% if recipients is defined and recipients | length > 0 %}
+recipients: {{ recipients | default([]) | join(',') }}
+{% endif %}
+
+{# List of attachment filenames (comma-separated in rendered config) #}
+{# Specify the paths or names of files to attach. #}
+{% if attachments is defined and attachments | length > 0 %}
+attachments: {{ attachments | default([]) | join(',') }}
+{% endif %}
+
+{# Optional inline body text #}
+{# If this section is empty or omitted, biabam will read the message body from stdin. #}
+{# Use this to embed a static message directly in the configuration. #}
+{% if body is defined and body | length > 0 %}
+body: |
+{{ body | default('') | indent(width=2) }}
+{% endif %}

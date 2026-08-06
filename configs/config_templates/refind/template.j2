@@ -1,124 +1,83 @@
-# rEFInd configuration file — main settings and boot options
-# https://www.rodsbooks.com/refind/
+This directory contains known public keys for Linux distributions and from
+other parties that sign boot loaders and kernels that should be verifiable
+by shim. I'm providing these keys as a convenience to enable easy
+installation of keys should you replace your distribution's version of shim
+with another one and therefore require adding its public key as a machine
+owner key (MOK).
 
-# Timeout (in seconds) before automatically booting the default entry
-Timeout {{ values.timeout }}
+Files come with three extensions. A filename ending in .crt is a
+certificate file that can be used by sbverify to verify the authenticity of
+a key, as in:
 
-# Show advanced boot options (e.g., fallback boot, kernel options)
-ShowAdvanced {{ values.show_advanced | lower }}
+$ sbverify --cert keys/{{ refind_public_key_file }} refind/refind_x64.efi
 
-# Enable UI sounds (beeps for menu navigation)
-Sound {{ values.sound | lower }}
+The .cer and .der filename extensions are equivalent, and are public key
+files similar to .crt files, but in a different form. The MokManager
+utility expects its input public keys in this form, so these are the files
+you would use to add a key to the MOK list maintained by MokManager and
+used by shim.
 
-# Scan for boot loaders in these directories (relative to ESP root)
-ScanFor {% for item in values.scan_for %} {{ item | upper }}{% if not loop.last %}, {% endif %}{% endfor %}
+The files in this directory are, in alphabetical order:
 
-# Ignore boot loaders with these UUIDs (e.g., from unwanted OS installations)
-Ignore {% for uuid in values.ignore_uuids %} {{ uuid }}{% if not loop.last %}, {% endif %}{% endfor %}
+- altlinux.cer -- The public key for ALT Linux (http://www.altlinux.com).
+  Taken from the alt-uefi-certs package
+  (http://www.sisyphus.ru/br/srpm/Sisyphus/alt-uefi-certs/spec).
 
-# Enable UI theme (path relative to ESP root or absolute)
-{% if values.theme_path %}Theme {{ values.theme_path }}
-{% else %}# Theme not configured
-{% endif %}
+- canonical-uefi-ca.crt & canonical-uefi-ca.cer -- Canonical's public key,
+  matched to the one used to sign Ubuntu boot loaders and kernels.
 
-# Use custom icons for these file types or OS families (format: icon=<path>,<name>=<icon_file>)
-Icons {{ values.icons | join(', ') }}
+- centossecurebootca2.cer & centossecurebootca2.crt -- Public keys used to
+  authenticate CentOS binaries, taken from shim-15-15.el8_2.src.rpm. Note
+  that these are new files for CentOS 8; CentOS 7 used a now-expired key.
 
-# Boot entries to hide from menu (by filename, label, or UUID)
-{% if values.hide_entries %}HideEntries {% for entry in values.hide_entries %}{{ entry }}{% if not loop.last %}, {% endif %}{% endfor %}
-{% else %}# No hidden entries
-{% endif %}
+- centossecureboot201.cer & centossecureboot201.crt -- I'm not entirely sure
+  what this is, but it comes from the same shim-15-15.el8_2.src.rpm package
+  as the preceding files.
 
-# Default boot entry (by label, index, or UUID)
-DefaultSelection {% if values.default_selection %}{{ values.default_selection }}{% else %}%
-{% endif %}
+- debian.cer -- Debian's public key, obtained from
+  https://dsa.debian.org/secure-boot-ca.
 
-# Enable booting from internal hard disks via legacy BIOS (if supported)
-{% if values.enable_legacy_bios %}ScanFor H {{ values.enable_legacy_bios | upper }}
-{% else %}# Legacy BIOS scanning disabled
-{% endif %}
+- fedora-ca.cer & fedora-ca.crt -- Fedora's public key, matched to the one
+  used used to sign Fedora's shim 0.8 binary.
 
-# Extra kernel options to append to Linux boot entries (e.g., for secure boot or debugging)
-{% if values.extra_kernel_options %}AddOptions "{{ values.extra_kernel_options | join(' ') }}"
-{% else %}# No extra kernel options
-{% endif %}
+- microsoft-kekca-public.cer -- Microsoft's key exchange key (KEK), which
+  is present on most UEFI systems with Secure Boot. The purpose of
+  Microsoft's KEK is to enable Microsoft tools to update Secure Boot
+  variables. There is no reason to add it to your MOK list.
 
-# Enable scanning for custom UEFI shell (useful for advanced troubleshooting)
-ScanFor {% if values.shell_enabled %}SH{% else %}# SH{% endif %}
+- microsoft-pca-public.cer -- A Microsoft public key, matched to the one
+  used to sign Microsoft's own boot loader. You might include this key in
+  your MOK list if you replace the keys that came with your computer with
+  your own key but still want to boot Windows. There's no reason to add it
+  to your MOK list if your computer came this key pre-installed and you did
+  not replace the default keys.
 
-# Use UEFI Secure Boot with signed binaries (enables auto-validation)
-{% if values.secure_boot %}SecureBoot on
-{% else %}SecureBoot off
-{% endif %}
+- microsoft-uefica-public.cer -- A Microsoft public key, matched to the one
+  Microsoft uses to sign third-party applications and drivers. If you
+  remove your default keys, adding this one to your MOK list will enable
+  you to launch third-party boot loaders and other tools signed by
+  Microsoft. There's no reason to add it to your MOK list if your computer
+  came this key pre-installed and you did not replace the default keys.
 
-# Filesystem drivers to load (for non-default filesystems like Btrfs, ZFS, etc.)
-{% if values.filesystem_drivers %}Drivers {% for driver in values.filesystem_drivers %}{{ driver }}{% if not loop.last %}, {% endif %}{% endfor %}
-{% else %}# No extra filesystem drivers
-{% endif %}
+- openSUSE-UEFI-CA-Certificate.cer, openSUSE-UEFI-CA-Certificate.crt,
+  openSUSE-UEFI-CA-Certificate-4096.cer, &
+  openSUSE-UEFI-CA-Certificate-4096.crt -- Public keys matched to the ones
+  used to sign OpenSUSE; taken from openSUSE's shim 0.7.318.81ee56d
+  package.
 
-# Enable UI font (path relative to ESP root or absolute)
-{% if values.font_path %}Font {{ values.font_path }}
-{% else %}# Font not configured
-{% endif %}
+- redhatsecureboot*.cer & redhatsecureboot*.crt -- Keys associated with the
+  Red Hat kernel. (They do NOT seem to be used to sign Fedora's kernels or
+  GRUB binaries, though.)
 
-# Scan for additional boot managers (e.g., GRUB) in ESP subdirs
-{% if values.scan_all %}ScanAll {% else %}# ScanAll disabled
-{% endif %}
+- refind.cer & refind.crt -- My own (Roderick W. Smith's) public key,
+  matched to the one used to sign refind_x64.efi and the 64-bit rEFInd
+  drivers.
 
-# Disable scanning for Windows boot manager (useful if Windows is unwanted)
-{% if not values.scan_windows %}# ScanFor disabled for Windows
-{% else %}ScanFor H
-{% endif %}
+- SLES-UEFI-CA-Certificate.cer & SLES-UEFI-CA-Certificate.crt -- The Public
+  key for SUSE Linux Enterprise Server; taken from openSUSE's shim
+  0.7.318.81ee56d package.
 
-# Disable scanning for Linux boot loaders (e.g., if using GRUB instead)
-{% if not values.scan_linux %}# ScanFor disabled for Linux
-{% else %}ScanFor C
-{% endif %}
-
-# Disable scanning for macOS boot loaders (e.g., if not installed)
-{% if not values.scan_macos %}# ScanFor disabled for macOS
-{% else %}ScanFor M
-{% endif %}
-
-# Disable scanning for UEFI network boot (PXE)
-{% if not values.scan_network %}# ScanFor disabled for network boot
-{% else %}ScanFor N
-{% endif %}
-
-# Show verbose output during boot (useful for debugging)
-ShowOptions {{ values.show_options | lower }}
-
-# Enable GUI mode (text-only if disabled)
-{% if not values.text_mode %}# Text mode enabled
-{% else %}# GUI mode enabled
-{% endif %}
-
-# Default text mode resolution (e.g., 80x25, 100x30)
-{% if values.text_resolution %}TextMode {{ values.text_resolution }}
-{% else %}# Text mode resolution not specified
-{% endif %}
-
-# Use UEFI GOP video driver instead of legacy VESA
-{% if values.use_gop_video %}UseGOPVideo on
-{% else %}# GOP video disabled
-{% endif %}
-
-# Set screen resolution (GOP mode index or WxH format, e.g., 1920x1080)
-{% if values.screen_resolution %}Resolution {{ values.screen_resolution }}
-{% else %}# Screen resolution not specified (use GOP default)
-{% endif %}
-
-# Boot entries ordering (list of labels or UUIDs to define order)
-{% if values.boot_order %}ScanOnly {{ values.boot_order | join(', ') }}
-{% else %}# Boot order not explicitly specified (auto-scan)
-{% endif %}
-
-# Custom menu items (each item is a block: label, icon, and option to boot)
-{% for item in values.custom_items %}
-# Custom boot item: {{ item.label }}
-{% if item.icon %}Icon {{ item.icon }}
-{% endif %}{{ item.label | upper }} "{{ item.options }}"
-{% endfor %}
-
-# Sample custom boot block (uncomment and edit to add persistent entries)
-# menuitem load_vmlinuz 
+The refind.cer and refind.crt files are my creations and are distributed
+under the terms of the BSD 2-clause license. The rest of the files are
+distributed on the assumption that doing so constitutes fair use. Certainly
+they're all easily obtained on the Internet from other sources.

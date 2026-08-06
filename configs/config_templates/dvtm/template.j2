@@ -1,0 +1,65 @@
+{# ============================================================================== #}
+{# dvtm (Dynamic Virtual Terminal Manager) configuration template                #}
+{#                                                                              #}
+{# This template generates command-line flags for dvtm.                         #}
+{# Each field from the schema corresponds to a specific dvtm CLI option.         #}
+{# Variables use 'default()' to ensure safe rendering even if omitted by        #}
+{# the playbook/role caller.                                                    #}
+{# ============================================================================== #}
+
+{% if modifier is defined or modifier is not undefined %}
+# Command modifier key.
+# Used to specify a key sequence (e.g., Ctrl+g) to trigger mode switching
+# or other dvtm-specific commands. Defaults to '^g' (Ctrl+g).
+-m {{ modifier | default('^g') }} \
+{% endif %}
+
+{% if delay is defined or delay is not undefined %}
+# Delay in milliseconds for ncurses to wait before deciding if a received
+# character is part of an escape sequence.
+# A higher value prevents misinterpretation of rapid keystrokes; a lower
+# value improves responsiveness but may break escape sequences.
+-d {{ delay | default(50) }} \
+{% endif %}
+
+{% if scrollback_lines is defined or scrollback_lines is not undefined %}
+# Number of lines to keep in the scrollback history buffer.
+# Allows users to scroll up through previous terminal output.
+-h {{ scrollback_lines | default(1000) }} \
+{% endif %}
+
+{% if title is defined or title is not undefined %}
+# Static terminal title.
+# If this is set, dvtm uses this string as the terminal title.
+# If empty (default), the title changes dynamically per focused window.
+-t "{{ title | default('') }}" \
+{% endif %}
+
+{% if status_fifo is defined or status_fifo is not undefined %}
+# Path to a named pipe (FIFO) for status bar content.
+# External processes can write to this pipe to update the dvtm status line.
+-s {{ status_fifo | default('') }} \
+{% endif %}
+
+{% if cmd_fifo is defined or cmd_fifo is not undefined %}
+# Path to a named pipe (FIFO) for injecting commands externally.
+# External processes can write dvtm commands to this pipe to control the terminal.
+-c {{ cmd_fifo | default('') }} \
+{% endif %}
+
+{% if no_mouse_grab is defined or no_mouse_grab is not undefined %}
+# Disable mouse grabbing at startup.
+# When set to true, dvtm will not grab the mouse pointer, allowing
+# other applications to handle mouse events. Corresponds to the -M flag.
+{% if no_mouse_grab | default(False) | bool %}
+-M \
+{% endif %}
+{% endif %}
+
+{% if startup_commands is defined or startup_commands is not undefined %}
+# List of commands to execute on startup, each in its own window.
+# These commands are run before dvtm enters its main event loop.
+{% for cmd in startup_commands | default([]) %}
+{{ cmd }}\
+{% endfor %}
+{% endif %}

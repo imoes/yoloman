@@ -1,0 +1,67 @@
+# =============================================================================
+# Bibledit Cloud Configuration
+# =============================================================================
+# This template generates the configuration file for the Bibledit Cloud service.
+# It is structured in INI-style sections corresponding to the service's subsystems:
+# [server], [storage], [security], [logging], and [features].
+#
+# All variables are drawn from the Ansible role's variables or defaults.
+# Every directive is self-documenting via a comment describing its purpose and constraints.
+# =============================================================================
+
+[server]
+# Host address to bind the server to (e.g., '127.0.0.1', '0.0.0.0', or IPv6).
+# Defaults to localhost binding for security.
+host = {{ server_host | default('127.0.0.1') }}
+
+# Port number the server listens on.
+# Defaults to 8080.
+port = {{ server_port | default(8080) }}
+
+# Base URL path for reverse proxy setups (e.g., '/bibledit').
+# Must not contain a trailing slash. Leave empty if serving at root.
+base_url = {{ server_base_url | default('') }}
+
+[storage]
+# Absolute filesystem path for persistent user and Bible data storage.
+# Ensure this directory exists and is writable by the Bibledit Cloud process.
+path = {{ storage_path | default('/var/lib/bibledit-cloud') }}
+
+[security]
+# Enable HTTPS instead of HTTP.
+# Requires valid ssl_cert and ssl_key to be configured.
+use_https = {{ security_use_https | default(false) }}
+
+# Absolute path to the SSL/TLS certificate file (PEM format).
+# Required if use_https is set to true.
+ssl_cert = {{ security_ssl_cert | default('') }}
+
+# Absolute path to the SSL/TLS private key file (PEM format).
+# Required if use_https is set to true.
+ssl_key = {{ security_ssl_key | default('') }}
+
+# Enforce secure flag on session cookies (only sent over HTTPS).
+# Should be true when use_https is enabled.
+secure_cookies = {{ security_secure_cookies | default(true) }}
+
+[logging]
+# Minimum log level; one of: debug, info, warning, error, critical.
+# Controls the verbosity of the application logs.
+level = {{ logging_level | default('info') }}
+
+# Absolute path to the log file; empty string means log to stdout/stderr.
+# If set, logs are written to this file instead of the console.
+file = {{ logging_file | default('') }}
+
+[features]
+# Allow new user registration via the web interface.
+enable_registration = {{ features_enable_registration | default(true) }}
+
+# Enable anonymous guest access without login.
+enable_guest_access = {{ features_enable_guest_access | default(true) }}
+
+# Permit importing/exporting of Bible projects and notes.
+enable_import_export = {{ features_enable_import_export | default(true) }}
+
+# Enable UI translation and multi-language support.
+enable_multi_language = {{ features_enable_multi_language | default(true) }}

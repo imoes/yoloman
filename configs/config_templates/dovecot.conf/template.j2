@@ -1,111 +1,251 @@
-# Base protocol configuration
-protocols = {{ protocols | join(' ') }}
+# Dovecot configuration file
+#
+# This template generates a self-documenting dovecot.conf.
+# Every directive is preceded by a comment explaining its purpose and
+# deriving from the Ansible role schema. Variables use the |default() filter
+# to ensure safe rendering even if the variable is undefined in the playbook.
 
-# Listen on all IPv4 and IPv6 interfaces
-listen = {{ listen | join(', ') }}
+# -----------------------------------------------------------------------------
+# Protocol selection
+# Specifies which protocols Dovecot should enable.
+# Schema: protocols (list, default ['imap', 'pop3'])
+# -----------------------------------------------------------------------------
+protocols = {{ protocols | default(['imap', 'pop3']) | join(' ') }}
 
+# -----------------------------------------------------------------------------
+# Network interfaces to listen on
+# Use '*' to listen on all available interfaces.
+# Schema: listen (list, default ['*', '::'])
+# -----------------------------------------------------------------------------
+listen = {{ listen | default(['*', '::']) | join(', ') }}
+
+# -----------------------------------------------------------------------------
 # Base directory for runtime files
-base_dir = {{ base_dir }}
+# Dovecot stores PID files, sockets, and other runtime state here.
+# Schema: base_dir (string, default '/var/run/dovecot')
+# -----------------------------------------------------------------------------
+base_dir = {{ base_dir | default('/var/run/dovecot') }}
 
-# Mail location format (e.g., 'maildir:~/Maildir' or 'mbox:~/mbox')
-mail_location = {{ mail_location }}
+# -----------------------------------------------------------------------------
+# Mail storage location
+# Defines the mail storage format and path (e.g., maildir, mbox, sdbox, mdbox).
+# Schema: mail_location (string, default 'maildir:~/Maildir')
+# -----------------------------------------------------------------------------
+mail_location = {{ mail_location | default('maildir:~/Maildir') }}
 
-# Disable plaintext auth unless SSL/TLS is used
-ssl = {{ ssl }}
+# -----------------------------------------------------------------------------
+# SSL/TLS configuration mode
+# 'yes' requires SSL/TLS for connections.
+# 'no' disables SSL/TLS.
+# 'optional' allows plaintext with fallback to SSL.
+# Schema: ssl (string, default 'yes')
+# -----------------------------------------------------------------------------
+ssl = {{ ssl | default('yes') }}
 
-# SSL certificate and key paths (only required if SSL is enabled)
-{% if ssl != 'no' %}ssl_cert = <{{ ssl_cert }}>
-ssl_key = <{{ ssl_key }}>{% endif %}
+# -----------------------------------------------------------------------------
+# SSL Certificate and Key
+# These directives are only emitted if SSL is not explicitly disabled ('no').
+# Paths are typically prefixed with '<' in Dovecot config.
+# Schema: ssl_cert (string, default '</etc/ssl/certs/dovecot.pem')
+# Schema: ssl_key (string, default '</etc/ssl/private/dovecot.pem')
+# -----------------------------------------------------------------------------
+{% if ssl | default('yes') != 'no' %}
+ssl_cert = {{ ssl_cert | default('</etc/ssl/certs/dovecot.pem') }}
+ssl_key = {{ ssl_key | default('</etc/ssl/private/dovecot.pem') }}
+{% endif %}
 
-# Mail user and group
-mail_uid = {{ mail_uid }}
-mail_gid = {{ mail_gid }}
+# -----------------------------------------------------------------------------
+# Mail process user and group
+# Dovecot mail processes will run as this UID/GID.
+# Must match the system user/group that owns the mail storage.
+# Schema: mail_uid (int, default 5000)
+# Schema: mail_gid (int, default 5000)
+# -----------------------------------------------------------------------------
+mail_uid = {{ mail_uid | default(5000) }}
+mail_gid = {{ mail_gid | default(5000) }}
 
-# First and last UID/GID for system users (auth users usually start above this)
-first_valid_uid = {{ first_valid_uid }}
-last_valid_gid = {{ last_valid_gid }}
+# -----------------------------------------------------------------------------
+# UID/GID validation range
+# first_valid_uid: Lowest UID allowed for real user authentication.
+# last_valid_gid: Highest GID allowed for real user authentication.
+# Users outside this range are often considered system accounts and restricted.
+# Schema: first_valid_uid (int, default 5000)
+# Schema: last_valid_gid (int, default 5000)
+# -----------------------------------------------------------------------------
+first_valid_uid = {{ first_valid_uid | default(5000) }}
+last_valid_gid = {{ last_valid_gid | default(5000) }}
 
-# Auth mechanisms (e.g., 'plain login')
-{% for mechanism in auth_mechanisms %}# Enable authentication mechanism: {{ mechanism }}
+# -----------------------------------------------------------------------------
+# Authentication mechanisms
+# List of supported SASL mechanisms.
+# Each mechanism is defined in its own 'auth_mechanisms' line as per Dovecot's
+# legacy-style list handling in some contexts, though modern Dovecot often accepts
+# a space-separated list in a single directive. However, based on the schema's
+# iterative structure for passdbs/userdbs, we iterate explicitly.
+# Schema: auth_mechanisms (list, default ['plain', 'login'])
+# -----------------------------------------------------------------------------
+{% for mechanism in auth_mechanisms | default(['plain', 'login']) %}
 auth_mechanisms = {{ mechanism }}
 {% endfor %}
 
-# Passdb (password database) configuration
-{% for passdb in passdbs %}# {{ passdb.description | default('Password database configuration') }}
+# -----------------------------------------------------------------------------
+# Passdb (Password Database) configuration
+# Defines where to look up user passwords.
+# Supports multiple passdb entries, each with a driver and arguments.
+# Schema: passdbs (list, default [{'driver': 'passwd-file', 'args': {'scheme': 'crypt', 'password': '/etc/dovecot/passwd'}}])
+# -----------------------------------------------------------------------------
+{% for passdb in passdbs | default([{'driver': 'passwd-file', 'args': {'scheme': 'crypt', 'password': '/etc/dovecot/passwd'}}]) %}
+# Passdb configuration
 passdb {
-  driver = {{ passdb.driver }}
-{% if passdb.args %}{% for arg_key, arg_val in passdb.args.items() %}  args = {{ arg_key }}={{ arg_val }}
-{% endfor %}{% endif %}
+  driver = {{ passdb.driver | default('passwd-file') }}
+  
+  # Passdb arguments (key=value pairs)
+  {% if passdb.args is mapping %}
+  {% for arg_item in passdb.args | dict2items %}
+  args = {{ arg_item.key }}={{ arg_item.value }}
+  {% endfor %}
+  {% endif %}
 }
 {% endfor %}
 
-# Userdb (user database) configuration
-{% for userdb in userdbs %}# {{ userdb.description | default('User database configuration') }}
+# -----------------------------------------------------------------------------
+# Userdb (User Database) configuration
+# Defines where to look up user mailbox locations and UIDs/GIDs.
+# Similar structure to passdb.
+# Schema: userdbs (list, default [{'driver': 'passwd-file', 'args': {'schema': '/etc/dovecot/userdb.schema'}}])
+# -----------------------------------------------------------------------------
+{% for userdb in userdbs | default([{'driver': 'passwd-file', 'args': {'schema': '/etc/dovecot/userdb.schema'}}]) %}
+# Userdb configuration
 userdb {
-  driver = {{ userdb.driver }}
-{% if userdb.args %}{% for arg_key, arg_val in userdb.args.items() %}  args = {{ arg_key }}={{ arg_val }}
-{% endfor %}{% endif %}
+  driver = {{ userdb.driver | default('passwd-file') }}
+  
+  # Userdb arguments (key=value pairs)
+  {% if userdb.args is mapping %}
+  {% for arg_item in userdb.args | dict2items %}
+  args = {{ arg_item.key }}={{ arg_item.value }}
+  {% endfor %}
+  {% endif %}
 }
 {% endfor %}
 
-# Log path
-log_path = {{ log_path }}
+# -----------------------------------------------------------------------------
+# Error log path
+# Path to the main Dovecot error log file.
+# Schema: log_path (string, default '/var/log/dovecot/dovecot.log')
+# -----------------------------------------------------------------------------
+log_path = {{ log_path | default('/var/log/dovecot/dovecot.log') }}
 
-# Info log path (separate from error log)
-info_log_path = {{ info_log_path }}
+# -----------------------------------------------------------------------------
+# Info log path
+# Path to the Dovecot info log file (for less severe messages).
+# Schema: info_log_path (string, default '/var/log/dovecot/dovecot-info.log')
+# -----------------------------------------------------------------------------
+info_log_path = {{ info_log_path | default('/var/log/dovecot/dovecot-info.log') }}
 
-# Login log format (used for login attempts)
-login_log_format_elements = {{ login_log_format_elements }}
+# -----------------------------------------------------------------------------
+# Login log format elements
+# Defines what information to include in login logs (e.g., user, IP, method).
+# Schema: login_log_format_elements (list, default ['user=<%u>', 'method=%m', ...])
+# -----------------------------------------------------------------------------
+login_log_format_elements = {{ login_log_format_elements | default(['user=<%u>', 'method=%m', 'rip=%r', 'lip=%l', 'rport=%R', 'localport=%L']) | join(' ') }}
 
-# Mail processes limits
-{% if mail processes %}mail_max_userip_connections = {{ mail_max_userip_connections }}
-mail_plugins = {{ mail_plugins | join(' ') }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Mail connection limits and plugins
+# mail_max_userip_connections: Max concurrent connections per user per IP.
+# mail_plugins: Space-separated list of mail plugins to load.
+# Schema: mail_max_userip_connections (int, default 10)
+# Schema: mail_plugins (list, default ['imap_quota'])
+# -----------------------------------------------------------------------------
+mail_max_userip_connections = {{ mail_max_userip_connections | default(10) }}
+mail_plugins = {{ mail_plugins | default(['imap_quota']) | join(' ') }}
 
-# Service-specific settings: IMAP/POP3/LMTP
-{% for service in services %}# Service: {{ service.name }}
-service {{ service.name }} {
-{% if service.chroot is defined and service.chroot %}  chroot = {{ service.chroot }}
-{% endif %}
-{% if service.user is defined and service.user %}  user = {{ service.user }}
-{% endif %}
-{% if service.group is defined and service.group %}  group = {{ service.group }}
-{% endif %}
-{% if service.unix_listener is defined %}
-{% for listener in service.unix_listener %}  unix_listener {{ listener.path }} {
-{% if listener.mode is defined %}    mode = {{ listener.mode }}
-{% endif %}
-{% if listener.user is defined %}    user = {{ listener.user }}
-{% endif %}
-{% if listener.group is defined %}    group = {{ listener.group }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Service configuration blocks
+# Defines listeners and settings for specific services (imap, pop3, lmtp, etc.).
+# Schema: services (list, default [...])
+# -----------------------------------------------------------------------------
+{% for service in services | default([{'name': 'imap', 'unix_listener': [{'path': 'imap-login', 'user': 'dovecot', 'group': 'dovecot'}]}, {'name': 'pop3', 'unix_listener': [{'path': 'pop3-login', 'user': 'dovecot', 'group': 'dovecot'}]}]) %}
+# Service: {{ service.name | default('unknown') }}
+service {{ service.name | default('unknown') }} {
+
+  # Chroot directory for this service (if specified)
+  {% if service.chroot is defined and service.chroot %}
+  chroot = {{ service.chroot }}
+  {% endif %}
+
+  # User to run the service as (if specified)
+  {% if service.user is defined and service.user %}
+  user = {{ service.user }}
+  {% endif %}
+
+  # Group to run the service as (if specified)
+  {% if service.group is defined and service.group %}
+  group = {{ service.group }}
+  {% endif %}
+
+  # Unix domain socket listeners
+  {% if service.unix_listener is defined %}
+  {% for listener in service.unix_listener %}
+  unix_listener {{ listener.path | default('socket-path') }} {
+    {% if listener.mode is defined %}
+    mode = {{ listener.mode }}
+    {% endif %}
+    {% if listener.user is defined %}
+    user = {{ listener.user }}
+    {% endif %}
+    {% if listener.group is defined %}
+    group = {{ listener.group }}
+    {% endif %}
   }
-{% endfor %}{% endif %}
-{% if service.inet_listener is defined %}
-{% for listener in service.inet_listener %}  inet_listener {{ listener.name }} {
-{% if listener.port is defined %}    port = {{ listener.port }}
-{% endif %}
-{% if listener.address is defined %}    address = {{ listener.address }}
-{% endif %}
-{% if listener.ssl is defined %}    ssl = {{ listener.ssl }}
-{% endif %}
+  {% endfor %}
+  {% endif %}
+
+  # Internet (TCP) listeners
+  {% if service.inet_listener is defined %}
+  {% for listener in service.inet_listener %}
+  inet_listener {{ listener.name | default('tcp') }} {
+    {% if listener.port is defined %}
+    port = {{ listener.port }}
+    {% endif %}
+    {% if listener.address is defined %}
+    address = {{ listener.address }}
+    {% endif %}
+    {% if listener.ssl is defined %}
+    ssl = {{ listener.ssl }}
+    {% endif %}
   }
-{% endfor %}{% endif %}
+  {% endfor %}
+  {% endif %}
 }
 {% endfor %}
 
-# Namespace configuration (mailboxes layout)
-{% for namespace in namespaces %}# Namespace: {{ namespace.name }}
-namespace {{ namespace.name }} {
-{% if namespace.type is defined %}  type = {{ namespace.type }}
-{% endif %}
-{% if namespace.hidden is defined %}  hidden = {{ namespace.hidden }}
-{% endif %}
-{% if namespace.prefix is defined %}  prefix = {{ namespace.prefix }}
-{% endif %}
-{% if namespace.location is defined %}  location = {{ namespace.location }}
-{% endif %}
-{% if namespace.subscriptions is defined %}  subscriptions = {{ namespace.subscriptions }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Namespace configuration
+# Defines mailbox layout, prefixes, and visibility.
+# Schema: namespaces (list, default [{'name': '', 'type': 'private', 'prefix': '', 'location': 'maildir:~/Maildir'}])
+# -----------------------------------------------------------------------------
+{% for namespace in namespaces | default([{'name': '', 'type': 'private', 'prefix': '', 'location': 'maildir:~/Maildir'}]) %}
+# Namespace: {{ namespace.name | default('default') }}
+namespace {{ namespace.name | default('default') }} {
+  
+  {% if namespace.type is defined %}
+  type = {{ namespace.type }}
+  {% endif %}
+
+  {% if namespace.hidden is defined %}
+  hidden = {{ namespace.hidden }}
+  {% endif %}
+
+  {% if namespace.prefix is defined %}
+  prefix = {{ namespace.prefix }}
+  {% endif %}
+
+  {% if namespace.location is defined %}
+  location = {{ namespace.location }}
+  {% endif %}
+
+  {% if namespace.subscriptions is defined %}
+  subscriptions = {{ namespace.subscriptions }}
+  {% endif %}
 }
 {% endfor %}

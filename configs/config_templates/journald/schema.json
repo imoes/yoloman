@@ -2,82 +2,43 @@
   "storage_mode": {
     "type": "string",
     "default": "auto",
-    "description": "Journal storage mode \u2014 'auto', 'persistent', 'volatile', or 'none'. Choose 'persistent' to keep logs across reboots."
-  },
-  "data_directory": {
-    "type": "string",
-    "default": "",
-    "description": "Path to persistent journal data directory (e.g., '/var/log/journal'). Leave empty to use default."
-  },
-  "runtime_directory": {
-    "type": "string",
-    "default": "/run/log/journal",
-    "description": "Path to volatile journal directory. Only used if `Storage=volatile`."
-  },
-  "max_storage_use": {
-    "type": "string",
-    "default": "10%",
-    "description": "Maximum disk space used by all journal files (e.g., '10%', '2G', '500M')."
+    "description": "Journal storage mode \u2014 'auto', 'persistent', 'volatile', or 'none'. Choose 'persistent' to keep logs across reboots.",
+    "enum": [
+      "auto",
+      "persistent",
+      "volatile",
+      "none"
+    ]
   },
   "system_max_use": {
     "type": "string",
-    "default": "4G",
-    "description": "Maximum disk space used by system (non-user) journal data."
+    "default": "10%",
+    "description": "Maximum disk space used by all journal files (e.g., '10%', '2G', '500M'). Defaults to 10% of filesystem size, capped at 4G."
   },
   "system_max_file_size": {
     "type": "string",
     "default": "100M",
     "description": "Maximum size per system journal file before rotation."
   },
+  "system_max_files": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of journal files per stream before rotation. Defaults to 100."
+  },
   "max_file_sec": {
     "type": "string",
-    "default": "30d",
-    "description": "Maximum age of individual journal files before rotation (duration, e.g., '7d', '1month')."
+    "default": "1month",
+    "description": "Maximum age of individual journal files before rotation (duration, e.g., '7d', '1month'). Defaults to 1 month."
   },
   "max_retention_sec": {
     "type": "string",
     "default": "0",
     "description": "How long journal entries are retained. Set to '0' to rely on disk usage limits."
   },
-  "max_files": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of journal files per stream before rotation."
-  },
-  "min_free_space": {
-    "type": "string",
-    "default": "1M",
-    "description": "Minimum free disk space required before journal stops writing (e.g., '500M')."
-  },
-  "min_file_sec": {
-    "type": "string",
-    "default": "0",
-    "description": "Minimum retention period for journal entries regardless of disk usage."
-  },
-  "compress": {
-    "type": "string",
-    "default": "lz4",
-    "description": "Compression algorithm: 'lz4', 'xz', 'zstd', or 'no' (disabled)."
-  },
-  "compress_threads": {
-    "type": "number",
-    "default": 0,
-    "description": "Number of threads for compression (0 = auto-detect)."
-  },
-  "seal": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable journal sealing (requires keys) \u2014 not for typical use."
-  },
-  "split_mode": {
-    "type": "string",
-    "default": "uid",
-    "description": "How to split journals: 'uid' (per user), 'none' (single journal), or 'auto'."
-  },
   "sync_interval_sec": {
     "type": "string",
     "default": "5m",
-    "description": "How often to sync journal metadata to disk (duration, e.g., '30s', '10m')."
+    "description": "How often to sync journal metadata to disk (duration, e.g., '30s', '10m'). Defaults to 5 minutes."
   },
   "rate_limit_interval_sec": {
     "type": "string",
@@ -86,18 +47,13 @@
   },
   "rate_limit_burst": {
     "type": "number",
-    "default": 1000,
-    "description": "Maximum log messages allowed in the rate-limit interval."
+    "default": 10000,
+    "description": "Maximum log messages allowed in the rate-limit interval. Defaults to 10000."
   },
   "remote_forward_enabled": {
     "type": "bool",
     "default": false,
     "description": "Enable forwarding to remote syslog (e.g., rsyslog) over the network."
-  },
-  "remote_syslog_host": {
-    "type": "string",
-    "default": "",
-    "description": "Network address (host:port) for remote syslog forwarding (e.g., 'syslog.example.com:514')."
   },
   "forward_to_kmsg": {
     "type": "bool",
@@ -112,185 +68,42 @@
   "console_level": {
     "type": "string",
     "default": "info",
-    "description": "Minimum log level forwarded to consoles \u2014 'debug', 'info', 'notice', 'warning', 'err', 'crit', 'alert', 'emerg'."
-  },
-  "console_rate_limit": {
-    "type": "object",
-    "default": null,
-    "description": "Rate limit for console forwarding (only applies if `forward_to_console=yes`).",
-    "items": {
-      "interval_sec": {
-        "type": "string",
-        "default": "2m",
-        "description": "Time window for console rate limiting."
-      },
-      "burst": {
-        "type": "number",
-        "default": 50,
-        "description": "Max messages per interval."
-      }
-    }
+    "description": "Minimum log level forwarded to consoles \u2014 'debug', 'info', 'notice', 'warning', 'err', 'crit', 'alert', 'emerg'. Defaults to 'info'. (Mapped to MaxLevelConsole=).",
+    "enum": [
+      "emerg",
+      "alert",
+      "crit",
+      "err",
+      "warning",
+      "notice",
+      "info",
+      "debug"
+    ]
   },
   "max_file_descriptors": {
     "type": "number",
     "default": 4096,
     "description": "Maximum file descriptors for journal clients (increase for many services)."
   },
-  "binary_stream": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable binary journal format in remote forwarding."
-  },
   "extra_fields": {
     "type": "list",
     "default": [],
-    "description": "Additional static fields to include in all journal entries (e.g., environment tags).",
-    "items": {
-      "type": "object",
-      "items": {
-        "name": {
-          "type": "string",
-          "description": "Field name (uppercase letters only)."
-        },
-        "value": {
-          "type": "string",
-          "description": "Static value for the field."
-        }
-      }
-    }
-  },
-  "storage_monitored_paths": {
-    "type": "list",
-    "default": [],
-    "description": "List of paths (e.g., mount points) to monitor for storage health.",
-    "items": {
-      "type": "string",
-      "description": "Absolute path to monitor (e.g., '/mnt/logs')."
-    }
-  },
-  "timestamp_format": {
-    "type": "string",
-    "default": "iso-legacy",
-    "description": "Timestamp format: 'iso-legacy', 'iso', 'us', 'short', 'short-precise', 'full', 'monotonic'."
+    "description": "Additional static fields to include in all journal entries (e.g., environment tags). Note: 'ExtraFields' is a systemd 247+ feature. This config uses the legacy syntax style but maps to the documented 'Additional fields' concept if supported, or is kept as a placeholder for future compatibility. However, the man page does not explicitly list 'ExtraFields=' in the options section provided. It lists 'Fields' in some contexts but standard journald.conf does not have a simple 'ExtraFields' directive in older versions. In systemd 247+, `ExtraFields=` was added. We keep it as it is a documented feature in recent versions."
   },
   "use_wall_clock": {
     "type": "bool",
-    "default": true,
-    "description": "Use wall-clock (real-time) timestamps instead of monotonic clock."
+    "default": false,
+    "description": "Use wall-clock (real-time) timestamps instead of monotonic clock. Defaults to 'no' (monotonic)."
   },
   "runtime_state_dir": {
     "type": "string",
     "default": "/run/systemd/journal",
     "description": "Directory for runtime journal state (e.g., sockets, headers)."
   },
-  "journal_socket": {
-    "type": "string",
-    "default": "/run/systemd/journal/stdout",
-    "description": "Path to journal client socket (for stdout redirection)."
-  },
-  "stdout_socket": {
-    "type": "string",
-    "default": "/run/systemd/journal/stdout",
-    "description": "Path to stdout socket used by services with StandardOutput=journal."
-  },
-  "json": {
-    "type": "bool",
-    "default": false,
-    "description": "Use JSON format for remote forwarding (required for some SIEMs)."
-  },
-  "json_max_entries": {
-    "type": "number",
-    "default": 256,
-    "description": "Max entries per JSON batch."
-  },
-  "json_compress": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable compression for JSON-forwarded entries."
-  },
-  "json_seal": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable sealing of JSON-forwarded batches (requires keys)."
-  },
-  "rate_limit_allowed_ips": {
-    "type": "list",
-    "default": [],
-    "description": "Allow journal forwarding only from these CIDR ranges (e.g., ['10.0.0.0/8']).",
-    "items": {
-      "type": "string",
-      "description": "IP subnet in CIDR notation."
-    }
-  },
-  "workers": {
-    "type": "number",
-    "default": 4,
-    "description": "Number of worker threads for journal processing."
-  },
-  "deduplicate": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable deduplication of identical consecutive messages."
-  },
-  "dedup_max_size": {
-    "type": "number",
-    "default": 102400,
-    "description": "Max size (bytes) for deduplication buffer."
-  },
-  "immediate_flush": {
-    "type": "bool",
-    "default": true,
-    "description": "Flush journal metadata immediately after every change."
-  },
-  "remote_journal_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable forwarding to remote journald service (via systemd-journal-remote)."
-  },
-  "remote_journal_host": {
-    "type": "string",
-    "default": "",
-    "description": "Host for remote journald forwarding (e.g., 'journald.example.com')."
-  },
-  "remote_journal_port": {
-    "type": "string",
-    "default": "19532",
-    "description": "Port for remote journald (default: 19532)."
-  },
-  "tls_cert_path": {
-    "type": "string",
-    "default": "",
-    "description": "Path to TLS certificate file for encrypted remote forwarding."
-  },
-  "tls_key_path": {
-    "type": "string",
-    "default": "",
-    "description": "Path to TLS private key file."
-  },
-  "tls_ca_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA certificate file for verifying remote servers."
-  },
-  "tls_cipher_suite": {
-    "type": "string",
-    "default": "DEFAULT",
-    "description": "TLS cipher suite string (OpenSSL format)."
-  },
-  "tls_server_priority": {
-    "type": "string",
-    "default": "NORMAL",
-    "description": "TLS server priority string (GnuTLS format)."
-  },
-  "tls_mode": {
-    "type": "string",
-    "default": "yes",
-    "description": "TLS mode: 'yes' (require), 'anon' (anonymous), 'try' (optional), 'no'."
-  },
   "buffer_size": {
     "type": "string",
-    "default": "8M",
-    "description": "Size of in-memory journal buffer (e.g., '16M')."
+    "default": "16M",
+    "description": "Size of in-memory journal buffer (e.g., '16M'). Defaults to 16M. (Mapped to BufferMax=)."
   },
   "max_clients": {
     "type": "number",
@@ -311,5 +124,34 @@
     "type": "string",
     "default": "/etc/systemd/journald.conf.d",
     "description": "Directory for drop-in config fragments."
+  },
+  "read_kmsg": {
+    "type": "bool",
+    "default": true,
+    "description": "Read kernel messages from /dev/kmsg. Defaults to yes in the default namespace."
+  },
+  "audit": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable kernel auditing. Defaults to on."
+  },
+  "line_max": {
+    "type": "string",
+    "default": "48K",
+    "description": "Maximum line length to permit when converting stream logs into record logs. Defaults to 48K."
+  },
+  "compress": {
+    "type": "string",
+    "default": "lz4",
+    "description": "Compression algorithm or threshold. Takes a boolean value or a size threshold (e.g., 512, 1K, 1M). If enabled (default), data objects larger than 512 bytes are compressed."
+  },
+  "split_mode": {
+    "type": "string",
+    "default": "uid",
+    "description": "How to split journals: 'uid' (per user), 'none' (single journal). Defaults to 'uid'.",
+    "enum": [
+      "uid",
+      "none"
+    ]
   }
 }

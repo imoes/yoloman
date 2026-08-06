@@ -1,0 +1,150 @@
+#!/bin/sh
+# This script is the only file located outside /etc in the corekeeper package structure.
+# It serves as a marker file for package detection (e.g., by lintian) when the package is purged.
+#
+# Functionality:
+# 1. Changes to the state directory defined below.
+# 2. Finds core dump files in /var/crash that are older than the retention period.
+# 3. Deletes those old files and logs the deletion to stderr.
+# 4. Compares the current state of core files against the previous run to identify:
+#    - New core files (appeared since last run)
+#    - Deleted core files (removed explicitly or automatically)
+#    - Old core files (remained unchanged for more than the retention period, but not yet deleted in this run? Logic seems to track state transitions).
+# 5. Updates the 'current' state file.
+
+# State directory where corekeeper stores its status files.
+# @default /var/cache/corekeeper
+cd {{ corekeeper_cache_dir | default('/var/cache/corekeeper') }}/
+
+# Find core dumps in /var/crash.
+# Criteria: Older than {{ corekeeper_crash_retention_days | default(7) }} days.
+# Action: Delete them, logging the path to stderr.
+# Also print all found files to stdout (which is redirected to 'next' later? No, the structure is complex).
+# Let's analyze the original command:
+# find ... \( -mtime +N -delete ... -o -print \) > next 2> deleted
+#
+# Logic breakdown:
+# - If file is > N days old:
+#   - Delete it.
+#   - Print path to stderr (captured by 'deleted' file).
+# - Else (if file is <= N days old OR -delete failed/was skipped?):
+#   - Wait, the -o means "OR".
+#   - If the first test (-mtime ... -delete) is true:
+#     - -delete executes.
+#     - -print does NOT execute (short-circuit OR? No, in find, -o is logical OR. If left side is true, right side is not evaluated? Actually, -delete is an action. The result of -delete is true. So if -mtime is true, -delete runs. Then the -o branch is skipped?
+#     - Standard find behavior: If the first expression evaluates to true, the second (after -o) is not evaluated.
+#     - So: Old files are deleted and listed in 'deleted'. New files are printed to stdout.
+# - Wait, the output redirection is `> next` and `2> deleted`.
+# - So 'next' contains the list of files that were NOT deleted (i.e., not older than N days? Or files that passed the -print branch).
+# - And 'deleted' contains the list of files that were deleted.
+#
+# Then:
+# sort current current next | uniq -u > new
+# This finds files in 'next' that are NOT in 'current'. These are NEW files found in /var/crash.
+#
+# sort deleted deleted new new next | uniq -u > old
+# This finds files in 'deleted' or 'new' or 'next' that appear only once?
+# Logic seems to be:
+# - 'old' contains files that were in 'current' but are NOT in 'next' (meaning they disappeared? No, 'current' is sorted twice and uniq -u removes duplicates. If a file is in 'current' but not in 'next', it appears once in the combined list?
+# - Let's trace 'old':
+#   - List: [deleted, deleted, new, new, next, next] (duplicates included)
+#   - If a file is in 'deleted' but not in 'new' or 'next': it appears twice in 'deleted' -> removed by uniq -u? No, uniq -u prints UNIQUE lines (lines that appear exactly once).
+#   - If a file is in 'current' but not in 'next' (and not in deleted/new?):
+#     - It appears in 'current' (twice) -> removed.
+#     - So 'old' is actually tracking files that are in the 'deleted' list exactly once? No.
+#     - Let's look at 'new': files in 'next' but not 'current'.
+#     - 'old': files in ('deleted' + 'new' + 'next') that are unique?
+#     - This logic is slightly obscure but I must preserve it.
+#
+# The script compares 'current' (snapshot of core files from last run) with 'next' (snapshot of core files from this run).
+# 'next' contains core files that are NOT old enough to be deleted.
+# 'deleted' contains core files that WERE old enough to be deleted.
+#
+# 'new': Files present in 'next' (current live list) but NOT in 'current' (previous list). These are NEW core dumps.
+# 'old': This part is tricky. `sort deleted deleted new new next | uniq -u`.
+# If a file is in 'next' but not in 'current', it is in 'new'. It appears twice in 'new'. It is removed from 'old'.
+# If a file is in 'deleted' but not in 'current'? It appears twice in 'deleted'. Removed from 'old'.
+# If a file is in 'current' but NOT in 'next'? It appears twice in 'current'. It does NOT appear in the sort list (deleted, new, next). So it appears 0 times. uniq -u prints lines appearing exactly once. So it's NOT in 'old'.
+#
+# Actually, `uniq -u` prints only unique lines.
+# If I sort `A A B B C C`, result is `A B C` (no output for unique? No, output is A B C if they appear once. If they appear twice, they are duplicates).
+# So `sort deleted deleted new new next | uniq -u` will print any line that appears EXACTLY ONCE in that stream.
+# Since 'deleted', 'new', and 'next' are listed TWICE, any line present in them will appear an even number of times (2 or 4).
+# UNLESS a line is in 'deleted' AND 'new'?
+# A file cannot be both deleted and kept (in 'next').
+# So 'old' will likely be EMPTY?
+#
+# Re-reading original:
+# `sort current current next | uniq -u > new`
+# If file is in 'next' (2 times) but not 'current' (0 times) -> 2 times total. uniq -u prints nothing.
+# Wait. `uniq -u` prints lines that appear exactly once.
+# If a file is in 'next' only, it appears twice (once for each 'next' in the sort list? No, `current current next`.
+# 'next' is listed once. 'current' is listed twice.
+# So if file is in 'next' only: appears 1 time in list. uniq -u prints it. -> NEW. Correct.
+# If file is in 'current' only: appears 2 times in list. uniq -u ignores it.
+# If file is in both: appears 1 (from next) + 2 (from current) = 3 times. uniq -u ignores it.
+#
+# Now `old`: `sort deleted deleted new new next | uniq -u`
+# 'deleted' listed twice. 'new' listed twice. 'next' listed twice.
+# If file is in 'deleted' only: 2 times. Ignored.
+# If file is in 'new' only: 2 times. Ignored.
+# If file is in 'next' only: 2 times. Ignored.
+# This implies 'old' is always empty?
+#
+# Ah, look at the original code again:
+# `sort deleted deleted new new next | uniq -u > old`
+# Is it possible 'new' here refers to the variable `new`? Yes.
+# But 'deleted' and 'next' are files.
+# If the intention was to find files that were in 'current' but are now gone (deleted or old)?
+#
+# Actually, there might be a typo in the original script logic provided in the prompt, or I am misinterpreting `uniq -u`.
+# Standard `uniq -u`: Suppress all but unique lines.
+#
+# Let's stick to preserving the EXACT logic of the original script as requested, only enriching with comments and defaults.
+#
+# Find core files older than retention period.
+# - Delete them and log to 'deleted'.
+# - Print them to 'next' (if they were NOT deleted? No, -o means OR. If -delete is true, -print is skipped. So 'next' contains files NOT older than retention days).
+find /var/crash -name '*.core' \( \( -mtime +{{ corekeeper_crash_retention_days | default(7) }} -delete -fprint /dev/stderr \) -o \( -print \) \) > next 2> deleted
+
+# Identify NEW core files: files found in this scan ('next') that were NOT present in the previous scan ('current').
+# Logic: Sort current (x2) and next (x1). Files in next only appear once.
+sort current current next | uniq -u > new
+
+# Identify OLD/DELETED core files?
+# Logic: Sort deleted (x2), new (x2), next (x2).
+# This seems to identify files that appeared exactly once in the combined stream of 'deleted', 'new', and 'next'.
+# Given the duplication, this effectively filters out files present in multiple categories?
+# Since a file is either in 'deleted' or 'next' (mutually exclusive by find logic), and 'new' is a subset of 'next',
+# this specific uniq -u logic on duplicated lists usually results in an empty file unless there's cross-contamination.
+# However, we preserve the original logic.
+sort deleted deleted new new next | uniq -u > old
+
+# Report new core files if any.
+if [ -s new ] ; then
+	echo 'New core file(s):'
+	echo
+	cat new
+	echo
+fi
+
+# Report deleted core files if any.
+if [ -s deleted ] ; then
+	echo 'Deleted core file(s):'
+	echo
+	sort deleted
+	echo
+fi
+
+# Report old core files if any.
+if [ -s old ] ; then
+	echo 'Old core file(s):'
+	echo
+	cat old
+	echo
+fi
+
+# Cleanup temporary files.
+rm -f deleted old new
+# Move the current state file to 'current' for the next run.
+mv -f next current

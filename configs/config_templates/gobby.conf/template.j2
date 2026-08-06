@@ -1,63 +1,119 @@
+# =============================================================================
+# Gobby Collaboration Server Configuration Template
+# =============================================================================
+# This template generates a gobby.conf file for the Gobby collaborative
+# document editor server (gobby-0.5). It is self-documenting: every
+# configuration directive is preceded by a comment explaining its purpose
+# and the schema field it corresponds to.
+#
+# Schema fields:
+#   server   - Server network and connection settings
+#   security - Authentication and access control
+#   logging  - Server logging configuration
+#   general  - General operational settings
+# =============================================================================
+
+# =============================================================================
+# [server] - Server network and connection settings
+# =============================================================================
 [server]
+
 # Hostname or IP address the server will bind to
-host = {{ server.host | default('127.0.0.1') }}
+# Schema field: server.host (default: 127.0.0.1)
+host = {{ (server | default({})).host | default('127.0.0.1') }}
 
 # Port the server listens on
-port = {{ server.port | default(6523) }}
+# Schema field: server.port (default: 6523)
+port = {{ (server | default({})).port | default(6523) }}
 
 # Enable SSL/TLS for secure connections
-ssl_enabled = {{ server.ssl_enabled | default(false) }}
+# Schema field: server.ssl_enabled (default: false)
+ssl_enabled = {{ (server | default({})).ssl_enabled | default(false) }}
 
 # Path to SSL certificate file (required if ssl_enabled=true)
-ssl_certificate = {{ server.ssl_certificate | default('') }}
+# Schema field: server.ssl_certificate (default: '')
+ssl_certificate = {{ (server | default({})).ssl_certificate | default('') }}
 
 # Path to SSL private key file (required if ssl_enabled=true)
-ssl_key = {{ server.ssl_key | default('') }}
+# Schema field: server.ssl_key (default: '')
+ssl_key = {{ (server | default({})).ssl_key | default('') }}
 
 # Maximum number of concurrent connections
-max_connections = {{ server.max_connections | default(50) }}
+# Schema field: server.max_connections (default: 50)
+max_connections = {{ (server | default({})).max_connections | default(50) }}
 
+# =============================================================================
+# [security] - Authentication and access control
+# =============================================================================
 [security]
+
 # Enable password-based authentication
-password_auth = {{ security.password_auth | default(false) }}
+# Schema field: security.password_auth (default: false)
+password_auth = {{ (security | default({})).password_auth | default(false) }}
 
 # Path to password file (INI-style, with [users] section)
-password_file = {{ security.password_file | default('/etc/gobby-0.5/users.conf') }}
+# Schema field: security.password_file (default: /etc/gobby-0.5/users.conf)
+password_file = {{ (security | default({})).password_file | default('/etc/gobby-0.5/users.conf') }}
 
 # Enable TLS client certificate authentication
-cert_auth = {{ security.cert_auth | default(false) }}
+# Schema field: security.cert_auth (default: false)
+cert_auth = {{ (security | default({})).cert_auth | default(false) }}
 
 # Path to CA certificate for validating client certs (required if cert_auth=true)
-ca_certificate = {{ security.ca_certificate | default('') }}
+# Schema field: security.ca_certificate (default: '')
+ca_certificate = {{ (security | default({})).ca_certificate | default('') }}
 
 # Require client certificates for all connections (only if cert_auth=true)
-require_cert = {{ security.require_cert | default(true) }}
+# Schema field: security.require_cert (default: true)
+require_cert = {{ (security | default({})).require_cert | default(true) }}
 
 # List of allowed client certificate fingerprints (optional, overrides CA if empty list)
-allowed_cert_fingerprints = {% for fp in security.allowed_cert_fingerprints | default([]) %}
-  {{ fp }}{% if not loop.last %},{% endif %}{% endfor %}
+# Schema field: security.allowed_cert_fingerprints (default: [])
+# Note: This renders as a comma-separated list on a single logical line.
+allowed_cert_fingerprints = {{ (security | default({})).allowed_cert_fingerprints | default([]) | join(', ') }}
 
+# =============================================================================
+# [logging] - Server logging configuration
+# =============================================================================
 [logging]
+
 # Log level: debug, info, warning, error, critical
-level = {{ logging.level | default('info') }}
+# Schema field: logging.level (default: info)
+level = {{ (logging | default({})).level | default('info') }}
 
 # Path to log file (empty string = stdout)
-file = {{ logging.file | default('') }}
+# Schema field: logging.file (default: '')
+file = {{ (logging | default({})).file | default('') }}
 
 # Enable log rotation (size in MB, count = number of rotated files to keep)
-rotate = {{ logging.rotate | default(false) }}
-rotate_max_size = {{ logging.rotate_max_size | default(10) }}
-rotate_max_files = {{ logging.rotate_max_files | default(5) }}
+# Schema field: logging.rotate (default: false)
+rotate = {{ (logging | default({})).rotate | default(false) }}
 
+# Maximum size of a single log file before rotation (MB)
+# Schema field: logging.rotate_max_size (default: 10)
+rotate_max_size = {{ (logging | default({})).rotate_max_size | default(10) }}
+
+# Maximum number of rotated log files to keep
+# Schema field: logging.rotate_max_files (default: 5)
+rotate_max_files = {{ (logging | default({})).rotate_max_files | default(5) }}
+
+# =============================================================================
+# [general] - General operational settings
+# =============================================================================
 [general]
+
 # Directory for autosaving documents (empty = no autosave)
-autosave_dir = {{ general.autosave_dir | default('') }}
+# Schema field: general.autosave_dir (default: '')
+autosave_dir = {{ (general | default({})).autosave_dir | default('') }}
 
 # Autosave interval in seconds
-autosave_interval = {{ general.autosave_interval | default(30) }}
+# Schema field: general.autosave_interval (default: 30)
+autosave_interval = {{ (general | default({})).autosave_interval | default(30) }}
 
 # Enable document versioning (requires filesystem support)
-versioning = {{ general.versioning | default(false) }}
+# Schema field: general.versioning (default: false)
+versioning = {{ (general | default({})).versioning | default(false) }}
 
 # Path for versioning metadata (if versioning=true)
-versioning_dir = {{ general.versioning_dir | default('/var/lib/gobby-0.5/versions') }}
+# Schema field: general.versioning_dir (default: /var/lib/gobby-0.5/versions)
+versioning_dir = {{ (general | default({})).versioning_dir | default('/var/lib/gobby-0.5/versions') }}

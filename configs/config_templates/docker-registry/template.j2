@@ -1,0 +1,114 @@
+#!/bin/sh
+#
+# Init script for the Docker Registry service
+#
+# This script starts, stops, restarts, and checks the status of the docker-registry
+# daemon. It ensures the service runs under a dedicated unprivileged user for
+# security hardening.
+#
+# Configuration overrides can be provided in /etc/default/docker-registry.
+#
+### BEGIN INIT INFO
+# Provides:          {{ base_name | default('docker-registry') }}
+# Required-Start:    $syslog $remote_fs
+# Required-Stop:     $syslog $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: The Docker toolset to pack, ship, store, and deliver content
+### END INIT INFO
+
+# Base name of the service/daemon; used for PID file, log file, init script name,
+# and process identification.
+BASE={{ base_name | default('docker-registry') }}
+
+# Path to the registry binary executable.
+BINARY=/usr/bin/$BASE
+
+# Path to the YAML configuration file for the registry.
+CONFIG=/etc/docker/registry/config.yml
+
+# System user account under which the registry service will run (for security hardening).
+EXECUSER={{ exec_user | default('docker-registry') }}
+
+# Path to the PID file for tracking the daemon process.
+PIDFILE=/var/run/$BASE.pid
+
+# Path to the log file for registry output.
+LOGFILE=/var/log/$BASE.log
+
+# Description string used in log messages.
+DESC="$BASE"
+
+# Source LSB init functions for standardized logging and status reporting.
+. /lib/lsb/init-functions
+
+# Load any additional environment variables or overrides from the defaults file.
+if [ -f /etc/default/$BASE ]; then
+	. /etc/default/$BASE
+fi
+
+# Check if the system is using Upstart; if so, defer to Upstart management.
+if init_is_upstart; then
+	log_failure_msg "$BASE is managed via upstart, try using service $BASE $1"
+	exit 1
+fi
+
+# Verify that the registry binary exists and is executable before proceeding.
+if [ ! -x "$BINARY" ]; then
+	log_failure_msg "$BINARY not present or not executable"
+	exit 1
+fi
+
+# Function: Ensure the script is running as root.
+# The init system requires root privileges to manage daemons.
+fail_unless_root() {
+	if [ "$(id -u)" != '0' ]; then
+		log_failure_msg "$DESC must be run as root"
+		exit 1
+	fi
+}
+
+# Case statement to handle service control commands.
+case "$1" in
+	start)
+		fail_unless_root
+		log_begin_msg "Starting $DESC"
+		# Start the registry daemon in the background, running as EXECUSER.
+		# Output (stdout/stderr) is appended to the LOGFILE.
+		start-stop-daemon --start --background \
+			--no-close \
+			--chuid "$EXECUSER" \
+			--exec "$BINARY" \
+			--pidfile "$PIDFILE" \
+			--make-pidfile \
+			-- serve "$CONFIG" \
+				>> "$LOGFILE" 2>&1
+		log_end_msg $?
+		;;
+	
+	stop)
+		fail_unless_root
+		log_begin_msg "Stopping $DESC"
+		# Stop the daemon by signaling the process ID in the PIDFILE.
+		start-stop-daemon --stop --pidfile "$PIDFILE"
+		log_end_msg $?
+		;;
+	
+	restart|force-reload)
+		fail_unless_root
+		# Stop and then start the service.
+		$0 stop
+		$0 start
+		;;
+	
+	status)
+		# Check and report the current status of the process.
+		status_of_proc -p "$PIDFILE" "$BINARY" "$DESC"
+		;;
+	
+	*)
+		# Display usage instructions for unsupported commands.
+		echo "usage: $0 {start|stop|restart|status}"
+		exit 1
+		;;
+esac

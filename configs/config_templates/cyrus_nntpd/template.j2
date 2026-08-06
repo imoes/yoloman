@@ -1,48 +1,80 @@
-# Service management: Define services Cyrus IMAP/NNTPD should provide
-# Format: <service> <type> <command> [args]
-# <service> = service name (imap, nntp, pop3, etc.)
-# <type> = inet (daemon runs in background listening on socket) or cmd (spawn on demand via libcyrus)
-# <command> = executable to invoke
-# [args] = optional arguments (e.g., config paths, flags)
+{#
+  cyrus_nntpd Service Configuration Template
+  ==========================================
+  This template generates the service definitions file for Cyrus IMAP/NNTPD.
+  It controls which background daemons are started and how they listen (inet vs unix socket vs command).
 
-# NNTP service: listen for incoming NNTP connections on configured host:port
-{% for service in services %}{{ service.name }}	{{ service.type }}	{{ service.command }}{% if service.args %} {{ service.args | join(' ') }}{% endif %}
+  Variables used:
+    - services: List of custom service definitions (see schema).
+    - enable_nntppost: Boolean to enable the nntppost posting daemon.
+    - sieve_enabled: Boolean to enable the sieve filtering daemon.
+    - tls_enabled: Boolean to enable TLS-wrapped IMAP/NNTP services.
+#}
+
+{#
+  Services defined via the 'services' schema field.
+  These allow dynamic registration of additional or modified services.
+  Format: <name> <type> <command> [args]
+#}
+{% for service in services | default([{'name': 'nntp', 'type': 'inet', 'command': '/usr/lib/cyrus/bin/nntpd', 'args': []}], true) %}{{ service.name }}	{{ service.type }}	{{ service.command }}{% if service.args | default([], true) %} {{ service.args | join(' ') }}{% endif %}
 {% endfor %}
 
-# Standard IMAP services (required by Cyrus as a whole, even if only NNTP is requested)
-# (These are typically needed for shared mailbox handling, sieve, etc.)
+{#
+  Standard IMAP service: Required by Cyrus core for shared mailbox handling
+  and general IMAP connectivity. Runs as an inet daemon on the standard port.
+#}
 imap	inet	/usr/lib/cyrus/bin/imapd
+
+{#
+  Standard POP3 service: Provides POP3 access to mailboxes.
+#}
 pop3	inet	/usr/lib/cyrus/bin/pop3d
 
-# Administrative and auxiliary services
-# These manage backend tasks like mailbox indexing, job queuing, and shutdown handling
-# Ensure they match your deployment requirements (e.g., enable nntppost for posting via NNTP)
-
-# LMTP for local mail delivery (used by localdelivery transport, required for some NNTP functions)
+{#
+  LMTP Service: Local Mail Transfer Protocol daemon.
+  Used for local mail delivery (e.g., via localdelivery transport).
+  Runs as a unix socket daemon for local inter-process communication.
+#}
 lmtp	unix	/usr/lib/cyrus/bin/lmtpd
 
-# Manage mailboxes, quotas, and administrative tasks
-# Used by cyradm, mmdeliver, and internal housekeeping
-# Keep enabled unless you run in a minimal/remote-only setup
+{#
+  NNTP Posting Service (nntppost):
+  Allows authenticated NNTP clients to POST news articles to the server.
+  Enabled only if enable_nntppost is true.
+#}
+{% if enable_nntppost | default(False, true) %}nntppost	unix	/usr/lib/cyrus/bin/nntppost{% endif %}
 
-# Batch job processing for idle operations (sieve scripts, quota updates)
-# Optional; enable if using Sieve or automated batch tasks
-
-# Specialized NNTP posting service: allows NNTP clients to POST news articles
-{% if enable_nntppost %}nntppost	unix	/usr/lib/cyrus/bin/nntppost{% endif %}
-
-# Idle daemon for async operations (required for many background tasks)
-# Usually always enabled unless you're on a tiny embedded setup
+{#
+  Idle Daemon:
+  Manages asynchronous background tasks and keep-alive connections.
+  Essential for many Cyrus features; runs as a command/daemon process.
+#}
 idle	cmd	/usr/lib/cyrus/bin/idle
 
-# Sieve script management (if Sieve is used for NNTP filtering rules)
-# Required only if NNTP users rely on Sieve filters
-{% if sieve_enabled %}sieve	cmd	/usr/lib/cyrus/bin/sieved{% endif %}
+{#
+  Sieve Daemon (sieved):
+  Manages Sieve scripts for server-side mail filtering.
+  Enabled only if sieve_enabled is true. Required if NNTP/IMAP users rely on Sieve rules.
+#}
+{% if sieve_enabled | default(False, true) %}sieve	cmd	/usr/lib/cyrus/bin/sieved{% endif %}
 
-# Optional: SSL/TLS wrappers — uncomment and adjust if TLS is required
-# {% if tls_enabled %}imap-tls	inet	/usr/lib/cyrus/bin/imapd -p 993 -f /etc/ssl/certs/server.crt -k /etc/ssl/private/server.key{% endif %}
-# {% if tls_enabled %}nntp-tls	inet	/usr/lib/cyrus/bin/nntpd -p 563 -f /etc/ssl/certs/server.crt -k /etc/ssl/private/server.key{% endif %}
+{#
+  TLS-Wrapped IMAP Service (imap-tls):
+  Provides IMAP over SSL/TLS on port 993.
+  Enabled only if tls_enabled is true. Requires external certificate configuration.
+#}
+{% if tls_enabled | default(False, true) %}imap-tls	inet	/usr/lib/cyrus/bin/imapd -p 993 -f /etc/ssl/certs/server.crt -k /etc/ssl/private/server.key{% endif %}
 
-# Shutdown and restart hook (optional, but recommended for clean restarts)
-# shutdownd manages graceful shutdown and cleanup
+{#
+  TLS-Wrapped NNTP Service (nntp-tls):
+  Provides NNTP over SSL/TLS on port 563.
+  Enabled only if tls_enabled is true. Requires external certificate configuration.
+#}
+{% if tls_enabled | default(False, true) %}nntp-tls	inet	/usr/lib/cyrus/bin/nntpd -p 563 -f /etc/ssl/certs/server.crt -k /etc/ssl/private/server.key{% endif %}
+
+{#
+  Shutdown Daemon (shutdownd):
+  Handles graceful shutdown and cleanup of Cyrus processes.
+  Recommended for all deployments to ensure clean state transitions.
+#}
 shutdownd	cmd	/usr/lib/cyrus/bin/shutdownd

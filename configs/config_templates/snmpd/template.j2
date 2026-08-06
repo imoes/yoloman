@@ -1,45 +1,12 @@
-# Listen for SNMP requests on specified UDP ports
-listen udp:{{ agent_listen_addr }}:{{ agent_listen_port }}
+# This file controls the behaviour of /etc/init.d/snmpd
+# but not of the corresponding systemd service file.
+# If needed, create an override file in
+# /etc/systemd/system/snmpd.service.d/local.conf
+# see man 5 systemd.unit and man 5 systemd.service
 
-# System information for contact and location
-sysName {{ system_name }}
-sysLocation {{ system_location }}
-sysContact {{ system_contact }}
+# Don't load any MIBs by default.
+# You might comment this lines once you have the MIBs downloaded.
+# export MIBS=
 
-# Enable/disable agentX master capability (for extending via subagents)
-{% if enable_agentx %}agentX{% else %}# agentX disabled{% endif %}
-
-# AgentX master socket path (if enabled)
-agentXSocket {{ agentx_socket_path }}
-
-# Set SNMPv1/SNMPv2c community strings
-{% for community in communities %}rocommunity {{ community.name }} {{ community.source | default('default') }}{% endfor %}
-{% if write_communities %}{% for community in write_communities %}rwcommunity {{ community.name }} {{ community.source | default('default') }}{% endfor %}{% endif %}
-
-# SNMPv3 user configuration
-{% for user in snmpv3_users %}createUser {{ user.name }} {% if user.auth_protocol %}{{ user.auth_protocol | upper }} {{ user.auth_passphrase }}{% endif %}{% if user.priv_protocol %} {{ user.priv_protocol | upper }} {{ user.priv_passphrase }}{% endif %}{% endfor %}
-
-# SNMPv3 group and access control
-{% for group in snmpv3_groups %}group {{ group.name }} {% if group.sec_model in ['v1','v2c'] %}usm{% else %}{{ group.sec_model }}{% endif %}
-{% endfor %}
-{% for access in snmpv3_access %}access {{ access.group_name }} '' {{ access.sec_model }} {{ access.sec_level }} noauth exact {{ access.read }} {{ access.write }} {{ access.notify }}
-{% endfor %}
-
-# Trap destinations
-{% for trapdest in trap_destinations %}trap2sink {{ trapdest.host }} {{ trapdest.community }}{% endfor %}
-
-# Enable disk monitoring with thresholds
-{% for disk in disk_monitors %}disk {{ disk.mount_point }} {{ disk.min_percent_free }}{% endfor %}
-
-# Enable memory monitoring
-{% if enable_memory_monitor %}memLoadHigh {{ memory_load_warning_threshold }}{% endif %}
-
-# Enable process monitoring
-{% for proc in monitored_processes %}proc {{ proc.name }} {{ proc.max_count | default(1) }}{% endfor %}
-
-# Logging options (to syslog or file)
-{% if log_to_syslog %}logSyslog yes{% else %}logSyslog no{% endif %}
-{% if log_file %}logFile {{ log_file }}{% endif %}
-
-# Allow remote management via SNMP (enables MIB-II system group)
-enableConfigDisks
+# snmpd options (use syslog priority warning, close stdin/out/err).
+#SNMPDOPTS='-LSwd -Lf /dev/null -u Debian-snmp -g Debian-snmp -I -smux,mteTrigger,mteTriggerConf -p /run/snmpd.pid'

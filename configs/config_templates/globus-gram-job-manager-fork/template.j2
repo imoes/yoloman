@@ -1,0 +1,47 @@
+# ==============================================================================
+# Globus GRAM Job Manager Fork Configuration
+# ==============================================================================
+#
+# This template configures the globus-gram-job-manager-fork service.
+# The fork LRM (Local Resource Manager) uses the globus-fork-starter
+# to write job state changes to a shared log file, allowing the
+# job manager to return accurate state and exit codes.
+#
+# It also supports MPI job execution (via mpiexec or mpirun)
+# and environment setup via Softenv.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Log Path Configuration
+# ------------------------------------------------------------------------------
+# Path to the shared log file used by the globus-fork-starter program.
+# This file must be writable by the user running the job manager.
+# Default: /var/log/globus/globus-fork.log
+log_path="{{ log_path | default('/var/log/globus/globus-fork.log') }}"
+
+# ------------------------------------------------------------------------------
+# MPI Executable Configuration
+# ------------------------------------------------------------------------------
+# Path to the mpiexec executable.
+# The fork LRM prefers mpiexec (MPI 2 standard) over mpirun.
+# Set to "no" to disable MPI job support via this LRM.
+# Default: no
+mpiexec="{{ mpiexec | default('no') }}"
+
+# ------------------------------------------------------------------------------
+# MPI Run Executable Configuration
+# ------------------------------------------------------------------------------
+# Path to the mpirun executable.
+# Used as a fallback if mpiexec is not available or configured.
+# Set to "no" to disable MPI job support via this LRM.
+# Default: no
+mpirun="{{ mpirun | default('no') }}"
+
+# ------------------------------------------------------------------------------
+# Softenv Directory Configuration
+# ------------------------------------------------------------------------------
+# Path to the softenv directory for environment setup.
+# Softenv allows jobs to declare software environments via RSL attributes.
+# Set to an empty string to disable softenv support.
+# Default: (empty)
+softenv_dir="{{ softenv_dir | default('') }}"

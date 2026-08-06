@@ -1,44 +1,93 @@
-# Intel CMT-CAT configuration file — manages cache allocation (CAT) and monitoring (CMT) policies
-# Global settings
+# Intel CMT-CAT configuration file
+#
+# This file manages Intel Cache Allocation Technology (CAT) and Cache Monitoring Technology (CMT) policies
+# via the Linux `resctrl` filesystem. It is consumed by the `intel-cmt-cat` (RDT) tools.
+#
+# Format: INI-style sections with key-value pairs.
+#
+# === Global Settings ===
 [global]
-# Enable or disable cache allocation (CAT)
+
+# Enable Intel Cache Allocation Technology (CAT) support.
+# When enabled, the tool will apply cache partitioning masks.
+# Default: true
 cat_enabled = {{ cat_enabled | default(true) | lower }}
-# Enable or disable cache monitoring (CMT)
+
+# Enable Intel Cache Monitoring Technology (CMT) support.
+# When enabled, the tool will collect cache usage metrics.
+# Default: true
 cmt_enabled = {{ cmt_enabled | default(true) | lower }}
-# Monitoring interval in milliseconds
+
+# Monitoring data sampling interval in milliseconds.
+# Controls how often CMT metrics are sampled. E.g., 1000 = 1 second.
+# Default: 1000
 cmt_interval_ms = {{ cmt_interval_ms | default(1000) }}
-# Path to the resource control filesystem (resctrl)
+
+# Mount path for the resctrl filesystem.
+# Required for CAT/CMT control; must match the system's mount point.
+# Default: '/sys/fs/resctrl'
 resctrl_path = {{ resctrl_path | default('/sys/fs/resctrl') }}
-# Path to write PID-to-COS mapping
+
+# Path to the runtime PID-to-COS (Class of Service) mapping file.
+# Used by the tool to track which PIDs are assigned to which COS groups.
+# Default: '/run/libcmt-cat/pid_to_cos.map'
 pid_map_path = {{ pid_map_path | default('/run/libcmt-cat/pid_to_cos.map') }}
 
-# Define COS (Class of Service) groups for cache allocation
-# Each COS defines a cache partitioning and/or memory bandwidth policy
+# === COS Groups ===
+# Define Cache Class of Service (COS) definitions for partitioning CPU cache
+# and memory bandwidth. Each group acts as a container for cache resources.
 [cos_groups]
+
+{% if cos_groups is defined and cos_groups | length > 0 %}
 {% for cos in cos_groups %}
-# COS {{ cos.id }}: {{ cos.name | default('unnamed') }}
-[cos_{{ cos.id }}]
+# COS {{ cos.id | default('unknown') }}
+# Description: {{ cos.name | default('unnamed') | tojson }}
+[cos_{{ cos.id | default(loop.index) | string }}]
+
+# Name of this COS group for human identification.
 name = {{ cos.name | default('unnamed') | tojson }}
-# Cache allocation mask — bitmask representing cache ways to allocate (e.g., 0xFFFF for all ways)
+
+# Cache allocation mask.
+# Bitmask representing cache ways to allocate (e.g., 0xFFFF for all ways).
+# Required field for CAT.
 cache_mask = {{ cos.cache_mask | tojson }}
-{% if cos.memory_bandwidth is defined %}
-# Memory bandwidth allocation (percent of total memory bandwidth, 0–100)
+
+{% if cos.memory_bandwidth is defined and cos.memory_bandwidth is not none %}
+# Memory bandwidth allocation.
+# Percentage of total memory bandwidth reserved for this COS (0–100).
+# Optional; only present if defined.
 memory_bandwidth = {{ cos.memory_bandwidth }}
 {% endif %}
-# Optional: L3 cache way partition (integer number of ways, overrides cache_mask if set)
-{% if cos.l3_cache_ways is defined %}
+
+{% if cos.l3_cache_ways is defined and cos.l3_cache_ways is not none %}
+# L3 cache way partition.
+# Integer number of ways. Overrides cache_mask if set.
+# Optional; only present if defined.
 l3_cache_ways = {{ cos.l3_cache_ways }}
 {% endif %}
-# Optional: List of allowed CPUs for this COS (comma-separated or range, e.g., 0-3,8-11)
-{% if cos.cpus is defined %}
+
+{% if cos.cpus is defined and cos.cpus is not none %}
+# List of allowed CPUs for this COS.
+# Comma-separated or range format (e.g., "0-3,8-11").
+# Optional; only present if defined.
 cpus = {{ cos.cpus | tojson }}
 {% endif %}
-{% endfor %}
 
-# Optional: Process-to-COS mappings
-# Format: PID=COS_ID or regex pattern=COS_ID
+{% endfor %}
+{% else %}
+# No COS groups defined.
+{% endif %}
+
+# === PID Mappings ===
+# Optional static or regex-based mappings from PID or process name to COS.
+# Format: Key = COS_ID
 [pid_mappings]
+
+{% if pid_mappings is defined and pid_mappings | length > 0 %}
 {% for mapping in pid_mappings %}
-# Map PID/regex {{ mapping.pattern }} to COS {{ mapping.cos_id }}
+# Map PID/regex {{ mapping.pattern | default('unknown') | tojson }} to COS {{ mapping.cos_id | default('unknown') }}
 {{ mapping.pattern | tojson }} = {{ mapping.cos_id }}
 {% endfor %}
+{% else %}
+# No PID mappings defined.
+{% endif %}

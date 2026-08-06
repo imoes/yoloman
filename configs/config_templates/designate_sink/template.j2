@@ -1,73 +1,81 @@
+# =============================================================================
+# OpenStack Designate Sink Service Configuration
+# =============================================================================
+# This file configures the Designate Sink service, which receives DNS update
+# notifications (typically RFC 2136 style) and propagates them to the central
+# Designate database and message queue.
+# =============================================================================
+
 [DEFAULT]
-# Log file location (or 'stderr' for console)
-log_file = {{ log_file }}
+# Path to the log file; use 'stderr' to log to console.
+log_file = {{ log_file | default('/var/log/designate/sink.log') }}
 
-# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level = {{ log_level }}
+# Logging verbosity level.
+log_level = {{ log_level | default('INFO') }}
 
-# RPC transport URL for communication with other OpenStack services
-rpc_transport_url = {{ rpc_transport_url }}
+# Connection URL for the RPC transport (e.g., RabbitMQ).
+rpc_transport_url = {{ rpc_transport_url | default('rabbit://guest:guest@localhost:5672//') }}
 
-# AMQP authentication method (e.g., 'none', 'plain', 'external')
-rpc_backend = {{ rpc_backend }}
+# RPC backend driver (usually 'rabbit' for RabbitMQ).
+rpc_backend = {{ rpc_backend | default('rabbit') }}
 
-# RPC connection retry delay (seconds)
-rpc_conn_pool_size = {{ rpc_conn_pool_size }}
+# Size of the RPC connection pool.
+rpc_conn_pool_size = {{ rpc_conn_pool_size | default(10) }}
 
 [service:sink]
-# Hostname or IP where sink listens for incoming DNS updates
-host = {{ sink_host }}
+# Interface/IP to bind the sink service to.
+host = {{ sink_host | default('0.0.0.0') }}
 
-# Port to listen on for incoming DNS updates (typically 5354 for sink)
-port = {{ sink_port }}
+# Port for receiving DNS update notifications (RFC 2136-style).
+port = {{ sink_port | default(5354) }}
 
-# Number of worker processes for handling incoming updates
-workers = {{ sink_workers }}
+# Number of worker processes for the sink service.
+workers = {{ sink_workers | default(2) }}
 
-# Enable/Disable zone management (typically 'true')
-enable_zone_management = {{ sink_enable_zone_management }}
+# Whether the sink should manage zones on incoming updates.
+enable_zone_management = {{ sink_enable_zone_management | default(true) }}
 
-# Name of the sink service as registered in OpenStack (must match service name)
-service_name = {{ sink_service_name }}
+# Service name used when registering with OpenStack services.
+service_name = {{ sink_service_name | default('sink') }}
 
 [service:rpc]
-# RPC API version string (must match designate central's expected version)
-rpc_api_version = {{ rpc_api_version }}
+# API version for RPC communication with central.
+rpc_api_version = {{ rpc_api_version | default('1.0') }}
 
-# Max size of RPC message body (bytes)
-rpc_response_max_size = {{ rpc_response_max_size }}
+# Maximum size (bytes) of RPC responses.
+rpc_response_max_size = {{ rpc_response_max_size | default(32768) }}
 
 [rpc_notifier]
-# AMQP exchange name for notifications (typically 'openstack')
-exchange = {{ notifier_exchange }}
+# AMQP exchange name for event notifications.
+exchange = {{ notifier_exchange | default('openstack') }}
 
-# Topic(s) to publish notifications to (list, comma-separated)
-topics = {{ notifier_topics | join(', ') }}
+# Topics to publish DNS update notifications to.
+topics = {{ notifier_topics | default(['designate_notifications']) | join(', ') }}
 
 [keystone_authtoken]
-# Authentication endpoint (e.g., https://keystone:5000/v3)
-www_authenticate_uri = {{ keystone_auth_url }}
+# Keystone authentication endpoint URL.
+www_authenticate_uri = {{ keystone_auth_url | default('https://keystone.example.com:5000/v3') }}
 
-# Project domain name
-project_domain_name = {{ keystone_project_domain }}
+# Keystone domain name for the service project.
+project_domain_name = {{ keystone_project_domain | default('Default') }}
 
-# Project name for authenticate service user
-project_name = {{ keystone_project_name }}
+# Keystone project (tenant) name for the service user.
+project_name = {{ keystone_project_name | default('service') }}
 
-# User domain name
-user_domain_name = {{ keystone_user_domain }}
+# Keystone domain name for the service user.
+user_domain_name = {{ keystone_user_domain | default('Default') }}
 
-# Service username
-username = {{ keystone_service_username }}
+# Keystone username for the Designate service.
+username = {{ keystone_service_username | default('designate') }}
 
-# Service user password
-password = {{ keystone_service_password }}
+# Password for the Designate service user in Keystone.
+password = {{ keystone_service_password | default('') }}
 
-# Auth API version (e.g., v3)
-auth_version = {{ keystone_auth_version }}
+# Keystone API version.
+auth_version = {{ keystone_auth_version | default('v3') }}
 
-# Auth method (typically 'password')
-auth_type = {{ keystone_auth_type }}
+# Authentication type (e.g., password, token).
+auth_type = {{ keystone_auth_type | default('password') }}
 
-# Insecure TLS (skip certificate verification — dangerous in production)
-insecure = {{ keystone_insecure }}
+# Whether to skip SSL/TLS certificate verification.
+insecure = {{ keystone_insecure | default(false) }}

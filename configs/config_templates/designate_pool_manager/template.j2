@@ -1,49 +1,185 @@
+# =============================================================================
+# designate-pool-manager configuration template
+# =============================================================================
+# This file configures the OpenStack Designate Pool Manager process.
+# The Pool Manager is responsible for pushing DNS zone updates to authoritative
+# DNS providers (such as BIND or PowerDNS) and monitoring their health.
+#
+# Configuration format: INI-style sections. The section [pool:default] is used
+# for the default pool configuration.
+# =============================================================================
+
 [pool:default]
-# DNS provider endpoints for the pool (one per provider)
+
+# -----------------------------------------------------------------------------
+# providers
+# -----------------------------------------------------------------------------
+# List of DNS provider endpoints associated with this pool.
 # Format: <provider_name>=<provider_type>:<url>,<url>,...
-providers = {% for provider in providers %}
-{{ provider.name }}={{ provider.type }}:{{ provider.urls | join(',') }}{% if not loop.last %}
-{% endif %}{% endfor %}
+# Each entry maps a logical provider name to its type and one or more
+# connection URLs. If the list is empty, no providers are configured.
+# -----------------------------------------------------------------------------
+{%- set providers = providers | default([]) %}
+{%- if providers | length > 0 %}
+providers = {%- for provider in providers %}
+{%-   set p_name = (provider | default({})).name | default('default') %}
+{%-   set p_type = (provider | default({})).type | default('bind9') %}
+{%-   set p_urls = (provider | default({})).urls | default([]) | join(',') %}
+{{ p_name }}={{ p_type }}:{{ p_urls }}{%- if not loop.last %}
+{% endif -%}{% endfor %}
+{%- endif %}
 
-# Default target configuration for new records
-# The endpoint where DNS updates are sent (e.g., BIND, PowerDNS)
-default_target = {{ pool_default_target }}
+# -----------------------------------------------------------------------------
+# default_target
+# -----------------------------------------------------------------------------
+# Default URL endpoint for DNS provider (e.g., BIND, PowerDNS) that receives
+# zone updates. This serves as the fallback target if a specific provider
+# configuration does not define its own target.
+# -----------------------------------------------------------------------------
+default_target = {{ pool_default_target | default('http://localhost:5358') }}
 
-# Number of worker threads for the pool manager
-workers = {{ workers }}
+# -----------------------------------------------------------------------------
+# workers
+# -----------------------------------------------------------------------------
+# Number of worker threads for the pool manager process to handle DNS updates
+# and health checks. Increasing this value can improve throughput for large
+# numbers of zones or high update rates.
+# -----------------------------------------------------------------------------
+workers = {{ workers | default(1) }}
 
-# Health check settings
-# Interval between health checks (seconds)
-healthcheck_interval = {{ healthcheck_interval }}
-# Timeout for health check requests (seconds)
-healthcheck_timeout = {{ healthcheck_timeout }}
-# Number of consecutive failures before marking target unhealthy
-healthcheck_max_retries = {{ healthcheck_max_retries }}
+# -----------------------------------------------------------------------------
+# healthcheck_interval
+# -----------------------------------------------------------------------------
+# Interval (in seconds) between health checks to verify provider availability.
+# The pool manager will probe configured providers at this frequency.
+# -----------------------------------------------------------------------------
+healthcheck_interval = {{ healthcheck_interval | default(30) }}
 
-# Retry settings for DNS updates
-# Number of retries on failure before giving up
-retry_interval = {{ retry_interval }}
-# Total time (seconds) to keep retrying
-retry_max_interval = {{ retry_max_interval }}
+# -----------------------------------------------------------------------------
+# healthcheck_timeout
+# -----------------------------------------------------------------------------
+# Timeout (in seconds) for each health check request before considering a
+# provider unhealthy. If a provider does not respond within this time, the
+# check is considered failed.
+# -----------------------------------------------------------------------------
+healthcheck_timeout = {{ healthcheck_timeout | default(5) }}
 
-# Logging level for the pool manager process
-log_level = {{ log_level }}
+# -----------------------------------------------------------------------------
+# healthcheck_max_retries
+# -----------------------------------------------------------------------------
+# Number of consecutive health check failures before marking a provider as
+# unhealthy. This prevents flapping where transient network issues cause
+# rapid on/off cycling of provider status.
+# -----------------------------------------------------------------------------
+healthcheck_max_retries = {{ healthcheck_max_retries | default(3) }}
 
-# Path to the PID file
-pid_file = {{ pid_file }}
+# -----------------------------------------------------------------------------
+# retry_interval
+# -----------------------------------------------------------------------------
+# Initial delay (in seconds) between retries of a failed DNS update.
+# When an update fails, the pool manager waits this amount of time before
+# attempting to resend the update.
+# -----------------------------------------------------------------------------
+retry_interval = {{ retry_interval | default(1) }}
 
-# AMQP RPC backend configuration
-# RabbitMQ or other message broker settings
-rpc_backend = {{ rpc_backend }}
-rpc_response_timeout = {{ rpc_response_timeout }}
+# -----------------------------------------------------------------------------
+# retry_max_interval
+# -----------------------------------------------------------------------------
+# Maximum interval (in seconds) between retries for a failed update.
+# The retry mechanism uses exponential backoff, starting at retry_interval
+# and doubling up to this maximum value. This prevents overwhelming the
+# provider during prolonged outages.
+# -----------------------------------------------------------------------------
+retry_max_interval = {{ retry_max_interval | default(300) }}
 
-# Optional: AMQP credentials (leave blank to use defaults or environment)
-{% if amqp_url %}amqp_url = {{ amqp_url }}{% endif %}
+# -----------------------------------------------------------------------------
+# log_level
+# -----------------------------------------------------------------------------
+# Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+# Controls which messages are written to the log output.
+# -----------------------------------------------------------------------------
+log_level = {{ log_level | default('INFO') }}
 
-# Optional: TLS configuration for providers (if supported)
-{% if ca_cert %}ca_cert = {{ ca_cert }}{% endif %}
-{% if cert_file %}cert_file = {{ cert_file }}{% endif %}
-{% if key_file %}key_file = {{ key_file }}{% endif %}
+# -----------------------------------------------------------------------------
+# pid_file
+# -----------------------------------------------------------------------------
+# Path to the PID file for the pool manager daemon.
+# The PID file allows system services (systemd, supervisord) to track
+# the process and send signals (stop/restart) to it.
+# -----------------------------------------------------------------------------
+pid_file = {{ pid_file | default('/var/run/designate/pool_manager.pid') }}
 
-# Optional: rate limiting for DNS updates (in requests/second)
-rate_limit = {{ rate_limit }}
+# -----------------------------------------------------------------------------
+# rpc_backend
+# -----------------------------------------------------------------------------
+# Message broker backend used for RPC communication (e.g., 'rabbit' for
+# RabbitMQ). This determines which driver is loaded to communicate with
+# the OpenStack messaging infrastructure.
+# -----------------------------------------------------------------------------
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# -----------------------------------------------------------------------------
+# rpc_response_timeout
+# -----------------------------------------------------------------------------
+# Timeout (in seconds) for RPC responses from other OpenStack services.
+# If an RPC call does not receive a response within this time, it is
+# considered failed and may be retried or logged as an error.
+# -----------------------------------------------------------------------------
+rpc_response_timeout = {{ rpc_response_timeout | default(60) }}
+
+# -----------------------------------------------------------------------------
+# amqp_url
+# -----------------------------------------------------------------------------
+# Connection URL for the AMQP broker (e.g., 'amqp://guest:guest@localhost:5672/').
+# If empty, the rpc_backend driver will use its default connection settings
+# (often reading from environment variables or other config sources).
+# -----------------------------------------------------------------------------
+{%- set amqp_url_val = amqp_url | default('') %}
+{%- if amqp_url_val | length > 0 %}
+amqp_url = {{ amqp_url_val }}
+{%- endif %}
+
+# -----------------------------------------------------------------------------
+# ca_cert
+# -----------------------------------------------------------------------------
+# Path to CA certificate file for TLS verification of provider connections.
+# If specified, the pool manager will verify the DNS provider's TLS certificate
+# against this CA. This is optional but recommended for production environments.
+# -----------------------------------------------------------------------------
+{%- set ca_cert_val = ca_cert | default('') %}
+{%- if ca_cert_val | length > 0 %}
+ca_cert = {{ ca_cert_val }}
+{%- endif %}
+
+# -----------------------------------------------------------------------------
+# cert_file
+# -----------------------------------------------------------------------------
+# Path to client certificate file for mutual TLS.
+# If specified, the pool manager will present this certificate to the DNS
+# provider during TLS handshake. Requires key_file to also be set.
+# -----------------------------------------------------------------------------
+{%- set cert_file_val = cert_file | default('') %}
+{%- if cert_file_val | length > 0 %}
+cert_file = {{ cert_file_val }}
+{%- endif %}
+
+# -----------------------------------------------------------------------------
+# key_file
+# -----------------------------------------------------------------------------
+# Path to client private key file for mutual TLS.
+# Paired with cert_file, this allows the pool manager to authenticate
+# itself to the DNS provider using client certificates.
+# -----------------------------------------------------------------------------
+{%- set key_file_val = key_file | default('') %}
+{%- if key_file_val | length > 0 %}
+key_file = {{ key_file_val }}
+{%- endif %}
+
+# -----------------------------------------------------------------------------
+# rate_limit
+# -----------------------------------------------------------------------------
+# Maximum DNS update requests per second (0 = no rate limiting).
+# If set to a positive integer, the pool manager will enforce this limit
+# on the rate of outgoing update requests to prevent overwhelming the provider.
+# -----------------------------------------------------------------------------
+rate_limit = {{ rate_limit | default(0) }}

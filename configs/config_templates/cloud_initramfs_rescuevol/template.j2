@@ -1,6 +1,7 @@
 #!/bin/sh
 # /etc/initramfs-tools/scripts/init-bottom/rescuevol
 # Pivots the root filesystem to a rescue volume during early boot (init-bottom phase).
+# This hook is controlled entirely by Ansible variables; see the schema for defaults.
 
 PREREQS=""
 
@@ -18,35 +19,45 @@ esac
 
 . /scripts/functions
 
-# Master switch: 1 enables rescue-volume pivot, 0 keeps the hook installed but inactive
-RESCUEVOL_ENABLED={{ enabled }}
+# Master switch. Set to 1 to enable rescue-volume pivoting; 0 leaves the hook installed but completely inert.
+# Default: 0
+RESCUEVOL_ENABLED={{ enabled | default(0) }}
 
-# Filesystem label used by blkid -L to locate the rescue block device
-RESCUEVOL_LABEL="{{ rescue_label }}"
+# Filesystem label of the rescue block device, resolved with blkid -L. Unused when rescue_uuid is set.
+# Default: 'RESCUE'
+RESCUEVOL_LABEL="{{ rescue_label | default('RESCUE') }}"
 
-# UUID of the rescue volume; when non-empty this takes precedence over RESCUEVOL_LABEL
-RESCUEVOL_UUID="{{ rescue_uuid }}"
+# UUID of the rescue volume (e.g. 550e8400-e29b-41d4-a716-446655440000). When non-empty, overrides rescue_label.
+# Default: '' (empty, so label is used)
+RESCUEVOL_UUID="{{ rescue_uuid | default('') }}"
 
-# Filesystem type passed to mount -t when mounting the rescue volume
-RESCUEVOL_FSTYPE="{{ rescue_fstype }}"
+# Filesystem type of the rescue volume passed to mount -t. Common values: ext4, xfs, btrfs.
+# Default: 'ext4'
+RESCUEVOL_FSTYPE="{{ rescue_fstype | default('ext4') }}"
 
-# Mount options passed to mount -o for both the probe mount and the final root pivot
-RESCUEVOL_MOUNT_OPTS="{{ mount_opts }}"
+# Mount options for both the probe mount and the root pivot. Use 'ro' for an immutable rescue image or 'rw' if the rescue environment must write.
+# Default: 'ro,noatime'
+RESCUEVOL_MOUNT_OPTS="{{ mount_opts | default('ro,noatime') }}"
 
-# Kernel command-line token whose presence activates rescue mode (checked in /proc/cmdline)
-RESCUEVOL_TRIGGER_PARAM="{{ cmdline_trigger }}"
+# Kernel command-line token whose presence (in /proc/cmdline) activates rescue mode. Pass this word via GRUB or cloud instance user-data to trigger.
+# Default: 'rescuevol'
+RESCUEVOL_TRIGGER_PARAM="{{ cmdline_trigger | default('rescuevol') }}"
 
-# Sentinel filename that must exist in the root of the rescue volume to confirm it is the right device
-RESCUEVOL_MARKER="{{ marker_file }}"
+# Filename that must exist in the root directory of the rescue volume. Acts as a safety guard to prevent accidentally pivoting root to a wrong device.
+# Default: '.rescuevol'
+RESCUEVOL_MARKER="{{ marker_file | default('.rescuevol') }}"
 
-# Seconds to poll for the rescue block device to appear via udev before giving up
-RESCUEVOL_TIMEOUT={{ device_wait_timeout }}
+# Maximum seconds to wait for the rescue block device to appear (udev settle / slow disk). After timeout the hook logs a warning and normal boot proceeds.
+# Default: 30
+RESCUEVOL_TIMEOUT={{ device_wait_timeout | default(30) }}
 
-# Temporary mountpoint path (relative to rootmnt) used to probe and verify the rescue volume
-RESCUEVOL_PROBE_MP="{{ probe_mountpoint }}"
+# Temporary path relative to rootmnt where the rescue volume is mounted for marker verification before the final root pivot.
+# Default: '/run/rescuevol-probe'
+RESCUEVOL_PROBE_MP="{{ probe_mountpoint | default('/run/rescuevol-probe') }}"
 
-# Verbosity: 0=silent, 1=informational milestones, 2=step-by-step debug
-RESCUEVOL_VERBOSITY={{ verbosity }}
+# Log verbosity written to the kernel ring buffer: 0=silent (failures only), 1=key milestones, 2=every step (useful during initial deployment).
+# Default: 1
+RESCUEVOL_VERBOSITY={{ verbosity | default(1) }}
 
 # --- functional body ---
 

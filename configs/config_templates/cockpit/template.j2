@@ -1,54 +1,82 @@
+# ============================================================================
+# Cockpit Web Console Configuration Template
+# ============================================================================
+# This file is a Jinja2 template used by Ansible to generate the Cockpit
+# configuration file (typically /etc/cockpit/cockpit.conf).
+#
+# Structure:
+#   [WebService]  - Core web service settings (auth, origins, compression)
+#   [Session]     - User session parameters (timeout, MOTD)
+#   [Log]         - Logging configuration for fatal errors
+#   [OAuth]       - OAuth 2.0 integration (conditional)
+#
+# Self-Documentation:
+#   Every directive below is preceded by a comment derived from the schema
+#   description. Variables use the `| default(...)` filter to ensure safe
+#   rendering even if a variable is undefined in the Ansible play.
+# ============================================================================
+
 [WebService]
-# Maximum concurrent unauthenticated login negotiations
-MaxStartups = {{ max_startups }}
+# Maximum number of concurrent login negotiations in progress (unauthenticated).
+# Raise on high-traffic hosts.
+MaxStartups = {{ max_startups | default(10) }}
 
-# Title shown in the browser tab and on the login page
-LoginTitle = {{ login_title }}
+# Text shown in the browser tab title and as the heading on the cockpit login page.
+LoginTitle = {{ login_title | default('Cockpit') }}
 
-{% if allowed_origins %}
-# Allowed request origins; omit to trust whatever the Host header contains
-Origins = {{ allowed_origins | join(' ') }}
+{% if allowed_origins | default([]) | length > 0 %}
+# Allowed HTTP origins. Each entry must include scheme and hostname (e.g.
+# https://server.example.com). Leave empty to accept whatever origin the
+# browser sends.
+Origins = {{ allowed_origins | default([]) | join(' ') }}
 {% endif %}
 
-{% if protocol_header %}
-# HTTP header set by a reverse proxy to signal the original protocol (HTTPS)
-ProtocolHeader = {{ protocol_header }}
-{% endif %}
+# Request header injected by a reverse proxy to indicate the original protocol.
+# Set only when cockpit sits behind nginx/Apache/haproxy. Leave empty to disable
+# header injection.
+ProtocolHeader = {{ protocol_header | default('X-Forwarded-Proto') }}
 
-# Permit plain HTTP connections (false enforces HTTPS)
-AllowUnencrypted = {{ allow_unencrypted | lower }}
+# Accept plain HTTP connections. Set to true only in isolated LANs or dev
+# environments; never in production.
+AllowUnencrypted = {{ allow_unencrypted | default(False) | lower }}
 
-{% if url_root %}
-# Serve cockpit under this URL path prefix instead of /
-UrlRoot = {{ url_root }}
-{% endif %}
+# URL path prefix when cockpit is reverse-proxied under a subdirectory (e.g. /cockpit).
+# Leave empty to serve from /.
+UrlRoot = {{ url_root | default('') }}
 
-# Compress web assets with gzip to reduce transfer size
-Compression = {{ compression | lower }}
+# Enable gzip compression of static web assets. Disable only if a terminating
+# proxy already compresses responses.
+Compression = {{ compression | default(True) | lower }}
 
-# Require a valid X.509 client certificate to authenticate (PKI / smart-card)
-ClientCertAuthentication = {{ client_cert_auth | lower }}
+# Require a valid X.509 client certificate for authentication. Enables
+# smart-card and PKI login flows.
+ClientCertAuthentication = {{ client_cert_auth | default(False) | lower }}
 
-{% if login_banner %}
-# Plain-text file whose contents are displayed on the login page
-LoginBanner = {{ login_banner }}
+{% if login_banner | default('') | trim | length > 0 %}
+# Absolute path to a plain-text file displayed on the cockpit login page (e.g.
+# legal notice). Leave empty to show no banner.
+LoginBanner = {{ login_banner | default('') }}
 {% endif %}
 
 [Session]
-# Minutes of inactivity before the session is closed (0 = never)
-IdleTimeout = {{ session_idle_timeout }}
+# Minutes of inactivity after which a session is automatically terminated.
+# Set 0 to disable the idle timeout.
+IdleTimeout = {{ session_idle_timeout | default(15) }}
 
-{% if session_banner %}
-# Plain-text file shown as MOTD immediately after a successful login
-Banner = {{ session_banner }}
+{% if session_banner | default('') | trim | length > 0 %}
+# Absolute path to a plain-text file shown as a message-of-the-day immediately
+# after login. Leave empty for no post-login banner.
+Banner = {{ session_banner | default('') }}
 {% endif %}
 
 [Log]
-# Sink for fatal-level error messages (stderr or syslog)
-Fatal = {{ log_fatal }}
-{% if oauth_enabled %}
+# Destination for fatal-level log messages. Accepted values: stderr (journald
+# captures it) or syslog.
+Fatal = {{ log_fatal | default('stderr') }}
 
+{% if oauth_enabled | default(False) %}
 [OAuth]
-# OAuth provider endpoint URL; cockpit redirects unauthenticated users here
-URL = {{ oauth_url }}
+# Full URL of the OAuth 2.0 provider endpoint. Required when oauth_enabled is
+# true (e.g. https://sso.example.com/oauth/authorize).
+URL = {{ oauth_url | default('') }}
 {% endif %}

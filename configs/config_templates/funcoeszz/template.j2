@@ -1,0 +1,114 @@
+# =============================================================================
+# funcoeszz Configuration File
+# =============================================================================
+# This configuration file controls the default behavior of the FuncoesZZ
+# bash utility suite. It is located at /etc/funcoeszz/funcoeszz.conf.
+#
+# Each setting below overrides the internal defaults of the respective zz*
+# scripts. If a variable is not set here, the scripts will fall back to their
+# built-in defaults.
+#
+# This template is self-documenting: every variable is annotated with its
+# schema description and safe default value.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Locale Settings
+# ------------------------------------------------------------------------------
+
+# Default locale (e.g. 'pt_BR.UTF-8').
+# Affects date/time formatting, number separators, and text collation for
+# utilities like zzdatafmt, zzlocale, and zzlembrete.
+# See: locale(1) for valid system locale names.
+ZZLOCALE={{ locale | default('pt_BR.UTF-8') }}
+
+# ------------------------------------------------------------------------------
+# Language & Translation Settings
+# ------------------------------------------------------------------------------
+
+# Default language code (e.g. 'pt', 'en') for dictionary and translation functions.
+# Controls the language output by zztraduz, zzpalavra, and dictionary lookups.
+ZZLANG={{ default_lang | default('pt') }}
+
+# ------------------------------------------------------------------------------
+# Financial & Currency Settings
+# ------------------------------------------------------------------------------
+
+# Default currency code (e.g. 'BRL', 'USD') for financial queries.
+# Used by zzcotacao, zzdolar, and zzcoin to determine the target currency for
+# conversion and display.
+ZZMOEDA={{ default_currency | default('BRL') }}
+
+# ------------------------------------------------------------------------------
+# Measurement System Settings
+# ------------------------------------------------------------------------------
+
+# Default measurement system: 'metric' or 'imperial'.
+# Impacts how numerical values are displayed and converted by utilities such as
+# zzconverte (unit conversion) and zztempo (time duration).
+ZZMEDIDA={{ default_measurement | default('metric') }}
+
+# ------------------------------------------------------------------------------
+# Time & Date Settings
+# ------------------------------------------------------------------------------
+
+# Default IANA time zone (e.g. 'America/Sao_Paulo').
+# Impacts how dates and times are displayed by zzhora, zzdata, and zztempo.
+# Ensure this time zone is available on the system (e.g. via tzdata).
+ZZTIMEZONE={{ timezone | default('America/Sao_Paulo') }}
+
+# ------------------------------------------------------------------------------
+# Encoding Settings
+# ------------------------------------------------------------------------------
+
+# Default character encoding (e.g. 'UTF-8', 'ISO-8859-1') for file input and output.
+# Used by zzencoding and zzutf8 to ensure text is processed correctly.
+ZZENCODING={{ default_encoding | default('UTF-8') }}
+
+# ------------------------------------------------------------------------------
+# Display & Formatting Settings
+# ------------------------------------------------------------------------------
+
+# Default terminal width (in columns) used by formatting utilities.
+# Affects how text is wrapped, aligned, and padded by utilities such as
+# zzalinhar, zzcolunar, and zzpad.
+ZZLARGURA={{ default_width | default(80) }}
+
+# ------------------------------------------------------------------------------
+# Listing & Pagination Settings
+# ------------------------------------------------------------------------------
+
+# Default maximum number of items for listing functions.
+# Limits the output size for list-oriented tools like zzit, zznerdcast,
+# and zztweets to prevent terminal clutter.
+ZZMAXITENS={{ max_items | default(10) }}
+
+# ------------------------------------------------------------------------------
+# Network & HTTP Settings
+# ------------------------------------------------------------------------------
+
+# Default User-Agent header string for HTTP requests.
+# Used by web-querying utilities such as zzfeed, zzlinuxnews, and zzwikipedia.
+# Identifies the client software to remote servers.
+ZZUSERAGENT="{{ user_agent | default('funcoeszz/21.1 (Debian trixie)') }}"
+
+# ------------------------------------------------------------------------------
+# Cache Settings
+# ------------------------------------------------------------------------------
+
+# Directory used for caching network lookups and temporary data.
+# Used by utilities like zzit, zznerdcast, zzlua, and zzphp to speed up
+# repeated queries or store intermediate results.
+ZZCACHE={{ cache_dir | default('/var/cache/funcoeszz') }}
+
+# ------------------------------------------------------------------------------
+# Custom Holidays Settings
+# ------------------------------------------------------------------------------
+
+# List of custom regional holidays in 'dd/mm: descrição' format.
+# Each entry is a separate line starting with ZZFERIADO.
+# These are used by zzferiado to recognize local observances that are not
+# part of the standard national calendar.
+# Example: ZZFERIADO="20/11:Consciência Negra"
+{% for feriado in feriados_custom | default([]) %}ZZFERIADO="{{ feriado }}"
+{% endfor %}

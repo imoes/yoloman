@@ -1,53 +1,107 @@
-# Greylist server configuration for gross — DNSBL-aware greylisting
-# Server identity and basic settings
-listen_addr: {{ listen_addr }}
-listen_port: {{ listen_port }}
+# gross service configuration defaults (POSIX shell fragment for /etc/default/gross)
+# This file is sourced by the init script /etc/init.d/gross.
+# It passes command-line arguments to the gross daemon binary.
 
-# Worker pool and threading
-worker_count: {{ worker_count }}
-max_concurrent_connections: {{ max_concurrent_connections }}
+#
+# Network Binding
+#
 
+# IP address the server will bind to. Use `0.0.0.0` for all interfaces.
+# Default: 127.0.0.1
+DAEMON_OPTS="${DAEMON_OPTS} -addr {{ listen_addr | default('127.0.0.1') }}"
+
+# SMTP listener port (typically 2525 for greylisting; avoid 25 to prevent conflict with MTA).
+# Default: 2525
+DAEMON_OPTS="${DAEMON_OPTS} -port {{ listen_port | default(2525) }}"
+
+#
+# Concurrency
+#
+
+# Number of worker threads/processes handling incoming connections.
+# Default: 4
+DAEMON_OPTS="${DAEMON_OPTS} -workers {{ worker_count | default(4) }}"
+
+# Maximum simultaneous client connections allowed.
+# Default: 1024
+DAEMON_OPTS="${DAEMON_OPTS} -max-connections {{ max_concurrent_connections | default(1024) }}"
+
+#
 # Logging
-log_level: {{ log_level }}
-log_file: {{ log_file }}
+#
 
-# Greylisting database backend
-[db]
-type: {{ db_type }}
-path: {{ db_path }}
-max_idle_conns: {{ db_max_idle_conns }}
-max_open_conns: {{ db_max_open_conns }}
-conn_max_lifetime: "{{ db_conn_max_lifetime }}"
+# Minimum log level: one of `debug`, `info`, `warn`, `error`, `fatal`.
+# Default: info
+DAEMON_OPTS="${DAEMON_OPTS} -log-level {{ log_level | default('info') }}"
 
-# DNSBL configuration — used for initial sender reputation lookup
-[ dnsbl ]
-enabled: {{ dnsbl_enabled }}
-timeout: "{{ dnsbl_timeout }}"
+# Path to the log file. Use `-` for stdout.
+# Default: /var/log/gross/gross.log
+DAEMON_OPTS="${DAEMON_OPTS} -log-file {{ log_file | default('/var/log/gross/gross.log') }}"
 
-{% for provider in dnsbl_providers %}# DNSBL provider: {{ provider.name }} — {{ provider.description }}
-{{ provider.name }}:
-  servers:
-{% for server in provider.servers %}    - {{ server }}
-{% endfor %}  ttl_pass: {{ provider.ttl_pass | default(3600) }}
-  ttl_fail: {{ provider.ttl_fail | default(1800) }}
-  weight: {{ provider.weight | default(1) }}
+#
+# Database Configuration
+#
+
+# Database backend: currently only `sqlite` is supported.
+# Default: sqlite
+DAEMON_OPTS="${DAEMON_OPTS} -db-type {{ db_type | default('sqlite') }}"
+
+# Path to the SQLite database file storing greylisting state.
+# Default: /var/lib/gross/greylist.db
+DAEMON_OPTS="${DAEMON_OPTS} -db-path {{ db_path | default('/var/lib/gross/greylist.db') }}"
+
+# Maximum number of idle connections in the DB pool.
+# Default: 10
+DAEMON_OPTS="${DAEMON_OPTS} -db-max-idle-conns {{ db_max_idle_conns | default(10) }}"
+
+# Maximum number of open connections to the database.
+# Default: 20
+DAEMON_OPTS="${DAEMON_OPTS} -db-max-open-conns {{ db_max_open_conns | default(20) }}"
+
+# Maximum lifetime of a DB connection before reuse. Accepts duration suffixes like `h`, `m`, `s`.
+# Default: 2h
+DAEMON_OPTS="${DAEMON_OPTS} -db-conn-max-lifetime {{ db_conn_max_lifetime | default('2h') }}"
+
+#
+# DNSBL (DNS-based Real-Time Blackhole List) Configuration
+#
+
+# Enable DNS-based real-time blackhole list lookups to pre-filter obvious spammers.
+# Default: True
+DAEMON_OPTS="${DAEMON_OPTS} -dnsbl-enabled {{ dnsbl_enabled | default(true) }}"
+
+# Timeout for DNSBL queries. Accepts duration suffixes.
+# Default: 2s
+DAEMON_OPTS="${DAEMON_OPTS} -dnsbl-timeout {{ dnsbl_timeout | default('2s') }}"
+
+# List of DNSBL providers to query. Each item configures a provider's servers and behavior.
+# Default: [] (empty)
+# Note: In a POSIX shell fragment, complex structures must be serialized or handled carefully.
+# We iterate here to append individual flags.
+{% set providers = dnsbl_providers | default([]) %}
+{% if providers | length > 0 %}
+{% for provider in providers %}
+# DNSBL provider entry
+DAEMON_OPTS="${DAEMON_OPTS} -dnsbl-provider {{ provider }}"
 {% endfor %}
+{% endif %}
 
-# Greylisting policy
-[ policy ]
-min_delay_sec: {{ policy_min_delay_sec }}
-max_delay_sec: {{ policy_max_delay_sec }}
-accept_after_pass_count: {{ policy_accept_after_pass_count }}
-reject_after_fail_count: {{ policy_reject_after_fail_count }}
+#
+# Greylisting Policy
+#
 
-# Whitelisted networks (CIDR notation)
-[ whitelist ]
-{% for cidr in whitelist_networks %}# {{ cidr }} — {{ 'Local LAN' if cidr.startswith('10.') else ('Loopback' if cidr.startswith('127.') else 'Custom') }}
-{{ cidr }}
-{% endfor %}
+# Minimum delay (seconds) before accepting a retry from a new sender.
+# Default: 30
+DAEMON_OPTS="${DAEMON_OPTS} -policy-min-delay {{ policy_min_delay_sec | default(30) }}"
 
-# Per-domain exceptions (greylist bypass)
-[ exceptions ]
-{% for domain in exception_domains %}# {{ domain }} — always greylist (true) or skip (false)
-{{ domain }}: {{ exception_greylist[loop.index0] }}
-{% endfor %}
+# Maximum acceptable delay (seconds); greylisting expires after this if no retry.
+# Default: 3600
+DAEMON_OPTS="${DAEMON_OPTS} -policy-max-delay {{ policy_max_delay_sec | default(3600) }}"
+
+# Number of successful retries (passes) before permanently accepting the sender.
+# Default: 1
+DAEMON_OPTS="${DAEMON_OPTS} -policy-accept-after-pass {{ policy_accept_after_pass_count | default(1) }}"
+
+# Number of failed retries (bounces) after which the sender is rejected permanently.
+# Default: 3
+DAEMON_OPTS="${DAEMON_OPTS} -policy-reject-after-fail {{ policy_reject_after_fail_count | default(3) }}"

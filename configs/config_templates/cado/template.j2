@@ -1,0 +1,58 @@
+{# /etc/cado.conf: CADO (Capability Ambient DO) configuration #}
+{# This template generates the configuration for CADO, a system that manages ambient capability #}
+{# authorizations for users and groups. It supports verbose logging, granular per-user/group #}
+{# capability grants, and a default fallback authorization list. #}
+
+{# Enable verbose logging in cado; shows allowed/requested/unavailable capabilities. #}
+{# Type: boolean #}
+verbose: {{ verbose | default(false) | string | lower }}
+
+{# List of per-user or per-group capability authorizations. Each entry must specify #}
+{# either 'user' or 'group', and 'capabilities'. #}
+{# Type: list of dicts #}
+{% for auth in authorizations | default([]) %}
+{# Determine if this authorization entry is for a user or a group #}
+{% if auth.group is defined and auth.group %}
+{# Authorization for group '{{ auth.group }}' (group-based) #}
+{# Type: string #}
+{% set auth_subject = auth.group %}
+{% set auth_type = 'group' %}
+{% else %}
+{# Authorization for user '{{ auth.user }}' (user-based) #}
+{# Type: string #}
+{% set auth_subject = auth.user | default('') %}
+{% set auth_type = 'user' %}
+{% endif %}
+
+{# Write the user/group identifier followed by a colon #}
+{{ auth_subject }}:
+  {# The list of capability names granted to this user/group #}
+  {# Type: list of strings #}
+{% if auth.capabilities is defined and auth.capabilities | length > 0 %}
+  capabilities: {{ auth.capabilities | join(', ') }}
+{% else %}
+  {# Explicit empty capabilities if none are provided #}
+  capabilities:
+{% endif %}
+
+{# Optional: scado capability mode #}
+{% if auth.scado is defined and auth.scado %}
+  {# Enable scado mode for this authorization #}
+  scado: true
+{% endif %}
+
+{# Optional: force capability override #}
+{% if auth.force is defined and auth.force %}
+  {# Force capability application for this authorization #}
+  force: true
+{% endif %}
+{% endfor %}
+
+{# Optional: set global fallback behavior for missing users/groups #}
+{% if default_auth is defined and default_auth | length > 0 %}
+{# Default authorization applied to unmatched users #}
+*:
+  {# Default capabilities granted to users/groups not matched by any explicit authorization #}
+  {# Type: list of strings #}
+  capabilities: {{ default_auth | join(', ') }}
+{% endif %}

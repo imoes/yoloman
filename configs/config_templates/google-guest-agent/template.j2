@@ -1,43 +1,114 @@
-# Google Guest Agent configuration
-# Controls runtime behavior of the google-guest-agent service
-# Set to 'true' to enable the agent (on by default)
-ENABLED={{ enabled | string | lower }}
+[Accounts]
+# Whether to remove local user accounts on deprovision.
+deprovision_remove = {{ deprovision_remove | default(False) | lower }}
+# Command to add a user to a group.
+gpasswd_add_cmd = gpasswd -a {user} {group}
+# Command to remove a user from a group.
+gpasswd_remove_cmd = gpasswd -d {user} {group}
+# Command to add a new group.
+groupadd_cmd = groupadd {group}
+# Comma-separated list of groups new users should be added to.
+groups = {{ groups | default('adm,dip,docker,lxd,plugdev,video') }}
+# Command to create a new user with home directory and default shell.
+useradd_cmd = useradd -m -s {{ default_shell | default('/bin/bash') | quote }} -p * {user}
+# Command to delete a user and their home directory.
+userdel_cmd = userdel -r {user}
 
-# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-LOG_LEVEL={{ log_level }}
+[Daemons]
+# Always enable the accounts daemon.
+accounts_daemon = true
+# Always enable the clock skew daemon.
+clock_skew_daemon = true
+# Always enable the network daemon.
+network_daemon = true
+# List of optional daemons to run. Supported: guest-ssh, guest-oslogin, guest-account-manager, guest-oslogin-keysync.
+# Set to empty list to run minimal.
+# Inferred: guest-oslogin is enabled if 'guest-oslogin' is in daemons.
+# Inferred: guest-ssh is enabled if 'guest-ssh' is in daemons.
+{% set daemons_list = daemons | default(['guest-ssh', 'guest-oslogin']) %}
+{% for daemon in daemons_list %}
+{% if daemon == 'guest-oslogin' %}
+# Explicitly enable/disable OS login integration.
+enable_oslogin = true
+{% elif daemon == 'guest-ssh' %}
+# Explicitly enable/disable SSH key management.
+enable_ssh_keys = true
+{% endif %}
+{% endfor %}
+{% if not ('guest-oslogin' in daemons_list) and enable_oslogin is not defined %}
+# OS login explicitly disabled by default daemon list.
+enable_oslogin = false
+{% endif %}
+{% if not ('guest-ssh' in daemons_list) and enable_ssh_keys is not defined %}
+# SSH keys explicitly disabled by default daemon list.
+enable_ssh_keys = false
+{% endif %}
 
-# Directory where guest agent writes logs
-LOG_DIR={{ log_dir }}
+[InstanceSetup]
+# Comma-separated list of host key types to generate (if enabled).
+host_key_types = {{ host_key_types | default('ecdsa,ed25519,rsa') }}
+# Enable network configuration.
+network_enabled = true
+# Do not optimize local SSDs by default.
+optimize_local_ssd = false
+# Set Boto configuration for Google Cloud Storage access.
+set_boto_config = true
+# Generate host keys for SSH.
+set_host_keys = true
+# Do not set multi-queue for network interfaces by default.
+set_multiqueue = false
 
-# Directory where guest agent writes state (e.g., instance metadata cache)
-STATE_DIR={{ state_dir }}
+[IpForwarding]
+# Ethernet protocol identifier for IP forwarding.
+ethernet_proto_id = 66
+# Enable IP aliases.
+ip_aliases = true
+# Enable target instance IP forwarding.
+target_instance_ips = true
 
-# Enable optional daemons: guest-ssh, guest-oslogin, guest-account-manager
-# Separate multiple daemons with spaces or set to 'none' to disable all
-DAEMONS={{ daemons | join(' ') }}
+[MetadataScripts]
+# Allow execution of custom scripts (e.g., startup, shutdown, metadata watch) from instance metadata.
+# This enables the MetadataScripts feature generally.
+enable_scripts = {{ enable_scripts | default(True) | lower }}
+# Default shell for running metadata scripts.
+default_shell = {{ default_shell | default('/bin/bash') }}
+# Directory where metadata scripts run.
+run_dir = /var/lib/google-guest-agent/scripts
+# Enable shutdown scripts.
+shutdown = true
+# Enable startup scripts.
+startup = true
 
-# Enable/disable metadata script execution (default: true)
-ENABLE_SCRIPTS={{ enable_scripts | string | lower }}
+[MetadataSync]
+# Directory where guest agent stores persistent state (e.g., instance metadata cache).
+state_dir = {{ state_dir | default('/var/lib/google-guest-agent') }}
+# Additional metadata keys to watch for changes (triggers agent reload).
+# Each key is a path like 'guest-configs/...' or 'ssh-keys'.
+{% set watch_keys = watch_metadata_keys | default([]) %}
+{% if watch_keys is iterable and (watch_keys | length) > 0 %}
+watch_metadata_keys = {{ watch_keys | join(',') }}
+{% endif %}
 
-# Enable/disable OS login (default: depends on DAEMONS, but true if 'guest-oslogin' present)
-# Note: This value is optional; leave empty to defer to DAEMONS detection
-{% if enable_oslogin is defined %}ENABLE_OSLOGIN={{ enable_oslogin | string | lower }}{% endif %}
+[Network]
+# Minimum log level to emit (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') | upper }}
+# Directory where guest agent writes log files.
+log_dir = {{ log_dir | default('/var/log/google-guest-agent') }}
+# Override the default metadata server URL.
+metadata_server_url = {{ metadata_server_url | default('') }}
+# Override the default API endpoint.
+api_endpoint = {{ api_endpoint | default('') }}
+# Use a specific service account email for token generation.
+service_account_email = {{ service_account_email | default('') }}
+# Additional command-line arguments to pass to the google-guest-agent binary.
+extra_args = {{ extra_args | default('') }}
 
-# Enable/disable SSH key management (default: true unless guest-ssh omitted)
-{% if enable_ssh_keys is defined %}ENABLE_SSH_KEYS={{ enable_ssh_keys | string | lower }}{% endif %}
-
-# Extra command-line arguments passed to the google-guest-agent binary
-# Example: --metadata-server-url=https://metadata.google.internal
-{% if extra_args %}EXTRA_ARGS={{ extra_args }}{% endif %}
-
-# Optional: Set custom metadata server URL (overrides default)
-{% if metadata_server_url %}METADATA_SERVER_URL={{ metadata_server_url }}{% endif %}
-
-# Optional: Set custom API endpoint (for private Google APIs, e.g., VPC-SC environments)
-{% if api_endpoint %}API_ENDPOINT={{ api_endpoint }}{% endif %}
-
-# Optional: Set custom IAM service account email for token generation (overrides default)
-{% if service_account_email %}SERVICE_ACCOUNT_EMAIL={{ service_account_email }}{% endif %}
-
-# Optional: List of custom metadata keys to watch for changes (one per line)
-{% for key in watch_metadata_keys %}WATCH_METADATA_KEY={{ key }}{% endfor %}
+[NetworkInterfaces]
+# Path to the dhclient script.
+dhclient_script = /sbin/google-dhclient-script
+# Command to configure DHCP.
+dhcp_command = 
+# Enable IP forwarding on interfaces.
+ip_forwarding = true
+# Enable network interface setup.
+setup = true

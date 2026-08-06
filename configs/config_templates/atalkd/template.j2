@@ -1,61 +1,91 @@
-# Enable AppleTalk protocol support (required for atalkd to start)
-{% if atalk_enabled | default(false) %}
-device = {{ atalk_device }}
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          atalkd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start and stop atalkd daemon
+# Description:       Enables the AppleTalk network manager daemon.
+### END INIT INFO
+#
+# netatalk      Netatalk 4.2.3 initscript
 
-# AppleTalk address range (zone will be auto-assigned if omitted)
-{% if atalk_addr_start and atalk_addr_end %}
-range = {{ atalk_addr_start }}-{{ atalk_addr_end }}
-{% endif %}
+set -e
 
-# Default zone name for this network segment
-{% if default_zone %}
-zone = {{ default_zone }}
-{% endif %}
+. /lib/lsb/init-functions
 
-# Enable NBP (Name Binding Protocol) name registration
-{% if nbp_enabled | default(true) %}
-nbp = on
+ATALK_NAME=`/bin/hostname --short`
+PATH=/usr/local/sbin:/usr/local/bin:/sbin/ bin:/usr/sbin:/usr/bin
+DESC="AppleTalk network manager"
+NAME=atalkd
+SCRIPTNAME=/etc/init.d/$NAME
+DAEMON=/usr/sbin/$NAME
+PIDFILE=/var/lock/$NAME
+
+{# atalk_enabled: default=False desc='Enable atalkd (script exits early if not enabled).' #}
+{% if atalk_enabled | default(False) | bool %}
+# Guard to prevent execution if netatalk was removed.
+test -x $DAEMON || exit 0
+
+status(){
+    set +e
+    EXIT_CODE=`start-stop-daemon --status --exec $DAEMON; echo $?`
+    set +e
+    echo $EXIT_CODE
+    set -e
+}
+
+case "$1" in
+    start)
+        EXIT_CODE=`status`
+        if [ $EXIT_CODE -ne 0 ]; then
+            echo -n "Starting $NAME"
+            start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
+            echo "."
+            /usr/bin/nbprgstr -p 4 "$ATALK_NAME:Workstation"
+            /usr/bin/nbprgstr -p 4 "$ATALK_NAME:netatalk"
+        else
+            echo "$NAME is already running."
+        fi
+        ;;
+
+    stop)
+        echo -n "Stopping $NAME"
+        start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+        echo "."
+        ;;
+
+    restart)
+        $0 force-reload
+        ;;
+
+    force-reload)
+        echo -n "Restarting $NAME"
+        start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
+        echo -n "."
+        start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
+        echo -n "."
+        echo " Done."
+        ;;
+
+    status)
+        EXIT_CODE=`status`
+        if [ $EXIT_CODE -eq 0 ]; then
+            echo "$NAME is running."
+        elif [ $EXIT_CODE -eq 4 ]; then
+            echo "Could not access PID file for $NAME."
+        else
+            echo "$NAME is not running."
+        fi
+        exit $EXIT_CODE
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
 {% else %}
-nbp = off
-{% endif %}
-
-# Enable RTMP (Routing Table Maintenance Protocol) routing
-{% if rtmp_enabled | default(false) %}
-rtmp = on
-{% else %}
-rtmp = off
-{% endif %}
-
-# Zone list — define explicit zones and their ranges (overrides auto-discovery)
-{% for zone in zones %}
-zone = {{ zone.name }}
-{% if zone.ranges %}
-{% for r in zone.ranges %}
-range = {{ r.start }}-{{ r.end }}
-{% endfor %}
-{% endif %}
-{% endfor %}
-
-# AppleTalk router interface(s) — enable routing between zones
-{% for iface in router_interfaces %}
-router = {{ iface }}
-{% endfor %}
-
-# Maximum number of concurrent AppleTalk connections
-{% if max_connections %}
-maxconn = {{ max_connections }}
-{% endif %}
-
-# Enable DDP checksum verification (default: off; set to on for strict compliance)
-{% if ddp_checksum | default(false) %}
-ddpchecksum = on
-{% endif %}
-
-# Log level (0–7, where 7 is most verbose)
-{% if log_level %}
-loglevel = {{ log_level }}
-{% endif %}
-{% else %}
-# AppleTalk disabled — atalkd will not start
-atalk = off
+# atalk_enabled is False; script exits early as configured.
+exit 0
 {% endif %}

@@ -1,0 +1,168 @@
+# ==============================================================================
+# dotdrop Configuration File
+# ==============================================================================
+# This file is managed by Ansible. Do not edit manually.
+# Format: YAML (Jinja2 variables are substituted at render time)
+# Documentation: https://dotdrop.readthedocs.io
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Global Configuration
+# ------------------------------------------------------------------------------
+config:
+  # Path to the directory where dotfiles are stored (source dotfiles directory).
+  # Relative or absolute. If relative, it is resolved against the current working directory.
+  # Schema field: cfg_dotfiles_dir
+  dotfilesdir: {{ cfg_dotfiles_dir | default('.') }}
+
+  # Path to the directory where dotfiles are installed (targets).
+  # Must be set if different from dotfilesdir.
+  # Schema field: cfg_dotpath
+  dotpath: {{ cfg_dotpath | default('.') }}
+
+  # Enable verbose output. Equivalent to --verbose CLI flag.
+  # Schema field: cfg_verbose
+  verbose: {{ cfg_verbose | default(false) | bool }}
+
+  # Disable dotdrop banner on startup. Equivalent to --no-banner.
+  # Schema field: cfg_nobanner
+  nobanner: {{ cfg_nobanner | default(false) | bool }}
+
+  # Number of concurrent workers for install/compare/update operations.
+  # Schema field: cfg_workers
+  workers: {{ cfg_workers | default(1) | int }}
+
+# ------------------------------------------------------------------------------
+# Profiles
+# ------------------------------------------------------------------------------
+# Profiles define groups of dotfiles and profile-specific settings.
+# Each profile is an object containing 'dotfiles' (list of dotfile keys)
+# and 'config' (optional profile-specific overrides).
+# Schema field: cfg_profiles (list of dicts with keys: profile_name, dotfiles, config)
+profiles:
+{% for profile in cfg_profiles | default([]) %}
+  # Profile: {{ (profile | default({})).get('profile_name', 'unnamed') | default('unnamed') }}
+  {{ (profile | default({})).get('profile_name', 'unnamed') | default('unnamed') }}:
+    # List of dotfile keys assigned to this profile
+    dotfiles:
+{% if profile is mapping and (profile | default({})).get('dotfiles', []) is iterable %}
+{% for df_key in profile.dotfiles | default([]) %}
+      - {{ df_key }}
+{% endfor %}
+{% else %}
+{% endif %}
+    # Profile-specific configuration overrides
+{% if profile is mapping and (profile | default({})).get('config', {}) is mapping %}
+    config:
+{% for key, val in (profile | default({})).get('config', {}) | dict2items %}
+      # Config key: {{ key }}
+      {{ key }}: {{ val | default('') | string }}
+{% endfor %}
+{% else %}
+{% endif %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Dotfiles Definitions
+# ------------------------------------------------------------------------------
+# Each dotfile entry maps a source path to a target installation path.
+# Dotfiles can be associated with profiles via the 'dotfiles' list in profiles.
+# Optional keys include: link, preserve_mode, action, ignore, trans_install, trans_update.
+# Schema field: cfg_dotfiles (list of dicts with keys: src, dst, link, etc.)
+dotfiles:
+{% for df in cfg_dotfiles | default([]) %}
+{% set _df = df | default({}) %}
+  # Dotfile Key: {{ _df.get('src', 'unknown_src') | default('unknown_src') }}
+  # Source path (relative to dotfilesdir)
+  {{ _df.get('src', 'unknown_src') | default('unknown_src') }}:
+    # Source path
+    src: {{ _df.get('src', 'unknown_src') | default('unknown_src') }}
+
+    # Target path (absolute or relative to home directory)
+    # Schema field: df.dst
+    dst: {{ _df.get('dst', '') | default('') | string }}
+
+    # Link type: nolink, absolute, relative, link_children
+    # Schema field: df.link
+    link: {{ _df.get('link', '') | default('') | string }}
+
+    # Preserve file permissions on install.
+    # Schema field: df.preserve_mode
+    preserve_mode: {{ _df.get('preserve_mode', false) | default(false) | bool }}
+
+    # Custom action to run before or after installation.
+    # Schema field: df.action
+    action: {{ _df.get('action', '') | default('') | string }}
+
+    # Patterns to ignore when comparing or installing this dotfile.
+    # Schema field: df.ignore
+    ignore:
+{% if _df.get('ignore', []) is iterable %}
+{% for pattern in _df.ignore | default([]) %}
+      - {{ pattern }}
+{% endfor %}
+{% else %}
+{% endif %}
+
+    # Key for a transformation to apply during install.
+    # Defined in the 'transformations' section.
+    # Schema field: df.trans_install
+    trans_install: {{ _df.get('trans_install', '') | default('') | string }}
+
+    # Key for a transformation to apply during update.
+    # Defined in the 'transformations' section.
+    # Schema field: df.trans_update
+    trans_update: {{ _df.get('trans_update', '') | default('') | string }}
+
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Transformations
+# ------------------------------------------------------------------------------
+# Reusable filters/commands applied during install or update.
+# The 'cmd' output replaces the content of the dotfile.
+# Schema field: cfg_transformations (list of dicts with keys: cmd, cond)
+transformations:
+{% for trans in cfg_transformations | default([]) %}
+{% set _trans = trans | default({}) %}
+  # Transformation Key: {{ _trans.get('cmd', 'unnamed_cmd') | default('unnamed_cmd') | truncate(30, True, '') }}
+{% for trans_key, trans_val in _trans | dict2items %}
+{% if trans_key == 'cmd' or trans_key == 'cond' %}
+  # Transformation: {{ trans_key }}
+{% endif %}
+{% endfor %}
+  {{ _trans.get('cmd', '') | default('') }}:
+    # Command to run; stdout becomes the new content
+    # Schema field: trans.cmd
+    cmd: {{ _trans.get('cmd', '') | default('') | string }}
+
+    # Only run if condition matches (context variable 'key' is available)
+    # Schema field: trans.cond
+    cond: {{ _trans.get('cond', '') | default('') | string }}
+
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Flags
+# ------------------------------------------------------------------------------
+# Global switches that can be set via --set-flag in CLI commands.
+# Schema field: cfg_flags (list of dicts with key-value pairs)
+flags:
+{% for flag_group in cfg_flags | default([]) %}
+{% set _fg = flag_group | default({}) %}
+{% for flag_key, flag_val in _fg | dict2items %}
+  # Flag: {{ flag_key }}
+  {{ flag_key }}: {{ flag_val | default('') | string }}
+{% endfor %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Global Ignore Patterns
+# ------------------------------------------------------------------------------
+# List of glob patterns to ignore globally during operations (e.g., dotdrop install -i).
+# Schema field: cfg_ignore_patterns (list of strings)
+ignore:
+{% for pattern in cfg_ignore_patterns | default([]) %}
+  # Ignore pattern
+  - {{ pattern }}
+{% endfor %}

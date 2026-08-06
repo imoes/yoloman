@@ -1,134 +1,20 @@
 {
-  "modules": {
-    "type": "list",
-    "default": [
-      "policy",
-      "cache",
-      "dnssec",
-      "stats"
-    ],
-    "description": "List of built-in Knot Resolver modules to load",
-    "items": {
-      "type": "string",
-      "description": "Name of a Knot Resolver module (e.g., 'cache', 'dnssec', 'stats')"
-    }
-  },
   "listen_addresses": {
     "type": "list",
     "default": [
       "127.0.0.1#53",
       "[::1]#53"
     ],
-    "description": "IP addresses and ports to listen on for DNS queries",
-    "items": {
-      "type": "string",
-      "description": "Address and optional port in 'address#port' format (e.g., '127.0.0.1#53')"
-    }
+    "description": "IP addresses and ports to listen on for DNS queries (used as --addr=... in DAEMON_ARGS)"
   },
-  "dnssec_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable DNSSEC validation of responses"
-  },
-  "cache_size_mib": {
-    "type": "number",
-    "default": 64,
-    "description": "Maximum DNS cache size in mebibytes (MiB)"
-  },
-  "max_concurrent_queries": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of concurrent DNS queries allowed per client IP"
-  },
-  "trust_anchor_file": {
+  "config_file_path": {
     "type": "string",
-    "default": "/etc/knot-resolver/trust-anchors.d/root-anchors.knssec",
-    "description": "Path to the DNSSEC trust anchor file"
+    "default": "/etc/knot-resolver/kresd.conf",
+    "description": "Path to the main kresd configuration file (used as --config=... in DAEMON_ARGS)"
   },
-  "forward_to": {
-    "type": "list",
-    "default": [],
-    "description": "List of upstream resolver addresses to forward queries to (empty = direct resolution)",
-    "items": {
-      "type": "string",
-      "description": "Upstream resolver address in 'address#port' format (e.g., '8.8.8.8#53')"
-    }
-  },
-  "log_to_journal": {
-    "type": "bool",
-    "default": false,
-    "description": "Log to systemd journal (true) or to file (false)"
-  },
-  "log_file_path": {
+  "daemon_extra_args": {
     "type": "string",
-    "default": "/var/log/knot-resolver.log",
-    "description": "Path to log file (used only if log_to_journal is false)"
-  },
-  "enable_query_log": {
-    "type": "bool",
-    "default": false,
-    "description": "Log every DNS query and response to a file for debugging"
-  },
-  "query_log_path": {
-    "type": "string",
-    "default": "/var/log/knot-resolver/queries.log",
-    "description": "Path to query log file (used only if enable_query_log is true)"
-  },
-  "rate_limit_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable per-client DNS query rate limiting"
-  },
-  "rate_limit_qps": {
-    "type": "number",
-    "default": 50,
-    "description": "Maximum queries per second per client IP (ignored if rate limiting disabled)"
-  },
-  "local_data": {
-    "type": "list",
-    "default": [],
-    "description": "Static DNS records for local/internal domains (overrides network responses)",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Domain name (e.g., 'internal.example.com')"
-        },
-        "type": {
-          "type": "string",
-          "description": "RR type (e.g., 'A', 'AAAA', 'CNAME')"
-        },
-        "rdata": {
-          "type": "string",
-          "description": "Resource data (e.g., '192.168.1.10' for A record)"
-        }
-      }
-    }
-  },
-  "timeout_sec": {
-    "type": "number",
-    "default": 5,
-    "description": "Timeout (seconds) for upstream queries"
-  },
-  "retry_count": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of retries for failed upstream queries"
-  },
-  "anchor_auto_update": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically download and update DNSSEC trust anchors"
-  },
-  "edns_client_subnet_mode": {
-    "type": "string",
-    "default": "0",
-    "description": "EDNS Client Subnet handling: '0' (off), '1' (default), '2' (forward only)"
-  },
-  "strict_mode": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable strict DNSSEC validation (RFC 8482) \u2014 fail on validation errors"
+    "default": "",
+    "description": "Additional arguments appended to DAEMON_ARGS (e.g., --verbose, --daemonize). Do not set --config= or --addr= here."
   }
 }

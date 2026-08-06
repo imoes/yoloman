@@ -1,137 +1,26 @@
-# Name of the server (UPnP friendly name)
-{{ friendly_name }}
+# Defaults for minidlna initscript
+# sourced by minidlna.service and /etc/init.d/minidlna
+#
+# WARNING: This file is used for compatibility with sysv init only.
+# If you are using systemd (Debian default), please override minidlna.service
+# unit instead of modifying these variables.
 
-# Network interface to bind to (e.g. eth0, wlan0); empty = all interfaces
-{% if interface %}
-interface={{ interface }}
-{% endif %}
 
-# Port for HTTP (Web UI and media streaming)
-port={{ http_port }}
+# These options can be set to modify the behavior of the minidlna init script.
+# The options commented out show the default values.
 
-# Port for SSDP/UPnP discovery
-ssdp_port={{ ssdp_port }}
+# Path to the configuration file
+#CONFIGFILE="/etc/minidlna.conf"
 
-# Media directory paths (separate for each type)
-media_dir={{ media_dirs | map(attribute='path') | join(',') }}
+# Path to the log file
+#LOGFILE="/var/log/minidlna/minidlna.log"
 
-# Friendly names for media directories (optional; one per media_dir entry)
-{% if media_dirs | map(attribute='name') | select | list %}
-media_dir_name={{ media_dirs | map(attribute='name') | select | list | join('|') }}
-{% endif %}
+# User and group the daemon should run as
+# only for sysV init, for systemd please override minidlna.service
+#USER="minidlna"
+#GROUP="minidlna"
 
-# Database directory for persistent metadata cache
-db_dir={{ db_dir }}
-
-# Log directory for runtime logs
-log_dir={{ log_dir }}
-
-# UUID (unique identifier for the server); auto-generated if empty
-{% if uuid %}
-uuid={{ uuid }}
-{% endif %}
-
-# Root container (e.g. 'F' for filesystem, 'M' for music, 'V' for video, 'P' for pictures)
-root_container={{ root_container }}
-
-# Inotify monitoring for media changes (true/false)
-{% if inotify %}
-inotify=yes
-{% else %}
-inotify=no
-{% endif %}
-
-# Strict DLNA compliance (true/false)
-{% if strict_dlna %}
-strict_dlna=yes
-{% else %}
-strict_dlna=no
-{% endif %}
-
-# Enable support for transcoding (e.g. via external script); default: no
-{% if enable_transcoding %}
-enable_transcoding=yes
-{% else %}
-enable_transcoding=no
-{% endif %}
-
-# Transcoding command (for audio/video transcoding); used only if enable_transcoding=yes
-{% if transcoding_cmd %}
-transcoding_cmd={{ transcoding_cmd }}
-{% endif %}
-
-# Maximum number of concurrent client connections
-max_connections={{ max_connections }}
-
-# Model name displayed in UPnP device description
-model_name={{ model_name }}
-
-# Model number displayed in UPnP device description
-model_number={{ model_number }}
-
-# Serial number displayed in UPnP device description
-serial_number={{ serial_number }}
-
-# Family description for UPnP device
-friendly_name_model={{ friendly_name_model }}
-
-# Album art name (e.g. folder.jpg, Cover.jpg); must be exact filename
-album_art_names={{ album_art_names | join('|') }}
-
-# Enable UPnP server advertisement via SSDP
-{% if enable_upnp %}
-enable_upnp=yes
-{% else %}
-enable_upnp=no
-{% endif %}
-
-# Enable presentation URL in UPnP description (e.g. for web UI)
-{% if presentation_url %}
-presentation_url={{ presentation_url }}
-{% endif %}
-
-# Device ID (optional; defaults to generated)
-{% if device_id %}
-device_id={{ device_id }}
-{% endif %}
-
-# Cache directory (optional; defaults to db_dir)
-{% if cache_dir %}
-cache_dir={{ cache_dir }}
-{% endif %}
-
-# Language (ISO 639-2/B three-letter code; e.g. 'eng')
-{% if language %}
-language={{ language }}
-{% endif %}
-
-# Tivo support (true/false)
-{% if tivo_support %}
-tivo_support=yes
-{% else %}
-tivo_support=no
-{% endif %}
-
-# Hide root container from UPnP browse requests (true/false)
-{% if hide_root %}
-hide_root=yes
-{% else %}
-hide_root=no
-{% endif %}
-
-# Enable IPv6 (true/false)
-{% if enable_ipv6 %}
-enable_ipv6=yes
-{% else %}
-enable_ipv6=no
-{% endif %}
-
-# Custom metadata extractor (path to executable script)
-{% if metadata_extractors %}
-metadata_extractors={{ metadata_extractors | join(':') }}
-{% endif %}
-
-# Listen addresses (optional; overrides interface binding)
-{% if listen_addresses %}
-listen_addresses={{ listen_addresses | join(',') }}
-{% endif %}
+# Additional options that are passed to the daemon
+# We pass -r option to do soft non-destructive rebuild on every start-up.
+# If your system restarts often, you might want to remove this.
+#DAEMON_OPTS="-r"

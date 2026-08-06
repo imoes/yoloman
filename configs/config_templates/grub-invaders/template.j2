@@ -1,0 +1,37 @@
+# GRUB Invaders Multiboot Entry Generator
+# This script generates a GRUB menu entry for the "GRUB Invaders" game,
+# which is packaged as a multiboot kernel image. It automatically determines
+# the relative path of the image within the GRUB device structure.
+
+# Path to the GRUB Invaders multiboot image, relative to root filesystem.
+# Defaults to /boot/invaders.exec if not specified.
+{% set image_path = grub_invaders_image_path | default('/boot/invaders.exec') %}
+
+# Check if the specified image file exists before generating the entry.
+if test -e {{ image_path }} ; then
+  # Source GRUB configuration helper library to access path normalization utilities.
+  source /usr/lib/grub/grub-mkconfig_lib
+  
+  # Compute the path relative to the root of the GRUB device.
+  # This ensures the path works correctly regardless of where GRUB is installed (e.g., /boot vs root).
+  INVADERSPATH=$( make_system_path_relative_to_its_root "{{ image_path }}" )
+  
+  # Log the discovery of the image to stderr for debugging purposes.
+  echo "Found GRUB Invaders image: {{ image_path }}" >&2
+  
+  # Start the GRUB menuentry block.
+  cat << EOF
+menuentry "GRUB Invaders" {
+EOF
+
+  # Prepare GRUB to access the boot device (e.g., hd0, msdos1).
+  # The output is indented to match the menuentry structure.
+  prepare_grub_to_access_device ${GRUB_DEVICE_BOOT} | sed -e "s/^/\t/g"
+  
+  # Append the multiboot directive pointing to the calculated path.
+  # The path is wrapped in ${} to handle any special characters safely within GRUB syntax.
+  cat << EOF
+	multiboot	${INVADERSPATH}
+}
+EOF
+fi

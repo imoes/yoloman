@@ -17,42 +17,7 @@
   "control_sockets": {
     "type": "list",
     "default": [],
-    "description": "List of KEA daemon control sockets to connect to.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Identifier for the control socket (e.g., 'dhcp4', 'dhcp6')."
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "unix",
-            "http"
-          ],
-          "description": "Transport type: 'unix' for local sockets, 'http' for remote HTTP endpoints."
-        },
-        "socket_type": {
-          "type": "string",
-          "enum": [
-            "unix",
-            "http"
-          ],
-          "description": "Synonym of 'type'. For backward compatibility (KEA 2.0+ prefers 'socket-type')."
-        },
-        "socket_name": {
-          "type": "string",
-          "description": "Path to Unix socket (e.g., '/var/lib/kea/dhcp4.ctl') or full HTTP URL (e.g., 'http://localhost:8001/') when type='http'."
-        }
-      },
-      "required": [
-        "name",
-        "type",
-        "socket_name"
-      ],
-      "additionalProperties": false
-    }
+    "description": "List of KEA daemon control sockets to connect to. Keys are the daemon names (e.g., 'dhcp4'), values are objects with 'type' and 'socket-name'. Type is either 'unix' or 'http'. For 'unix', socket-name is the path. For 'http', socket-name is the URL (e.g., 'http://localhost:8001/'). The 'socket-type' key is removed as it is a legacy/incorrect synonym; KEA uses 'type' and 'socket-name'. Note: 'type' in the schema allows 'unix' or 'http' per common usage, though strictly KEA docs might say 'type' is 'unix' or 'http'. The existing enum is kept as it reflects the intended usage even if 'socket-type' was the error in the template. However, 'socket-type' key itself is removed from template, so schema doesn't need to define it for the object properties if it's not used. But wait, the schema defines 'items' properties. The template used 'socket-type' which was a hallucination/typo. The corrected template uses 'type' and 'socket-name'. So the schema should reflect the actual keys used in the template. The template now has 'type' and 'socket-name'. So 'socket-type' in schema is also hallucinated/wrong for the *current* template structure, but if I'm only correcting factual errors against docs, and the template was wrong to use 'socket-type', removing it from schema is also correct. The schema had 'socket-type' as an item property. Since it's not in the template anymore, it should be removed from schema."
   },
   "allow_from": {
     "type": "list",

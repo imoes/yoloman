@@ -1,0 +1,109 @@
+# dnsenum configuration file
+#
+# This template generates a configuration for dnsenum, a tool for enumerating DNS
+# information (A, NS, MX, SOA, TXT records, subdomains, etc.).
+# The configuration is self-documenting: each directive is preceded by a comment
+# derived from the schema description. All variables use explicit defaults to
+# ensure safe rendering even when Ansible facts are missing.
+
+# === Target Domain ===
+# Target domain to enumerate (fully qualified). Required.
+domain: {{ domain | default('') }}
+
+# === DNS Server ===
+# DNS server to use for A/NS/MX queries. AXFR/PTR go to domain's NS.
+# If empty, dnsenum uses the system default or domain's NS records.
+{% if dnsserver | default('') %}
+# DNS server for primary queries
+dnsserver: {{ dnsserver | default('') }}
+{% endif %}
+
+# === WHOIS Options ===
+# Perform WHOIS queries on discovered class C netranges.
+{% if whois | default(False) %}
+# Perform WHOIS on discovered netranges
+whois: true
+{% endif %}
+
+# === Reverse Lookup ===
+# Enable reverse lookups on netranges (set to false to disable).
+# By default, reverse lookups are enabled.
+{% if not (reverse | default(True)) %}
+# Skip reverse lookups
+no_reverse: true
+{% endif %}
+
+# === Timeout ===
+# TCP/UDP timeout in seconds.
+# Default: 10.
+# Timeout in seconds
+timeout: {{ timeout | default(10) | int }}
+
+# === Threading ===
+# Number of threads for concurrent queries.
+# Default: 20.
+# Number of threads
+threads: {{ threads | default(20) | int }}
+
+# === Verbosity ===
+# Enable verbose progress and error output.
+{% if verbose | default(False) %}
+# Verbose output
+verbose: true
+{% endif %}
+
+# === Google Scraping ===
+# Number of Google search pages to scrape (requires scrap > 0).
+# Default: 20.
+# Google pages to scrape
+pages: {{ pages | default(20) | int }}
+
+# Maximum number of subdomains to scrape from Google (0 = skip scraping).
+# Default: 0.
+# Max subdomains to scrape
+scrap: {{ scrap | default(0) | int }}
+
+# === Brute Force ===
+# Path to file containing subdomain wordlist for brute force.
+# If empty, no brute force wordlist is used.
+# Subdomain wordlist file
+{% if subfile | default('') %}
+subfile: {{ subfile | default('') }}
+{% endif %}
+
+# Recursion: Enable recursion: brute-force subdomains that have NS records.
+# Default: False.
+{% if recursion | default(False) %}
+# Recursively brute-force subdomains with NS records
+recursion: true
+{% endif %}
+
+# === WHOIS Delay ===
+# Maximum seconds to wait between WHOIS queries (randomized).
+# Default: 3.
+# Minimum delay between WHOIS queries
+delay: {{ delay | default(3) | int }}
+
+# === Exclusions ===
+# Regular expression to exclude PTR records from reverse lookups.
+# If empty, no exclusions are applied.
+# Exclude PTR records by regex
+{% if exclude | default('') %}
+exclude: {{ exclude | default('') }}
+{% endif %}
+
+# === Output ===
+# Path to file to write all valid discovered subdomains.
+# If empty, subdomains are written to stdout or default files.
+# Output file for valid subdomains
+{% if subout | default('') %}
+subout: {{ subout | default('') }}
+{% endif %}
+
+# === Private IPs ===
+# Include private IPs in the final domain_ips.txt output.
+# Default: False.
+{% if private | default(False) %}
+# Include private IPs in final output
+private: true
+{% endif %}

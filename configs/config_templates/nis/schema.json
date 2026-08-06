@@ -1,58 +1,42 @@
 {
-  "nis_domain": {
+  "yppwddir": {
     "type": "string",
-    "default": "example.com",
-    "description": "The NIS domain name; must match across all NIS servers and clients in the domain."
+    "default": "/etc",
+    "description": "Location of the master NIS password file (for yppasswdd)."
   },
-  "nis_server": {
-    "type": "boolean",
-    "default": false,
-    "description": "Whether this host acts as an NIS server (serves maps to clients)."
+  "ypchangeok": {
+    "type": "string",
+    "default": "chsh",
+    "description": "Which user tools (ychsh, ychfn) are allowed. Possible values: \"chsh\", \"chfn\", \"chsh,chfn\".",
+    "enum": [
+      "chsh",
+      "chfn",
+      "chsh,chfn"
+    ]
   },
-  "nis_client": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether this host acts as an NIS client (performs NIS lookups). Usually enabled if NIS is in use."
-  },
-  "nis_servers": {
-    "type": "list",
-    "default": [
-      "localhost"
-    ],
-    "description": "List of NIS server hostnames or IPs. Clients use them in order; fallback via colon-separated list.",
-    "items": {
-      "type": "string",
-      "description": "Hostname or IP address of an NIS server."
-    }
+  "nismaster": {
+    "type": "string",
+    "default": "",
+    "description": "NIS master server hostname. Empty if this host is not a slave server or no master is configured."
   },
   "ypserv_opts": {
     "type": "string",
     "default": "",
     "description": "Command-line options passed to the ypserv daemon (e.g., \"-p 1053\")."
   },
+  "ypbnd_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Command-line options passed to the ypbind daemon (e.g., \"-s domain\")."
+  },
   "yppasswdd_opts": {
     "type": "string",
     "default": "",
     "description": "Command-line options passed to the yppasswdd daemon (e.g., \"-s domain\")."
   },
-  "rpcbind_opts": {
+  "ypxfrd_opts": {
     "type": "string",
     "default": "",
-    "description": "Options for the rpcbind service (e.g., \"-w\"). Only needed if rpcbind is started separately."
-  },
-  "nisplus_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable NIS+ compatibility (not recommended for modern deployments; NIS+ is obsolete)."
-  },
-  "nis_timeout": {
-    "type": "number",
-    "default": 5,
-    "description": "Timeout (in seconds) for NIS map lookups before retrying or failing."
-  },
-  "nis_retries": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of times to retry NIS lookups before giving up."
+    "description": "Command-line options passed to the ypxfrd daemon (e.g., \"-c\")."
   }
 }

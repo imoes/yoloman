@@ -1,57 +1,101 @@
 # HAProxy Postfix Policy Service (hapolicy) configuration
-# Global settings
+#
+# This template generates a HAProxy configuration file dedicated to load-balancing
+# Postfix policy-spf or similar policy lookup requests. It includes global settings,
+# defaults timeouts, configurable frontend listeners, backend server pools, and
+# an optional statistics web interface.
 
+# =============================================================================
+# Global Configuration
+# =============================================================================
 global
+    # Log facility for syslog (local0)
     log /dev/log local0
-    maxconn {{ global_maxconn }}
+    # Maximum number of simultaneous connections for the global process.
+    maxconn {{ global_maxconn | default(4096) }}
+    # Chroot directory for security isolation.
     chroot /var/lib/hapolicy
+    # User under which the HAProxy process runs.
     user hapolicy
+    # Group under which the HAProxy process runs.
     group hapolicy
+    # Run as a daemon.
     daemon
 
-# Defaults for frontend/backend health checks and timeouts
+# =============================================================================
+# Defaults Configuration
+# =============================================================================
 defaults
+    # Inherit logging from global section.
     log     global
+    # Operating mode: TCP (layer 4) for policy service traffic.
     mode    tcp
+    # Enable TCP logging.
     option  tcplog
-    timeout connect {{ defaults_timeout_connect }}s
-    timeout client  {{ defaults_timeout_client }}s
-    timeout server  {{ defaults_timeout_server }}s
-    retries {{ defaults_retries }}
+    # Maximum time to wait for a connection attempt to a server (in seconds).
+    timeout connect {{ defaults_timeout_connect | default(5) }}s
+    # Maximum inactivity time on the client side (in seconds).
+    timeout client  {{ defaults_timeout_client | default(60) }}s
+    # Maximum inactivity time on the server side (in seconds).
+    timeout server  {{ defaults_timeout_server | default(60) }}s
+    # Number of retries to perform when a connection to a server fails.
+    retries {{ defaults_retries | default(3) }}
+    # Re-dispatch to another server if the current one fails.
     option  redispatch
 
-{% for frontend in frontends %}
-# Frontend: {{ frontend.name }} — binds to specified address/port, forwards to backend pool
-frontend {{ frontend.name }}
-    bind {{ frontend.bind_host }}:{{ frontend.bind_port }}
+# =============================================================================
+# Frontend Listeners
+# =============================================================================
+# List of frontend listeners for incoming Postfix policy queries.
+{% for frontend in frontends | default([]) %}
+# Frontend: {{ frontend.name | default('unnamed') }}
+# Bind to the frontend's configured host and port.
+frontend {{ frontend.name | default('unnamed') }}
+    # Default bind address for incoming connections.
+    bind {{ (frontend | default({})).bind_host | default('0.0.0.0') }}:{{ (frontend | default({})).bind_port | default('10023') }}
     mode tcp
     option tcplog
-    default_backend {{ frontend.default_backend }}
+    # Default backend to use for this frontend.
+    default_backend {{ (frontend | default({})).default_backend | default('') }}
 {% endfor %}
 
-{% for backend in backends %}
-# Backend: {{ backend.name }} — postfix policy service pool with fallback behavior
-backend {{ backend.name }}
+# =============================================================================
+# Backend Server Pools
+# =============================================================================
+# List of backend server pools for handling Postfix policy requests.
+{% for backend in backends | default([]) %}
+# Backend: {{ backend.name | default('unnamed') }}
+# Load balancing algorithm (e.g., roundrobin, source, leastconn).
+backend {{ backend.name | default('unnamed') }}
     mode tcp
-    balance {{ backend.balance }}
-{% if backend.check_enabled is defined %}
-{% if backend.check_enabled %}
+    balance {{ (backend | default({})).balance | default('roundrobin') }}
+
+    # Health check configuration.
+    {% if (backend | default({})).check_enabled | default(True) %}
     option tcp-check
-{% endif %}
-{% else %}
-    option tcp-check
-{% endif %}
-{% for server in backend.servers %}
-    server {{ server.name }} {{ server.host }}:{{ server.port }} check inter {{ server.check_interval }}s fall {{ server.fall }} rise {{ server.rise }}{% if server.backup %} backup{% endif %}
-{% endfor %}
+    {% endif %}
+
+    # List of servers in this backend pool.
+    {% for server in (backend | default({})).servers | default([]) %}
+    # Server: {{ server.name | default('unnamed') }} on {{ server.host | default('127.0.0.1') }}:{{ server.port | default('10023') }}
+    # Check interval: {{ server.check_interval | default(2) }}s, Fall: {{ server.fall | default(3) }}, Rise: {{ server.rise | default(2) }}
+    # Backup: {{ server.backup | default(False) }}
+    server {{ server.name | default('unnamed') }} {{ server.host | default('127.0.0.1') }}:{{ server.port | default('10023') }} check inter {{ server.check_interval | default(2) }}s fall {{ server.fall | default(3) }} rise {{ server.rise | default(2) }}{% if server.backup | default(False) %} backup{% endif %}
+    {% endfor %}
 {% endfor %}
 
-# Optional stats interface for monitoring
-{% if stats_enabled %}
+# =============================================================================
+# Statistics Interface (Optional)
+# =============================================================================
+# Optional stats interface for monitoring.
+{% if stats_enabled | default(False) %}
 listen stats
-    bind :{{ stats_port }}
+    # Bind to the stats port.
+    bind :{{ stats_port | default(8404) }}
     mode http
     stats enable
-    stats uri {{ stats_uri }}
-    stats auth {{ stats_user }}:{{ stats_password }}
+    # Stats URI path.
+    stats uri {{ stats_uri | default('/stats') }}
+    # Stats authentication credentials.
+    stats auth {{ stats_user | default('hapolicy') }}:{{ stats_password | default('changeme') }}
 {% endif %}

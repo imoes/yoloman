@@ -1,0 +1,105 @@
+# =============================================================================
+# anyremote Configuration Template
+# =============================================================================
+# This template generates the command-line options for the anyremote daemon.
+# anyremote is a remote control application that allows controlling media
+# players and other applications from various devices (mobile, web, etc.).
+#
+# Self-documenting: every variable must be provided or have a default in the
+# Ansible role/variables. Do not leave fields unset without a sensible default.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Server Peers
+# -----------------------------------------------------------------------------
+# Specifies the communication interfaces/peers anyremote should listen on or
+# connect to. Each entry defines a protocol and optional address/port.
+# Examples: 'tcp:5197', 'bluetooth', 'web:5080', 'avahi', 'rfcomm:1'.
+# Default: ['bluetooth', 'tcp:5197', 'web:5080', 'avahi']
+#
+# Note: If the 'peers' list is empty or omitted, the default peers are used.
+# To disable all peers, you must explicitly provide an empty list, but this
+# is rarely desired as it renders the service non-functional.
+-s {{ peers | default(['bluetooth', 'tcp:5197', 'web:5080', 'avahi']) | join(',') }}
+
+# -----------------------------------------------------------------------------
+# SDP Service Name
+# -----------------------------------------------------------------------------
+# The name advertised for Bluetooth and TCP service discovery (SDP).
+# This name appears in device scans when looking for anyremote services.
+# Default: 'anyRemote'
+-name {{ sdp_service_name | default('anyRemote') }}
+
+# -----------------------------------------------------------------------------
+# Password Authentication
+# -----------------------------------------------------------------------------
+# Enables password-based authentication for incoming connections.
+# When enabled, anyremote expects a password file at ~/.anyRemote/password.
+# This is a flag option; it does not take a value.
+# Default: false (disabled)
+{% if (password_auth | default(false) | bool) %}
+-password
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Backend Port (GUI Frontend)
+# -----------------------------------------------------------------------------
+# Specifies the port for the GUI frontend backend connection.
+# This allows the anyremote web/GUI frontend to communicate with the daemon.
+# If omitted, anyremote may use a default port or rely on the peer ports.
+# Default: None (unspecified)
+{% if backend_port is not none %}
+-fe {{ backend_port | default('') | string }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Auto Reconnect (AT Mode)
+# -----------------------------------------------------------------------------
+# Enables automatic reconnection in AT mode (serial/Bluetooth AT commands).
+# Useful for maintaining persistent connections to remote devices over unreliable
+# links. This is a flag option.
+# Default: false (disabled)
+{% if (auto_reconnect | default(false) | bool) %}
+-a
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Verbose Logging
+# -----------------------------------------------------------------------------
+# Enables verbose logging to the log file located at ~/.anyRemote/anyremote.log.
+# Useful for debugging connection issues or daemon behavior.
+# This is a flag option.
+# Default: false (disabled)
+{% if (verbose_logging | default(false) | bool) %}
+-log
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Configuration Directory
+# -----------------------------------------------------------------------------
+# Overrides the default directory for configuration files.
+# By default, anyremote looks in ~/.anyRemote/.
+# Default: None (use default ~/.anyRemote/)
+{% if config_dir is not none %}
+-cfgdir {{ config_dir | default('') | string }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Temporary Directory
+# -----------------------------------------------------------------------------
+# Overrides the default directory for temporary files.
+# Useful in restricted environments or when /tmp is not suitable.
+# Default: None (use system default /tmp or similar)
+{% if tmp_dir is not none %}
+-tmpdir {{ tmp_dir | default('') | string }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Drop Privileges (User)
+# -----------------------------------------------------------------------------
+# Specifies the effective user to drop privileges to after startup.
+# If anyremote is started as root, it will switch to this user.
+# Default: None (no privilege dropping; run as the invoking user)
+{% if user is not none %}
+-u {{ user | default('') | string }}
+{% endif %}

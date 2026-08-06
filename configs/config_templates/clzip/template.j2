@@ -1,0 +1,159 @@
+# =============================================================================
+# clzip CLI Wrapper Configuration Template
+# =============================================================================
+# clzip itself does NOT read a configuration file.
+# This template generates a wrapper command line (or script) that passes
+# the desired options to the clzip binary.
+#
+# To use this template:
+# 1. Copy this file to your target system.
+# 2. Replace variables with actual values (or use Ansible/Jinja2 rendering).
+# 3. Execute the resulting command or script.
+# =============================================================================
+
+# --- Compression Parameters --------------------------------------------------
+
+# Compression level: 0 (fastest, lowest compression) to 9 (slowest, best compression).
+# Default: 6.
+# See: https://www.nongnu.org/lzip/clzip.html
+{%- set _compression_level = compression_level | default(6) %}
+-C {{ _compression_level | string }}
+
+# Dictionary size in bytes.
+# Values 12–29 are interpreted as powers of two (2^12 to 2^29).
+# Default: 8388608 (which is 2^23 = 8 MiB).
+# Larger dictionaries generally yield better compression but use more memory.
+{%- set _dictionary_size = dictionary_size | default(8388608) %}
+-s {{ _dictionary_size | string }}
+
+# Match length limit in bytes.
+# This limits the length of matched strings.
+# Default: 36.
+{%- set _match_length = match_length | default(36) %}
+-m {{ _match_length | string }}
+
+# Member size limit for multimember files (in bytes).
+# If set, the output file is split into members of this size (0 = unlimited).
+# Useful for streaming or splitting large archives.
+# Default: 0 (unlimited).
+{%- set _member_size = member_size | default(0) %}
+{%- if _member_size != 0 %}
+-b {{ _member_size | string }}
+{%- endif %}
+
+# Volume size limit in bytes for splitting output.
+# If set, clzip splits the output into volumes of this size (0 = no splitting).
+# Different from member_size; this controls the volume boundaries in a multimember file.
+# Default: 0 (no splitting).
+{%- set _volume_size = volume_size | default(0) %}
+{%- if _volume_size != 0 %}
+-S {{ _volume_size | string }}
+{%- endif %}
+
+# --- Behavior Flags ----------------------------------------------------------
+
+# Overwrite existing output files without prompting.
+# Default: False.
+{%- set _force = force | default(False) | bool %}
+{%- if _force %}
+-f
+{%- endif %}
+
+# Decompress mode.
+# If set, clzip decompresses the input files instead of compressing them.
+# Default: False.
+{%- set _decompress = decompress | default(False) | bool %}
+{%- if _decompress %}
+-d
+{%- endif %}
+
+# Test integrity only.
+# Checks the integrity of the compressed file without writing any output.
+# Default: False.
+{%- set _test = test | default(False) | bool %}
+{%- if _test %}
+-t
+{%- endif %}
+
+# List mode.
+# Prints compressed and uncompressed sizes and other info to stdout.
+# Default: False.
+{%- set _list = list | default(False) | bool %}
+{%- if _list %}
+-l
+{%- endif %}
+
+# Write to standard output.
+# Prevents clzip from deleting the input file and outputs to stdout.
+# Default: False.
+{%- set _stdout = stdout | default(False) | bool %}
+{%- if _stdout %}
+-c
+{%- endif %}
+
+# Keep input files.
+# Do not delete the input files after successful compression/decompression.
+# Default: False.
+{%- set _keep = keep | default(False) | bool %}
+{%- if _keep %}
+-k
+{%- endif %}
+
+# Quiet mode.
+# Suppress all informational messages.
+# Default: False.
+{%- set _quiet = quiet | default(False) | bool %}
+{%- if _quiet %}
+-q
+{%- endif %}
+
+# Verbose mode.
+# Enable verbose output. Multiple -v flags increase verbosity.
+# Default: False.
+{%- set _verbose = verbose | default(False) | bool %}
+{%- if _verbose %}
+-v
+{%- endif %}
+
+# Trailing error.
+# Exit with error status if trailing data is present after decompression.
+# Default: False.
+{%- set _trailing_error = trailing_error | default(False) | bool %}
+{%- if _trailing_error %}
+-a
+{%- endif %}
+
+# Loose trailing.
+# Allow trailing data that appears to be from a corrupted header (non-standard lzip).
+# Default: False.
+{%- set _loose_trailing = loose_trailing | default(False) | bool %}
+{%- if _loose_trailing %}
+--loose-trailing
+{%- endif %}
+
+# Force recompression.
+# Force recompression even if the file is already compressed with clzip.
+# Default: False.
+{%- set _recompress = recompress | default(False) | bool %}
+{%- if _recompress %}
+-F
+{%- endif %}
+
+# --- Output and Input --------------------------------------------------------
+
+# Explicit output file path.
+# If used with -d (decompress) or -t (test), this implies -c (stdout behavior for test).
+# Default: '' (empty string, implies auto-naming based on input).
+{%- set _output_file = output_file | default('') %}
+{%- if _output_file %}
+-o {{ _output_file | string }}
+{%- endif %}
+
+# Input files.
+# List of input files to compress/decompress.
+# Use '-' for stdin/stdout.
+# If empty, clzip uses stdin/stdout by default.
+{%- set _input_files = input_files | default([]) | list %}
+{%- for _input_file in _input_files %}
+{{ _input_file | string }}
+{%- endfor %}

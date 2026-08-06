@@ -1,0 +1,44 @@
+# =============================================================================
+# e2tools configuration template
+# =============================================================================
+#
+# NOTE: e2tools does not natively read a global configuration file for
+# operational parameters in most standard distributions. It primarily relies
+# on command-line arguments and specific helper scripts.
+#
+# This template serves as a documentation layer and a configuration reference
+# for managing filesystem mappings that e2tools commands (like e2cp, e2ls, etc.)
+# will operate on. It defines the 'alias' mappings (Name <-> Path) often
+# stored in ~/.e2tools or /etc/e2tools.conf depending on the setup.
+#
+# Format:
+#   Name = /path/to/image_or_device
+#
+# Usage:
+#   e2ls Name:/path/to/file
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Filesystem Mappings
+# ------------------------------------------------------------------------------
+# Defines the list of ext2/ext3/ext4 filesystem images or block devices
+# accessible by e2tools, mapped to a logical short name.
+{% if filesystems is defined and filesystems | length > 0 %}
+{% for fs in filesystems %}
+# ------------------------------------------------------------------------------
+# Filesystem Mapping Entry
+# ------------------------------------------------------------------------------
+# Logical Name: {{ fs.name | default('') }}
+# Source Path:  {{ fs.path | default('') }}
+# Description:  Maps the logical name '{{ fs.name | default('') }}' to the
+#               actual disk image or block device at '{{ fs.path | default('') }}'.
+# Usage Example: e2cp {{ fs.name | default('') }}:/file.txt /tmp/file.txt
+# ------------------------------------------------------------------------------
+{{ fs.name | default('') }} = {{ fs.path | default('') }}
+
+{% endfor %}
+{% else %}
+# No filesystem mappings defined.
+# To add a mapping, populate the 'filesystems' variable in the Ansible role
+# with a list of objects containing 'path' and 'name'.
+{% endif %}

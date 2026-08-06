@@ -1,4 +1,19 @@
 {
+  "sesman_start": {
+    "type": "string",
+    "default": "yes",
+    "description": "Set to 'yes' to start sesman, anything else to disable it. Note: this setting is not honored by systemd service files."
+  },
+  "sesman_options": {
+    "type": "string",
+    "default": "",
+    "description": "Command-line options passed to the sesman process (e.g., '-v' for verbose). Empty by default."
+  },
+  "xrdp_options": {
+    "type": "string",
+    "default": "",
+    "description": "Command-line options passed to the xrdp process. Empty by default."
+  },
   "listen_address": {
     "type": "string",
     "default": "0.0.0.0",
@@ -51,38 +66,12 @@
   },
   "modules": {
     "type": "object",
-    "default": {},
-    "description": "Map of RDP modules (channels) to enable. Keys are identifiers (e.g., 'Xvnc', 'Xorg'), values describe module behavior.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Human-readable module name (e.g., 'Xvnc'). Defaults to the key if omitted."
-        },
-        "lib": {
-          "type": "string",
-          "description": "Library file implementing the module (e.g., 'libvnc.so', 'libxorg.so').",
-          "required": true
-        },
-        "value": {
-          "type": "string",
-          "description": "Module-specific configuration (e.g., VNC port for Xvnc, X server args)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description for documentation."
-        }
-      }
-    }
+    "default": [],
+    "description": "List of RDP modules (channels) to enable. Each object defines a module configuration (e.g., 'Xvnc', 'Xorg')."
   },
   "group_rules": {
     "type": "object",
-    "default": {},
-    "description": "Map of Unix group names \u2192 allowed RDP session types. Users in the group may launch sessions of the listed types.",
-    "items": {
-      "type": "string",
-      "description": "Comma-separated list of allowed session types (e.g., 'Xvnc,Xorg')."
-    }
+    "default": [],
+    "description": "Map of Unix group names \u2192 allowed RDP session types. Users in the group may launch sessions of the listed types."
   }
 }

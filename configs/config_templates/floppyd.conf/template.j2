@@ -1,51 +1,70 @@
-# floppyd main configuration file
-# Global settings for floppyd service
+# ============================================================
+# floppyd.conf — Main configuration for floppyd HTTP service
+# This file is auto-generated and self-documenting.
+# Every directive is described via a comment block above it.
+# ============================================================
 
 # Listen address for the HTTP API
-host: {{ host }}
+# The network interface address to bind the HTTP server to (e.g., 0.0.0.0 for all interfaces).
+host: {{ (host | default('127.0.0.1')) }}
 
 # Listen port for the HTTP API
-port: {{ port }}
+# The TCP port on which the floppyd HTTP server listens.
+port: {{ (port | default(8080)) }}
 
 # Path to the floppy disk image cache directory
-cache_dir: {{ cache_dir }}
+# Absolute path to the directory where floppy disk images are cached.
+cache_dir: {{ (cache_dir | default('/var/lib/floppyd/cache')) }}
 
 # Maximum number of concurrent disk operations
-max_concurrent_ops: {{ max_concurrent_ops }}
+# Maximum number of simultaneous disk I/O operations allowed.
+max_concurrent_ops: {{ (max_concurrent_ops | default(10)) }}
 
 # Timeout (in seconds) for disk I/O operations
-io_timeout: {{ io_timeout }}
+# Maximum seconds to wait for a disk operation before timing out.
+io_timeout: {{ (io_timeout | default(30)) }}
 
 # Enable or disable verbose logging
-verbose: {{ verbose | lower }}
+# Enable detailed logging for debugging and diagnostics.
+verbose: {{ (verbose | default(False)) | lower }}
 
-# List of allowed hostnames (comma-separated or one per line)
-# Only requests from these hosts are accepted
+# List of allowed hostnames (one per line)
+# List of allowed hostnames or IP addresses that may access the server.
 allowed_hosts:
-{% for host in allowed_hosts %}  - {{ host }}
+{% for h in (allowed_hosts | default(['localhost', '127.0.0.1'])) %}
+  - {{ h }}
 {% endfor %}
 
 # Optional: Mount options for floppy images
-# If absent, default options are used
-{% if mount_options %}mount_options:
-{% for key, value in mount_options.items() | dict2items %}  {{ key }}: {{ value | lower if value is boolean else value }}
+# Optional key-value pairs to configure floppy disk mount options (e.g., `ro: true`, `cache: false`).
+{% if mount_options is defined %}
+mount_options:
+{% for key, value in (mount_options | default({})) | dict2items %}
+  {{ key }}: {{ value | lower if value is boolean else value }}
 {% endfor %}
 {% endif %}
 
 # Optional: Rate limiting per client IP
-# Applied only if enabled
-{% if rate_limiting_enabled %}rate_limiting:
+# Enable request rate limiting per client IP address.
+rate_limiting:
+{% if (rate_limiting_enabled | default(False)) %}
   enabled: true
-  max_requests_per_minute: {{ rate_limit_max_rpm }}
-{% else %}rate_limiting:
+  # Maximum number of requests per minute per IP when rate limiting is enabled.
+  max_requests_per_minute: {{ (rate_limit_max_rpm | default(60)) }}
+{% else %}
   enabled: false
 {% endif %}
 
 # Optional: TLS configuration
-{% if tls_enabled %}tls:
+# Enable TLS (HTTPS) for secure communication.
+{% if (tls_enabled | default(False)) %}
+tls:
   enabled: true
-  cert_file: {{ tls_cert_path }}
-  key_file: {{ tls_key_path }}
-{% else %}tls:
+  # Path to the TLS certificate file (PEM format).
+  cert_file: {{ (tls_cert_path | default('/etc/ssl/floppyd/cert.pem')) }}
+  # Path to the TLS private key file (PEM format).
+  key_file: {{ (tls_key_path | default('/etc/ssl/floppyd/key.pem')) }}
+{% else %}
+tls:
   enabled: false
 {% endif %}

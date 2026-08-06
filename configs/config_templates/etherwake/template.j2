@@ -1,0 +1,75 @@
+{# ============================================================
+   EtherWake Configuration Template
+   ----------------------------------------------------------
+   This template generates a configuration structure for etherwake,
+   a utility used to send Wake-on-LAN (WOL) Magic Packets.
+   
+   Variables used:
+   - interface: The network interface to bind to (string)
+   - broadcast: Whether to use broadcast mode (boolean)
+   - debug: Whether to enable debug logging (boolean)
+   - password: Optional WOL password (string)
+   - hosts: List of MAC addresses or host identifiers (list of strings)
+   
+   NOTE: etherwake is a CLI tool. This configuration represents
+   the command-line arguments that an Ansible task would pass
+   to the etherwake binary.
+   ============================================================ #}
+
+{# -----------------------------------------------------------
+   Network Interface Configuration
+   -----------------------------------------------------------
+   Specifies the network interface through which the WOL packet
+   will be sent. This must be an active interface on the system.
+   Default: eth0
+   ----------------------------------------------------------- #}
+interface: {{ (interface | default('eth0')) }}
+
+{# -----------------------------------------------------------
+   Broadcast Mode Configuration
+   -----------------------------------------------------------
+   Controls whether the Magic Packet is sent to the broadcast
+   address (true) or via unicast (false). Most WOL implementations
+   require broadcast mode.
+   Default: true
+   ----------------------------------------------------------- #}
+broadcast: {{ broadcast | default(true) | lower }}
+
+{# -----------------------------------------------------------
+   Debug Mode Configuration
+   -----------------------------------------------------------
+   If true, enables verbose debug output, increasing the logging
+   level to provide detailed information about packet transmission.
+   Default: false
+   ----------------------------------------------------------- #}
+debug: {{ debug | default(false) | lower }}
+
+{# -----------------------------------------------------------
+   WOL Password Configuration
+   -----------------------------------------------------------
+   Optional password for the Magic Packet. Supported formats:
+   - 4-byte dotted decimal (e.g., '192.168.1.1')
+   - 6-byte Ethernet hex (e.g., '00:22:44:66:88:aa')
+   
+   Only supported on certain network drivers (e.g., ce).
+   If empty, no password is sent with the packet.
+   Default: '' (empty)
+   ----------------------------------------------------------- #}
+password: {{ (password | default('')) }}
+
+{# -----------------------------------------------------------
+   Target Hosts Configuration
+   -----------------------------------------------------------
+   List of target devices to wake. Each item must be a valid MAC
+   address (e.g., '00:11:22:33:44:55') or a hostname/resolvable
+   ID recognized by ethers(5).
+   Default: [] (empty list)
+   ----------------------------------------------------------- #}
+hosts:
+{% if hosts is defined and hosts is iterable %}
+{% for host in hosts | default([], true) | unique | sort %}
+  - {{ host }}
+{% endfor %}
+{% else %}
+  # No hosts configured
+{% endif %}

@@ -1,0 +1,54 @@
+{# basez(1) configuration template #}
+{# This template generates command-line arguments for the `basez` utility. #}
+{# All variables use `.default()` to ensure safe rendering even if undefined. #}
+
+{# mode: Operation mode: 'encode' or 'decode' #}
+{{ mode | default('encode') | upper }}
+
+{# input_file: Path to input file; empty string means stdin #}
+{% if (input_file | default('')) %}--input={{ input_file | default('') }}{% endif %}
+
+{# output_file: Path to output file; empty string means stdout #}
+{% if (output_file | default('')) %}--output={{ output_file | default('') }}{% endif %}
+
+{# algorithm: Encoding algorithm: 'base16', 'base32', 'base32hex', 'base64', 'base64url', 'base64pem', or 'base64mime' #}
+{%- set alg = algorithm | default('base64') | lower -%}
+{%- if alg == 'base16' -%}
+--hex
+{%- elif alg == 'base32' -%}
+--base32
+{%- elif alg == 'base32hex' -%}
+--base32hex
+{%- elif alg == 'base64' -%}
+--base64
+{%- elif alg == 'base64url' -%}
+--base64url
+{%- elif alg == 'base64pem' -%}
+--base64pem
+{%- elif alg == 'base64mime' -%}
+--base64mime
+{%- endif -%}
+
+{# case_output: Case for alphabetic output characters: 'upper', 'lower', or empty for default #}
+{%- set co = case_output | default('') | lower -%}
+{%- if co == 'upper' %}--capitals
+{%- elif co == 'lower' %}--lower-case
+{%- endif -%}
+
+{# text_line_endings: Convert native text line breaks ↔ CRLF (applies only to base64* modes) #}
+{%- if text_line_endings | default(False) %}--text{%- endif -%}
+
+{# wrap_width: Line wrap width in characters; 0 disables all line breaks; null means use algorithm-specific default #}
+{%- set ww = wrap_width | default(None) -%}
+{%- if ww is not none and ww > 0 -%}
+--wrap={{ ww }}
+{%- elif ww is defined and ww == 0 -%}
+--wrap=0
+{%- endif -%}
+
+{# decode_behavior: Decoding robustness: 'strict', 'ignore_all_space', 'ignore_garbage', or empty for default #}
+{%- set db = decode_behavior | default('') | lower -%}
+{%- if db == 'strict' %}--strict
+{%- elif db == 'ignore_all_space' %}--ignore-all-space
+{%- elif db == 'ignore_garbage' %}--ignore-garbage
+{%- endif -%}

@@ -1,37 +1,35 @@
-{# Top-level configuration file for Entangle, the distributed rendering management system #}
-# Entangle configuration
-# Global settings for the Entangle system
+{# ============================================================================ #}
+{# entangle.conf - Configuration for Entangle (Tethered Camera Control System)   #}
+{#                                                                              #}
+{# This file controls global behavior and notification endpoints for the        #}
+{# Entangle daemon. It is structured as an INI-like configuration file.         #}
+{#                                                                              #}
+{# Self-documenting: read the comments above each directive to understand       #}
+{# what each variable does and how it maps to the Ansible schema.               #}
+{# ============================================================================ #}
 
-{{ global_settings }}
+{# -------------------------------------------------------------------------- #}
+{# [main] Section                                                             #}
+{# -------------------------------------------------------------------------- #}
+{# Global settings for the Entangle system.                                   #}
+{# This block is populated from raw content provided by the 'global_settings' #}
+{# schema field. If empty, no [main] section is emitted.                      #}
+{# -------------------------------------------------------------------------- #}
+{% if global_settings | default('') | trim | length > 0 %}
+{{ global_settings | default('') | trim }}
+{% endif %}
 
-# List of renderer instances to manage
-{% for renderer in renderers %}
-[{{ renderer.name }}]
-  # Host address for this renderer instance
-  host = {{ renderer.host | default('localhost') }}
-  # Port on which the renderer service listens
-  port = {{ renderer.port | default(18888) }}
-  # Number of worker threads for this renderer
-  workers = {{ renderer.workers | default(4) }}
-  # Path to the render output directory
-  output_dir = {{ renderer.output_dir | default('/var/entangle/render/' + renderer.name) }}
-  # Enable or disable GPU acceleration for this renderer
-  use_gpu = {{ renderer.use_gpu | default(true) | lower }}
-  # Maximum render job timeout in seconds
-  timeout = {{ renderer.timeout | default(3600) }}
-  # Optional custom environment variables
-  {% if renderer.env_vars %}
-  env_vars =
-{% for key, value in renderer.env_vars.items() %}
-    {{ key }} = {{ value }}
-{% endfor %}
-  {% endif %}
-{% endfor %}
-
-# Notification endpoints for system alerts
-{% if notifications %}
+{# -------------------------------------------------------------------------- #}
+{# [notifications] Section                                                    #}
+{# -------------------------------------------------------------------------- #}
+{# Notification endpoints for system alerts.                                  #}
+{# Each item in the 'notifications' list defines an endpoint.                 #}
+{# Expected format per item: { type: <string>, endpoint: <string> }          #}
+{# Example: type='email', endpoint='admin@example.com'                        #}
+{# -------------------------------------------------------------------------- #}
+{% if notifications | default([]) | length > 0 %}
 [notifications]
-{% for notice in notifications %}
+{% for notice in notifications | default([]) %}
   {{ notice.type }} = {{ notice.endpoint }}
 {% endfor %}
 {% endif %}

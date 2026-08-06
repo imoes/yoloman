@@ -36,20 +36,17 @@
     "default": [],
     "description": "Domain-specific forwarding rules. Queries matching the domain suffix use the specified upstreams.",
     "items": {
-      "type": "object",
-      "fields": {
-        "domain": {
+      "domain": {
+        "type": "string",
+        "description": "Domain suffix (e.g., 'internal.example.com'). Must end with '.' for absolute names."
+      },
+      "upstreams": {
+        "type": "list",
+        "default": [],
+        "description": "Optional upstream servers for this zone only. If omitted, defaults to global upstreams.",
+        "items": {
           "type": "string",
-          "description": "Domain suffix (e.g., 'internal.example.com'). Must end with '.' for absolute names."
-        },
-        "upstreams": {
-          "type": "list",
-          "default": [],
-          "description": "Optional upstream servers for this zone only. If omitted, defaults to global upstreams.",
-          "items": {
-            "type": "string",
-            "description": "IP address of an upstream DNS server."
-          }
+          "description": "IP address of an upstream DNS server."
         }
       }
     }
@@ -59,30 +56,27 @@
     "default": [],
     "description": "Static DNS records served locally (bypass upstream). Useful for container hostnames or internal services.",
     "items": {
-      "type": "object",
-      "fields": {
-        "domain": {
-          "type": "string",
-          "description": "Fully qualified domain name (e.g., 'web.local')."
-        },
-        "type": {
-          "type": "string",
-          "default": "A",
-          "enum": [
-            "A",
-            "AAAA",
-            "CNAME",
-            "MX",
-            "TXT",
-            "SRV",
-            "PTR"
-          ],
-          "description": "DNS record type."
-        },
-        "data": {
-          "type": "string",
-          "description": "Record value (e.g., '192.168.1.10', 'mail.example.com')."
-        }
+      "domain": {
+        "type": "string",
+        "description": "Fully qualified domain name (e.g., 'web.local')."
+      },
+      "type": {
+        "type": "string",
+        "default": "A",
+        "enum": [
+          "A",
+          "AAAA",
+          "CNAME",
+          "MX",
+          "TXT",
+          "SRV",
+          "PTR"
+        ],
+        "description": "DNS record type."
+      },
+      "data": {
+        "type": "string",
+        "description": "Record value (e.g., '192.168.1.10', 'mail.example.com')."
       }
     }
   },

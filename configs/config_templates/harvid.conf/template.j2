@@ -1,50 +1,64 @@
 [server]
 # Host interface to bind to (e.g., 0.0.0.0 or 127.0.0.1)
-host = {{ server.host }}
+# Default: 0.0.0.0
+host = {{ (server | default({})).host | default('0.0.0.0') }}
 # TCP port for the HTTP API and media streaming
-port = {{ server.port }}
+# Default: 8080
+port = {{ (server | default({})).port | default(8080) }}
 
 # Maximum number of concurrent client connections
-max_connections = {{ server.max_connections }}
+# Default: 100
+max_connections = {{ (server | default({})).max_connections | default(100) }}
 
 # Enable or disable HTTPS (requires certificate_path and key_path)
-ssl_enabled = {{ server.ssl_enabled | lower }}
+# Default: False
+ssl_enabled = {{ (server | default({})).ssl_enabled | default(False) | lower }}
 
 # Path to SSL/TLS certificate file (used only if ssl_enabled = true)
-certificate_path = {{ server.certificate_path }}
+# Default: /etc/harvid/ssl/cert.pem
+certificate_path = {{ (server | default({})).certificate_path | default('/etc/harvid/ssl/cert.pem') }}
 # Path to SSL/TLS private key file (used only if ssl_enabled = true)
-key_path = {{ server.key_path }}
+# Default: /etc/harvid/ssl/key.pem
+key_path = {{ (server | default({})).key_path | default('/etc/harvid/ssl/key.pem') }}
 
 [logging]
 # Log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL
-level = {{ logging.level }}
+# Default: INFO
+level = {{ (logging | default({})).level | default('INFO') | upper }}
 # Path to log file; empty string or omitted means stderr only
-file = {{ logging.file }}
+# Default: /var/log/harvid/harvid.log
+file = {{ (logging | default({})).file | default('/var/log/harvid/harvid.log') }}
 # Enable or disable structured JSON logging
-json = {{ logging.json | lower }}
+# Default: False
+json = {{ (logging | default({})).json | default(False) | lower }}
 
 [worker]
 # Number of worker threads/processes for media transcoding
-threads = {{ worker.threads }}
+# Default: 4
+threads = {{ (worker | default({})).threads | default(4) }}
 
 [storage]
 # Base path for cached/stored transcoded segments
-segments_path = {{ storage.segments_path }}
+# Default: /var/cache/harvid/segments
+segments_path = {{ (storage | default({})).segments_path | default('/var/cache/harvid/segments') }}
 
 [playlist]
 # Enable or disable HLS playlist generation
-hls_enabled = {{ playlist.hls_enabled | lower }}
+# Default: True
+hls_enabled = {{ (playlist | default({})).hls_enabled | default(True) | lower }}
 # Segment duration in seconds for HLS
-hls_segment_duration = {{ playlist.hls_segment_duration }}
+# Default: 4
+hls_segment_duration = {{ (playlist | default({})).hls_segment_duration | default(4) }}
 # Number of segments to retain in the playlist window
-hls_playlist_length = {{ playlist.hls_playlist_length }}
+# Default: 6
+hls_playlist_length = {{ (playlist | default({})).hls_playlist_length | default(6) }}
 
-{% if sources | length > 0 %}
+{% if (sources | default([])) | length > 0 %}
 [sources]
 # List of input source URLs or device paths
-{% for src in sources %}
-{{ loop.index }}_url = {{ src.url | replace('\n', '\\n') }}
-{% if src.name is defined %}{{ loop.index }}_name = {{ src.name }}{% endif %}
-{% if src.type is defined %}{{ loop.index }}_type = {{ src.type }}{% endif %}
+{% for src in sources | default([]) %}
+{{ loop.index }}_url = {{ (src | default({})).url | default('') }}
+{% if (src | default({})).name is defined %}{{ loop.index }}_name = {{ (src | default({})).name }}{% endif %}
+{% if (src | default({})).type is defined %}{{ loop.index }}_type = {{ (src | default({})).type }}{% endif %}
 {% endfor %}
 {% endif %}

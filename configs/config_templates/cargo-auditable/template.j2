@@ -1,0 +1,12 @@
+# cargo-auditable configuration
+[auditable]
+# Whether to embed the auditable dependency JSON in the binary
+# If true, cargo-auditable will compress the dependency list into a .dep-v0 section
+# Only effective on ELF platforms (Linux, BSD); ignored on Windows/macOS/WASM
+enabled = {{ (var | default({})).enabled | default(true) | lower }}
+
+# Optional explicit path to Cargo.lock to use
+# Empty string means use the default workspace Cargo.lock
+{% if (var | default({})).lockfile | default('') != '' %}
+lockfile = {{ (var | default({})).lockfile | default('') }}
+{% endif %}

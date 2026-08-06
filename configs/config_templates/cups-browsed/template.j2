@@ -1,80 +1,138 @@
+# Configuration for cups-browsed: Automatic discovery and management of remote printers via DNS-SD/Bonjour and CUPS.
+# This file is processed by Jinja2 during Ansible deployment.
+# All variables are expected to be provided by the Ansible playbook/role, with sensible defaults applied if missing.
+
+# -----------------------------------------------------------------------------
+# Discovery Protocols
+# -----------------------------------------------------------------------------
+
+# Enable/disable discovery protocols
+# Default: {'dnsd': True, 'cups': True}
+# Controls which network protocols are used to discover printers.
+# dnsd: DNS Service Discovery (Bonjour/Avahi)
+# cups: Legacy CUPS broadcasts
+{% set protocols = protocols | default({'dnsd': True, 'cups': True}) %}
+
 # Enable/disable automatic discovery of printers via DNS-SD/Bonjour
-{{ 'BrowseRemoteProtocols' | comment('dnsd', 'dns-sd') }}
-BrowseRemoteProtocols {{ protocols.dnsd | ternary('On', 'Off') }}
+BrowseRemoteProtocols {{ protocols.dnsd | default(true) | ternary('On', 'Off') }}
 
 # Enable/disable automatic discovery via CUPS (legacy cupsd broadcasts)
-{{ 'BrowseLocalProtocols' | comment('cups', 'cups') }}
-BrowseLocalProtocols {{ protocols.cups | ternary('On', 'Off') }}
+BrowseLocalProtocols {{ protocols.cups | default(true) | ternary('On', 'Off') }}
 
-# Maximum time (in seconds) to wait for printer status updates before considering it offline
-MaxWaitTime {{ max_wait_time | int }}
+# -----------------------------------------------------------------------------
+# Timeout and Queue Limits
+# -----------------------------------------------------------------------------
 
-# Maximum number of print jobs to queue per printer (0 = unlimited)
-MaxJobsPerPrinter {{ max_jobs_per_printer | int }}
+# Maximum time (seconds) to wait for printer status before marking as offline
+# Default: 30
+MaxWaitTime {{ max_wait_time | default(30) | int }}
 
-# Timeout (in seconds) for network operations (IPP, etc.)
-RemotePrinterExpire {{ remote_printer_expire | int }}
+# Maximum queued jobs per printer queue (0 = unlimited)
+# Default: 0
+MaxJobsPerPrinter {{ max_jobs_per_printer | default(0) | int }}
 
-# Local network interface(s) to bind to (empty = all interfaces)
-{{ 'Listen' | comment('listen_address', 'address:port to listen on') }}
-{% if listen_address is not none %}
+# Time (seconds) after which a remote printer is removed if unreachable
+# Default: 300
+RemotePrinterExpire {{ remote_printer_expire | default(300) | int }}
+
+# -----------------------------------------------------------------------------
+# Network Binding
+# -----------------------------------------------------------------------------
+
+# IP:port to bind to (e.g., '127.0.0.1:631' or '*:631').
+# Empty or null = all interfaces.
+# Default: None (all interfaces, port 631)
+{% set listen_address = listen_address | default(none) %}
+
+# Local network interface(s) to bind to
+{% if listen_address is not none and listen_address != '' %}
 Listen {{ listen_address }}
 {% else %}
 Listen *:631
 {% endif %}
 
-# Enable/disable creation of local queues for remote printers
-{{ 'CreateIPPPrinterQueues' | comment('create_queues', 'create local CUPS queues for discovered printers') }}
-CreateIPPPrinterQueues {{ create_queues | ternary('On', 'Off') }}
+# -----------------------------------------------------------------------------
+# Queue Creation and Management
+# -----------------------------------------------------------------------------
 
-# Default printer model (PPD file) to use when none is available
-{{ 'DefaultPrinterModel' | comment('default_ppd', 'PPD file name or URI') }}
+# Create CUPS printer queues automatically for discovered remote printers
+# Default: True
+CreateIPPPrinterQueues {{ create_queues | default(true) | ternary('On', 'Off') }}
+
+# Default PPD file (or URI) to use when printer provides no driver info
+# Default: 'drv:///sample.drv/generic.ppd'
 DefaultPrinterModel {{ default_ppd | default('drv:///sample.drv/generic.ppd') }}
 
-# Enable/disable automatic printer driver installation (via CUPS backend or drivers.conf)
-{{ 'AutoInstallFonts' | comment('auto_install_fonts', 'install font packages for printers requiring them') }}
-AutoInstallFonts {{ auto_install_fonts | ternary('On', 'Off') }}
+# Automatically install font packages when a printer requires them
+# Default: True
+AutoInstallFonts {{ auto_install_fonts | default(true) | ternary('On', 'Off') }}
 
-# Enable/disable creation of printer classes from discovered printer groups (e.g., via IPP 'printer-name-compat' group)
-{{ 'CreateRemoteRawPrinterQueues' | comment('raw_queues', 'create raw queues for remote printers without driver info') }}
-CreateRemoteRawPrinterQueues {{ raw_queues | ternary('On', 'Off') }}
+# Create raw (non-datatype-filtering) queues for printers lacking driver metadata
+# Default: False
+CreateRemoteRawPrinterQueues {{ raw_queues | default(false) | ternary('On', 'Off') }}
 
-# Enable/disable automatic removal of printer queues when the remote printer disappears
-{{ 'RemovePrinters' | comment('remove_on_disconnect', 'remove local printer queues when remote printer becomes unreachable') }}
-RemovePrinters {{ remove_on_disconnect | ternary('On', 'Off') }}
+# Automatically remove local printer queues when the remote printer disappears
+# Default: True
+RemovePrinters {{ remove_on_disconnect | default(true) | ternary('On', 'Off') }}
 
-# List of printer URIs to exclude from discovery (one per line)
-{{ 'Filter' | comment('exclude_uris', 'exclude printers matching these URIs') }}
-{% for uri in exclude_uris %}Filter {{ uri }}
+# -----------------------------------------------------------------------------
+# URI Filtering (Whitelists and Blacklists)
+# -----------------------------------------------------------------------------
+
+# List of URI substrings or patterns to exclude from discovered printer list
+# Default: []
+# These lines are generated dynamically.
+{% set exclude_uris = exclude_uris | default([]) %}
+{% if exclude_uris is iterable and exclude_uris is not string %}
+{% for uri in exclude_uris %}
+Filter {{ uri }}
 {% endfor %}
+{% endif %}
 
-# List of printer URIs to always include (whitelist); if empty, all discovered printers are added
-{{ 'AlwaysInclude' | comment('always_include_uris', 'force discovery of these printers regardless of filters') }}
-{% for uri in always_include_uris %}AlwaysInclude {{ uri }}
+# List of URIs to always include (whitelist); empty = include all
+# Default: []
+# These lines are generated dynamically.
+{% set always_include_uris = always_include_uris | default([]) %}
+{% if always_include_uris is iterable and always_include_uris is not string %}
+{% for uri in always_include_uris %}
+AlwaysInclude {{ uri }}
 {% endfor %}
+{% endif %}
 
-# Enable/disable TLS encryption for remote IPP connections
-{{ 'UseTLS' | comment('use_tls', 'encrypt connections to remote printers via TLS') }}
-UseTLS {{ use_tls | ternary('On', 'Off') }}
+# -----------------------------------------------------------------------------
+# TLS Configuration
+# -----------------------------------------------------------------------------
 
-# Path to CA certificate bundle for TLS verification
-{{ 'TLSCACertFile' | comment('tls_ca_file', 'CA cert file for validating remote printer TLS certificates') }}
+# Enable TLS encryption for connections to remote printers
+# Default: True
+UseTLS {{ use_tls | default(true) | ternary('On', 'Off') }}
+
+# Path to CA certificate bundle for TLS validation
+# Default: '/etc/ssl/certs/ca-certificates.crt'
 TLSCACertFile {{ tls_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
 
-# Path to client certificate (if mutual TLS is required)
-{{ 'TLSCertFile' | comment('tls_client_cert', 'client certificate file for mutual TLS') }}
-{% if tls_client_cert is not none %}TLSCertFile {{ tls_client_cert }}
+# Path to client certificate for mutual TLS (optional)
+# Default: None
+{% set tls_client_cert = tls_client_cert | default(none) %}
+{% if tls_client_cert is not none %}
+TLSCertFile {{ tls_client_cert }}
 {% endif %}
 
-# Path to client private key (if mutual TLS is required)
-{{ 'TLSKeyFile' | comment('tls_client_key', 'client private key file for mutual TLS') }}
-{% if tls_client_key is not none %}TLSKeyFile {{ tls_client_key }}
+# Path to client private key for mutual TLS (optional)
+# Default: None
+{% set tls_client_key = tls_client_key | default(none) %}
+{% if tls_client_key is not none %}
+TLSKeyFile {{ tls_client_key }}
 {% endif %}
 
-# Enable/disable logging of debug messages to syslog
-{{ 'DebugLogging' | comment('debug_logging', 'log verbose debug messages') }}
-DebugLogging {{ debug_logging | ternary('On', 'Off') }}
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
 
-# Log level (0=error,1=warn,2=info,3=debug)
-{{ 'LogLevel' | comment('log_level', 'verbosity level for syslog output') }}
-LogLevel {{ log_level | int }}
+# Enable verbose debug logging
+# Default: False
+DebugLogging {{ debug_logging | default(false) | ternary('On', 'Off') }}
+
+# Logging verbosity: 0=error,1=warn,2=info,3=debug
+# Default: 2
+LogLevel {{ log_level | default(2) | int }}

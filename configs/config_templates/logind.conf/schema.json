@@ -1,205 +1,134 @@
 {
   "n_auto_vts": {
     "type": "number",
-    "default": 1,
+    "default": 6,
     "description": "Number of virtual terminals (VTs) to manage automatically"
   },
   "reserve_vts": {
     "type": "list",
     "default": [
-      1
+      6
     ],
-    "description": "List of VT numbers to reserve and not manage (e.g., [1] to reserve the first VT)",
-    "items": {
-      "type": "number"
-    }
+    "description": "List of VT numbers to reserve and not manage (e.g., [6] to reserve the sixth VT). Values are comma-separated in the config file when uncommented."
   },
   "kill_user_processes": {
     "type": "string",
-    "default": "yes",
-    "description": "Whether to kill user processes when they log out. Accepts: yes, no, on-last-log"
+    "default": "no",
+    "description": "Whether to kill user processes when they log out. Accepts: yes, no, on-last-log",
+    "enum": [
+      "yes",
+      "no"
+    ]
   },
   "kill_only_users": {
     "type": "list",
     "default": [],
-    "description": "List of users whose processes will be killed on logout (if KillUserProcesses=yes)",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of users whose processes will be killed on logout (if KillUserProcesses=yes). Empty means all users."
   },
   "kill_exclude_users": {
     "type": "list",
     "default": [
       "root"
     ],
-    "description": "List of users whose processes will be excluded from killing on logout",
-    "items": {
-      "type": "string"
-    }
-  },
-  "handle_lid_switch": {
-    "type": "string",
-    "default": "suspend",
-    "description": "Action to take when laptop lid is closed. Accepts: ignore, poweroff, reboot, halt, kexec, suspend, hibernate, hybrid-sleep, suspend-hybrid, shutdown"
-  },
-  "handle_lid_switch_docked": {
-    "type": "string",
-    "default": "suspend",
-    "description": "Action to take when lid is closed while docked/externally powered (overrides HandleLidSwitch)"
+    "description": "List of users whose processes will be excluded from killing on logout. Default includes 'root'."
   },
   "handle_power_key": {
     "type": "string",
     "default": "poweroff",
-    "description": "Action to take when power button is pressed. Accepts: ignore, poweroff, reboot, halt, kexec, suspend, hibernate, hybrid-sleep, suspend-hybrid, shutdown"
+    "description": "Action to take when power button is pressed. Accepts: ignore, poweroff, reboot, halt, kexec, suspend, hibernate, hybrid-sleep, suspend-hybrid, shutdown",
+    "enum": [
+      "ignore",
+      "poweroff",
+      "reboot",
+      "halt",
+      "kexec",
+      "suspend",
+      "hibernate",
+      "hybrid-sleep",
+      "suspend-then-hibernate",
+      "lock",
+      "factory-reset"
+    ]
   },
   "handle_suspend_key": {
     "type": "string",
     "default": "suspend",
-    "description": "Action to take when suspend button is pressed"
+    "description": "Action to take when suspend button is pressed",
+    "enum": [
+      "ignore",
+      "poweroff",
+      "reboot",
+      "halt",
+      "kexec",
+      "suspend",
+      "hibernate",
+      "hybrid-sleep",
+      "suspend-then-hibernate",
+      "lock",
+      "factory-reset"
+    ]
   },
   "handle_hibernate_key": {
     "type": "string",
     "default": "hibernate",
-    "description": "Action to take when hibernate button is pressed"
+    "description": "Action to take when hibernate button is pressed",
+    "enum": [
+      "ignore",
+      "poweroff",
+      "reboot",
+      "halt",
+      "kexec",
+      "suspend",
+      "hibernate",
+      "hybrid-sleep",
+      "suspend-then-hibernate",
+      "lock",
+      "factory-reset"
+    ]
+  },
+  "handle_lid_switch": {
+    "type": "string",
+    "default": "suspend",
+    "description": "Action to take when laptop lid is closed. Accepts: ignore, poweroff, reboot, halt, kexec, suspend, hibernate, hybrid-sleep, suspend-hybrid, shutdown",
+    "enum": [
+      "ignore",
+      "poweroff",
+      "reboot",
+      "halt",
+      "kexec",
+      "suspend",
+      "hibernate",
+      "hybrid-sleep",
+      "suspend-then-hibernate",
+      "lock",
+      "factory-reset"
+    ]
+  },
+  "handle_lid_switch_docked": {
+    "type": "string",
+    "default": "ignore",
+    "description": "Action to take when lid is closed while docked/externally powered (overrides HandleLidSwitch). In shipped default, HandleLidSwitchExternalPower defaults to 'suspend'; HandleLidSwitchDocked defaults to 'ignore'. Here we follow shipped default comments.",
+    "enum": [
+      "ignore",
+      "poweroff",
+      "reboot",
+      "halt",
+      "kexec",
+      "suspend",
+      "hibernate",
+      "hybrid-sleep",
+      "suspend-then-hibernate",
+      "lock",
+      "factory-reset"
+    ]
   },
   "remove_ipc": {
     "type": "string",
     "default": "yes",
-    "description": "Whether to remove user IPC objects (shared memory, etc.) on logout. Accepts: yes, no, on-last-log"
-  },
-  "user_tasks_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of tasks (threads/processes) allowed per user (0 = system default)"
-  },
-  "session_tasks_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of tasks allowed per user session (0 = system default)"
-  },
-  "user_inotify_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of inotify watches per user (0 = system default)"
-  },
-  "user_audit_msg_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of audit messages per user (0 = system default)"
-  },
-  "user_seccomp_filter_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of seccomp actions per user (0 = system default)"
-  },
-  "linger": {
-    "type": "string",
-    "default": "no",
-    "description": "Whether to enable linger mode (allow user services to run after logout). Accepts: yes, no"
-  },
-  "linger_timeout": {
-    "type": "number",
-    "default": 0,
-    "description": "Timeout (in seconds) before auto-disabling linger (0 = no timeout)"
-  },
-  "runtime_directory_size": {
-    "type": "number",
-    "default": 0,
-    "description": "Size limit (in bytes) for user runtime directories (e.g., /run/user/UID). 0 = system default"
-  },
-  "runtime_directory_inodes_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of inodes allowed in user runtime directories"
-  },
-  "cache_directory_size": {
-    "type": "number",
-    "default": 0,
-    "description": "Size limit (in bytes) for user cache directories (0 = system default)"
-  },
-  "cache_directory_inodes_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of inodes allowed in user cache directories"
-  },
-  "runtime_directory_mode": {
-    "type": "string",
-    "default": "0755",
-    "description": "Permissions mode (octal) for user runtime directories"
-  },
-  "cache_directory_mode": {
-    "type": "string",
-    "default": "0700",
-    "description": "Permissions mode (octal) for user cache directories"
-  },
-  "config_directory_mode": {
-    "type": "string",
-    "default": "0700",
-    "description": "Permissions mode (octal) for user config directories"
-  },
-  "idle_action": {
-    "type": "string",
-    "default": "none",
-    "description": "Action to take when user session is idle. Accepts: none, poweroff, reboot, halt, kexec, suspend, hibernate, hybrid-sleep, suspend-hybrid, shutdown"
-  },
-  "idle_action_sec": {
-    "type": "number",
-    "default": 300,
-    "description": "Number of seconds of inactivity before triggering IdleAction"
-  },
-  "wall_message": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to send wall messages when a user logs in or out"
-  },
-  "enable_session_tracking": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to enable session tracking (required for most logind features)"
-  },
-  "enable_seat_tracking": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to enable seat tracking"
-  },
-  "multi_seat": {
-    "type": "string",
-    "default": "no",
-    "description": "Whether to enable multi-seat support"
-  },
-  "user_switching": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to allow users to switch between sessions"
-  },
-  "automatic_login": {
-    "type": "string",
-    "default": "no",
-    "description": "Whether to enable automatic login on seat activation"
-  },
-  "automatic_login_timeout": {
-    "type": "number",
-    "default": 0,
-    "description": "Timeout (in seconds) for automatic login (0 = no timeout)"
-  },
-  "remote": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to allow remote logins (e.g., SSH)"
-  },
-  "local": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to allow local logins (e.g., console)"
-  },
-  "vt_switch": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to allow switching between VTs (e.g., Ctrl+Alt+F1)"
-  },
-  "vt_activate": {
-    "type": "string",
-    "default": "yes",
-    "description": "Whether to activate sessions automatically on VT switch"
+    "description": "Whether to remove user IPC objects (shared memory, etc.) on logout. Accepts: yes, no, on-last-log",
+    "enum": [
+      "yes",
+      "no"
+    ]
   }
 }

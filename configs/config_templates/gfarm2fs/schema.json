@@ -1,0 +1,12 @@
+{
+  "gfarm2fs_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of gfarm2fs-specific mount options and values. Each item has 'key' and optionally 'value'. If 'value' is absent, option is treated as boolean flag (no =value suffix). See manpage section GFARM2FS OPTIONS for valid keys and defaults. Default values from manpage are *not* applied here; template only emits values when explicitly set in input data (to avoid accidental overrides). Keys without value must be included with empty or null value in config if used, e.g., {\"key\": \"disable_genuine_nlink\", \"value\": \"\"}. Note: gfs_stat_timeout is aliased to -E (attribute cache timeout), but documented separately in manpage; both are emitted as -o keys here for clarity and consistency with manpage naming. The timeout keys (E/gfs_stat_timeout) expect T in seconds (float). copy_limit and ncopy expect integer N. auto_uid/gid_min/max expect integer N. syslog expects facility name; loglevel expects priority name. directory_quota_rename_error_exdev, disable_genuine_nlink are boolean flags (no value). auto_* settings may require temporal UID/GID allocation (see SECURITY NOTES). All settings map directly to documented gfarm2fs(1) options (GFARM2FS OPTIONS section)."
+  },
+  "fuse_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of FUSE-specific mount options. Each item has 'key' and optional 'value' (string/number/bool). Keys must be valid FUSE options (e.g., ro, suid, allow_other, default_permissions, allow_root, uid, gid, mode, umask). See `gfarm2fs -h` for full list. Note: -o suid,allow_other is explicitly warned in SECURITY NOTES when used with untrusted gfarm_root.{user,group} extended attributes; avoid in multi-user or untrusted environments. If a FUSE option has no argument (e.g., ro), omit 'value'."
+  }
+}

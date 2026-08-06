@@ -1,0 +1,221 @@
+# =============================================================================
+# btrbk (Btrfs Backup) Configuration Template
+# =============================================================================
+#
+# This file configures btrbk to manage incremental backups of Btrfs snapshots.
+# It supports both simple single-target backups and complex multi-target/remote
+# configurations using volume and subvolume sections.
+#
+# Reference: btrbk.conf(5)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+
+# Enable transaction logging to track btrbk operations for debugging.
+# Writes a log of operations to the specified file.
+# If empty or not specified, no transaction log is maintained.
+transaction_log {{ sample_values_transaction_log | default('/var/log/btrbk.log') }}
+
+# Specify the SSH private key used for authenticating to remote hosts.
+# Used for remote backup targets or remote volume sources.
+# Must be readable by the user running btrbk.
+ssh_identity {{ sample_values_ssh_identity | default('/etc/btrbk/ssh/id_ed25519') }}
+
+# SSH user to connect as on remote hosts.
+# Overrides the current system user when connecting to remote targets/volumes via SSH.
+ssh_user {{ sample_values_ssh_user | default('root') }}
+
+# User account to run local btrfs-progs commands via sudo (if not running as root).
+# btrbk will use `sudo -u <user> btrfs ...` to execute local commands.
+# Leave empty to run local commands as the current user.
+backend_local_user {{ sample_values_backend_local_user | default('') }}
+
+# Enable stream buffering for remote transfers to smooth out network latency.
+# Requires the 'mbuffer' package to be installed.
+# Value is a size with optional unit suffix (e.g., '256m', '1g').
+# Leave empty to disable mbuffer usage.
+stream_buffer {{ sample_values_stream_buffer | default('') }}
+
+# Default directory where Btrfs snapshots are created, relative to the volume root.
+# btrbk does not create this directory automatically; it must exist.
+# Can be overridden per volume or subvolume block.
+snapshot_dir {{ sample_values_snapshot_dir | default('_btrbk_snap') }}
+
+# -----------------------------------------------------------------------------
+# Retention Policies
+# -----------------------------------------------------------------------------
+# These global policies apply unless overridden in specific subvolume/target sections.
+# Format: <N>h (hours), <N>d (days), <N>w (weeks), <N>m (months), <N>y (years).
+# Use '*' to preserve indefinitely (e.g., '*m' keeps all monthly snapshots).
+
+# Minimum time to keep source snapshots (e.g., 2d keeps snapshots for at least 2 days).
+# Snapshots newer than this age are never removed.
+snapshot_preserve_min {{ sample_values_snapshot_preserve_min | default('2d') }}
+
+# Retention policy for source snapshots (e.g., 14d keeps up to 14 days of snapshots).
+# Defines how many snapshots to keep based on time intervals.
+snapshot_preserve {{ sample_values_snapshot_preserve | default('14d') }}
+
+# Minimum time to keep backup targets (e.g., no = no minimum).
+# Backups newer than this age are never removed.
+target_preserve_min {{ sample_values_target_preserve_min | default('no') }}
+
+# Retention policy for backup targets (e.g., 20d 10w *m keeps daily, weekly, and all monthly targets).
+# Defines how many backup targets to keep based on time intervals.
+target_preserve {{ sample_values_target_preserve | default('20d 10w *m') }}
+
+# -----------------------------------------------------------------------------
+# Simple Setup
+# -----------------------------------------------------------------------------
+# Backup the root filesystem (/) and /home to an external disk or local mount point.
+# This is a flat configuration without explicit 'volume' blocks, relying on global snapshot_dir.
+
+# Target directory for the simple setup backup.
+# Can be a local path or an SSH URL (ssh://user@host/path).
+target {{ sample_values_simple_setup_target | default('/mnt/btr_backup') }}
+
+# Subvolume to backup: Root filesystem.
+# Specifies which btrfs subvolume to include in the backup.
+subvolume /
+
+# Subvolume to backup: Home directory.
+subvolume /home
+
+# -----------------------------------------------------------------------------
+# Complex Setup
+# -----------------------------------------------------------------------------
+# Uses explicit 'volume' blocks to organize backups by Btrfs mount points.
+# Recommended for systems with multiple logical datasets or complex retention needs.
+
+# Volume: Root pool (e.g., /mnt/btr_pool)
+# Defines a Btrfs volume (mount point) and its associated backup settings.
+# For remote volumes, use ssh://host/path syntax.
+volume {{ sample_values_complex_volume_root | default('/mnt/btr_pool') }}
+
+  # Snapshot directory relative to the volume root.
+  # Overrides the global snapshot_dir for this volume.
+  snapshot_dir {{ sample_values_complex_snapshot_dir | default('btrbk_snapshots') }}
+
+  # Default target for all subvolumes in this volume section.
+  # Can be overridden per subvolume block.
+  target {{ sample_values_complex_target | default('/mnt/btr_backup') }}
+
+  # Subvolumes to backup within this volume.
+  # Each subvolume line adds another subvolume to the backup set for this volume.
+  subvolume root
+  subvolume home
+
+  # Subvolume: KVM virtual machines.
+  subvolume kvm
+    # Override retention for KVM backups: keep for 7 days and 4 weeks.
+    # These override the global retention policies for this specific subvolume.
+    target_preserve 7d 4w
+
+# -----------------------------------------------------------------------------
+# Data Volume: Local and Remote Targets
+# -----------------------------------------------------------------------------
+# Backup data volume to both a local external disk and a remote SSH host.
+
+# Volume: Data pool
+volume {{ sample_values_volume_data | default('/mnt/btr_data') }}
+
+  # Subvolume: Data
+  subvolume {{ sample_values_subvolume_data | default('data') }}
+    # Always create snapshots, even if remote targets are unreachable.
+    # Options: always, auto (default), no.
+    snapshot_create always
+
+    # Local backup target.
+    # Can be specified multiple times for multiple targets per subvolume.
+    target {{ sample_values_target_data_local | default('/mnt/btr_backup') }}
+
+    # Remote backup target (SSH URL).
+    # Format: ssh://[user@]host[:port]/path
+    target {{ sample_values_target_data_remote | default('ssh://backup.my-remote-host.com/mnt/btr_backup') }}
+
+# -----------------------------------------------------------------------------
+# Remote Volume: Backup from Remote Host
+# -----------------------------------------------------------------------------
+# Back up a subvolume located on a remote host.
+# btrbk connects to the remote host via SSH to receive snapshots.
+
+# Volume: Remote host data pool
+# The URL specifies the remote host and path where snapshots exist.
+volume {{ sample_values_volume_remote | default('ssh://my-remote-host.com/mnt/btr_pool') }}
+
+  # Subvolume to backup on the remote host.
+  subvolume {{ sample_values_subvolume_remote | default('data_0') }}
+
+  # Custom snapshot name for the remote backup.
+  # Used to identify the snapshot during receive operations.
+  snapshot_name {{ sample_values_snapshot_name_remote | default('data_main') }}
+
+  # Snapshot directory relative to the remote volume root.
+  # Where the remote btrbk created the snapshots.
+  snapshot_dir {{ sample_values_snapshot_dir_remote | default('snapshots/btrbk') }}
+
+  # Target for the received backup on the local machine.
+  # Where the received data will be stored locally.
+  target {{ sample_values_target_remote | default('/mnt/btr_backup/my-remote-host.com') }}
+
+# -----------------------------------------------------------------------------
+# On-Demand Backup (Noauto)
+# -----------------------------------------------------------------------------
+# Backup on-demand volumes that are mounted only when needed (e.g., via fstab noauto).
+# Configured for a BusyBox environment (common in embedded/remote systems).
+
+# Volume: Home on-demand
+volume {{ sample_values_volume_home | default('/home') }}
+
+  # Do not automatically mount; requires manual mount or trigger.
+  # Prevents btrbk from trying to mount the volume if it's not currently mounted.
+  noauto yes
+
+  # Compatibility mode for BusyBox SSH environments.
+  # Disables features not supported by BusyBox tools (e.g., certain stat calls).
+  compat busybox
+
+  # Backend command set for remote host.
+  # Specifies the command prefix for running btrfs commands on the remote host.
+  # 'btrfs-progs-sudo' implies sudo usage for local-like execution.
+  backend_remote btrfs-progs-sudo
+
+  # Do not use ssh_user/identity; rely on agent or key-based auth for current user.
+  # Setting to 'no' disables user/identity overrides for this volume.
+  ssh_user no
+  ssh_identity no
+
+  # Remote target for the on-demand backup.
+  target {{ sample_values_target_home_remote | default('ssh://my-user-host.com/mnt/btr_backup/home') }}
+
+  # Subvolumes to backup (e.g., user home directories).
+  subvolume {{ sample_values_subvolume_alice | default('alice') }}
+  subvolume {{ sample_values_subvolume_bob | default('bob') }}
+
+# -----------------------------------------------------------------------------
+# Resume Backup from Remote Host
+# -----------------------------------------------------------------------------
+# Backup from a remote host that manages its own snapshots (snapshot_create no).
+# This setup assumes the remote host runs btrbk to create snapshots, and this
+# instance receives them.
+
+# Volume: Remote home pool for resume
+volume {{ sample_values_volume_remote_home | default('ssh://my-remote-host.com/mnt/btr_pool') }}
+
+  # Snapshot directory on the remote host where snapshots exist.
+  snapshot_dir {{ sample_values_snapshot_dir_remote_home | default('btrbk_snapshots') }}
+
+  # Do not create snapshots locally; receive existing ones.
+  # The remote side is responsible for snapshot creation.
+  snapshot_create no
+
+  # Preserve all received snapshots indefinitely.
+  # Prevents this local btrbk instance from deleting received snapshots.
+  snapshot_preserve_min all
+
+  # Subvolume: Home
+  subvolume home
+    # Local target for the resumed backup.
+    target {{ sample_values_target_remote_home | default('/mnt/btr_backup/my-remote-host.com') }}

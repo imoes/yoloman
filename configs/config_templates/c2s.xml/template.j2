@@ -1,49 +1,104 @@
 <?xml version="1.0"?>
 <!-- Main configuration for jabberd2 c2s (client-to-server) component -->
+<!-- This template is self-documenting: every directive is preceded by its schema description.
+     All variables use explicit defaults from the schema to prevent render failures when undefined. -->
 <conf name="c2s" mode="config">
   <!-- Network settings for listening client connections -->
-  <port>{{ listen_port }}</port>
-  <host>{{ listen_host }}</host>
+  
+  <!-- Port on which c2s listens for client connections. -->
+  <port>{{ (listen_port | default(5222)) | string }}</port>
+  
+  <!-- IP address or hostname to bind the listener to. -->
+  <host>{{ (listen_host | default('0.0.0.0')) | string }}</host>
   
   <!-- TLS/SSL settings for secure client connections -->
   <tls>
-    <enabled>{{ tls_enabled }}</enabled>
-    <cert-file>{{ tls_cert_file }}</cert-file>
-    <key-file>{{ tls_key_file }}</key-file>
-    {% if tls_ca_file %}<ca-file>{{ tls_ca_file }}</ca-file>{% endif %}
-    <verify-mode>{{ tls_verify_mode }}</verify-mode>
+    <!-- Enable TLS encryption for client connections. -->
+    <enabled>{{ (tls_enabled | default(true)) | lower }}</enabled>
+    
+    <!-- Path to the server certificate file for TLS. -->
+    <cert-file>{{ (tls_cert_file | default('/etc/jabberd2/server.pem')) | string }}</cert-file>
+    
+    <!-- Path to the server private key file for TLS (can be same as cert file). -->
+    <key-file>{{ (tls_key_file | default('/etc/jabberd2/server.pem')) | string }}</key-file>
+    
+    {% if (tls_ca_file | default('')) != '' %}
+    <!-- Optional: Path to CA certificate bundle for client cert verification. -->
+    <ca-file>{{ (tls_ca_file | default('')) | string }}</ca-file>
+    {% endif %}
+    
+    <!-- Level of client certificate verification (none, request, require, optional). -->
+    <verify-mode>{{ (tls_verify_mode | default('optional')) | string }}</verify-mode>
   </tls>
 
   <!-- Connection limits and timeouts -->
-  <max-connections>{{ max_connections }}</max-connections>
-  <idle-timeout>{{ idle_timeout }}</idle-timeout>
-  <auth-timeout>{{ auth_timeout }}</auth-timeout>
+  
+  <!-- Maximum number of simultaneous client connections allowed. -->
+  <max-connections>{{ (max_connections | default(1024)) | string }}</max-connections>
+  
+  <!-- Seconds of inactivity before disconnecting a client. -->
+  <idle-timeout>{{ (idle_timeout | default(120)) | string }}</idle-timeout>
+  
+  <!-- Seconds allowed for a client to complete authentication. -->
+  <auth-timeout>{{ (auth_timeout | default(60)) | string }}</auth-timeout>
 
   <!-- Authentication backends -->
   <auth>
-    <backend>{{ auth_backend }}</backend>
-    {% if auth_backend == 'mysql' %}
+    <!-- Authentication backend: 'local' for internal user DB, 'mysql' or 'ldap' for external. -->
+    <backend>{{ (auth_backend | default('local')) | string }}</backend>
+    
+    {% if (auth_backend | default('local')) == 'mysql' %}
     <!-- MySQL authentication backend settings -->
     <mysql>
-      <host>{{ mysql_host }}</host>
-      <port>{{ mysql_port }}</port>
-      <user>{{ mysql_user }}</user>
-      <pass>{{ mysql_pass }}</pass>
-      <db>{{ mysql_db }}</db>
-      <table>{{ mysql_table }}</table>
-      <user-field>{{ mysql_user_field }}</user-field>
-      <pass-field>{{ mysql_pass_field }}</pass-field>
+      <!-- MySQL server hostname or IP. -->
+      <host>{{ (mysql_host | default('localhost')) | string }}</host>
+      
+      <!-- MySQL server port. -->
+      <port>{{ (mysql_port | default(3306)) | string }}</port>
+      
+      <!-- MySQL user for Jabberd. -->
+      <user>{{ (mysql_user | default('jabberd')) | string }}</user>
+      
+      <!-- MySQL password for the user (use secure storage). -->
+      <pass>{{ (mysql_pass | default('')) | string }}</pass>
+      
+      <!-- MySQL database name. -->
+      <db>{{ (mysql_db | default('jabberd')) | string }}</db>
+      
+      <!-- Table containing user records. -->
+      <table>{{ (mysql_table | default('users')) | string }}</table>
+      
+      <!-- Column name storing the username. -->
+      <user-field>{{ (mysql_user_field | default('username')) | string }}</user-field>
+      
+      <!-- Column name storing the (hashed) password. -->
+      <pass-field>{{ (mysql_pass_field | default('password')) | string }}</pass-field>
     </mysql>
-    {% elif auth_backend == 'ldap' %}
+    
+    {% elif (auth_backend | default('local')) == 'ldap' %}
     <!-- LDAP authentication backend settings -->
     <ldap>
-      <uri>{{ ldap_uri }}</uri>
-      <binddn>{{ ldap_binddn }}</binddn>
-      {% if ldap_bindpass %}<bindpass>{{ ldap_bindpass }}</bindpass>{% endif %}
-      <basedn>{{ ldap_basedn }}</basedn>
-      <scope>{{ ldap_scope }}</scope>
-      <filter>{{ ldap_filter }}</filter>
+      <!-- LDAP server URI (e.g., ldap://host/ or ldaps://host/). -->
+      <uri>{{ (ldap_uri | default('ldap://localhost/')) | string }}</uri>
+      
+      <!-- DN to bind as for user lookups. -->
+      <binddn>{{ (ldap_binddn | default('cn=admin,dc=example,dc=com')) | string }}</binddn>
+      
+      {% if (ldap_bindpass | default('')) != '' %}
+      <!-- Password for bind DN (use secure storage). -->
+      <bindpass>{{ (ldap_bindpass | default('')) | string }}</bindpass>
+      {% endif %}
+      
+      <!-- Base DN to search for users. -->
+      <basedn>{{ (ldap_basedn | default('ou=users,dc=example,dc=com')) | string }}</basedn>
+      
+      <!-- LDAP search scope: base, one, or sub. -->
+      <scope>{{ (ldap_scope | default('sub')) | string }}</scope>
+      
+      <!-- LDAP search filter; %u is replaced by the username. -->
+      <filter>{{ (ldap_filter | default('(uid=%u)')) | string }}</filter>
     </ldap>
+    
     {% else %}
     <!-- Default (local) auth backend uses jabberd’s internal user store -->
     <local/>
@@ -52,30 +107,46 @@
 
   <!-- Resource limits for per-user sessions -->
   <quota>
-    <sessions-per-user>{{ quota_sessions_per_user }}</sessions-per-user>
-    <messages-per-minute>{{ quota_messages_per_minute }}</messages-per-minute>
+    <!-- Maximum concurrent sessions allowed per user. -->
+    <sessions-per-user>{{ (quota_sessions_per_user | default(3)) | string }}</sessions-per-user>
+    
+    <!-- Maximum number of messages a user can send per minute. -->
+    <messages-per-minute>{{ (quota_messages_per_minute | default(60)) | string }}</messages-per-minute>
   </quota>
 
   <!-- Logging configuration -->
   <log>
-    <file>{{ log_file }}</file>
-    <level>{{ log_level }}</level>
+    <!-- Path to the c2s log file. -->
+    <file>{{ (log_file | default('/var/log/jabberd/c2s.log')) | string }}</file>
+    
+    <!-- Minimum log level to record. -->
+    <level>{{ (log_level | default('warn')) | string }}</level>
   </log>
 
   <!-- Optional: Rate-limiting rules (list of rate-limit entries) -->
-  {% for rule in rate_limit_rules %}
+  <!-- List of rate-limiting rules to apply to incoming stanzas. -->
+  {% for rule in (rate_limit_rules | default([])) %}
   <ratelimit>
-    <type>{{ rule.type }}</type>
-    <max>{{ rule.max }}</max>
-    <interval>{{ rule.interval }}</interval>
+    <!-- Rule type (e.g., 'per_minute', 'per_second'). -->
+    <type>{{ (rule.type | default('')) | string }}</type>
+    
+    <!-- Maximum count for the rule. -->
+    <max>{{ (rule.max | default(0)) | string }}</max>
+    
+    <!-- Time interval in seconds. -->
+    <interval>{{ (rule.interval | default(0)) | string }}</interval>
   </ratelimit>
   {% endfor %}
 
   <!-- Optional: Access control rules (list of ACL entries) -->
-  {% for acl in acls %}
+  <!-- List of access control rules (e.g., block specific JIDs). -->
+  {% for acl in (acls | default([])) %}
   <acl>
-    <action>{{ acl.action }}</action>
-    <match>{{ acl.match }}</match>
+    <!-- Action to take ('allow' or 'deny'). -->
+    <action>{{ (acl.action | default('allow')) | string }}</action>
+    
+    <!-- Match criteria (JID pattern, IP, etc.). -->
+    <match>{{ (acl.match | default('')) | string }}</match>
   </acl>
   {% endfor %}
 </conf>

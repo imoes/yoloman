@@ -47,7 +47,11 @@
   "sm_mode": {
     "type": "string",
     "default": "master",
-    "description": "Mode of operation: 'master' (primary SM), 'backup' (standby), or 'standalone' (no peer)"
+    "description": "Mode of operation: 'master' (primary SM), 'backup' (standby), or 'standalone' (no peer)",
+    "enum": [
+      "master",
+      "standalone"
+    ]
   },
   "split_mode": {
     "type": "bool",
@@ -97,20 +101,12 @@
   "excluded_ports": {
     "type": "list",
     "default": [],
-    "description": "List of port GUIDs or numbers to exclude from SM management",
-    "items": {
-      "type": "string",
-      "description": "Port identifier (GUID in hex or port number)"
-    }
+    "description": "List of port GUIDs or numbers to exclude from SM management"
   },
   "included_ports": {
     "type": "list",
     "default": [],
-    "description": "List of ports to include when IncludePortsOnly is true",
-    "items": {
-      "type": "string",
-      "description": "Port identifier (GUID in hex or port number)"
-    }
+    "description": "List of ports to include when IncludePortsOnly is true"
   },
   "include_ports_only": {
     "type": "bool",
@@ -130,114 +126,15 @@
   "database_sync_interval": {
     "type": "number",
     "default": 300,
-    "description": "Seconds between automatic database syncs"
+    "description": "Seconds between database syncs"
   },
-  "optimize_lid_allocation": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable efficient LID allocation (recommended for fabrics with >256 nodes)"
-  },
-  "optimize_guid_allocation": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable GUID allocation optimizations"
-  },
-  "sam_extensions": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Subnet Address Manager (SAM) extensions for advanced routing"
-  },
-  "isert": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable iSER over RDMA (RoCE) support (experimental)"
-  },
-  "ipoib": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable IP over InfiniBand (IPoIB) interface management"
-  },
-  "ipoib_mtu": {
-    "type": "number",
-    "default": 65520,
-    "description": "Default MTU for IPoIB interfaces (1024, 2048, 4096, or 65520 for jumbo)"
-  },
-  "ipoib_ipv6": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable IPv6 support on IPoIB interfaces"
-  },
-  "ipoib_ipv6_mtu": {
-    "type": "number",
-    "default": 65520,
-    "description": "MTU for IPv6 IPoIB interfaces"
-  },
-  "ipoib_gid_index": {
-    "type": "bool",
-    "default": true,
-    "description": "Select GID index per subnet for multi-GID interfaces"
-  },
-  "ipoib_interfaces": {
-    "type": "list",
-    "default": [],
-    "description": "List of IPoIB interface names to configure (e.g., ['ib0', 'ib1'])",
-    "items": {
-      "type": "string",
-      "description": "Interface name"
-    }
-  },
-  "multicast_forward": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable SM-controlled multicast forwarding"
-  },
-  "multicast_forward_policy": {
+  "ports": {
     "type": "string",
-    "default": "limited",
-    "description": "Policy for multicast group membership: 'all' (forward all), 'limited' (only registered), or 'none'"
-  },
-  "max_mcast_groups": {
-    "type": "number",
-    "default": 16384,
-    "description": "Maximum number of multicast groups to track"
-  },
-  "trap_forward": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable forwarding of SM traps (e.g., link down/up events)"
-  },
-  "trap_destinations": {
-    "type": "list",
-    "default": [],
-    "description": "List of destinations for trap forwarding (IP or hostname:port)",
-    "items": {
-      "type": "string",
-      "description": "Destination in format 'ip:port' or 'hostname:port'"
-    }
-  },
-  "event_notification": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable external event notifications via script"
-  },
-  "event_handler": {
-    "type": "string",
-    "default": "/usr/local/bin/opensm-event-handler.sh",
-    "description": "Script to invoke for SM events (requires EventNotification=true)"
-  },
-  "snmp": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable SNMP monitoring (requires opensm-snmp plugin)"
-  },
-  "snmp_community": {
-    "type": "string",
-    "default": "public",
-    "description": "SNMP community string for read access"
-  },
-  "snmp_port": {
-    "type": "number",
-    "default": 10161,
-    "description": "SNMP agent listen port"
+    "default": "ALL",
+    "description": "List of port GUIDs (in hex) or special value 'ALL'/'NONE' to control which ports opensm starts on",
+    "enum": [
+      "ALL",
+      "NONE"
+    ]
   }
 }

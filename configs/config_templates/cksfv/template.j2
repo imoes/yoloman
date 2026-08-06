@@ -1,0 +1,25 @@
+# cksfv configuration for verification mode (SFV checksum validation)
+# This file drives batch verification operations via cksfv(1).
+# Each item in the 'items' list corresponds to one command-line invocation.
+# cksfv does not have a single global config file; instead, it processes
+# one or more invocations, each potentially having different options and arguments.
+#
+# Each item supports the following keys (matching cksfv(1) options):
+#   - option: The short flag to use (e.g., '-b', '-c', '-i', '-L', '-q', '-v', '-r', '-R').
+#   - value: Optional argument for flags that take one (-C, -f, -g).
+#   - description: A comment line describing the invocation.
+
+{% for item in items | default([], true) %}
+# {{ item.description | default('Unnamed verification task') }}
+{% if item.option | default('') == '-b' %}-b{% endif %}
+{% if item.option | default('') == '-c' %}-c{% endif %}
+{% if item.option | default('') == '-i' %}-i{% endif %}
+{% if item.option | default('') == '-L' %}-L{% endif %}
+{% if item.option | default('') == '-q' %}-q{% endif %}
+{% if item.option | default('') == '-v' %}-v{% endif %}
+{% if item.option | default('') == '-r' %}-r{% endif %}
+{% if item.option | default('') == '-R' %}-R{% endif %}
+{% if item.option | default('') == '-C' and item.value is defined %}-C {{ item.value }}{% endif %}
+{% if item.option | default('') == '-f' and item.value is defined %}-f {{ item.value }}{% endif %}
+{% if item.option | default('') == '-g' and item.value is defined %}-g {{ item.value }}{% endif %}
+{% endfor %}

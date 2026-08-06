@@ -1,131 +1,17 @@
 {
-  "bmc_host": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address or hostname of the Baseboard Management Controller (BMC)."
-  },
-  "bmc_interface": {
-    "type": "string",
-    "default": "lanplus",
-    "description": "IPMI interface type to use. Common values: 'lan', 'lanplus' (for RMCP+), 'kcs' (kernel channel interface), 'serial' (for serial over LAN)."
-  },
-  "bmc_username": {
-    "type": "string",
-    "default": "admin",
-    "description": "Username for BMC authentication. Avoid hardcoding in production; consider using IPMI_PASSPHRASE_FILE instead."
-  },
-  "bmc_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for BMC authentication. For security, leave blank and use IPMI_PASSPHRASE_FILE. Required if no passphrase file is used."
-  },
-  "session_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum time (in seconds) to wait for a response from the BMC before timing out."
-  },
-  "retransmit_retries": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of times to retransmit a request before aborting."
-  },
-  "enable_encryption": {
+  "enable_ipmievd": {
     "type": "bool",
     "default": true,
-    "description": "Enable or disable payload encryption for LAN Plus (RMCP+) sessions. Recommended for security."
+    "description": "Whether the ipmievd daemon should be started on boot (maps to ENABLED variable in init script)."
   },
-  "auth_type": {
+  "ipmievd_options": {
     "type": "string",
-    "default": "md5",
-    "description": "Authentication algorithm to use. Options: 'none', 'md2', 'md5', 'straight', 'oem'. MD5 is recommended for most cases."
+    "default": "open daemon",
+    "description": "Options passed to ipmievd (e.g., 'open daemon' or 'sel daemon')."
   },
-  "serial_device": {
-    "type": "string",
-    "default": "/dev/ttyS0",
-    "description": "Serial device path (e.g., /dev/ttyS0). Only used when interface is 'serial'."
-  },
-  "serial_baud": {
-    "type": "number",
-    "default": 115200,
-    "description": "Serial baud rate. Only used when interface is 'serial'. Common values: 9600, 19200, 38400, 57600, 115200."
-  },
-  "cipher_suites": {
-    "type": "list",
-    "default": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15
-    ],
-    "description": "List of allowed cipher suite IDs for IPMI v2.0 RMCP+ encryption. Each integer corresponds to a specific cipher. Common: [0]=null, [1]=aes-cbc-128, [2]=aes-cbc-128-icv, etc."
-  },
-  "bmc_realm": {
+  "reqmodules": {
     "type": "string",
     "default": "",
-    "description": "Optional realm string for RAKP authentication (IPMI 2.0). Leave blank for default."
-  },
-  "bmc_mac": {
-    "type": "string",
-    "default": "",
-    "description": "Optional MAC address of the BMC LAN interface. Needed for certain OEM boot options."
-  },
-  "extra_bcms": {
-    "type": "list",
-    "default": [],
-    "description": "List of additional BMCs to configure (e.g., for redundant BMCs or multiple chassis). Each entry is an object.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Friendly name for this BMC (e.g., 'bmc2')."
-      },
-      "host": {
-        "type": "string",
-        "default": "",
-        "description": "IP or hostname of this BMC."
-      },
-      "username": {
-        "type": "string",
-        "default": "",
-        "description": "Username for this BMC."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for this BMC. Prefer passphrase files in production."
-      },
-      "interface": {
-        "type": "string",
-        "default": "lan",
-        "description": "IPMI interface for this BMC (e.g., 'lan', 'lanplus')."
-      },
-      "auth_type": {
-        "type": "string",
-        "default": "md5",
-        "description": "Authentication type (e.g., 'none', 'md5')."
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable or disable this BMC entry."
-      },
-      "index": {
-        "type": "number",
-        "default": 1,
-        "description": "Numeric index suffix for config variables (e.g., IPMI_HOST_1). Must be unique per BMC."
-      }
-    }
+    "description": "Space-separated list of kernel modules to load before starting ipmievd (maps to REQMODULES variable)."
   }
 }

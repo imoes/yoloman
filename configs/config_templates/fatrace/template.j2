@@ -1,0 +1,23 @@
+# fatrace command-line options
+# This template generates the command-line arguments for the fatrace utility.
+# fatrace monitors filesystem access (reads, writes, opens, etc.).
+# All variables are expected to be provided by the Ansible inventory or role defaults.
+# Use the provided defaults (| default(...)) to ensure safe rendering even if a variable is unset.
+
+{% if timestamp | default(0) %}
+  --timestamp{% if timestamp | default(0) == 2 %} --timestamp{% endif %}
+{% endif %}
+
+{% if current_mount | default(False) %}  --current-mount{% endif %}
+
+{% if output_file | default('') %}  --output="{{ output_file | default('') | string }}"{% endif %}
+
+{% if timeout | default(0) > 0 %}  --seconds="{{ timeout | default(0) | int }}"{% endif %}
+
+{% if user_info | default(False) %}  --user{% endif %}
+
+{% for pid in (ignore_pids | default([])) %}  --ignore-pid="{{ pid | string }}"{% endfor %}
+
+{% if (filter_types | default([])) | length > 0 %}  --filter="{{ (filter_types | default([])) | join('') }}"{% endif %}
+
+{% if command_filter | default('') %}  --command="{{ command_filter | default('') | string }}"{% endif %}

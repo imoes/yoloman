@@ -1,61 +1,173 @@
-{# Carbon-C-Relay configuration file — controls routing, aggregation, and clustering #}
-{# Listen on specified IP:port for incoming Graphite line protocol data #}
-listen on {{ listen_interface }}:{{ listen_port }}
-{# Number of worker threads; set to 0 for automatic (usually number of CPUs) #}
-workers {{ workers }}
-{# Maximum queue size per worker before dropping metrics (0 = unlimited) #}
-queuesize {{ queue_size }}
-{# Disable connection logging to syslog/stdout #}
-{% if not debug %}
+{# ==============================================================================
+   Carbon-C-Relay Configuration Template
+   ==============================================================================
+   This template generates the main configuration file for Carbon-C-Relay, a high-performance
+   relay for the Graphite metrics collection system. It handles routing, aggregation,
+   consistent-hashing, and clustering of metrics to backend Graphite/InfluxDB/TimescaleDB
+   servers.
+
+   Key features:
+   - Binds to a network interface/port for incoming line-protocol metrics.
+   - Configures worker threads, queue sizes, and process priority.
+   - Defines clusters of backend servers with replication and hashing strategies.
+   - Defines routing rules to match metrics and send them to appropriate clusters or hosts.
+   - Optionally exports internal statistics.
+
+   Self-documenting: Every directive is preceded by a comment explaining its schema default
+   and purpose. Variables use safe defaults to prevent render errors if optional fields are
+   omitted.
+   #}
+
+{# ==============================================================================
+   Global Settings
+   #}
+
+{# listen_interface: Network interface/IP to bind for incoming Graphite line protocol connections
+   Default: '0.0.0.0' (all interfaces)
+   listen_port: Port number to listen on for incoming metrics
+   Default: 2003 (standard Graphite port) #}
+listen on {{ listen_interface | default('0.0.0.0') }}:{{ listen_port | default(2003) }}
+
+{# workers: Number of worker threads (0 = auto-detect CPU count)
+   Default: 0 #}
+workers {{ workers | default(0) }}
+
+{# queue_size: Maximum queue size per worker before dropping metrics (0 = unlimited)
+   Default: 0 #}
+queuesize {{ queue_size | default(0) }}
+
+{# debug: If true, enables connection logging; if false, suppresses logging
+   Default: False #}
+{% if debug | default(False) %}
+{# Enable connection logging for debugging #}
+{% else %}
+{# Disable connection logging to syslog/stdout for production performance #}
 disconnect
 {% endif %}
-{# Optional: set process priority (nice value) #}
-{% if nice is defined and nice != 0 %}
-nice {{ nice }}
+
+{# nice: Process priority adjustment (nice value); negative = higher priority
+   Default: 0 #}
+{% if nice | default(0) != 0 %}
+nice {{ nice | default(0) }}
 {% endif %}
-{# Optional: set PID file path #}
-{% if pidfile is defined and pidfile != '' %}
-pidfile {{ pidfile }}
+
+{# pidfile: Path to PID file; empty string disables PID file creation
+   Default: '/var/run/carbon-c-relay.pid' #}
+{% if pidfile | default('/var/run/carbon-c-relay.pid') != '' %}
+pidfile {{ pidfile | default('/var/run/carbon-c-relay.pid') }}
 {% endif %}
-{# Optional: set service name for systemd (affects log tagging) #}
-{% if service_name is defined and service_name != '' %}
-servicename {{ service_name }}
+
+{# service_name: Optional service name used in syslog tags (e.g., 'graphite-relay')
+   Default: '' #}
+{% if service_name | default('') != '' %}
+servicename {{ service_name | default('') }}
 {% endif %}
-{# Define cluster destinations with replication and consistent-hashing #}
-{% for cluster in clusters %}
-{# {{ cluster.name }}: cluster of backend servers, {{ cluster.replication }}x replication, hash by metric name #}
+
+{# ==============================================================================
+   Clusters
+   #}
+{# clusters: List of cluster definitions for routing metrics to backend Graphite servers
+   Default: [] (empty list, must be defined by user or role)
+   Each cluster defines a group of backend servers.
+   Structure per cluster:
+   - name: (string) Unique identifier for this cluster
+   - replication: (int, optional) Replication factor (default 1)
+   - hashing: (string, optional) 'consistent' for consistent hashing, else linear
+   - backends: (list) List of backend server definitions
+     - host: (string) Backend hostname or IP
+     - port: (int) Backend port
+     - replication: (int, optional) Per-backend replication override
+   #}
+{% for cluster in clusters | default([]) %}
+{# cluster.name: Unique name for this cluster of backend servers #}
+{# cluster.replication: Replication factor for all backends in this cluster (default 1) #}
+{# cluster.hashing: 'consistent' enables consistent hashing, otherwise uses linear distribution #}
 cluster {{ cluster.name }}
-{% for backend in cluster.backends %}
-  {{ backend.host }}:{{ backend.port }} {{ 'replication ' ~ backend.replication if backend.replication > 1 else '' }}
+{% for backend in cluster.backends | default([]) %}
+  {# backend.host: Backend server hostname #}
+  {# backend.port: Backend server port #}
+  {# backend.replication: Per-backend replication count (if > 1) #}
+  {% set rep = backend.replication | default(1) %}
+  {{ backend.host }}:{{ backend.port }}{% if rep > 1 %} replication {{ rep }}{% endif %}
 {% endfor %}
-{% if cluster.hashing == 'consistent' %}
+{% if cluster.hashing | default('') == 'consistent' %}
   consistent-hashing
 {% endif %}
 {% endfor %}
-{# Define routing rules: match pattern -> destination(s) #}
-{% for rule in rules %}
-{# {{ rule.description or 'route matching metrics' }} #}
+
+{# ==============================================================================
+   Routing Rules
+   #}
+{# rules: List of routing rules; processed in order; first match wins unless 'stop' or aggregation is used
+   Default: [{'description': "Route metrics starting with 'stats.' to the 'graphite' cluster",
+              'condition': '^stats\\.',
+              'action': 'send_to',
+              'destination': {'type': 'cluster', 'name': 'graphite'}}]
+   Each rule structure:
+   - condition: (string, regex) Metric pattern to match (e.g., '^stats\.')
+   - action: (string) One of 'send_to', 'stop', 'aggregate', 'rewrite'
+   - destination: (dict/object) Where to send matched metrics
+     - type: 'cluster' or 'host'
+     - name: (if cluster) Cluster name defined above
+     - host/port: (if host) Target host:port
+   - aggregate: (object, if action=aggregate)
+     - metric: (string) Metric name for aggregation (e.g., 'agg')
+     - window: (int) Aggregation window in seconds
+     - destination: (string) Where to send aggregated results (cluster name or host:port)
+   - rewrite: (object, if action=rewrite)
+     - from: (string) Regex pattern to match
+     - to: (string) Replacement string
+   #}
+{% for rule in rules | default([{'description': "Route metrics starting with 'stats.' to the 'graphite' cluster", 'condition': '^stats\\.', 'action': 'send_to', 'destination': {'type': 'cluster', 'name': 'graphite'}}]) %}
+{# rule.description: Human-readable description of this rule #}
+{# rule.condition: Regex pattern to match against metric names #}
 {% if rule.condition %}
 match {{ rule.condition }}
 {% endif %}
   {% if rule.action == 'send_to' %}
-send to {% if rule.destination.type == 'cluster' %}{{ rule.destination.name }}{% else %}{{ rule.destination.host }}:{{ rule.destination.port }}{% endif %}
+  {# rule.destination.type: 'cluster' or 'host' #}
+  {# rule.destination.name: Cluster name if type is 'cluster' #}
+  {# rule.destination.host: Target host if type is 'host' #}
+  {# rule.destination.port: Target port if type is 'host' #}
+  send to {% if rule.destination.type == 'cluster' %}{{ rule.destination.name }}{% elif rule.destination.type == 'host' %}{{ rule.destination.host }}:{{ rule.destination.port }}{% else %}{% endif %}
 {% elif rule.action == 'stop' %}
+  {# Stop processing further rules for this metric #}
   stop
 {% elif rule.action == 'aggregate' %}
+  {# rule.aggregate.metric: Aggregation metric name #}
+  {# rule.aggregate.window: Window in seconds #}
+  {# rule.aggregate.destination: Where to send aggregated data #}
   aggregate {{ rule.aggregate.metric }} for {{ rule.aggregate.window }} seconds
   send to {{ rule.aggregate.destination }}
 {% elif rule.action == 'rewrite' %}
+  {# rule.rewrite.from: Source pattern #}
+  {# rule.rewrite.to: Target replacement #}
   rewrite {{ rule.rewrite.from }} into {{ rule.rewrite.to }}
 {% endif %}
 {% endfor %}
-{# Optional: forward unmatched metrics to a default cluster #}
-{% if default_cluster is defined and default_cluster != '' %}
+
+{# ==============================================================================
+   Default Cluster
+   #}
+{# default_cluster: Name of cluster to route all unmatched metrics to (optional)
+   Default: '' (empty, metrics are dropped if no rule matches and no default is set) #}
+{% if default_cluster | default('') != '' %}
 {# Forward all unmatched metrics to the specified cluster #}
-default cluster {{ default_cluster }}
+default cluster {{ default_cluster | default('') }}
 {% endif %}
-{# Optional: enable statistics output (to a statsd/carbon endpoint or file) #}
-{% if stats is defined and stats.enabled %}
+
+{# ==============================================================================
+   Statistics
+   #}
+{# stats: Enable internal statistics export
+   Default: {'enabled': False, 'destination': {'type': 'cluster', 'name': 'stats'}}
+   Structure:
+   - enabled: (bool) Whether to enable stats
+   - destination.type: 'cluster' or 'file'
+   - destination.name: Cluster name (if type=cluster)
+   - destination.path: File path (if type=file)
+   #}
+{% if stats is defined and stats.enabled | default(False) %}
 {# Export internal metrics (e.g., queue sizes, matches/sec) #}
 statistics
 {% if stats.destination.type == 'cluster' %}

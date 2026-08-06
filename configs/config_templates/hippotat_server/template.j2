@@ -1,67 +1,119 @@
-# Hippotat server configuration
-# Base URL for the HTTP server
-base_url = "{{ base_url }}"
+# =============================================================================
+# Hippotat Server Configuration Template
+# =============================================================================
+# This configuration file manages the Hippotat HTTP-based tunnel server.
+# It controls network binding, SSL termination, client authentication (via subnet),
+# IP assignment pools, logging, and operational tuning.
+# =============================================================================
 
-# Listen interface (IP or hostname); empty string to listen on all interfaces
-listen = "{{ listen }}"
+# -----------------------------------------------------------------------------
+# [Network & Server Identity]
+# -----------------------------------------------------------------------------
 
-# TCP port to listen on
-port = {{ port }}
+# Base URL used to generate client-facing endpoints. Must end with a slash.
+# This URL is typically the public address clients use to connect.
+base_url = "{{ (base_url | default('http://example.com/')) | string }}"
 
-# Maximum simultaneous HTTP connections
-max_connections = {{ max_connections }}
+# Interface IP or hostname to bind to. Empty string binds to all interfaces (0.0.0.0).
+# If a specific IP is provided, the server will only accept connections on that interface.
+listen = "{{ (listen | default('')) | string }}"
 
-# Maximum response body size (in bytes)
-max_response_size = {{ max_response_size }}
+# TCP port to listen on for incoming HTTP requests.
+port = {{ (port | default(8080)) | int }}
 
-# Enable SSL/TLS? Set to true to enable
-ssl_enabled = {{ ssl_enabled | lower }}
+# -----------------------------------------------------------------------------
+# [Connection Limits & Performance]
+# -----------------------------------------------------------------------------
 
-# SSL certificate file path (required if ssl_enabled = true)
-ssl_cert = "{{ ssl_cert }}"
+# Maximum number of simultaneous HTTP connections allowed.
+# This limits concurrency to prevent resource exhaustion.
+max_connections = {{ (max_connections | default(100)) | int }}
 
-# SSL private key file path (required if ssl_enabled = true)
-ssl_key = "{{ ssl_key }}"
+# Maximum size (in bytes) of the HTTP response body.
+# Larger responses will be rejected to prevent memory bloat.
+max_response_size = {{ (max_response_size | default(65536)) | int }}
 
-# Client subnet(s) allowed to connect (CIDR notation)
-# Each client subnet is checked against source IP of HTTP request
-{% for subnet in client_subnets %}client_subnet = "{{ subnet }}"
+# Maximum Tunnel MTU in bytes.
+# Set this lower than the underlying link MTU to avoid fragmentation issues.
+mtu = {{ (mtu | default(1420)) | int }}
+
+# Number of worker processes.
+# Use 0 for single-process mode (no forking). Use >0 to fork N workers.
+workers = {{ (workers | default(0)) | int }}
+
+# Timeout (in seconds) for HTTP request processing.
+# If a request takes longer than this, the connection is dropped.
+request_timeout = {{ (request_timeout | default(30)) | int }}
+
+# -----------------------------------------------------------------------------
+# [SSL/TLS Configuration]
+# -----------------------------------------------------------------------------
+
+# Enable SSL/TLS encryption for HTTPS support.
+# When true, ssl_cert and ssl_key must point to valid files.
+ssl_enabled = {{ (ssl_enabled | default(False)) | lower }}
+
+# Path to SSL certificate file.
+# Required when ssl_enabled is true.
+ssl_cert = "{{ (ssl_cert | default('/etc/hippotat/ssl/server.crt')) | string }}"
+
+# Path to SSL private key file.
+# Required when ssl_enabled is true.
+ssl_key = "{{ (ssl_key | default('/etc/hippotat/ssl/server.key')) | string }}"
+
+# -----------------------------------------------------------------------------
+# [Client Access Control & IP Assignment]
+# -----------------------------------------------------------------------------
+
+# List of allowed client subnets (in CIDR notation).
+# Only clients connecting from these source IP subnets are permitted.
+{% for subnet in (client_subnets | default(['10.0.0.0/24'])) %}client_subnet = "{{ subnet }}"
 {% endfor %}
 
-# IP pool (range or CIDR) to assign to clients
-ip_pool = "{{ ip_pool }}"
+# IP address range (CIDR or start-end format) to assign to connecting clients.
+# This pool is used to allocate virtual IP addresses for the tunnel interface.
+ip_pool = "{{ (ip_pool | default('10.100.0.0/24')) | string }}"
 
-# DNS server(s) to push to clients (semicolon-separated)
-# Empty to use system default DNS
-{% if dns_servers %}dns_servers = "{{ dns_servers | join('; ') }}"
-{% else %}# dns_servers = ""  # commented out: use system default
+# List of DNS servers to push to clients.
+# If empty, clients use the system default DNS configuration.
+# Multiple servers are joined by semicolons in the output.
+{% if (dns_servers | default([])) is defined and (dns_servers | default([]) | length) > 0 %}dns_servers = "{{ (dns_servers | default([])) | join('; ') }}"
+{% else %}# dns_servers = ""  # commented out: use system default DNS
 {% endif %}
 
-# Enable logging to syslog?
-syslog_enabled = {{ syslog_enabled | lower }}
+# -----------------------------------------------------------------------------
+# [Logging & Diagnostics]
+# -----------------------------------------------------------------------------
 
-# Log level: 'debug', 'info', 'warning', 'error'
-log_level = "{{ log_level }}"
+# Log to system syslog instead of file.
+syslog_enabled = {{ (syslog_enabled | default(True)) | lower }}
 
-# Path to log file (if syslog_enabled = false)
-log_file = "{{ log_file }}"
+# Verbosity of server logging.
+# Valid values: debug, info, warning, error.
+log_level = "{{ (log_level | default('info')) | string }}"
 
-# Timeout for HTTP requests (in seconds)
-request_timeout = {{ request_timeout }}
+# Path to log file.
+# Used ONLY if syslog_enabled is false.
+log_file = "{{ (log_file | default('/var/log/hippotat/server.log')) | string }}"
 
-# Number of worker processes (0 = single-process, non-forking mode)
-workers = {{ workers }}
+# Enable extremely verbose debugging output.
+# Use this only for troubleshooting; it generates significant log volume.
+debug_verbose = {{ (debug_verbose | default(False)) | lower }}
 
-# Path to state file (used for persistence of client IPs, etc.)
-state_file = "{{ state_file }}"
+# -----------------------------------------------------------------------------
+# [State & Persistence]
+# -----------------------------------------------------------------------------
 
-# Enable verbose debugging (very chatty; use only for troubleshooting)
-debug_verbose = {{ debug_verbose | lower }}
+# Path to file storing persistent state (e.g., assigned client IPs).
+# This ensures IP assignments survive server restarts if supported.
+state_file = "{{ (state_file | default('/var/lib/hippotat/state.json')) | string }}"
 
-# Maximum tunnel MTU (bytes)
-mtu = {{ mtu }}
+# -----------------------------------------------------------------------------
+# [Advanced / Optional]
+# -----------------------------------------------------------------------------
 
-# Path to the client configuration template (optional, for dynamic client config generation)
-{% if client_config_template %}client_config_template = "{{ client_config_template }}"
-{% else %}# client_config_template = ""  # disabled
+# Optional path to Jinja2 template used to generate per-client configuration files.
+# If provided, this template is rendered for each connected client.
+{% if (client_config_template | default('')) is defined and (client_config_template | default('')) != '' %}client_config_template = "{{ (client_config_template | default('')) | string }}"
+{% else %}# client_config_template = ""  # disabled: no dynamic client config generation
 {% endif %}

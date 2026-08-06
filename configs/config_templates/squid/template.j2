@@ -1,110 +1,205 @@
-# Squid Proxy Configuration — Standard directives for caching and forwarding
+#! /bin/sh
+#
+# squid		Startup script for the SQUID HTTP proxy-cache.
+#
+# Version:	@(#)squid.rc  1.0  07-Jul-2006  luigi@debian.org
+#
+# pidfile: /run/squid.pid
+#
+### BEGIN INIT INFO
+# Provides:          squid
+# Required-Start:    $network $remote_fs $syslog
+# Required-Stop:     $network $remote_fs $syslog
+# Should-Start:      $named
+# Should-Stop:       $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Squid HTTP Proxy version 4.x
+### END INIT INFO
 
-# Define ACLs for access control
-{% for acl in acls %}
-# ACL: {{ acl.name }} — {{ acl.description }}
-acl {{ acl.name }} {{ acl.type }} {{ acl.value }}
-{% endfor %}
+NAME=squid
+DESC="Squid HTTP Proxy"
+DAEMON=/usr/sbin/squid
+PIDFILE=/run/$NAME.pid
+CONFIG=/etc/squid/squid.conf
+SQUID_ARGS="-YC -f $CONFIG"
 
-# HTTP access rules — order matters (first match wins)
-{% for rule in http_access_rules %}
-# HTTP access: {{ rule.action | upper }} traffic from {{ rule.acls | join(', ') | default('all') }}
-http_access {{ rule.action }} {{ rule.acls | join(' ') }}
-{% endfor %}
+[ ! -f /etc/default/squid ] || . /etc/default/squid
 
-# HTTP port(s) to listen on
-{% for port in http_port %}
-# Listening port: {{ port }}
-http_port {{ port }}
-{% endfor %}
+. /lib/lsb/init-functions
 
-# Transparent mode support (optional)
-{% if transparent %}
-http_port {{ transparent_port }} transparent
-{% endif %}
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
-# Cache directory configuration
-# Format: dir type location size (MB) max-size (KB) l1=levels l2=levels
-{% for cache_dir in cache_dirs %}
-# Cache directory {{ cache_dir.index }}: {{ cache_dir.location }} ({{ cache_dir.size }} MB)
-cache_dir ufs {{ cache_dir.location }} {{ cache_dir.size }} {{ cache_dir.max_size }} {{ cache_dir.l1 }} {{ cache_dir.l2 }}
-{% endfor %}
+[ -x $DAEMON ] || exit 0
 
-# Memory cache size
-# {{ memory_cache_description }}
-cache_mem {{ memory_cache_size }} MB
+ulimit -n 65535
 
-# Maximum object size to cache in memory
-{% if max_in_mem_cache_size is defined %}
-cache_mem_max {{ max_in_mem_cache_size }} MB
-{% endif %}
+find_cache_dir () {
+	w=	 # space tab
+        res=`$DAEMON -k parse -f $CONFIG 2>&1 |
+		grep "Processing:" |
+		sed s/.*Processing:\ // |
+		sed -ne '
+			s/^['"$w"']*'$1'['"$w"']\+[^'"$w"']\+['"$w"']\+\([^'"$w"']\+\).*$/\1/p;
+			t end;
+			d;
+			:end q'`
+        [ -n "$res" ] || res=$2
+        echo "$res"
+}
 
-# Log settings
-{% if log_location %}
-# Log file location: {{ log_location }}
-logfile_rotate {{ log_rotate_count }}
-{% endif %}
+grepconf () {
+	w=	 # space tab
+        res=`$DAEMON -k parse -f $CONFIG 2>&1 |
+		grep "Processing:" |
+		sed s/.*Processing:\ // |
+		sed -ne '
+			s/^['"$w"']*'$1'['"$w"']\+\([^'"$w"']\+\).*$/\1/p;
+			t end;
+			d;
+			:end q'`
+	[ -n "$res" ] || res=$2
+	echo "$res"
+}
 
-# Access log
-{% if access_log %}
-# Access logging enabled
-access_log {{ access_log }}
-{% endif %}
+create_run_dir () {
+	run_dir=/run/squid
+	usr=`grepconf cache_effective_user proxy`
+	grp=`grepconf cache_effective_group proxy`
 
-# Cache log
-{% if cache_log %}
-# Cache log enabled
-cache_log {{ cache_log }}
-{% endif %}
+	if [ "$(dpkg-statoverride --list $run_dir)" = "" ] &&
+	   [ ! -e $run_dir ] ; then
+		mkdir -p $run_dir
+	   chown $usr:$grp $run_dir
+		[ -x /sbin/restorecon ] && restorecon $run_dir
+	fi
+}
 
-# DNS settings
-# {{ dns_description }}
-dns_nameservers {{ dns_nameservers | join(', ') }}
+start () {
+	cache_dir=`find_cache_dir cache_dir`
+	cache_type=`grepconf cache_dir`
+	run_dir=/run/squid
 
-# IPv6 support
-{% if enable_ipv6 %}
-enable_ipv6 on
-{% else %}
-enable_ipv6 off
-{% endif %}
+	#
+	# Create run dir (needed for several workers on SMP)
+	#
+	create_run_dir
 
-# Worker processes (for SMP support)
-# {{ worker_processes_description }}
-num_cache_dirs {{ cache_dirs | length }}
-{% if worker_processes > 1 %}
-worker_processes {{ worker_processes }}
-{% endif %}
+	#
+	# Create spool dirs if they don't exist.
+	#
+	if test -d "$cache_dir" -a ! -d "$cache_dir/00"
+	then
+		log_warning_msg "Creating $DESC cache structure"
+		$DAEMON -z --foreground -f $CONFIG
+		[ -x /sbin/restorecon ] && restorecon -R $cache_dir
+	fi
 
-# Timeout settings (seconds)
-# {{ timeout_description }}
-connect_timeout {{ connect_timeout }} second
-request_timeout {{ request_timeout }} second
-read_timeout {{ read_timeout }} second
+	umask 027
+	ulimit -n 65535
+	cd $run_dir
+	start-stop-daemon --quiet --start \
+		--pidfile $PIDFILE \
+		--exec $DAEMON -- $SQUID_ARGS < /dev/null
+	return $?
+}
 
-# Minimum object size for caching
-minimum_object_size {{ minimum_object_size }} KB
+stop () {
+	PID=`cat $PIDFILE 2>/dev/null`
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+	#
+	#	Now we have to wait until squid has _really_ stopped.
+	#
+	sleep 2
+	if test -n "$PID" && kill -0 $PID 2>/dev/null
+	then
+		log_action_begin_msg " Waiting"
+		cnt=0
+		while kill -0 $PID 2>/dev/null
+		do
+			cnt=`expr $cnt + 1`
+			if [ $cnt -gt 24 ]
+			then
+				log_action_end_msg 1
+				return 1
+			fi
+			sleep 5
+			log_action_cont_msg ""
+		done
+		log_action_end_msg 0
+		return 0
+	else
+		return 0
+	fi
+}
 
-# Maximum object size for caching (default 4GB)
-maximum_object_size {{ maximum_object_size }} MB
+cfg_pidfile=`grepconf pid_filename`
+if test "${cfg_pidfile:-none}" != "none" -a "$cfg_pidfile" != "$PIDFILE"
+then
+	log_warning_msg "squid.conf pid_filename overrides init script"
+	PIDFILE="$cfg_pidfile"
+fi
 
-# Authentication (optional)
-{% if authentication_enabled %}
-# Authentication enabled
-auth_param basic program {{ auth_param_program }} {{ auth_param_children }}
-auth_param basic children {{ auth_param_children }}
-auth_param basic realm Squid proxy-caching server
-auth_param basic credentialsttl {{ auth_param_ttl }} hours
+case "$1" in
+    start)
+	res=`$DAEMON -k parse -f $CONFIG 2>&1 | grep -o "FATAL: .*"`
+	if test -n "$res";
+	then
+		log_failure_msg "$res"
+		exit 3
+	else
+		log_daemon_msg "Starting $DESC" "$NAME"
+		if start ; then
+			log_end_msg $?
+		else
+			log_end_msg $?
+		fi
+	fi
+	;;
+    stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	if stop ; then
+		log_end_msg $?
+	else
+		log_end_msg $?
+	fi
+	;;
+    reload|force-reload)
+	res=`$DAEMON -k parse -f $CONFIG 2>&1 | grep -o "FATAL: .*"`
+	if test -n "$res";
+	then
+		log_failure_msg "$res"
+		exit 3
+	else
+		log_action_msg "Reloading $DESC configuration files"
+	  start-stop-daemon --stop --signal 1 \
+			--pidfile $PIDFILE --quiet --exec $DAEMON
+		log_action_end_msg 0
+	fi
+	;;
+    restart)
+	res=`$DAEMON -k parse -f $CONFIG 2>&1 | grep -o "FATAL: .*"`
+	if test -n "$res";
+	then
+		log_failure_msg "$res"
+		exit 3
+	else
+		log_daemon_msg "Restarting $DESC" "$NAME"
+		stop
+		if start ; then
+			log_end_msg $?
+		else
+			log_end_msg $?
+		fi
+	fi
+	;;
+    status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit 3
+	;;
+    *)
+	echo "Usage: /etc/init.d/$NAME {start|stop|reload|force-reload|restart|status}"
+	exit 3
+	;;
+esac
 
-# Require authenticated users for specific ACLs
-acl authenticated_users proxy_auth REQUIRED
-{% endif %}
-
-# Refresh patterns — controls cache freshness
-{% for refresh_pattern in refresh_patterns %}
-# Refresh pattern: matches {{ refresh_pattern.regex }} — {{ refresh_pattern.min }}-{{ refresh_pattern.percent }}-{{ refresh_pattern.max }}
-refresh_pattern -i {{ refresh_pattern.regex }} {{ refresh_pattern.min }} {{ refresh_pattern.percent }}% {{ refresh_pattern.max }}
-{% endfor %}
-
-# Visible hostname (for error pages and ICP)
-# {{ visible_hostname_description }}
-visible_hostname {{ visible_hostname }}
+exit 0

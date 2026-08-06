@@ -1,69 +1,116 @@
--- Lsyncd configuration: monitor local directories and sync to remote targets via rsync or rsyncssh
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          lsyncd
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: lsyncd daemon init script
+# Description:       This script launches the lsyncd daemon.
+### END INIT INFO
 
--- Log to syslog for central log management
-logFile = "{{ log_file }}"
+# Author: Ignace Mouzannar <ignace@enovance.com>
 
--- Log level: 1=none, 2=error, 3=warning, 4=info, 5=debug
-logLevel = {{ log_level }}
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="synchronization daemon"
+NAME=lsyncd
+DAEMON=/usr/bin/$NAME
+CONFIG=/etc/lsyncd/lsyncd.conf.lua
+PIDFILE=/var/run/$NAME.pid
+DAEMON_ARGS="-pidfile ${PIDFILE} ${CONFIG}"
+SCRIPTNAME=/etc/init.d/$NAME
+NICELEVEL=10
 
--- Maximum events to batch per sync (prevents overload)
-maxProcesses = {{ max_processes }}
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
 
--- Delay in seconds before triggering sync after first change (debounce)
-{{#if use_delay}}delay = {{ delay }}{{/if}}{{^use_delay}}-- delay = {{ delay }} (disabled){{/useDelay}}
+# Exit if config file does not exist
+[ -r "$CONFIG" ] || exit 0
 
--- Inotify events to watch; defaults cover typical file ops
-{{#if use_inotify_events}}inotifyEvents = { {{ inotify_events | join(', ') }} }{{/if}}{{^use_inotify_events}}-- inotifyEvents = { ... } (using default: { 'modify', 'move', 'create', 'delete' }){{/useInotifyEvents}}
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
--- Optional: recursive directory watching
-{{#if use_recursive}}recursive = true{{/if}}{{^use_recursive}}recursive = false{{/useRecursive}}
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+. /lib/lsb/init-functions
 
--- Optional: exclude patterns (list of strings)
-{{#if has_excludes}}exclude = { {{ excludes | map('"{}"' | format) | join(', ') }} }{{/if}}{{^has_excludes}}-- exclude = { ... } (no exclusions){{/hasExcludes}}
-
--- Optional: rsync options (extra args passed to rsync)
-{{#if has_rsync_options}}rsync = { {{ rsync_options | map('"{}"' | format) | join(', ') }} }{{/if}}{{^has_rsync_options}}-- rsync = { ... } (use defaults){{/hasRsyncOptions}}
-
--- Sync targets defined below
-{{#for target in targets}}
--- Sync: {{ target.name }}
-{{#if target.enabled}}sync{
-    default.{{ target.mode }},
-    {{#if target.rsync}}
-    -- Rsync-specific options
-    rsync = {
-        archive   = {{ target.rsync.archive | tojson }},
-        compress  = {{ target.rsync.compress | tojson }},
-        hardlinks   = {{ target.rsync.hardlinks | tojson }},
-        sparse      = {{ target.rsync.sparse | tojson }},
-        whole_file  = {{ target.rsync.whole_file | tojson }},
-        {{#if target.rsync.extra_args}}
-        extra_args  = { {{ target.rsync.extra_args | map('"{}"' | format) | join(', ') }} },
-        {{/if}}
-        {{#if target.rsync.user}}user = "{{ target.rsync.user }}",{{/if}}
-    },
-    {{/if}}
-    {{#if target.rsyncssh}}
-    -- RsyncSSH-specific options (SSH-based sync)
-    rsyncssh = {
-        host     = "{{ target.rsyncssh.host }}",
-        user     = "{{ target.rsyncssh.user }}",
-        port     = {{ target.rsyncssh.port }},
-        identity = "{{ target.rsyncssh.identity }}",
-        path     = "{{ target.rsyncssh.path }}",
-        archive   = {{ target.rsyncssh.archive | tojson }},
-        compress  = {{ target.rsyncssh.compress | tojson }},
-        {{#if target.rsyncssh.extra_args}}
-        extra_args  = { {{ target.rsyncssh.extra_args | map('"{}"' | format) | join(', ') }} },
-        {{/if}}
-    },
-    {{/if}}
-    {{#if target.rsyncssh}}
-    source   = "{{ target.source }}",
-    targetDir = "{{ target.rsyncssh.path }}"
-    {{else if target.rsync}}
-    source   = "{{ target.source }}",
-    target   = "{{ target.rsync.user + '@' + target.rsync.host + ':' if target.rsync.user else '' }}{{ target.rsync.host }}:{{ target.rsync.path }}"
-    {{/if}}
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON \
+        --test > /dev/null \
+		|| return 1
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+        --nicelevel $NICELEVEL --exec $DAEMON -- \
+		$DAEMON_ARGS \
+		|| return 2
 }
-{{/if}}{{/for}}{{/targets}}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --name $NAME
+	RETVAL="$?"
+	[ "$RETVAL" = 2 ] && return 2
+	start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+	[ "$?" = 2 ] && return 2
+	# Many daemons don't delete their pidfiles when they exit.
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	return 0
+}
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  status)
+        status_of_proc $DAEMON $NAME && exit 0 || exit $?
+        ;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+	exit 3
+	;;
+esac

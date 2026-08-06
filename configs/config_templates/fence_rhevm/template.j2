@@ -1,25 +1,112 @@
-# Fence agent for RHEV-M (Red Hat Enterprise Virtualization Manager) via REST API
-# Authentication credentials for RHEV-M API
-api_url={{ api_url }}
-username={{ username }}
-password={{ password }}
-# Optional: domain (e.g., 'internal-auth') — leave empty for default domain
-{{ 'domain=' + domain if domain else '# domain=' }}
-# Optional: SSL verification toggle (true = verify, false = skip — not recommended in production)
-ssl_verify={{ 'true' if ssl_verify else 'false' }}
-# Optional: Connection timeout in seconds
-{{ 'timeout=' + timeout if timeout else '# timeout=' }}
-# Optional: Action to perform (defaults to 'reboot' if not specified in CLI)
-# Note: CLI action (e.g., --action=reboot) takes precedence over this default
-{{ 'default_action=' + default_action if default_action else '# default_action=' }}
-# Optional: Retry behavior — number of retries and delay between retries
-{{ 'retry=' + retry if retry else '# retry=' }}
-{{ 'retry_sleep=' + retry_sleep if retry_sleep else '# retry_sleep=' }}
-# Optional: Per-VM node configuration (multiple entries supported)
-# Format: node_name:ipmi_ip:power_port or node_name:vm_uuid
-{% for node in nodes %}
-# Node: {{ node.name }}
-{{ 'node_name=' + node.name }}
-{{ 'node_uuid=' + node.uuid if node.uuid else '# node_uuid=' }}
-{{ 'node_host=' + node.host if node.host else '# node_host=' }}
+# =============================================================================
+# fence_rhevm — RHEV-M (oVirt Engine) Fence Agent Configuration Template
+# =============================================================================
+# This configuration file is used by the stonith/fencing infrastructure (typically
+# pcs/corosync) to manage the lifecycle of RHEV-M managed resources (VMs or hosts).
+# It connects to the oVirt Engine API to perform actions like power cycling,
+# shutting down, or checking the status of nodes.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# api_url: Base URL of the RHEV-M (oVirt Engine) API endpoint.
+# This is the primary address the fence agent will contact.
+# -----------------------------------------------------------------------------
+api_url={{ (api_url | default('https://rhevm.example.com/ovirt-engine/api')) }}
+
+# -----------------------------------------------------------------------------
+# username: Username to authenticate against the RHEV-M API.
+# Must include the domain if using a non-default domain (e.g., 'admin@internal').
+# -----------------------------------------------------------------------------
+username={{ (username | default('admin@internal')) }}
+
+# -----------------------------------------------------------------------------
+# password: Password for the RHEV-M API user.
+# SECURITY WARNING: Store this securely. Use Ansible Vault or a secrets manager.
+# Do not commit plain-text credentials to version control.
+# -----------------------------------------------------------------------------
+password={{ (password | default('')) }}
+
+# -----------------------------------------------------------------------------
+# domain: Authentication domain.
+# Specify if the user belongs to a specific LDAP/AD domain (e.g., 'example.com').
+# If blank, the engine uses its default domain.
+# -----------------------------------------------------------------------------
+{% set _domain = (domain | default('')) %}
+{% if _domain %}
+domain={{ _domain }}
+{% else %}
+# domain= (leave blank to use the engine's default domain)
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# ssl_verify: Enable SSL certificate verification.
+# Set to false ONLY for testing or with self-signed certificates.
+# NOT recommended for production environments.
+# -----------------------------------------------------------------------------
+ssl_verify={{ (ssl_verify | default(true)) | ternary('true', 'false') }}
+
+# -----------------------------------------------------------------------------
+# timeout: Maximum time in seconds to wait for API responses.
+# Prevents hanging if the RHEV-M engine is unresponsive.
+# -----------------------------------------------------------------------------
+timeout={{ (timeout | default(30)) }}
+
+# -----------------------------------------------------------------------------
+# default_action: Default fence action if not specified on the command line.
+# Supported actions typically include: on, off, reboot, status, list.
+# -----------------------------------------------------------------------------
+default_action={{ (default_action | default('reboot')) }}
+
+# -----------------------------------------------------------------------------
+# retry: Number of times to retry a failed fence action.
+# Useful for transient network issues.
+# -----------------------------------------------------------------------------
+retry={{ (retry | default(3)) }}
+
+# -----------------------------------------------------------------------------
+# retry_sleep: Seconds to wait between retry attempts.
+# -----------------------------------------------------------------------------
+retry_sleep={{ (retry_sleep | default(5)) }}
+
+# -----------------------------------------------------------------------------
+# nodes: List of managed nodes (VMs or physical hosts).
+# Each node entry defines a target for fencing operations.
+# Format varies by implementation, but typically includes name and unique identifier.
+# -----------------------------------------------------------------------------
+{% set _nodes = (nodes | default([])) %}
+{% for _node in _nodes %}
+# --- Node: {{ (_node.name | default('unknown')) }} ---
+# Unique identifier for the VM or Host in oVirt Engine (UUID or IP depending on setup)
+{% set _uuid = (_node.uuid | default('')) %}
+{% if _uuid %}
+node_uuid={{ _uuid }}
+{% else %}
+# node_uuid= (required for VM fencing via API)
+{% endif %}
+
+# Hostname or IP of the node (if applicable for the specific node type)
+{% set _host = (_node.host | default('')) %}
+{% if _host %}
+node_host={{ _host }}
+{% else %}
+# node_host= (optional, depends on node configuration)
+{% endif %}
+
+# Name of the node (must match the name in oVirt Engine)
+{% set _name = (_node.name | default('')) %}
+{% if _name %}
+node_name={{ _name }}
+{% else %}
+# node_name= (required, name of the node in oVirt)
+{% endif %}
 {% endfor %}
+
+{% if not _nodes or _nodes | length == 0 %}
+# No nodes configured. Add entries to the 'nodes' list in your Ansible variables.
+# Example structure in Ansible inventory/vars:
+# nodes:
+#   - name: web-node-01
+#     uuid: 123e4567-e89b-12d3-a456-426614174000
+#   - name: db-node-01
+#     uuid: 987fcdeb-51a2-43d2-b123-987654321000
+{% endif %}

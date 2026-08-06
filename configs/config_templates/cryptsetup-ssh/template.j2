@@ -1,0 +1,56 @@
+# cryptsetup-ssh LUKS2 SSH Token Configuration
+# This configuration file defines the parameters for the 'ssh' token type
+# in LUKS2 (Linux Unified Key Setup). The ssh token allows unlocking a
+# LUKS2 encrypted device by retrieving the passphrase from a remote SSH server.
+# See 'man cryptsetup-luks2' or 'man cryptsetup-ssh' for details.
+
+# IP address or URL of the remote SSH server required for token add/retrieval.
+# This field is critical for the operation of the ssh token.
+{% if ssh_server | default('') != '' %}
+ssh-server={{ ssh_server | default('') }}
+{% endif %}
+
+# Username used to connect to the remote SSH server.
+# This user is authenticated to retrieve the passphrase/key.
+{% if ssh_user | default('') != '' %}
+ssh-user={{ ssh_user | default('') }}
+{% endif %}
+
+# Path to the SSH private key file on the local system used for authentication
+# to the remote SSH server.
+{% if ssh_keypath | default('') != '' %}
+ssh-keypath={{ ssh_keypath | default('') }}
+{% endif %}
+
+# Path to the key file on the REMOTE server that contains the LUKS passphrase.
+# This is the resource the SSH client will fetch.
+{% if ssh_path | default('') != '' %}
+ssh-path={{ ssh_path | default('') }}
+{% endif %}
+
+# Keyslot number to assign the token to.
+# If omitted, cryptsetup attempts to find the first matching free keyslot.
+# If provided, it must be a valid LUKS2 keyslot number (typically 0-31).
+{% if key_slot is not none %}
+key-slot={{ key_slot | default('') }}
+{% endif %}
+
+# Enable verbose output during cryptsetup operations.
+# Results in more detailed error messages and progress info.
+{% if verbose | default(False) | bool %}
+verbose=true
+{% endif %}
+
+# Enable debug message output.
+# Provides lower-level debugging information, potentially exposing sensitive
+# configuration details. Use with caution.
+{% if debug | default(False) | bool %}
+debug=true
+{% endif %}
+
+# Enable debug output including JSON metadata.
+# Outputs internal state as JSON structures. Useful for advanced troubleshooting
+# but produces high-volume, sensitive logs.
+{% if debug_json | default(False) | bool %}
+debug-json=true
+{% endif %}

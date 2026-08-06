@@ -1,80 +1,110 @@
-# Celery worker configuration - main settings file for /etc/celery/celery.conf
-# Replace this file with a symlink to a Jinja2-rendered template in production if desired
+# ============================================================================
+# Celery Configuration Template
+# ============================================================================
+# This file configures Celery workers and beat. It sets up connections to the
+# message broker (e.g., Redis/RabbitMQ) and the result backend, defines
+# serialization, time limits, worker concurrency, and periodic task schedules.
+#
+# Self-documenting: every setting below includes a comment derived from its
+# schema description. Variable references use `| default(...)` to ensure safe
+# rendering even if a variable is undefined in the Ansible play.
+# ============================================================================
 
-# Broker URL (where messages are queued); supports Redis, RabbitMQ, etc.
-BROKER_URL = '{{ broker_url }}'
+# [broker_url] URL of the message broker (e.g., Redis or RabbitMQ). Must be
+# reachable by workers and producers.
+CELERY_BROKER_URL = '{{ broker_url | default("redis://localhost:6379/0") }}'
 
-# Result backend URL (where task results are stored); often same as broker or Redis
-CELERY_RESULT_BACKEND = '{{ result_backend }}'
+# [result_backend] Backend where task results are stored. Often a separate
+# Redis DB or database.
+CELERY_RESULT_BACKEND = '{{ result_backend | default("redis://localhost:6379/1") }}'
 
-# Default message serialization format (json recommended for compatibility and performance)
-CELERY_TASK_SERIALIZER = '{{ task_serializer }}'
-CELERY_RESULT_SERIALIZER = '{{ result_serializer }}'
-CELERY_ACCEPT_CONTENT = [{{ accept_content | map('quote') | join(', ') }}]
+# [task_serializer] Serialization method for outgoing task messages (e.g.,
+# 'json', 'pickle'). JSON is safer and interoperable. For security, 'json' is
+# recommended.
+CELERY_TASK_SERIALIZER = '{{ task_serializer | default("json") }}'
 
-# Time-to-live for task messages (in seconds); tasks expire and are discarded if not consumed
-CELERY_TASK_TIME_LIMIT = {{ task_time_limit }}
-CELERY_TASK_SOFT_TIME_LIMIT = {{ task_soft_time_limit }}
+# [result_serializer] Serialization method for task results (e.g., 'json',
+# 'pickle'). For security, 'json' is recommended.
+CELERY_RESULT_SERIALIZER = '{{ result_serializer | default("json") }}'
 
-# Maximum number of tasks a worker processes before restarting (prevents memory leaks)
-CELERY_WORKER_MAX_TASKS_PER_CHILD = {{ worker_max_tasks_per_child }}
+# [accept_content] List of allowed content types for incoming task messages.
+# Prevents unsafe deserialization. Should only include serializers you trust
+# and use.
+CELERY_ACCEPT_CONTENT = [{{ accept_content | default(['json']) | join(", ") }}]
 
-# Worker concurrency: number of concurrent worker processes/threads/greenlets
-# Default 0 = number of CPU cores; set explicitly for control
-CELERY_WORKER_CONCURRENCY = {{ worker_concurrency }}
+# [task_time_limit] Hard time limit for a task (seconds). Exceeding this
+# kills the worker executing it.
+CELERY_TASK_TIME_LIMIT = {{ task_time_limit | default(300) }}
 
-# Enable prefetch optimization: number of tasks to prefetch per worker (0 = unlimited)
-CELERY_WORKER_PREFETCH_MULTIPLIER = {{ worker_prefetch_multiplier }}
+# [task_soft_time_limit] Soft time limit (seconds). Triggers a warning
+# exception but allows graceful cleanup.
+CELERY_TASK_SOFT_TIME_LIMIT = {{ task_soft_time_limit | default(240) }}
 
-# Default queue name for tasks without explicit routing
-CELERY_TASK_DEFAULT_QUEUE = '{{ task_default_queue }}'
+# [worker_max_tasks_per_child] Maximum tasks a worker process handles before
+# being replaced (helps prevent memory leaks).
+CELERY_WORKER_MAX_TASKS_PER_CHILD = {{ worker_max_tasks_per_child | default(10000) }}
 
-# Enable task routing via exchange/queue (optional; leave empty list to disable explicit routing)
-# Each element defines a routing rule: {exchange: str, queue: str, routing_key: str}
+# [worker_concurrency] Number of concurrent worker processes. 0 = auto-detect
+# CPU count. Adjust for I/O-bound vs CPU-bound tasks.
+CELERY_WORKER_CONCURRENCY = {{ worker_concurrency | default(0) }}
+
+# [worker_prefetch_multiplier] Tasks prefetched per worker. Lower values
+# improve fairness; 0 = unlimited.
+CELERY_WORKER_PREFETCH_MULTIPLIER = {{ worker_prefetch_multiplier | default(1) }}
+
+# [task_default_queue] Default queue name for tasks without explicit routing.
+CELERY_TASK_DEFAULT_QUEUE = '{{ task_default_queue | default("celery") }}'
+
+# [task_routes] List of task routing rules. Each rule maps tasks to specific
+# queues/exchanges. Format: list of dicts with 'exchange', 'queue',
+# 'routing_key'.
 CELERY_TASK_ROUTES = [
-{% for route in task_routes %}
+{% for route in task_routes | default([]) %}
     {
-        'exchange': '{{ route.exchange }}',
-        'queue': '{{ route.queue }}',
-        'routing_key': '{{ route.routing_key }}'
-    },
+        'exchange': '{{ route.exchange | default("") }}',
+        'queue': '{{ route.queue | default("") }}',
+        'routing_key': '{{ route.routing_key | default("") }}'
+    }{% if not loop.last %},{% endif %}
 {% endfor %}
 ]
 
-# Task result expiration time (in seconds); results are deleted after this
-CELERY_TASK_RESULT_EXPIRES = {{ task_result_expires }}
+# [task_result_expires] Time (seconds) after which task results are deleted
+# from the backend.
+CELERY_TASK_RESULT_EXPIRES = {{ task_result_expires | default(86400) }}
 
-# Enable task annotations (e.g., for custom logging or monitoring)
-CELERY_TASK_ANNOTATIONS = {
-    '*': {
-        'rate_limit': '{{ task_rate_limit }}'
-    } if task_rate_limit else {}
-}
+# [timezone] Timezone for scheduled tasks and logs (e.g., 'UTC',
+# 'Europe/London').
+CELERY_TIMEZONE = '{{ timezone | default("UTC") }}'
 
-# Timezone for scheduling (must match system timezone; e.g., 'UTC', 'America/New_York')
-CELERY_TIMEZONE = '{{ timezone }}'
+# [worker_send_events] Enable event streaming (e.g., for Flower or real-time
+# monitoring.
+CELERY_WORKER_SEND_EVENTS = {{ worker_send_events | default(true) }}
 
-# Enable event logging for monitoring (e.g., Flower or custom consumers)
-CELERY_WORKER_SEND_EVENTS = {{ worker_send_events }}
+# [worker_log_level] Minimum log level for worker logs (DEBUG, INFO, WARNING,
+# ERROR, CRITICAL).
+CELERY_WORKER_LOG_LEVEL = '{{ worker_log_level | default("INFO") }}'
 
-# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-CELERY_WORKER_LOG_LEVEL = '{{ worker_log_level }}'
-
-# Optional: enable beat scheduler for periodic tasks (false if using external cron/celery beat)
+# [beat_schedule] List of periodic (beat) tasks. Each item defines schedule
+# and arguments. Format: dict mapping task name to schedule config dict.
 CELERY_BEAT_SCHEDULE = {
-{% for name, schedule in beat_schedule.items() %}
+{% for name, schedule in beat_schedule | default({}) | dict2items %}
     '{{ name }}': {
-        'task': '{{ schedule.task }}',
-        'schedule': {{ schedule.schedule | tojson }},
-        'args': {{ schedule.args | default('[]') | tojson }},
-        'kwargs': {{ schedule.kwargs | default('{}') | tojson }}
+        'task': '{{ schedule.value.task | default("") }}',
+        'schedule': {{ schedule.value.schedule | default(null) | tojson }},
+        'args': {{ schedule.value.args | default([]) | tojson }},
+        'kwargs': {{ schedule.value.kwargs | default({}) | tojson }}
     }{% if not loop.last %},{% endif %}
 {% endfor %}
 }
 
-# Optional: enable extended task tracing (for detailed error reporting)
-CELERY_TASK_EAGER_PROPAGATES = {{ task_eager_propagates }}
+# [task_eager_propagates] If true, task exceptions are raised immediately
+# (e.g., for sync tasks).
+CELERY_TASK_EAGER_PROPAGATES = {{ task_eager_propagates | default(false) }}
 
-# Optional: enable task acknowledgment to broker only after completion (default safe mode)
-CELERY_TASK_ACKS_LATE = {{ task_acks_late }}
-CELERY_TASK_REJECT_ON_WORKER_LOST = {{ task_reject_on_worker_lost }}
+# [task_acks_late] If true, tasks are acknowledged only after successful
+# completion (prevents message loss).
+CELERY_TASK_ACKS_LATE = {{ task_acks_late | default(true) }}
+
+# [task_reject_on_worker_lost] If true, tasks are requeued when a worker dies
+# before acknowledgment.
+CELERY_TASK_REJECT_ON_WORKER_LOST = {{ task_reject_on_worker_lost | default(true) }}

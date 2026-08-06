@@ -1,17 +1,57 @@
-# Enable debugging for amavisd-new (set to 0 for production)
-$debug_loglevel = {{ debug_loglevel }};
+# ============================================================
+# amavisd-new configuration template (self-documenting)
+# ============================================================
+#
+# This template generates the Perl configuration file for amavisd-new,
+# the Mail Virus Scanner interface. It handles spam and virus scanning
+# policies, database connectivity for lookups, and worker management.
+#
+# All variables use defaults derived from the schema to ensure safe
+# rendering even if variables are undefined in the playbook context.
+# ============================================================
+
+# ------------------------------------------------------------------
+# Debugging / Logging
+# ------------------------------------------------------------------
+
+# Log verbosity level (0–9). Set to 0 in production for minimal logging.
+$debug_loglevel = {{ debug_loglevel | default(0) }};
+
+# ------------------------------------------------------------------
+# SpamAssassin Integration Settings
+# ------------------------------------------------------------------
 
 # Enable spamassassin checks
 $sa_spam_subject_tag = '*** SPAM *** ';
-$sa_tag_level_deflt = {{ spam_tag_level }};
-$sa_tag2_level_deflt = {{ spam_tag2_level }};
-$sa_kill_level_deflt = {{ spam_kill_level }};
+
+# Spam score threshold to add 'X-Spam-Status' and 'X-Spam-Level' headers.
+$sa_tag_level_deflt = {{ spam_tag_level | default(5.0) }};
+
+# Spam score threshold to add '*** SPAM ***' prefix to the subject line.
+$sa_tag2_level_deflt = {{ spam_tag2_level | default(10.0) }};
+
+# Spam score threshold at which messages are discarded or quarantined
+# (depending on $final_spam_destiny).
+$sa_kill_level_deflt = {{ spam_kill_level | default(15.0) }};
+
+# ------------------------------------------------------------------
+# Virus Scanning Settings
+# ------------------------------------------------------------------
 
 # Enable virus scanning
-$virus_admin = 'postmaster@{{ domain }}';
+# Sets the admin email address for virus notifications.
+$virus_admin = 'postmaster@{{ domain | default("example.com") }}';
+
+# ------------------------------------------------------------------
+# External Scanner Daemon Connections
+# ------------------------------------------------------------------
 
 # Paths to clamav daemons
 $clamd_sock = '/var/run/clamav/clamd.ctl';
+
+# ------------------------------------------------------------------
+# Directory Layout
+# ------------------------------------------------------------------
 
 # Temporary directory for quarantine and temp files
 $TEMPBASE = '/var/amavis/tmp';
@@ -19,20 +59,48 @@ $TEMPBASE = '/var/amavis/tmp';
 # Queue directory (must match MTA's queue path)
 $QUARANTINE = '/var/quarantine/amavis';
 
-# Network listen interfaces (IP:port pairs)
-@lookup_sql_dsn = ( ['DBI:mysql:database={{ sql_database }};host={{ sql_host }}:{{ sql_port }}', '{{ sql_user }}', '{{ sql_pass }}' ] );
+# ------------------------------------------------------------------
+# SQL Database Connectivity (for policy lookups)
+# ------------------------------------------------------------------
 
 # Database for mail address lookup (SQL or internal)
+# Constructs the DBI Data Source Name (DSN) for MySQL.
+# Variables: sql_database, sql_host, sql_port, sql_user, sql_pass
+@lookup_sql_dsn = ( ['DBI:mysql:database={{ sql_database | default("amavisd") }};host={{ sql_host | default("localhost") }}:{{ sql_port | default(3306) }}', '{{ sql_user | default("amavisd") }}', '{{ sql_pass | default("") }}' ] );
+
+# ------------------------------------------------------------------
+# Interface Policy
+# ------------------------------------------------------------------
+
+# Defines policy for messages arriving on interface 10024 (typical
+# MTA-to-amavisd submission port).
 $interface_policy{'10024'} = 'AM.PDP-SOCK';
 
-# Maximum size of scanned message (bytes)
-$max_message_size = {{ max_message_size }};
+# ------------------------------------------------------------------
+# Message Size Limits
+# ------------------------------------------------------------------
 
-# Number of worker processes (preforking)
-$max_workers = {{ max_workers }};
+# Maximum size (in bytes) of messages to scan. Larger messages are skipped.
+$max_message_size = {{ max_message_size | default(52428800) }};
 
-# Timeout for external scanners (seconds)
-$timeout_fork = {{ timeout_fork }};
+# ------------------------------------------------------------------
+# Worker Process Configuration
+# ------------------------------------------------------------------
+
+# Number of concurrent worker processes (preforking model).
+# Adjust based on CPU and load.
+$max_workers = {{ max_workers | default(4) }};
+
+# ------------------------------------------------------------------
+# Timeout Configuration
+# ------------------------------------------------------------------
+
+# Timeout (in seconds) for external helper processes (e.g., clamd, spamc).
+$timeout_fork = {{ timeout_fork | default(60) }};
+
+# ------------------------------------------------------------------
+# Bypass Maps (Virus/Spam)
+# ------------------------------------------------------------------
 
 # Enable bypassing of internal loopback (for mail that should skip scanning)
 $bypass_virus_checks_maps = {
@@ -41,22 +109,42 @@ $bypass_virus_checks_maps = {
 };
 
 # Enable bypassing of spam checks for trusted networks
+# Populated from trusted_networks list.
 $bypass_spam_checks_maps = {
   '127.0.0.1' => 1,
   '::1' => 1,
-{% for trusted_net in trusted_networks %}
+{% for trusted_net in trusted_networks | default([]) %}
   '{{ trusted_net }}' => 1,
 {% endfor %}
 };
 
+# ------------------------------------------------------------------
+# Final Destinies (Actions on Detection)
+# ------------------------------------------------------------------
+
 # Quarantine methods: 'local', 'sql', 'null' (discard), or 'mail'
+# Action taken when a virus is detected.
 $final_virus_destiny = D_DISCARD;     # change to D_BOUNCE or D_REJECT for stricter policy
+
+# Action taken when spam is detected above kill_level.
 $final_spam_destiny = D_DISCARD;
+
+# Action taken when banned files are detected.
 $final_banned_destiny = D_DISCARD;
+
+# Action taken when bad headers are detected.
 $final_bad_header_destiny = D_PASS;
+
+# ------------------------------------------------------------------
+# Logging Format
+# ------------------------------------------------------------------
 
 # Logging format: 0 = syslog only, 1 = syslog + per-request file
 $log_templating = 0;
+
+# ------------------------------------------------------------------
+# Policy Banks (SQL-based)
+# ------------------------------------------------------------------
 
 # Enable SQL for policy banks (e.g., per-domain rules)
 @policy_bank{'SQL'} = (

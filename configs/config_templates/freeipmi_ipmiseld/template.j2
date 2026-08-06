@@ -1,93 +1,100 @@
 # Configuration for IPMI System Event Log Daemon (ipmiseld)
+# This template generates a configuration file for the ipmiseld service,
+# which exposes IPMI System Event Log (SEL) and sensor data over a network
+# interface or Unix socket, compatible with tools like freeipmi.
 
-# Listen address for the daemon
-{{ bind_address }}
+# IP address the ipmiseld daemon will bind to. Use 0.0.0.0 for all interfaces.
+{{ bind_address | default('127.0.0.1') }}
 
-# Port to listen on for incoming connections
-{{ port }}
+# TCP port to listen on for incoming connections.
+{{ port | default(9230) }}
 
-# Run as the specified user (must exist on the system)
-{{ user }}
+# System user account under which the daemon will run (must exist).
+{{ user | default('root') }}
 
-# Run as the specified group (must exist on the system)
-{{ group }}
+# System group under which the daemon will run (must exist).
+{{ group | default('root') }}
 
-# Path to the IPMI device interface (e.g., /dev/ipmi0 or /dev/ipmidev/0)
-{{ device_interface }}
+# Path to the IPMI device interface (e.g., /dev/ipmi0 or /dev/ipmidev/0).
+{{ device_interface | default('/dev/ipmi0') }}
 
-# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
-{{ log_level }}
+# Minimum severity level for logging (e.g., 'WARNING' logs warnings and above).
+{{ log_level | default('WARNING') }}
 
-# Path to log file (use '-' for stderr)
-{{ log_file }}
+# Path to log file; use '-' to log to stderr instead.
+{{ log_file | default('-') }}
 
-# Enable or disable debug mode (overrides log_level)
-{% if debug_mode %}
+# Enable verbose debugging output (overrides log_level).
+# Debug mode forces maximum verbosity regardless of log_level.
+{% if debug_mode | default(False) | bool %}
 DebugMode 1
 {% else %}
 DebugMode 0
 {% endif %}
 
-# Timeout (in seconds) for IPMI commands
-{{ ipmi_timeout }}
+# Timeout in seconds for IPMI commands.
+{{ ipmi_timeout | default(5) }}
 
-# Maximum number of retries for IPMI commands
-{{ ipmi_max_retries }}
+# Maximum number of retries for failed IPMI commands.
+{{ ipmi_max_retries | default(3) }}
 
-# Enable or disable local-only mode (no network access required)
-{% if local_only %}
+# If enabled, only local (non-network) IPMI communication is used.
+# Disables network socket binding if set to true.
+{% if local_only | default(True) | bool %}
 LocalOnly 1
 {% else %}
 LocalOnly 0
 {% endif %}
 
-# Enable or disable authentication (BMC-side config required)
-{% if auth_enable %}
+# Enable BMC-side authentication for IPMI sessions (requires valid credentials).
+{% if auth_enable | default(False) | bool %}
 AuthEnable 1
 {% else %}
 AuthEnable 0
 {% endif %}
 
-# Session timeout (in seconds) for remote sessions
-{{ session_timeout }}
+# Session timeout in seconds for remote IPMI sessions.
+{{ session_timeout | default(300) }}
 
-# Enable or disable SNMP trap forwarding
-{% if snmp_trap_enable %}
+# Enable forwarding of IPMI system events as SNMP traps.
+{% if snmp_trap_enable | default(False) | bool %}
 SNMPTrapEnable 1
 {% else %}
 SNMPTrapEnable 0
 {% endif %}
 
-# SNMP trap destination hosts
-{% for trap_dest in snmp_trap_destinations %}
+# List of SNMP trap destinations (host, port, community).
+# Each entry in snmp_trap_destinations should be a mapping with keys: host, port, community.
+{% for trap_dest in snmp_trap_destinations | default([]) %}
 SNMPTrapDest {{ trap_dest.host }}:{{ trap_dest.port }} {{ trap_dest.community }}
 {% endfor %}
 
-# Enable or disable Syslog forwarding
-{% if syslog_enable %}
+# Enable forwarding of IPMI events to local syslog.
+{% if syslog_enable | default(True) | bool %}
 SyslogEnable 1
 {% else %}
 SyslogEnable 0
 {% endif %}
 
-# PID file path
-{{ pid_file }}
+# Path to store the daemon's process ID file.
+{{ pid_file | default('/run/freeipmi/ipmiseld.pid') }}
 
-# Preload SDRs on startup (improves initial response, but increases startup time)
-{% if preload_sdr %}
+# If enabled, preload Sensor Data Records (SDRs) at startup for faster event decoding.
+# Increases startup time but improves subsequent performance.
+{% if preload_sdr | default(False) | bool %}
 PreloadSDR 1
 {% else %}
 PreloadSDR 0
 {% endif %}
 
-# Use secure authentication (SHA1/MD5) if supported by BMC
-{% if use_secure_auth %}
+# Use secure authentication (SHA1 or MD5) instead of plain text (if BMC supports it).
+{% if use_secure_auth | default(True) | bool %}
 UseSecureAuth 1
 {% else %}
 UseSecureAuth 0
 {% endif %}
 
-# Extra command-line options (e.g., additional IPMI options)
-{% if extra_options %}
-{{ extra_options }}
+# Additional space-separated command-line options for ipmiseld (advanced use).
+{% if extra_options | default('') | trim %}
+{{ extra_options | default('') | trim }}
 {% endif %}

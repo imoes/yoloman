@@ -1,0 +1,52 @@
+{# gh CLI configuration file #}
+{#
+  This template generates the ~/.config/gh/config.yml for the GitHub CLI.
+  It is self-documenting: every setting is commented with its schema description
+  and safe defaults are applied via Jinja2 `default` filters.
+#}
+
+{# auth: List of authentication entries for hosts. Each entry provides a token and optional host (defaults to 'github.com'). Must be list of objects #}
+{% for item in (auth | default([], true) | list) %}
+{# Authentication token for {{ (item | default({})).host | default('github.com') }} #}
+{{ (item | default({})).host | default('github.com') }}:
+  oauth_token: {{ (item | default({})).token | default('') }}
+{% endfor %}
+
+{# aliases: Map of command alias names to their command strings. e.g. {pr: 'pr view'} #}
+{% for name, cmd in (aliases | default({}, true) | dict2items) %}
+{# Alias: {{ name }} -> {{ cmd }} #}
+alias.{{ name }}: {{ cmd }}
+{% endfor %}
+
+{# editor: Default editor to use (e.g., 'vim', 'nano'). #}
+{% if (editor | default('') | trim) %}
+editor: {{ editor | default('') | trim }}
+{% else %}
+# editor: (not set)
+{% endif %}
+
+{# git_protocol: Protocol to use for git operations: 'ssh' or 'https'. #}
+{% if (git_protocol | default('') | trim) %}
+git_protocol: {{ git_protocol | default('') | trim }}
+{% else %}
+# git_protocol: (not set)
+{% endif %}
+
+{# pager: Pager to use for output (e.g., 'less', 'more', 'cat'). #}
+{% if (pager | default('') | trim) %}
+pager: {{ pager | default('') | trim }}
+{% else %}
+# pager: (not set)
+{% endif %}
+
+{# isatty: Control whether to force use of TTY for prompts. Valid values: '0' (disabled), '1' (enabled), '' (auto). #}
+{% if (isatty | default('') | trim) %}
+isatty: {{ isatty | default('') | trim }}
+{% else %}
+# isatty: (not set)
+{% endif %}
+
+{# Fallback comment if all fields are effectively empty/null #}
+{% if not auth | default([]) and not aliases | default({}) and not editor | default('') and not git_protocol | default('') and not pager | default('') and not isatty | default('') %}
+# Empty or minimal gh config (no settings provided)
+{% endif %}

@@ -1,69 +1,141 @@
-# Listen address and port for the postgrey service
-listen={{ listen_address }}:{{ listen_port }}
+#! /bin/sh
+#
+# postgrey      start/stop the postgrey greylisting deamon for postfix
+#               (priority should be smaller than that of postfix)
+#
+# Author:       (c)2004-2006 Adrian von Bidder <avbidder@fortytwo.ch>
+#               Based on Debian sarge's 'skeleton' example
+#               Distribute and/or modify at will.
+#
+# Version:      $Id: postgrey.init 1436 2006-12-07 07:15:03Z avbidder $
+#
+### BEGIN INIT INFO
+# Provides:          postgrey
+# Required-Start:    $syslog $local_fs $remote_fs
+# Required-Stop:     $syslog $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start/stop the postgrey daemon
+### END INIT INFO
 
-# User to run postgrey as (commonly 'postfix' or 'postgrey')
-user={{ run_as_user }}
+set -e
 
-# Group to run postgrey as
-# (if omitted, defaults to the primary group of `user`)
-{% if run_as_group %}group={{ run_as_group }}{% endif %}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/postgrey
+DAEMON_NAME=postgrey
+DESC="postfix greylisting daemon"
+DAEMON_USER={{ run_as_user }}
 
-# Path to the PostgreSQL/SQLite database file (use sqlite for simplicity)
-database={{ db_path }}
+PIDFILE=/var/run/$DAEMON_NAME.pid
+SCRIPTNAME=/etc/init.d/$DAEMON_NAME
 
-# Database engine: 'sqlite', 'mysql', or 'postgres'
-database_engine={{ db_engine }}
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
 
-# Delay before greylisting expires (seconds)
-# Typical: 300 (5 minutes)
-whitelist_clients_delay={{ whitelist_clients_delay }}
+. /lib/lsb/init-functions
 
-# Delay after which a new sender is accepted again (seconds)
-# Typical: 1800 (30 minutes)
-whitelist_recipients_delay={{ whitelist_recipients_delay }}
+# Read config file if it is present.
+if [ -r /etc/default/$DAEMON_NAME ]
+then
+    . /etc/default/$DAEMON_NAME
+fi
 
-# Whitelist clients (IPs, CIDR, or hostnames) — one per line
-{% for client in whitelist_clients %}whitelist_client={{ client }}{% endfor %}
+POSTGREY_OPTS="--pidfile=$PIDFILE --daemonize $POSTGREY_OPTS"
+if [ -z "$POSTGREY_TEXT" ]; then
+    POSTGREY_TEXT_OPT=""
+else
+    POSTGREY_TEXT_OPT="--greylist-text=$POSTGREY_TEXT"
+fi
 
-# Whitelist sender domains (exact or regex patterns) — one per line
-{% for domain in whitelist_sender_domains %}whitelist_sender_domain={{ domain }}{% endfor %}
+ret=0
 
-# Whitelist sender addresses (exact email or patterns) — one per line
-{% for email in whitelist_sender_addresses %}whitelist_sender_address={{ email }}{% endfor %}
+do_start()
+{
+        # Return
+        #   0 if daemon has been started
+        #   1 if daemon was already running
+        #   2 if daemon could not be started
+        start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+                || return 1
+        start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
+                $POSTGREY_OPTS "$POSTGREY_TEXT_OPT" \
+                || return 2
+}
 
-# Whitelist recipient domains (exact or regex patterns)
-{% for domain in whitelist_recipient_domains %}whitelist_recipient_domain={{ domain }}{% endfor %}
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+        start-stop-daemon --user $DAEMON_USER --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
+        RETVAL="$?"
+        [ "$RETVAL" = 2 ] && return 2
 
-# Whitelist recipient addresses
-{% for email in whitelist_recipient_addresses %}whitelist_recipient_address={{ email }}{% endfor %}
+	# Wait for children to finish too if this is a daemon that forks
+	# and if the daemon is only ever run from this initscript.
+	# If the above conditions are not satisfied then add some other code
+	# that waits for the process to drop all resources that could be
+	# needed by services started subsequently.  A last resort is to
+	# sleep for some time.
+	start-stop-daemon --user $DAEMON_USER --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
+	[ "$?" = 2 ] && return 2
+	# Many daemons don't delete their pidfiles when they exit.
+	rm -f $PIDFILE
+	return "$RETVAL"
 
-# Log to syslog? Set to `1` for yes, `0` for no
-{% if syslog %}syslog=1{% else %}syslog=0{% endif %}
+}
 
-# Log file path (ignored if syslog=1)
-{% if log_file %}logfile={{ log_file }}{% endif %}
+do_reload()
+{
+	#
+	# If the daemon can reload its configuration without
+	# restarting (for example, when it is sent a SIGHUP),
+	# then implement that here.
+	#
+	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE
+	return 0
+}
 
-# Log level: 0 (quiet), 1 (normal), 2 (verbose)
-loglevel={{ loglevel }}
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$DAEMON_NAME"
+        do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+        ;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$DAEMON_NAME"
+        do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+        ;;
+  reload|force-reload)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Reloading $DESC" "$DAEMON_NAME"
+        do_reload
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+        ;;
+  restart)
+        do_stop
+        do_start
+        ;;
+  status)
+        status_of_proc -p $PIDFILE $DAEMON "$DAEMON_NAME" 2>/dev/null
+        ret=$?
+        ;;
 
-# Greylist for seconds (minimum wait before retry)
-# Typical: 300–600
-greylist={{ greylist_seconds }}
+  *)
+        echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
 
-# Greylist for maximum seconds (soft reject window)
-# Typical: 3600 (1 hour)
-greylist_max_age={{ greylist_max_age }}
-
-# Whitelist Postfix's own SMTP submissions (e.g., from smtpd) — often `1`
-{% if whitelist_postfix_smtpd %}whitelist_postfix_smtpd=1{% else %}whitelist_postfix_smtpd=0{% endif %}
-
-# Skip greylisting for clients connecting via localhost
-# Useful for local MTA-to-MTA relays
-{% if skip_local%}skip_local=1{% else %}skip_local=0{% endif %}
-
-# PID file path
-pid_file={{ pid_file }}
-
-# Extra options — passed to postgrey binary as-is
-{% if extra_options %}# Extra options
-extra_options={{ extra_options }}{% endif %}
+exit $ret

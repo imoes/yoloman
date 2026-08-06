@@ -1,22 +1,23 @@
 # Cisco Discovery Protocol Reporter (cdpr) configuration file
-# Enables or disables CDP reporting globally
-global_enabled: {{ global_enabled | lower }}
+# This file is managed by Ansible. Do not edit manually.
 
-# Path to the log file
-log_file: {{ log_file }}
+# global_enabled: Enable or disable CDP reporting globally. When disabled, cdpr starts but does not process any CDP packets.
+global_enabled: {{ global_enabled | default(true) | lower }}
 
-# Path to the PID file
-pid_file: {{ pid_file }}
+# log_file: Absolute path to the log file. Ensure the directory exists and is writable.
+log_file: {{ log_file | default('/var/log/cdpr/cdpr.log') }}
 
-# Interval (in seconds) between CDP updates
-update_interval: {{ update_interval }}
+# pid_file: Absolute path to the PID file. Used for service management (stop/restart).
+pid_file: {{ pid_file | default('/run/cdpr/cdpr.pid') }}
 
-# Maximum number of CDP neighbors to cache per interface
-max_neighbors: {{ max_neighbors }}
+# update_interval: How often (in seconds) to refresh internal state and flush pending outputs. Minimum 5 seconds.
+update_interval: {{ update_interval | default(60) }}
 
-# Interface(s) to listen on for CDP packets (empty = all interfaces)
-{% if listen_interfaces | length > 0 %}
-# Interfaces to monitor for CDP traffic
+# max_neighbors: Maximum number of CDP neighbors to cache per interface. Older entries are evicted when exceeded.
+max_neighbors: {{ max_neighbors | default(256) }}
+
+# listen_interfaces: List of network interfaces (e.g., eth0, GigabitEthernet1/0/1) to monitor for CDP packets. If empty, all interfaces are monitored.
+{% if listen_interfaces | default([]) | length > 0 %}
 listen_interfaces:
 {% for iface in listen_interfaces %}  - {{ iface }}
 {% endfor %}
@@ -24,26 +25,31 @@ listen_interfaces:
 listen_interfaces: []
 {% endif %}
 
-# Output plugins (each defines a destination for CDP data)
+# plugins: List of output plugins to send CDP data to. Each plugin defines a destination (file, HTTP endpoint, InfluxDB, etc.).
+{% if plugins | default([]) | length > 0 %}
 plugins:
-{% for plugin in plugins %}  - name: {{ plugin.name }}
-    enabled: {{ plugin.enabled | lower }}
-    type: {{ plugin.type }}
-    {% if plugin.type == 'file' %}
-    path: {{ plugin.path }}
+{% for plugin in plugins %}  - name: {{ plugin.name | default('') }}
+    enabled: {{ plugin.enabled | default(true) | lower }}
+    type: {{ plugin.type | default('file') }}
+    # Plugin-specific configuration based on type
+    {% if plugin.type | default('file') == 'file' %}
+    path: {{ plugin.path | default('/var/log/cdpr/output.log') }}
     format: {{ plugin.format | default('json') }}
-    rotation_max_size: {{ plugin.rotation_max_size }}
-    rotation_max_files: {{ plugin.rotation_max_files }}
-    {% elif plugin.type == 'http' %}
-    endpoint: {{ plugin.endpoint }}
-    method: {{ plugin.method }}
+    rotation_max_size: {{ plugin.rotation_max_size | default(10485760) }}
+    rotation_max_files: {{ plugin.rotation_max_files | default(5) }}
+    {% elif plugin.type | default('file') == 'http' %}
+    endpoint: {{ plugin.endpoint | default('') }}
+    method: {{ plugin.method | default('POST') }}
     headers:
-{% for key, val in plugin.headers.items() | sort %}      {{ key }}: {{ val }}
-{% endfor %}    timeout: {{ plugin.timeout }}
-    {% elif plugin.type == 'influxdb' %}
-    url: {{ plugin.url }}
-    database: {{ plugin.database }}
+    {% for key, val in (plugin.headers | default({})) | dict2items %}      {{ key }}: {{ val }}
+    {% endfor %}    timeout: {{ plugin.timeout | default(30) }}
+    {% elif plugin.type | default('file') == 'influxdb' %}
+    url: {{ plugin.url | default('http://localhost:8086') }}
+    database: {{ plugin.database | default('cdpr') }}
     retention_policy: {{ plugin.retention_policy | default('autogen') }}
     username: {{ plugin.username | default('') }}
     {% endif %}
 {% endfor %}
+{% else %}
+plugins: []
+{% endif %}

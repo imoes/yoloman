@@ -1,129 +1,247 @@
-# Global bip settings
-global {
-{% if bind_ip %}
-	bind_ip = "{{ bind_ip }}";
+# =============================================================================
+# Bip IRC Proxy Configuration Template
+# =============================================================================
+# This template generates a valid `bip` configuration file.
+# Bip is an IRC bouncer (proxy) that keeps your connection alive.
+# See https://bip.iiens.net/ for documentation.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Listening Addresses
+# -----------------------------------------------------------------------------
+
+# IPv4 address to bind to (leave empty to bind to all interfaces).
+# If empty, bip listens on 0.0.0.0.
+# Uses `bind_ip` variable. If provided, it is stripped of whitespace.
+# Note: Bip config parser requires valid syntax; if empty, we omit the ip directive or use a safe default.
+# However, bip typically requires ip or ipv6 to be set. If both are empty, it might fail.
+# We will output the directive with the value, even if empty, as bip might interpret empty as "any".
+{% set bind_ip_val = (bind_ip | default('')) | trim %}
+{% if bind_ip_val %}
+ip = "{{ bind_ip_val }}";
+{% else %}
+# ip = ""; # Commented out because bind_ip is empty; bip may bind to all interfaces by default or require explicit setting.
 {% endif %}
-{% if bind_ipv6 %}
-	bind_ipv6 = "{{ bind_ipv6 }}";
+
+# IPv6 address to bind to (leave empty to disable IPv6).
+# If empty, bip listens on [::] only if IPv6 is enabled globally or via other means.
+# Note: Bip's handling of IPv6 vs IPv4 binding can depend on compilation options.
+# If both ip and ipv6 are empty, behavior defaults to system preference (often both).
+# Uses `bind_ipv6` variable. If provided, it is stripped of whitespace.
+{% set bind_ipv6_val = (bind_ipv6 | default('')) | trim %}
+{% if bind_ipv6_val %}
+ipv6 = "{{ bind_ipv6_val }}";
+{% else %}
+# ipv6 = ""; # Commented out because bind_ipv6 is empty.
 {% endif %}
-{% if port %}
-	port = {{ port }};
+
+# -----------------------------------------------------------------------------
+# Ports
+# -----------------------------------------------------------------------------
+
+# TCP port for plain-text IRC connections.
+# Default: 7778.
+port = {{ (port | default(7778)) }};
+
+# TCP port for SSL/TLS-encrypted IRC connections.
+# If set, bip will listen on this port for SSL clients.
+# Uses `ssl_port` variable. If omitted or undefined, the line is not generated.
+{% if ssl_port is not none %}
+ssl_port = {{ (ssl_port | default(6697)) }};
 {% endif %}
-{% if ssl_port %}
-	ssl_port = {{ ssl_port }};
-{% endif %}
-{% if ssl_cert %}
-	ssl_cert = "{{ ssl_cert }}";
-{% endif %}
-{% if ssl_key %}
-	ssl_key = "{{ ssl_key }}";
-{% endif %}
-	log_dir = "{{ log_dir }}";
-	log_level = {{ log_level }};
-{% if pid_file %}
-	pid_file = "{{ pid_file }}";
-{% endif %}
-{% if allow_plaintext %}
-	allow_plaintext = {{ allow_plaintext | lower }};
-{% endif %}
+
+# -----------------------------------------------------------------------------
+# SSL/TLS Configuration
+# -----------------------------------------------------------------------------
+
+# Path to SSL certificate file.
+# Used when ssl_port is defined.
+ssl_cert = "{{ (ssl_cert | default('/usr/share/bip/bip.pem')) }}";
+
+# Path to SSL private key file (Diffie-Hellman parameters).
+# Used when ssl_port is defined.
+ssl_key = "{{ (ssl_key | default('/usr/share/bip/dh.pem')) }}";
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Define where the pidfile should be stored.
+# Used for process management (supervisors, init systems).
+pid_file = "{{ (pid_file | default('/run/bip/bip.pid')) }}";
+
+# Set to false to disable logging and backlogging.
+# Note: This is a global toggle for the user/connection logging subsystem.
+# log = false;
+
+# Define bip's log level:
+# 0 : only fatal errors
+# 1 : add others errors
+# 2 : add warnings
+# 3 : add info messages
+# 4 : add debug
+# 5 : add extreme debug
+# Higher values = more verbose.
+log_level = {{ (log_level | default(3)) }};
+
+# This is where logs go. Channel and private messages will use that
+# configuration value as a prefix, and then log_format to determine
+# full log filename.
+log_root = "{{ (log_dir | default('/var/log/bip')) }}";
+
+# Set to false to disable bip's internal messages logging.
+# This is not recommended; a better option is to reduce log_level.
+# log_system = true;
+
+# Log format allows you to make log filenames depend on the log line's
+# attributes. Here's a list:
+# %u -> username
+# %n -> network name
+# %Y -> 4 digit year
+# %m -> 2 digit month
+# %d -> 2 digit day
+# %h -> 2 digit hour of the day
+# %c -> destination (#chan, nick, ...)
+log_format = "%u/%n/%Y-%m/%c.%d.log";
+
+# Sets the frequency (in seconds) of log syncing (real write to kernel).
+# log_sync_interval = 5;
+
+# Sets the initial delay (in seconds) before a reconnection attempt.
+# The delay increases with the number of attempts:
+# delay = reconn_timer * number of attempts
+# reconn_timer = 120;
+
+# -----------------------------------------------------------------------------
+# User Configuration
+# -----------------------------------------------------------------------------
+# Users are defined in a list. Each user entry creates a `user { ... }` block.
+# Iterates over the `users` list from the schema.
+{% for user in (users | default([])) %}
+user {
+    # The name in bip of the user, required. This is used by bip only.
+    name = "{{ (user.name | default('')) }}";
+
+    # This user's password (md5(md5("tata"))) with seed - generated by
+    # bipmkpw, for example: "3880f2b39b3b9cb507b052b695d2680859bfc327".
+    # IMPORTANT: Do not store plaintext passwords here.
+    password = "{{ (user.password | default('')) }}";
+
+    # Set this to true if you want this user to have admin privileges on
+    # bip. User will be able to RELOAD bip and see all users' configuration
+    # (except pass).
+    admin = {{ (user.admin | default(false)) | lower }};
+
+    # When bip_use_notice is true, bip will send internal messages like
+    # disconnection notifications or /BIP commands replies as notices
+    # instead of private messages. The default is false.
+    # bip_use_notice = false;
+
+    # SSL certificates checking mode for user:
+    # - "none" to accept anything;
+    # - "basic" to accept if the certificate is contained in the store;
+    # - "ca" to do a complete certificate chain checking.
+    # ssl_check_mode = "{{ (user.ssl_check_mode | default('none')) }}";
+
+    # Location of the user's store for server SSL certificate check.
+    # ssl_check_store = "{{ (user.ssl_check_store | default('')) }}";
+
+    # This is where you put your user's certificate (for CertFP authentication).
+    # ssl_client_certfile = "{{ (user.ssl_client_certfile | default('')) }}";
+
+    # These will be the default for each connections.
+    default_nick = "{{ (user.default_nick | default('')) }}";
+    default_user = "{{ (user.default_user | default('')) }}";
+    default_realname = "{{ (user.default_realname | default('')) }}";
+
+    # Makes bip send the log of each channel and privates while
+    # you were not connected to the proxy upon connection.
+    # backlog = {{ (user.backlog | default(true)) | lower }};
+    # backlog_lines = {{ (user.backlog_lines | default(0)) }};
+
+    # When true, backlog even lines already backlogged.
+    # backlog_always = {{ (user.backlog_always | default(false)) | lower }};
+
+    # "none", "time" or "datetime": disables time stamps, use time or datetime.
+    # backlog_timestamp = "{{ (user.backlog_timestamp | default('time')) }}";
+
+    # If you have backlog_reset_on_talk set to true, talking in a query
+    # will reset the backlog for the query.
+    # backlog_reset_on_talk = {{ (user.backlog_reset_on_talk | default(false)) | lower }};
+
+    # Talking in a connection will reset the whole connection backlog.
+    # backlog_reset_connection = {{ (user.backlog_reset_connection | default(false)) | lower }};
+
+    # If bl_msg_only is true, only channel and private messages will be
+    # backlogged.
+    # backlog_msg_only = {{ (user.backlog_msg_only | default(false)) | lower }};
+
+    # -----------------------------------------------------------------
+    # Connections
+    # -----------------------------------------------------------------
+    # A user can have multiple connections to irc networks.
+    {% for conn in (user.connections | default([])) %}
+    connection {
+        # Used by bip only, required (for example: "oftc").
+        name = "{{ (conn.name | default('')) }}";
+
+        # Which ircnet to connect to, required.
+        network = "{{ (conn.network | default('')) }}";
+
+        # Disable or enable logging and backlogging for the current connection.
+        # log = {{ (conn.log | default(true)) | lower }};
+
+        # SSL check mode for this specific connection.
+        # ssl_check_mode = "{{ (conn.ssl_check_mode | default('none')) }}";
+
+        # If you have multiple IP addresses, you can set the one you
+        # want bip to use here.
+        # vhost = "{{ (conn.vhost | default('')) }}";
+
+        # When source_port is defined, bip will connect to the IRC
+        # server from this port number.
+        # source_port = {{ (conn.source_port | default(0)) }};
+
+        # Nick, user and realname are required.
+        nick = "{{ (conn.nick | default(user.default_nick | default(''))) }}";
+        user = "{{ (conn.user | default(user.default_user | default(''))) }}";
+        realname = "{{ (conn.realname | default(user.default_realname | default(''))) }}";
+
+        # Password for the IRC server.
+        password = "{{ (conn.password | default('')) }}";
+
+        # You can specify this field more than once.
+        {% for cmd in (conn.on_connect_send | default([])) %}
+        on_connect_send = "{{ (cmd | default('')) }}";
+        {% endfor %}
+
+        # SASL Authentication
+        # sasl_username = "{{ (conn.sasl_username | default('')) }}";
+        # sasl_password = "{{ (conn.sasl_password | default('')) }}";
+        # sasl_mechanism = "{{ (conn.sasl_mechanism | default('')) }}";
+
+        # Some options:
+        # away_nick = "{{ (conn.away_nick | default('')) }}";
+        # no_client_away_msg = "{{ (conn.no_client_away_msg | default(false)) | lower }}";
+        # follow_nick = {{ (conn.follow_nick | default(false)) | lower }};
+        # ignore_first_nick = {{ (conn.ignore_first_nick | default(false)) | lower }};
+        # autojoin_on_kick = {{ (conn.autojoin_on_kick | default(false)) | lower }};
+        # ignore_server_capab = {{ (conn.ignore_server_capab | default(false)) | lower }};
+
+        # Autojoined channels
+        {% for chan in (conn.channels | default([])) %}
+        channel {
+            name = "{{ (chan.name | default('')) }}";
+            {% if (chan.key | default('')) is not none and (chan.key | default('')) != '' %}
+            key = "{{ (chan.key | default('')) }}";
+            {% endif %}
+            {% if (chan.backlog | default(true)) is defined %}
+            backlog = {{ (chan.backlog | default(true)) | lower }};
+            {% endif %}
+        }
+        {% endfor %}
+    }
+    {% endfor %}
 };
 
-# Users configuration
-{% for user in users %}
-user {{ user.name }} {
-{% if user.password %}
-	password = "{{ user.password }}";
-{% endif %}
-{% if user.realname %}
-	realname = "{{ user.realname }}";
-{% endif %}
-{% if user.username %}
-	username = "{{ user.username }}";
-{% endif %}
-{% if user.nicks %}
-	nicks = [{{ user.nicks | map("quote") | join(", ") }}];
-{% endif %}
-{% if user.ident %}
-	ident = "{{ user.ident }}";
-{% endif %}
-{% if user.default_server %}
-	default_server = "{{ user.default_server }}";
-{% endif %}
-{% if user.default_port %}
-	default_port = {{ user.default_port }};
-{% endif %}
-{% if user.default_ssl %}
-	default_ssl = {{ user.default_ssl | lower }};
-{% endif %}
-{% if user.default_password %}
-	default_password = "{{ user.default_password }}";
-{% endif %}
-{% if user.default_channels %}
-	default_channels = [{{ user.default_channels | map("quote") | join(", ") }}];
-{% endif %}
-{% if user.use_ssl %}
-	use_ssl = {{ user.use_ssl | lower }};
-{% endif %}
-{% if user.ssl_verify %}
-	ssl_verify = {{ user.ssl_verify | lower }};
-{% endif %}
-{% if user.ssl_cafile %}
-	ssl_cafile = "{{ user.ssl_cafile }}";
-{% endif %}
-{% if user.ssl_capath %}
-	ssl_capath = "{{ user.ssl_capath }}";
-{% endif %}
-{% if user.ssl_ciphers %}
-	ssl_ciphers = "{{ user.ssl_ciphers }}";
-{% endif %}
-{% if user.timeout %}
-	timeout = {{ user.timeout }};
-{% endif %}
-{% if user.reconnect_delay %}
-	reconnect_delay = {{ user.reconnect_delay }};
-{% endif %}
-{% if user.max_history_lines %}
-	max_history_lines = {{ user.max_history_lines }};
-{% endif %}
-{% if user.max_history_bytes %}
-	max_history_bytes = {{ user.max_history_bytes }};
-{% endif %}
-{% if user.history_persist %}
-	history_persist = {{ user.history_persist | lower }};
-{% endif %}
-{% if user.autoquery %}
-	autoquery = {{ user.autoquery | lower }};
-{% endif %}
-{% if user.autojoin %}
-	autojoin = {{ user.autojoin | lower }};
-{% endif %}
-{% if user.flood_protection %}
-	flood_protection = {{ user.flood_protection | lower }};
-{% endif %}
-{% if user.irc_debug %}
-	irc_debug = {{ user.irc_debug | lower }};
-{% endif %}
-{% if user.always_away %}
-	always_away = {{ user.always_away | lower }};
-{% endif %}
-{% if user.away_message %}
-	away_message = "{{ user.away_message }}";
-{% endif %}
-};
 {% endfor %}
-
-# Optional network aliases
-{% if network_aliases %}
-{% for alias in network_aliases %}
-network_alias {{ alias.name }} {
-	server = "{{ alias.server }}";
-	port = {{ alias.port }};
-{% if alias.ssl %}
-	ssl = {{ alias.ssl | lower }};
-{% endif %}
-{% if alias.password %}
-	password = "{{ alias.password }}";
-{% endif %}
-};
-{% endfor %}
-{% endif %}

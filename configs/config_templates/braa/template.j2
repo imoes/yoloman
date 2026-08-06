@@ -1,0 +1,63 @@
+# Braa Mass SNMP Scanner Configuration
+# This file configures 'braa', a lightweight mass SNMP scanner/query tool.
+# Format: One target per line, global options as flags or defaults.
+# See `man braa` for full syntax details.
+
+# ==============================================================================
+# Targets
+# ==============================================================================
+# List of SNMP queries.
+# Format: [community@]iprange[:port]:oid[/id] or [community@]iprange[:port]:oid.*[/id] for walk.
+# At least one target is required to perform queries.
+{% for target in targets | default([], true) %}{{ target }}
+{% endfor %}
+
+# ==============================================================================
+# Global Options
+# ==============================================================================
+
+# Default SNMP community string.
+# Used for queries where the community is not explicitly specified in the target string.
+{{ community | default('public') }}
+
+# Use SNMPv2c protocol instead of SNMPv1.
+# Equivalent to braa option: -2
+{% if use_snmpv2c | default(False) %}-2{% endif %}
+
+# Show a short summary after completing all queries.
+# Equivalent to braa option: -v
+{% if verbose | default(False) %}-v{% endif %}
+
+# Hexdump octet-strings in the output.
+# Equivalent to braa option: -x
+{% if hexdump | default(False) %}-x{% endif %}
+
+# Timeout in seconds for waiting for responses.
+# Must be a positive integer or float. Default: 5.
+# Equivalent to braa option: -t <s>
+-t {{ timeout | default(5) }}
+
+# Delay in microseconds to wait after sending each packet.
+# Must be a non-negative integer. Default: 0 (no delay).
+# Equivalent to braa option: -d <s>
+-d {{ per_packet_delay | default(0) }}
+
+# Delay in milliseconds between subsequent passes of queries.
+# Must be a non-negative integer. Default: 0 (no delay).
+# Equivalent to braa option: -p <s>
+-p {{ inter_pass_delay | default(0) }}
+
+# Quit after <s> seconds regardless of progress.
+# Set to 0 for no limit. Default: 0.
+# Equivalent to braa option: -a <s>
+-a {{ max_time | default(0) }}
+
+# Number of retries per query.
+# Default: 3.
+# Equivalent to braa option: -r <rc>
+-r {{ retries | default(3) }}
+
+# Optional: Load queries from an external file.
+# Contains one query per line. Overrides inline targets if both are present.
+# Equivalent to braa option: -f <file>
+{% if query_file | default('') | trim != '' %}-f {{ query_file | default('') | trim }}{% endif %}

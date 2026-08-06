@@ -1,38 +1,51 @@
-# Global settings
-hostname = {{ hostname }}
-port = {{ port }}
-{% if database_path %}# Path to SQLite database for persistent state
-path_to_db = {{ database_path }}
-{% endif %}# Path to the certificate file for TLS (optional)
-{% if tls_cert %}certfile = {{ tls_cert }}
-{% endif %}# Path to the private key file for TLS (optional)
-{% if tls_key %}keyfile = {{ tls_key }}
-{% endif %}
-# Enable or disable TLS (default: false)
-use_tls = {{ use_tls|lower }}
-# Enable or disable STARTTLS (default: true if TLS is enabled)
-{% if starttls is defined %}starttls = {{ starttls|lower }}
-{% endif %}
-# Maximum number of concurrent IRC connections per XMPP user
-max_connections_per_user = {{ max_connections_per_user }}
-# Maximum number of channels per IRC connection
-max_channels_per_server = {{ max_channels_per_server }}
-# Time (in seconds) before an idle IRC connection is closed
-idle_timeout = {{ idle_timeout }}
-# JID of the service admin (for notifications)
-admin_jid = {{ admin_jid }}
+# ============================================================================
+# Biboumi Configuration (XMPP-to-IRC Gateway)
+# ============================================================================
+# This file configures the Biboumi service, which acts as an IRC bridge
+# (component) within an XMPP server.
+#
+# Self-documentation:
+# Each directive below includes the schema description as a comment.
+# All variables are populated with schema defaults if not provided by Ansible.
+# ============================================================================
 
-# Logging configuration
-log_file = {{ log_file }}
-log_level = {{ log_level }}
+# The hostname this XMPP-to-IRC gateway will advertise to XMPP clients.
+# Must match the component ID configured on the XMPP server.
+hostname={{ hostname | default('biboumi.example.com') }}
 
-# Default IRC server options (applied to all servers unless overridden)
-{% for server in irc_servers %}# IRC server: {{ server.hostname }}
-[{{ server.hostname }}]
-port = {{ server.port }}
-password = {{ server.password }}
-use_tls = {{ server.use_tls|lower }}
-autojoin = {{ server.autojoin|lower }}
-{% for channel in server.channels %}# Autojoin channel: {{ channel.name }} with modes: {{ channel.modes }}
-{{ channel.name }} = {{ channel.modes }}
-{% endfor %}{% endfor %}
+# Shared secret password used to authenticate this component to the XMPP server.
+# This acts as the component's secret key; keep it secure.
+password={{ password | default('') }}
+
+# IP address of the XMPP server to which biboumi connects.
+# Typically 127.0.0.1 if running on the same host as the XMPP server.
+xmpp_server_ip={{ xmpp_server_ip | default('127.0.0.1') }}
+
+# The port on which the XMPP component listens for incoming connections.
+# Typically 5347 for XMPP components (non-TLS) or 5348 (TLS).
+port={{ port | default(5347) }}
+
+# XMPP JID (bare or full) of the service administrator.
+# Receives operational notices and errors.
+admin={{ admin | default('') }}
+
+# Allow per-user customization of the realname sent to IRC servers.
+# When true, users can set their own realname via IRC commands.
+realname_customization={{ realname_customization | default(True) }}
+
+# Use the JID (instead of hostname) to generate the realname if realname_customization=true.
+realname_from_jid={{ realname_from_jid | default(False) }}
+
+# Path to the log file for Biboumi’s runtime logs.
+log_file={{ log_file | default('/var/log/biboumi/biboumi.log') }}
+
+# Absolute path to the CA certificate file (PEM format).
+# Used for TLS verification when connecting to the XMPP server.
+ca_file={{ ca_file | default('') }}
+
+# Local IP address to bind to for outgoing IRC connections.
+# Leave empty to let the OS choose the default source IP.
+outgoing_bind={{ outgoing_bind | default('') }}
+
+# Verbosity level: NONE=0, ERROR=1, WARNING=2, INFO=3, DEBUG=4, or TRACE=5.
+log_level={{ log_level | default('1') }}

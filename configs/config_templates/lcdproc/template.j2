@@ -1,60 +1,87 @@
-# LCDd.conf — LCDProc server configuration
-# Server-wide settings
-[server]
-  # Core server options
-  CoreServer=yes
-  # Hostname to bind to (use 0.0.0.0 for all interfaces)
-  Host={{ server.host }}
-  # TCP port for client connections
-  Port={{ server.port }}
-  # Path to PID file
-  PIDFile={{ server.pid_file }}
-  # User to drop privileges to (empty = keep root)
-  User={{ server.user | default('') }}
-  # Group to drop privileges to (empty = keep root)
-  Group={{ server.group | default('') }}
-  # Logging level: 0 (none) to 9 (debug)
-  LogLevel={{ server.log_level }}
-  # Log file path (empty = stderr)
-  LogFile={{ server.log_file | default('') }}
-  # Enable background daemonization
-  Background={{ server.background | lower }}
-  # Time to wait before closing LCD after last client disconnect (seconds)
-  IdleTimeout={{ server.idle_timeout }}
-  # Font to use (must exist in FontPath)
-  Font={{ server.font }}
-  # Font path (list of directories)
-  FontPath={{ server.font_path | join(':') }}
+#! /bin/sh
+#
+# LCDd	initscript for LCDd
+# by Jose Luis Tallon <jltallon@adv-solutions.net>
+#
+### BEGIN INIT INFO
+# Provides:          lcdproc
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
+# Short-Description: LCD daemon
+# Description:       Control LCD displays connected to the computer
+### END INIT INFO
+#
+#	Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#	Modified for Debian 
+	by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+	Modified for lcdproc by Jonathan Oxer <jon@debian.org>
+#
 
-# Driver configuration section — loaded on-demand
-{% for driver in drivers %}
-{% if loop.first %}[driver]
-{% else %}
-[{{ driver.name }}]
-{% endif %}
-  # Enable driver
-  Load={{ driver.load | lower }}
-  # Path to driver module (optional; auto-resolved if empty)
-  Path={{ driver.path | default('') }}
-  # Driver-specific options
-{% for key, value in driver.options.items() %}
-  {{ key }}={{ value }}
-{% endfor %}{% endfor %}
+# Path to system binaries
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-# LCD hardware-specific settings (example: hd44780)
-{% if lcd_model %}[lcd]
-  Model={{ lcd_model }}
-  Size={{ lcd_size }}
-{% if 'lcd.backlight' in lcd_extra %}  Backlight={{ 'on' if lcd_backlight else 'off' }}
-{% endif %}{% if 'lcd.contrast' in lcd_extra %}  Contrast={{ lcd_contrast }}
-{% endif %}{% if 'lcd.voltage' in lcd_extra %}  Voltage={{ lcd_voltage }}
-{% endif %}{% if 'lcd.delay' in lcd_extra %}  Delay={{ lcd_delay }}
-{% endif %}{% if 'lcd.cursor' in lcd_extra %}  Cursor={{ 'on' if lcd_cursor else 'off' }}
-{% endif %}
-{% endif %}
-# Client connection limits and timeouts
-[client]
-  # Max clients allowed
-  MaxClients={{ client.max_clients }}
-  # Default client timeout (seconds)
-  Timeout={{ client.timeout }}
+# Full path to the LCDd executable.
+DAEMON={{ daemon_path | default('/usr/sbin/LCDd') }}
+
+# Name of the daemon process (used in logging/status).
+NAME="{{ daemon_name | default('LCDd') }}"
+
+# Description for status messages (derived from daemon name).
+DESC="{{ daemon_name | default('LCDd') }}"
+
+# by default, LCDd runs with curses driver. This driver will display stuff
+# on terminal even if run in background. This spoils the installation fun.
+# So LCDd is configured to run in foreground and will be pushed
+# in background by stop-start-daemon
+# Command-line options passed to the LCDd binary via the init script. '-s 1' enables
+# single-process mode, '-f' forces foreground execution.
+DAEMON_OPTS={{ daemon_opts | default('-s 1 -f -c /etc/LCDd.conf') }}
+
+. /lib/lsb/init-functions
+
+test -x $DAEMON || exit 0
+
+start_lcdd () {
+	start-stop-daemon --start --quiet --background \
+		--exec $DAEMON -- $DAEMON_OPTS
+}
+
+stop_lcdd () {
+	start-stop-daemon --stop --oknodo --quiet --exec $DAEMON
+}
+
+set -e
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start_lcdd;
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	stop_lcdd;
+	echo "$NAME."
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	stop_lcdd
+	sleep 2
+	start_lcdd
+	echo "$NAME."
+	;;
+  status)
+	start-stop-daemon --status --exec $DAEMON
+	echo "$NAME."
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $N {start|stop|status|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

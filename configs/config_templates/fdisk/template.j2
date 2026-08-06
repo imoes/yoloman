@@ -1,0 +1,33 @@
+{# ============================================================================== #}
+{# fdisk(8) Configuration for Non-Interactive Scripting                         #}
+{# ============================================================================== #}
+{# NOTE: fdisk does not use a persistent configuration file (like /etc/fdisk.conf). #}
+{# All behavior is controlled via command-line arguments passed to the `fdisk`     #}
+{# executable. This template generates the correct `fdisk` invocation command      #}
+{# based on the provided schema options.                                           #}
+{# ============================================================================== #}
+
+{# Check if explicit command-line options are provided in the schema. #}
+{% if fdisk_cmdline_options is defined and fdisk_cmdline_options | length > 0 %}
+{# -------------------------------------------------------------------------- #}
+{# Directive: fdisk command invocation with user-provided options             #}
+{# -------------------------------------------------------------------------- #}
+{# Description: Executes fdisk with the specific list of arguments defined    #}
+{# in the `fdisk_cmdline_options` schema field. Each item in the list becomes #}
+{# a separate argument to the fdisk command.                                  #}
+fdisk {{ fdisk_cmdline_options | join(' ') }}
+{% else %}
+{# -------------------------------------------------------------------------- #}
+{# Directive: Default fdisk invocation with device                            #}
+{# -------------------------------------------------------------------------- #}
+{# Description: When no specific options are provided, fdisk runs in          #}
+{# interactive/semi-interactive mode targeting the block device specified by  #}
+{# the `device` schema field. For reproducible scripting, it is recommended   #}
+{# to always supply options like `-c=dos`, `-u=sectors`, and `-w`.          #}
+{# -c=dos|nondos:      Set the dos compatibility label (optional)             #}
+{# -u=sectors|cylinders: Unit for display and calculation (optional)         #}
+{# -w:                 Write the partition table immediately (optional)      #}
+{# -W:                 Write the partition table even if open (optional)     #}
+{# -L=auto|never|always: Label handling (optional)                          #}
+fdisk {{ device | default('/dev/sda') }}
+{% endif %}

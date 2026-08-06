@@ -1,73 +1,158 @@
-# /etc/apparmor.conf — main AppArmor configuration
+#!/bin/sh
+# ----------------------------------------------------------------------
+#    Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+#     NOVELL (All rights reserved)
+#    Copyright (c) 2008, 2009 Canonical, Ltd.
+#
+#    This program is free software; you can redistribute it and/or
+#    modify it under the terms of version 2 of the GNU General Public
+#    License published by the Free Software Foundation.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, contact Novell, Inc.
+# ----------------------------------------------------------------------
+# Authors:
+#  Steve Beattie <steve.beattie@canonical.com>
+#  Kees Cook <kees@ubuntu.com>
+#
+# /etc/init.d/apparmor
+#
+# Note: "Required-Start: $local_fs" implies that the cache may not be available
+# yet when /var is on a remote filesystem. The worst consequence this should
+# have is slowing down the boot.
+#
+### BEGIN INIT INFO
+# Provides: apparmor
+# Required-Start: $local_fs
+# Required-Stop: umountfs
+# Default-Start: S
+# Default-Stop:
+# Short-Description: AppArmor initialization
+# Description: AppArmor init script. This script loads all AppArmor profiles.
+### END INIT INFO
 
-# Enable/disable verbose logging during policy load
-{% if enable_verbose %}verbose{% endif %}
+# Path to the AppArmor parser binary (required for init script operation).
+APPARMOR_FUNCTIONS=/lib/apparmor/rc.apparmor.functions
 
-# Maximum recursion depth for profile compilation
-{% if max_recursion is defined %}max_recursion {{ max_recursion }}{% endif %}
+# Functions needed by rc.apparmor.functions
 
-# Include additional config files from specified directories
-{% for dir in include_dirs %}# Include directory {{ dir }}
-{% if include_dirs_verbose %}# (verbose mode for includes)
-{% endif %}{{ include_syntax }} "{{ dir }}"
-{% endfor %}
+. /lib/lsb/init-functions
 
-# Path to auxiliary utility binaries (e.g., abstractions/, helper scripts)
-{% if helper_dir %}helperdir {{ helper_dir }}
-{% endif %}
+aa_action() {
+	STRING=$1
+	shift
+	$*
+	rc=$?
+	if [ $rc -eq 0 ] ; then
+		aa_log_success_msg $"$STRING "
+	else
+		aa_log_failure_msg $"$STRING "
+	fi
+	return $rc
+}
 
-# Enable/disable inotify-based profile monitoring
-{% if enable_inotify %}inotify /etc/apparmor.d/force-complain
-{% endif %}
+aa_log_action_start() {
+	log_action_begin_msg $@
+}
 
-# Global policy enforcement mode: 0 = disabled, 1 = enforce, 2 = complain
-{% if enforce_mode == 1 %}enforce
-{% elif enforce_mode == 2 %}complain
-{% elif enforce_mode == 0 %}disable
-{% endif %}
+aa_log_action_end() {
+	log_action_end_msg $@
+}
 
-# Profile cache configuration
-{% if enable_cache %}cache
-  cache_dir {{ cache_dir }}
-  cache_dir_mode {{ cache_dir_mode }}
-  cache_file_mode {{ cache_file_mode }}
-  cache_user {{ cache_user }}
-  cache_group {{ cache_group }}
-{% endif %}
+aa_log_success_msg() {
+	log_success_msg $@
+}
 
-# Network namespace support
-{% if enable_networking %}networking
-{% endif %}
+aa_log_warning_msg() {
+	log_warning_msg $@
+}
 
-# Mount namespace support
-{% if enable_mount %}mount
-{% endif %}
+aa_log_failure_msg() {
+	log_failure_msg $@
+}
 
-# Signal handling (e.g., ptrace, signal)
-{% if enable_signal %}signal
-{% endif %}
+aa_log_skipped_msg() {
+	if [ -n "$1" ]; then
+		log_warning_msg "${1}: Skipped."
+	fi
+}
 
-# Policy loading/unloading hooks
-{% if enable_hooks %}
-# Hook scripts for policy load/unload events
-hook-privileged /usr/lib/apparmor/apparmor-preload
-hook-unprivileged /usr/lib/apparmor/apparmor-preload
-{% endif %}
+aa_log_daemon_msg() {
+	log_daemon_msg $@
+}
 
-# Debug-level logging (very verbose, not for production)
-{% if debug %}debug
-{% endif %}
+aa_log_end_msg() {
+	log_end_msg $@
+}
 
-# Default profile behavior when profile is missing
-{% if default_complain %}complain
-{% endif %}
+# Source AppArmor function library
+if [ -f "${APPARMOR_FUNCTIONS}" ]; then
+	. ${APPARMOR_FUNCTIONS}
+else
+	aa_log_failure_msg "Unable to find AppArmor initscript functions"
+	exit 1
+fi
 
-# Use system-wide abstraction files
-{% if use_abstractions %}# Use standard abstraction files
-{% for abbr in abstractions %}{{ include_syntax }} "abstractions/{{ abbr }}"
-{% endfor %}
-{% endif %}
+usage() {
+    echo "Usage: $0 {start|stop|restart|reload|force-reload|status}"
+}
 
-# Include site-local profile overrides
-{% for profile in site_profiles %}{{ include_syntax }} "{{ profile }}"
-{% endfor %}
+# Path to the AppArmor parser binary (required for init script operation).
+test -x {{ PARSER | default('/usr/sbin/apparmor_parser') }} || exit 0
+# LSM is built-in, so it is either there or not enabled for this boot
+test -d /sys/module/apparmor || exit 0
+
+# do not perform start/stop/reload actions when running from liveCD
+test -d /rofs/etc/apparmor.d && exit 0
+
+rc=255
+case "$1" in
+	start)
+		if [ -x /usr/bin/systemd-detect-virt ] && \
+		   systemd-detect-virt --quiet --container && \
+		   ! is_container_with_internal_policy; then
+			aa_log_daemon_msg "Not starting AppArmor in container"
+			aa_log_end_msg 0
+			exit 0
+		fi
+		apparmor_start
+		rc=$?
+		;;
+	restart|reload|force-reload)
+		if [ -x /usr/bin/systemd-detect-virt ] && \
+		   systemd-detect-virt --quiet --container && \
+		   ! is_container_with_internal_policy; then
+			aa_log_daemon_msg "Not starting AppArmor in container"
+			aa_log_end_msg 0
+			exit 0
+		fi
+		apparmor_restart
+		rc=$?
+		;;
+	stop)
+		aa_log_daemon_msg "Leaving AppArmor profiles loaded"
+		cat >&2 <<EOM
+No profiles have been unloaded.
+
+Unloading profiles will leave already running processes permanently
+unconfined, which can lead to unexpected situations.
+
+To set a process to complain mode, use the command line tool
+'aa-complain'. To really tear down all profiles, run 'aa-teardown'."
+EOM
+		;;
+	status)
+		apparmor_status
+		rc=$?
+		;;
+	*)
+		usage
+		rc=1
+		;;
+esac
+exit $rc

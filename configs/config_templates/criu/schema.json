@@ -1,0 +1,372 @@
+{
+  "images_dir": {
+    "type": "string",
+    "default": "/var/lib/criu",
+    "description": "Base directory for checkpoint/restore image files (maps to -D)."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/var/lib/criu",
+    "description": "Working directory for logs, pidfiles, and stats (maps to -W)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write log messages (maps to -o). Empty string disables file logging."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 0 (errors only) to 4 (debug); default 2 (errors+warnings)."
+  },
+  "display_stats": {
+    "type": "bool",
+    "default": false,
+    "description": "Print dump/restore statistics to stdout (maps to --display-stats)."
+  },
+  "tcp_established": {
+    "type": "bool",
+    "default": false,
+    "description": "Checkpoint established TCP connections (maps to --tcp-established)."
+  },
+  "tcp_close": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not checkpoint TCP connections (maps to --tcp-close)."
+  },
+  "leave_stopped": {
+    "type": "bool",
+    "default": false,
+    "description": "Leave processes stopped after dump/restore instead of killing/resuming (maps to -s)."
+  },
+  "leave_running": {
+    "type": "bool",
+    "default": false,
+    "description": "Leave processes running after dump (maps to -R); use with caution."
+  },
+  "external_mnts": {
+    "type": "list",
+    "default": [],
+    "description": "List of external bind mounts to dump (maps to --external mnt). Each item is a dict with optional mountpoint and name fields. Use empty string for mountpoint to trigger auto-detect (e.g., mnt[]:name)."
+  },
+  "external_mnts.items": {
+    "type": "object",
+    "description": "External bind mount entry."
+  },
+  "external_mnts.items.mountpoint": {
+    "type": "string",
+    "default": "",
+    "description": "Bind mountpoint to dump; empty string triggers auto-detect."
+  },
+  "external_mnts.items.name": {
+    "type": "string",
+    "default": "",
+    "description": "Identifier used in checkpoint images to refer to this mount."
+  },
+  "external_devs": {
+    "type": "list",
+    "default": [],
+    "description": "List of external block devices to dump (maps to --external dev)."
+  },
+  "external_devs.items": {
+    "type": "object",
+    "description": "External block device entry."
+  },
+  "external_devs.items.major": {
+    "type": "number",
+    "default": 0,
+    "description": "Block device major number."
+  },
+  "external_devs.items.minor": {
+    "type": "number",
+    "default": 0,
+    "description": "Block device minor number."
+  },
+  "external_devs.items.name": {
+    "type": "string",
+    "default": "",
+    "description": "Identifier used in checkpoint images."
+  },
+  "external_unix_sockets": {
+    "type": "list",
+    "default": [],
+    "description": "List of external UNIX sockets (disconnected ends) to dump (maps to --external unix)."
+  },
+  "external_unix_sockets.items": {
+    "type": "object",
+    "description": "External UNIX socket entry."
+  },
+  "external_unix_sockets.items.id": {
+    "type": "string",
+    "default": "",
+    "description": "Socket identifier (inode or numeric id from images)."
+  },
+  "external_pids": {
+    "type": "list",
+    "default": [],
+    "description": "List of external PID namespaces to mark (maps to --external pid)."
+  },
+  "external_pids.items": {
+    "type": "object",
+    "description": "External PID namespace entry."
+  },
+  "external_pids.items.inode": {
+    "type": "string",
+    "default": "",
+    "description": "Namespace identifier inode."
+  },
+  "external_pids.items.name": {
+    "type": "string",
+    "default": "",
+    "description": "Label for --inherit-fd use on restore."
+  },
+  "external_netns": {
+    "type": "list",
+    "default": [],
+    "description": "List of external network namespaces to mark (maps to --external net)."
+  },
+  "external_netns.items": {
+    "type": "object",
+    "description": "External network namespace entry."
+  },
+  "external_netns.items.inode": {
+    "type": "string",
+    "default": "",
+    "description": "Namespace identifier inode."
+  },
+  "external_netns.items.name": {
+    "type": "string",
+    "default": "",
+    "description": "Label for --inherit-fd use on restore."
+  },
+  "external_tty": {
+    "type": "object",
+    "default": null,
+    "description": "External TTY to dump (maps to --external tty). Set to null to omit."
+  },
+  "external_tty.rdev": {
+    "type": "string",
+    "default": "",
+    "description": "st_rdev from stat(2) of the TTY."
+  },
+  "external_tty.dev": {
+    "type": "string",
+    "default": "",
+    "description": "st_dev from stat(2) of the TTY device."
+  },
+  "external_file": {
+    "type": "object",
+    "default": null,
+    "description": "External file to dump (maps to --external file). Set to null to omit."
+  },
+  "external_file.mnt_id": {
+    "type": "string",
+    "default": "",
+    "description": "mnt_id from /proc/pid/fdinfo/N."
+  },
+  "external_file.inode": {
+    "type": "string",
+    "default": "",
+    "description": "Inode number from stat(2)."
+  },
+  "action_script": {
+    "type": "string",
+    "default": "pre-dump",
+    "description": "Path to external action script. CRTOOLS_SCRIPT_ACTION env var is passed to it.",
+    "enum": [
+      "pre-dump",
+      "post-dump",
+      "pre-restore",
+      "post-restore",
+      "pre-resume",
+      "post-resume",
+      "network-lock",
+      "network-unlock",
+      "setup-namespaces",
+      "post-setup-namespaces",
+      "orphan-pts-master",
+      "query-ext-files"
+    ]
+  },
+  "manage_cgroups": {
+    "type": "bool",
+    "default": false,
+    "description": "Collect cgroups into images (maps to --manage-cgroups)."
+  },
+  "cgroup_props": {
+    "type": "string",
+    "default": "merge",
+    "description": "Cgroup properties in YAML-like literal string (maps to --cgroup-props).",
+    "enum": [
+      "merge",
+      "replace"
+    ]
+  },
+  "cgroup_props_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file containing cgroup properties (maps to --cgroup-props-file)."
+  },
+  "lazy_pages": {
+    "type": "bool",
+    "default": false,
+    "description": "Perform lazy dump (maps to --lazy-pages)."
+  },
+  "inherit_fds": {
+    "type": "list",
+    "default": [],
+    "description": "List of file descriptors to inherit on restore (maps to --inherit-fd fd[N]:resource)."
+  },
+  "inherit_fds.items": {
+    "type": "object",
+    "description": "Inherited file descriptor entry."
+  },
+  "inherit_fds.items.fd": {
+    "type": "number",
+    "default": 0,
+    "description": "File descriptor number N."
+  },
+  "inherit_fds.items.resource": {
+    "type": "string",
+    "default": "",
+    "description": "Resource identifier (e.g., tty[rdev:dev], file[mnt_id:inode])."
+  },
+  "veth_pair": {
+    "type": "object",
+    "default": null,
+    "description": "VETH outer/inner device mapping (maps to --veth-pair). Set to null to omit."
+  },
+  "veth_pair.in": {
+    "type": "string",
+    "default": "",
+    "description": "Inner device name (as in image)."
+  },
+  "veth_pair.out": {
+    "type": "string",
+    "default": "",
+    "description": "Outer device name (host interface name)."
+  },
+  "restore_root": {
+    "type": "string",
+    "default": "",
+    "description": "Root filesystem path on restore (maps to -r)."
+  },
+  "lsm_profile": {
+    "type": "object",
+    "default": null,
+    "description": "LSM profile to use (maps to --lsm-profile type:name). Set to null to omit."
+  },
+  "lsm_profile.type": {
+    "type": "string",
+    "default": "apparmor",
+    "description": "Must be 'apparmor' or 'selinux'.",
+    "enum": [
+      "apparmor",
+      "selinux"
+    ]
+  },
+  "lsm_profile.name": {
+    "type": "string",
+    "default": "",
+    "description": "Profile name."
+  },
+  "lsm_mount_context": {
+    "type": "string",
+    "default": "",
+    "description": "Override LSM mount context (maps to --lsm-mount-context)."
+  },
+  "skip_in_flight": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip in-flight TCP connections (maps to --skip-in-flight)."
+  },
+  "auto_dedup": {
+    "type": "bool",
+    "default": false,
+    "description": "Auto-deduplicate pages (maps to --auto-dedup)."
+  },
+  "force_irmap": {
+    "type": "bool",
+    "default": false,
+    "description": "Force inotify/fsnotify name resolution (maps to --force-irmap)."
+  },
+  "link_remap": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow linking unlinked files back (maps to --link-remap)."
+  },
+  "shell_job": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow shell jobs (maps to -j)."
+  },
+  "cpu_cap": {
+    "type": "list",
+    "default": [],
+    "description": "CPU capabilities to validate (maps to --cpu-cap). Valid values: none, fpu, ins, cpu, all."
+  },
+  "page_server": {
+    "type": "object",
+    "default": null,
+    "description": "Page server mode options (maps to page-server command options). Set to null to omit."
+  },
+  "page_server.address": {
+    "type": "string",
+    "default": "",
+    "description": "Page server IP or hostname (maps to --address)."
+  },
+  "page_server.port": {
+    "type": "number",
+    "default": 0,
+    "description": "Page server port (maps to --port). Use 0 to omit."
+  },
+  "page_server.daemon": {
+    "type": "bool",
+    "default": false,
+    "description": "Run page server as daemon (maps to --daemon)."
+  },
+  "tls": {
+    "type": "object",
+    "default": null,
+    "description": "TLS configuration for page-server (maps to --tls-cacert/--tls-cert/--tls-key). Set to null to omit."
+  },
+  "tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (maps to --tls)."
+  },
+  "tls.ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate (PEM)."
+  },
+  "tls.cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to X.509 certificate (PEM)."
+  },
+  "tls.key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key (PEM)."
+  },
+  "file_validation": {
+    "type": "string",
+    "default": "buildid",
+    "description": "File validation mode: 'filesize' or 'buildid' (maps to --file-validation mode).",
+    "enum": [
+      "filesize",
+      "buildid"
+    ]
+  },
+  "cgroup_root": {
+    "type": "string",
+    "default": "",
+    "description": "Cgroup root override (maps to --cgroup-root [controller:]/newroot)."
+  },
+  "skip_file_rwx_check": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip file permission checks on restore (maps to --skip-file-rwx-check)."
+  }
+}

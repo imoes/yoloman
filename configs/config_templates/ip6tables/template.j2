@@ -1,5 +1,16 @@
-# IPv6 packet filtering rules persistence — ip6tables(8)
+# IPv6 packet filtering rules persistence — ip6tables-restore(8)
 # Automatically generated — do not edit manually; edit config and regenerate
-{% for rule in rules %}# {{ rule.comment | default('') | trim if rule.comment | default('') != '' else 'No comment' }}
-{% if rule.rule %}{{ rule.rule }}
-{% endif %}{% endfor %}
+#
+# Each rule is a complete ip6tables command line (or iptables-restore compatible
+# table/chains/lines) that will be piped to ip6tables-restore(8).
+#
+# Schema field: rules (list of strings)
+# Description: List of IPv6 firewall rules to persist. Each entry represents one
+#              ip6tables command line, optionally with a comment for documentation.
+
+{% set rules_list = rules | default([]) %}
+
+{% for rule in rules_list %}
+# Rule: {{ loop.index }}
+{{ rule }}
+{% endfor %}

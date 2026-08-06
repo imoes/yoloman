@@ -12,7 +12,11 @@
   "lang": {
     "type": "string",
     "default": "en",
-    "description": "Default language for the web interface (e.g., en, de, fr)"
+    "description": "Default language for the web interface (e.g., en, de, fr)",
+    "enum": [
+      "en",
+      "de"
+    ]
   },
   "cgi_buffer": {
     "type": "bool",
@@ -137,200 +141,11 @@
   "enabled_system": {
     "type": "bool",
     "default": true,
-    "description": "Enable system metrics (CPU, memory, load, uptime)"
+    "description": "Enable system-level monitoring (processes, mounts, filesystems, etc.)"
   },
-  "uptime_cmd": {
-    "type": "string",
-    "default": "/usr/bin/uptime",
-    "description": "Command used to get system uptime"
-  },
-  "enabled_disks": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable disk usage and I/O monitoring"
-  },
-  "disks_to_monitor": {
-    "type": "list",
-    "default": [],
-    "description": "List of disk/device names to monitor (e.g., sda, nvme0n1). Empty = auto-detect",
-    "items": {
-      "type": "string",
-      "description": "Disk device name (e.g., 'sda', 'nvme0n1')"
-    }
-  },
-  "enabled_network": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable network interface traffic monitoring"
-  },
-  "interfaces_to_monitor": {
-    "type": "list",
-    "default": [],
-    "description": "List of network interfaces to monitor. Empty = auto-detect (common: eth0, wlan0)",
-    "items": {
-      "type": "string",
-      "description": "Network interface name"
-    }
-  },
-  "enabled_processes": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable process count and resource monitoring"
-  },
-  "enabled_users": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable logged-in users monitoring"
-  },
-  "enabled_ports": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable listening TCP/UDP port monitoring"
-  },
-  "ss_cmd": {
-    "type": "string",
-    "default": "/usr/bin/ss",
-    "description": "Path to 'ss' command for port detection (alternatively: /sbin/lsof)"
-  },
-  "enabled_mail": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable email alerts for threshold violations"
-  },
-  "smtp_server": {
+  "options": {
     "type": "string",
     "default": "",
-    "description": "SMTP server hostname or IP (required if mail alerts enabled)"
-  },
-  "smtp_port": {
-    "type": "number",
-    "default": 587,
-    "description": "SMTP server port (e.g., 25, 465, 587)"
-  },
-  "smtp_tls": {
-    "type": "bool",
-    "default": true,
-    "description": "Use TLS encryption for SMTP"
-  },
-  "smtp_user": {
-    "type": "string",
-    "default": "",
-    "description": "SMTP username (if authentication required)"
-  },
-  "smtp_pass": {
-    "type": "string",
-    "default": "",
-    "description": "SMTP password (if authentication required)"
-  },
-  "from_addr": {
-    "type": "string",
-    "default": "monitorix@localhost",
-    "description": "Email sender address for alerts"
-  },
-  "to_addrs": {
-    "type": "list",
-    "default": [],
-    "description": "Comma-separated list of alert recipient email addresses",
-    "items": {
-      "type": "string",
-      "description": "Valid email address"
-    }
-  },
-  "cpu_alert_threshold": {
-    "type": "number",
-    "default": 90,
-    "description": "CPU usage % threshold that triggers an alert (0\u2013100)"
-  },
-  "mem_alert_threshold": {
-    "type": "number",
-    "default": 85,
-    "description": "Memory usage % threshold that triggers an alert (0\u2013100)"
-  },
-  "load_alert_threshold": {
-    "type": "number",
-    "default": 4,
-    "description": "System load threshold (relative to CPU cores). E.g., 4 = 4\u00d7 cores"
-  },
-  "enabled_alert": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable custom alert script execution on threshold violations"
-  },
-  "alert_cmd": {
-    "type": "string",
-    "default": "",
-    "description": "Command/script to execute when an alert fires (receives message via stdin)"
-  },
-  "enabled_apache": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Apache server metrics (requires Apache with mod_status)"
-  },
-  "apache_status_url": {
-    "type": "string",
-    "default": "http://localhost/server-status?auto",
-    "description": "Apache server-status URL with '?auto' query parameter"
-  },
-  "apache_auth_user": {
-    "type": "string",
-    "default": "",
-    "description": "HTTP Basic Auth username for Apache status URL (if protected)"
-  },
-  "apache_auth_pass": {
-    "type": "string",
-    "default": "",
-    "description": "HTTP Basic Auth password for Apache status URL"
-  },
-  "enabled_mysql": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable MySQL metrics (requires MySQL client tools)"
-  },
-  "mysql_host": {
-    "type": "string",
-    "default": "localhost",
-    "description": "MySQL host (hostname or socket path)"
-  },
-  "mysql_user": {
-    "type": "string",
-    "default": "monitorix",
-    "description": "MySQL username with REPLICATION CLIENT and PROCESS privileges"
-  },
-  "mysql_password": {
-    "type": "string",
-    "default": "",
-    "description": "MySQL password (recommended: use ~/.my.cnf with client options)"
-  },
-  "enabled_nginx": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Nginx metrics (requires Nginx stub_status module)"
-  },
-  "nginx_status_url": {
-    "type": "string",
-    "default": "http://localhost/nginx_status",
-    "description": "Nginx stub_status URL"
-  },
-  "enabled_logwatch": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable log monitoring via Monitorix's built-in log parser"
-  },
-  "logwatch_config": {
-    "type": "string",
-    "default": "",
-    "description": "Path to optional custom logwatch config file"
-  },
-  "log_files_to_monitor": {
-    "type": "list",
-    "default": [
-      "/var/log/auth.log",
-      "/var/log/syslog"
-    ],
-    "description": "List of log files to monitor for events (one per line in config)",
-    "items": {
-      "type": "string",
-      "description": "Absolute path to a log file"
-    }
+    "description": "Monitorix command line options (e.g., -v for verbose start)"
   }
 }

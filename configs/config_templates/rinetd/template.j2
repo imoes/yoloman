@@ -1,7 +1,61 @@
-# rinetd.conf — Basic TCP/UDP port redirection configuration
-# Format: [Source IP] [Source Port] [Connect IP] [Connect Port]
-# Optional: [Protocol] (tcp or udp)
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          rinetd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Internet TCP/UDP redirection server
+# Description:       rinetd redirects TCP or UDP connections from one IP address and port to
+#                    another, with basic IP-based access control.
+### END INIT INFO
 
-{% for rule in forwarding_rules %}{% if rule.comment %}# {{ rule.comment }}
-{% endif %}{% if rule.protocol %}{{ rule.protocol | upper }} {% endif %}{{ rule.bind_addr | default('*') }} {{ rule.bind_port }} {{ rule.connect_addr | default(rule.bind_addr) }} {{ rule.connect_port }}
-{% endfor %}
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/rinetd
+CONFFILE=/etc/rinetd.conf
+PIDFILE=/var/run/rinetd.pid
+NAME=rinetd
+DESC="internet redirection server"
+
+test -f $DAEMON || exit 0
+test -f $CONFFILE || exit 0
+
+set -e
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+    echo -n "Starting $DESC:"
+    start-stop-daemon --start --quiet --exec $DAEMON && echo -n " $NAME"
+    echo "."
+    ;;
+  stop)
+    echo -n "Stopping $DESC:"
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON && echo -n " $NAME"
+    echo "."
+    ;;
+  reload|force-reload)
+    echo -n "Reloading configuration of $DESC:"
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --signal 1 --exec $DAEMON && echo -n " $NAME"
+    echo "."
+    ;;
+  restart)
+    echo -n "Stopping $DESC:"
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON && echo -n " $NAME"
+    echo "."
+    sleep 1
+    echo -n "Starting $DESC:"
+    start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON && echo -n " $NAME"
+    echo "."
+    ;;
+  status)
+    status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+    ;;
+  *)
+    echo "Usage: /etc/init.d/$NAME {start|stop|reload|restart|force-reload}"
+    exit 1
+    ;;
+esac
+
+exit 0

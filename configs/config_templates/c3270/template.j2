@@ -1,0 +1,26 @@
+# c3270 Configuration Template
+#
+# This template generates an xrdb-style resource file for c3270 (a 3270 terminal emulator).
+# It defines resource keys and values that control the terminal's behavior and appearance.
+# See `man c3270` or the c3270 documentation for the full list of supported resources.
+#
+# Format: Key: Value
+# Each entry in the `resources` list becomes one line in the output file.
+
+{# Iterate over the list of resource definitions provided by the schema. #}
+{# Each resource entry must contain 'key' and 'value'. An optional 'comment' can be included. #}
+{% for resource in (resources | default([])) %}
+
+{# Emit an optional comment line if the resource definition includes a 'comment' field. #}
+{# This helps document what a specific resource setting does in the generated file. #}
+{%- if resource.comment is defined and resource.comment %}
+{# resource.comment is a string; use tojson to safely escape any special characters for the comment. #}
+{# /* The comment will be emitted as a C-style comment line. */ #}
+/* {{ resource.comment | tojson | replace('"', '') }} */
+{%- endif %}
+
+{# Emit the resource key and value in xrdb format: Key: Value #}
+{# Ensure 'key' and 'value' are treated as strings if they aren't already, for safe formatting. #}
+{{ resource.key | default('') }}: {{ resource.value | default('') }}
+
+{% endfor %}

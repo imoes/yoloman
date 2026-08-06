@@ -1,0 +1,102 @@
+# =============================================================================
+# attr(5) — Extended Attributes Configuration
+# =============================================================================
+# This template configures system-wide extended attribute behavior.
+#
+# IMPORTANT: Most extended attribute limits are imposed by the VFS and the
+# specific filesystem driver. They are NOT dynamically configurable at runtime
+# via this file. This file serves primarily as:
+#   1. A documentation anchor for administrators.
+#   2. A place to record recommended mount options (hints, not enforced).
+#   3. A placeholder for filesystem-specific documentation limits.
+#
+# The kernel's actual limits are defined in:
+#   - fs/xattr.c (VFS xattr implementation)
+#   - Individual filesystem drivers (ext4, xfs, btrfs, etc.)
+#
+# Reference: attr(5) man page, Linux VFS documentation.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# User-space hints for filesystem mount options
+# -----------------------------------------------------------------------------
+# Description: List of mount options recommended to enable extended attributes
+# support for user attributes (e.g., 'user_xattr' for ext2/ext3/ext4).
+# Note: These are NOT enforced by the kernel. They serve as guidance for
+# system administrators setting up filesystems with xattr support.
+#
+# Schema Field: xattr_mount_opts (list of strings)
+# Default: ['user_xattr']
+# -----------------------------------------------------------------------------
+{% for opt in (xattr_mount_opts | default(['user_xattr'])) %}
+# Recommended mount option: {{ opt }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# VFS-imposed limit: maximum length of attribute name
+# -----------------------------------------------------------------------------
+# Description: Maximum length (in bytes) of an attribute name, as imposed by
+# the VFS. This is a fixed kernel constant and CANNOT be changed via config.
+# It is documented here for reference.
+#
+# Schema Field: max_attr_name_len (integer)
+# Default: 255
+# -----------------------------------------------------------------------------
+# max_attr_name_len = {{ (max_attr_name_len | default(255)) }}
+
+# -----------------------------------------------------------------------------
+# VFS-imposed limit: maximum size of attribute value
+# -----------------------------------------------------------------------------
+# Description: Maximum size (in bytes) of a single attribute value, as imposed
+# by the VFS. This is a fixed kernel constant and CANNOT be changed via config.
+# It is documented here for reference.
+#
+# Schema Field: max_attr_value_len (integer)
+# Default: 65536
+# -----------------------------------------------------------------------------
+# max_attr_value_len = {{ (max_attr_value_len | default(65536)) }}
+
+# -----------------------------------------------------------------------------
+# VFS-imposed limit: maximum total size of listxattr result
+# -----------------------------------------------------------------------------
+# Description: Maximum total size (in bytes) of the list returned by
+# listxattr(2). This is a fixed kernel constant and CANNOT be changed via config.
+# It is documented here for reference.
+#
+# Schema Field: max_listxattr_result_len (integer)
+# Default: 65536
+# -----------------------------------------------------------------------------
+# max_listxattr_result_len = {{ (max_listxattr_result_len | default(65536)) }}
+
+# -----------------------------------------------------------------------------
+# Filesystem-specific extended attribute limits
+# -----------------------------------------------------------------------------
+# Description: List of filesystem-specific limits. These are for DOCUMENTATION
+# purposes only. Each item is a dict with keys: 'fs' (filesystem name) and
+# 'max_total_bytes_per_file' (limit in bytes).
+#
+# Schema Field: fs_limits (list of dicts)
+# Default: []
+# -----------------------------------------------------------------------------
+{% for limit_entry in (fs_limits | default([])) %}
+# Filesystem: {{ limit_entry['fs'] | default('unknown') }}
+# Max total extended attributes space per file: {{ limit_entry['max_total_bytes_per_file'] | default(0) }} bytes
+# Typically constrained by filesystem block/node size
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Extended attribute namespace rules (documentation only)
+# -----------------------------------------------------------------------------
+# Attribute names MUST be in the form: namespace.attribute
+# Allowed namespaces:
+#   - security:  For security modules (SELinux, AppArmor)
+#   - system:    For system purposes (ACLs, capabilities)
+#   - trusted:   For privileged operations (root only)
+#   - user:      For user applications
+#
+# User attributes are only supported on regular files and directories
+# and require the filesystem to be mounted with user_xattr (for some filesystems
+# like ext2/ext3/ext4, though modern kernels often enable it by default).
+#
+# Reference: attr(5), xattr(7)
+# =============================================================================

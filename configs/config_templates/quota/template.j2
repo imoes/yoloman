@@ -1,5 +1,17 @@
-# /etc/exports: NFS server export definitions
-# Each line exports a directory to specified clients with given options.
-# Syntax: <path> <client>[options] ...\n# Use 'ro' for read-only, 'rw' for read-write access.
-# 'sync' ensures writes are committed to disk before reply; 'no_root_squash' allows root access on client.
-{% for export in exports %}{{ export.path }} {{ export.client }}{% if export.options %}({{ export.options | join(', ') }}){% endif %}{% endfor %}
+#! /bin/sh
+
+# check if quota package is available
+test -x {{ warnquota_path }} || exit 0
+
+# check if warnquota run is configured
+test -f {{ default_quota_file }} || exit 0
+. {{ default_quota_file }}
+
+if [ "${run_warnquota}" = "true" ]; then
+	# check if quotas are enabled
+	if grep -q '^[^#]*quota' {{ fstab_path }}; then
+        	{{ warnquota_command }} -ug
+	fi	
+fi
+
+exit 0

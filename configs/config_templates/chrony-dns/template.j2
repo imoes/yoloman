@@ -1,44 +1,139 @@
-# Enable date/time synchronization
+# ============================================================================
+# Chrony NTP Configuration Template
+# ============================================================================
+# This template generates a chrony.conf file for time synchronization.
+# It supports server/pool configuration, key-based authentication,
+# local network access control, and logging.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Step 1: Initial step if system clock is too far off
+# --------------------------------------------------------------------------
+# Description: Allow chronyd to step the system clock if it is more than
+#              1.0 second off, and do this up to 3 times within the first
+#              10 minutes.
 makestep 1.0 3
 
-# Allow NTP client access from local network
-allow {{ local_network }}
+# --------------------------------------------------------------------------
+# Step 2: Local Network Access Control
+# --------------------------------------------------------------------------
+# Description: CIDR notation of the local network allowed to query this NTP server.
+#              Only clients from this network will be served time.
+#              Default: 192.168.0.0/16
+allow {{ local_network | default('192.168.0.0/16') }}
 
-# Specify the initial list of NTP servers (resolved via DNS at startup)
-{% for server in servers %}# NTP server: {{ server.hostname }} ({{ 'pool' if server.is_pool else 'server' }} mode, {{ 'keyless' if not server.use_key else 'key-' + server.key_id|string }})
-{% if server.use_key %}server {{ server.hostname }} iburst key {{ server.key_id }}{% else %}server {{ server.hostname }} iburst{% endif %}
+# --------------------------------------------------------------------------
+# Step 3: NTP Servers / Pools Configuration
+# --------------------------------------------------------------------------
+# Description: List of NTP servers or pools (resolved via DNS) to use for
+#              time synchronization. Each entry can specify if it is a pool,
+#              and optionally use an NTP key for authentication.
+#              Default: 0-3.pool.ntp.org
+{% for server in (servers | default([
+  {'hostname': '0.pool.ntp.org', 'is_pool': True, 'use_key': False},
+  {'hostname': '1.pool.ntp.org', 'is_pool': True, 'use_key': False},
+  {'hostname': '2.pool.ntp.org', 'is_pool': True, 'use_key': False},
+  {'hostname': '3.pool.ntp.org', 'is_pool': True, 'use_key': False}
+])) %}
+# NTP Server: {{ server.hostname }}
+#   Mode: {{ 'pool' if server.is_pool else 'server' }}
+#   Auth: {{ 'Authenticated' if server.use_key else 'Unauthenticated' }}{% if server.use_key %} (Key ID: {{ server.key_id | default('N/A') }}){% endif %}
+{% if server.use_key %}
+# Keyed server directive
+server {{ server.hostname }} iburst key {{ server.key_id | default(1) }}
+{% else %}
+# Standard server/pool directive
+server {{ server.hostname }} iburst
+{% endif %}
 {% endfor %}
 
-# Enable hardware clock (RTC) polling and correction
+# --------------------------------------------------------------------------
+# Step 4: Hardware Clock Synchronization
+# --------------------------------------------------------------------------
+# Description: Enable synchronization with the hardware clock (RTC).
+#              Useful for systems that need to maintain time across reboots.
 rtcsync
 
-# Log NTP statistics to rotate daily
+# --------------------------------------------------------------------------
+# Step 5: Logging Configuration
+# --------------------------------------------------------------------------
+# Description: Directory where NTP statistics and logs are stored.
+#              Logs are rotated daily by default.
 logdir /var/log/chrony
+
+# Description: Maximum size of log files (in MB) before rotation.
 maxlogsize 1
 
-# Specify the driftfile location (must be writable)
+# --------------------------------------------------------------------------
+# Step 6: Drift File Location
+# --------------------------------------------------------------------------
+# Description: Path to the drift file, which stores the frequency offset
+#              of the local clock. Must be writable by chronyd.
 driftfile /var/lib/chrony/chrony.drift
 
-# Enable key management (if using authenticated NTP)
-{% if enable_keyman %}# NTP key definitions
-{% for key in keys %}key {{ key.id }} md5 "{{ key.secret }}"
+# --------------------------------------------------------------------------
+# Step 7: NTP Key Management (Authentication)
+# --------------------------------------------------------------------------
+# Description: Controls the generation of NTP keys for authenticated
+#              time synchronization. If disabled, authentication is ignored.
+{% if enable_keyman | default(False) %}
+# --------------------------------------------------------
+# Key Definitions
+# --------------------------------------------------------
+# Description: List of NTP keys used for authentication.
+#              Each key has an ID and a secret (MD5).
+{% for key in (keys | default([{'id': 1, 'secret': 'my-secret-key-1'}])) %}
+key {{ key.id | default(1) }} md5 "{{ key.secret | default('my-secret-key-1') }}"
 {% endfor %}
-# Trusted key ID for client/server authentication
-trustedkey {{ trusted_key_id | join(', ') }}
-# Key ID used for client requests (if required)
-commandkey {{ command_key_id }}
-{% else %}# Key management disabled
+
+# --------------------------------------------------------
+# Trusted Keys
+# --------------------------------------------------------
+# Description: List of trusted key IDs for server/client authentication.
+#              Only servers/clients presenting one of these keys are trusted.
+#              Default: 1
+trustedkey {{ (trusted_key_id | default([1])) | join(', ') }}
+
+# --------------------------------------------------------
+# Command Key
+# --------------------------------------------------------
+# Description: Key ID required for administrative commands (e.g., chronyc).
+#              Set to 0 to disable command authentication.
+#              Default: 0
+commandkey {{ command_key_id | default(0) }}
+{% else %}
+# Key management is disabled.
+# Ensure commandkey is 0 to prevent unauthorized command execution if not explicitly set elsewhere.
 commandkey 0
 {% endif %}
 
-# Allow chronyd to respond to NTP requests from localhost only (unless overridden)
+# --------------------------------------------------------------------------
+# Step 8: Port Configuration
+# --------------------------------------------------------------------------
+# Description: Specify the UDP port for NTP traffic.
+#              Setting to 0 restricts chronyd to responding only to
+#              queries received on the local interface or from known sources.
 ntpport 0
 
-# Optional: Specify a source for initial time (e.g., after reboot)
-initstepslew 30 {{ servers | map(attribute='hostname') | list | join(' ') }}
+# --------------------------------------------------------------------------
+# Step 9: Initial Step Slew (Fast Time Correction)
+# --------------------------------------------------------------------------
+# Description: Specify a source for initial time correction (e.g., after reboot).
+#              Chronyd will slew to the time of the listed servers before
+#              beginning normal operation. This prevents large jumps.
+#              Uses the hostnames from the servers list above.
+initstepslew 30 {{ servers | default([{'hostname': '0.pool.ntp.org', 'is_pool': True, 'use_key': False}, {'hostname': '1.pool.ntp.org', 'is_pool': True, 'use_key': False}, {'hostname': '2.pool.ntp.org', 'is_pool': True, 'use_key': False}, {'hostname': '3.pool.ntp.org', 'is_pool': True, 'use_key': False}]) | map(attribute='hostname') | join(' ') }}
 
-# Enable leap second handling
+# --------------------------------------------------------------------------
+# Step 10: Leap Second Handling
+# --------------------------------------------------------------------------
+# Description: Specify the timezone file to use for leap second calculations.
+#              'right/UTC' ensures proper handling of leap seconds.
 leapsectz right/UTC
 
-# Optional: Enable monitoring and logging for external tools (e.g., chronyc)
+# --------------------------------------------------------------------------
+# Step 11: Final Safety Step (Redundant but Explicit)
+# --------------------------------------------------------------------------
+# Description: Re-enforce the makestep directive at the end of the config
+#              to ensure it is always active, even if overrides are applied.
 makestep 1.0 3

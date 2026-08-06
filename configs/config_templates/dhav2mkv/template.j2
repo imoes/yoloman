@@ -1,0 +1,40 @@
+{# ==============================================================================
+   dhav2mkv Configuration Template
+   ==============================================================================
+   dhav2mkv is a command-line utility for converting DV/HDV video streams to MKV containers.
+   This template generates a configuration file that maps to dhav2mkv's CLI arguments.
+
+   The `config` variable is a list of dictionaries. Each dictionary represents one CLI option.
+   Structure of an item:
+     - key: str       (The CLI argument name, e.g., 'in-file', 'out-file')
+     - value: str     (The argument's value. For flags, this may be absent or empty.)
+     - description: str (Optional comment to include in the config file)
+
+   Supported options mapped in this template:
+     - in_file    -> --in-file <path>   (Input file path)
+     - out_file   -> --out-file <path>  (Output file path)
+     - sixty_hertz_ntsc -> --sixty-hertz-ntsc (Flag: enable 60Hz NTSC processing)
+     - ts_proc    -> --ts-proc <method> (Transport stream processing method)
+
+   For any other keys in the list, no output is generated to avoid invalid CLI args.
+   ============================================================================== #}
+
+{% for item in config | default([]) %}
+{# Item Description: {{ item.description | default('No description provided') }} #}
+{# Item Key: {{ item.key }} #}
+
+{%- if item.key == 'in_file' -%}
+{# Specifies the input file to be converted. #}
+--in-file {{ item.value | default('') }}
+{%- elif item.key == 'out_file' -%}
+{# Specifies the output MKV file path. #}
+--out-file {{ item.value | default('') }}
+{%- elif item.key == 'sixty_hertz_ntsc' -%}
+{# Enables processing for 60Hz NTSC content. If value is truthy, the flag is emitted. #}
+{% if item.value | default(false) | bool %}--sixty-hertz-ntsc{% endif %}
+{%- elif item.key == 'ts_proc' -%}
+{# Specifies the transport stream processing method. #}
+--ts-proc {{ item.value | default('') }}
+{%- endif %}
+
+{% endfor %}

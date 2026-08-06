@@ -1,0 +1,30 @@
+{# gron(1) configuration #}
+{# gron transforms JSON into discrete assignments; this file defines default CLI options #}
+
+{% set opts = options | default([]) %}
+
+{% if opts | length > 0 %}
+# gron CLI options
+# Each entry in 'options' must specify 'name' (string) and 'enabled' (bool).
+{% for opt in opts %}
+    {% if opt.name == 'colorize' %}
+# Enable colorized output (default: on TTY)
+{% if opt.enabled %}--colorize{% else %}--monochrome{% endif %}
+    {% elif opt.name == 'sort' %}
+# Enable sorting of output (default: yes)
+{% if opt.enabled %}{% else %}--no-sort{% endif %}
+    {% elif opt.name == 'stream' %}
+# Treat each line as a separate JSON object (for streaming input)
+{% if opt.enabled %}--stream{% endif %}
+    {% elif opt.name == 'insecure' %}
+# Allow insecure connections (skip TLS cert validation)
+{% if opt.enabled %}--insecure{% endif %}
+    {% elif opt.name == 'values' %}
+# Print only values, omit assignment syntax
+{% if opt.enabled %}--values{% endif %}
+    {% elif opt.name == 'json_output' %}
+# Output gron data as JSON stream instead of assignment syntax
+{% if opt.enabled %}--json{% endif %}
+    {% endif %}
+{% endfor %}
+{% endif %}

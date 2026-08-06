@@ -1,0 +1,70 @@
+# Ayatana System Indicators configuration file
+# This configuration controls the behavior of the Ayatana System Indicators service.
+# It is structured as an INI-like file with sections for Autostart, Individual Indicators,
+# Appearance, Session management, and Message notifications.
+
+# --- Autostart Section ---
+# Enable/disable autostart of all Ayatana indicators at session login.
+# Based on typical .desktop autostart behavior documented in ayatana-settings.
+{% if enable_autostart | default(true) %}
+[Indicator-Ayatana-Autostart]
+enabled=true
+{% else %}
+[Indicator-Ayatana-Autostart]
+enabled=false
+{% endif %}
+
+# --- Individual Indicator Configuration ---
+# Enablement of specific indicator services.
+# Corresponds to standard Ayatana System Indicators documented in ayatana-settings(8).
+
+# List of indicator services to enable by default.
+# Default list: indicator-sound, indicator-session, indicator-messages, indicator-datetime.
+{% for indicator in enabled_indicators | default(['indicator-sound', 'indicator-session', 'indicator-messages', 'indicator-datetime']) %}
+[Indicator-{{ indicator }}]
+enabled=true
+{% endfor %}
+
+# List of indicator services to explicitly disable.
+# This allows fine-tuning indicator behavior via configuration.
+{% for indicator in disabled_indicators | default([]) %}
+[Indicator-{{ indicator }}]
+enabled=false
+{% endfor %}
+
+# --- Appearance Section ---
+# Global icon visibility and theme policy.
+
+# Icon theme name to use for indicators.
+# Maps to standard icon theme configuration; 'hicolor' is the fallback theme.
+{% if icon_theme | default('hicolor') %}
+[Appearance]
+icon_theme={{ icon_theme | default('hicolor') }}
+{% endif %}
+
+# --- Session Indicator Section ---
+# Controls the options available in the session indicator menu.
+[Session-Indicator]
+# Show logout option in session indicator menu.
+{% if session_show_logout | default(true) %}show_logout=true{% else %}show_logout=false{% endif %}
+
+# Show lock screen option in session indicator menu.
+{% if session_show_lock | default(true) %}show_lock=true{% else %}show_lock=false{% endif %}
+
+# Show restart option in session indicator menu.
+# Default false per typical security/practicality guidance.
+{% if session_show_restart | default(false) %}show_restart=true{% else %}show_restart=false{% endif %}
+
+# Show shutdown option in session indicator menu.
+# Default false per typical security/practicality guidance.
+{% if session_show_shutdown | default(false) %}show_shutdown=true{% else %}show_shutdown=false{% endif %}
+
+# --- Messages Indicator Section ---
+# Controls notification behavior for message indicators.
+[Messages-Indicator]
+# Enable message notification bubbles in the message indicator.
+{% if message_show_bubble | default(true) %}show_bubble=true{% else %}show_bubble=false{% endif %}
+
+# Interval (seconds) for checking new messages in the message indicator.
+# Based on realistic polling frequency.
+{% if message_check_interval | default(60) %}check_interval={{ message_check_interval | default(60) }}{% endif %}

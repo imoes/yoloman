@@ -1,0 +1,75 @@
+# care.conf - Configuration for care (Comprehensive Archiver for Reproducible Execution)
+# This file defines how the 'care' tool captures the system state for reproducible execution.
+# It handles path concealment, volatility, and environment variable preservation/exclusion.
+# All paths are resolved relative to the execution context.
+# Sensitive paths ($HOME, /tmp) are concealed by default unless ignore_default_config is true.
+
+# ==============================================================================
+# OUTPUT CONFIGURATION
+# ==============================================================================
+
+# Path where the archive will be written. Format determined by file suffix (e.g., .bin, .tar.gz, .raw).
+# Required. Defaults to care-<DATE>.bin
+output_path: "{{ output_path | default('/tmp/care-YYYYMMDDHHmmss.bin') }}"
+
+# ==============================================================================
+# PATH CONCEALMENT
+# ==============================================================================
+
+# List of additional paths to conceal (beyond $HOME and /tmp). Use only if needed.
+# If the list is empty, this section header is omitted to keep the config clean.
+{% for path in concealed_paths | default([]) %}
+concealed_paths:
+  - "{{ path }}"
+{% endfor %}
+
+# ==============================================================================
+# PATH REVEALATION
+# ==============================================================================
+
+# List of paths to reveal explicitly if nested in concealed paths (e.g., $PWD or specific config dirs).
+# $PWD is revealed by default unless -d.
+# If the list is empty, this section header is omitted to keep the config clean.
+{% for path in revealed_paths | default([]) %}
+revealed_paths:
+  - "{{ path }}"
+{% endfor %}
+
+# ==============================================================================
+# VOLATILE PATHS (EXCLUSION FROM ARCHIVE)
+# ==============================================================================
+
+# Paths to exclude from archiving; reuse actual paths at re-execution.
+# Includes standard volatile paths like pseudo-filesystems, sockets, and user cache.
+# If the list is empty, this section header is omitted to keep the config clean.
+{% for path in volatile_paths | default(['/dev', '/proc', '/sys', '/run/shm', '/tmp/.X11-unix', '/tmp/.ICE-unix', '/var/run/dbus/system_bus_socket', '$XAUTHORITY', '$ICEAUTHORITY', '/var/tmp/kdecache-$LOGNAME']) %}
+volatile_paths:
+  - "{{ path }}"
+{% endfor %}
+
+# ==============================================================================
+# VOLATILE ENVIRONMENT VARIABLES (EXCLUSION FROM ARCHIVE)
+# ==============================================================================
+
+# Environment variables to exclude from archiving; reuse actual values at re-execution.
+# Prevents stale session IDs, proxy settings, or display references from breaking re-execution.
+# If the list is empty, this section header is omitted to keep the config clean.
+{% for var in volatile_env | default(['DISPLAY', 'http_proxy', 'https_proxy', 'ftp_proxy', 'all_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'FTP_PROXY', 'ALL_PROXY', 'DBUS_SESSION_BUS_ADDRESS', 'SESSION_MANAGER', 'XDG_SESSION_COOKIE']) %}
+volatile_env:
+  - "{{ var }}"
+{% endfor %}
+
+# ==============================================================================
+# LIMITS AND BEHAVIOR
+# ==============================================================================
+
+# Maximum file size (MB) to archive; larger files are truncated to 0 bytes.
+# Negative = no limit. Default 1GB unless -d.
+max_archivable_size_mb: {{ max_archivable_size_mb | default(1024) }}
+
+# Debug verbosity level (0=quiet, higher=more verbose).
+# Negative = quiet except fatal errors.
+verbose: {{ verbose | default(0) }}
+
+# If true, disable all default concealed/revealed/volatile paths and env vars (equivalent to -d/--ignore-default-config).
+ignore_default_config: {{ ignore_default_config | default(false) }}

@@ -1,44 +1,22 @@
 {
-  "timeout": 600,
-  "force_timeout": 900,
-  "action": "suspend",
-  "wakeup_action": "suspend",
-  "activity_log": "/var/log/autosuspend.log",
-  "ignore_users": [
-    "root",
-    "backup"
-  ],
-  "ignore_processes": [
-    "sshd",
-    "rsync"
-  ],
-  "ignore_devices": [
-    "/dev/input/event0",
-    "/dev/input/mice"
-  ],
-  "activity_watch_paths": [
-    "/home/*/Downloads/",
-    "/srv/data/*.tmp"
-  ],
-  "suspend_on_battery_only": true,
-  "battery_min_percent": 15,
-  "ignore_network_interfaces": [
-    "docker0",
-    "veth+"
-  ],
-  "pre_suspend_command": "sync; systemctl stop nginx@*.service",
-  "post_suspend_command": "systemctl start nginx@www.service",
-  "require_no_x11": true,
-  "require_no_wayland": true,
-  "require_no_console_sessions": true,
-  "require_no_ssh_sessions": true,
-  "require_no_vnc_sessions": true,
-  "require_no_upnp_players": false,
-  "require_no_printer_jobs": true,
-  "require_no_media_playback": true,
-  "require_no_file_transfers": true,
-  "require_no_backups": true,
-  "require_no_database_services": false,
-  "require_no_web_services": false,
-  "require_no_containers": true
+  "general_interval": 30,
+  "general_idle_time": 900,
+  "general_suspend_cmd": "/usr/bin/systemctl suspend",
+  "general_wakeup_cmd": "sh -c 'echo 0 > /sys/class/rtc/rtc0/wakealarm && echo {timestamp:.0f} > /sys/class/rtc/rtc0/wakealarm'",
+  "general_woke_up_file": "/var/run/autosuspend-just-woke-up",
+  "general_lock_file": "/var/lock/autosuspend.lock",
+  "general_lock_timeout": 30,
+  "check_Ping_enabled": true,
+  "check_Ping_hosts": "192.168.0.7",
+  "check_Smb_enabled": false,
+  "check_RemoteUsers_enabled": true,
+  "check_RemoteUsers_name": ".*",
+  "check_RemoteUsers_terminal": ".*",
+  "check_RemoteUsers_host": "[0-9].*",
+  "check_LocalUsers_enabled": true,
+  "check_LocalUsers_name": ".*",
+  "check_LocalUsers_terminal": ".*",
+  "check_LocalUsers_host": "localhost",
+  "wakeup_Calendar_enabled": true,
+  "wakeup_Calendar_url": "http://example.org/test.ics"
 }

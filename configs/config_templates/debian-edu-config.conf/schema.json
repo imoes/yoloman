@@ -1,6 +1,6 @@
 {
   "debian_edu.enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable or disable all Debian-Edu-specific customizations."
   },
@@ -12,7 +12,21 @@
   "debian_edu.language": {
     "type": "string",
     "default": "en",
-    "description": "Default system language code (e.g., 'en', 'de')."
+    "description": "Default system language code (e.g., 'en', 'de').",
+    "enum": [
+      "en",
+      "es",
+      "it",
+      "da",
+      "he",
+      "vi",
+      "is",
+      "am",
+      "be",
+      "ka",
+      "as",
+      "os"
+    ]
   },
   "debian_edu.locale": {
     "type": "string",
@@ -27,360 +41,25 @@
   "debian_edu.keyboard": {
     "type": "string",
     "default": "us",
-    "description": "Keyboard layout (e.g., 'us', 'de', 'fr')."
+    "description": "Keyboard layout (e.g., 'us', 'de', 'fr').",
+    "enum": [
+      "us",
+      "es",
+      "it",
+      "in",
+      "is",
+      "by",
+      "am"
+    ]
   },
   "apt.use_debian_edu_repo": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Include the official Debian-Edu APT repository (recommended for full feature set)."
   },
   "apt.extra_repos": {
     "type": "list",
     "default": [],
-    "description": "List of additional APT repositories (e.g., for local packages or testing).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "required": true,
-          "description": "Human-readable repository name."
-        },
-        "url": {
-          "type": "string",
-          "required": true,
-          "description": "Repository base URL (e.g., 'http://deb.example.edu/debian-edu')."
-        },
-        "section": {
-          "type": "string",
-          "default": "main",
-          "description": "Section label used as key prefix (e.g., 'main', 'contrib')."
-        },
-        "components": {
-          "type": "list",
-          "default": [
-            "main"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "description": "Components (e.g., ['main', 'non-free'])."
-        },
-        "architectures": {
-          "type": "list",
-          "default": [
-            "amd64"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "description": "Supported architectures (e.g., ['amd64', 'arm64'])."
-        },
-        "key_url": {
-          "type": "string",
-          "default": "",
-          "description": "URL to the repository GPG key."
-        },
-        "key_id": {
-          "type": "string",
-          "default": "",
-          "description": "Fingerprint of the GPG key (alternative to key_url)."
-        },
-        "suite": {
-          "type": "string",
-          "default": "",
-          "description": "Distribution suite (e.g., 'bullseye', 'stable')."
-        }
-      }
-    }
-  },
-  "ldap.enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable LDAP-based centralized user/group management."
-  },
-  "ldap.hostname": {
-    "type": "string",
-    "default": "",
-    "description": "LDAP server hostname or IP (required if LDAP is enabled)."
-  },
-  "ldap.base_dn": {
-    "type": "string",
-    "default": "dc=example,dc=edu",
-    "description": "Base distinguished name for LDAP directory."
-  },
-  "ldap.bind_dn": {
-    "type": "string",
-    "default": "cn=admin,dc=example,dc=edu",
-    "description": "DN used to bind to the LDAP server (with bind_password)."
-  },
-  "ldap.bind_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the LDAP bind DN (stored in plain text \u2014 secure in production).",
-    "secret": true
-  },
-  "ldap.groups": {
-    "type": "list",
-    "default": [],
-    "description": "List of LDAP groups to manage (e.g., students, teachers).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "cn": {
-          "type": "string",
-          "required": true,
-          "description": "Common name of the group (e.g., 'students', 'teachers')."
-        },
-        "base": {
-          "type": "string",
-          "default": "ou=groups",
-          "description": "Relative path for group entries under base_dn."
-        },
-        "members": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "List of group member UIDs (e.g., ['alice', 'bob'])."
-        }
-      }
-    }
-  },
-  "nis.enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable legacy NIS (Network Information Service) for compatibility."
-  },
-  "nis.name": {
-    "type": "string",
-    "default": "nisdomain",
-    "description": "NIS domain name."
-  },
-  "nis.master": {
-    "type": "string",
-    "default": "",
-    "description": "NIS master server hostname (required if NIS is enabled)."
-  },
-  "pam.use_ldap": {
-    "type": "boolean",
-    "default": true,
-    "description": "Use LDAP for PAM authentication (user login, sudo, etc.)."
-  },
-  "pam.use_nis": {
-    "type": "boolean",
-    "default": false,
-    "description": "Use NIS for PAM authentication (legacy fallback)."
-  },
-  "filesystem.create_home": {
-    "type": "boolean",
-    "default": true,
-    "description": "Automatically create home directories for new users."
-  },
-  "filesystem.home_mount_opts": {
-    "type": "string",
-    "default": "defaults,user_xattr,acl",
-    "description": "Mount options for the /home filesystem (e.g., for quotas or ACLs)."
-  },
-  "users.roles": {
-    "type": "list",
-    "default": [
-      {
-        "name": "student",
-        "uid_min": 2000,
-        "uid_max": 2999,
-        "shell": "/bin/bash",
-        "groups": [
-          "students",
-          "audio",
-          "video"
-        ]
-      },
-      {
-        "name": "teacher",
-        "uid_min": 3000,
-        "uid_max": 3999,
-        "shell": "/bin/bash",
-        "groups": [
-          "teachers",
-          "audio",
-          "video",
-          "sudo"
-        ]
-      }
-    ],
-    "description": "User role definitions (UID ranges, default shell, initial groups).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "required": true,
-          "description": "Role name (e.g., 'student', 'teacher', 'admin')."
-        },
-        "uid_min": {
-          "type": "number",
-          "default": 1000,
-          "description": "Minimum UID for this role's users."
-        },
-        "uid_max": {
-          "type": "number",
-          "default": 1999,
-          "description": "Maximum UID for this role's users."
-        },
-        "shell": {
-          "type": "string",
-          "default": "/bin/bash",
-          "description": "Default login shell for users in this role."
-        },
-        "groups": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Groups to add the user to on creation (e.g., ['users', 'audio'])."
-        }
-      }
-    }
-  },
-  "boot.grub_timeout": {
-    "type": "number",
-    "default": 5,
-    "description": "Seconds to wait at GRUB menu before booting default entry."
-  },
-  "boot.kernel_cmdline": {
-    "type": "list",
-    "default": [
-      "quiet",
-      "splash"
-    ],
-    "description": "Extra kernel command-line parameters (e.g., for silent boot).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "logging.rsyslog_server": {
-    "type": "string",
-    "default": "",
-    "description": "Remote rsyslog server for centralized logging (optional)."
-  },
-  "logging.log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Minimum log level (e.g., 'debug', 'info', 'warn', 'error')."
-  },
-  "security.ssh_password_auth": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable password-based SSH login (recommended disabled in favor of keys)."
-  },
-  "security.fail2ban_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable fail2ban for brute-force protection."
-  },
-  "workstation.desktops": {
-    "type": "list",
-    "default": [
-      {
-        "name": "xfce",
-        "theme": "default",
-        "autologin": true
-      }
-    ],
-    "description": "Desktop environments to configure for automatic login and theming.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "required": true,
-          "description": "Desktop environment name (e.g., 'xfce', 'gnome')."
-        },
-        "theme": {
-          "type": "string",
-          "default": "default",
-          "description": "Theme package or name (e.g., 'adwaita', 'breeze')."
-        },
-        "wallpaper": {
-          "type": "string",
-          "default": "",
-          "description": "Absolute path to default wallpaper (e.g., '/usr/share/backgrounds/debian-edu.jpg')."
-        },
-        "autologin": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable auto-login for this desktop environment."
-        }
-      }
-    }
-  },
-  "school.school_name": {
-    "type": "string",
-    "default": "My School",
-    "description": "Human-readable school name (used in UI and reports)."
-  },
-  "school.class_groups": {
-    "type": "list",
-    "default": [],
-    "description": "Class group names (e.g., ['grade1', 'math101']).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "school.shared_printers": {
-    "type": "list",
-    "default": [],
-    "description": "Network printer URIs or names (e.g., ['ipp://printers/school1']).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "backup.enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable automated backup of user data and school resources."
-  },
-  "backup.target": {
-    "type": "string",
-    "default": "/backup",
-    "description": "Local or mounted path for backups."
-  },
-  "backup.retention_days": {
-    "type": "number",
-    "default": 30,
-    "description": "Number of days to retain backup files."
-  },
-  "backup.paths": {
-    "type": "list",
-    "default": [],
-    "description": "Paths to include in backup (source \u2192 destination).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "source": {
-          "type": "string",
-          "required": true,
-          "description": "Absolute path to backup (e.g., '/home', '/etc/school')."
-        },
-        "dest": {
-          "type": "string",
-          "required": true,
-          "description": "Destination subdirectory in target (e.g., 'home', 'etc')."
-        }
-      }
-    }
-  },
-  "monitoring.nagios_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable Nagios client for monitoring (requires nagios_server)."
-  },
-  "monitoring.nagios_server": {
-    "type": "string",
-    "default": "",
-    "description": "Hostname of the Nagios server to connect to."
+    "description": "List of additional APT repositories (e.g., for local packages or testing).',\n      \"items\": {\n        \"type\": \"object\",\n        \"fields\": {\n          \"name\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Human-readable repository name.\"\n          },\n          \"url\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Repository base URL (e.g., 'http://deb.example.edu/debian-edu').\"\n          },\n          \"section\": {\n            \"type\": \"string\",\n            \"default\": \"main\",\n            \"description\": \"Section label used as key prefix (e.g., 'main', 'contrib').\"\n          },\n          \"components\": {\n            \"type\": \"list\",\n            \"default\": [\n              \"main\"\n            ],\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"Components (e.g., ['main', 'non-free']).\"\n          },\n          \"architectures\": {\n            \"type\": \"list\",\n            \"default\": [\n              \"amd64\"\n            ],\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"Supported architectures (e.g., ['amd64', 'arm64']).\"\n          },\n          \"key_url\": {\n            \"type\": \"string\",\n            \"default\": \"\",\n            \"description\": \"URL to the repository GPG key.\"\n          },\n          \"key_id\": {\n            \"type\": \"string\",\n            \"default\": \"\",\n            \"description\": \"Fingerprint of the GPG key (alternative to key_url).\"\n          },\n          \"suite\": {\n            \"type\": \"string\",\n            \"default\": \"\",\n            \"description\": \"Distribution suite (e.g., 'bullseye', 'stable').\"\n          }\n        }\n      }\n    },\n    \"ldap.enabled\": {\n      \"type\": \"boolean\",\n      \"default\": true,\n      \"description\": \"Enable LDAP-based centralized user/group management.\"\n    },\n    \"ldap.hostname\": {\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"LDAP server hostname or IP (required if LDAP is enabled).\"\n    },\n    \"ldap.base_dn\": {\n      \"type\": \"string\",\n      \"default\": \"dc=example,dc=edu\",\n      \"description\": \"Base distinguished name for LDAP directory.\"\n    },\n    \"ldap.bind_dn\": {\n      \"type\": \"string\",\n      \"default\": \"cn=admin,dc=example,dc=edu\",\n      \"description\": \"DN used to bind to the LDAP server (with bind_password).\"\n    },\n    \"ldap.bind_password\": {\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"Password for the LDAP bind DN (stored in plain text \\u2014 secure in production).\",\n      \"secret\": true\n    },\n    \"ldap.groups\": {\n      \"type\": \"list\",\n      \"default\": [],\n      \"description\": \"List of LDAP groups to manage (e.g., students, teachers).\",\n      \"items\": {\n        \"type\": \"object\",\n        \"fields\": {\n          \"cn\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Common name of the group (e.g., 'students', 'teachers').\"\n          },\n          \"base\": {\n            \"type\": \"string\",\n            \"default\": \"ou=groups\",\n            \"description\": \"Relative path for group entries under base_dn.\"\n          },\n          \"members\": {\n            \"type\": \"list\",\n            \"default\": [],\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"List of group member UIDs (e.g., ['alice', 'bob']).\"\n          }\n        }\n      }\n    },\n    \"nis.enabled\": {\n      \"type\": \"boolean\",\n      \"default\": false,\n      \"description\": \"Enable legacy NIS (Network Information Service) for compatibility.\"\n    },\n    \"nis.name\": {\n      \"type\": \"string\",\n      \"default\": \"nisdomain\",\n      \"description\": \"NIS domain name.\"\n    },\n    \"nis.master\": {\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"NIS master server hostname (required if NIS is enabled).\"\n    },\n    \"pam.use_ldap\": {\n      \"type\": \"boolean\",\n      \"default\": true,\n      \"description\": \"Use LDAP for PAM authentication (user login, sudo, etc.).\"\n    },\n    \"pam.use_nis\": {\n      \"type\": \"boolean\",\n      \"default\": false,\n      \"description\": \"Use NIS for PAM authentication (legacy fallback).\"\n    },\n    \"filesystem.create_home\": {\n      \"type\": \"boolean\",\n      \"default\": true,\n      \"description\": \"Automatically create home directories for new users.\"\n    },\n    \"filesystem.home_mount_opts\": {\n      \"type\": \"string\",\n      \"default\": \"defaults,user_xattr,acl\",\n      \"description\": \"Mount options for the /home filesystem (e.g., for quotas or ACLs).\"\n    },\n    \"users.roles\": {\n      \"type\": \"list\",\n      \"default\": [\n        {\n          \"name\": \"student\",\n          \"uid_min\": 2000,\n          \"uid_max\": 2999,\n          \"shell\": \"/bin/bash\",\n          \"groups\": [\n            \"students\",\n            \"audio\",\n            \"video\"\n          ]\n        },\n        {\n          \"name\": \"teacher\",\n          \"uid_min\": 3000,\n          \"uid_max\": 3999,\n          \"shell\": \"/bin/bash\",\n          \"groups\": [\n            \"teachers\",\n            \"audio\",\n            \"video\",\n            \"sudo\"\n          ]\n        }\n      ],\n      \"description\": \"User role definitions (UID ranges, default shell, initial groups).\",\n      \"items\": {\n        \"type\": \"object\",\n        \"fields\": {\n          \"name\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Role name (e.g., 'student', 'teacher', 'admin').\"\n          },\n          \"uid_min\": {\n            \"type\": \"number\",\n            \"default\": 1000,\n            \"description\": \"Minimum UID for this role's users.\"\n          },\n          \"uid_max\": {\n            \"type\": \"number\",\n            \"default\": 1999,\n            \"description\": \"Maximum UID for this role's users.\"\n          },\n          \"shell\": {\n            \"type\": \"string\",\n            \"default\": \"/bin/bash\",\n            \"description\": \"Default login shell for users in this role.\"\n          },\n          \"groups\": {\n            \"type\": \"list\",\n            \"default\": [],\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"Groups to add the user to on creation (e.g., ['users', 'audio']).\"\n          }\n        }\n      }\n    },\n    \"boot.grub_timeout\": {\n      \"type\": \"number\",\n      \"default\": 5,\n      \"description\": \"Seconds to wait at GRUB menu before booting default entry.\"\n    },\n    \"boot.kernel_cmdline\": {\n      \"type\": \"list\",\n      \"default\": [\n        \"quiet\",\n        \"splash\"\n      ],\n      \"description\": \"Extra kernel command-line parameters (e.g., for silent boot).\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"logging.rsyslog_server\": {\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"Remote rsyslog server for centralized logging (optional).\"\n    },\n    \"logging.log_level\": {\n      \"type\": \"string\",\n      \"default\": \"info\",\n      \"description\": \"Minimum log level (e.g., 'debug', 'info', 'warn', 'error').\"\n    },\n    \"security.ssh_password_auth\": {\n      \"type\": \"boolean\",\n      \"default\": false,\n      \"description\": \"Enable password-based SSH login (recommended disabled in favor of keys).\"\n    },\n    \"workstation.desktops\": {\n      \"type\": \"list\",\n      \"default\": [\n        {\n          \"name\": \"xfce\",\n          \"theme\": \"default\",\n          \"autologin\": true\n        }\n      ],\n      \"description\": \"Desktop environments to configure for automatic login and theming.\",\n      \"items\": {\n        \"type\": \"object\",\n        \"fields\": {\n          \"name\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Desktop environment name (e.g., 'xfce', 'gnome').\"\n          },\n          \"theme\": {\n            \"type\": \"string\",\n            \"default\": \"default\",\n            \"description\": \"Theme package or name (e.g., 'adwaita', 'breeze').\"\n          },\n          \"wallpaper\": {\n            \"type\": \"string\",\n            \"default\": \"\",\n            \"description\": \"Absolute path to default wallpaper (e.g., '/usr/share/backgrounds/debian-edu.jpg').\"\n          },\n          \"autologin\": {\n            \"type\": \"boolean\",\n            \"default\": true,\n            \"description\": \"Enable auto-login for this desktop environment.\"\n          }\n        }\n      }\n    },\n    \"school.school_name\": {\n      \"type\": \"string\",\n      \"default\": \"My School\",\n      \"description\": \"Human-readable school name (used in UI and reports).\"\n    },\n    \"school.class_groups\": {\n      \"type\": \"list\",\n      \"default\": [],\n      \"description\": \"Class group names (e.g., ['grade1', 'math101']).\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"school.shared_printers\": {\n      \"type\": \"list\",\n      \"default\": [],\n      \"description\": \"Network printer URIs or names (e.g., ['ipp://printers/school1']).\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"backup.enabled\": {\n      \"type\": \"boolean\",\n      \"default\": false,\n      \"description\": \"Enable automated backup of user data and school resources.\"\n    },\n    \"backup.target\": {\n      \"type\": \"string\",\n      \"default\": \"/backup\",\n      \"description\": \"Local or mounted path for backups.\"\n    },\n    \"backup.retention_days\": {\n      \"type\": \"number\",\n      \"default\": 30,\n      \"description\": \"Number of days to retain backup files.\"\n    },\n    \"backup.paths\": {\n      \"type\": \"list\",\n      \"default\": [],\n      \"description\": \"Paths to include in backup (source \\u2192 destination).\",\n      \"items\": {\n        \"type\": \"object\",\n        \"fields\": {\n          \"source\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Absolute path to backup (e.g., '/home', '/etc/school').\"\n          },\n          \"dest\": {\n            \"type\": \"string\",\n            \"required\": true,\n            \"description\": \"Destination subdirectory in target (e.g., 'home', 'etc').\"\n          }\n        }\n      }\n    },\n    \"monitoring.nagios_enabled\": {\n      \"type\": \"boolean\",\n      \"default\": false,\n      \"description\": \"Enable Nagios client for monitoring (requires nagios_server).\"\n    },\n    \"monitoring.nagios_server\": {\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"Hostname of the Nagios server to connect to.\"\n    }\n  },\n  "
   }
 }

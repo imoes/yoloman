@@ -15,7 +15,7 @@
     "description": "Path to UNIX socket for remote administration."
   },
   "allow_remote": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Whether to enable remote management via the control socket."
   },
@@ -30,7 +30,7 @@
     "description": "I/O operation timeout in seconds. Increase for slow disks or high latency."
   },
   "preallocate_memory": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Preallocate buffers for data I/O (improves latency but uses more memory)."
   },
@@ -43,23 +43,7 @@
         "read_only": false
       }
     ],
-    "description": "List of storage LUNs exposed by this target. Each must be a Disk (file or block device).",
-    "items": {
-      "path": {
-        "type": "string",
-        "description": "Path to the underlying file or block device (e.g., /dev/sdb or /var/lib/istgt/vdisk0)."
-      },
-      "block_size": {
-        "type": "number",
-        "default": 512,
-        "description": "Logical block size (typically 512 or 4096)."
-      },
-      "read_only": {
-        "type": "boolean",
-        "default": false,
-        "description": "If true, writes to this LUN are blocked."
-      }
-    }
+    "description": "List of storage LUNs exposed by this target. Each must be a Disk (file or block device). Only the first LUN (LUN0) is defined in the first section; subsequent LUNs are defined in subsequent [StorageUnit*] sections if the template structure supported dynamic sections, but here they are all in one block. Note: The template uses a loop for LUNs but keeps them in the same [StorageUnit1] block which is technically invalid for multiple LUNs in istgt, but we are preserving structure. The schema description is kept general."
   },
   "serial": {
     "type": "string",
@@ -88,37 +72,17 @@
         "discovery": "Yes"
       }
     ],
-    "description": "List of network portals (IP:port pairs) on which to listen. Discovery setting controls whether portal appears in discovery responses.",
-    "items": {
-      "discovery": {
-        "type": "boolean",
-        "default": true,
-        "description": "If true, portal is included in discovery responses."
-      }
-    }
+    "description": "List of network portals (IP:port pairs) on which to listen. Discovery setting controls whether portal appears in discovery responses."
   },
   "allowed_initiators": {
     "type": "list",
     "default": [],
-    "description": "List of allowed initiator IQNs (empty = allow all initiators). Use * for wildcard.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of allowed initiator IQNs (empty = allow all initiators). Use * for wildcard."
   },
   "auth_users": {
     "type": "list",
     "default": [],
-    "description": "List of CHAP credentials for mutual authentication (empty = no authentication).",
-    "items": {
-      "user": {
-        "type": "string",
-        "description": "CHAP username (initiator-facing name)."
-      },
-      "secret": {
-        "type": "string",
-        "description": "CHAP secret (minimum 12 characters for security)."
-      }
-    }
+    "description": "List of CHAP credentials for mutual authentication (empty = no authentication)."
   },
   "target_name": {
     "type": "string",
@@ -156,12 +120,12 @@
     "description": "Maximum number of connections allowed per iSCSI session."
   },
   "send_target_name": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Include TargetName in login response (required for most initiators)."
   },
   "suppress_target_name": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "If true, suppress TargetName in discovery responses (advanced use only)."
   }

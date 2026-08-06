@@ -1,87 +1,54 @@
 {
-  "enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to enable the ISATAP daemon at boot."
+  "tunnel_name": {
+    "type": "string",
+    "default": "is0",
+    "description": "Name of the tunnel interface. Default is 'is0'."
   },
   "interface": {
     "type": "string",
-    "default": "eth0",
-    "description": "Network interface to bind to for ISATAP traffic."
+    "default": "auto",
+    "description": "Tunnel link device. If specified, tunnel will be restricted to that device. 'auto' guesses the outgoing IPv4 address."
   },
-  "isatap_router_ipv4": {
-    "type": "string",
-    "default": "",
-    "description": "IPv4 address of the ISATAP router (must be set for proper operation)."
-  },
-  "isatap_ipv6_prefix": {
-    "type": "string",
-    "default": "2001:db8:1::/64",
-    "description": "IPv6 prefix used to construct ISATAP interface identifiers (e.g., 2001:db8:1::/64)."
-  },
-  "router_advert_lifetime": {
+  "mtu": {
     "type": "number",
-    "default": 1800,
-    "description": "Lifetime (seconds) for router advertisements (RFC 4191)."
+    "default": 0,
+    "description": "Sets the MTU for the tunnel device, minimum is 1280. 0 or 'auto' lets the kernel choose (usually 1480)."
   },
-  "router_advert_interval": {
-    "type": "number",
-    "default": 600,
-    "description": "Interval (seconds) between router advertisements."
+  "ttl": {
+    "type": "string",
+    "default": "64",
+    "description": "Set the tunnel hoplimit. Default is 64. 'auto' or 'inherit' makes the tunnel inherit the TTL from the linked device."
   },
-  "mtu_discovery": {
+  "disable_pmtudisc": {
     "type": "bool",
-    "default": true,
-    "description": "Enable RFC 4861-style MTU discovery for ISATAP."
+    "default": false,
+    "description": "Disable (IPv4) Path MTU Discovery on this tunnel. Requires --ttl to be set to inherit for full effect."
   },
-  "trusted_hosts": {
+  "routers": {
     "type": "list",
-    "default": [],
-    "description": "List of additional trusted ISATAP host IPv4 addresses (beyond the configured router).",
-    "items": {
-      "type": "string",
-      "description": "IPv4 address of a trusted ISATAP host."
-    }
+    "default": [
+      "isatap"
+    ],
+    "description": "Set a potential router. Up to 10 potential routers can be specified. Default is the unqualified domainname 'isatap'. isatapd will resolve the hostname and add the IPv4 address to the PRL."
+  },
+  "interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Default interval to send router solicitations. If 0 or 'auto', the interval will be 80% of the router's lifetime. Can be used to force solicitations at a shorter interval."
+  },
+  "dns_check_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval to perform DNS resolution of configured routers and to recreate the PRL, if necessary. Set to 0 to disable."
   },
   "log_level": {
     "type": "string",
     "default": "INFO",
-    "description": "Verbosity of logging (DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL)."
+    "description": "Verbosity of logging (controlled by -v/-q). isatapd logs to stderr when run in foreground and to syslog(3) using facility LOG_DAEMON."
   },
   "log_file": {
     "type": "string",
-    "default": "/var/log/isatapd.log",
-    "description": "Path to log file, or '-' to log to stdout."
-  },
-  "ipv6_forwarding": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable system-wide IPv6 forwarding (required for ISATAP router role)."
-  },
-  "zones": {
-    "type": "list",
-    "default": [],
-    "description": "List of ISATAP zones (used for multi-domain deployments).",
-    "items": {
-      "type": "object",
-      "description": "An ISATAP zone configuration.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Name of the ISATAP zone."
-        },
-        "prefix": {
-          "type": "string",
-          "default": "",
-          "description": "IPv6 prefix for this zone (e.g., '2001:db8:2::/64')."
-        },
-        "router": {
-          "type": "string",
-          "default": "",
-          "description": "IPv4 address of the zone's ISATAP router."
-        }
-      }
-    }
+    "default": "-",
+    "description": "Log file path. Use '-' to log to stdout/stderr."
   }
 }

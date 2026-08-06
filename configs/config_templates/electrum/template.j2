@@ -1,0 +1,117 @@
+# Electrum Configuration
+# Self-documenting template for electrum(1) wallet daemon.
+# Each directive is annotated with its source description and safe defaults.
+
+# Network mode: mainnet, testnet, regtest, or signet.
+# Controls which Bitcoin network this wallet connects to.
+network: {{ network | default('mainnet') }}
+
+# Server connection string in host:port:protocol format (e.g., 'electrum.example.com:50002:s').
+# Leave empty to use Electrum's server discovery mechanism.
+server: {{ server | default('') }}
+
+# Proxy configuration in [type:]host[:port] format.
+# Use 'socks5:127.0.0.1:9050' or 'http:127.0.0.1:8080'. Empty string disables proxy.
+proxy: {{ proxy | default('') }}
+
+# RPC daemon settings
+
+# RPC daemon host: the IP address or hostname the RPC server binds to.
+rpc_host: {{ rpc_host | default('localhost') }}
+
+# RPC daemon port: the TCP port the RPC server listens on.
+rpc_port: {{ rpc_port | default(7777) }}
+
+# RPC socket type: 'tcp' for TCP/IP, 'unix' for a Unix domain socket, or 'auto'.
+rpc_socket_type: {{ rpc_socket_type | default('tcp') }}
+
+# RPC Unix socket path.
+# Only emitted when rpc_socket_type is set to 'unix'.
+# Uses the system uid variable to construct the runtime path.
+{% if rpc_socket_type | default('tcp') == 'unix' %}
+rpc_socket_path: {{ rpc_socket_path | default('/run/user/{{ uid }}/electrum/rpc.sock') }}
+{% endif %}
+
+# RPC credentials
+
+# RPC username for basic authentication.
+# Omitted if empty to avoid sending blank credentials.
+{% if rpc_user | default('') != '' %}
+rpc_user: {{ rpc_user | default('') }}
+{% endif %}
+
+# RPC password for basic authentication.
+# Omitted if empty to avoid sending blank credentials.
+{% if rpc_password | default('') != '' %}
+rpc_password: {{ rpc_password | default('') }}
+{% endif %}
+
+# Data directory override.
+# If set, Electrum will store its data files in this directory instead of the default.
+{% if data_dir | default('') != '' %}
+data_dir: {{ data_dir | default('') }}
+{% endif %}
+
+# GUI backend: 'qt', 'kivy', 'text', 'stdio', or 'qml'.
+# Controls the user interface framework used by the Electrum client.
+{% if gui | default('') != '' %}
+gui: {{ gui | default('') }}
+{% endif %}
+
+# UI language code (e.g., 'en', 'de').
+# Determines the language used for the graphical interface messages.
+{% if language | default('') != '' %}
+language: {{ language | default('') }}
+{% endif %}
+
+# Seed type for new wallets: 'standard', 'segwit', '2fa', or '2fa_segwit'.
+# Defines the hierarchical deterministic wallet standard for newly created wallets.
+{% if seed_type | default('') != '' %}
+seed_type: {{ seed_type | default('') }}
+{% endif %}
+
+# Fee estimation method (e.g., 'eta', 'static').
+# Controls how transaction fees are calculated. 'eta' estimates based on confirmation time.
+{% if fee_method | default('') != '' %}
+fee_method: {{ fee_method | default('') }}
+{% endif %}
+
+# Fee slider position between 0.0 and 1.0.
+# Higher values result in faster confirmation; lower values save on fees.
+# Applied only when fee_method allows dynamic levels (like 'eta').
+fee_level: {{ fee_level | default(0.5) }}
+
+# Use only one server (no fallback).
+# If true, Electrum will not try alternative servers if the current one fails.
+one_server: {{ one_server | default(False) | lower }}
+
+# Disable connections to onion servers.
+# If true, Electrum will ignore .onion servers even if discovered.
+no_onion: {{ no_onion | default(False) | lower }}
+
+# Skip Merkle proof verification (for debugging).
+# WARNING: Disabling security checks. Use only for troubleshooting.
+skip_merkle_check: {{ skip_merkle_check | default(False) | lower }}
+
+# Run in offline mode.
+# If true, Electrum will not connect to any network or servers.
+offline: {{ offline | default(False) | lower }}
+
+# Run in portable mode.
+# If true, Electrum uses a local directory (./electrum_data) for all storage,
+# making it suitable for USB drives or isolated environments.
+portable: {{ portable | default(False) | lower }}
+
+# Encrypt wallet file on disk (applies to wallet creation).
+# If true, new wallets will be encrypted with a user-provided password.
+encrypt_file: {{ encrypt_file | default(False) | lower }}
+
+# Required SHA256 fingerprint (64 hex chars) for server certificate.
+# If set, Electrum will only connect to servers presenting this specific certificate hash.
+{% if server_fingerprint | default('') != '' %}
+server_fingerprint: {{ server_fingerprint | default('') }}
+{% endif %}
+
+# Log verbosity: 0=quiet, 1=info, 2=debug, 3=trace.
+# Controls the amount of detail written to the log output.
+verbosity: {{ verbosity | default(1) }}

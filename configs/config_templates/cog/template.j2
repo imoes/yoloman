@@ -1,0 +1,53 @@
+{# ============================================================================ #}
+{# Cog Web Browser Configuration Template                                       #}
+{# ============================================================================ #}
+{# This template generates a Cog browser configuration file.                   #}
+{# All variables use .default() to ensure safe rendering with undefined values. #}
+{# ============================================================================ #}
+
+{# Initial URL to open; overridden by COG_URL environment variable #}
+url = {{ (var | default({})).url | default('') }}
+
+{# Background color as CSS name or #RRGGBBAA hex #}
+background-color = {{ (var | default({})).background_color | default('white') }}
+
+{# Zoom/scaling factor for Web content (default: 1.0) #}
+scale = {{ (var | default({})).scale | default(1.0) }}
+
+{# Output device scaling factor (default: 1.0, 96 DPI) #}
+device-scale = {{ (var | default({})).device_scale | default(1.0) }}
+
+{# Enable document viewer mode (reduces memory, limits network caching) #}
+{% if (var | default({})).doc_viewer is true %}
+doc-viewer = true
+{% endif %}
+
+{# Action on WebProcess failures: error-page, exit, exit-ok, restart #}
+webprocess-failure = {{ (var | default({})).webprocess_failure | default('error-page') }}
+
+{# Platform plugin name to use (e.g., 'wl', 'x11') #}
+platform = {{ (var | default({})).platform | default('') }}
+
+{# Comma-separated list of platform parameters #}
+{% set platform_params = (var | default({})).platform_params | default([]) %}
+{% if platform_params | length > 0 %}
+platform-params = {{ platform_params | join(', ') }}
+{% endif %}
+
+{# List of URI scheme handlers for local directories #}
+{# Each entry maps a scheme to a filesystem path #}
+{% for handler in (var | default({})).dir_handlers | default([]) %}
+dir-handler = {{ handler.scheme }}:{{ handler.path }}
+{% endfor %}
+
+{# Path to directory containing Web Extensions #}
+{% set web_extensions_dir = (var | default({})).web_extensions_dir | default('') %}
+{% if web_extensions_dir | trim != '' %}
+web-extensions-dir = {{ web_extensions_dir | trim }}
+{% endif %}
+
+{# Path to JSON file defining a content filter #}
+{% set content_filter = (var | default({})).content_filter | default('') %}
+{% if content_filter | trim != '' %}
+content-filter = {{ content_filter | trim }}
+{% endif %}

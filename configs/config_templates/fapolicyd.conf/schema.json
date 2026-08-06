@@ -1,125 +1,135 @@
 {
   "debug_enabled": {
     "type": "boolean",
-    "default": false,
-    "description": "Enable verbose debug logging for troubleshooting. Set to true for detailed logs."
+    "default": {
+      "value": 0
+    },
+    "description": "This option is either a 0 to mean send policy decisions to the kernel for enforcement. Or it can be a 1 to mean always allow the access even if policy would block it. Use only for policy testing and debug."
   },
-  "log_file_path": {
+  "nice_val": {
+    "type": "number",
+    "default": {
+      "value": 10
+    },
+    "description": "This option gives fapolicyd a scheduler boost. The number can be from 0 to 20."
+  },
+  "q_size": {
+    "type": "number",
+    "default": {
+      "value": 800
+    },
+    "description": "This option is used to control how big of an internal queue that fapolicyd will use."
+  },
+  "uid": {
     "type": "string",
-    "default": "/var/log/fapolicyd.log",
-    "description": "Absolute path to the primary log file where fapolicyd writes events."
+    "default": {
+      "value": "0"
+    },
+    "description": "This can be a number or an account name which fapolicyd should switch to during startup."
   },
-  "log_file_max": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of archived log files to retain during rotation."
-  },
-  "log_file_size": {
-    "type": "number",
-    "default": 10240,
-    "description": "Maximum size (in KB) per log file before rotation."
-  },
-  "watched_dirs": {
-    "type": "list",
-    "default": [
-      "/bin",
-      "/sbin",
-      "/usr/bin",
-      "/usr/sbin",
-      "/usr/local/bin",
-      "/usr/local/sbin"
-    ],
-    "description": "List of directories whose file access events should be monitored for policy enforcement."
-  },
-  "rule_allow_logging": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable logging of file accesses that are explicitly allowed by policy."
-  },
-  "rule_deny_logging": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable logging of file accesses that are blocked (denied) by policy."
-  },
-  "rule_enforce": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable active enforcement of file access rules. When false, fapolicyd logs but does not block access."
-  },
-  "trust_default_trust": {
-    "type": "boolean",
-    "default": true,
-    "description": "Treat system binaries in standard paths as trusted by default (unless explicitly overridden)."
-  },
-  "trust_paths": {
-    "type": "list",
-    "default": [
-      "/bin",
-      "/sbin",
-      "/usr/bin",
-      "/usr/sbin",
-      "/usr/local/bin",
-      "/usr/local/sbin",
-      "/lib",
-      "/lib64"
-    ],
-    "description": "List of directory paths whose contents are considered trusted (bypass enforcement)."
-  },
-  "kernel_block_unsigned_modules": {
-    "type": "boolean",
-    "default": true,
-    "description": "Block loading of kernel modules that are not signed with a trusted key."
-  },
-  "network_log_connections": {
-    "type": "boolean",
-    "default": true,
-    "description": "Log network connections made by processes (if fapolicyd network support is enabled)."
-  },
-  "network_block_outbound": {
-    "type": "boolean",
-    "default": false,
-    "description": "Block outbound network connections by default. Enable only in restrictive environments."
-  },
-  "resources_max_fds": {
-    "type": "number",
-    "default": 65535,
-    "description": "Maximum number of open file descriptors the fapolicyd daemon may hold."
-  },
-  "resources_max_watches": {
-    "type": "number",
-    "default": 524288,
-    "description": "Maximum number of inotify watches (file events) fapolicyd can monitor simultaneously."
-  },
-  "server_workers": {
-    "type": "number",
-    "default": 0,
-    "description": "Number of worker threads. Set to 0 to auto-detect based on CPU cores."
-  },
-  "server_foreground": {
-    "type": "boolean",
-    "default": false,
-    "description": "Run fapolicyd in the foreground (for testing). Disable for production daemon mode."
-  },
-  "server_pid_file": {
+  "gid": {
     "type": "string",
-    "default": "/run/fapolicyd.pid",
-    "description": "Absolute path for the PID file written by fapolicyd in daemon mode."
+    "default": {
+      "value": "0"
+    },
+    "description": "This can be a number or a group name which fapolicyd should switch to during startup."
   },
-  "backend_use_audit": {
+  "do_stat_report": {
     "type": "boolean",
-    "default": true,
-    "description": "Use the kernel audit subsystem for event capture. Disable only if audit is unavailable."
+    "default": {
+      "value": 1
+    },
+    "description": "This option controls whether fapolicyd should create a usage statistics report on shutdown."
   },
-  "order_rule_files": {
-    "type": "list",
-    "default": [
-      "fapolicyd.rules"
-    ],
-    "description": "List of rule files to load in order (last one takes precedence for overlapping rules)."
+  "detailed_report": {
+    "type": "boolean",
+    "default": {
+      "value": 1
+    },
+    "description": "This option controls whether fapolicyd should add subject and object information to the usage statistics report."
   },
-  "included_files": {
+  "db_max_size": {
+    "type": "number",
+    "default": {
+      "value": 50
+    },
+    "description": "This option controls how many megabytes to allow the trust database to grow to."
+  },
+  "subj_cache_size": {
+    "type": "number",
+    "default": {
+      "value": 1549
+    },
+    "description": "This option controls how many entries the subject cache holds."
+  },
+  "obj_cache_size": {
+    "type": "number",
+    "default": {
+      "value": 8191
+    },
+    "description": "This option controls how many entries the object cache holds."
+  },
+  "watch_fs": {
     "type": "list",
-    "default": [],
-    "description": "Additional configuration or rule files to include (e.g., custom policies). Each entry is a file path."
+    "default": {
+      "value": [
+        "ext4",
+        "xfs",
+        "tmpfs"
+      ]
+    },
+    "description": "This is a comma separated list of file systems that should be watched."
+  },
+  "trust": {
+    "type": "list",
+    "default": {
+      "value": [
+        "rpmdb",
+        "file"
+      ]
+    },
+    "description": "This is a comma separated list of trust back-ends."
+  },
+  "integrity": {
+    "type": "string",
+    "default": {
+      "value": "none"
+    },
+    "description": "This option tells fapolicyd which integrity strategy it should use."
+  },
+  "syslog_format": {
+    "type": "string",
+    "default": {
+      "value": "rule,dec,perm,auid,pid,exe,:,path,ftype,trust"
+    },
+    "description": "This option controls how the output from the access decision is formatted."
+  },
+  "rpm_sha256_only": {
+    "type": "boolean",
+    "default": {
+      "value": 0
+    },
+    "description": "The option set to 1 forces the daemon to work only with SHA256 hashes."
+  },
+  "allow_filesystem_mark": {
+    "type": "boolean",
+    "default": {
+      "value": 0
+    },
+    "description": "When this option is set to 1, it allows fapolicyd to monitor file access events on bind mounted or overlayed file systems."
+  },
+  "report_interval": {
+    "type": "number",
+    "default": {
+      "value": 0
+    },
+    "description": "This option specifies a reporting interval, measured in seconds, which fapolicyd uses to schedule a recurring dump of internal performance statistics."
+  },
+  "permissive": {
+    "type": "boolean",
+    "default": {
+      "value": 0
+    },
+    "description": "This option is either a 0 to mean send policy decisions to the kernel for enforcement. Or it can be a 1 to mean always allow the access even if policy would block it."
   }
 }

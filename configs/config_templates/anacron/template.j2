@@ -1,0 +1,20 @@
+# /etc/cron.d/anacron: crontab entries for the anacron package
+
+# SHELL: Shell used to execute cron commands.
+# Default: /bin/sh
+SHELL={{ shell | default('/bin/sh') }}
+
+# PATH: PATH environment variable for cron jobs.
+# Default: /usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+PATH={{ path | default('/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin') }}
+
+# Cron schedule: Run at minute `minute` between `hour_start` and `hour_end` every day.
+# This entry ensures anacron is triggered via systemd service manager if available,
+# but only if the system is not running under systemd (to avoid double-triggering).
+# minute: Minute when the job runs.
+# Default: 30
+# hour_start: Starting hour of the hourly range.
+# Default: 7
+# hour_end: Ending hour of the hourly range.
+# Default: 23
+{{ minute | default('30') }} {{ hour_start | default('7') }}-{{ hour_end | default('23') }} * * *   root	if [ -x /etc/init.d/anacron ] && ! [ -d /run/systemd/system ]; then exec /usr/sbin/invoke-rc.d anacron start >/dev/null; fi

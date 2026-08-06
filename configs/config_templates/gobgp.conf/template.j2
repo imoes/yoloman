@@ -1,178 +1,336 @@
-[[global]]
-# AS number and router ID for this BGP speaker
-asn = {{ global_asn }}
-id = "{{ global_router_id }}"
+# GoBGP Configuration Template
+# This template generates a TOML configuration file for GoBGP.
+# It documents all global, neighbor, policy, and set definitions
+# derived from the Ansible variables defined in the role/schema.
 
-# Optional: BGP port and listening addresses
-[global.conf]
-port = {{ global_port }}
+# =============================================================================
+# Global BGP Speaker Configuration
+# =============================================================================
 
-# Optional: Global graceful restart settings
+[global]
+# Autonomous System Number (ASN) for this BGP speaker (32-bit AS, e.g., 65001 or 131072)
+# Default: 65001
+asn = {{ global_asn | default(65001) }}
+
+# Router ID (IPv4 format recommended, e.g., '192.0.2.1')
+# Default: 192.0.2.1
+id = "{{ global_router_id | default('192.0.2.1') }}"
+
+# =============================================================================
+# Global BGP Port Configuration
+# =============================================================================
+
+[global.config]
+# BGP TCP port to listen on (179 is standard)
+# Note: The original template used [global.conf], which is non-standard TOML section syntax
+# for a single table. Using [global.config] is the canonical GoBGP TOML structure.
+# Default: 179
+port = {{ global_port | default(179) }}
+
+# =============================================================================
+# Global Graceful Restart Settings
+# =============================================================================
+
 [global.graceful_restart]
-enabled = {{ graceful_restart_enabled }}
-restart_time = {{ graceful_restart_time }}
-default_stale_time = {{ graceful_restart_stale_time }}
+# Enable global graceful restart support
+# Default: False
+enabled = {{ graceful_restart_enabled | default(false) }}
 
-# Optional: Enable or disable IPv4/IPv6 unicast address families
+# Graceful restart timer (seconds)
+# Default: 120
+restart_time = {{ graceful_restart_time | default(120) }}
+
+# Time to consider routes stale before removing them (seconds)
+# Default: 300
+default_stale_time = {{ graceful_restart_stale_time | default(300) }}
+
+# =============================================================================
+# Global Address Family (AFI/SAFI) Definitions
+# =============================================================================
+
 [global.afi_safis]
+# Global configuration for IPv4 Unicast address family
+# Default: Enabled
 [[global.afi_safis]]
 afi = "AFI_IPv4"
 safi = "SAFI_UNICAST"
-enabled = {{ afi_safis_ipv4_unicast_enabled }}
+enabled = {{ afi_safis_ipv4_unicast_enabled | default(true) }}
 
+# Global configuration for IPv6 Unicast address family
+# Default: Enabled
 [[global.afi_safis]]
 afi = "AFI_IPv6"
 safi = "SAFI_UNICAST"
-enabled = {{ afi_safis_ipv6_unicast_enabled }}
+enabled = {{ afi_safis_ipv6_unicast_enabled | default(true) }}
 
-# Optional: Global route reflection settings
+# =============================================================================
+# Global Route Reflection Settings
+# =============================================================================
+
 [global.route_reflection]
-enabled = {{ route_reflection_enabled }}
-client_to_client_reflection = {{ route_reflection_client_to_client }}
+# Enable global route reflection (use only if acting as a route reflector)
+# Default: False
+enabled = {{ route_reflection_enabled | default(false) }}
 
-# Neighbor definitions
+# Allow client-to-client route reflection (ignored unless route reflection enabled)
+# Default: True
+client_to_client_reflection = {{ route_reflection_client_to_client | default(true) }}
+
+# =============================================================================
+# BGP Neighbor Definitions
+# =============================================================================
+
 [neighbors]
-{% for neighbor in neighbors %}[neighbors.{{ neighbor.name | replace('.', '_') }}]
-# Neighbor {{ neighbor.name }}: {{ neighbor.description | default('no description') }}
-address = "{{ neighbor.address }}"
-asn = {{ neighbor.asn }}
+# List of BGP neighbors (peers) to configure
+# Default: []
+{% for neighbor in neighbors | default([]) %}
+# Neighbor: {{ neighbor.name | default('unknown') }}
+# Description: {{ neighbor.description | default('no description') }}
 
-# Optional: Description (non-standard TOML comment above)
+# Section name for this specific neighbor. Dots in IP addresses are replaced
+# with underscores to conform to TOML key syntax.
+[neghbors.{{ neighbor.name | replace('.', '_') }}]
+
+# Peer's IP address or hostname
+# Required. Default is empty string if not provided (likely invalid).
+address = "{{ neighbor.address | default('') }}"
+
+# Peer's Autonomous System Number
+# Required.
+asn = {{ neighbor.asn | default(65001) }}
+
+# Optional: Human-readable description of the neighbor
 description = "{{ neighbor.description | default('') }}"
 
-# Optional: BGP timers
-timers.config.connect_retry = {{ neighbor.connect_retry | default(120) }}
-timers.config.hold_time = {{ neighbor.hold_time | default(90) }}
-timers.config.keepalive_interval = {{ neighbor.keepalive_interval | default(30) }}
-timers.config.minimum_advertisement_interval = {{ neighbor.minimum_advertisement_interval | default(5) }}
-timers.config.idle_hold_time = {{ neighbor.idle_hold_time | default(15) }}
+# Optional: BGP Timers Configuration
+[timers.config]
+# Connect retry timer (seconds)
+connect_retry = {{ neighbor.connect_retry | default(120) }}
 
-# Optional: Route filtering (import/export policies — basic support)
-# To apply policies, define policy names in `{{ neighbor.import_policy }}` and `{{ neighbor.export_policy }}`
-{% if neighbor.import_policy %}import_policy = ["{{ neighbor.import_policy | join('", "') }}"]
-{% endif %}
-{% if neighbor.export_policy %}export_policy = ["{{ neighbor.export_policy | join('", "') }}"]
+# Hold timer value (seconds)
+hold_time = {{ neighbor.hold_time | default(90) }}
+
+# Keepalive interval (seconds)
+keepalive_interval = {{ neighbor.keepalive_interval | default(30) }}
+
+# Minimum advertisement interval (seconds)
+minimum_advertisement_interval = {{ neighbor.minimum_advertisement_interval | default(5) }}
+
+# Idle hold time (seconds) - used in IDLE state
+idle_hold_time = {{ neighbor.idle_hold_time | default(15) }}
+
+# Optional: Route Filtering Policies
+{% if neighbor.import_policy is defined and neighbor.import_policy is not none %}
+# Import policies applied to routes received from this neighbor
+# Default: None
+import_policy = ["{{ neighbor.import_policy | join('", "') }}"]
 {% endif %}
 
-# Optional: Route reflection settings per-neighbor
-{% if neighbor.route_reflection_enabled is defined %}[neighbors.{{ neighbor.name | replace('.', '_') }}.route_reflection]
-enabled = {{ neighbor.route_reflection_enabled }}
+{% if neighbor.export_policy is defined and neighbor.export_policy is not none %}
+# Export policies applied to routes sent to this neighbor
+# Default: None
+export_policy = ["{{ neighbor.export_policy | join('", "') }}"]
+{% endif %}
+
+# Optional: Neighbor-level Route Reflection
+{% if neighbor.route_reflection_enabled is defined %}
+[neghbors.{{ neighbor.name | replace('.', '_') }}.route_reflection]
+enabled = {{ neighbor.route_reflection_enabled | default(false) }}
 client_to_client_reflection = {{ neighbor.route_reflection_client_to_client | default(true) }}
 {% endif %}
 
-# Optional: Graceful restart per-neighbor
-{% if neighbor.graceful_restart is defined %}[neighbors.{{ neighbor.name | replace('.', '_') }}.graceful_restart]
-enabled = {{ neighbor.graceful_restart.enabled }}
+# Optional: Neighbor-level Graceful Restart
+{% if neighbor.graceful_restart is defined %}
+[neghbors.{{ neighbor.name | replace('.', '_') }}.graceful_restart]
+enabled = {{ neighbor.graceful_restart.enabled | default(false) }}
 {% endif %}
 
-# Optional: MD5 authentication
-{% if neighbor.password %}[neighbors.{{ neighbor.name | replace('.', '_') }}.auth]
+# Optional: MD5 Authentication
+{% if neighbor.password is defined and neighbor.password is not none %}
+[neghbors.{{ neighbor.name | replace('.', '_') }}.auth]
 password = "{{ neighbor.password }}"
 {% endif %}
 
-# Optional: Transport layer config (e.g., local address, passive mode)
-{% if neighbor.transport_local_address is defined or neighbor.transport_passive_mode is defined %}[neighbors.{{ neighbor.name | replace('.', '_') }}.transport]
-{% if neighbor.transport_local_address %local_address = "{{ neighbor.transport_local_address }}"
-{% endif %}{% if neighbor.transport_passive_mode is defined %passive_mode = {{ neighbor.transport_passive_mode }}
-{% endif %}{% endif %}
+# Optional: Transport Layer Configuration
+{% if neighbor.transport_local_address is defined or neighbor.transport_passive_mode is defined %}
+[neghbors.{{ neighbor.name | replace('.', '_') }}.transport]
+{% if neighbor.transport_local_address is defined and neighbor.transport_local_address is not none %}
+local_address = "{{ neighbor.transport_local_address }}"
+{% endif %}
+{% if neighbor.transport_passive_mode is defined %}
+passive_mode = {{ neighbor.transport_passive_mode | default(false) }}
+{% endif %}
+{% endif %}
 
-# Optional: Multicast BGP (MVPN) support
-{% if neighbor.afi_safis_mvpn_enabled is defined %}[neighbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]
-[[neighbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
+# Optional: Multicast BGP (MVPN/EVPN) Support
+{% if neighbor.afi_safis_mvpn_enabled is defined %}
+[neghbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]
+
+# L2VPN EVPN Address Family
+[[neghbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
 afi = "AFI_L2VPN"
 safi = "SAFI_EVPN"
 enabled = {{ neighbor.afi_safis_evpn_enabled | default(false) }}
 
-[[neighbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
+# L2VPN MVPN Address Family
+[[neghbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
 afi = "AFI_L2VPN"
 safi = "SAFI_MVPN"
 enabled = {{ neighbor.afi_safis_mvpn_enabled }}
 {% endif %}
 
-# Optional: IPv4/IPv6 unicast per-neighbor (overrides global if needed)
-{% if neighbor.afi_safis_ipv4_unicast_enabled is defined or neighbor.afi_safis_ipv6_unicast_enabled is defined %}[neighbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]
-{% if neighbor.afi_safis_ipv4_unicast_enabled is defined %}[[neighbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
+# Optional: Per-Neighbor IPv4/IPv6 Unicast Overrides
+{% if neighbor.afi_safis_ipv4_unicast_enabled is defined or neighbor.afi_safis_ipv6_unicast_enabled is defined %}
+[neghbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]
+{% if neighbor.afi_safis_ipv4_unicast_enabled is defined %}
+[[neghbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
 afi = "AFI_IPv4"
 safi = "SAFI_UNICAST"
 enabled = {{ neighbor.afi_safis_ipv4_unicast_enabled }}
 {% endif %}
-{% if neighbor.afi_safis_ipv6_unicast_enabled is defined %}[[neighbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
+{% if neighbor.afi_safis_ipv6_unicast_enabled is defined %}
+[[neghbors.{{ neighbor.name | replace('.', '_') }}.afi_safis]]
 afi = "AFI_IPv6"
 safi = "SAFI_UNICAST"
 enabled = {{ neighbor.afi_safis_ipv6_unicast_enabled }}
-{% endif %}{% endif %}
+{% endif %}
+{% endif %}
 
 {% endfor %}
 
-# Optional: Policy definitions (for import/export filtering)
-[policies]
-{% for policy in policies %}[policies.{{ policy.name }}]
-# Policy {{ policy.name }}: {{ policy.description | default('no description') }}
-{% for statement in policy.statements %}[[policies.{{ policy.name }}.statements]]
-name = "{{ statement.name }}"
+# =============================================================================
+# Routing Policy Definitions
+# =============================================================================
 
-# Match conditions
-{% if statement.match_prefix_set %}match_prefix_set = "{{ statement.match_prefix_set }}"
+[policies]
+# List of routing policies (used for import/export filtering)
+# Default: []
+{% for policy in policies | default([]) %}
+# Policy: {{ policy.name | default('unknown') }}
+# Description: {{ policy.description | default('no description') }}
+
+[policies.{{ policy.name }}]
+
+# Statements within the policy
+{% for statement in policy.statements | default([]) %}
+[[policies.{{ policy.name }}.statements]]
+name = "{{ statement.name | default('') }}"
+
+# Match Conditions
+{% if statement.match_prefix_set is defined and statement.match_prefix_set is not none %}
+match_prefix_set = "{{ statement.match_prefix_set }}"
 {% endif %}
-{% if statement.match_neighbor_set %}match_neighbor_set = "{{ statement.match_neighbor_set }}"
+
+{% if statement.match_neighbor_set is defined and statement.match_neighbor_set is not none %}
+match_neighbor_set = "{{ statement.match_neighbor_set }}"
 {% endif %}
-{% if statement.match_as_path_set %}match_as_path_set = "{{ statement.match_as_path_set }}"
+
+{% if statement.match_as_path_set is defined and statement.match_as_path_set is not none %}
+match_as_path_set = "{{ statement.match_as_path_set }}"
 {% endif %}
-{% if statement.match_community_set %}match_community_set = "{{ statement.match_community_set }}"
+
+{% if statement.match_community_set is defined and statement.match_community_set is not none %}
+match_community_set = "{{ statement.match_community_set }}"
 {% endif %}
-{% if statement.match_ext_community_set %}match_ext_community_set = "{{ statement.match_ext_community_set }}"
+
+{% if statement.match_ext_community_set is defined and statement.match_ext_community_set is not none %}
+match_ext_community_set = "{{ statement.match_ext_community_set }}"
 {% endif %}
 
 # Actions
-{% if statement.set_med %}set_med = "{{ statement.set_med }}"
-{% endif %}
-{% if statement.set_local_pref %}set_local_pref = {{ statement.set_local_pref }}
-{% endif %}
-{% if statement.set_next_hop %}set_next_hop = "{{ statement.set_next_hop }}"
-{% endif %}
-{% if statement.set_as_path %}set_as_path = [{{ statement.set_as_path | map('quote') | join(', ') | safe }}]
-{% endif %}
-{% if statement.set_communities %}set_communities = [{{ statement.set_communities | map('quote') | join(', ') | safe }}]
-{% endif %}
-{% if statement.set_ext_communities %}set_ext_communities = [{{ statement.set_ext_communities | map('quote') | join(', ') | safe }}]
+{% if statement.set_med is defined and statement.set_med is not none %}
+set_med = "{{ statement.set_med }}"
 {% endif %}
 
-# Policy action
-action = "{{ statement.action }}"
+{% if statement.set_local_pref is defined and statement.set_local_pref is not none %}
+set_local_pref = {{ statement.set_local_pref }}
+{% endif %}
+
+{% if statement.set_next_hop is defined and statement.set_next_hop is not none %}
+set_next_hop = "{{ statement.set_next_hop }}"
+{% endif %}
+
+{% if statement.set_as_path is defined and statement.set_as_path is not none %}
+set_as_path = [{{ statement.set_as_path | map('quote') | join(', ') }}]
+{% endif %}
+
+{% if statement.set_communities is defined and statement.set_communities is not none %}
+set_communities = [{{ statement.set_communities | map('quote') | join(', ') }}]
+{% endif %}
+
+{% if statement.set_ext_communities is defined and statement.set_ext_communities is not none %}
+set_ext_communities = [{{ statement.set_ext_communities | map('quote') | join(', ') }}]
+{% endif %}
+
+# Policy Action (permit or deny)
+action = "{{ statement.action | default('permit') }}"
 {% endfor %}
 {% endfor %}
 
-# Optional: Prefix sets (referenced by policies)
+# =============================================================================
+# Prefix Sets
+# =============================================================================
+
 [prefix_sets]
-{% for set in prefix_sets %}[prefix_sets.{{ set.name }}]
-# Prefix set {{ set.name }}
-{% for prefix in set.prefixes %}[[prefix_sets.{{ set.name }}.prefixes]]
-ip_prefix = "{{ prefix.ip_prefix }}"
-{% if prefix.mask_length_range %}mask_length_range = "{{ prefix.mask_length_range }}"
+# List of prefix sets for policy matching
+# Default: []
+{% for set in prefix_sets | default([]) %}
+# Prefix Set: {{ set.name | default('unknown') }}
+[prefix_sets.{{ set.name }}]
+
+{% for prefix in set.prefixes | default([]) %}
+[[prefix_sets.{{ set.name }}.prefixes]]
+ip_prefix = "{{ prefix.ip_prefix | default('0.0.0.0/0') }}"
+{% if prefix.mask_length_range is defined and prefix.mask_length_range is not none %}
+mask_length_range = "{{ prefix.mask_length_range }}"
 {% endif %}
 {% endfor %}
 {% endfor %}
 
-# Optional: AS path sets
+# =============================================================================
+# AS Path Sets
+# =============================================================================
+
 [as_path_sets]
-{% for set in as_path_sets %}[as_path_sets.{{ set.name }}]
-# AS path set {{ set.name }}
-{% for member in set.members %}as_path_list = ["{{ member }}"]
+# List of AS path sets for policy matching
+# Default: []
+{% for set in as_path_sets | default([]) %}
+# AS Path Set: {{ set.name | default('unknown') }}
+[as_path_sets.{{ set.name }}]
+
+{% for member in set.members | default([]) %}
+as_path_list = ["{{ member }}"]
 {% endfor %}
 {% endfor %}
 
-# Optional: Community sets
+# =============================================================================
+# Community Sets
+# =============================================================================
+
 [community_sets]
-{% for set in community_sets %}[community_sets.{{ set.name }}]
-# Community set {{ set.name }}
-{% for member in set.members %}community_list = ["{{ member }}"]
+# List of standard community sets
+# Default: []
+{% for set in community_sets | default([]) %}
+# Community Set: {{ set.name | default('unknown') }}
+[community_sets.{{ set.name }}]
+
+{% for member in set.members | default([]) %}
+community_list = ["{{ member }}"]
 {% endfor %}
 {% endfor %}
 
-# Optional: Extended community sets
+# =============================================================================
+# Extended Community Sets
+# =============================================================================
+
 [ext_community_sets]
-{% for set in ext_community_sets %}[ext_community_sets.{{ set.name }}]
-# Extended community set {{ set.name }}
-{% for member in set.members %}ext_community_list = ["{{ member }}"]
+# List of extended community sets
+# Default: []
+{% for set in ext_community_sets | default([]) %}
+# Extended Community Set: {{ set.name | default('unknown') }}
+[ext_community_sets.{{ set.name }}]
+
+{% for member in set.members | default([]) %}
+ext_community_list = ["{{ member }}"]
 {% endfor %}
 {% endfor %}

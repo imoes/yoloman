@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================================
+  clamfs Configuration
+  ============================================================================
+  This is the configuration file for clamfs, a FUSE-based transparent
+  virus scanner. It intercepts file access operations and passes file
+  content to the ClamAV daemon (clamd) via a Unix socket.
+
+  This template is self-documenting. Every configurable field is commented
+  with its purpose and schema default. All variables use the `default()`
+  filter to ensure safe rendering even if the variable is undefined.
+  ============================================================================
+-->
+<clamfs>
+
+  <!--
+    Path to the ClamAV daemon socket (clamd.ctl).
+    Default: /var/run/clamav/clamd.ctl
+  -->
+  <clamdsocket>{{ clamd_socket | default('/var/run/clamav/clamd.ctl') }}</clamdsocket>
+
+  <!--
+    Path to the FUSE mount point for the protected filesystem.
+    Clamfs will mount over this directory, transparently scanning files.
+    Default: /mnt/clamfs
+  -->
+  <mountpoint>{{ mount_point | default('/mnt/clamfs') }}</mountpoint>
+
+  <!--
+    Source directory that clamfs protects.
+    This is the underlying directory being mounted via FUSE.
+    Default: /data
+  -->
+  <source>{{ source_dir | default('/data') }}</source>
+
+  <!--
+    Cache TTL in seconds.
+    Controls how long scanned file metadata/results are cached.
+    Set to 0 to disable caching entirely.
+    Default: 300
+  -->
+  <cachettl>{{ cache_ttl | default(300) }}</cachettl>
+
+  <!--
+    Maximum number of entries in the scan cache.
+    Limits memory usage by capping the cache size.
+    Default: 1000
+  -->
+  <cachesize>{{ cache_size | default(1000) }}</cachesize>
+
+  <!--
+    Enable scanning of compressed archives (e.g., .zip, .tar.gz).
+    True=1, False=0.
+    Default: 1 (enabled)
+  -->
+  <scanarchives>{{ scan_archives | default(true) | ternary(1, 0) }}</scanarchives>
+
+  <!--
+    Enable email notifications on virus detection.
+    True=1, False=0.
+    Default: 0 (disabled)
+  -->
+  <emailalert>{{ email_alert | default(false) | ternary(1, 0) }}</emailalert>
+
+  <!--
+    Recipient email address for virus alerts.
+    Only used if emailalert is enabled.
+    Default: admin@localhost
+  -->
+  <emailto>{{ email_to | default('admin@localhost') }}</emailto>
+
+  <!--
+    SMTP server host for sending alerts.
+    Ignored if emailalert is disabled.
+    Default: localhost
+  -->
+  <smtpserver>{{ smtp_server | default('localhost') }}</smtpserver>
+
+  <!--
+    List of regex patterns to exclude from scanning.
+    If the list is empty, no exclusions are applied.
+    Default: [] (empty list)
+  -->
+  {% if exclude_patterns is defined and exclude_patterns | length > 0 %}
+  <exclude>
+    {% for pattern in exclude_patterns %}
+    <pattern>{{ pattern }}</pattern>
+    {% endfor %}
+  </exclude>
+  {% endif %}
+
+  <!--
+    Path to log file.
+    If empty, logs to stderr.
+    Default: '' (empty)
+  -->
+  <logfile>{{ log_file | default('') }}</logfile>
+
+</clamfs>

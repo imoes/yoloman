@@ -44,45 +44,36 @@
     "default": [],
     "description": "List of heuristics to run; each script's exit status contributes to quorum (non-zero = vote down).",
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Identifier for the heuristic (must be unique).",
-          "default": "check_disk"
-        },
-        "interval": {
-          "type": "number",
-          "description": "Interval in milliseconds between heuristic runs.",
-          "default": 2000
-        },
-        "timeout": {
-          "type": "number",
-          "description": "Timeout in milliseconds after which the heuristic is considered failed.",
-          "default": 500
-        },
-        "program": {
-          "type": "string",
-          "description": "Path to the executable script or binary.",
-          "default": "/usr/local/bin/check-disk.sh"
-        },
-        "args": {
-          "type": "list",
-          "description": "Optional list of arguments passed to the heuristic program.",
-          "default": []
-        },
-        "score": {
-          "type": "number",
-          "description": "Vote weight when heuristic passes (positive = vote up, negative = vote down). Defaults to \u00b11 depending on algorithm.",
-          "default": 1
-        }
+      "name": {
+        "type": "string",
+        "description": "Identifier for the heuristic (must be unique).",
+        "default": "check_disk"
       },
-      "required": [
-        "name",
-        "interval",
-        "timeout",
-        "program"
-      ]
+      "interval": {
+        "type": "number",
+        "description": "Interval in milliseconds between heuristic runs.",
+        "default": 2000
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Timeout in milliseconds after which the heuristic is considered failed.",
+        "default": 500
+      },
+      "program": {
+        "type": "string",
+        "description": "Path to the executable script or binary.",
+        "default": "/usr/local/bin/check-disk.sh"
+      },
+      "args": {
+        "type": "list",
+        "description": "Optional list of arguments passed to the heuristic program.",
+        "default": []
+      },
+      "score": {
+        "type": "number",
+        "description": "Vote weight when heuristic passes (positive = vote up, negative = vote down). Defaults to \u00b11 depending on algorithm.",
+        "default": 1
+      }
     }
   },
   "qnetd_host": {
@@ -98,7 +89,11 @@
   "tls_mode": {
     "type": "string",
     "default": "on",
-    "description": "TLS enforcement: 'on' (required), 'off' (disabled), or 'strict' (require client cert)."
+    "description": "TLS enforcement: 'on' (required), 'off' (disabled), or 'strict' (require client cert).",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
   "logging_level": {
     "type": "number",
@@ -121,7 +116,7 @@
     "description": "Number of votes the qdevice contributes when quorum is active."
   },
   "heuristics_votes": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "If true, heuristic results may override static quorum votes (algorithm-dependent)."
   }

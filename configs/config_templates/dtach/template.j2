@@ -1,0 +1,61 @@
+# dtach session configuration
+#
+# This template generates a configuration file for dtach. Each entry in the `sessions` list
+# defines a managed dtach session: the command to run, the Unix socket path for attachment,
+# operational flags (detach character, suspend behavior, redraw method), and display mode.
+#
+# dtach is a daemon that detaches a terminal from a process, allowing the process to continue
+# running in the background. Users can reattach via the socket.
+
+{% for session in sessions | default([]) %}
+# ==============================================================================
+# Session: {{ session.name | default('unnamed') }}
+#
+# Description: Configuration for the dtach session named '{{ session.name | default('unnamed') }}'.
+#   - command: The full command line (as a list of arguments) to execute under dtach.
+#   - socket_path: The path to the Unix domain socket used to attach/detach this session.
+#   - mode: The output mode for the terminal ('c' for classic, 'n' for no-encoding, 'N' for no-encoding+raw).
+#   - detach_char: The ASCII control character to trigger detachment (e.g., '\004' for C-d).
+#   - disable_detach: Boolean flag; if true, disables the detach functionality entirely (-E).
+#   - redraw_method: Controls how terminal redraws are handled when reattaching.
+#   - disable_suspend: Boolean flag; if true, disables the suspend functionality (-z).
+# ==============================================================================
+
+# Command to execute.
+# The list of arguments is joined into a single string for the dtach command line.
+# Note: dtach -n specifies the socket path.
+dtach -n {{ session.socket_path | default('/var/run/dtach/' + (session.name | default('unnamed')) + '.sock') }} {{ session.command | default([]) | join(' ') }}
+
+# Mode selection:
+# 'c' : Classic mode (standard terminal output).
+# 'n' : No-encoding mode (raw byte transmission, useful for binary protocols).
+# 'N' : No-encoding + raw mode (strict raw mode).
+# Default is 'c' if not specified.
+dtach -m {{ session.mode | default('c') }}
+
+# Detach/Suspend/Redraw Options
+# These flags control how the session interacts with the terminal session.
+
+# Detach Character: The key combination to detach from the session.
+# Defaults to '\004' (Ctrl+D) if not specified.
+{% if session.detach_char is defined and session.detach_char %}
+dtach -e {{ session.detach_char }}
+{% endif %}
+
+# Disable Detach: If true, disables the detach key entirely.
+{% if session.disable_detach is defined and session.disable_detach %}
+dtach -E
+{% endif %}
+
+# Redraw Method: How to handle terminal screen updates.
+# Options depend on dtach version; typically 'c' (clear) or 'd' (diff).
+{% if session.redraw_method is defined and session.redraw_method %}
+dtach -r {{ session.redraw_method }}
+{% endif %}
+
+# Disable Suspend: If true, disables the suspend (Ctrl+Z) functionality.
+{% if session.disable_suspend is defined and session.disable_suspend %}
+dtach -z
+{% endif %}
+
+{% endfor %}

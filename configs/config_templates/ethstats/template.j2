@@ -1,0 +1,45 @@
+# ethstats configuration template
+# This template generates environment-style variables for the ethstats CLI tool.
+# All variables use Jinja2 defaults to ensure safe rendering even when optional
+# schema fields are not provided by the Ansible playbook.
+
+{%- if default_options is defined and default_options | length > 0 %}
+# List of CLI flags/arguments to apply by default (e.g., ['-t', '-C']).
+# If non-empty, they override CLI defaults when no explicit CLI args are provided.
+OPTIONS={{ default_options | join(' ') }}
+{%- endif %}
+
+{%- if iface is defined and iface | length > 0 %}
+# Default network interface to monitor (equivalent to '-i iface').
+# Empty string means monitor all interfaces except loopback.
+IFACE={{ iface }}
+{%- endif %}
+
+{%- if poll_interval is defined %}
+# Polling interval in seconds (equivalent to '-n period').
+# Must be a positive integer.
+POLL_INTERVAL={{ poll_interval | default(10) }}
+{%- endif %}
+
+{%- if sample_count is defined %}
+# Number of samples before exiting (equivalent to '-c count').
+# 0 means run indefinitely.
+SAMPLE_COUNT={{ sample_count | default(0) }}
+{%- endif %}
+
+{%- if timestamp is defined and timestamp == true %}
+# If true, enables '-t' to prefix totals line with Unix timestamp.
+TIMESTAMP=1
+{%- endif %}
+
+{%- if color is defined and color == true %}
+# If true, enables '-C' to highlight (color) totals line.
+# Ignored if monochrome is true.
+COLOR=1
+{%- endif %}
+
+{%- if monochrome is defined and monochrome == true %}
+# If true, enables '-M' to disable highlighting (monochrome mode).
+# Takes precedence over color.
+MONOCHROME=1
+{%- endif %}

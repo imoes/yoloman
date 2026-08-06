@@ -1,128 +1,97 @@
 {
-  "maxconn": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum number of simultaneous connections ipband can handle."
-  },
-  "interfaces": {
-    "type": "list",
-    "default": [
-      "eth0"
-    ],
-    "description": "List of network interfaces to monitor for bandwidth."
-  },
-  "pidfile": {
-    "type": "string",
-    "default": "/var/run/ipband/ipband.pid",
-    "description": "Full path to the PID file used by the ipband daemon."
-  },
-  "loglevel": {
-    "type": "number",
-    "default": 3,
-    "description": "Logging verbosity level (0=quiet, 5=debug)."
-  },
-  "logfile": {
-    "type": "string",
-    "default": "/var/log/ipband/ipband.log",
-    "description": "Full path to the log file. Leave empty to disable file logging (syslog only)."
-  },
-  "logsyslog": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable logging to syslog."
-  },
-  "statsfile": {
-    "type": "string",
-    "default": "/var/lib/ipband/stats",
-    "description": "Path to the file where bandwidth statistics are written."
-  },
-  "statsinterval": {
+  "average": {
     "type": "number",
     "default": 60,
-    "description": "Interval (in seconds) between writes to the stats file."
+    "description": "Averaging period in seconds. Default is 60."
   },
-  "daemonize": {
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to read data from."
+  },
+  "debug": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level. 0 - no debugging; 1 - summary; 2 - subnet statistics; 3 - all packets. Default is 0."
+  },
+  "fork": {
     "type": "bool",
-    "default": true,
-    "description": "Run ipband as a background daemon process."
+    "default": false,
+    "description": "Run in background. Default is no."
   },
-  "user": {
+  "filter": {
     "type": "string",
-    "default": "nobody",
-    "description": "System user to run ipband as after startup."
+    "default": "",
+    "description": "PCAP filter string."
   },
-  "grp": {
+  "outfile": {
     "type": "string",
-    "default": "nogroup",
-    "description": "System group to run ipband as after startup."
+    "default": "ipband.txt",
+    "description": "Filename to output detailed subnet report. Default is ipband.txt in current directory."
+  },
+  "htmlfile": {
+    "type": "string",
+    "default": "ipband.html",
+    "description": "HTML report output file. Default is ipband.html in current directory."
+  },
+  "htmltitle": {
+    "type": "string",
+    "default": "",
+    "description": "HTML title of the report output file."
   },
   "bandwidth": {
-    "type": "object",
-    "default": {
-      "upload_limit": 0,
-      "download_limit": 0,
-      "rules": []
-    },
-    "description": "Global and per-rule bandwidth control settings.",
-    "items": {
-      "upload_limit": {
-        "type": "number",
-        "default": 0,
-        "description": "Global upload limit in KBytes/sec (0 = unlimited)."
-      },
-      "download_limit": {
-        "type": "number",
-        "default": 0,
-        "description": "Global download limit in KBytes/sec (0 = unlimited)."
-      },
-      "rules": {
-        "type": "list",
-        "default": [],
-        "description": "List of custom bandwidth rules (e.g., per host, port, or protocol).",
-        "items": {
-          "name": {
-            "type": "string",
-            "default": "rule1",
-            "description": "Unique name for the rule."
-          },
-          "enabled": {
-            "type": "bool",
-            "default": true,
-            "description": "Enable or disable this rule."
-          },
-          "description": {
-            "type": "string",
-            "default": "",
-            "description": "Human-readable description of this rule."
-          },
-          "upload_limit": {
-            "type": "number",
-            "default": 0,
-            "description": "Upload limit in KBytes/sec (0 = inherit global)."
-          },
-          "download_limit": {
-            "type": "number",
-            "default": 0,
-            "description": "Download limit in KBytes/sec (0 = inherit global)."
-          },
-          "match_type": {
-            "type": "string",
-            "enum": [
-              "src_ip",
-              "dst_ip",
-              "port",
-              "proto"
-            ],
-            "default": "src_ip",
-            "description": "Type of traffic to match."
-          },
-          "match_value": {
-            "type": "string",
-            "default": "192.168.1.0/24",
-            "description": "Value to match against (e.g., IP, port number, or protocol name)."
-          }
-        }
-      }
-    }
+    "type": "number",
+    "default": 7,
+    "description": "Bandwidth threshold in kBytes per second. Default is 7.0 kBps."
+  },
+  "lenadj": {
+    "type": "number",
+    "default": 0,
+    "description": "Packet length adjustment in bytes. Default is 0."
+  },
+  "report": {
+    "type": "number",
+    "default": 300,
+    "description": "Reporting period - number of seconds bandwidth threshold may be exceeded before report. Default is 300 seconds."
+  },
+  "top": {
+    "type": "number",
+    "default": 0,
+    "description": "Limit subnet report to a given number of per-host connections. Default is 0 (no limit)."
+  },
+  "accumulate": {
+    "type": "bool",
+    "default": false,
+    "description": "Include threshold exceeded accumulated time and percentage in report. Default is no."
+  },
+  "mailto": {
+    "type": "string",
+    "default": "",
+    "description": "Email address(es) to send detailed subnet report to."
+  },
+  "mailfoot": {
+    "type": "string",
+    "default": "",
+    "description": "File to be appended to the end of e-mail reports."
+  },
+  "mtastring": {
+    "type": "string",
+    "default": "/usr/sbin/sendmail -t -oi",
+    "description": "MTA command string for mailing reports."
+  },
+  "maskbits": {
+    "type": "number",
+    "default": 24,
+    "description": "Number of network mask bits (1-32). Default is 24."
+  },
+  "localrange": {
+    "type": "string",
+    "default": "",
+    "description": "IP range(s) considered local."
+  },
+  "subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of subnet configurations. Each item must have 'ip' (subnet-ip) and 'bandwidth' (kBps). Note: In the config file, these are formatted as 'subnet <ip> <bandwidth>' lines, not as a structured block like in the previous schema. The template generates these lines directly from the list items."
   }
 }

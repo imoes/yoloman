@@ -1,0 +1,42 @@
+# /etc/dnswalk.conf — DNS database debugger configuration
+#
+# Self-documenting Jinja2 template for dnswalk.
+# Each option corresponds to a schema field. Defaults are applied inline so the
+# file is valid even when no variables are supplied (though domains must be
+# non-empty for a useful run).
+#
+# See schema fields for descriptions.
+
+# List of domains to check (one per line; each must end with '.')
+# Must be non-empty for valid configuration.
+{% for domain in (domains | default([])) %}{{ domain }}
+{% endfor %}
+
+# Recursion behavior: enable recursive descent into subdomains (use with care).
+{% if recursive | default(False) %}-r
+{% endif %}
+
+# Duplicate A record warning: enable warning for duplicate A records.
+{% if warn_dup_a | default(False) %}-a
+{% endif %}
+
+# Debug mode: print debugging and status information to stderr.
+{% if debug | default(False) %}-d
+{% endif %}
+
+# Modified zone check: check only if zone has been modified since previous run
+# (requires persistent state).
+{% if check_modified | default(False) %}-m
+{% endif %}
+
+# Fascist checking: perform 'fascist' checking by comparing A and PTR record consistency.
+{% if fascist | default(False) %}-F
+{% endif %}
+
+# Suppress invalid character checks: do not check for invalid characters in domain names.
+{% if skip_invalid_chars | default(False) %}-i
+{% endif %}
+
+# Lame delegation checking: perform 'lame delegation' checking for NS records.
+{% if check_lame | default(False) %}-l
+{% endif %}

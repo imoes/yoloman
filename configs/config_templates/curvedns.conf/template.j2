@@ -1,61 +1,121 @@
-# Main listening address and port for the DNS-over-HTTPS resolver
-bind: {{ bind_address }}:{{ bind_port }}
+# ============================================================
+# Curvedns Configuration Template
+# This file configures the Curvedns DoH resolver service.
+# It defines listening parameters, upstream resolvers, logging,
+# security (TLS/DNSSEC), and caching behavior.
+# ============================================================
 
-# DNS upstream servers (standard or DoH/DoT endpoints)
-{% for upstream in upstreams %}# Upstream resolver {{ loop.index }}: {{ upstream.name | default('unnamed') }}
-- {{ upstream.server }}{% if upstream.tls_servername %}# TLS server name: {{ upstream.tls_servername }}
-  tls_servername: {{ upstream.tls_servername }}{% endif %}
+# [bind_address] Local IP address on which to listen for incoming DNS queries
+#   (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces).
+# [bind_port] Port number for the DoH resolver listener.
+# Note: The bind directive expects an "address:port" string.
+bind: "{{ ((bind_address | default('127.0.0.1')) + ':' + (bind_port | default(5353) | string)) }}"
+
+# ============================================================
+# Upstream DNS Resolvers
+# List of upstream DNS resolvers to forward queries to.
+# Supports DoH (HTTPS), DoT (TLS), or plain DNS.
+# ============================================================
+# [upstreams] List of upstream DNS resolvers. Each item is a map with 'server' (required)
+#   and optional 'name', 'tls_servername', etc.
+upstreams:
+{% for upstream in (upstreams | default([{'server': 'https://dns.google/dns-query', 'name': 'Google DNS (DoH)'}])) %}
+  # Upstream resolver
+  - server: "{{ upstream.server | default('') }}"
+{% if upstream.name is defined and upstream.name is not none %}
+    name: "{{ upstream.name }}"
+{% endif %}
+{% if upstream.tls_servername is defined and upstream.tls_servername is not none %}
+    # TLS server name for this upstream
+    tls_servername: "{{ upstream.tls_servername }}"
+{% endif %}
 {% endfor %}
 
-# Logging level: debug, info, warn, error
-log_level: {{ log_level }}
+# ============================================================
+# Logging Configuration
+# ============================================================
 
-# Path to the log file (empty string for stdout)
-log_file: {{ log_file }}
+# [log_level] Verbosity of logging: 'debug', 'info', 'warn', or 'error'.
+log_level: "{{ log_level | default('info') }}"
 
-# Maximum concurrent queries per client (0 = unlimited)
-max_queries_per_client: {{ max_queries_per_client }}
+# [log_file] Path to the log file. Set to empty string ('') to log to stdout.
+log_file: "{{ log_file | default('/var/log/curvedns/curvedns.log') }}"
 
-# Enable EDNS Client Subnet (ECS) support
-ecs: {{ ecs }}
+# ============================================================
+# Client Limits & Abuse Prevention
+# ============================================================
 
-# Enable DNSSEC validation (requires upstream support)
-dnssec: {{ dnssec }}
+# [max_queries_per_client] Maximum queries allowed per client IP per second
+#   (0 = unlimited). Helps prevent abuse.
+max_queries_per_client: "{{ max_queries_per_client | default(100) }}"
 
-# Path to trusted root DS records file (if dnssec=true)
-trust_anchor_file: {{ trust_anchor_file }}
+# ============================================================
+# DNS Features & Security
+# ============================================================
 
-# HTTP server timeout (seconds)
-timeout: {{ timeout }}
+# [ecs] Enable EDNS Client Subnet (ECS) support to pass client network
+#   info to upstream resolvers.
+ecs: {{ ecs | default(False) }}
 
-# Path to the certificate and key for HTTPS (PEM format)
-cert_file: {{ cert_file }}
-key_file: {{ key_file }}
+# [dnssec] Enable DNSSEC validation. Requires upstream support and a trust
+#   anchor file.
+dnssec: {{ dnssec | default(True) }}
 
-# Hostname to bind SNI to (if omitted, uses bind address)
-sni_hostname: {{ sni_hostname | default('') }}
+# [trust_anchor_file] Path to the root DS (Delegation Signer) records file,
+#   used for DNSSEC validation.
+trust_anchor_file: "{{ trust_anchor_file | default('/etc/curvedns/root.ds') }}"
 
-# Enable IPv6 support
-ipv6: {{ ipv6 }}
+# [timeout] Timeout (in seconds) for upstream DNS queries and HTTP connections.
+timeout: "{{ timeout | default(10) }}"
 
-# Rate limit burst size
-rate_limit_burst: {{ rate_limit_burst }}
+# ============================================================
+# TLS Configuration for DoH Endpoint
+# ============================================================
 
-# Rate limit window (seconds)
-rate_limit_window: {{ rate_limit_window }}
+# [cert_file] Path to the TLS certificate file (PEM format) for the DoH HTTPS endpoint.
+cert_file: "{{ cert_file | default('/etc/curvedns/tls.crt') }}"
 
-# Cache size (number of entries); 0 = disabled
-cache_size: {{ cache_size }}
+# [key_file] Path to the TLS private key file (PEM format, unencrypted).
+key_file: "{{ key_file | default('/etc/curvedns/tls.key') }}"
 
-# Minimum TTL to cache (seconds)
-cache_min_ttl: {{ cache_min_ttl }}
+# [sni_hostname] Optional SNI hostname for TLS. If omitted, defaults to bind_address.
+sni_hostname: "{{ sni_hostname | default('') }}"
 
-# Maximum TTL to cache (seconds)
-cache_max_ttl: {{ cache_max_ttl }}
+# [ipv6] Enable IPv6 support for upstream queries and client connections.
+ipv6: {{ ipv6 | default(True) }}
 
-# Hosts file to override specific queries (e.g., local services)
-{% for entry in hosts_file %}# Host override: {{ entry.host }} → {{ entry.ip }}
-hosts:
-  - host: {{ entry.host }}
-    ip: {{ entry.ip }}
+# ============================================================
+# Rate Limiting
+# ============================================================
+
+# [rate_limit_burst] Maximum number of queries allowed in a burst before
+#   rate limiting kicks in.
+rate_limit_burst: "{{ rate_limit_burst | default(50) }}"
+
+# [rate_limit_window] Time window (in seconds) for rate limiting calculations.
+rate_limit_window: "{{ rate_limit_window | default(60) }}"
+
+# ============================================================
+# Caching Configuration
+# ============================================================
+
+# [cache_size] Maximum number of DNS responses to cache (0 = disable caching).
+cache_size: "{{ cache_size | default(10000) }}"
+
+# [cache_min_ttl] Minimum TTL (seconds) to cache a response (overrides low TTL values).
+cache_min_ttl: "{{ cache_min_ttl | default(0) }}"
+
+# [cache_max_ttl] Maximum TTL (seconds) to cache a response (overrides high TTL values).
+cache_max_ttl: "{{ cache_max_ttl | default(86400) }}"
+
+# ============================================================
+# Static Host Overrides
+# [hosts_file] Static hostname-to-IP mappings to override upstream resolution
+#   (e.g., for local devices).
+# Expected format: List of maps with 'host' and 'ip' keys.
+hosts_file:
+{% for entry in (hosts_file | default([])) %}
+  # Host override
+  - host: "{{ entry.host | default('') }}"
+    ip: "{{ entry.ip | default('') }}"
 {% endfor %}

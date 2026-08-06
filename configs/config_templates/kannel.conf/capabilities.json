@@ -1,0 +1,86 @@
+{
+  "provides": [
+    {
+      "capability": "message_queue",
+      "backends": [
+        "kannel"
+      ],
+      "default_port": 2775,
+      "provisionable": {
+        "smsc_links": "bearerbox_links"
+      },
+      "port_field": "core_smsc_port",
+      "fields": {
+        "host": "core_smsc_host",
+        "port": "core_smsc_port",
+        "user": "core_smsc_username",
+        "password": "core_smsc_password"
+      }
+    },
+    {
+      "capability": "web_server",
+      "backends": [
+        "kannel-smsbox"
+      ],
+      "default_port": 13001,
+      "port_field": "smsbox_port",
+      "fields": {
+        "host": "smsbox_host",
+        "port": "smsbox_port"
+      }
+    },
+    {
+      "capability": "metrics_sink",
+      "backends": [
+        "kannel-admin"
+      ],
+      "default_port": 13000,
+      "provisionable": {},
+      "port_field": "admin_port",
+      "fields": {
+        "host": "127.0.0.1",
+        "port": "admin_port",
+        "user": "admin_username",
+        "password": "admin_password"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "database",
+      "backends": [
+        "mysql",
+        "mariadb",
+        "postgresql"
+      ],
+      "backend_field": "dlr_db_type",
+      "provisionable": {
+        "database_name": "dlr_db_name",
+        "table_name": "dlr_db_table"
+      },
+      "fields": {
+        "host": "dlr_db_host",
+        "port": "dlr_db_port",
+        "name": "dlr_db_name",
+        "user": "dlr_db_user",
+        "password": "dlr_db_password"
+      }
+    },
+    {
+      "capability": "log_sink",
+      "backends": [
+        "rsyslog",
+        "syslog-ng",
+        "journald"
+      ],
+      "provisionable": {},
+      "fields": {
+        "host": null,
+        "port": null,
+        "protocol": null
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

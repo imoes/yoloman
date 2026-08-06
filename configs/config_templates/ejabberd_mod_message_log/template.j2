@@ -1,17 +1,67 @@
+{#
+  ejabberd_mod_message_log module configuration
+  ------------------------------------------------
+  This template generates an ejabberd YAML snippet that enables (or disables) the
+  `mod_message_log` module. It is fully self-documenting: every directive is preceded
+  by a comment explaining its purpose and default value.
+
+  Schema fields used:
+    enabled   (bool, default false) — toggles the module on or off
+    logpath   (string, default '/var/log/ejabberd/message.log') — log file path
+    max_days  (int, default 0) — retention period in days; 0 means indefinite
+    format    (string, default 'text') — output format: 'text' or 'json'
+    domains   (list, default []) — VirtualHost domains to log; empty logs all
+#}
+
 # Enable ejabberd_mod_message_log module
-{{ '# ' if not enabled else '' }}modules:
-{{ '# ' if not enabled else '' }}  ejabberd_mod_message_log: {{ 'mod_message_log' | to_json }}
+# Schema field: enabled (default=False)
+# When set to false, the entire module block is commented out, effectively disabling it.
+{%- if enabled | default(False) | bool %}
+modules:
+{%- else %}
+#modules:
+{%- endif %}
+
+{%- if enabled | default(False) | bool %}
+#  ejabberd_mod_message_log module identifier
+# Schema field: enabled (default=False)
+# The value 'mod_message_log' is the Erlang module name registered in ejabberd.
+  ejabberd_mod_message_log: {{ 'mod_message_log' | to_json }}
 
 # Path to the message log file
-{{ '# ' if not enabled else '' }}logpath: {{ logpath | to_json }}
+# Schema field: logpath (default='/var/log/ejabberd/message.log')
+# Absolute path to the file where message log entries are written.
+  logpath: {{ logpath | default('/var/log/ejabberd/message.log') | to_json }}
 
 # Maximum number of days to keep log entries (0 = keep forever)
-{{ '# ' if not enabled else '' }}max_days: {{ max_days }}
+# Schema field: max_days (default=0)
+# Maximum number of days to retain log entries. Set to 0 to keep logs indefinitely.
+  max_days: {{ max_days | default(0) }}
 
 # Log format: 'text' or 'json'
-{{ '# ' if not enabled else '' }}format: {{ format | to_json }}
+# Schema field: format (default='text')
+# Log format: plain text ('text') or JSON ('json'). JSON is recommended for ingestion by log analysis tools.
+  format: {{ format | default('text') | to_json }}
 
 # List of domains to log messages for (empty list = all domains)
-{{ '# ' if not enabled else '' }}domains:
-{% for domain in domains %}  - {{ domain | to_json }}
-{% endfor %}
+# Schema field: domains (default=[])
+# List of VirtualHost domains for which to log messages. Empty list logs all domains.
+  domains:
+{%- for domain in domains | default([]) %}
+    - {{ domain | to_json }}
+{%- endfor %}
+{%- else %}
+#  ejabberd_mod_message_log: "mod_message_log"
+
+# Path to the message log file
+  # logpath: "/var/log/ejabberd/message.log"
+
+# Maximum number of days to keep log entries (0 = keep forever)
+  # max_days: 0
+
+# Log format: 'text' or 'json'
+  # format: "text"
+
+# List of domains to log messages for (empty list = all domains)
+  # domains:
+{%- endif %}

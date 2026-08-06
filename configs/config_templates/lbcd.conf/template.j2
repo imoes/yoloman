@@ -1,60 +1,112 @@
-# lbcd configuration file
-[daemon]
-# Run as a background daemon
-run_as_daemon = {{ daemon_run_as_daemon }}
-# User to run as
-run_as_user = {{ daemon_run_as_user }}
-# Group to run as
-run_as_group = {{ daemon_run_as_group }}
-# PID file location
-pidfile = {{ daemon_pidfile }}
+# ==============================================================================
+# lbcd Configuration File
+#
+# This file controls the behavior of the lbcd load balancer daemon.
+# It defines daemon behavior, logging, network listening, backend servers,
+# health checks, and failover strategies.
+#
+# Self-documenting template: every directive is preceded by its schema description.
+# ==============================================================================
 
-# Logging configuration
-[logging]
-# Log level: 0=error, 1=warn, 2=info, 3=debug
-log_level = {{ logging_log_level }}
-# Log destination: 'syslog', 'file', or 'stdout'
-log_destination = {{ logging_log_destination }}
-# Path to log file (used if log_destination=file)
-log_file = {{ logging_log_file }}
+# [daemon] Section: General daemon settings
+# ------------------------------------------------------------------------------
 
-# Network binding
-[server]
-# IP address to bind to
-bind_address = {{ server_bind_address }}
-# Port to listen on
-bind_port = {{ server_bind_port }}
-# Maximum number of simultaneous connections
-max_connections = {{ server_max_connections }}
+# Whether lbcd should run as a background daemon (true) or foreground (false).
+# Default: True
+run_as_daemon = {{ daemon_run_as_daemon | default(true) | lower }}
 
-# Backend servers (load balancing targets)
-[backends]
-{% for backend in backends %}
-# Backend server: {{ backend.name }}
-{{ loop.index }}.host = {{ backend.host }}
-{{ loop.index }}.port = {{ backend.port }}
-{{ loop.index }}.weight = {{ backend.weight }}
-{{ loop.index }}.enabled = {{ backend.enabled | lower }}
+# User account under which lbcd runs (for security).
+# Default: nobody
+run_as_user = {{ daemon_run_as_user | default('nobody') }}
+
+# Group account under which lbcd runs.
+# Default: nogroup
+run_as_group = {{ daemon_run_as_group | default('nogroup') }}
+
+# Path to the PID file used by lbcd for process tracking.
+# Default: /var/run/lbcd.pid
+pidfile = {{ daemon_pidfile | default('/var/run/lbcd.pid') }}
+
+# [logging] Section: Logging configuration
+# ------------------------------------------------------------------------------
+
+# Verbosity level: 0 (errors only) to 3 (debug). Higher values produce more verbose logs.
+# Default: 2
+log_level = {{ logging_log_level | default(2) }}
+
+# Where to send log messages. Use 'file' to write to a log file, 'syslog' for system logging, or 'stdout' for console output.
+# Default: syslog
+log_destination = {{ logging_log_destination | default('syslog') }}
+
+# Path to the log file when log_destination=file.
+# Default: /var/log/lbcd/lbcd.log
+log_file = {{ logging_log_file | default('/var/log/lbcd/lbcd.log') }}
+
+# [server] Section: Network binding settings
+# ------------------------------------------------------------------------------
+
+# IP address (IPv4 or IPv6) on which lbcd listens for incoming connections.
+# Default: 0.0.0.0
+bind_address = {{ server_bind_address | default('0.0.0.0') }}
+
+# UDP port number on which lbcd accepts queries (default 4330).
+# Default: 4330
+bind_port = {{ server_bind_port | default(4330) }}
+
+# Maximum number of concurrent client connections lbcd will handle.
+# Default: 10000
+max_connections = {{ server_max_connections | default(10000) }}
+
+# [backends] Section: Load balancing target servers
+# ------------------------------------------------------------------------------
+# A list of backend servers for load balancing. Each backend defines a target
+# host, port, and weight used by the load balancer.
+# Default: [{'name': 'web1', 'host': '192.168.1.10', 'port': 8080, 'weight': 100, 'enabled': True}, {'name': 'web2', 'host': '192.168.1.11', 'port': 8080, 'weight': 100, 'enabled': True}]
+
+{% set lbcd_backends = backends | default([{'name': 'web1', 'host': '192.168.1.10', 'port': 8080, 'weight': 100, 'enabled': True}, {'name': 'web2', 'host': '192.168.1.11', 'port': 8080, 'weight': 100, 'enabled': True}]) %}
+{% for backend in lbcd_backends %}
+# Backend server: {{ backend.name | default('') }}
+{{ loop.index }}.host = {{ backend.host | default('') }}
+{{ loop.index }}.port = {{ backend.port | default(0) }}
+{{ loop.index }}.weight = {{ backend.weight | default(100) }}
+{{ loop.index }}.enabled = {{ backend.enabled | default(true) | lower }}
 {% endfor %}
 
-# Health check configuration
-[healthcheck]
-# Enable health checks
-enabled = {{ healthcheck_enabled | lower }}
-# Interval between health checks (seconds)
-interval = {{ healthcheck_interval }}
-# Timeout for each health check (seconds)
-timeout = {{ healthcheck_timeout }}
-# Number of consecutive failures before marking a backend down
-failure_count = {{ healthcheck_failure_count }}
-# Number of consecutive successes before marking a backend up
-success_count = {{ healthcheck_success_count }}
+# [healthcheck] Section: Backend health monitoring
+# ------------------------------------------------------------------------------
 
-# Failover behavior
-[failover]
-# Strategy: 'roundrobin', 'leastconn', 'iphash'
-strategy = {{ failover_strategy }}
-# Preserve client source IP (requires kernel support)
-preserve_client_ip = {{ failover_preserve_client_ip | lower }}
-# Grace period before removing failed backend from rotation (seconds)
-grace_period = {{ failover_grace_period }}
+# Enable automatic health monitoring of backend servers.
+# Default: True
+enabled = {{ healthcheck_enabled | default(true) | lower }}
+
+# Seconds between consecutive health checks of all backends.
+# Default: 10
+interval = {{ healthcheck_interval | default(10) }}
+
+# Maximum seconds to wait for a health check response before marking as failed.
+# Default: 3
+timeout = {{ healthcheck_timeout | default(3) }}
+
+# Number of consecutive failed health checks before marking a backend as down.
+# Default: 2
+failure_count = {{ healthcheck_failure_count | default(2) }}
+
+# Number of consecutive successful health checks before marking a backend as up.
+# Default: 1
+success_count = {{ healthcheck_success_count | default(1) }}
+
+# [failover] Section: Traffic distribution and failure handling
+# ------------------------------------------------------------------------------
+
+# Algorithm to distribute traffic across healthy backends.
+# Options typically include: roundrobin, leastconn, iphash.
+# Default: roundrobin
+strategy = {{ failover_strategy | default('roundrobin') }}
+
+# Preserve client's source IP in forwarded requests (requires kernel support and may affect balancing fairness).
+# Default: False
+preserve_client_ip = {{ failover_preserve_client_ip | default(false) | lower }}
+
+# Seconds lbcd waits before removing a failed backend from the rotation (allows quick recovery).
+# Default: 30
+grace_period = {{ failover_grace_period | default(30) }}

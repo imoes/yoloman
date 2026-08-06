@@ -1,55 +1,110 @@
-# Main BackupNinja configuration file
-# Controls global behavior, storage, and default settings
+#
+#                          |\_
+# B A C K U N I N J A   /()/
+#                         `\|
+# main configuration file
+#
+# This file configures the global behavior of the Backupninja
+# backup automation framework. It controls logging verbosity,
+# email reporting preferences, and directory layouts.
+#
 
-# Directory where backup scripts are stored and executed from
-# This is the default location for backup action scripts
-tmpdir = {{ tmpdir }}
+# Verbosity level for logs (5=Debug, 4=Info, 3=Warning, 2=Error, 1=Fatal).
+# Controls how much detail is written to the main log file.
+# how verbose to make the logs
+# 5 -- Debugging messages     (and below)
+# 4 -- Informational messages (and below)
+# 3 -- Warnings               (and below)
+# 2 -- Errors                 (and below)
+# 1 -- Fatal errors           (only)
+loglevel = {{ loglevel | default(4) }}
 
-# Directory where backup logs are stored
-# All backup operations log their output here
-logdir = {{ logdir }}
+# Produce prometheus metrics of backup status.
+# Requires `prometheus-node-exporter` to be installed
+reportprom = {{ reportprom | default(False) }}
 
-# File where the master backup log is appended
-# Centralized log for backupninja run events
-masterlogfile = {{ masterlogfile }}
+# Email address (local part only) to receive backup reports.
+# send a summary of the backup status to
+# this email address:
+reportemail = {{ emailto | default('root') }}
 
-# Enable or disable email notifications
-# Set to 0 to disable; set to 1 to enable
-emailresults = {{ emailresults }}
+# Send email report even if all modules succeeded.
+# if set to 'yes', a report email will be generated
+# even if all modules reported success. (default = yes)
+reportsuccess = {{ reportsuccess | default(True) }}
 
-# Email address to receive backup reports
-# Used when emailresults is enabled
-emailto = {{ emailto }}
+# Include info messages from handlers in email reports.
+# if set to 'yes', info messages from handlers will be
+# sent into the email (default = no)
+reportinfo = {{ reportinfo | default(False) }}
 
-# SMTP server used for sending notifications
-# Required only if emailresults = 1
-{% if emailresults %}smtpserver = {{ smtpserver }}{% endif %}
+# Send email report even if there were no errors.
+# if set to 'yes', a report email will be generated
+# even if there was no error. (default = yes)
+reportwarning = {{ reportwarning | default(True) }}
 
-# Port for SMTP server (typically 25, 587, or 465)
-{% if emailresults %}smtpport = {{ smtpport }}{% endif %}
+# Include disk space usage in backup email reports.
+# if set to 'yes', disk space usage will be included in
+# the backup email report
+reportspace = {{ reportspace | default(False) }}
 
-# Enable TLS/SSL for SMTP (0 = off, 1 = TLS, 2 = SSL)
-{% if emailresults %}smtptls = {{ smtptls }}{% endif %}
+# Remote host to rsync backupninja logs for aggregation.
+# Empty string means disabled.
+# where to rsync the backupninja.log to be aggregated in
+# a ninjareport
+reporthost = {{ reporthost | default('') }}
 
-# From address for notification emails
-{% if emailresults %}smtpfrom = {{ smtpfrom }}{% endif %}
+# what user to connect to reporthost to sync the
+# backupninja.log
+reportuser = ninja
 
-# Default retention policy (in days) for local backups
-# Older backups beyond this age may be deleted by cleanup actions
-{% if retention_days > 0 %}retention = {{ retention_days }}{% endif %}
+# where on the reporthost should the report go
+# NOTE: the name of the log will be used in the report,
+# use a globally unique name, preferably the hostname
+reportdirectory = /var/lib/backupninja/reports
 
-# Maximum number of concurrent backup jobs
-# Limits resource usage during backup runs
-maxjobs = {{ maxjobs }}
+# number of columns the report email body should wrap to
+#reportwrap = 80
 
-# Enable or disable dry-run mode (0 = real, 1 = dry)
-# Dry-run simulates execution without modifying files or systems
-dryrun = {{ dryrun }}
+# set to the administration group that is allowed to
+# read/write configuration files in /etc/backup.d
+admingroup = root
 
-# List of backup actions to run
-# Each action corresponds to a script in tmpdir or configured path
-{% for action in actions %}# {{ action.description }}
-include {{ action.name }}{% if action.when %} at {{ action.when }}{% endif %}{% if action.options %} {{ action.options | join(' ') }}{% endif %}
-{% endfor %}
+#######################################################
+# for most installations, the defaults below are good #
+#######################################################
 
-# End of main configuration
+# Where the main backupninja log file is located.
+# where to log:
+logfile = {{ masterlogfile | default('/var/log/backupninja.log') }}
+
+# Directory where all the backup configuration files live.
+# directory where all the backup configuration files live
+configdirectory = {{ tmpdir | default('/etc/backup.d') }}
+
+# where backupninja helper scripts are found
+scriptdirectory = /usr/share/backupninja
+
+# where backupninja libs are found
+libdirectory = /usr/lib/backupninja
+
+# whether to use colors in the log file
+usecolors = yes
+
+# default value for 'when'
+when = everyday at 01:00
+
+# programs paths
+# SLAPCAT=/usr/sbin/slapcat
+# LDAPSEARCH=/usr/bin/ldapsearch
+# RDIFFBACKUP=/usr/bin/rdiff-backup
+# CSTREAM=/usr/bin/cstream
+# MYSQL=/usr/bin/mysql
+# MYSQLHOTCOPY=/usr/bin/mysqlhotcopy
+# MYSQLDUMP=/usr/bin/mysqldump
+# PSQL=/usr/bin/psql
+# PGSQLDUMP=/usr/bin/pg_dump
+# PGSQLDUMPALL=/usr/bin/pg_dumpall
+# GZIP=/bin/gzip
+# GZIP_OPTS='--rsyncable'
+# RSYNC=/usr/bin/rsync

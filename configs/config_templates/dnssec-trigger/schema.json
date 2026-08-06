@@ -1,80 +1,138 @@
 {
-  "validation": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable DNSSEC validation in the upstream resolver (Unbound/BIND). Required for correct DNSSEC behavior."
-  },
-  "unbound_conf": {
+  "verbosity": {
     "type": "string",
-    "default": "/etc/unbound/unbound.conf",
-    "description": "Path to the Unbound configuration file that dnssec-trigger will modify to enable DNSSEC."
+    "default": "1",
+    "description": "Logging detail level (0=only errors, 1=operations, 2=detail, 3/4 debug) for dnssec-trigger.",
+    "enum": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4"
+    ]
   },
-  "bind_conf": {
+  "pidfile": {
+    "type": "string",
+    "default": "/run/dnssec-triggerd.pid",
+    "description": "Path to the PID file used by dnssec-triggerd."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/dnssec-trigger.log",
+    "description": "Path to the log file instead of syslog."
+  },
+  "use_syslog": {
+    "type": "string",
+    "default": "yes",
+    "description": "Enable logging to syslog ('yes' or 'no').",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "chroot": {
     "type": "string",
     "default": "",
-    "description": "Path to the BIND configuration file (e.g., /etc/named.conf). Leave empty if only using Unbound."
+    "description": "Directory to chroot into."
   },
-  "trust_anchor_files": {
-    "type": "list",
-    "default": [
-      "/etc/dnssec-trigger/root-ksk-2017.sha256",
-      "/etc/dnssec-trigger/root-ksk-2017.sha384"
-    ],
-    "items": {
-      "type": "string",
-      "description": "Path to a file containing a root key tag (KSK) for DNSSEC trust anchor validation."
-    },
-    "description": "List of files containing trusted root DNSKEY key tags. Used for initial trust anchor setup and fallback."
+  "unbound_control": {
+    "type": "string",
+    "default": "/usr/sbin/unbound-control",
+    "description": "Path to the unbound-control binary."
   },
-  "auto_update": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow dnssec-trigger to automatically update the DNSSEC trust anchor (RFC 5011) based on DNSKEY RRs from the root zone."
+  "resolvconf": {
+    "type": "string",
+    "default": "/etc/resolv.conf",
+    "description": "Path to the resolv.conf file to edit."
   },
-  "hooks": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of the hook\u2019s purpose (e.g., 'Notify monitoring system')"
-        },
-        "path": {
-          "type": "string",
-          "description": "Absolute path to the executable script or binary to run."
-        }
-      }
-    },
-    "description": "Scripts to run on trust anchor change, validation failure, or other events. Each hook is called with event type and payload on stdout."
+  "domain": {
+    "type": "string",
+    "default": "",
+    "description": "Domain name to add to resolv.conf."
   },
-  "verbose": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose logging for troubleshooting and debugging."
+  "search": {
+    "type": "string",
+    "default": "",
+    "description": "Domain name search path to add to resolv.conf."
   },
-  "refresh_interval": {
+  "login_command": {
+    "type": "string",
+    "default": "sensible-browser",
+    "description": "Command to open login pages on hotspots."
+  },
+  "login_location": {
+    "type": "string",
+    "default": "http://www.nlnetlabs.nl/projects/dnssec-trigger",
+    "description": "URL to open for hotspot login."
+  },
+  "noaction": {
+    "type": "string",
+    "default": "no",
+    "description": "Do not perform any actions (dry-run mode, 'yes' or 'no').",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "port": {
     "type": "number",
-    "default": 86400,
-    "description": "Interval (in seconds) between checks for new trust anchors (e.g., root DNSKEY updates). Default is 24 hours."
+    "default": 8955,
+    "description": "Port number for the probe daemon."
   },
-  "modules": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Logical name for the module (used in logs and messages)."
-        },
-        "path": {
-          "type": "string",
-          "description": "Path to the shared library (.so) or Python script implementing the module."
-        }
-      }
-    },
-    "description": "Optional custom modules to extend dnssec-trigger behavior (e.g., support for non-standard DNSSEC key sources)."
+  "server_key_file": {
+    "type": "string",
+    "default": "/etc/dnssec-trigger/dnssec_trigger_server.key",
+    "description": "Path to the server private key file for TLS communication."
+  },
+  "server_cert_file": {
+    "type": "string",
+    "default": "/etc/dnssec-trigger/dnssec_trigger_server.pem",
+    "description": "Path to the server certificate file for TLS communication."
+  },
+  "control_key_file": {
+    "type": "string",
+    "default": "/etc/dnssec-trigger/dnssec_trigger_control.key",
+    "description": "Path to the control private key file for TLS communication."
+  },
+  "control_cert_file": {
+    "type": "string",
+    "default": "/etc/dnssec-trigger/dnssec_trigger_control.pem",
+    "description": "Path to the control certificate file for TLS communication."
+  },
+  "check_updates": {
+    "type": "string",
+    "default": "no",
+    "description": "Check for updates and ask to install them ('yes' or 'no').",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "use_vpn_forwarders": {
+    "type": "string",
+    "default": "no",
+    "description": "Use VPN servers for all traffic ('yes' or 'no').",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "use_private_addresses": {
+    "type": "string",
+    "default": "yes",
+    "description": "Forward RFC 1918 private addresses to global forwarders ('yes' or 'no').",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "add_wifi_provided_zones": {
+    "type": "string",
+    "default": "no",
+    "description": "Add domains provided by VPN connections into Unbound forward zones ('yes' or 'no').",
+    "enum": [
+      "yes",
+      "no"
+    ]
   }
 }

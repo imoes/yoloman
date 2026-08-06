@@ -1,0 +1,84 @@
+{# ============================================================================ #}
+{# Chiaki Configuration Template                                                  #}
+{# Self-documenting: every directive is preceded by a comment explaining its      #}
+# purpose, sourced from the schema description. Variables include safe defaults   #
+# to prevent rendering failures when optional fields are omitted.                 #
+{# ============================================================================ #}
+
+{% if enabled | default(true) | bool %}
+[General]
+
+# Enable automatic discovery of PlayStation consoles on the local network.
+# Schema: enable_discovery (bool, default: True)
+enable_discovery = {{ enable_discovery | default(true) | lower }}
+
+# Manual host address to connect to (e.g., 192.168.1.100); required for manual registration.
+# Schema: host (string, default: '')
+# Note: Only emitted if a value is provided; otherwise discovery is assumed primary.
+{% if host | default('') | trim != '' %}
+host = {{ host | default('') | trim }}
+{% endif %}
+
+# Port for manual connection; default 9296 per upstream documentation.
+# Schema: port (int, default: 9296)
+port = {{ port | default(9296) }}
+
+# Nickname for the registered console (used for display and credential storage).
+# Schema: nickname (string, default: '')
+# Note: Emitted only if explicitly set to allow empty/undefined if preferred.
+{% if nickname | default('') | trim != '' %}
+nickname = {{ nickname | default('') | trim }}
+{% endif %}
+
+# Automatically log in via saved credentials after registration.
+# Schema: auto_login (bool, default: False)
+auto_login = {{ auto_login | default(false) | lower }}
+
+# Path to custom certificate file for PSN or console authentication.
+# Schema: certificate_path (string, default: '')
+{% if certificate_path | default('') | trim != '' %}
+certificate_path = {{ certificate_path | default('') | trim }}
+{% endif %}
+
+[Logging]
+
+# Logging level: 0=none, 1=error, 2=warn, 3=info, 4=debug.
+# Schema: log_level (int, default: 2)
+level = {{ log_level | default(2) }}
+
+# ============================================================================ #
+# Manual Console Entries                                                       #
+# Iterates over the 'consoles' list if defined. Each entry forms a section     #
+# named after the console's 'name' field.                                      #
+# ============================================================================ #}
+{% if consoles is defined %}
+{% for console in consoles %}
+
+# Manual console entry for: {{ console.name | default('unnamed') }}
+[{{ console.name | default('unnamed') }}]
+
+# Host address for this specific console.
+host = {{ console.host | default('') }}
+
+# Nickname for display. Falls back to the section name if not specified.
+nickname = {{ console.nickname | default(console.name) }}
+
+# Sony account ID for the user associated with this console.
+{% if console.account_id is defined %}
+account_id = {{ console.account_id }}
+{% endif %}
+
+# Registration key (registkey) for the console.
+{% if console.registkey is defined %}
+registkey = {{ console.registkey }}
+{% endif %}
+
+# Port for this console. Defaults to 9296 if not specified in the list item.
+port = {{ console.port | default(9296) }}
+
+{% endfor %}
+{% endif %}
+
+{% else %}
+# Chiaki service is disabled in configuration.
+{% endif %}

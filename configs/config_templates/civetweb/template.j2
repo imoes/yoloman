@@ -1,58 +1,63 @@
-# Server port(s) to listen on (comma-separated list; IPv6 addresses must be enclosed in brackets)
-port = {{ port }}
+# Civetweb web server configuration template
+# Managed by Ansible - do not edit manually
 
-# Number of worker threads (0 = auto-select based on CPU cores)
-num_threads = {{ num_threads }}
+# Comma-separated list of ports to listen on (e.g., '8080,8443' for HTTP and HTTPS).
+port = {{ port | default('8080') }}
 
-# Root directory for web content
- DocumentRoot = {{ document_root }}
+# Number of worker threads. Use 0 to auto-detect based on CPU cores.
+num_threads = {{ num_threads | default(0) }}
 
-# Default index page(s) when directory is requested (comma-separated)
- index_files = {{ index_files | join(', ') }}
+# Filesystem path to serve as the document root.
+document_root = {{ document_root | default('/var/www/html') }}
 
-# Enable or disable directory listing (on/off)
- enable_directory_listing = {{ enable_directory_listing | lower }}
+# List of filenames to try as default for a directory request, in order of preference.
+index_files = {{ index_files | default(['index.html', 'index.htm', 'index.php']) | join(', ') }}
 
-# Enable SSL support (on/off)
- ssl_certificate = {{ ssl_certificate }}
+# Whether to show a directory listing if no index file is found.
+enable_directory_listing = {{ enable_directory_listing | default(False) | lower }}
 
-# Enable CGI support (on/off)
- enable_cgi = {{ enable_cgi | lower }}
+# Path to combined SSL certificate and private key (PEM format). Leave empty to disable SSL.
+ssl_certificate = {{ ssl_certificate | default('') }}
 
-# Path to CGI directory (ignored if enable_cgi=off)
- cgi_interpreter = {{ cgi_interpreter }}
+# Enable or disable CGI script execution.
+enable_cgi = {{ enable_cgi | default(False) | lower }}
 
-# CGI extensions (space-separated list; e.g., .py .pl)
- cgi_patterns = {{ cgi_patterns | join(' ') }}
+# Path to the CGI interpreter (e.g., /usr/bin/python3). Required if enable_cgi=true.
+cgi_interpreter = {{ cgi_interpreter | default('') }}
 
-# Enable Lua scripting support (on/off)
- enable_lua = {{ enable_lua | lower }}
+# Space-separated list of file extensions to treat as CGI scripts.
+cgi_patterns = {{ cgi_patterns | default(['.py', '.pl']) | join(' ') }}
 
-# Lua script path prefix (e.g., /lua/)
- lua_script_prefix = {{ lua_script_prefix }}
+# Enable or disable embedded Lua scripting for dynamic content.
+enable_lua = {{ enable_lua | default(False) | lower }}
 
-# Lua script directory (ignored if enable_lua=off)
- lua_script_dir = {{ lua_script_dir }}
+# URL prefix that maps to Lua scripts (e.g., requests to /lua/hello will execute /etc/civetweb/lua/hello.lua).
+lua_script_prefix = {{ lua_script_prefix | default('/lua/') }}
 
-# IP address to bind to (e.g., 0.0.0.0 for all, or 127.0.0.1 for localhost only)
- listening_ip = {{ listening_ip }}
+# Filesystem directory containing Lua scripts (ignored if enable_lua=false).
+lua_script_dir = {{ lua_script_dir | default('/etc/civetweb/lua') }}
 
-# Set maximum request size in bytes (0 = no limit)
- max_request_size = {{ max_request_size }}
+# IP address to bind to. Use 127.0.0.1 to restrict to localhost only.
+listening_ip = {{ listening_ip | default('0.0.0.0') }}
 
-# Logging configuration
- access_log_file = {{ access_log_file }}
- error_log_file = {{ error_log_file }}
+# Maximum allowed HTTP request size in bytes. 0 means unlimited.
+max_request_size = {{ max_request_size | default(0) }}
 
-# Enable authentication (on/off)
- enable_auth = {{ enable_auth | lower }}
+# Path to the access log file.
+access_log_file = {{ access_log_file | default('/var/log/civetweb/access.log') }}
 
-# Authentication realm
- auth_realm = {{ auth_realm }}
+# Path to the error log file.
+error_log_file = {{ error_log_file | default('/var/log/civetweb/error.log') }}
 
-# User credentials file (if enable_auth=on)
- auth_file = {{ auth_file }}
+# Enable HTTP Basic Authentication for all requests.
+enable_auth = {{ enable_auth | default(False) | lower }}
 
-# Extra configuration directives (one per line)
-{% for line in extra_lines %}{{ line }}
+# Authentication realm shown to the user in the login prompt.
+auth_realm = {{ auth_realm | default('Restricted Area') }}
+
+# Path to the password file (HtPasswd format) used for authentication.
+auth_file = {{ auth_file | default('/etc/civetweb/htpasswd') }}
+
+# Additional configuration lines to append verbatim (e.g., custom MIME types, security headers).
+{% for line in extra_lines | default([]) %}{{ line }}
 {% endfor %}

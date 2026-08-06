@@ -1,53 +1,18 @@
-# Privoxy main configuration file
-# Generated via Jinja2 template
-# --- General settings ---
-listen-address {{ listen_address }}:{{ port }}
-toggle 1
-enable-edit-actions 0
-enable-remote-toggle 0
-enable-remote-http-toggle 0
-enable-compression 1
-compression-level 9
-keep-alive-timeout 300
-timeout 300
-# --- Logging ---
-loglevel 2
-logdir /var/log/privoxy
-log-file-format "%Y-%m-%d %H:%M:%S.%z"
-# --- Forwarding & Relays ---
-{% for forward in forwards %}forward {{ forward.scheme }} {{ forward.target }}{% endfor %}
-forward-socks5 {{ socks5_host }}:{{ socks5_port }} {{ socks5_local }} .
-forward-socks4a {{ socks4a_host }}:{{ socks4a_port }} {{ socks4a_local }} .
-forward-socks4 {{ socks4_host }}:{{ socks4_port }} {{ socks4_local }} .
-# --- Access Control ---
-{% if enable_acl %}
-{% for acl in acls %}{{ acl.action }} {{ acl.source }}{% endfor %}
-{% endif %}
-# --- Filters ---
-{% for filter in filters %}filter {{ filter.name }} {{ filter.pattern }}
-{% endfor %}
-# --- Action Files ---
-actionsfile {{ actionsfile_path }}
-{% for extra_actions in extra_actionsfiles %}actionsfile {{ extra_actions.path }}
-{% endfor %}
-# --- User-Agent Handling ---
-{% if obfuscate_user_agent %}user-agent-filter-privoxy-privoxy
-{% endif %}
-# --- Server headers ---
-{% if remove_server_headers %}remove-server-header 1
-{% endif %}
-remove-referer-header 0
-remove-x-forwarded-for 0
-# --- HTTPS & Certs ---
-{% if enable_https %}listen-address {{ listen_address }}:{{ https_port }}
-ssl-cert-file {{ ssl_cert_file }}
-ssl-key-file {{ ssl_key_file }}
-{% endif %}
-# --- Misc ---
-debug 0
-confdir {{ confdir }}
-optdir {{ optdir }}
-cgipath /usr/lib/privoxy
-{# Note: default templates are shipped with privoxy package; do not override unless needed #}
-# Template directory (optional override)
-# template-dir {{ template_dir }}
+#!/bin/sh
+#
+# Expire https inspection certificates
+
+set -e
+
+# skip in favour of systemd timer if called from cron.daily
+if [ -d /run/systemd/system ] && [ "$1" != "systemd-timer" ]; then
+    exit 0
+fi
+
+
+CERTDIR=/var/lib/privoxy/certs
+EXPIREDAYS=90
+
+if [ -d $CERTDIR ]; then
+    find $CERTDIR -type f -mtime +$EXPIREDAYS -print0 | xargs -0 -r rm -f
+fi

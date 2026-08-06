@@ -2,31 +2,36 @@
 # Auto-generated via nftlb config generator
 {% for service in services %}
 # Service: {{ service.name }}
-# Type: {{ service.type | default('lb') }}
-# Listen address and port
-{% if service.type == 'lb' %}
-nftlb add lb {{ service.name }} {{ service.proto | default('tcp') }} {{ service.listen_ip }} {{ service.listen_port }}
+# Type: {{ service.mode | default('snat') }}
+{% if service.mode == 'dsr' %}
+# DSR-specific interfaces and MAC
+nftlb add lb {{ service.name }} {{ service.family | default('ipv4') }} {{ service.iface }} {{ service.oface }} {{ service.ether_addr | default('00:00:00:00:00:00') }}
 {% else %}
-nftlb add fw {{ service.name }} {{ service.proto | default('tcp') }} {{ service.listen_ip }} {{ service.listen_port }}
+# Virtual address and ports
+nftlb add lb {{ service.name }} {{ service.family | default('ipv4') }} {{ service.virtual_addr }} {{ service.virtual_ports | default('80') }}
 {% endif %}
+# Protocol and scheduler
+nftlb set lb {{ service.name }} protocol {{ service.proto | default('tcp') }}
+nftlb set lb {{ service.name }} scheduler {{ service.scheduler | default('rr') }}
+# Topology mode (snat/dnat/dsr)
+nftlb set lb {{ service.name }} mode {{ service.mode | default('snat') }}
+# Service state
+nftlb set lb {{ service.name }} state {{ service.state | default('up') }}
 # Upstream servers
 {% for backend in service.backends %}
-nftlb add server {{ service.name }} {{ backend.ip }} {{ backend.port | default(service.listen_port) }}{% if backend.weight is defined %} weight {{ backend.weight }}{% endif %}
-{% endfor %}
-# Health check options
-{% if service.health_check is defined %}
-nftlb set health-check {{ service.name }} {% if service.health_check.type == 'http' %}http {{ service.health_check.path | default('/') }}{% elif service.health_check.type == 'tcp' %}tcp{% elif service.health_check.type == 'none' %}none{% endif %}
+nftlb add backend {{ service.name }} {{ backend.name | default('bck' ~ loop.index0) }} {{ backend.ip_addr }}{% if backend.weight is defined %} weight {{ backend.weight }}{% endif %}{% if backend.priority is defined %} priority {{ backend.priority }}{% endif %}
+nftlb set backend {{ service.name }} {{ backend.name | default('bck' ~ loop.index0) }} state {{ backend.state | default('up') }}
+{% if backend.ether_addr is defined %}
+nftlb set backend {{ service.name }} {{ backend.name | default('bck' ~ loop.index0) }} ether-addr {{ backend.ether_addr }}
 {% endif %}
-# Options
-{% if service.options is defined %}
-{% for opt_key, opt_val in service.options.items() %}
-nftlb set option {{ service.name }} {{ opt_key }} {{ opt_val }}
 {% endfor %}
-{% endif %}
 {% endfor %}
 # Global settings
 {% if global_settings is defined %}
-{% for key, val in global_settings.items() %}
-nftlb set global {{ key }} {{ val }}
-{% endfor %}
+{% if global_settings.log_level is defined %}
+nftlb set global log {{ global_settings.log_level }}
+{% endif %}
+{% if global_settings.persistence_default is defined %}
+nftlb set global persistence {{ global_settings.persistence_default }}
+{% endif %}
 {% endif %}

@@ -1,111 +1,36 @@
 {
   "archive_prefix": {
     "type": "string",
-    "default": "backup",
-    "description": "Prefix for backup filenames (e.g., 'myhost-backup' \u2192 'myhost-backup-YYYYMMDD.tar.gz')"
+    "default": "all",
+    "description": "Prefix for backup filenames (used as VOLNAME); e.g., 'myhost-backup' \u2192 'myhost-backup-YYYYMMDD.tar.gz'"
   },
   "backup_dir": {
     "type": "string",
-    "default": "/var/backups/backup2l",
+    "default": "/disk2/backup",
     "description": "Absolute path to the directory where backup archives will be stored"
   },
   "max_full_backups": {
     "type": "number",
-    "default": 4,
+    "default": 2,
     "description": "Maximum number of full backups to retain; older full backups will be deleted"
-  },
-  "max_incr_backups": {
-    "type": "number",
-    "default": 6,
-    "description": "Maximum number of incremental backups to keep after the last full backup"
-  },
-  "full_backup_threshold_mb": {
-    "type": "number",
-    "default": 500,
-    "description": "If the amount of changed data since the last full backup exceeds this (in MB), a new full backup is triggered"
-  },
-  "compress": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to compress backup archives using gzip"
-  },
-  "verify": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to verify backup archives after creation (requires the `tar` command)"
   },
   "include_dirs": {
     "type": "list",
     "default": [
       "/etc",
+      "/root",
       "/home",
-      "/var/www"
+      "/var/mail",
+      "/usr/local"
     ],
-    "description": "List of directories to include in every backup",
-    "items": {
-      "type": "string",
-      "description": "Absolute path to a directory to include"
-    }
+    "description": "List of directories to include in every backup"
   },
   "exclude_patterns": {
     "type": "list",
     "default": [
-      "*/cache/*",
-      "*.tmp",
-      "/proc/*",
-      "/sys/*"
+      "*.nobackup*",
+      "*.o"
     ],
-    "description": "List of patterns (fnmatch-style) of files/directories to exclude",
-    "items": {
-      "type": "string",
-      "description": "Glob-style pattern (e.g., '*.log', '/var/cache/*')"
-    }
-  },
-  "tar_opts": {
-    "type": "list",
-    "default": [
-      "--numeric-owner",
-      "--ignore-failed-read"
-    ],
-    "description": "List of additional command-line options for `tar` (e.g., for filesystem safety)",
-    "items": {
-      "type": "string",
-      "description": "A single tar option (without the leading dash)"
-    }
-  },
-  "pre_backup_script": {
-    "type": "string",
-    "default": "",
-    "description": "Optional absolute path to a script to run before each backup (e.g., to flush DB buffers)"
-  },
-  "post_backup_script": {
-    "type": "string",
-    "default": "",
-    "description": "Optional absolute path to a script to run after each backup (e.g., to copy to remote storage)"
-  },
-  "notify_email": {
-    "type": "string",
-    "default": "",
-    "description": "Email address to receive backup summaries; empty string disables email notifications"
-  },
-  "notify_subject_prefix": {
-    "type": "string",
-    "default": "[backup2l]",
-    "description": "Prefix for email subject lines (useful for mail filtering)"
-  },
-  "notify_level": {
-    "type": "string",
-    "default": "error",
-    "description": "When to send email: 'error' (only on failure), 'warn' (warnings+errors), 'always' (every run)"
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/backup2l.log",
-    "description": "Path to the log file; empty string disables file logging (stderr only)"
-  },
-  "verbosity": {
-    "type": "number",
-    "default": 1,
-    "description": "Log verbosity: 0 (quiet), 1 (normal), 2 (verbose), 3 (debug)"
+    "description": "List of patterns (fnmatch-style) of files/directories to exclude"
   }
 }

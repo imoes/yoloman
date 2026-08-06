@@ -1,0 +1,30 @@
+;; -*-emacs-lisp-;;
+;;
+;; Emacs startup file, e.g.  /etc/emacs/site-start.d/50{{ package_name | default('bbdb3') }}.el
+;; for the Debian {{ package_name | default('bbdb3') }} package
+;;
+;; Originally contributed by Nils Naumann <naumann@unileoben.ac.at>
+;; Modified by Dirk Eddelbuettel <edd@debian.org>
+;; Adapted for dh-make by Jim Van Zandt <jrv@debian.org>
+;; Updated by Barak A. Pearlmutter <bap@debian.org>
+;;
+;; This configuration file is part of the 'emacsen' policy for Debian packages.
+;; It ensures that the BBDB3 elisp files are added to Emacs' load-path and
+;; their load definitions are required. This allows Emacs (or XEmacs) to
+;; find and use the BBDB3 package correctly.
+
+;; The {{ package_name | default('bbdb3') }} package follows the Debian/GNU Linux 'emacsen' policy and
+;; byte-compiles its elisp files for each 'emacs flavor' (emacs19,
+;; xemacs19, emacs20, xemacs20...).  The compiled code is then
+;; installed in a subdirectory of the respective site-lisp directory.
+;; We have to add this to the load-path:
+(let ((package-dir (concat "/usr/share/"
+			   (if (boundp 'debian-emacs-flavor)
+			       (symbol-name debian-emacs-flavor)
+			     "emacs")
+			   "/site-lisp/{{ package_name | default('bbdb3') }}")))
+  ;; If package-dir does not exist the {{ package_name | default('bbdb3') }} package must have been
+  ;; removed but not purged, and we should skip the setup.
+  (when (file-directory-p package-dir)
+    (debian-pkg-add-load-path-item package-dir)
+    (require 'bbdb-loaddefs)))

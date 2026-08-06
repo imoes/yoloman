@@ -1,93 +1,86 @@
+# ============================================================================
+# Avahi mDNS/DNS-SD Daemon Configuration
+# ============================================================================
+# This file configures the avahi-daemon service, which implements
+# Multicast DNS (mDNS) and DNS Service Discovery (DNS-SD). It allows
+# your Linux host to be discovered on the local network without a
+# central DNS server.
+#
+# Reference: avahi-daemon.conf(5)
+# ============================================================================
+
 [server]
-# Enable mDNS/DNS-SD service on this host
-# Set to 'yes' to enable the mDNS/DNS-SD daemon
-# 'host' enables mDNS only; 'yes' enables both mDNS and DNS-SD
+# ============================================================================
+# [server] Section: Core mDNS Server Settings
+# ============================================================================
+
+# Custom mDNS host name to publish (leave empty to use system hostname)
+# If left empty, the system's default hostname is used.
+host-name={{ (server | default({})).host_name | default('') }}
+
+# Domain suffix to use for mDNS names (typically 'local')
+# Services published here will be accessible as <name>.<domain-name>
+domain-name={{ (server | default({})).domain_name | default('local') }}
+
+# Whether to use IPv4 for mDNS traffic
 use-ipv4=yes
+
+# Whether to use IPv6 for mDNS traffic
 use-ipv6=yes
 
-# Host name to publish (defaults to system hostname)
-# Set explicitly to override automatic detection
-host-name={{ server.host_name }}
-
-# Domain name to publish (defaults to 'local')
-domain-name={{ server.domain_name }}
-
-# Time-to-live for resource records (seconds)
-# Reduce for faster propagation in dynamic environments
-ttl=4500
-
-# Enable publishing of PTR records for services
-publish-services=yes
-
-# Enable publishing of A/AAAA records for this host
-publish-resolve-record=yes
-
-[wide-area]
-# Disable wide-area DNS-SD (required for local-only discovery)
-enable-wide-area=no
-
-[lwip]
-# Not used on modern Linux systems — always disable
-enable-lwip=no
-
-[rlimits]
-# Limit number of simultaneous connections to avoid resource exhaustion
-# Set to 0 for system default
-rlimit-nofile=512
-
-# Limit size of stack per thread (KB)
-rlimit-stack=1024
-
-# Limit virtual memory (KB); 0 means unlimited
-rlimit-as=0
-
-# Enable rate-limiting of mDNS packets (prevents flooding)
-# Set to 'yes' in environments with many mDNS clients
-rate-limit=yes
-
-# Max mDNS packets per second (only active if rate-limit=yes)
-rate-limit-interval-sec=2
-rate-limit-burst=50
-
-[reflector]
-# Enable DNS-SD service reflection across subnets
-# Set to 'yes' only if multiple subnets require cross-subnet printer discovery
-enable-reflector={{ reflector.enabled }}
-
-# UDP ports used for service reflection (mDNS: 5353)
-# Only required if reflector is enabled
-{% if reflector.enabled %}
-reflect-udp-port=5353
+# List of interfaces Avahi will use for mDNS/DNS-SD discovery
+# Use empty list (commented out) to allow all interfaces.
+# To restrict, specify interfaces like: allow-interfaces=eth0,eth1
+{% if (discovery | default({})).allow_interfaces | default([]) | length > 0 %}
+allow-interfaces={{ (discovery | default({})).allow_interfaces | default([]) | join(',') }}
 {% endif %}
 
-[security]
-# Enable chroot() for added isolation (recommended for production)
-# Requires proper filesystem setup (usually /run/avahi-daemon/chroot)
-chroot-enabled=yes
+# Rate limiting for mDNS responses to prevent broadcast storms
+ratelimit-interval-usec=1000000
+ratelimit-burst=1000
 
-# User to drop privileges to (typically 'avahi')
-user=avahi
+[wide-area]
+# ============================================================================
+# [wide-area] Section: Wide-Area mDNS
+# ============================================================================
 
-# Group to drop privileges to (typically 'avahi')
-group=avahi
+# Enable wide-area mDNS (forwarding mDNS across routers)
+# Generally discouraged for security/performance reasons on large networks.
+enable-wide-area=yes
 
-# Directory used for runtime files
-runtime-dir=/run/avahi-daemon
+[publish]
+# ============================================================================
+# [publish] Section: Service Publication Settings
+# ============================================================================
 
-# Directory for configuration files (usually /etc/avahi)
-config-dir={{ server.config_dir }}
+# Publish the system's HINFO record (Hardware/Software info)
+# Disabled by default to avoid leaking system details.
+publish-hinfo=no
 
-[discovery]
-# Enable publishing of local services (including CUPS printers)
-publish-domain=yes
-publish-hinfo=yes
-publish-addresses=yes
+# Publish the system as a workstation service
+# Disabled by default.
+publish-workstation=no
 
-# Enable publication of SRV and TXT records for services
-{% for service in discovery.enabled_services %}
-# Enable {{ service.name }} service publishing
-publish-{{ service.name | replace('_', '-') }}={{ 'yes' if service.enabled else 'no' }}
-{% endfor %}
+[reflector]
+# ============================================================================
+# [reflector] Section: DNS-SD Service Reflection
+# ============================================================================
 
-# Enable discovery of other hosts/services (not required for server-only operation)
-allow-interfaces={{ discovery.allow_interfaces | join(',') }}
+# Enable DNS-SD service reflection across subnets
+# Required only for multi-subnet discovery where routers do not forward mDNS.
+enable-reflector={{ (reflector | default({})).enabled | default(False) | lower }}
+
+[rlimits]
+# ============================================================================
+# [rlimits] Section: Resource Limits
+# ============================================================================
+# Leave commented out to use system defaults.
+# Uncomment and adjust if you encounter "too many files" or memory issues.
+#
+# rlimit-as=
+# rlimit-core=0
+# rlimit-data=8388608
+# rlimit-fsize=0
+# rlimit-nofile=768
+# rlimit-stack=8388608
+# rlimit-nproc=3

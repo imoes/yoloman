@@ -1,0 +1,97 @@
+{# BaseX standalone configuration #}
+{# See: https://docs.basex.org/wiki/Configuration #}
+
+{# If use_server is true, this file is intended for server mode configuration; otherwise it is for standalone mode. #}
+{% if use_server | default(False) | bool %}
+# Server mode (not standalone)
+{% else %}
+# Standalone mode
+{% endif %}
+
+{# BaseX home directory — root of configuration and data hierarchy. #}
+{# Defaults to ~/.basex if not specified. #}
+BASEXHOME={{ basexhome | default('~/.basex') }}
+
+{# Default directory for databases. If omitted, defaults to ${BASEXHOME}/data. #}
+{# Only emit DATABASEDIR if the user explicitly provides a non-empty value. #}
+{% if database_dir | default('') != '' %}
+DATABASEDIR={{ database_dir | default('') }}
+{% endif %}
+
+{# Port used by the BaseX HTTP and REST API server. #}
+{# Defaults to 8984. #}
+{% if server_port is not none %}
+SERVERPORT={{ server_port | default(8984) }}
+{% endif %}
+
+{# Default timeout (ms) for database operations. #}
+{# Defaults to 30000. #}
+{% if timeout is not none %}
+TIMEOUT={{ timeout | default(30000) }}
+{% endif %}
+
+{# Enable or disable the HTTP server. #}
+{# If true, emits ON; if false, emits OFF. Defaults to True. #}
+{% if http_server is not none %}
+HTTPSERVER={{ 'ON' if http_server | default(True) | bool else 'OFF' }}
+{% endif %}
+
+{# Enable or disable the Web Server UI (BaseX Web UI). #}
+{# If true, emits ON; if false, emits OFF. Defaults to False. #}
+{% if webapp_server is not none %}
+WEBSERVER={{ 'ON' if webapp_server | default(False) | bool else 'OFF' }}
+{% endif %}
+
+{# Default parser: xml, html, text, binary, auto. #}
+{# Defaults to 'auto'. #}
+{% if default_parser is not none %}
+DEFAULTPARSER={{ default_parser | default('auto') }}
+{% endif %}
+
+{# List of HTML parser options (e.g., ['method=html', 'nons=true']). #}
+{# Only effective when default_parser=html. Joined by comma and space. #}
+{% if html_options | default([]) | length > 0 %}
+HTMLOPT={{ html_options | default([]) | join(', ') }}
+{% endif %}
+
+{# Enable full-text indexing by default. #}
+{# If true, emits ON; if false, emits OFF. Defaults to True. #}
+{% if fulltext_index is not none %}
+FTINDEX={{ 'ON' if fulltext_index | default(True) | bool else 'OFF' }}
+{% endif %}
+
+{# Enable the query cache. #}
+{# If true, emits ON; if false, emits OFF. Defaults to True. #}
+{% if query_cache is not none %}
+QUERYCACHE={{ 'ON' if query_cache | default(True) | bool else 'OFF' }}
+{% endif %}
+
+{# Maximum number of queries to retain in the cache. #}
+{# Defaults to 100. #}
+{% if max_cache_size is not none %}
+MAXCACHESIZE={{ max_cache_size | default(100) }}
+{% endif %}
+
+{# Enable disk-based indexing for large databases. #}
+{# If true, emits ON; if false, emits OFF. Defaults to True. #}
+{% if disk_index is not none %}
+DISKINDEX={{ 'ON' if disk_index | default(True) | bool else 'OFF' }}
+{% endif %}
+
+{# Enable compression of stored XML documents. #}
+{# If true, emits ON; if false, emits OFF. Defaults to True. #}
+{% if compression is not none %}
+COMPRESSION={{ 'ON' if compression | default(True) | bool else 'OFF' }}
+{% endif %}
+
+{# List of JVM startup options (e.g., ['-Xms256m', '-Xmx2g']). #}
+{# Joined by single space. Defaults to empty list (no extra options). #}
+{% if jvm_opts | default([]) | length > 0 %}
+JAVAOPTS={{ jvm_opts | default([]) | join(' ') }}
+{% endif %}
+
+{# Logging level: INFO (default), WARN, ERROR, DEBUG. #}
+{# Defaults to INFO. #}
+{% if log_level | default('INFO') | string | trim | length > 0 %}
+LOGLEVEL={{ log_level | default('INFO') }}
+{% endif %}

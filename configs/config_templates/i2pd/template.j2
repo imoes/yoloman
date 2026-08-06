@@ -1,81 +1,40 @@
-# I2P Daemon Configuration — /etc/i2pd/i2pd.conf
-# This file is auto-generated. Edit via configuration manager, not manually.
+# I2P (Invisible Internet Project) daemon configuration wrapper.
+# This script generates the startup options for i2pd based on Ansible variables.
 
-# Enable or disable I2P daemon at startup
-{{ "# " if not enabled | default(false) else "" }}daemon = {{ enabled | default(false) | lower }}
+{% if enabled | default(True) | bool %}
+# I2P daemon is enabled. It will start automatically at boot.
+# This block constructs the command-line options passed to the i2pd process.
+DAEMON_OPTS=" \
+  # Path to the main I2P configuration file.
+  --conf=/etc/i2pd/i2pd.conf \
+  # Path to the static tunnels configuration file.
+  --tunconf=/etc/i2pd/tunnels.conf \
+  # Directory containing additional dynamic tunnel configurations.
+  --tunnelsdir=/etc/i2pd/tunnels.conf.d \
+  # Path to the PID file for the daemon process.
+  --pidfile={{ pid_file | default('/var/run/i2pd/i2pd.pid') }} \
+  # Path to the log file for the daemon process.
+  --logfile={{ log_file | default('/var/log/i2pd/i2pd.log') }} \
+  # Run as a background daemon.
+  --daemon \
+  # Run in service mode (detached from terminal).
+  --service"
 
-# Log level: none, error, warn, info, debug, trace, debuglog
-loglevel = {{ log_level | default("info") }}
+# Set the logging verbosity level for I2P.
+# Valid choices are: none, error, warn, info, debug, trace, debuglog.
+# This overrides the default log level defined in i2pd.conf if present.
+DAEMON_OPTS="${DAEMON_OPTS} --loglevel={{ log_level | default('info') }}"
 
-# Path to log file (empty means stdout only)
-logfile = {{ log_file | default("/var/log/i2pd/i2pd.log") }}
-
-# Path to PID file (empty disables PID file)
-pidfile = {{ pid_file | default("/run/i2pd/i2pd.pid") }}
-
-# Data directory for tunnels, keys, and router info
-{{ "# " if not data_directory_enabled | default(true) else "" }}datadir = {{ data_directory | default("/var/lib/i2pd") }}
-
-# Network interface to bind SAM, HTTP, and other services
-{{ "# " if not interface_enabled | default(true) else "" }}host = {{ host | default("127.0.0.1") }}
-
-# HTTP API port (e.g., for web console)
-http.port = {{ http_port | default(7070) }}
-
-# HTTPS API port (optional — disable via port = 0)
-httpss.port = {{ https_port | default(7071) }}
-
-# SAM bridge port (for applications to speak I2P protocol)
-sam.port = {{ sam_port | default(7656) }}
-
-# I2P control port (e.g., for i2pcontrol protocol)
-{{ "# " if not i2p_control_enabled | default(false) else "" }}i2pcontrol.port = {{ i2pcontrol_port | default(7633) }}
-
-# I2P control TLS certificate path
-{{ "# " if not i2p_control_enabled | default(false) else "" }}i2pcontrol.certfile = {{ i2pcontrol_certfile | default("/etc/i2pd/i2pcontrol.crt") }}
-
-# I2P control TLS key path
-{{ "# " if not i2p_control_enabled | default(false) else "" }}i2pcontrol.keyfile = {{ i2pcontrol_keyfile | default("/etc/i2pd/i2pcontrol.key") }}
-
-# Bandwidth limits (in KB/s; 0 = unlimited)
-limit.up = {{ bandwidth_limit_up | default(1024) }}
-limit.down = {{ bandwidth_limit_down | default(4096) }}
-
-# Tunnel limits
-# Short tunnels (e.g., for client tunnels)
-group.clientTunnels.maxTunnels = {{ client_tunnel_count | default(20) }}
-# Long tunnels (e.g., for transit & garlic routing)
-group.transitTunnels.maxTunnels = {{ transit_tunnel_count | default(10) }}
-
-# Enable or disable transit traffic (makes this router a network participant)
-group.transit.enabled = {{ transit_enabled | default(true) }}
-
-# Enable or disable floodfill (store router info for others)
-group.floodfill.enabled = {{ floodfill_enabled | default(false) }}
-
-# Optional reserved peers (other routers to prefer)
-# Format: nickname = destination_base64
-{% for peer in reserved_peers %}
-{{ peer.name }} = {{ peer.destination }}
-{% endfor %}
-
-# Optional reserved IPs (e.g., for whitelisting)
-# Format: ip = port
-{% for ip_entry in reserved_ips %}
-{{ ip_entry.ip }}:{{ ip_entry.port }}
-{% endfor %}
-
-# Optional trusted IPs (bypass some rate limiting)
-{% for trusted_ip in trusted_ips %}
-trustedIPs = {{ trusted_ip }}
-{% endfor %}
-
-# Enable or disable addressbook subscriptions (to fetch known peer lists)
-{% if addressbooks | length == 0 %}
-# no addressbooks configured
+# Consolidated options string for environments that require a single variable.
+# Combines all previous settings into one exportable variable.
+DAEMON_OPTS="--conf=/etc/i2pd/i2pd.conf --tunconf=/etc/i2pd/tunnels.conf --tunnelsdir=/etc/i2pd/tunnels.conf.d --pidfile={{ pid_file | default('/var/run/i2pd/i2pd.pid') }} --logfile={{ log_file | default('/var/log/i2pd/i2pd.log') }} --daemon --service --loglevel={{ log_level | default('info') }}"
 {% else %}
-addressbook = {{ addressbooks | join(",") }}
+# I2P daemon is disabled. It will NOT start automatically at boot.
+# DAEMON_OPTS is empty, preventing the service from starting.
+DAEMON_OPTS=""
 {% endif %}
 
-# Optional extra command-line args passed to i2pd (rare)
-{{ "# " if not extra_args_enabled | default(false) else "" }}args = {{ extra_args | default("") }}
+# Increase the maximum number of open file descriptors.
+# If you have problems with hanging i2pd, you can try increasing this limit.
+# i2pd opens many connections to peers, so the default OS limit may be insufficient.
+ulimit -n {{ client_ulimit_n | default(4096) }}

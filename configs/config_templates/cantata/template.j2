@@ -1,0 +1,94 @@
+# ==============================================================================
+# Cantata (QA Systems) Automated Test Configuration
+# ==============================================================================
+# This template generates the configuration file for Cantata, a static/dynamic
+# analysis and automated testing tool for C/C++/Java. It handles project roots,
+# target platforms, coverage rules, and reporting paths.
+#
+# Variables are mapped from the Ansible inventory/hostvars. All variables use
+# the |default() filter to prevent undefined-variable errors during render.
+# ==============================================================================
+
+# --- General Settings ---
+
+# Override default Cantata config directory (e.g., /etc/cantata).
+# If empty, Cantata uses its built-in default.
+{% set _config_dir = config_dir | default('') %}
+{% if _config_dir %}
+CONFIG_DIR={{ _config_dir }}
+{% endif %}
+
+# Root directory containing test projects, source files, and output directories.
+{% set _test_root = test_root | default('') %}
+{% if _test_root %}
+TEST_ROOT={{ _test_root }}
+{% endif %}
+
+# --- Test Targets ---
+
+# List of target platforms. Format per line: 'name:compiler:toolchain:arch'.
+# Example: 'arm-none-eabi-gcc:GNU:arm-gcc:ARM_Cortex-M4'
+# Each item is rendered on a new line prefixed with TARGET=.
+{% set _test_targets = test_targets | default([]) %}
+{% if _test_targets is iterable and _test_targets | length > 0 %}
+# Test target platforms
+{% for target in _test_targets %}TARGET={{ target | default('') }}
+{% endfor %}
+{% endif %}
+
+# --- Coverage Configuration ---
+
+# Code coverage rule set. Valid values: 'MC/DC', 'DC', 'C0', 'C1', 'C2'.
+# Used for compliance with safety standards (e.g., ISO 26262, DO-178C).
+{% set _coverage_ruleset = coverage_ruleset | default('MC/DC') %}
+# Always emit coverage ruleset to ensure a known default state
+COVERAGE_RULESET={{ _coverage_ruleset }}
+
+# --- AutoTest Configuration ---
+
+# Enable or disable AutoTest, which automatically generates test vectors.
+# True/False is converted to lowercase string for config file compatibility.
+{% set _auto_test_enabled = auto_test_enabled | default(false) | bool %}
+# Always emit auto_test_enabled to ensure a known default state
+AUTO_TEST_ENABLED={{ _auto_test_enabled | lower }}
+
+# Maximum number of test cases AutoTest may generate per function.
+# 0 means unlimited.
+{% set _auto_test_max_cases = auto_test_max_cases | default(0) | int %}
+{% if _auto_test_max_cases > 0 %}
+# Maximum cases per function (0 = unlimited)
+AUTO_TEST_MAX_CASES={{ _auto_test_max_cases }}
+{% endif %}
+
+# --- Library & Interception ---
+
+# Path to Cantata wrapper library (e.g., /opt/cantata/lib/cantata_wrapper.so)
+# for call interception and stubbing during dynamic analysis.
+{% set _wrapper_lib = wrapper_lib | default('') %}
+{% if _wrapper_lib %}
+WRAPPER_LIB={{ _wrapper_lib }}
+{% endif %}
+
+# --- Reporting ---
+
+# Directory to write test reports, coverage reports, and diagnostics.
+{% set _report_output_dir = report_output_dir | default('') %}
+{% if _report_output_dir %}
+REPORT_OUTPUT_DIR={{ _report_output_dir }}
+{% endif %}
+
+# --- Traceability ---
+
+# Path to requirements traceability file (e.g., Excel, ReqIF).
+# Enables bidirectional traceability between code requirements and test cases.
+{% set _requirements_map_file = requirements_map_file | default('') %}
+{% if _requirements_map_file %}
+REQUIREMENTS_MAP={{ _requirements_map_file }}
+{% endif %}
+
+# --- Metrics ---
+
+# Enable collection of source code metrics (e.g., Halstead volume, cyclomatic complexity).
+{% set _metrics_enabled = metrics_enabled | default(false) | bool %}
+# Always emit metrics_enabled to ensure a known default state
+METRICS_ENABLED={{ _metrics_enabled | lower }}

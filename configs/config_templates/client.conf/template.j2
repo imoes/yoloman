@@ -1,53 +1,64 @@
 # client.conf — CUPS client configuration file
-# This file configures the CUPS client behavior, such as server address,
-# TLS/encryption settings, authentication options, and user agent info.
-# Each line may contain a directive, comment (starting with '#'), or blank line.
+#
+# This file configures the CUPS client behavior, controlling how the local
+# system connects to a CUPS printing server. It covers server address,
+# TLS/encryption levels, authentication mechanisms, and HTTP user-agent
+# identification.
+#
+# Each non-empty line is a directive. Comments start with '#' and are
+# ignored by CUPS but preserved here for self-documentation.
 
-# AllowAnyRoot — controls whether TLS connections are permitted using certificates
-# not signed by a trusted CA. Default is 'Yes'.
-{% if values.allow_any_root is defined %}AllowAnyRoot {{ values.allow_any_root }}{% endif %}
+# AllowAnyRoot — Whether to allow TLS with non-CA-signed certificates.
+# 'Yes' allows connections to servers with self-signed or untrusted certs.
+# 'No' requires a trusted CA. Default is 'Yes'.
+AllowAnyRoot {{ allow_any_root | default('Yes') }}
 
-# AllowExpiredCerts — controls whether TLS connections are permitted using expired certificates.
-# Default is 'No'.
-{% if values.allow_expired_certs is defined %}AllowExpiredCerts {{ values.allow_expired_certs }}{% endif %}
+# AllowExpiredCerts — Whether to allow TLS with expired certificates.
+# 'Yes' permits expired certs; 'No' rejects them. Default is 'No'.
+AllowExpiredCerts {{ allow_expired_certs | default('No') }}
 
-# DigestOptions — sets HTTP Digest authentication behavior.
-# 'DenyMD5' disables the legacy MD5 hash algorithm; 'None' uses default settings.
-{% if values.digest_options is defined %}DigestOptions {{ values.digest_options }}{% endif %}
+# DigestOptions — HTTP Digest auth option(s).
+# 'DenyMD5' disables the insecure MD5 hash; 'None' uses defaults.
+DigestOptions {{ digest_options | default('None') }}
 
-# Encryption — defines the required TLS encryption level.
-# 'IfRequested' (default): only encrypt if server requests it.
-# 'Never': never encrypt.
-# 'Required': always require encryption.
-{% if values.encryption is defined %}Encryption {{ values.encryption }}{% endif %}
+# Encryption — Encryption level for the connection.
+# 'IfRequested': encrypt only if server asks.
+# 'Never': no encryption.
+# 'Required': always require TLS. Default is 'IfRequested'.
+Encryption {{ encryption | default('IfRequested') }}
 
-# GSSServiceName — specifies the Kerberos service principal name used for authentication.
-# Common values: 'host', 'http', or 'ipp'. CUPS appends the remote hostname automatically.
-# Default is 'http'.
-{% if values.gss_service_name is defined %}GSSServiceName {{ values.gss_service_name }}{% endif %}
+# GSSServiceName — Kerberos service principal name for GSSAPI auth.
+# Common values: 'host', 'http', or 'ipp'. CUPS appends the server
+# hostname automatically. Default is 'http'.
+GSSServiceName {{ gss_service_name | default('http') }}
 
-# ServerName — specifies the CUPS server address (hostname/IP[:port]) or Unix domain socket path.
-# Optionally supports URI suffixes like '/version=1.1' for older servers.
-# This directive is not supported on macOS 10.7 and later.
-{% if values.server_name is defined %}ServerName {{ values.server_name }}{% endif %}
+# ServerName — CUPS server address (hostname:port, IP:port, or
+# Unix socket path). Supports URI suffixes like '/version=1.1' for
+# older servers. Not supported on macOS 10.7+. Default is localhost.
+ServerName {{ server_name | default('localhost') }}
 
-# SSLOptions — fine-tunes TLS protocol and cipher suite behavior.
-# Allow* options weaken security; Deny* options strengthen it.
-# Example: 'DenyTLS1.0' sets minimum TLS version to 1.1.
-{% if values.ssl_options is defined %}SSLOptions {{ values.ssl_options | join(' ') }}{% endif %}
+# SSLOptions — List of fine-grained TLS protocol/cipher directives.
+# Allow* weakens security; Deny* strengthens it.
+# Example: 'DenyTLS1.0' forces minimum TLS 1.1. Default is empty [].
+{% set _ssl_opts = ssl_options | default([]) %}
+{% if _ssl_opts | length > 0 %}
+SSLOptions {{ _ssl_opts | join(' ') }}
+{% endif %}
 
-# TrustOnFirstUse — controls whether new TLS certificates are automatically trusted on first connect.
-# Default is 'Yes' (trust-on-first-use). Set to 'No' to require manual trust or CA-signed certs.
-{% if values.trust_on_first_use is defined %}TrustOnFirstUse {{ values.trust_on_first_use }}{% endif %}
+# TrustOnFirstUse — Auto-trust new TLS certificates on first connect.
+# 'Yes' enables trust-on-first-use; 'No' requires manual trust.
+# Default is 'Yes'.
+TrustOnFirstUse {{ trust_on_first_use | default('Yes') }}
 
-# User — sets the default username for authenticated client requests.
-{% if values.user is defined %}User {{ values.user }}{% endif %}
+# User — Default username for authenticated requests.
+# Leave empty ('') to use the current user or prompt.
+User {{ user | default('') }}
 
-# UserAgentTokens — controls the verbosity of the User-Agent HTTP header sent to servers.
-# Options: 'None' (no header), 'ProductOnly', 'Major', 'Minor', 'Minimal' (default),
-# 'OS', or 'Full' (includes OS and architecture info).
-{% if values.user_agent_tokens is defined %}UserAgentTokens {{ values.user_agent_tokens }}{% endif %}
+# UserAgentTokens — User-Agent header verbosity level.
+# Options: 'None', 'ProductOnly', 'Major', 'Minor', 'Minimal' (default),
+# 'OS', or 'Full'.
+UserAgentTokens {{ user_agent_tokens | default('Minimal') }}
 
-# ValidateCerts — controls whether the client enforces that the TLS certificate's common name
-# matches the server hostname. Default is 'No' (no strict validation).
-{% if values.validate_certs is defined %}ValidateCerts {{ values.validate_certs }}{% endif %}
+# ValidateCerts — Enforce CN/SAN matches server hostname.
+# 'Yes' strict validation; 'No' skips hostname check. Default is 'No'.
+ValidateCerts {{ validate_certs | default('No') }}

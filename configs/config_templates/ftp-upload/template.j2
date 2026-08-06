@@ -1,0 +1,24 @@
+{# ftp-upload(1p) configuration #}
+{% for item in uploads %}
+# Upload group #{{ loop.index }}
+{% if item.host is defined %}--host {{ item.host }}{% endif %}
+{% if item.user is defined %}--user {{ item.user }}{% endif %}
+{% if item.password_stdin is defined %}{% if item.password_stdin %}--password-stdin{% endif %}{% endif %}
+{% if item.passive is defined %}{% if item.passive %}--passive{% else %}--no-passive{% endif %}{% endif %}
+{% if item.account is defined %}--account {{ item.account }}{% endif %}
+{% for dir in item.chdirs %}
+{% if dir == '..' %}--dir ..{% else %}--dir {{ dir }}{% endif %}
+{% endfor %}
+{% if item.full_path is defined %}{% if item.full_path %}--full-path{% else %}--no-full-path{% endif %}{% endif %}
+{% if item.tmp_mode is defined %}
+{% if item.tmp_mode == 'samedir' %}--tmp-samedir{% elif item.tmp_mode == 'dir' %}--tmp-dir {{ item.tmp_dir }}{% elif item.tmp_mode == 'format' %}--tmp-format {{ item.tmp_format }}{% else %}--tmp-none{% endif %}
+{% endif %}
+{% for transfer in item.transfers %}
+{% if transfer.as is defined %}--as {{ transfer.as }}{% endif %}
+{% if transfer.mode is defined %}
+{% if transfer.mode == 'ascii' %}--ascii{% else %}--binary{% endif %}
+{% endif %}
+{% if transfer.ls is defined %}{% if transfer.ls %}--ls{% else %}--no-ls{% endif %}{% endif %}
+{{ transfer.src }}
+{% endfor %}
+{% endfor %}

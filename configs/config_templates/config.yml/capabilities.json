@@ -1,0 +1,64 @@
+{
+  "provides": [
+    {
+      "capability": "object_storage",
+      "backend": "s3",
+      "port_field": null,
+      "default_port": null,
+      "provisionable": {
+        "buckets": "s3_bucket"
+      }
+    },
+    {
+      "capability": "object_storage",
+      "backend": "minio",
+      "port_field": null,
+      "default_port": null,
+      "provisionable": {
+        "buckets": "s3_bucket"
+      }
+    },
+    {
+      "capability": "object_storage",
+      "backend": "ceph-rgw",
+      "port_field": null,
+      "default_port": null,
+      "provisionable": {
+        "buckets": "s3_bucket"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "object_storage",
+      "backends": [
+        "s3",
+        "minio",
+        "ceph-rgw",
+        "gcs",
+        "azure"
+      ],
+      "backend_field": "storage_driver",
+      "fields": {
+        "endpoint": "proxy_remoteurl",
+        "bucket": "s3_bucket"
+      }
+    },
+    {
+      "capability": "web_server",
+      "backends": [
+        "nginx",
+        "haproxy",
+        "traefik",
+        "caddy",
+        "apache"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": "http_addr"
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "review"
+}

@@ -1,6 +1,11 @@
 #!/bin/sh
 # growroot — auto-resize root partition on first boot
 # Managed by cloud-initramfs-growroot
+#
+# This script is injected into the initramfs by cloud-initramfs-growroot.
+# It automatically expands the root partition to fill the disk on the first boot
+# where the disk size has increased (common in cloud environments after resizing
+# the volume).
 
 PREREQ=""
 prereqs() { echo "$PREREQ"; }
@@ -11,16 +16,20 @@ case "$1" in prereqs) prereqs; exit 0 ;; esac
 # Honour operator disable flag — create /etc/growroot-disabled to suppress all resizing
 [ -f /etc/growroot-disabled ] && exit 0
 
-{% if once_only %}
-# Skip on subsequent boots once the one-time sentinel has been written
-[ -f {{ sentinel_file }} ] && exit 0
+{% if (once_only | default(True)) == true %}
+# Skip on subsequent boots once the one-time sentinel has been written.
+# The sentinel file is checked to ensure the grow operation runs only once.
+[ -f {{ sentinel_file | default('/etc/growroot-deleted') }} ] && exit 0
 {% endif %}
 
-# Seconds to pause after growpart so the kernel can re-read the updated partition table
-WAIT={{ partition_settle_wait_sec }}
+# Seconds to pause after growpart so the kernel can re-read the updated partition table.
+# Prevents race conditions where the root filesystem is mounted before the kernel
+# recognizes the new partition size.
+WAIT={{ partition_settle_wait_sec | default(1) }}
 
-# Full path to growpart binary (provided by cloud-guest-utils or cloud-utils)
-GROWPART="{{ growpart_binary }}"
+# Full path to growpart binary (provided by cloud-guest-utils or cloud-utils).
+# This tool is used to extend the partition boundary to the end of the disk.
+GROWPART="{{ growpart_binary | default('/usr/bin/growpart') }}"
 
 # Resolve the actual block device backing the root filesystem
 ROOT_DEV=$(findfs "$ROOT" 2>/dev/null) || exit 0
@@ -34,8 +43,9 @@ if [ -z "$DISK" ] || [ -z "$PARTNUM" ]; then
     exit 0
 fi
 
-{% for skip in skip_partitions %}
-# Operator-excluded partition — never resize this slot
+{% for skip in (skip_partitions | default([])) %}
+# Operator-excluded partition — never resize this slot.
+# Useful for protecting EFI system partitions, BIOS-boot partitions, or reserved data.
 [ "$PARTNUM" = "{{ skip }}" ] && { log_warning_msg "growroot: partition {{ skip }} is excluded — skipping"; exit 0; }
 {% endfor %}
 
@@ -44,14 +54,16 @@ log_begin_msg "growroot: resizing $DISK partition $PARTNUM"
 # Extend the partition to the end of available disk space, then let the kernel settle
 "$GROWPART" "$DISK" "$PARTNUM" && sleep "$WAIT"
 
-{% if once_only %}
-# Write the one-time sentinel so subsequent reboots do not attempt a second grow
-touch {{ sentinel_file }} 2>/dev/null || true
+{% if (once_only | default(True)) == true %}
+# Write the one-time sentinel so subsequent reboots do not attempt a second grow.
+# The existence of this file signals that the root partition has already been resized.
+touch {{ sentinel_file | default('/etc/growroot-deleted') }} 2>/dev/null || true
 {% endif %}
 
-{% if reboot_after_grow %}
-# Immediately reboot via sysrq so the kernel re-mounts the enlarged filesystem read-write
-# Required on images where the running kernel cannot live-reread the partition table
+{% if (reboot_after_grow | default(False)) == true %}
+# Immediately reboot via sysrq so the kernel re-mounts the enlarged filesystem read-write.
+# This is required on some cloud images where the running kernel cannot live-re-read
+# the partition table or resize the mounted root filesystem in place.
 echo b > /proc/sysrq-trigger
 {% endif %}
 

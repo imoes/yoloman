@@ -1,0 +1,88 @@
+# ============================================================================
+# hebcal configuration template
+# Generates command-line options for hebcal based on provided schema fields.
+# Every setting corresponds to a documented hebcal(1) option.
+# ============================================================================
+
+# City name (from hebcal cities database) to set location/timezone; overrides -C
+{% if city | default('') %}-C {{ city | default('') }}{% endif %}
+
+# Latitude in 'deg,min' format (negative = south)
+# Longitude in 'deg,min' format (negative = east)
+# Default: '' (empty, unset) for both
+{% if latitude | default('') and longitude | default('') %}-l {{ latitude | default('') }} -L {{ longitude | default('') }}{% endif %}
+
+# Timezone identifier (e.g., 'America/New_York'); overrides -z
+{% if timezone | default('') %}-z {{ timezone | default('') }}{% endif %}
+
+# Number of years of events to generate (default 1)
+{% if years | default(1) %}--years {{ years | default(1) }}{% endif %}
+
+# Language code (ISO 639-1); allowed: ashkenazi, ashkenazi_litvish, ashkenazi_poylish,
+# ashkenazi_standard, es, fi, fr, he, hu, pl, ru
+{% if language | default('he') %}--lang {{ language | default('he') }}{% endif %}
+
+# Minutes before sundown for candle-lighting time (default 18)
+{% if candle_lighting_mins | default(18) %}-b {{ candle_lighting_mins | default(18) }}{% endif %}
+
+# Minutes after sundown for Havdalah (default 42)
+{% if havdalah_mins | default(42) %}-m {{ havdalah_mins | default(42) }}{% endif %}
+
+# Output date format: 'iso8601' (YYYY-MM-DD), 'european' (dd.mm.yyyy), 'tabular' (tab-delimited)
+{% if output_format | default('') == 'iso8601' %}--iso-8601
+{% elif output_format | default('') == 'european' %}-e
+{% elif output_format | default('') == 'tabular' %}-r{% endif %}
+
+# Time format: '24h' to enable 24-hour times (e.g., 18:37)
+{% if time_format | default('') == '24h' %}-E{% endif %}
+
+# Set to false to suppress holidays (-h)
+{% if not show_holidays | default(True) %}-h{% endif %}
+
+# When to show Hebrew dates: 'all' (-d), 'with_events' (-D)
+{% if show_hebrew_dates | default('') == 'all' %}-d
+{% elif show_hebrew_dates | default('') == 'with_events' %}-D{% endif %}
+
+# Show Omer count (-o)
+{% if show_omer | default(False) %}-o{% endif %}
+
+# Show weekly Torah portion: 'weekly' (-s), 'every_day' (-S)
+{% if show_sedra | default('') == 'weekly' %}-s
+{% elif show_sedra | default('') == 'every_day' %}-S{% endif %}
+
+# Show day of week (-w)
+{% if show_day_of_week | default(False) %}-w{% endif %}
+
+# Show molad on Shabbat Mevorchim (-M)
+{% if show_molad | default(False) %}-M{% endif %}
+
+# Show Daf Yomi (-F)
+{% if show_daf_yomi | default(False) %}-F{% endif %}
+
+# Show zemanim (Alot, Tefilah, Plag, etc.) (-Z)
+{% if show_zemanim | default(False) %}-Z{% endif %}
+
+# Suppress Rosh Chodesh entries (-x)
+{% if suppress_rosh_chodesh | default(False) %}-x{% endif %}
+
+# Weekly view: omer/zeramanim shown once per week (-W)
+{% if show_weekly_view | default(False) %}-W{% endif %}
+
+# Treat all input dates as Hebrew dates (-H)
+{% if hebrew_dates_only | default(False) %}-H{% endif %}
+
+# Set to false to show 2-digit year (-y); default true means 4-digit year (no -y)
+# If suppress_years_last_two is False, -y is emitted (show 2-digit year)
+{% if suppress_years_last_two | default(False) %}
+{% else %}-y{% endif %}
+
+# Use Israeli sedra scheme with -s/-S (-i)
+{% if israeli_sedra | default(False) %}-i{% endif %}
+
+# Path to file with user-defined events (format: month day description)
+{% if extra_events_file | default('') %}-I {{ extra_events_file | default('') }}{% endif %}
+
+# Path to file with yahrtzeit dates (format: month day year description)
+{% if yahrtzeit_file | default('') %}-Y {{ yahrtzeit_file | default('') }}{% endif %}
+
+# Note: -8 (8-bit Hebrew) is omitted for UTF-8 safety

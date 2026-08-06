@@ -1,0 +1,119 @@
+# =============================================================================
+# dnstracer Configuration Template
+# =============================================================================
+# This file configures the dnstracer utility.
+# dnstracer is a command-line tool that traces the DNS resolution path for a
+# given domain name, showing which DNS servers were queried and what answers
+# were received.
+#
+# NOTE: dnstracer is primarily a CLI tool, not a long-running daemon service.
+# This configuration file is intended to be sourced or read by a wrapper script
+# or systemd service unit that invokes `dnstracer` with these parameters.
+# =============================================================================
+
+{% if enabled | default(true) %}
+# -----------------------------------------------------------------------------
+# Service Control
+# -----------------------------------------------------------------------------
+# Enable dnstracer service. If set to 'false', the configuration is effectively
+# disabled, and no DNS tracing will occur.
+DNSTRACER_ENABLED=true
+
+# -----------------------------------------------------------------------------
+# Initial DNS Server
+# -----------------------------------------------------------------------------
+# The initial DNS server to query.
+# Set to '.' to query root servers directly (typical for a full trace).
+# Otherwise, specify an IP address or hostname (e.g., '8.8.8.8').
+DNS_SERVER={{ dns_server | default('.') }}
+
+# -----------------------------------------------------------------------------
+# DNS Query Class
+# -----------------------------------------------------------------------------
+# The DNS query class to use. Common classes include:
+#   A      - IPv4 address record
+#   AAAA   - IPv6 address record
+#   MX     - Mail exchange record
+#   NS     - Name server record
+#   PTR    - Pointer record
+#   SOA    - Start of authority record
+#   TXT    - Text record
+#   CNAME  - Canonical name record
+#   HINFO  - Host information record
+#   A6     - IPv6 address record (legacy)
+# Defaults to 'A' (IPv4 address).
+QUERY_CLASS={{ query_class | default('A') | upper }}
+
+# -----------------------------------------------------------------------------
+# Retry Behavior
+# -----------------------------------------------------------------------------
+# Number of retries for DNS requests if a server fails to respond.
+# Helps ensure robustness against transient network issues or dropped packets.
+RETRIES={{ retries | default(3) }}
+
+# -----------------------------------------------------------------------------
+# Verbose Output
+# -----------------------------------------------------------------------------
+# Enable verbose output. When true, dnstracer prints detailed information about
+# what is sent to and received from DNS servers, useful for debugging.
+# Corresponds to the '-v' command-line flag.
+{% if verbose | default(false) %}VERBOSE=true{% else %}VERBOSE=false{% endif %}
+
+# -----------------------------------------------------------------------------
+# Local DNS Caching
+# -----------------------------------------------------------------------------
+# Disable local DNS caching. When true, dnstracer does not use cached results,
+# forcing fresh queries at each step. This ensures the trace reflects the
+# current state of the network.
+# Corresponds to the '-c' command-line flag.
+{% if disable_local_cache | default(false) %}DISABLE_LOCAL_CACHE=true{% else %}DISABLE_LOCAL_CACHE=false{% endif %}
+
+# -----------------------------------------------------------------------------
+# Negative Caching
+# -----------------------------------------------------------------------------
+# Enable negative caching. When true, dnstracer caches negative responses
+# (e.g., NXDOMAIN) to avoid repeated queries for non-existent records during
+# the trace.
+# Corresponds to the '-C' command-line flag.
+{% if enable_negative_cache | default(false) %}ENABLE_NEGATIVE_CACHE=true{% else %}ENABLE_NEGATIVE_CACHE=false{% endif %}
+
+# -----------------------------------------------------------------------------
+# Overview Mode
+# -----------------------------------------------------------------------------
+# Show an overview of received answers at the end of the trace.
+# Provides a summary table of all queries made and their results.
+# Corresponds to the '-o' command-line flag.
+{% if overview | default(false) %}OVERVIEW=true{% else %}OVERVIEW=false{% endif %}
+
+# -----------------------------------------------------------------------------
+# IPv4 Only Mode
+# -----------------------------------------------------------------------------
+# Use only IPv4 DNS servers. Skips IPv6 servers even if they are available.
+# Useful for debugging IPv4-specific resolution issues.
+# Corresponds to the '-4' command-line flag.
+{% if ipv4_only | default(false) %}IPV4_ONLY=true{% else %}IPV4_ONLY=false{% endif %}
+
+# -----------------------------------------------------------------------------
+# Source Address
+# -----------------------------------------------------------------------------
+# Source IP address for outgoing DNS packets.
+# Useful when the host has multiple network interfaces and you want to ensure
+# queries originate from a specific IP (e.g., for asymmetric routing tests).
+# Leave empty to let the OS choose the default source address.
+# Corresponds to the '-S' command-line flag.
+{% if source_address | default('') | trim != '' %}SOURCE_ADDRESS={{ source_address | default('') }}{% endif %}
+
+# -----------------------------------------------------------------------------
+# Target Domains/Hosts
+# -----------------------------------------------------------------------------
+# List of domain names or IP addresses (in reverse in-addr.arpa format) to trace.
+# These are the primary arguments to the dnstracer command.
+# Example: www.example.com, mail.company.org, or 1.2.3.4.in-addr.arpa
+# Each target is written on a separate line as TARGET=<value>.
+{% for target in targets | default([]) %}TARGET={{ target }}
+{% endfor %}
+
+{% else %}
+# dnstracer is disabled in this configuration.
+DNSTRACER_ENABLED=false
+{% endif %}

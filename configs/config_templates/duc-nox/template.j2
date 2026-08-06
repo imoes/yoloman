@@ -1,0 +1,400 @@
+# ===========================================================================
+# duc-nox Configuration Template
+# ===========================================================================
+# This template generates the configuration file for `duc-nox` (the NixOS
+# wrapper for the Duc disk usage analyzer).
+#
+# Duc uses an INI-style configuration file. Options are grouped into sections:
+#   [global] - Default settings for all subcommands
+#   [ls]     - Default options for 'duc ls'
+#   [ui]     - Default options for 'duc ui'
+#   [graph]  - Default options for 'duc graph'
+#   [cgi]    - Default options for 'duc cgi'
+#   [index]  - Default options for 'duc index'
+#
+# Self-documenting: every option is described above its directive.
+# ===========================================================================
+
+{% set duc = duc | default({}) %}
+
+[global]
+
+# Path to the Duc database file used by all subcommands
+# Type: string
+# Default: ~/.duc.db
+database = {{ (duc | default({})).database | default('~/.duc.db') }}
+
+# Use apparent size instead of actual size (global toggle)
+# When enabled, counts the apparent size of files (e.g., sparse files)
+# rather than the actual disk space consumed.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).apparent_size | default(false) %}apparent_size = true
+{% endif %}
+
+# Show exact byte counts instead of human-readable sizes (global toggle)
+# Overrides human-readable formatting (like "1.2G") with raw bytes.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).bytes | default(false) %}bytes = true
+{% endif %}
+
+# Enable debug mode (increased verbosity)
+# Outputs detailed information about internal operations.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).debug | default(false) %}debug = true
+{% endif %}
+
+# Suppress warnings (quiet mode)
+# Silences non-critical warnings during execution.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).quiet | default(false) %}quiet = true
+{% endif %}
+
+# Increase verbosity
+# Provides more detailed output than the default mode.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).verbose | default(false) %}verbose = true
+{% endif %}
+
+[ls]
+
+# Default options for 'duc ls'
+
+# Recursively list subdirectories in 'duc ls'
+# If disabled, only the top level is shown.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_recursive | default(false) %}recursive = true
+{% endif %}
+
+# Append file type indicator (*/) to entries in 'duc ls'
+# Helps distinguish directories from files in the output.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_classify | default(false) %}classify = true
+{% endif %}
+
+# Use colorized output in 'duc ls'
+# Requires a terminal that supports colors.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_color | default(false) %}color = true
+{% endif %}
+
+# Sort output by name instead of size in 'duc ls'
+# Default sorting is by size (largest first).
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_name_sort | default(false) %}name_sort = true
+{% endif %}
+
+# Number of depth levels to traverse in 'duc ls'
+# Controls how deep the tree view goes.
+# Type: integer
+# Default: 4
+levels = {{ (duc | default({})).ls_levels | default(4) }}
+
+# Show full paths instead of tree view in 'duc ls'
+# Disables the tree visualization in favor of flat full paths.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_full_path | default(false) %}full_path = true
+{% endif %}
+
+# List only directories, skip individual files in 'duc ls'
+# Hides file entries, showing only directory sizes.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_dirs_only | default(false) %}dirs_only = true
+{% endif %}
+
+# Use ASCII instead of UTF-8 for tree characters in 'duc ls'
+# Ensures compatibility with terminals that do not support Unicode box-drawing.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_ascii | default(false) %}ascii = true
+{% endif %}
+
+# Draw relative-size graph bars in 'duc ls'
+# Adds a visual bar graph next to directory sizes.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_graph | default(false) %}graph = true
+{% endif %}
+
+# Show number of files instead of file size in 'duc ls'
+# Displays the count of entries rather than their byte size.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ls_count | default(false) %}count = true
+{% endif %}
+
+[ui]
+
+# Default options for 'duc ui' (interactive UI)
+
+# Disable colors on terminal output in 'duc ui'
+# Forces monochrome output in the interactive interface.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ui_no_color | default(false) %}no_color = true
+{% endif %}
+
+# Sort by name instead of size in 'duc ui'
+# Changes the default sort order in the interactive UI.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).ui_name_sort | default(false) %}name_sort = true
+{% endif %}
+
+[graph]
+
+# Default options for 'duc graph'
+
+# Output format for 'duc graph' (png|svg|pdf|html)
+# Selects the rendering engine for the generated disk usage charts.
+# Type: string
+# Default: png
+format = {{ (duc | default({})).graph_format | default('png') }}
+
+# Image size in pixels for 'duc graph'
+# Sets the width/height of the generated image.
+# Type: integer
+# Default: 800
+size = {{ (duc | default({})).graph_size | default(800) }}
+
+# Output DPI for 'duc graph'
+# Controls the resolution of the generated image.
+# Type: float
+# Default: 96.0
+dpi = {{ (duc | default({})).graph_dpi | default(96.0) }}
+
+# Max depth of rings to draw in 'duc graph'
+# Limits how many subdirectory levels are visualized in the ring chart.
+# Type: integer
+# Default: 4
+levels = {{ (duc | default({})).graph_levels | default(4) }}
+
+# Fuzz factor for smoother curves in 'duc graph'
+# Higher values create smoother, less angular transitions in the graph.
+# Type: float
+# Default: 0.7
+fuzz = {{ (duc | default({})).graph_fuzz | default(0.7) }}
+
+# Gap between rings in pixels for 'duc graph'
+# Adds visual separation between concentric rings.
+# Type: integer
+# Default: 0
+ring_gap = {{ (duc | default({})).graph_ring_gap | default(0) }}
+
+# Palette to use for 'duc graph' (size|rainbow|greyscale|monochrome|classic)
+# Defines the color scheme for the visualization.
+# Type: string
+# Default: size
+palette = {{ (duc | default({})).graph_palette | default('size') }}
+
+# Draw with color gradient in 'duc graph'
+# Applies a smooth color transition to the graph elements.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).graph_gradient | default(false) %}gradient = true
+{% endif %}
+
+# Show number of files instead of file size in 'duc graph'
+# Visualizes entry counts rather than byte volumes.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).graph_count | default(false) %}count = true
+{% endif %}
+
+[cgi]
+
+# Default options for 'duc cgi'
+
+# URL of external CSS stylesheet for 'duc cgi'
+# Allows custom styling of the web-based output.
+# Type: string
+# Default: ''
+{% if (duc | default({})).cgi_css_url | default('') %}css_url = {{ (duc | default({})).cgi_css_url | default('') }}
+{% endif %}
+
+# HTML file to include as header for 'duc cgi'
+# Path to a custom HTML header snippet.
+# Type: string
+# Default: ''
+{% if (duc | default({})).cgi_header | default('') %}header = {{ (duc | default({})).cgi_header | default('') }}
+{% endif %}
+
+# HTML file to include as footer for 'duc cgi'
+# Path to a custom HTML footer snippet.
+# Type: string
+# Default: ''
+{% if (duc | default({})).cgi_footer | default('') %}footer = {{ (duc | default({})).cgi_footer | default('') }}
+{% endif %}
+
+# Output format for 'duc cgi' graph (png|svg|pdf|html)
+# Determines the format of graphs served via CGI.
+# Type: string
+# Default: png
+format = {{ (duc | default({})).cgi_format | default('png') }}
+
+# Image size in pixels for 'duc cgi'
+# Sets the dimensions of CGI-generated graphs.
+# Type: integer
+# Default: 800
+size = {{ (duc | default({})).cgi_size | default(800) }}
+
+# Output DPI for 'duc cgi'
+# Controls the resolution of CGI graphs.
+# Type: float
+# Default: 96.0
+dpi = {{ (duc | default({})).cgi_dpi | default(96.0) }}
+
+# Max depth of rings to draw in 'duc cgi'
+# Limits depth in CGI visualization.
+# Type: integer
+# Default: 4
+levels = {{ (duc | default({})).cgi_levels | default(4) }}
+
+# Fuzz factor for smoother curves in 'duc cgi'
+# Smoothing parameter for CGI graphs.
+# Type: float
+# Default: 0.7
+fuzz = {{ (duc | default({})).cgi_fuzz | default(0.7) }}
+
+# Gap between rings in pixels for 'duc cgi'
+# Visual spacing in CGI ring charts.
+# Type: integer
+# Default: 0
+ring_gap = {{ (duc | default({})).cgi_ring_gap | default(0) }}
+
+# Palette to use for 'duc cgi' (size|rainbow|greyscale|monochrome|classic)
+# Color scheme for CGI graphs.
+# Type: string
+# Default: size
+palette = {{ (duc | default({})).cgi_palette | default('size') }}
+
+# Draw with color gradient in 'duc cgi'
+# Enables gradients in CGI visualizations.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).cgi_gradient | default(false) %}gradient = true
+{% endif %}
+
+# Show number of files instead of file size in 'duc cgi'
+# Visualizes counts in CGI output.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).cgi_count | default(false) %}count = true
+{% endif %}
+
+# Generate file listing table in 'duc cgi'
+# Includes a detailed file list in the CGI output.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).cgi_list | default(false) %}list = true
+{% endif %}
+
+# Enable on-hover tooltips in 'duc cgi'
+# Adds interactive tooltips to CGI elements (requires async HTTP).
+# Type: boolean
+# Default: false
+{% if (duc | default({})).cgi_tooltip | default(false) %}tooltip = true
+{% endif %}
+
+[index]
+
+# Default options for 'duc index'
+
+# Comma-separated list of file system types to exclude during indexing
+# Example: proc,sysfs,tmpfs
+# Type: string
+# Default: ext4
+{% if (duc | default({})).index_fs_exclude | default('ext4') %}fs_exclude = {{ (duc | default({})).index_fs_exclude | default('ext4') }}
+{% endif %}
+
+# Comma-separated list of file system types to include during indexing
+# If specified, only these file systems are indexed.
+# Type: string
+# Default: ext4
+{% if (duc | default({})).index_fs_include | default('ext4') %}fs_include = {{ (duc | default({})).index_fs_include | default('ext4') }}
+{% endif %}
+
+# Limit indexing to files owned by this UID (numeric)
+# Filters indexed files by user ID.
+# Type: integer
+# Default: 0
+uid = {{ (duc | default({})).index_uid | default(0) }}
+
+# Limit indexing to files owned by this username
+# Filters indexed files by user name.
+# Type: string
+# Default: ''
+{% if (duc | default({})).index_username | default('') %}username = {{ (duc | default({})).index_username | default('') }}
+{% endif %}
+
+# Glob pattern to exclude files during indexing
+# Files matching this pattern are ignored.
+# Type: string
+# Default: ''
+{% if (duc | default({})).index_exclude | default('') %}exclude = {{ (duc | default({})).index_exclude | default('') }}
+{% endif %}
+
+# Show progress during indexing
+# Displays a progress bar/status update.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_progress | default(false) %}progress = true
+{% endif %}
+
+# Skip directories on different file systems during indexing
+# Prevents crossing filesystem boundaries.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_one_file_system | default(false) %}one_file_system = true
+{% endif %}
+
+# Limit directory depth recorded in database (0 = unlimited)
+# Caps the recursion depth for indexing.
+# Type: integer
+# Default: 0
+max_depth = {{ (duc | default({})).index_max_depth | default(0) }}
+
+# Hide file names (preserve only directory names) in index
+# Useful for privacy; keeps directory structure but hides file details.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_hide_file_names | default(false) %}hide_file_names = true
+{% endif %}
+
+# Force overwrite of corrupted database
+# Allows indexing to proceed even if the database appears damaged.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_force | default(false) %}force = true
+{% endif %}
+
+# Do not compress database (for debugging or legacy backends)
+# Disables database compression.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_uncompressed | default(false) %}uncompressed = true
+{% endif %}
+
+# Count hard links only once during indexing
+# Prevents double-counting space for hard-linked files.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_check_hard_links | default(false) %}check_hard_links = true
+{% endif %}
+
+# Do not update database, only crawl (dry run)
+# Performs a read-only scan without writing changes.
+# Type: boolean
+# Default: false
+{% if (duc | default({})).index_dry_run | default(false) %}dry_run = true
+{% endif %}

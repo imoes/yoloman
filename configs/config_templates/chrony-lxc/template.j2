@@ -1,41 +1,116 @@
-# Enable command socket for chronyd control
+# Chrony (NTP) Configuration Template for LXC Containers
+# This template generates a valid chrony.conf file.
+# All variables must be defined in the Ansible role/vars, or they will fall back to schema defaults.
+
+# ==============================================================================
+# Command Socket Configuration
+# ==============================================================================
+
+# Enable command port for chronyc management client
+# Default: 2323
 commandport 2323
 
-# Specify NTP servers to synchronize with
-{% for server in ntp_servers %}# NTP server: {{ server.host }} ({{ server.mode }})
-{{ server.mode }} {{ server.host }} {{ 'iburst' if server.iburst else '' }}
+# Allow chronyc to connect from this address/subnet
+# Default: 127.0.0.1 (localhost only for security)
+commandallow {{ commandallow | default('127.0.0.1') }}
+
+# ==============================================================================
+# NTP Source / Peer Configuration
+# ==============================================================================
+
+# Specify NTP servers/peers to synchronize with.
+# The variable `ntp_servers` is expected to be a list of mappings containing:
+#   - host: (str) hostname or IP of the NTP server
+#   - mode: (str) 'server' for client mode, 'peer' for symmetric active/passive
+#   - iburst: (bool, optional) send burst of packets on initial sync
+# Default: [] (empty list, no sources configured)
+{% set ntp_servers_list = ntp_servers | default([]) %}
+
+{% for item in ntp_servers_list %}# NTP Server: {{ item.host }} | Mode: {{ item.mode }}
+{{ item.mode | default('server') }} {{ item.host }} {{ 'iburst' if item.iburst | default(false) else '' }}
+
 {% endfor %}
 
-# Allow LXC container to act as a time source for guests (if enabled)
-{% if allow_time_source %}# Allow clients from the LXC host's network to sync against this container
-allow {{ lxc_network }}
+# ==============================================================================
+# LXC / Local Network Allow Rules
+# ==============================================================================
+
+# Allow clients from a specific subnet to synchronize time FROM this container.
+# Useful if this LXC container acts as a local time source for other guests.
+# Default: allow_time_source is False (no clients allowed)
+# If enabled, the subnet is defined by `lxc_network`.
+# Default LXC bridge subnet: 10.0.3.0/24
+{% if allow_time_source | default(false) %}# Allow LXC host's subnet to sync from this container
+allow {{ lxc_network | default('10.0.3.0/24') }}
 {% endif %}
 
-# Logging configuration
-{% if log_dir %}# Log to directory
-logdir {{ log_dir }}
-{% endif %}
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+
+# Specify directories where chrony writes log files.
+# Chrony logs measurements, statistics, and tracking data separately.
+# Default: /var/log/chrony
+{% if log_dir | default('/var/log/chrony') %}logdir {{ log_dir | default('/var/log/chrony') }}
+
+# Log specific categories
 log measurements statistics tracking
 
-# Set maximum number of source measurements to keep
-maxsamples {{ max_samples }}
+{% endif %}
 
-# Set minimum number of good sources required before stepping
-minsources {{ min_sources }}
+# ==============================================================================
+# Source Selection & Step Thresholds
+# ==============================================================================
 
-# Enable leap seconds handling
-leapsecmode {{ leapsec_mode }}
+# Maximum number of source measurements to retain for time estimation.
+# Higher values improve accuracy but use more memory.
+# Default: 30
+maxsamples {{ max_samples | default(30) }}
 
-# Slew rate limit (in ppm); higher = more aggressive correction
-maxslewrate {{ max_slew_rate }}
+# Minimum number of good sources required before the clock is stepped.
+# Prevents setting the clock based on insufficient or poor-quality data.
+# Default: 1
+minsources {{ min_sources | default(1) }}
 
-# Make step at initial sync only if offset > threshold
-initstepslew {{ init_stepslew_threshold }} {% for host in ntp_servers | selectattr('mode', 'equalto', 'server') | map(attribute='host') | list %} {{ host }}{% endfor %}
+# ==============================================================================
+# Leap Second Handling
+# ==============================================================================
 
-# EnableRTC in the host (for virtualization-aware time sync)
-rtconutc {{ 'yes' if rtconutc else 'no' }}
+# How to handle leap seconds inserted into UTC.
+# Options: 'slew' (gradual adjustment), 'step' (immediate jump), 'linear' (smoothed transition).
+# Default: 'linear'
+leapsecmode {{ leapsec_mode | default('linear') }}
 
-# Bind to specific interface (optional)
-{% if bind_interface %}# Bind to interface {{ bind_interface }}
-bindaddress {{ bind_interface }}
+# ==============================================================================
+# Slew Rate Limits
+# ==============================================================================
+
+# Maximum time adjustment rate in parts per million (ppm).
+# Limits how fast chrony can slew the clock to prevent sudden large jumps.
+# Default: 100 ppm
+maxslewrate {{ max_slew_rate | default(100) }}
+
+# ==============================================================================
+# Initial Sync Step Threshold
+# ==============================================================================
+
+# If the clock offset at startup exceeds this value (in seconds), chrony will
+# step the clock immediately instead of slewing.
+# Default: 10 seconds
+initstepslew {{ init_stepslew_threshold | default(10) }} {% for item in ntp_servers_list | selectattr('mode', 'equalto', 'server') | map(attribute='host') | list %} {{ item }}{% endfor %}
+
+# ==============================================================================
+# RTC & Interface Binding
+# ==============================================================================
+
+# Use the host's Real-Time Clock (RTC) in UTC mode.
+# Highly recommended for virtualized environments (LXC/KVM) to improve time sync accuracy.
+# Default: True
+rtconutc {{ 'yes' if rtconutc | default(true) else 'no' }}
+
+# Bind chronyd to a specific network interface.
+# Leave empty (default) to bind to all interfaces.
+# Example: bind_interface: 'eth0'
+{% if bind_interface | default('') %}# Bind to interface {{ bind_interface }}
+bindaddress {{ bind_interface | default('') }}
 {% endif %}

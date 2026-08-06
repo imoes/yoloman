@@ -1,78 +1,30 @@
-# Load built-in modules
-{% for module in modules %}# Enable {{ module.name }} module
-module.load('{{ module.name }}')
-{% endfor %}
+# /etc/default/kresd
+#
+# Self-documenting template for knot-resolver (kresd) daemon arguments.
+# This file configures DAEMON_ARGS for sysvinit systems.
+#
+# NOTE: If using systemd, prefer "systemctl edit kresd@.service" to override
+# ExecStart= in the [Service] section (see kresd.systemd(7)).
+# KRESD_ARGS is deprecated; merge local changes into DAEMON_ARGS directly.
 
-# Network interface bindings
-# Bind to specified addresses and ports
-listen({% for addr in listen_addresses %}
-  {{ addr }}{% if not loop.last %}, {% endif %}
-{% endfor %})
+# IP addresses and ports to listen on for DNS queries.
+# These are passed as --addr=... arguments to the daemon.
+# Default: ['127.0.0.1#53', '[::1]#53']
+# Each address can include a port suffix (e.g., '127.0.0.1#53').
+# When multiple addresses are provided, each gets its own --addr= flag.
+{% set listen_addresses = listen_addresses | default(['127.0.0.1#53', '[::1]#53']) %}
 
-# DNSSEC validation settings
-# Enable DNSSEC validation
-config.dnssec = {{ dnssec_enabled }}
+# Path to the main kresd configuration file.
+# Passed as --config=... argument.
+# Default: '/etc/knot-resolver/kresd.conf'
+{% set config_file_path = config_file_path | default('/etc/knot-resolver/kresd.conf') %}
 
-# Cache size in MiB
-# Set maximum cache size
-config.cache_size = {{ cache_size_mib }}
+# Additional arguments appended to DAEMON_ARGS.
+# Examples: --verbose, --daemonize.
+# DO NOT set --config= or --addr= here; use the dedicated fields above.
+# Default: '' (empty)
+{% set daemon_extra_args = daemon_extra_args | default('') %}
 
-# Maximum number of concurrent queries per client
-# Limit per-client query concurrency
-config.max_concurrent_queries = {{ max_concurrent_queries }}
-
-# Trust anchor file (for DNSSEC)
-# Location of trust anchor file
-config.root_key_file = '{{ trust_anchor_file }}'
-
-# Forwarding policy
-# Forward queries to upstream resolvers
-{% if forward_to %}# Use upstream resolvers
-policy.add(policy.all(policy.FORWARD({% for upstream in forward_to %}
-  '{{ upstream }}'{% if not loop.last %}, {% endif %}
-{% endfor %})))
-{% else %}# Resolve directly (no upstream)
-policy.add(policy.all(policy.FORWARD({})))
-{% endif %}
-
-# Logging configuration
-# Log to systemd journal if enabled, otherwise to file
-{% if log_to_journal %}
-log_to_journal()
-{% else %}# Log to file
-log_file = '{{ log_file_path }}'
-{% endif %}
-
-# Query logging (debugging)
-{% if enable_query_log %}# Log every query and response
-log.queries({{ query_log_path }}, log.ALL)
-{% endif %}
-
-# Rate limiting per client (queries/sec)
-# Enable and configure rate limiting
-{% if rate_limit_enabled %}config.rate_limit = {{ rate_limit_qps }}
-{% else %}config.rate_limit = 0  # disabled
-{% endif %}
-
-# Local data overrides
-# Define static entries (e.g., internal hosts)
-{% for entry in local_data %}# Add local record: {{ entry.name }} -> {{ entry.rdata }} (type: {{ entry.type }})
-policy.add(policy.suffix(policy.ALL, dnspolicy.new(todname('{{ entry.name }}'), {{ entry.type }}, '{{ entry.rdata }}')))
-{% endfor %}
-
-# Timeout settings (seconds)
-# DNS resolution timeout and retry parameters
-config.timeout = {{ timeout_sec }}
-config.retry = {{ retry_count }}
-
-# Trust anchor renewal (auto-download)
-# Enable automatic trust anchor updates
-config.anchor_auto_update = {{ anchor_auto_update }}
-
-# Edns Client Subnet (ECS) settings
-# Control ECS handling
-config.edns_client_subnet = {{ edns_client_subnet_mode }}
-
-# Strict mode (RFC 8482 compliance)
-# Enable strict DNSSEC validation
-config.strict = {{ strict_mode }}
+# Construct the final DAEMON_ARGS string.
+# Format: --config=<path> --addr=<addr1> --addr=<addr2> ... <extra_args> $KRESD_ARGS
+DAEMON_ARGS="--config={{ config_file_path }}{% if listen_addresses %}{% for addr in listen_addresses %} --addr={{ addr }}{% endfor %}{% endif %}{% if daemon_extra_args %} {{ daemon_extra_args }}{% endif %} $KRESD_ARGS"

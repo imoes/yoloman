@@ -1,104 +1,17 @@
 {
-  "server_host": {
+  "user": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address the server listens on (e.g., 0.0.0.0 for all interfaces, or a specific public IP)"
+    "default": "nobody",
+    "description": "System user account under which shadowsocks-libev runs"
   },
-  "server_port": {
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group under which shadowsocks-libev runs"
+  },
+  "maxfd": {
     "type": "number",
-    "default": 8388,
-    "description": "Port number the server listens on for incoming client connections"
-  },
-  "local_host": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "Local address the shadowsocks client/proxy listens on (for local SOCKS5 or transparent proxy)"
-  },
-  "local_port": {
-    "type": "number",
-    "default": 1080,
-    "description": "Local port for SOCKS5 proxy (used when shadowsocks runs as a client or transparent proxy)"
-  },
-  "method": {
-    "type": "string",
-    "default": "aes-256-gcm",
-    "description": "Encryption cipher (e.g., aes-256-gcm, chacha20-ietf-poly1305). Prefer AEAD ciphers for security & performance"
-  },
-  "password": {
-    "type": "string",
-    "default": "",
-    "description": "Shared secret password for encryption and authentication (must match client config)"
-  },
-  "timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Idle connection timeout in seconds. Increase for slow networks or large file transfers"
-  },
-  "dns_server": {
-    "type": "string",
-    "default": "",
-    "description": "Optional DNS server (e.g., 8.8.8.8, 1.1.1.1) for DNS resolution via shadowsocks. Leave blank for system default"
-  },
-  "udp_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable UDP relay support (required for DNS over UDP, gaming, WebRTC)"
-  },
-  "no_log": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, disables logging entirely (useful for privacy-sensitive deployments)"
-  },
-  "fast_open": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TCP Fast Open (reduces latency; requires Linux kernel \u2265 3.7.1 and sysctl tcp_fastopen)"
-  },
-  "acl": {
-    "type": "string",
-    "default": "",
-    "description": "Path to ACL file (e.g., /etc/shadowsocks-libev/acl.json) to restrict allowed domains or IPs"
-  },
-  "mtu": {
-    "type": "number",
-    "default": 1400,
-    "description": "Maximum Transmission Unit size. Adjust if packet fragmentation is observed (e.g., 1300\u20131450)"
-  },
-  "mptcp": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Multipath TCP (requires kernel & network support). Not recommended for general use"
-  },
-  "ipv6_first": {
-    "type": "bool",
-    "default": false,
-    "description": "Prefer IPv6 addresses over IPv4 when resolving DNS (for dual-stack networks)"
-  },
-  "plugins": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "plugin_exec": {
-        "type": "string",
-        "default": "",
-        "description": "Path to plugin binary (e.g., /usr/bin/obfs-local)"
-      },
-      "plugin_opts": {
-        "type": "string",
-        "default": "",
-        "description": "Plugin options string (e.g., 'obfs=http;obfs-host=www.example.com')"
-      }
-    },
-    "description": "Optional list of obfuscation plugins. Currently supports only one plugin; specify as single-item list"
-  },
-  "workers": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of worker processes to spawn (requires --workers flag at runtime; useful for multi-core systems)"
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to log file (e.g., /var/log/shadowsocks-libev.log). Leave blank to log to stderr only"
+    "default": 32768,
+    "description": "Maximum number of open file descriptors (ulimit -n); increase for high-concurrency deployments"
   }
 }

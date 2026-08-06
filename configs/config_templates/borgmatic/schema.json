@@ -1,167 +1,151 @@
 {
   "repository": {
     "type": "string",
-    "default": "/path/to/borg/repo",
-    "description": "Path or URL to the Borg backup repository."
+    "default": {
+      "value": "/path/to/borg/repo"
+    }
   },
   "verification": {
     "type": "string",
-    "default": "integrity",
-    "description": "Verification mode: 'disabled', 'integrity', or 'data' (full data verification)."
+    "default": {
+      "value": "integrity"
+    }
   },
   "pruning": {
     "type": "bool",
-    "default": true,
-    "description": "Whether to automatically prune old archives according to retention rules."
+    "default": {
+      "value": true
+    }
   },
   "retention_keep_daily": {
     "type": "number",
-    "default": 7,
-    "description": "Number of daily backups to retain."
+    "default": {
+      "value": 7
+    }
   },
   "retention_keep_weekly": {
     "type": "number",
-    "default": 4,
-    "description": "Number of weekly backups to retain."
+    "default": {
+      "value": 4
+    }
   },
   "retention_keep_monthly": {
     "type": "number",
-    "default": 6,
-    "description": "Number of monthly backups to retain."
+    "default": {
+      "value": 6
+    }
   },
   "retention_keep_yearly": {
     "type": "number",
-    "default": 2,
-    "description": "Number of yearly backups to retain."
+    "default": {
+      "value": 2
+    }
   },
   "retention_prefix": {
     "type": "string",
-    "default": "{hostname}-",
-    "description": "Prefix used in archive names to group backups per host."
+    "default": {
+      "value": "{hostname}-"
+    }
   },
   "source_directories": {
     "type": "list",
-    "default": [
-      "/home",
-      "/etc",
-      "/var"
-    ],
-    "description": "List of directories to include in backups.",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": [
+        "/home",
+        "/etc",
+        "/var"
+      ]
+    },
+    "description": "List of directories to include in backups."
   },
   "excludes": {
     "type": "list",
-    "default": [
-      "*.tmp",
-      "*.log",
-      "/tmp/*",
-      "/var/cache/*"
-    ],
-    "description": "List of file/directory patterns to exclude from backups.",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": [
+        "*.tmp",
+        "*.log",
+        "/tmp/*",
+        "/var/cache/*"
+      ]
+    },
+    "description": "List of file/directory patterns to exclude from backups."
   },
   "extra_borg_create_options": {
     "type": "list",
-    "default": [],
-    "description": "Additional command-line flags passed to `borg create`.",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": []
+    },
+    "description": "Additional command-line flags passed to `borg create`."
   },
   "pre_backup": {
     "type": "list",
-    "default": [],
-    "description": "Shell commands to run before each backup (e.g., service freeze, fsync).",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": []
+    },
+    "description": "Shell commands to run before each backup (e.g., service freeze, fsync)."
   },
   "post_backup": {
     "type": "list",
-    "default": [],
-    "description": "Shell commands to run after each backup (e.g., service thaw, notifications).",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": []
+    },
+    "description": "Shell commands to run after each backup (e.g., service thaw, notifications)."
   },
   "on_error": {
     "type": "list",
-    "default": [],
-    "description": "Shell commands to run if backup fails (e.g., alerting scripts).",
-    "items": {
-      "type": "string"
-    }
+    "default": {
+      "value": []
+    },
+    "description": "Shell commands to run if backup fails (e.g., alerting scripts)."
   },
   "storage_encryption": {
     "type": "string",
-    "default": "repokey",
-    "description": "Encryption mode: 'none', 'keyfile', 'repokey', or 'authenticated'."
+    "default": {
+      "value": "repokey"
+    }
   },
   "storage_chunker_params": {
     "type": "string",
-    "default": "default",
-    "description": "Custom chunker parameters (e.g., '19,23,21,4095')."
+    "default": {
+      "value": "default"
+    }
   },
   "storage_compression": {
     "type": "string",
-    "default": "lz4",
-    "description": "Compression algorithm: 'lz4' (fast), 'zstd' (balanced), 'zlib', or 'auto'."
+    "default": {
+      "value": "lz4"
+    }
   },
   "storage_archive_name_format": {
     "type": "string",
-    "default": "{hostname}-{now:%Y-%m-%dT%H:%M:%S}",
-    "description": "Format string for archive names (supports strftime and host variables)."
+    "default": {
+      "value": "{hostname}-{now:%Y-%m-%dT%H:%M:%S}"
+    }
   },
   "storage_relimit": {
     "type": "object",
-    "default": null,
-    "description": "Optional read/write rate limits for backup speed control.",
-    "items": {
-      "reads": {
-        "type": "number",
-        "description": "Maximum read rate in bytes per second (e.g., 1048576 = 1 MiB/s)."
-      },
-      "writes": {
-        "type": "number",
-        "description": "Maximum write rate in bytes per second."
-      }
-    }
+    "default": {
+      "value": null
+    },
+    "description": "Optional read/write rate limits for backup speed control."
   },
   "monitoring_monitors": {
     "type": "list",
-    "default": [],
-    "description": "List of monitoring services to ping (e.g., Uptime Kuma, PagerDuty).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "type": {
-          "type": "string",
-          "description": "Monitor type: 'uptime-kuma', 'pagerduty', or 'custom'."
-        },
-        "url": {
-          "type": "string",
-          "description": "Uptime Kuma ping URL or custom webhook endpoint."
-        },
-        "success_rate_threshold": {
-          "type": "number",
-          "default": 0.9,
-          "description": "Minimum success rate (0.0\u20131.0) required to consider backup healthy."
-        }
-      }
-    }
+    "default": {
+      "value": []
+    },
+    "description": "List of monitoring services to ping (e.g., Uptime Kuma, PagerDuty)."
   },
   "log_level": {
     "type": "string",
-    "default": "INFO",
-    "description": "Verbosity level: 'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL'."
+    "default": {
+      "value": "INFO"
+    }
   },
   "log_json": {
     "type": "bool",
-    "default": false,
-    "description": "Whether to output logs in JSON format for structured logging."
+    "default": {
+      "value": false
+    }
   }
 }

@@ -1,0 +1,39 @@
+# Cron job configuration for dkim-rotate
+# This package manages the rotation of DKIM keys. It defines two scheduled tasks:
+# - minor: typically for updating key metadata or non-critical changes.
+# - major: typically for generating new key pairs or major updates.
+
+# --- Minor Job Configuration ---
+
+# Minute (0-59) to run the dkim-rotate --minor job.
+# This is the first field in the crontab entry.
+{% set _minor_minute = (minor_minute | default(26)) %}
+
+# Hour (0-23) to run the dkim-rotate --minor job.
+# This is the second field in the crontab entry.
+{% set _minor_hour = (minor_hour | default(22)) %}
+
+# The minor cron entry.
+# Format: minute hour dom mon dow user command
+# - dom, mon, dow are '*' meaning "every day/month/day of week".
+# - user is 'root' because DKIM key rotation often requires privileged access to
+#   read/write key files and reload mail services.
+# - command uses 'chronic' (from moreutils) to suppress stdout if the command
+#   succeeds (exit 0), only showing output on error.
+#
+# NOTE: If you need to run as a different user, ensure that user has permissions
+# for the DKIM key files and mail configuration directories.
+{{ _minor_minute }} {{ _minor_hour }}		* * *		root	chronic dkim-rotate --minor
+
+# --- Major Job Configuration ---
+
+# Minute (0-59) to run the dkim-rotate --major job.
+{% set _major_minute = (major_minute | default(26)) %}
+
+# Hour (0-23) to run the dkim-rotate --major job.
+{% set _major_hour = (major_hour | default(4)) %}
+
+# The major cron entry.
+# Same format and user considerations as the minor job.
+# Typically scheduled during off-peak hours to minimize potential impact.
+{{ _major_minute }} {{ _major_hour }}		* * *		root	chronic dkim-rotate --major

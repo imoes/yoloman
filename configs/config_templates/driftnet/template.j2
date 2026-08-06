@@ -1,0 +1,77 @@
+# driftnet command-line arguments generated from Ansible variables
+# See the schema field descriptions for the purpose of each option.
+
+{# Interface to listen on (e.g., eth0); required on some systems for pcap to work. #}
+{% if (interface | default('')) %}
+-i {{ interface | default('') }}
+{% endif %}
+
+{# Read captured packets from a pcap file instead of capturing live traffic. #}
+{% if (pcap_file | default('')) %}
+-f {{ pcap_file | default('') }}
+{% endif %}
+
+{# Do not put the interface into promiscuous mode. #}
+{% if not_promiscuous | default(False) | bool %}
+-p
+{% endif %}
+
+{# Operate in adjunct mode — save images to a temp directory and write filenames to stdout. #}
+{% if adjunct_mode | default(False) | bool %}
+-a
+{% endif %}
+
+{# In adjunct mode, silently drop images if there are more than this number in temp dir. #}
+{% if adjunct_max_images | default(0) != 0 %}
+-m {{ adjunct_max_images | default(0) }}
+{% endif %}
+
+{# Filename prefix for saved image files. #}
+{% if (image_prefix | default('driftnet-')) != 'driftnet-' %}
+-x {{ image_prefix | default('driftnet-') }}
+{% endif %}
+
+{# Directory to use for temporary image files in adjunct mode. #}
+{% if (temp_dir | default('')) %}
+-d {{ temp_dir | default('') }}
+{% endif %}
+
+{# Attempt to capture and play MPEG audio streams. #}
+{% if capture_audio | default(False) | bool %}
+-s
+{% endif %}
+
+{# Capture only audio (ignore images). #}
+{% if audio_only | default(False) | bool %}
+-S
+{% endif %}
+
+{# Command to execute for playing MPEG audio. Must accept MPEG frames on stdin. Array of argv tokens (first element = command, rest = args). #}
+{% if audio_player | default(['mpg123', '-']) | length > 0 %}
+-M {{ audio_player | default(['mpg123', '-']) | join(' ') }}
+{% endif %}
+
+{# Drop privileges to this user after starting pcap. #}
+{% if (drop_user | default('')) %}
+-Z {{ drop_user | default('') }}
+{% endif %}
+
+{# Enable built-in HTTP server to display images. #}
+{% if http_server | default(False) | bool %}
+-w
+{% endif %}
+
+{# Port for HTTP server (implies -w). Default: 9090. #}
+{% if http_port | default(9090) != 9090 %}
+-W {{ http_port | default(9090) }}
+{% endif %}
+
+{# Enable monitor mode on the interface (not supported on all interfaces). #}
+{% if monitor_mode | default(False) | bool %}
+-r
+{% endif %}
+
+{# Additional libpcap filter expression. Will be prepended with 'tcp and (', appended with ')'. #}
+{% if (filter_expr | default('')) %}
+tcp and ({{ filter_expr | default('') }})
+{% endif %}

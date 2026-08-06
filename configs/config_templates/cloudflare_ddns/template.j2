@@ -1,35 +1,69 @@
 {
-  {# List of Cloudflare zone configurations; one entry per DNS zone to manage #}
+  # ==============================================================================
+  # cloudflare_ddns configuration
+  # ==============================================================================
+  # This file configures a Cloudflare Dynamic DNS updater. It manages DNS records
+  # for specified zones, updating A (IPv4) and AAAA (IPv6) records to reflect the
+  # host's current public IP address.
+  #
+  # Self-documenting: every field is described in the comments above it.
+  # Variables use schema defaults to ensure the template renders correctly even
+  # if a variable is not defined in the Ansible inventory.
+  # ==============================================================================
+
+  {# "cloudflare": List of Cloudflare DNS zone configurations.
+     One entry per DNS zone this host should keep updated.
+     Default: [] (empty list, no zones managed) #}
   "cloudflare": [
-    {% for zone in zones %}
+    {# Iterate over each zone defined in the 'zones' list.
+       Uses default([]) to handle undefined variable gracefully. #}
+    {% for zone in zones | default([]) %}
     {
-      {# Authentication block — scoped API token is preferred over legacy Global API Key #}
+      {# "authentication": Block containing credentials for the Cloudflare API.
+         Default: empty object if zone.auth is missing or empty. #}
       "authentication": {
-        {# API token from dash.cloudflare.com/profile/api-tokens with Zone:DNS:Edit permission #}
-        "api_token": "{{ zone.api_token }}"
+        {# "api_token": The scoped API token for Cloudflare (Zone:DNS:Edit).
+           Prefer scoped tokens over legacy global API keys for security.
+           If not provided, authentication will fail unless handled externally. #}
+        "api_token": "{{ (zone.api_token | default('')) }}"
       },
-      {# Zone ID (32-char hex) for the domain — found on the Overview tab of the zone #}
-      "zone_id": "{{ zone.zone_id }}",
-      {# Subdomains to keep in sync; use name="" for the apex/root domain #}
+      {# "zone_id": The unique identifier (32-char hex string) for the Cloudflare zone.
+         Found on the 'Overview' tab in the Cloudflare dashboard. #}
+      "zone_id": "{{ (zone.zone_id | default('')) }}",
+      {# "subdomains": List of subdomains within the zone to manage.
+         Use name="" for the apex/root domain (e.g. example.com).
+         Default: [] if zone.subdomains is not defined. #}
       "subdomains": [
-        {% for sub in zone.subdomains %}
+        {% for sub in (zone.subdomains | default([])) %}
         {
-          {# Subdomain label: empty string for apex, "www" for www.<domain>, "vpn" etc. #}
-          "name": "{{ sub.name }}",
-          {# proxied: true routes traffic through Cloudflare CDN+WAF and hides the real IP #}
-          "proxied": {% if sub.proxied %}true{% else %}false{% endif %}
+          {# "name": The subdomain label. Empty string "" for the apex domain,
+             "www" for www.example.com, etc. #}
+          "name": "{{ (sub.name | default('')) }}",
+          {# "proxied": Boolean. true routes traffic through Cloudflare CDN/WAF
+             and hides the real IP; false passes traffic directly.
+             Default: false. #}
+          "proxied": {% if (sub.proxied | default(false)) %}true{% else %}false{% endif %}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
       ]
     }{% if not loop.last %},{% endif %}
     {% endfor %}
   ],
-  {# a: update IPv4 A records with the current public IPv4 address of this host #}
-  "a": {% if update_ipv4 %}true{% else %}false{% endif %},
-  {# aaaa: update IPv6 AAAA records with the current public IPv6 address of this host #}
-  "aaaa": {% if update_ipv6 %}true{% else %}false{% endif %},
-  {# purgeUnknownRecords: delete records in managed zones that were not created by this tool #}
-  "purgeUnknownRecords": {% if purge_unknown_records %}true{% else %}false{% endif %},
-  {# ttl: DNS record time-to-live in seconds; 1 = let Cloudflare set it automatically #}
-  "ttl": {{ ttl }}
+  {# "a": Boolean flag to update A records (IPv4) with the current public IPv4 address.
+     Set to true to enable IPv4 updates, false to disable.
+     Default: true. #}
+  "a": {% if (update_ipv4 | default(true)) %}true{% else %}false{% endif %},
+  {# "aaaa": Boolean flag to update AAAA records (IPv6) with the current public IPv6 address.
+     Enable only if the host has a stable public IPv6.
+     Default: false. #}
+  "aaaa": {% if (update_ipv6 | default(false)) %}true{% else %}false{% endif %},
+  {# "purgeUnknownRecords": Boolean. If true, deletes A/AAAA records in managed zones
+     that were NOT created by this tool.
+     Use with caution on shared zones to avoid deleting critical records.
+     Default: false. #}
+  "purgeUnknownRecords": {% if (purge_unknown_records | default(false)) %}true{% else %}false{% endif %},
+  {# "ttl": DNS record Time-To-Live in seconds.
+     Minimum 60. Set to 1 to let Cloudflare automatically manage the TTL.
+     Default: 300. #}
+  "ttl": {{ (ttl | default(300)) }}
 }

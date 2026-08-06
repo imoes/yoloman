@@ -1,11 +1,27 @@
 # /etc/anacrontab: configuration file for anacron
+#
+# This file defines scheduled jobs to be executed by anacron.
+# Anacron is used for commands that should be run periodically but
+# might not be running when the system is normally up (e.g., cron jobs
+# on a machine that is not always running).
+#
+# Format of each line:
+#   <period> <delay> <identifier> <command>
+#
+# <period>: Number of days or special markers (daily, weekly, monthly)
+#           between two executions of the job.
+# <delay>:  Number of minutes anacron should wait after starting before
+#           executing the job. This avoids overloading the system if
+#           multiple jobs are due at once.
+# <identifier>: Unique name for the job. Used to create timestamp files
+#               in /var/spool/anacron/ to track when the job was last run.
+#               Must not contain '/' characters.
+# <command>: The command to execute. Full paths are recommended.
 
-# See anacron(8) and anacrontab(5) for details.
-
-SHELL={{ shell }}
-HOME={{ home }}
-LOGNAME={{ logname }}
-
-# These replace cron's entries
-{% for job in jobs %}{{ job.period }}	{{ job.delay }}	{{ job.name }}	{{ job.command }}
+{% for job in (jobs | default([])) %}
+# Unique name for the job (used as identifier and timestamp file name); must not contain '/'
+# Period in days or special marker (e.g., '1', '7', 'monthly') — 'monthly' supported per man page
+# Delay in minutes before running the job after anacron starts
+# Command to execute (full path recommended)
+{{ job.period | default('1') }}	{{ job.delay | default(0) }}	{{ job.name | default('') }}	{{ job.command | default('') }}
 {% endfor %}

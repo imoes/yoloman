@@ -1,0 +1,46 @@
+{
+  "provides": [
+    {
+      "capability": "dhcp_server",
+      "backend": "kea_dhcp6",
+      "port_field": "lease_database_port",
+      "default_port": 5432,
+      "provisionable": {
+        "subnets": "subnets"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "database",
+      "backends": [
+        "postgresql",
+        "mysql",
+        "mariadb"
+      ],
+      "backend_field": "lease_database_type",
+      "fields": {
+        "host": "lease_database_host",
+        "port": "lease_database_port",
+        "name": "lease_database_name",
+        "user": "lease_database_user",
+        "password": "lease_database_password"
+      }
+    },
+    {
+      "capability": "dns_authoritative",
+      "backends": [
+        "bind9",
+        "powerdns",
+        "nsd",
+        "knot"
+      ],
+      "fields": {
+        "host": "dhcp_ddns_server_ip",
+        "port": "dhcp_ddns_server_port"
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "review"
+}

@@ -1,66 +1,68 @@
 [DEFAULT]
-# Log level for designate-mdns
-log_level = {{ log_level }}
+# Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR).
+log_level = {{ log_level | default('INFO') }}
 
-# Base directory for logging
-log_dir = {{ log_dir }}
+# Directory where log files are written.
+log_dir = {{ log_dir | default('/var/log/designate') }}
 
-# Listen address for the mDNS service
-bind_host = {{ bind_host }}
+# IP address the mDNS service listens on. Default is typically 0.0.0.0 to bind to all interfaces unless specified otherwise.
+bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# Listen port for the mDNS service
-bind_port = {{ bind_port }}
+# UDP port the mDNS service listens on. Default is 5354 (mDNS uses 5353, but designate-mdns default is often 5354 or configurable).
+bind_port = {{ bind_port | default(5354) }}
 
-# Number of worker processes
-workers = {{ workers }}
+# Number of worker processes to spawn for handling requests.
+workers = {{ workers | default(1) }}
 
-# Maximum number of concurrent requests per worker
-max_request_body_size = {{ max_request_body_size }}
+# Maximum allowed size (in bytes) of an incoming request body.
+max_request_body_size = {{ max_request_body_size | default(65535) }}
 
-# RPC transport URL (e.g., rabbitmq://user:pass@host:5672/)
-rpc_backend = {{ rpc_backend }}
-rabbit_host = {{ rabbit_host }}
-rabbit_port = {{ rabbit_port }}
-rabbit_user = {{ rabbit_user }}
-rabbit_password = {{ rabbit_password }}
-rabbit_virtual_host = {{ rabbit_virtual_host }}
+# RPC transport backend (only 'rabbit' is supported in current releases).
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# Hostname or IP of the RabbitMQ message broker.
+rabbit_host = {{ rabbit_host | default('127.0.0.1') }}
+
+# Port of the RabbitMQ message broker.
+rabbit_port = {{ rabbit_port | default(5672) }}
+
+# Username for RabbitMQ authentication.
+rabbit_user = {{ rabbit_user | default('guest') }}
+
+# Password for RabbitMQ authentication (use secrets management in production).
+rabbit_password = {{ rabbit_password | default('guest') }}
+
+# Virtual host in RabbitMQ for designate messages.
+rabbit_virtual_host = {{ rabbit_virtual_host | default('/') }}
 
 # Keystone authentication endpoint
 auth_strategy = keystone
 
-# Path to the SSL certificate (optional)
-# ssl_cert_file = {{ ssl_cert_file }}
-# ssl_key_file = {{ ssl_key_file }}
-
 [storage]
-# Backend driver for storage (only 'sql' is used in designate-mdns)
-driver = {{ storage_driver }}
+# Backend driver for storage (only 'sql' is used for mDNS).
+driver = {{ storage_driver | default('sql') }}
 
-# SQLAlchemy connection string for MySQL/PostgreSQL
-connection = {{ sql_connection }}
+# Database connection URL (e.g., MySQL or PostgreSQL).
+# This field requires a full connection string provided by the user or a database provider.
+# It is not automatically constructed from individual host/port/user/password fields
+# because the schema provides a single `sql_connection` string.
+connection = {{ sql_connection | default('mysql+pymysql://designate:designate@127.0.0.1/designate?charset=utf8mb4') }}
 
 [service:mdns]
-# Enable/Disable mdns service
-enabled = {{ mdns_enabled }}
+# Whether the mDNS service should be active.
+enabled = {{ mdns_enabled | default(true) }}
 
-# Comma-separated list of zone IDs to allow as allowed zones (empty = all)
-# allowed_zones = {{ allowed_zones }}
+# Comma-separated list of zone IDs to allow as allowed zones (empty = all).
+allowed_zones = {{ allowed_zones | default('') }}
 
-# Comma-separated list of zone IDs to explicitly deny (overrides allowed_zones)
-# denied_zones = {{ denied_zones }}
+# Comma-separated list of zone IDs to explicitly deny (overrides allowed_zones).
+denied_zones = {{ denied_zones | default('') }}
 
-# Maximum number of responses per request (RFC 1035 limits this to 255)
-max_responses = {{ max_responses }}
+# Maximum number of DNS resource records to return per query (per RFC limits).
+max_responses = {{ max_responses | default(255) }}
 
-# TTL for negative responses (NXDOMAIN, etc.)
-negative_ttl = {{ negative_ttl }}
+# Time-to-live (in seconds) for negative (error) DNS responses.
+negative_ttl = {{ negative_ttl | default(300) }}
 
-# Enable EDNS support
-edns = {{ edns_enabled }}
-
-# Enable DNS over HTTPS (DoH) support
-# doh_enabled = {{ doh_enabled }}
-# doh_bind_host = {{ doh_bind_host }}
-# doh_bind_port = {{ doh_bind_port }}
-# doh_cert_file = {{ doh_cert_file }}
-# doh_key_file = {{ doh_key_file }}
+# Enable EDNS (Extension Mechanisms for DNS) support.
+edns = {{ edns_enabled | default(true) }}

@@ -1,0 +1,21 @@
+# =============================================================================
+# aptly-api service configuration template
+# =============================================================================
+# This template configures the aptly-api systemd service environment file.
+# aptly-api provides a RESTful API for managing APT repositories managed by aptly.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# listen_address: Host and port the aptly API service binds to (e.g., 'localhost:8080' or '0.0.0.0:8080')
+# Default: localhost:8080
+# -----------------------------------------------------------------------------
+LISTEN_ADDRESS='{{ (listen_address | default('localhost:8080')) | string }}'
+
+# -----------------------------------------------------------------------------
+# APTLY_OPTIONS: Command-line flags passed to the aptly command.
+# -no-lock: Allow aptly commands to run in parallel with the API service.
+#           This removes the global database lock, but retains locking per request.
+#           Enable this if you need high concurrency but accept potential race conditions
+#           on repository metadata updates.
+# -----------------------------------------------------------------------------
+APTLY_OPTIONS="-no-lock"

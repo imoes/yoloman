@@ -1,64 +1,92 @@
 # FireHOL - IPv4 stateful packet filter for Linux
 # Defines interface rules, allowed services, and security policies
 
-# Define the default policy for incoming and outgoing traffic
-{% if default_policy_in != '' %}# Default incoming policy: {{ default_policy_in }}
-{% endif %}{{ 'start' }}{% if default_policy_in %}# Default incoming policy: {{ default_policy_in }}
-{% endif %}
-{% if default_policy_out != '' %}# Default outgoing policy: {{ default_policy_out }}
-{% endif %}{{ 'start' }}{% if default_policy_out %}# Default outgoing policy: {{ default_policy_out }}
-{% endif %}
+# Global: Default policy for incoming traffic: 'drop', 'reject', or 'drop with log'.
+# Default: drop
+# Note: 'start client' sets the default client mode (incoming to local machine).
+# The specific default policy is configured below.
+start client
 
-# Global interface rules: per-interface security policies
-{% for iface in interfaces %}# Interface: {{ iface.name }} — traffic direction: {{ iface.direction }}
-{% if iface.comment %}# {{ iface.comment }}
-{% endif %}{{ 'start' }}interface {{ iface.direction }} {{ iface.name }} {
-{%   if iface.mode %}  mode "{{ iface.mode }}"
-{%   endif %}
-{%   if iface.policy %}  policy {{ iface.policy }}
-{%   endif %}
-{%   if iface.routed %}  routed {{ 'yes' if iface.routed == True else 'no' }}
-{%   endif %}
-{%   if iface.dns %}  dns accept
-{%   endif %}
-{%   if iface.https %}  https accept
-{%   endif %}
-{%   if iface.http %}  http accept
-{%   endif %}
-{%   for service in iface.services %}  service {{ service.name }} {{ service.action }}
-{%   endfor %}
+# Global: Default policy for outgoing traffic: 'accept' or 'drop'.
+# Default: accept
+# Note: 'start server' sets the default server mode (incoming to local services).
+# The specific default policy is configured below.
+start server accept
+
+# Global: Logging verbosity: 'quiet', 'info', 'medium', 'full'.
+# Default: info
+log_level {{ log_level | default('info') }}
+
+# Global: Enable system IP packet forwarding (required for router/gateway roles).
+# Default: false
+ip_forward {{ 'yes' if (ip_forward | default(False)) else 'no' }}
+
+# Global: Advanced rules - explicit service definitions
+# Default: [] (empty list)
+{% for svc in (services | default([], true)) %}
+# Custom service: {{ svc.name | default('unnamed') }}
+# Protocol: {{ svc.protocol | default('tcp') }}, Ports: {{ svc.ports | default([]) | join(', ') }}
+{% if svc.comment | default(None) is not none and svc.comment %}# Comment: {{ svc.comment }}
+{% endif %}
+start
+server {{ svc.name | default('unnamed') }} accept src {{ svc.src | default('any') }} port {{ svc.ports | default([]) | join(', ') }} proto {{ svc.protocol | default('tcp') }}
+
+{% endfor %}
+
+# Global: Advanced rules - IP sets for efficient IP or network blocking/allowing.
+# Default: [] (empty list)
+{% for ipset in (ipsets | default([], true)) %}
+# IP set: {{ ipset.name | default('unnamed') }}
+# Type: {{ ipset.type | default('hash:ip') }}
+{% if ipset.comment | default(None) is not none and ipset.comment %}# Comment: {{ ipset.comment }}
+{% endif %}
+start
+ipset --type {{ ipset.type | default('hash:ip') }} {{ ipset.name | default('unnamed') }}
+{% for entry in (ipset.entries | default([], true)) %}
+ipset add {{ ipset.name | default('unnamed') }} {{ entry }}
+{% endfor %}
+
+{% endfor %}
+
+# Global: Advanced rules - Additional raw FireHOL directives.
+# Default: [] (empty list)
+{% for line in (extra_lines | default([], true)) %}
+# {{ line }}
+{% endfor %}
+{% for line in (extra_lines | default([], true)) %}
+{{ line }}
+{% endfor %}
+
+# Global: Advanced rules - Interfaces configuration.
+# Default: [{'name': 'eth0', 'direction': 'inout', 'mode': 'router', 'policy': 'client', 'routed': True, 'dns': True, 'https': True, 'http': True, 'services': [{'name': 'ssh', 'action': 'accept'}, {'name': 'http', 'action': 'accept'}, {'name': 'https', 'action': 'accept'}]}]
+{% for iface in (interfaces | default([{'name': 'eth0', 'direction': 'inout', 'mode': 'router', 'policy': 'client', 'routed': True, 'dns': True, 'https': True, 'http': True, 'services': [{'name': 'ssh', 'action': 'accept'}, {'name': 'http', 'action': 'accept'}, {'name': 'https', 'action': 'accept'}]}], true)) %}
+# Interface: {{ iface.name | default('eth0') }}
+# Traffic direction: {{ iface.direction | default('inout') }}
+{% if iface.comment | default(None) is not none and iface.comment %}# Comment: {{ iface.comment }}
+{% endif %}
+start
+interface {{ iface.direction | default('inout') }} {{ iface.name | default('eth0') }} {
+{% if iface.mode | default(None) is not none %}
+  mode "{{ iface.mode | default('router') }}"
+{% endif %}
+{% if iface.policy | default(None) is not none %}
+  policy {{ iface.policy | default('client') }}
+{% endif %}
+{% if iface.routed | default(None) is not none %}
+  routed {{ 'yes' if (iface.routed | default(True)) else 'no' }}
+{% endif %}
+{% if iface.dns | default(None) is not none and (iface.dns | default(True)) %}
+  dns accept
+{% endif %}
+{% if iface.https | default(None) is not none and (iface.https | default(True)) %}
+  https accept
+{% endif %}
+{% if iface.http | default(None) is not none and (iface.http | default(True)) %}
+  http accept
+{% endif %}
+{% for service in (iface.services | default([], true)) %}
+  service {{ service.name | default('') }} {{ service.action | default('accept') }}
+{% endfor %}
 }
 
-{% endfor %}
-
-# Advanced rules: explicit service definitions
-{% for svc in services %}# Custom service: {{ svc.name }} — protocol: {{ svc.protocol }}, ports: {{ svc.ports | join(', ') }}
-{% if svc.comment %}# {{ svc.comment }}
-{% endif %}{{ 'start' }}server {{ svc.name }} accept src {{ svc.src | default('any') }} port {{ svc.ports | join(', ') }} proto {{ svc.protocol }}
-
-{% endfor %}
-
-# IP sets: block/allow lists
-{% for ipset in ipsets %}# IP set: {{ ipset.name }} — type: {{ ipset.type }}
-{% if ipset.comment %}# {{ ipset.comment }}
-{% endif %}{{ 'start' }}ipset --type {{ ipset.type }} {{ ipset.name }}
-{% for entry in ipset.entries %}ipset add {{ ipset.name }} {{ entry }}
-{% endfor %}
-
-{% endfor %}
-
-# Logging options
-{% if log_level != '' %}# Logging level: {{ log_level }}
-{% endif %}{{ 'start' }}{% if log_level %}log_level {{ log_level }}
-{% endif %}
-
-# Enable/disable packet forwarding
-{% if ip_forward != '' %}# IP forwarding: {{ 'enabled' if ip_forward == True else 'disabled' }}
-{% endif %}{{ 'start' }}{% if ip_forward is true %}ip_forward yes
-{% elif ip_forward is false %}ip_forward no
-{% endif %}
-
-# Additional options (passed directly)
-{% for line in extra_lines %}# {{ line }}
-{% endfor %}{{ 'start' }}{% for line in extra_lines %}{{ line }}
 {% endfor %}

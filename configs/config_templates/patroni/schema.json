@@ -31,7 +31,7 @@
   },
   "pg_params": {
     "type": "object",
-    "default": {},
+    "default": [],
     "description": "Key-value map of PostgreSQL runtime parameters to set (e.g., shared_buffers = '256MB')"
   },
   "superuser_name": {
@@ -42,8 +42,7 @@
   "superuser_password": {
     "type": "string",
     "default": "",
-    "description": "Password for the PostgreSQL superuser (must be set securely in production)",
-    "format": "password"
+    "description": "Password for the PostgreSQL superuser (must be set securely in production)"
   },
   "replicator_name": {
     "type": "string",
@@ -53,8 +52,7 @@
   "replicator_password": {
     "type": "string",
     "default": "",
-    "description": "Password for the replication user (must be set securely)",
-    "format": "password"
+    "description": "Password for the replication user (must be set securely)"
   },
   "cluster_scope": {
     "type": "string",
@@ -63,24 +61,29 @@
   },
   "node_name": {
     "type": "string",
-    "default": "{{ inventory_hostname | default('pg1') }}",
+    "default": "pg1",
     "description": "Unique hostname/identifier for this Patroni node (must be unique within the cluster)"
   },
   "dcs_type": {
     "type": "string",
     "default": "etcd",
-    "description": "Distributed configuration store backend to use for cluster coordination"
+    "description": "Distributed configuration store backend to use for cluster coordination",
+    "enum": [
+      "etcd",
+      "etcd3",
+      "consul",
+      "kubernetes",
+      "zookeeper",
+      "exhibitor",
+      "raft"
+    ]
   },
   "dcs_hosts": {
     "type": "list",
     "default": [
       "localhost:2379"
     ],
-    "description": "List of DCS host addresses (host:port) \u2014 one per DCS instance",
-    "items": {
-      "type": "string",
-      "pattern": "^[^:]+:\\d+$"
-    }
+    "description": "List of DCS host addresses (host:port) \u2014 one per DCS instance"
   },
   "dcs_port": {
     "type": "number",
@@ -95,8 +98,7 @@
   "dcs_password": {
     "type": "string",
     "default": "",
-    "description": "Optional password for ZooKeeper or etcd authentication",
-    "format": "password"
+    "description": "Optional password for ZooKeeper or etcd authentication"
   },
   "dcs_token": {
     "type": "string",
@@ -128,137 +130,34 @@
     "default": "",
     "description": "Path to client certificate for TLS with etcd"
   },
-  "dcs_key_path": {
+  "init_script_logfile": {
+    "type": "string",
+    "default": "/var/log/patroni.log",
+    "description": "Path to the Patroni init script log file"
+  },
+  "init_script_user": {
+    "type": "string",
+    "default": "postgres",
+    "description": "System user to run Patroni as"
+  },
+  "init_script_group": {
+    "type": "string",
+    "default": "postgres",
+    "description": "System group to run Patroni as"
+  },
+  "init_script_postgres_version": {
     "type": "string",
     "default": "",
-    "description": "Path to client private key for TLS with etcd"
+    "description": "Optional PostgreSQL version (used when multiple versions installed)"
   },
-  "k8s_namespace": {
+  "init_script_conf_file": {
     "type": "string",
-    "default": "default",
-    "description": "Kubernetes namespace to use for Patroni resources (ConfigMap/Endpoints)"
+    "default": "/etc/patroni/postgres.yml",
+    "description": "Path to the Patroni main configuration file"
   },
-  "restapi_listen": {
+  "init_script_pid_file": {
     "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address for Patroni REST API to bind to (e.g., 0.0.0.0 for all interfaces)"
-  },
-  "restapi_port": {
-    "type": "number",
-    "default": 8008,
-    "description": "HTTP port for Patroni REST API"
-  },
-  "restapi_use_ssl": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS for REST API"
-  },
-  "restapi_certfile": {
-    "type": "string",
-    "default": "",
-    "description": "Path to TLS certificate file for REST API"
-  },
-  "restapi_keyfile": {
-    "type": "string",
-    "default": "",
-    "description": "Path to TLS private key file for REST API"
-  },
-  "restapi_admin_user": {
-    "type": "string",
-    "default": "admin",
-    "description": "Username for admin REST API endpoints (e.g., /failover)"
-  },
-  "restapi_admin_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for admin REST API access",
-    "format": "password"
-  },
-  "bootstrap_ttl": {
-    "type": "number",
-    "default": 30,
-    "description": "Time-to-live (seconds) for session locks in DCS \u2014 controls failover detection speed"
-  },
-  "bootstrap_loop_wait": {
-    "type": "number",
-    "default": 10,
-    "description": "Interval (seconds) between Patroni retry loops (e.g., health checks)"
-  },
-  "bootstrap_retry_timeout": {
-    "type": "number",
-    "default": 10,
-    "description": "Timeout (seconds) for DCS operations before retrying"
-  },
-  "bootstrap_max_lag": {
-    "type": "number",
-    "default": 1048576,
-    "description": "Maximum lag in bytes before a replica is excluded from failover target"
-  },
-  "bootstrap_sync_mode": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable synchronous replication mode during bootstrap (recommended for critical data"
-  },
-  "bootstrap_superuser": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to create the superuser account during bootstrap (if true, superuser_* must be set)"
-  },
-  "bootstrap_replicator": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to create the replication user account during bootstrap"
-  },
-  "bootstrap_initdb": {
-    "type": "object",
-    "default": {
-      "encoding": "UTF8",
-      "locale": "en_US.UTF-8",
-      "data-checksums": true
-    },
-    "description": "Key-value initdb options (e.g., for encoding, locale, or checksums)"
-  },
-  "bootstrap_pg_hba": {
-    "type": "list",
-    "default": [
-      "local all postgres peer",
-      "local all all md5",
-      "host all all 127.0.0.1/32 md5",
-      "host replication replicator 127.0.0.1/32 md5"
-    ],
-    "description": "List of pg_hba.conf rules to include in the bootstrap cluster",
-    "items": {
-      "type": "string"
-    }
-  },
-  "watchdog_mode": {
-    "type": "string",
-    "default": "off",
-    "description": "Watchdog behavior: off, automatic (allow failover only if watchdog is OK), or mandatory (require watchdog)"
-  },
-  "watchdog_device": {
-    "type": "string",
-    "default": "/dev/watchdog",
-    "description": "Path to the watchdog device (e.g., /dev/watchdog or /dev/misc/watchdog)"
-  },
-  "watchdog_safety_margin": {
-    "type": "number",
-    "default": 5,
-    "description": "Additional time (seconds) to wait before watchdog-triggered fencing after timeout"
-  },
-  "node_nofailover": {
-    "type": "bool",
-    "default": false,
-    "description": "Prevent this node from becoming primary (use for reporting-only replicas)"
-  },
-  "node_noloadbalance": {
-    "type": "bool",
-    "default": false,
-    "description": "Exclude this node from load-balancing by read replicas or clients"
-  },
-  "node_clonefrom": {
-    "type": "bool",
-    "default": false,
-    "description": "Prefer this node as a clone source for new replicas (useful for dedicated backup nodes)"
+    "default": "/var/run/patroni.pid",
+    "description": "Path to the Patroni PID file"
   }
 }

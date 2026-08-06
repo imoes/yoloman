@@ -1,52 +1,71 @@
 [global]
-# The maximum number of simultaneous connections ipband will handle
-maxconn = {{ maxconn }}
+# Averaging period in seconds. Default is 60.
+# Defines the time window over which bandwidth is calculated and averaged.
+average = {{ (average | default(60)) | int }}
 
-# The interface(s) to monitor for bandwidth; comma-separated list
-interfaces = {{ interfaces | join(', ') }}
+# Network interface to read data from. Default is eth0.
+# The specific network interface (e.g., eth0, ens33) that ipband will monitor for traffic.
+interface = {{ (interface | default('eth0')) | string }}
 
-# Path to the PID file for ipband daemon
-pidfile = {{ pidfile }}
+# Debug level. 0 - no debugging; 1 - summary; 2 - subnet statistics; 3 - all packets. Default is 0.
+# Controls the verbosity of the output.
+debug = {{ (debug | default(0)) | int }}
 
-# Logging level: 0 (quiet) to 5 (debug)
-loglevel = {{ loglevel }}
+# Run in background. Default is no.
+# If set to yes, ipband daemonizes itself.
+fork = {{ 'yes' if (fork | default(False) | bool) else 'no' }}
 
-# Path to the log file (leave empty to log to syslog only)
-logfile = {{ logfile | default('') }}
+# PCAP filter string. Default is '' (no filter).
+# libpcap expression to filter packets before processing (e.g., 'port 80').
+filter = {{ (filter | default('')) | string }}
 
-# Enable or disable logging to syslog
-logsyslog = {{ 'yes' if logsyslog else 'no' }}
+# Filename to output detailed subnet report. Default is ipband.txt in current directory.
+outfile = {{ (outfile | default('ipband.txt')) | string }}
 
-# Path to the stats file for external monitoring tools
-statsfile = {{ statsfile }}
+# HTML report output file. Default is ipband.html in current directory.
+htmlfile = {{ (htmlfile | default('ipband.html')) | string }}
 
-# Interval (in seconds) between stats file updates
-statsinterval = {{ statsinterval }}
+# HTML title of the report output file. Default is '' (empty).
+htmltitle = {{ (htmltitle | default('')) | string }}
 
-[daemon]
-# Run ipband as a daemon (background process)
-daemonize = {{ 'yes' if daemonize else 'no' }}
+# Bandwidth threshold in kBytes per second. Default is 7.
+# Global default bandwidth limit. Subnets can override this.
+bandwidth = {{ (bandwidth | default(7)) | float }}
 
-# User to run as after startup (must be a valid system user)
-user = {{ user }}
+# Packet length adjustment in bytes. Default is 0.
+# Adjusts the calculated packet size by this many bytes.
+lenadj = {{ (lenadj | default(0)) | int }}
 
-# Group to run as after startup
-grp = {{ grp }}
+# Reporting period - number of seconds bandwidth threshold may be exceeded before report. Default is 300 seconds.
+# How long (in seconds) the threshold can be exceeded before an alert/report is triggered.
+report = {{ (report | default(300)) | int }}
 
-[bandwidth]
-# Global upload limit (in KBytes/sec); 0 = unlimited
-upload_limit = {{ bandwidth.upload_limit }}
+# Limit subnet report to a given number of per-host connections. Default is 0 (no limit).
+# Maximum number of top hosts to list in the report. 0 means list all.
+top = {{ (top | default(0)) | int }}
 
-# Global download limit (in KBytes/sec); 0 = unlimited
-download_limit = {{ bandwidth.download_limit }}
+# Include threshold exceeded accumulated time and percentage in report. Default is no.
+# If yes, the report includes statistics on how long the threshold was exceeded.
+accumulate = {{ 'yes' if (accumulate | default(False) | bool) else 'no' }}
 
-{% for rule in bandwidth.rules %}[bandwidth:{{ rule.name }}]
-# Rule: {{ rule.description | default('No description') }}
-enabled = {{ 'yes' if rule.enabled else 'no' }}
-upload_limit = {{ rule.upload_limit }}
-download_limit = {{ rule.download_limit }}
-{% if rule.match_type == 'src_ip' %}src_ip = {{ rule.match_value }}
-{% elif rule.match_type == 'dst_ip' %}dst_ip = {{ rule.match_value }}
-{% elif rule.match_type == 'port' %}port = {{ rule.match_value }}
-{% elif rule.match_type == 'proto' %}proto = {{ rule.match_value }}
-{% endif %}{% endfor %}
+# Email address(es) to send detailed subnet report to. Default is '' (empty).
+mailto = {{ (mailto | default('')) | string }}
+
+# File to be appended to the end of e-mail reports. Default is '' (empty).
+mailfoot = {{ (mailfoot | default('')) | string }}
+
+# MTA command string for mailing reports. Default is '/usr/sbin/sendmail -t -oi'.
+mtastring = {{ (mtastring | default('/usr/sbin/sendmail -t -oi')) | string }}
+
+# Number of network mask bits (1-32). Default is 24.
+# CIDR notation mask length for grouping IPs into subnets.
+maskbits = {{ (maskbits | default(24)) | int }}
+
+# IP range(s) considered local. Default is '' (empty).
+localrange = {{ (localrange | default('')) | string }}
+
+# List of subnet configurations. Each item must have 'ip' (subnet-ip) and 'bandwidth' (kBps).
+# Format: subnet <IP/CIDR> <Bandwidth_kBps>
+{% for subnet in (subnets | default([])) %}
+subnet {{ subnet.ip }} {{ subnet.bandwidth }}
+{% endfor %}

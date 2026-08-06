@@ -14,10 +14,10 @@
     "default": 7,
     "description": "Number of days before password expiration to warn the user."
   },
-  "pass_min_len": {
-    "type": "number",
-    "default": 5,
-    "description": "Minimum password length. Values < 4 are generally unsafe; modern systems recommend \u2265 8."
+  "mail_dir": {
+    "type": "string",
+    "default": "/var/mail",
+    "description": "Directory where user mailboxes are stored."
   },
   "uid_min": {
     "type": "number",
@@ -39,153 +39,67 @@
     "default": 60000,
     "description": "Last regular group GID."
   },
-  "sys_uid_min": {
+  "sub_uid_min": {
     "type": "number",
-    "default": 201,
-    "description": "First system UID reserved for system accounts (e.g., services, daemons)."
+    "default": 100000,
+    "description": "First subordinate UID for user namespace."
   },
-  "sys_uid_max": {
+  "sub_uid_max": {
     "type": "number",
-    "default": 999,
-    "description": "Last system UID."
+    "default": 600100000,
+    "description": "Last subordinate UID for user namespace."
   },
-  "sys_gid_min": {
+  "sub_uid_count": {
     "type": "number",
-    "default": 201,
-    "description": "First system GID."
+    "default": 65536,
+    "description": "Number of subordinate UIDs per user."
   },
-  "sys_gid_max": {
+  "sub_gid_min": {
     "type": "number",
-    "default": 999,
-    "description": "Last system GID."
+    "default": 100000,
+    "description": "First subordinate GID for user namespace."
   },
-  "create_home": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically create a home directory for new users."
+  "sub_gid_max": {
+    "type": "number",
+    "default": 600100000,
+    "description": "Last subordinate GID for user namespace."
   },
-  "default_shell": {
+  "sub_gid_count": {
+    "type": "number",
+    "default": 65536,
+    "description": "Number of subordinate GIDs per user."
+  },
+  "login_retries": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of login retries before aborting."
+  },
+  "login_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) allowed for login."
+  },
+  "chfn_restrict": {
     "type": "string",
-    "default": "/bin/bash",
-    "description": "Default login shell for new users."
-  },
-  "umask": {
-    "type": "string",
-    "default": "022",
-    "description": "Default file creation mask (octal). Controls default permissions of newly created files."
-  },
-  "pass_change_tries": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of attempts to change a password (e.g., during initial login)."
-  },
-  "pass_always_warn": {
-    "type": "bool",
-    "default": false,
-    "description": "Always warn about password expiration, even if within the last 24 hours."
+    "default": "rwh",
+    "description": "Fields a regular user may change via chfn(1): 'f' (full name), 'r' (room), 'w' (work phone), 'h' (home phone)."
   },
   "encrypt_method": {
     "type": "string",
-    "default": "SHA512",
-    "description": "Password hashing algorithm (SHA512, DES, MD5, or BCRYPT). SHA512 is recommended for security."
-  },
-  "inactive": {
-    "type": "number",
-    "default": -1,
-    "description": "Number of days after password expires before account is locked. -1 disables locking."
+    "default": "YESCRYPT",
+    "description": "Password hashing algorithm (YESCRYPT, BCRYPT, SHA512, SHA256, MD5, or DES). YESCRYPT recommended.",
+    "enum": [
+      "YESCRYPT",
+      "BCRYPT",
+      "SHA512",
+      "SHA256",
+      "MD5",
+      "DES"
+    ]
   },
   "usergroups_enab": {
     "type": "bool",
     "default": true,
     "description": "If true, creates a group for the user with the same name as the user account."
-  },
-  "log_failed_logins": {
-    "type": "bool",
-    "default": true,
-    "description": "Log failed login attempts to /var/log/faillog."
-  },
-  "login_lock_failed": {
-    "type": "number",
-    "default": 3,
-    "description": "Maximum number of failed login attempts before account lockout (0 = no limit)."
-  },
-  "login_lock_dur": {
-    "type": "number",
-    "default": 0,
-    "description": "Duration (seconds) of account lockout after too many failed attempts (0 = until admin unlock)."
-  },
-  "userdel_prefix": {
-    "type": "string",
-    "default": "",
-    "description": "Prefix used by userdel to find user files (e.g., '/var/spool/mail' for mail)."
-  },
-  "mail_dir": {
-    "type": "string",
-    "default": "/var/mail",
-    "description": "Directory where user mailboxes are stored (used if CREATE_HOME=yes)."
-  },
-  "mail_file": {
-    "type": "string",
-    "default": "mail",
-    "description": "Filename (relative to MAIL_DIR) for user mailbox (e.g., 'mail' \u2192 /var/mail/username)."
-  },
-  "env_hz": {
-    "type": "string",
-    "default": "",
-    "description": "Additional environment variable 'HZ' (kernel tick rate); usually empty."
-  },
-  "env_path": {
-    "type": "list",
-    "items": {
-      "type": "string"
-    },
-    "default": [
-      "/usr/local/bin",
-      "/usr/bin",
-      "/bin",
-      "/usr/games"
-    ],
-    "description": "Default PATH for regular users (colon-separated list of directories)."
-  },
-  "env_supath": {
-    "type": "list",
-    "items": {
-      "type": "string"
-    },
-    "default": [
-      "/usr/local/sbin",
-      "/usr/sbin",
-      "/sbin",
-      "/usr/local/bin",
-      "/usr/sbin",
-      "/sbin",
-      "/usr/local/bin",
-      "/usr/bin",
-      "/bin"
-    ],
-    "description": "Default PATH for the superuser (root)."
-  },
-  "groups": {
-    "type": "list",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Group name to add to new users' initial group list"
-        },
-        "gid": {
-          "type": "number",
-          "description": "Numeric GID of the group"
-        }
-      }
-    },
-    "default": [],
-    "description": "List of additional groups to assign to new users (in /etc/group notation)."
-  },
-  "group_umask": {
-    "type": "string",
-    "default": "002",
-    "description": "Umask applied to files created by new group members."
   }
 }

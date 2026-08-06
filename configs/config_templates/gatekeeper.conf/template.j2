@@ -1,69 +1,115 @@
-# Globus Gatekeeper configuration
-# This file configures the gatekeeper service, which manages proxy delegation and credential handling for Globus GridFTP servers.
-# Uncomment or set the following directives to customize behavior.
+# Globus Gatekeeper configuration file
+#
+# This configuration file controls the behavior of the Globus Gatekeeper service.
+# Gatekeeper manages proxy credential delegation and handling for Globus GridFTP servers.
+# It listens for control and data connections, enforces TLS policies, and manages
+# the lifecycle of delegated user proxies.
+#
+# Syntax: INI-style key = value pairs under the [gatekeeper] section.
+# Variables use Ansible/Jinja2 defaults to ensure the service starts correctly
+# even if specific roles or variables are not provided.
 
 [gatekeeper]
 
-# Path to the gatekeeper's executable binary
-exec = {{ bin_path }}
+# Absolute path to the gatekeeper executable binary.
+# Ensures the service manager can locate and execute the daemon.
+exec = {{ bin_path | default('/usr/bin/globus-gatekeeper') }}
 
-# Hostname or IP address the gatekeeper should bind to (0.0.0.0 for all interfaces)
-host = {{ listen_host }}
+# IP address or hostname to bind to for incoming connections.
+# Use '0.0.0.0' to listen on all network interfaces.
+# Use a specific IP (e.g., '192.168.1.10') to restrict access to a single interface.
+host = {{ listen_host | default('0.0.0.0') }}
 
-# TCP port for gatekeeper control connections
-control_port = {{ control_port }}
+# TCP port for gatekeeper control communication.
+# This port receives administrative commands and proxy delegation requests.
+# It is a persistent port, so it must be open in firewalls if remote access is needed.
+control_port = {{ control_port | default(50003) }}
 
-# TCP port for gatekeeper data connections
-# If set to 0, a random ephemeral port will be used (not recommended for firewalled environments)
-data_port = {{ data_port }}
+# TCP port for gatekeeper data communication.
+# If set to 0 (default), the system assigns a random ephemeral port for each transfer.
+# For environments with strict firewall rules requiring predictable ports, set this
+# to a specific integer. Note: Ephemeral ports simplify NAT traversal.
+data_port = {{ data_port | default(0) }}
 
-# Maximum number of concurrent connections allowed
-max_connections = {{ max_connections }}
+# Maximum number of concurrent active connections allowed.
+# Limits the number of simultaneous users or transfers the gatekeeper will accept.
+# Helps prevent resource exhaustion under heavy load.
+max_connections = {{ max_connections | default(256) }}
 
-# Maximum number of pending connections in the listen queue
-listen_backlog = {{ listen_backlog }}
+# Maximum size of the pending connection queue (backlog).
+# Defines how many incoming connection requests can wait in the OS listen buffer
+# when the gatekeeper is busy processing existing connections.
+listen_backlog = {{ listen_backlog | default(128) }}
 
-# Timeout (in seconds) for idle connections before they are closed
-idle_timeout = {{ idle_timeout }}
+# Idle timeout in seconds.
+# If no data is transmitted over a connection for this duration, the connection
+# is automatically closed to free up resources.
+idle_timeout = {{ idle_timeout | default(600) }}
 
-# Enable or disable SSL/TLS for control connections
-use_tls = {{ use_tls | lower }}
+# Enable SSL/TLS encryption for control connections.
+# When true, all control traffic (including credential delegation) is encrypted.
+# Strongly recommended for production environments to protect proxy credentials.
+use_tls = {{ use_tls | default(True) | lower }}
 
-# Path to the server certificate (PEM format)
-cert_file = {{ cert_file }}
+# Path to the host certificate file (PEM-encoded).
+# Used for TLS server authentication. Must match the private key.
+cert_file = {{ cert_file | default('/etc/globus/hostcert.pem') }}
 
-# Path to the server private key (PEM format)
-key_file = {{ key_file }}
+# Path to the host private key file (PEM-encoded, unencrypted).
+# Used for TLS server authentication. Permissions should be restricted to root.
+key_file = {{ key_file | default('/etc/globus/hostkey.pem') }}
 
-# Path to the CA certificate bundle for client verification (optional)
-ca_cert_file = {{ ca_cert_file }}
+# Path to the CA certificate bundle for verifying client certificates.
+# If require_client_cert is enabled, clients must present a certificate signed
+# by one of the CAs in this bundle.
+ca_cert_file = {{ ca_cert_file | default('/etc/globus/certificates.pem') }}
 
-# Enable or disable client certificate verification
-require_client_cert = {{ require_client_cert | lower }}
+# Require client certificates for authentication.
+# If true, only clients presenting valid certificates signed by the trusted CA
+# are allowed to connect and request proxy delegation.
+require_client_cert = {{ require_client_cert | default(False) | lower }}
 
-# Comma-separated list of allowed client subject DNs (if not set, all signed by trusted CA are accepted)
-allowed_client_dns = {{ allowed_client_dns | join(', ') }}
+# List of allowed client certificate subject DNs.
+# If this list is not empty, ONLY clients with a subject DN matching one of these
+# entries are accepted, regardless of CA trust. If empty, CA trust is the only check.
+# Format: Comma-separated DN strings (e.g., "/CN=user/O=Globus").
+allowed_client_dns = {{ (allowed_client_dns | default([])) | join(', ') }}
 
-# Comma-separated list of allowed proxy issuer DNs (for limited delegation)
-allowed_proxy_issuers = {{ allowed_proxy_issuers | join(', ') }}
+# List of allowed proxy issuer DNs.
+# Restricts which proxies can be delegated. Only proxies issued by a CA matching
+# one of these DNs are accepted. If empty, any proxy signed by the trusted CA
+# is accepted.
+allowed_proxy_issuers = {{ (allowed_proxy_issuers | default([])) | join(', ') }}
 
-# Enable or disable proxy credential delegation
-allow_proxy_delegation = {{ allow_proxy_delegation | lower }}
+# Allow proxy credential delegation to clients.
+# When true, the gatekeeper will issue short-lived user proxies to authenticated
+# clients, enabling them to perform GridFTP transfers on behalf of the user.
+allow_proxy_delegation = {{ allow_proxy_delegation | default(True) | lower }}
 
-# Path to the credential storage directory
-cred_dir = {{ cred_dir }}
+# Directory for storing delegated credentials and proxy files.
+# The gatekeeper process must have write access to this directory.
+# Proxies are typically stored here temporarily before being sent to clients.
+cred_dir = {{ cred_dir | default('/var/lib/globus/gatekeeper/cred') }}
 
-# Maximum lifetime (in seconds) for delegated proxies
-max_proxy_lifetime = {{ max_proxy_lifetime }}
+# Maximum lifetime in seconds for delegated proxy credentials.
+# Proxies issued to clients will expire after this duration (e.g., 86400 = 24 hours).
+# Prevents long-lived proxies from remaining on client systems if compromised.
+max_proxy_lifetime = {{ max_proxy_lifetime | default(86400) }}
 
-# Enable or disable logging of all gatekeeper activities to syslog
-log_to_syslog = {{ log_to_syslog | lower }}
+# Send log messages to the system log (syslog).
+# If true, logs are sent to the local syslog facility. If false, only local file logging occurs.
+log_to_syslog = {{ log_to_syslog | default(True) | lower }}
 
-# Path to optional local log file (if empty, no file logging)
-log_file = {{ log_file }}
+# Path to a local log file.
+# If empty, no local file logging is performed. If set, logs are appended to this file.
+# Useful for debugging or when syslog is not available.
+log_file = {{ log_file | default('') }}
 
-# Logging level: one of DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level = {{ log_level }}
+# Log verbosity level.
+# One of: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+# Controls the amount of detail logged. DEBUG is verbose, CRITICAL shows only errors.
+log_level = {{ log_level | default('INFO') }}
 
-# Enable or disable the gatekeeper upon startup
-enabled = {{ enabled | lower }}
+# Enable or disable the gatekeeper service upon startup.
+# If false, the service will not start automatically, effectively disabling it.
+enabled = {{ enabled | default(True) | lower }}

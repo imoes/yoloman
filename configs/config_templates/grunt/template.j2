@@ -1,0 +1,250 @@
+{# Grunt configuration file (Gruntfile.js) generated from Debian node-grunt-cli #}
+{% if project_name %}module.exports = function(grunt) {
+  // Project configuration.
+  grunt.initConfig({
+    pkg: grunt.file.readJSON('package.json'),
+{% endif %}{% if project_name %}
+{% if lint %}    lint: {
+      files: [
+{% for file in lint.files %}        '{{ file }}',
+{% endfor %}      ]
+    },
+{% endif %}{% if qunit %}    qunit: {
+      files: [
+{% for file in qunit.files %}        '{{ file }}',
+{% endfor %}      ]
+    },
+{% endif %}{% if concat %}    concat: {
+      dist: {
+        src: [
+{% for src in concat.src %}          '{{ src }}',
+{% endfor %}        ],
+        dest: '{{ concat.dest }}'
+      }
+    },
+{% endif %}{% if uglify %}    uglify: {
+      dist: {
+        src: '{{ uglify.src }}',
+        dest: '{{ uglify.dest }}'
+      }
+    },
+{% endif %}{% if watch %}    watch: {
+      files: [
+{% for file in watch.files %}        '{{ file }}',
+{% endfor %}      ],
+      tasks: [
+{% for task in watch.tasks %}        '{{ task }}',
+{% endfor %}      ]
+    },
+{% endif %}{% if jshint %}    jshint: {
+      all: [
+{% for file in jshint.files %}        '{{ file }}',
+{% endfor %}      ],
+      options: {
+        jshintrc: '.jshintrc'{% if jshint.options.strict %},
+        strict: true{% endif %}
+      }
+    },
+{% endif %}{% if cssmin %}    cssmin: {
+      dist: {
+        files: {
+          '{{ cssmin.dest }}': [
+{% for src in cssmin.src %}            '{{ src }}',
+{% endfor %}          ]
+        }
+      }
+    },
+{% endif %}{% if concurrent %}    concurrent: {
+      options: {
+        limit: {{ concurrent.limit }}
+      },
+      tasks: [
+{% for task in concurrent.tasks %}        '{{ task }}',
+{% endfor %}      ]
+    },
+{% endif %}{% if sass %}    sass: {
+      dist: {
+        files: {
+          '{{ sass.dest }}': '{{ sass.src }}'
+        }
+      }
+    },
+{% endif %}{% if autoprefixer %}    autoprefixer: {
+      dist: {
+        files: {
+          '{{ autoprefixer.dest }}': '{{ autoprefixer.src }}'
+        }
+      }
+    },
+{% endif %}{% if imagemin %}    imagemin: {
+      dist: {
+        files: [{
+          expand: true,
+          cwd: '{{ imagemin.cwd }}',
+          src: ['**/*.{png,jpg,gif,svg}'],
+          dest: '{{ imagemin.dest }}'
+        }]
+      }
+    },
+{% endif %}{% if shell %}    shell: {
+      options: {
+        stdout: true,
+        stderr: true
+      },
+{% for name, cfg in shell.tasks %}      {{ name }}: {
+        command: '{{ cfg.command }}'{% if cfg.options %},
+        options: {{ cfg.options|default({})|tojson }}{% endif %}
+      },
+{% endfor %}    },
+{% endif %}{% if connect %}    connect: {
+      server: {
+        options: {
+          port: {{ connect.options.port }},
+          base: '{{ connect.options.base }}'{% if connect.options.open %},
+          open: '{{ connect.options.open }}'{% endif %}{% if connect.options.middleware %},
+          middleware: function(connect, options) {
+            return [
+{% for mw in connect.options.middleware %}              connect.static(options.base[0]),
+{% endfor %}              connect().use(
+                '/node_modules',
+                connect.static('./node_modules')
+              )
+            ];
+          }
+{% endif %}
+        }
+      }
+    },
+{% endif %}{% if jasmine %}    jasmine: {
+      src: [
+{% for file in jasmine.src %}        '{{ file }}',
+{% endfor %}      ],
+      options: {
+        specs: [
+{% for file in jasmine.options.specs %}          '{{ file }}',
+{% endfor %}        ]
+      }
+    },
+{% endif %}{% if eslint %}    eslint: {
+      target: [
+{% for file in eslint.target %}        '{{ file }}',
+{% endfor %}      ],
+      options: {
+        configFile: '.eslintrc.json'{% if eslint.options.fix %},
+        fix: true{% endif %}
+      }
+    },
+{% endif %}{% if babel %}    babel: {
+      options: {
+        sourceMap: true,
+        presets: ['@babel/preset-env']
+      },
+      dist: {
+        files: {
+          '{{ babel.dist.dest }}': '{{ babel.dist.src }}'
+        }
+      }
+    },
+{% endif %}{% if mocha %}    mocha: {
+      all: {
+        options: {
+          urls: [
+{% for url in mocha.options.urls %}            '{{ url }}',
+{% endfor %}          ],
+          run: true
+        }
+      }
+    },
+{% endif %}{% if jsonlint %}    jsonlint: {
+      all: {
+        src: [
+{% for file in jsonlint.src %}          '{{ file }}',
+{% endfor %}        ]
+      }
+    },
+{% endif %}{% if yamllint %}    yamllint: {
+      all: {
+        src: [
+{% for file in yamllint.src %}          '{{ file }}',
+{% endfor %}        ]
+      }
+    },
+{% endif %}{% if markdownlint %}    markdownlint: {
+      all: {
+        src: [
+{% for file in markdownlint.src %}          '{{ file }}',
+{% endfor %}        ]
+      }
+    },
+{% endif %}{% if htmlhint %}    htmlhint: {
+      all: {
+        src: [
+{% for file in htmlhint.src %}          '{{ file }}',
+{% endfor %}        ],
+        options: {
+          'alt-require': true,
+          'tag-pair': true
+        }
+      }
+    },
+{% endif %}{% if copy %}    copy: {
+      dist: {
+        files: [
+{% for file in copy.files %}          {
+            src: '{{ file.src }}',
+            dest: '{{ file.dest }}'
+          },
+{% endfor %}        ]
+      }
+    },
+{% endif %}{% if clean %}    clean: {
+      dist: [
+{% for dir in clean.dist %}        '{{ dir }}',
+{% endfor %}      ]
+    },
+{% endif %}{% if banner %}    // Banner
+    banner: '/*!
+ * <%= pkg.name %> v<%= pkg.version %>
+ * <%= pkg.homepage %>
+ *
+ * Copyright <%= grunt.template.today("yyyy") %> <%= pkg.author %>
+ * Released under the <%= pkg.license %> license.
+ */
+
+{% endif %}{% if usebanner %}    // Usebanner
+    usebanner: {
+      dist: {
+        options: {
+          banner: '<%= banner %>'
+        },
+        files: {
+{% for file in usebanner.files %}          '<%= file %>'
+{% endfor %}        }
+      }
+    },
+{% endif %}
+{% if register_tasks %}  // Load plugins
+{% for plugin in load_plugins %}  grunt.loadNpmTasks('{{ plugin }}');
+{% endfor %}
+
+  // Register tasks
+{% for name, tasks in register_tasks %}  grunt.registerTask('{{ name }}', [
+{% for task in tasks %}    '{{ task }}',
+{% endfor %}  ]);
+{% endfor %}
+{% endif %}
+{% if extra_js %}
+  // Custom JavaScript
+{% for line in extra_js %}  {{ line }}
+{% endfor %}
+{% endif %}
+};{% else %}/*
+ * This Gruntfile.js is generated by Debian node-grunt-cli.
+ *
+ * You must provide a valid Gruntfile.js manually; this file is a template only.
+ * See https://gruntjs.com/sample-gruntfile for examples.
+ */
+module.exports = function(grunt) {
+  grunt.initConfig({});
+};
+{% endif %}

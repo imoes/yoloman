@@ -1,29 +1,29 @@
-# NIS client/server startup options
-NISDOMAIN={{ nis_domain }}
+#
+# /etc/defaults/nis	Optional configuration settings for the NIS programs.
+#
 
-# NIS server: set to yes to enable the NIS server
-NISSERVER={{ nis_server | lower }}
+# Location of the master NIS password file (for yppasswdd).
+# If you change this make sure it matches with /var/yp/Makefile.
+YPPWDDIR={{ yppwddir }}
 
-# NIS client: set to yes to enable NIS lookups (typically always yes when NISDOMAIN is set)
-NISCLIENT={{ nis_client | lower }}
+# Do we allow the user to use ypchsh and/or ypchfn ? The YPCHANGEOK
+# fields are passed with -e to yppasswdd, see it's manpage.
+# Possible values: "chsh", "chfn", "chsh,chfn"
+YPCHANGEOK={{ ypchangeok }}
 
-# Path to the NIS server(s); colon-separated for fallback servers
-NISSERVERS="{{ nis_servers | join(':') }}"
+# NIS master server.  If this is configured on a slave server then ypinit
+# will be run each time NIS is started.
+NISMASTER={{ nismaster }}
 
-# Options passed to ypserv (NIS server daemon)
-YPSERVOPTS="{{ ypserv_opts }}"
+# Additional options to be given to ypserv when it is started.
+YPSERVARGS={{ ypserv_opts }}
 
-# Options passed to yppasswdd (NIS password daemon)
-YPPASSWDDOPTS="{{ yppasswdd_opts }}"
+# Additional options to be given to ypbind when it is started.
+YPBINDARGS={{ ypbnd_opts }}
 
-# Options passed to rpc.ybind (RPC binding daemon)
-RPCBINDOPTS="{{ rpcbind_opts }}"
+# Additional options to be given to yppasswdd when it is started.  Note
+# that if -p is set then the YPPWDDIR above should be empty.
+YPPASSWDDARGS={{ yppasswdd_opts }}
 
-# Set to yes to enable NIS+ compatibility (deprecated)
-NISPLUS={{ nisplus_enabled | lower }}
-
-# Timeout (in seconds) for NIS lookups
-NISTIMEOUT={{ nis_timeout }}
-
-# Retries for NIS lookups
-NISRETRIES={{ nis_retries }}
+# Additional options to be given to ypxfrd when it is started.
+YPXFRDARGS={{ ypxfrd_opts }}

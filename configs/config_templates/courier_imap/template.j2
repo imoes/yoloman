@@ -1,91 +1,207 @@
-# Maximum number of simultaneous IMAP connections per IP
-MAXDAEMON {{ max_daemon }}
+# =============================================================================
+# Courier-IMAP Configuration Template
+# =============================================================================
+# This template generates the configuration for the Courier-IMAP IMAP/IMAPS server.
+# It is self-documenting: every directive is preceded by a comment explaining its
+# purpose and source variable. Defaults are provided inline to ensure safe rendering
+# even if the variable is undefined in the Ansible playbook.
+# =============================================================================
 
-# Maximum number of processes to fork
-MAXPERIP {{ max_per_ip }}
+# -----------------------------------------------------------------------------
+# Daemon and Connection Limits
+# -----------------------------------------------------------------------------
 
-# Log level: 0=quiet, 1=normal, 2=debug
-LOGLEVEL {{ log_level }}
+# Maximum number of IMAP daemon processes allowed system-wide.
+# Variable: max_daemon
+# Default: 256
+MAXDAEMON {{ max_daemon | default(256) }}
 
-# Path to the IMAP certificate chain (PEM format)
-SSLCERTIFICATE {{ ssl_certificate_path }}
+# Maximum number of concurrent IMAP connections per IP address.
+# Variable: max_per_ip
+# Default: 20
+MAXPERIP {{ max_per_ip | default(20) }}
 
-# Path to the CA certificate (optional, for client cert verification)
-{% if ssl_ca_certificate_path %}
-SSLCACERTIFICATE {{ ssl_ca_certificate_path }}
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+
+# Logging verbosity: 0 (quiet), 1 (normal), 2 (debug).
+# Variable: log_level
+# Default: 1
+LOGLEVEL {{ log_level | default(1) }}
+
+# -----------------------------------------------------------------------------
+# SSL/TLS Settings
+# -----------------------------------------------------------------------------
+
+# Path to the SSL certificate and private key (PEM format).
+# Variable: ssl_certificate_path
+# Default: /etc/ssl/certs/courier-imap.pem
+SSLCERTIFICATE {{ ssl_certificate_path | default('/etc/ssl/certs/courier-imap.pem') }}
+
+# Optional path to CA certificate for client certificate verification.
+# Variable: ssl_ca_certificate_path
+# Default: (empty string, commented out if empty)
+{% if (ssl_ca_certificate_path | default('')) != '' %}
+# Optional path to CA certificate for client certificate verification.
+# Variable: ssl_ca_certificate_path
+SSLCACERTIFICATE {{ ssl_ca_certificate_path | default('') }}
 {% endif %}
 
-# Enable SSL/TLS on IMAP port (default: 993)
-SSLPORT {{ ssl_port }}
-SSLENABLED {{ 1 if ssl_enabled else 0 }}
+# Port number for SSL/TLS-enabled IMAP (standard port: 993).
+# Variable: ssl_port
+# Default: 993
+SSLPORT {{ ssl_port | default(993) }}
 
-# Enable plaintext auth only over TLS (prevents insecure password transmission)
-SSLREQUIREAUTH {{ 1 if ssl_require_auth else 0 }}
+# Enable SSL/TLS support for IMAP connections.
+# Variable: ssl_enabled
+# Default: True
+# Note: Courier uses 1 for True, 0 for False in this config file.
+SSLENABLED {{ 1 if (ssl_enabled | default(true)) else 0 }}
 
-# List of allowed authentication mechanisms (e.g., "PLAIN LOGIN")
-AUTHMODULES "{{ auth_modules | join(' ') }}"
+# Require authentication only over SSL/TLS (prevent plaintext passwords).
+# Variable: ssl_require_auth
+# Default: True
+# Note: Courier uses 1 for True, 0 for False in this config file.
+SSLREQUIREAUTH {{ 1 if (ssl_require_auth | default(true)) else 0 }}
 
-# IMAP protocol extensions (e.g., "imap4rev1" is always present; others are optional)
-# Enabled extensions: IMAP4rev1 IDLE LISTEXT LITERAL+ CHILDREN
-{% for ext in enabled_extensions %}
+# -----------------------------------------------------------------------------
+# Authentication
+# -----------------------------------------------------------------------------
+
+# Ordered list of authentication modules to load (e.g., authldap authpam).
+# Variable: auth_modules
+# Default: ['authldap', 'authpam']
+# Note: The list is joined by spaces for the Courier config format.
+AUTHMODULES "{{ (auth_modules | default(['authldap', 'authpam'])) | join(' ') }}"
+
+# -----------------------------------------------------------------------------
+# IMAP Extensions
+# -----------------------------------------------------------------------------
+
+# List of IMAP extensions to enable and announce in CAPABILITY.
+# Variable: enabled_extensions
+# Default: ['IMAP4rev1', 'IDLE', 'LISTEXT', 'LITERAL+', 'CHILDREN']
+# Note: Each extension is listed on its own line as a comment in this template
+# because Courier typically announces capabilities via the protocol itself,
+# but explicit configuration may require listing them. Here we list them
+# clearly for documentation purposes.
+# Enabled extensions:
+{% for ext in (enabled_extensions | default(['IMAP4rev1', 'IDLE', 'LISTEXT', 'LITERAL+', 'CHILDREN'])) %}
 # {{ ext }}
 {% endfor %}
 
-# Base directory for user mailboxes (must be set to match MTA spool location)
-MAILROOT {{ mail_root }}
+# -----------------------------------------------------------------------------
+# Mail Storage
+# -----------------------------------------------------------------------------
 
-# Path to the user's maildir (default: Maildir)
-# Change only if using non-default mail storage
-# Maildir format is assumed; change if using mbox or other format
-{% if mail_format == 'maildir' %}
-# Maildir format is default and assumed; no need to set MAILDIRPATH explicitly
-{% elif mail_format == 'mbox' %}
-# Using mbox format
+# Top-level directory where user mailboxes are stored (must match MTA spool path).
+# Variable: mail_root
+# Default: /var/mail
+MAILROOT {{ mail_root | default('/var/mail') }}
+
+# Mail storage format: 'maildir' (per-message files) or 'mbox' (single file per mailbox).
+# Variable: mail_format
+# Default: maildir
+# Note: Courier relies on the MAILDIRPATH setting if not using default Maildir.
+{% if mail_format | default('maildir') == 'maildir' %}
+# Maildir format is default and assumed; no need to set MAILDIRPATH explicitly.
+{% elif mail_format | default('maildir') == 'mbox' %}
+# Using mbox format; Courier expects MAILDIRPATH to point to the mailbox directory.
 MAILDIRPATH .maildir
 {% else %}
-# Unknown mail format — please configure explicitly
+# WARNING: Unknown mail format configured. Please ensure your mail delivery agent
+# and Courier-IMAP are configured consistently.
 {% endif %}
 
-# Timeout values (in seconds)
-IMAPDSTARTUPWAIT {{ imapd_startup_wait }}
-IMAPDLOGINWAIT {{ imapd_login_wait }}
+# -----------------------------------------------------------------------------
+# Timeouts
+# -----------------------------------------------------------------------------
 
-# Maximum message size allowed (in bytes, 0 = unlimited)
-MAXMSG {{ max_message_size }}
+# Seconds to wait for daemon startup (internal timeout).
+# Variable: imapd_startup_wait
+# Default: 30
+IMAPDSTARTUPWAIT {{ imapd_startup_wait | default(30) }}
 
-# Idle timeout for IMAP connections (seconds)
-IDLETIMEOUT {{ idle_timeout }}
+# Seconds to wait for client authentication before disconnecting.
+# Variable: imapd_login_wait
+# Default: 120
+IMAPDLOGINWAIT {{ imapd_login_wait | default(120) }}
 
-# List of IP addresses/hosts allowed to connect
-# If empty, all IPs allowed
-{% if allowed_hosts | length > 0 %}
-ALLOWEDHOSTS "{{ allowed_hosts | join(', ') }}"
+# -----------------------------------------------------------------------------
+# Message Limits
+# -----------------------------------------------------------------------------
+
+# Maximum allowed message size in bytes (0 = unlimited).
+# Variable: max_message_size
+# Default: 0
+MAXMSG {{ max_message_size | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Idle Settings
+# -----------------------------------------------------------------------------
+
+# Seconds before an idle IMAP connection times out (requires IDLE extension).
+# Variable: idle_timeout
+# Default: 30
+IDLETIMEOUT {{ idle_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# Access Control
+# -----------------------------------------------------------------------------
+
+# List of trusted hosts/IPs allowed to connect (empty = all hosts).
+# Variable: allowed_hosts
+# Default: []
+# Note: If the list is not empty, it is quoted and comma-separated.
+{% if (allowed_hosts | default([])) | length > 0 %}
+ALLOWEDHOSTS "{{ (allowed_hosts | default([])) | join(', ') }}"
 {% else %}
 ALLOWEDHOSTS ""
 {% endif %}
 
-# Disable plaintext authentication if SSL/TLS is not used
-{% if require_ssl_for_plaintext %}
+# Disallow plaintext authentication if SSL/TLS is not in use.
+# Variable: require_ssl_for_plaintext
+# Default: True
+# Note: Courier uses 1 for True, 0 for False in this config file.
+{% if (require_ssl_for_plaintext | default(true)) %}
 REQUIRESSL 1
 {% else %}
 REQUIRESSL 0
 {% endif %}
 
-# Enable or disable the IMAP QUOTA extension
-{% if enable_quota %}
+# -----------------------------------------------------------------------------
+# IMAP Extensions (Feature Flags)
+# -----------------------------------------------------------------------------
+
+# Enable IMAP QUOTA extension to report and enforce mailbox size limits.
+# Variable: enable_quota
+# Default: False
+# Note: Courier uses 1 for True, 0 for False in this config file.
+{% if (enable_quota | default(false)) %}
 QUOTA 1
 {% else %}
 QUOTA 0
 {% endif %}
 
-# Enable or disable the IMAP ACL extension
-{% if enable_acl %}
+# Enable IMAP ACL extension for folder-level access control.
+# Variable: enable_acl
+# Default: False
+# Note: Courier uses 1 for True, 0 for False in this config file.
+{% if (enable_acl | default(false)) %}
 ACL 1
 {% else %}
 ACL 0
 {% endif %}
 
-# List of additional IMAP-specific options
-{% for option, value in extra_options.items() %}
-{{ option }} {{ value }}
+# -----------------------------------------------------------------------------
+# Additional Options
+# -----------------------------------------------------------------------------
+
+# Map of additional key=value-style configuration directives.
+# Variable: extra_options
+# Default: {}
+# Note: Each key-value pair is written as "key value" on a new line.
+{% for option, value in (extra_options | default({}) | dict2items) %}
+{{ option.key }} {{ option.value }}
 {% endfor %}

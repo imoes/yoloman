@@ -4,88 +4,82 @@
     "default": [],
     "description": "List of DRBD resources to configure. Each resource defines replicated storage between two or more nodes.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Name of the DRBD resource (e.g., 'r0', 'data'). Must be unique across all resources."
-        },
-        "config": {
-          "type": "object",
-          "default": {},
-          "description": "Global configuration for this resource.",
-          "fields": {
-            "protocol": {
-              "type": "string",
-              "default": "C",
-              "description": "DRBD protocol to use: 'A' (asynchronous), 'B' (semi-synchronous), or 'C' (synchronous, default)."
-            },
-            "syncer_rate": {
-              "type": "string",
-              "default": "10M",
-              "description": "Maximum synchronization rate for resync operations (e.g., '10M' = 10 MiB/s). Accepts suffixes: K, M, G."
-            },
-            "meta_disk": {
-              "type": "string",
-              "default": "internal",
-              "description": "Where to store metadata: 'internal' (default, stored in the same disk), or a disk device/path (e.g., 'device /dev/sda2')."
-            },
-            "device": {
-              "type": "string",
-              "default": "/dev/drbd0",
-              "description": "Block device path exposed to the OS (e.g., /dev/drbd0). Must match on all nodes."
-            },
-            "disk": {
-              "type": "string",
-              "default": "",
-              "description": "Underlying physical disk or partition to use (e.g., /dev/sdb1) \u2014 leave empty if overridden per host."
-            },
-            "on_no_quorum": {
-              "type": "string",
-              "default": "",
-              "description": "Action when quorum is lost (e.g., 'freeze', 'panic', 'io-error'). Optional."
-            },
-            "on_suspendsync_fail": {
-              "type": "string",
-              "default": "",
-              "description": "Action when suspended synchronization fails (e.g., 'io-error', 'panic'). Optional."
-            }
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the DRBD resource (e.g., 'r0', 'data'). Must be unique across all resources."
+      },
+      "config": {
+        "type": "object",
+        "default": {},
+        "description": "Global configuration for this resource.",
+        "fields": {
+          "protocol": {
+            "type": "string",
+            "default": "C",
+            "description": "DRBD protocol to use: 'A' (asynchronous), 'B' (semi-synchronous), or 'C' (synchronous, default)."
+          },
+          "syncer_rate": {
+            "type": "string",
+            "default": "10M",
+            "description": "Maximum synchronization rate for resync operations (e.g., '10M' = 10 MiB/s). Accepts suffixes: K, M, G."
+          },
+          "meta_disk": {
+            "type": "string",
+            "default": "internal",
+            "description": "Where to store metadata: 'internal' (default, stored in the same disk), or a disk device/path (e.g., 'device /dev/sda2')."
+          },
+          "device": {
+            "type": "string",
+            "default": "/dev/drbd0",
+            "description": "Block device path exposed to the OS (e.g., /dev/drbd0). Must match on all nodes."
+          },
+          "disk": {
+            "type": "string",
+            "default": "",
+            "description": "Underlying physical disk or partition to use (e.g., /dev/sdb1) \u2014 leave empty if overridden per host."
+          },
+          "on_no_quorum": {
+            "type": "string",
+            "default": "",
+            "description": "Action when quorum is lost (e.g., 'freeze', 'panic', 'io-error'). Optional."
+          },
+          "on_suspendsync_fail": {
+            "type": "string",
+            "default": "",
+            "description": "Action when suspended synchronization fails (e.g., 'io-error', 'panic'). Optional."
           }
-        },
-        "hosts": {
-          "type": "list",
-          "default": [],
-          "description": "List of host nodes participating in this resource (typically 2 for HA).",
-          "items": {
-            "type": "object",
-            "fields": {
-              "hostname": {
-                "type": "string",
-                "default": "",
-                "description": "Hostname or FQDN of the node (must match output of 'uname -n' or DNS)."
-              },
-              "node_id": {
-                "type": "number",
-                "default": null,
-                "description": "Numeric ID for node identification in the cluster (0, 1, ...). Required when >2 nodes."
-              },
-              "address": {
-                "type": "string",
-                "default": "",
-                "description": "IP address and optional port for inter-node communication (e.g., '10.0.0.1:7789')."
-              },
-              "disk_path": {
-                "type": "string",
-                "default": "",
-                "description": "Local block device path for this node (e.g., /dev/sdb1) \u2014 overrides resource-level disk setting."
-              },
-              "meta_disk_path": {
-                "type": "string",
-                "default": "",
-                "description": "Path for metadata storage on this node (e.g., 'device /dev/sda3' or 'internal')."
-              }
-            }
+        }
+      },
+      "hosts": {
+        "type": "list",
+        "default": [],
+        "description": "List of host nodes participating in this resource (typically 2 for HA).",
+        "items": {
+          "hostname": {
+            "type": "string",
+            "default": "",
+            "description": "Hostname or FQDN of the node (must match output of 'uname -n' or DNS)."
+          },
+          "node_id": {
+            "type": "number",
+            "default": null,
+            "description": "Numeric ID for node identification in the cluster (0, 1, ...). Required when >2 nodes."
+          },
+          "address": {
+            "type": "string",
+            "default": "",
+            "description": "IP address and optional port for inter-node communication (e.g., '10.0.0.1:7789')."
+          },
+          "disk_path": {
+            "type": "string",
+            "default": "",
+            "description": "Local block device path for this node (e.g., /dev/sdb1) \u2014 overrides resource-level disk setting."
+          },
+          "meta_disk_path": {
+            "type": "string",
+            "default": "",
+            "description": "Path for metadata storage on this node (e.g., 'device /dev/sda3' or 'internal')."
           }
         }
       }

@@ -1,38 +1,109 @@
-# Enable gamemode for user sessions
-enabled = {{ enabled | lower }}
+# ==============================================================================
+# Gamemode Daemon Configuration
+# ==============================================================================
+# This file configures the gamemode daemon, which helps improve gaming performance
+# by dynamically adjusting CPU frequency governors, process priorities, and other
+# system settings when games are detected.
+#
+# See `man gamemode.conf` for full documentation of all options.
+# ==============================================================================
 
-# Maximum CPU frequency governor for performance mode
-governor = "{{ governor }}"
+# -----------------------------------------------------------------------------
+# enabled: Whether to enable gamemode globally for user sessions.
+# If set to false, the daemon will not actively optimize any sessions.
+# -----------------------------------------------------------------------------
+enabled = {{ enabled | default(true) | lower }}
 
-# Maximum number of CPU cores to online in performance mode
-max_cpus = {{ max_cpus }}
+# -----------------------------------------------------------------------------
+# governor: CPU frequency governor to switch to in performance mode.
+# Common values: 'performance', 'powersave', 'ondemand', 'schedutil'.
+# This setting overrides the system default when a game is running.
+# -----------------------------------------------------------------------------
+governor = "{{ governor | default('performance') }}"
 
-# Paths to check for running games (comma-separated)
-allowlist = {{ allowlist | join(', ') }}
+# -----------------------------------------------------------------------------
+# max_cpus: Maximum number of CPU cores to online during performance mode.
+# Set to 0 to use all available cores. Useful for limiting scope on multi-socket
+# or NUMA systems where only certain cores should be boosted.
+# -----------------------------------------------------------------------------
+max_cpus = {{ max_cpus | default(0) }}
 
-# Paths to exclude from game detection (comma-separated)
-denylist = {{ denylist | join(', ') }}
+# -----------------------------------------------------------------------------
+# allowlist: List of path prefixes to consider as games.
+# Paths matching these prefixes will trigger performance mode.
+# Example: '/usr/bin/', '/opt/'
+# -----------------------------------------------------------------------------
+# Each path is listed on a new line for clarity in the rendered config.
+{% for path in (allowlist | default(['/usr/bin/', '/opt/'])) %}
+allowlist = {{ path }}
+{% endfor %}
 
-# Use Intel P-State driver in performance mode (if available)
-use_pstate = {{ use_pstate | lower }}
+# -----------------------------------------------------------------------------
+# denylist: List of path prefixes to exclude from game detection.
+# If a path matches an allowlist entry but also matches a denylist entry,
+# the denylist takes precedence.
+# Example: '/usr/lib/', '/usr/share/'
+# -----------------------------------------------------------------------------
+# Each path is listed on a new line for clarity in the rendered config.
+{% for path in (denylist | default(['/usr/lib/', '/usr/share/'])) %}
+denylist = {{ path }}
+{% endfor %}
 
-# Enable GPU boost (NVIDIA/AMD) when gaming
-enable_gpu_boost = {{ enable_gpu_boost | lower }}
+# -----------------------------------------------------------------------------
+# use_pstate: Enable Intel P-State driver in performance mode (if supported).
+# If enabled and an Intel CPU with P-State support is detected, the daemon will
+# attempt to set the CPU to the highest P-State.
+# -----------------------------------------------------------------------------
+use_pstate = {{ use_pstate | default(true) | lower }}
 
-# GPU boost frequency (MHz), or 0 to use default
-gpu_boost_freq = {{ gpu_boost_freq }}
+# -----------------------------------------------------------------------------
+# enable_gpu_boost: Enable GPU frequency boost (e.g., NVIDIA X server settings
+# or AMD PPLIB) when gaming. Requires appropriate GPU drivers to be installed.
+# -----------------------------------------------------------------------------
+enable_gpu_boost = {{ enable_gpu_boost | default(false) | lower }}
 
-# Idle timeout (seconds) before returning to normal mode
-idle_timeout = {{ idle_timeout }}
+# -----------------------------------------------------------------------------
+# gpu_boost_freq: Target GPU boost frequency in MHz.
+# Set to 0 to use the driver's default maximum boost frequency.
+# -----------------------------------------------------------------------------
+gpu_boost_freq = {{ gpu_boost_freq | default(0) }}
 
-# Priority for game processes (nice value)
-# Lower values = higher priority (e.g., -10 is high, 10 is low)
-proc_priority = {{ proc_priority }}
+# -----------------------------------------------------------------------------
+# idle_timeout: Seconds of game process inactivity before returning to normal mode.
+# This prevents the system from staying in performance mode after a game has
+# minimized or become idle.
+# -----------------------------------------------------------------------------
+idle_timeout = {{ idle_timeout | default(10) }}
 
-# Additional arguments for each GPU device in performance mode
-{% for gpu in gpu_configs %}
+# -----------------------------------------------------------------------------
+# proc_priority: Nice value to assign to game processes.
+# Lower values = higher priority.
+# Example: -10 is high priority, 10 is low priority.
+# Range is typically -20 (highest) to 19 (lowest).
+# -----------------------------------------------------------------------------
+proc_priority = {{ proc_priority | default(-10) }}
+
+# -----------------------------------------------------------------------------
+# gpu_configs: Per-GPU device performance configurations.
+# Each entry defines settings for a specific GPU device.
+# If the list is empty, no per-device overrides are applied.
+# -----------------------------------------------------------------------------
+{% for gpu in (gpu_configs | default([])) %}
 [gpu_{{ loop.index }}]
-device_path = {{ gpu.device_path }}
-boost_freq = {{ gpu.boost_freq }}
-pstate_mode = {{ gpu.pstate_mode }}
+# -----------------------------------------------------------------------------
+# device_path: The path to the GPU device (e.g., PCI address or /sys/class path).
+# -----------------------------------------------------------------------------
+device_path = {{ gpu.device_path | default('') }}
+
+# -----------------------------------------------------------------------------
+# boost_freq: Target boost frequency for this specific GPU in MHz.
+# Set to 0 to use the global gpu_boost_freq setting or driver default.
+# -----------------------------------------------------------------------------
+boost_freq = {{ gpu.boost_freq | default(0) }}
+
+# -----------------------------------------------------------------------------
+# pstate_mode: Specific P-State to enforce for this GPU.
+# Usually 'performance' or a numeric P-State index.
+# -----------------------------------------------------------------------------
+pstate_mode = {{ gpu.pstate_mode | default('performance') }}
 {% endfor %}

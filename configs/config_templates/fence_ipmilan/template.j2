@@ -1,45 +1,102 @@
-# IPMI fence agent configuration for fence_ipmilan
-# Hostname or IP of the IPMI interface
-ipmi_addr={{ ipmi_addr }}
+# ==============================================================================
+# fence_ipmilan configuration template
+# ==============================================================================
+# This template generates the configuration file for the fence_ipmilan agent,
+# used by Pacemaker/Corosync for out-of-band server fencing via IPMI.
+#
+# Self-Documenting: Every directive is preceded by its schema description.
+# All variables use the |default() filter to ensure safe rendering even if
+# the variable is undefined in the Ansible playbook.
+# ==============================================================================
 
-# IPMI username for authentication
-ipmi_user={{ ipmi_user }}
+# --------------------------------------------------------------------------
+# ipmi_addr: Hostname or IP address of the remote IPMI BMC interface
+#            (e.g., '192.168.1.10'). Required.
+# --------------------------------------------------------------------------
+ipmi_addr={{ ipmi_addr | default('') }}
 
-# IPMI password for authentication (preferably use ipmi_passfile)
-# ipmi_pass={{ ipmi_pass | default('') | replace('\n', '') | replace('\r', '') }}
+# --------------------------------------------------------------------------
+# ipmi_user: Username to authenticate with the IPMI BMC.
+#            Must have sufficient privileges. Required.
+# --------------------------------------------------------------------------
+ipmi_user={{ ipmi_user | default('') }}
 
-# File containing the IPMI password (recommended for security)
-ipmi_passfile={{ ipmi_passfile }}
+# --------------------------------------------------------------------------
+# ipmi_pass: Password for the IPMI user.
+#            DEPRECATED — prefer using ipmi_passfile for security.
+#            Leave empty if using passfile.
+# --------------------------------------------------------------------------
+# Note: Direct password injection is deprecated in modern IPMI fencing.
+# Use ipmi_passfile instead unless legacy support is strictly required.
+{% if ipmi_pass is defined and ipmi_pass | length > 0 %}
+ipmi_pass={{ ipmi_pass | default('') }}
+{% endif %}
 
-# IPMI privilege level (e.g., 'USER', 'OPERATOR', 'ADMINISTRATOR')
-ipmi_priv={{ ipmi_privilege_level }}
+# --------------------------------------------------------------------------
+# ipmi_passfile: Absolute path to a file containing only the IPMI password
+#                (recommended for secure credential storage).
+# --------------------------------------------------------------------------
+ipmi_passfile={{ ipmi_passfile | default('/etc/fence_agents/ipmilan.pass') }}
 
-# IPMI interface type: 'lan', 'lanplus', or 'serial' (most common: 'lanplus')
-ipmi_interface={{ ipmi_interface_type }}
+# --------------------------------------------------------------------------
+# ipmi_privilege_level: IPMI privilege level required to perform fencing
+#                       operations (e.g., 'OPERATOR', 'ADMINISTRATOR').
+#                       Must match user capabilities.
+# --------------------------------------------------------------------------
+ipmi_priv={{ ipmi_privilege_level | default('ADMINISTRATOR') }}
 
-# IPMI timeout in seconds per operation
-ipmi_timeout={{ ipmi_timeout }}
+# --------------------------------------------------------------------------
+# ipmi_interface_type: IPMI interface type:
+#                      'lan' (unencrypted RMCP),
+#                      'lanplus' (encrypted RMCP+), or
+#                      'serial'.
+#                      Use 'lanplus' for security.
+# --------------------------------------------------------------------------
+ipmi_interface={{ ipmi_interface_type | default('lanplus') }}
 
-# Number of retries for failed operations
-ipmi_retries={{ ipmi_retries }}
+# --------------------------------------------------------------------------
+# ipmi_timeout: Maximum time in seconds to wait for an IPMI command
+#               response before timing out.
+# --------------------------------------------------------------------------
+ipmi_timeout={{ ipmi_timeout | default(10) }}
 
-# Optional: IPMI cipher suite (numeric ID, e.g., 3 for AES-CBC-128)
-{% if ipmi_cipher_suite is defined and ipmi_cipher_suite | length > 0 %}
+# --------------------------------------------------------------------------
+# ipmi_retries: Number of times to retry an IPMI operation after failure.
+# --------------------------------------------------------------------------
+ipmi_retries={{ ipmi_retries | default(3) }}
+
+# --------------------------------------------------------------------------
+# ipmi_cipher_suite: Optional numeric cipher suite ID for RMCP+
+#                    (e.g., '3' for AES-CBC-128).
+#                    Leave blank to use default.
+# --------------------------------------------------------------------------
+{% if ipmi_cipher_suite is defined and ipmi_cipher_suite | default('') | length > 0 %}
 ipmi_cipher={{ ipmi_cipher_suite }}
 {% endif %}
 
-# Optional: IPMI K_g key (hex string for RMCP+ authentication)
-{% if ipmi_kg_key is defined and ipmi_kg_key | length > 0 %}
+# --------------------------------------------------------------------------
+# ipmi_kg_key: Optional 20-byte hex string of K_g key for OEM-specific
+#              RMCP+ authentication.
+#              Leave blank if not used.
+# --------------------------------------------------------------------------
+{% if ipmi_kg_key is defined and ipmi_kg_key | default('') | length > 0 %}
 ipmi_kg={{ ipmi_kg_key }}
 {% endif %}
 
-# Optional: Override default BMC LAN channel (commonly 1)
-{% if ipmi_lan_channel is defined and ipmi_lan_channel | length > 0 %}
+# --------------------------------------------------------------------------
+# ipmi_lan_channel: Optional numeric LAN channel (e.g., '1' or '2')
+#                   if BMC uses non-default channel.
+#                   Omit to auto-detect.
+# --------------------------------------------------------------------------
+{% if ipmi_lan_channel is defined and ipmi_lan_channel | default('') | length > 0 %}
 ipmi_lan_channel={{ ipmi_lan_channel }}
 {% endif %}
 
-# Optional: TLS/SSL settings (for lanplus)
-# Set to 1 to disable certificate verification (not recommended in production)
+# --------------------------------------------------------------------------
+# ipmi_tls_disable_cert_check: If true (not recommended), disable TLS
+#                              certificate validation for lanplus connections
+#                              (e.g., with self-signed certs).
+# --------------------------------------------------------------------------
 {% if ipmi_tls_disable_cert_check is defined %}
-ipmi_tls_disable_cert_check={{ '1' if ipmi_tls_disable_cert_check else '0' }}
+ipmi_tls_disable_cert_check={{ '1' if ipmi_tls_disable_cert_check | default(False) else '0' }}
 {% endif %}

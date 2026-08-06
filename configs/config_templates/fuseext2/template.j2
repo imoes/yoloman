@@ -1,0 +1,44 @@
+# ==============================================================================
+# Configuration for fuse-ext2
+# ==============================================================================
+#
+# fuse-ext2 is a wrapper around fuse2fs to mount ext2/3/4 filesystems on non-root
+# users or from image files. NOTE: fuse-ext2 is considered deprecated; modern
+# setups should use fuse2fs directly. This configuration is provided for
+# compatibility with legacy wrappers or specific deployment requirements.
+#
+# This template generates a simple key-value configuration file consumed by
+# the fuse-ext2 wrapper script or service.
+#
+# Fields:
+#   mountpoint: The directory where the filesystem will be mounted.
+#               Must exist and be empty before mounting.
+#   device:     The block device (e.g., /dev/sda1) or image file to mount.
+#   options:    List of options passed to fuse2fs via the wrapper.
+#               Supported wrapper-specific options: ro, rw, force.
+#               All other options are forwarded directly to fuse2fs.
+
+# --------------------------------------------------------------------------
+# mountpoint: The directory where the filesystem will be mounted.
+#             Must exist and be empty before mounting.
+# --------------------------------------------------------------------------
+mountpoint: {{ mountpoint | default('', true) | trim }}
+
+# --------------------------------------------------------------------------
+# device: The block device (e.g., /dev/sda1) or image file to mount.
+# --------------------------------------------------------------------------
+device: {{ device | default('', true) | trim }}
+
+# --------------------------------------------------------------------------
+# options: List of fuse2fs-compatible options.
+#          Recognized by fuse-ext2 wrapper: ro, rw, force.
+#          All others forwarded to fuse2fs.
+# --------------------------------------------------------------------------
+{% set _opts = options | default([], true) %}
+{% if _opts | length > 0 %}
+options:
+{% for opt in _opts %}  - {{ opt | trim }}
+{% endfor %}
+{% else %}
+# No options specified; fuse-ext2 will use defaults.
+{% endif %}

@@ -1,52 +1,87 @@
-# iodined server configuration file
+# ==============================================================================
+# iodined Configuration Template
+# Self-documenting Jinja2 template for the iodine DNS tunneling server.
+# Each directive is preceded by a comment describing its source field and purpose.
+# ==============================================================================
 
-# Listening address and port
-{{ listen_addr | default('127.0.0.1') }} {{ listen_port | default(53) }}
+# --- Basic Server Settings ---
 
-# Domain to serve (must be a subdomain you control)
-{{ domain }}
+# listen_addr: IP address the server listens on. Use '0.0.0.0' to listen on all interfaces.
+# The iodined config format is: <address> <port>
+{{ (listen_addr | default('127.0.0.1')) }} {{ (listen_port | default(53)) }}
 
-# User to drop privileges to after binding to privileged port
-{{ user | default('nobody') }}
+# domain: The domain (e.g., 'tunnel.example.com') you own and have configured in your DNS zone for delegation to this server.
+# This is the base domain for which this iodined instance is authoritative for the tunnel traffic.
+{{ (domain | default('')) }}
 
-# Chroot directory (empty string disables chroot)
-{{ chroot_dir | default('') }}
+# --- Security & Privileges ---
 
-# Maximum number of concurrent sessions (0 = unlimited)
-max_sessions = {{ max_sessions | default(0) }}
+# user: System user to run as after binding to the port (for security).
+# The server binds to the port as root, then drops privileges to this user.
+{{ (user | default('nobody')) }}
 
-# Maximum packet size (in bytes) — must be >= 64 and <= 1500
-max_packet_size = {{ max_packet_size | default(1400) }}
-
-# Enable debug mode (true/false)
-{{ debug | default('false') | lower }}
-
-# Optional: Set TTL for DNS responses (seconds)
-{% if ttl is defined %}
-ttl = {{ ttl }}
+# chroot_dir: Chroot directory to jail the server process. Leave empty to disable chroot.
+# If set, the server changes root directory to this path after binding.
+{% if (chroot_dir | default('')) != '' %}
+chroot = {{ (chroot_dir | default('')) }}
 {% endif %}
 
-# Optional: Set MTU for tun interface (must be >= 68 and <= 1500)
-{% if mtu is defined %}
-mtu = {{ mtu }}
+# --- Tunnel Limits & Performance ---
+
+# max_sessions: Maximum number of simultaneous client sessions. 0 = no limit.
+# Controls how many concurrent tunnels can be active.
+max_sessions = {{ (max_sessions | default(0)) }}
+
+# max_packet_size: Maximum allowed packet size (in bytes). Must be between 64 and 1500. Lower values reduce fragmentation risk.
+# Sets the DNS packet size limit for the tunnel.
+max_packet_size = {{ (max_packet_size | default(1400)) }}
+
+# --- Logging & Debugging ---
+
+# debug: Enable verbose debug logging to stdout/stderr.
+# True enables detailed output, useful for troubleshooting connection issues.
+{% if (debug | default(False)) | bool %}
+debug = true
+{% else %}
+debug = false
 {% endif %}
 
-# Optional: Set password for client authentication
-{% if password is defined %}
-password = {{ password }}
+# --- Network Interface & Addressing ---
+
+# ttl: DNS response TTL in seconds (default: 60 if omitted).
+# Sets the Time-To-Live value for DNS records served by the tunnel.
+{% if (ttl | default(None)) is not none %}
+ttl = {{ (ttl | default(60)) }}
 {% endif %}
 
-# Optional: Set interface name for tunnel device (default: dns0)
-{% if interface_name is defined %}
-interface = {{ interface_name }}
+# mtu: MTU for the tun interface (default: 1280 if omitted). Must be 68–1500.
+# Configures the Maximum Transmission Unit for the virtual network interface created for the tunnel.
+{% if (mtu | default(None)) is not none %}
+mtu = {{ (mtu | default(1280)) }}
 {% endif %}
 
-# Optional: Set IP range for allocated client addresses (CIDR notation)
-{% if ip_range is defined %}
-ip = {{ ip_range }}
+# interface_name: Name of the virtual tunnel interface (e.g., 'iodine0'). Defaults to 'dns0'.
+# Specifies the name of the tun/tap device to be created.
+{% if (interface_name | default(None)) is not none %}
+interface = {{ (interface_name | default('dns0')) }}
 {% endif %}
 
-# Optional: Set DNS server to forward queries to (e.g., 8.8.8.8)
-{% if forward_dns is defined %}
-forward_dns = {{ forward_dns | join(', ') | default('') }}
+# password: Shared secret password for client authentication. If set, clients must provide the same password.
+# Prevents unauthorized clients from connecting to the tunnel.
+{% if (password | default(None)) is not none %}
+password = {{ (password | default(None)) }}
+{% endif %}
+
+# ip_range: IPv4 subnet (e.g., '10.0.0.0/24') for assigning IP addresses to clients. Must be non-routable and not conflict with your network.
+# Defines the pool of IP addresses available for distribution to connecting clients.
+{% if (ip_range | default(None)) is not none %}
+ip = {{ (ip_range | default(None)) }}
+{% endif %}
+
+# --- DNS Forwarding ---
+
+# forward_dns: List of DNS servers (IP addresses only) to use for proxying DNS requests.
+# If clients request domains not handled by the tunnel, these servers are queried.
+{% if (forward_dns | default([])) | length > 0 %}
+forward_dns = {{ (forward_dns | default([])) | join(', ') }}
 {% endif %}

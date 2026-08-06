@@ -1,36 +1,23 @@
-# Listen on the specified host and port
-LISTEN={{ listen_host }}:{{ listen_port }}
+# Beanstalkd Configuration Template
+# Managed by Ansible — do not edit manually.
+# This template configures the beanstalkd job queue daemon.
+# It is self-documenting: every setting is described in the comments above.
 
-# Maximum size (in bytes) of a job payload
-MAX-JOB-SIZE={{ max_job_size }}
+## Listen address for beanstalkd
+# The IP address or hostname for the primary listen socket.
+# Set to '0.0.0.0' to listen on all interfaces, or '127.0.0.1' for localhost only.
+BEANSTALKD_LISTEN_ADDR={{ listen_host | default('127.0.0.1') }}
 
-# Run as the specified user (must exist)
-USER={{ user }}
+## Listen port for beanstalkd
+# The TCP port number for the primary listen socket.
+# Standard beanstalkd port is 11300.
+BEANSTALKD_LISTEN_PORT={{ listen_port | default(11300) }}
 
-# Maximum number of connections allowed (0 = unlimited)
-MAX-CONNECTIONS={{ max_connections }}
-
-# Timeout (in seconds) for job operations
-TIMEOUT={{ timeout }}
-
-# PID file location (set to empty string to disable PID file)
-PIDFILE={{ pidfile }}
-
-# Log to the specified file (or use '-' for stdout)
-LOG={{ log_file }}
-
-# Use the specified data directory for persistence (empty = disable persistence)
-DATA-DIR={{ data_dir }}
-
-# Enable or disable binary protocol
-USE-BINARY-PROTOCOL={{ use_binary_protocol | lower }}
-
-# Use the specified slab size for memory allocation
-SLAB-INCREMENT={{ slab_increment }}
-
-{% if watch_listens %}
-# Listen on additional addresses (one per line)
-{% for listen in watch_listens %}# Listen on {{ listen.host }}:{{ listen.port }}
-LISTEN={{ listen.host }}:{{ listen.port }}
-{% endfor %}
-{% endif %}
+# Additional beanstalkd options can be passed via this variable.
+# Uncomment and edit the line below to enable features like job persistence.
+# For example, to enable disk-based job storage:
+#
+# Data directory for persistent job storage
+# Directory to persist jobs to disk (enables durability).
+# Empty string disables persistence.
+#BEANSTALKD_EXTRA="-b {{ data_dir | default('/var/lib/beanstalkd') }}"

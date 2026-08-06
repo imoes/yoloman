@@ -1,0 +1,82 @@
+# ansiweather configuration — self-documenting template generated via Jinja2
+# Each block below corresponds to a schema field. Defaults are applied inline.
+# The rendered output produces long-form CLI flags for the `ansiweather` command.
+
+# Location string (e.g., 'Rzeszow,PL'). Passed to -l flag.
+# Leave empty if using default location or environment variable.
+{% if location | default('') %}-l {{ location | default('') }}
+{% endif %}
+
+# Unit system for temperature and speed.
+# Supported values: 'metric' (Celsius, m/s) or 'imperial' (Fahrenheit, mph).
+# Passed to -u flag.
+-u {{ unit_system | default('metric') }}
+
+# Number of forecast days to display.
+# Value 0 means current conditions only.
+# Passed to -f flag.
+{% if forecast_days | default(0) > 0 %}-f {{ forecast_days | default(0) }}
+{% endif %}
+
+# Enable 5-day forecast mode.
+# If true, uses the -F flag. Overrides -f if both are set in the schema.
+# Passed to -F flag.
+{% if forecast_5days | default(False) %}-F
+{% endif %}
+
+# Toggle ANSI color output.
+# true = colored output; false = plain text.
+# Passed to -a flag.
+{% if ansi_colors | default(True) %}-a
+{% endif %}
+
+# Toggle Unicode symbol output for weather icons.
+# true = symbols enabled; false = symbols disabled.
+# Passed to -s flag.
+{% if symbols | default(True) %}-s
+{% endif %}
+
+# OpenWeatherMap API key.
+# Passed to -k flag. Ensure this is secured in your inventory/vars.
+{% if api_key | default('') %}-k {{ api_key | default('') }}
+{% endif %}
+
+# Toggle UV Index display.
+# true = show UV index; false = hide UV index.
+# Passed to -i flag.
+{% if display_uv_index | default(False) %}-i
+{% endif %}
+
+# Toggle wind data display.
+# true = show wind speed/direction; false = hide wind data.
+# Passed to -w flag.
+{% if display_wind | default(True) %}-w
+{% endif %}
+
+# Toggle humidity data display.
+# true = show humidity percentage; false = hide humidity data.
+# Passed to -h flag.
+{% if display_humidity | default(True) %}-h
+{% endif %}
+
+# Toggle 'Feels Like' temperature display.
+# true = show apparent temperature; false = hide feels like data.
+# Passed to -H flag.
+{% if display_feels_like | default(False) %}-H
+{% endif %}
+
+# Toggle atmospheric pressure data display.
+# true = show pressure; false = hide pressure data.
+# Passed to -p flag.
+{% if display_pressure | default(False) %}-p
+{% endif %}
+
+# Toggle daylight/sunrise/sunset data display.
+# true = show daylight times; false = hide daylight data.
+# Passed to -d flag.
+{% if display_daylight | default(False) %}-d
+{% endif %}
+
+# Note: If all toggle flags are false (or not set), no flags are emitted.
+# The ansiweather command still runs with its own internal defaults.
+# To force a specific flag even if false, you may override the default in your Ansible vars.

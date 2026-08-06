@@ -1,87 +1,54 @@
 {
-  "install_dir": {
+  "run_daily": {
     "type": "string",
-    "default": "/usr/local/sbin",
-    "description": "Directory where chkrootkit binaries are installed."
+    "default": "true",
+    "description": "Whether the daily cron job should run chkrootkit at all."
   },
-  "check_interval_days": {
-    "type": "number",
-    "default": 7,
-    "description": "Number of days between automatic scans (0 disables automatic runs)."
-  },
-  "quiet_mode": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, suppress normal output when no problems are detected."
-  },
-  "enable_checks": {
-    "type": "list",
-    "default": [],
-    "description": "List of individual checks to enable or disable. Each item specifies a check name and whether it's enabled.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the check (e.g., 'chkutmp', 'chklastlog', 'chkwtmp')"
-        },
-        "enabled": {
-          "type": "bool",
-          "description": "Whether the check should be run"
-        }
-      },
-      "required": [
-        "name",
-        "enabled"
-      ]
-    }
-  },
-  "use_selective_checking": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, only run checks explicitly listed in enable_checks. Otherwise, run all default checks except those explicitly disabled."
-  },
-  "debug_mode": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, enable verbose debug output."
-  },
-  "log_file": {
+  "run_daily_opts": {
     "type": "string",
     "default": "",
-    "description": "Path to the log file for scan results. If empty, logging is disabled."
+    "description": "Arguments to pass to chkrootkit."
+  },
+  "diff_mode": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to show changes since last run using diff(1)."
+  },
+  "filter": {
+    "type": "string",
+    "default": "sed -re 's![[:alnum:]]+: PACKET SNIFFER\\(((/usr/lib/systemd/systemd-networkd|/usr/sbin/(dhclient|dhcpc?d[0-9]*|wpa_supplicant|NetworkManager))\\[[0-9]+\\](, )?)+\\)!<interface>: PACKET SNIFFER\\([systemd-networkd|dhclient|dhcpd|dhcpcd|wpa_supplicant|NetworkManager]{PID}\\)!' -e 's/(! [[:alnum:]+-]+)\\s+[0-9]+/\\1 {PID}/'",
+    "description": "Shell command to filter chkrootkit output."
+  },
+  "ignore_file": {
+    "type": "string",
+    "default": "/etc/chkrootkit/chkrootkit.ignore",
+    "description": "Path to file containing regex patterns for lines to ignore."
   },
   "mail_to": {
     "type": "list",
-    "default": [],
-    "description": "Email addresses to send scan results to (comma-separated in config).",
-    "items": {
-      "type": "string",
-      "description": "Email address"
-    }
+    "default": [
+      "root"
+    ],
+    "description": "Email addresses to send scan results to."
   },
   "mail_subject": {
     "type": "string",
     "default": "",
-    "description": "Subject line for email notifications. Leave empty to use default."
+    "description": "Subject line for email notifications. Empty uses default."
   },
-  "email_threshold": {
-    "type": "number",
-    "default": 1,
-    "description": "Minimum 'alert level' required to trigger email. 0 = always email, 1 = email only if potential problems found, 2+ = stricter thresholds."
+  "ionice_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, use ionice when running chkrootkit."
   },
-  "extra_args": {
-    "type": "list",
-    "default": [],
-    "description": "Additional command-line arguments passed directly to chkrootkit.",
-    "items": {
-      "type": "string",
-      "description": "Argument string (e.g., '-d', '-p /path/to/dir')"
-    }
-  },
-  "hostname": {
+  "chkrootkit_binary": {
     "type": "string",
-    "default": "localhost",
-    "description": "System hostname \u2014 used in default mail subject."
+    "default": "/usr/sbin/chkrootkit",
+    "description": "Path to the chkrootkit binary."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/chkrootkit",
+    "description": "Directory where output and logs are saved."
   }
 }

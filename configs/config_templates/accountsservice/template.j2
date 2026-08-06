@@ -4,39 +4,65 @@
 # See `man 5 users` for format documentation
 
 [User]
-# Full name displayed in greeter and tools
-Username={{ username }}
-# Full display name
-RealName={{ real_name }}
-# Path to user's avatar image (PNG or XPM; should be world-readable)
-Icon={{ icon_path }}
-# Account type: `standard` (default), `administrator`
-AccountType={{ account_type }}
-# Password hint (optional; blank to hide)
+
+# Unique login name (e.g., `alice`). Must match the system username and filename.
+Username={{ username | default('') }}
+
+# User’s full display name (e.g., `Alice Smith`). Shown in login manager and user lists.
+RealName={{ real_name | default('') }}
+
+# Absolute path to the user’s avatar image (PNG or XPM).
+# Usually `/var/lib/AccountsService/icons/<username>`.
+Icon={{ icon_path | default('') }}
+
+# Privilege level: `standard` (regular user) or `administrator` (sudo access).
+AccountType={{ account_type | default('standard') }}
+
+# Optional hint shown when password entry is focused. Leave blank to hide.
 PasswordHint={{ password_hint | default('') }}
-# Location of password hint (deprecated; ignored by modern accountsservice)
+
+# Deprecated. Ignored by modern accountsservice. Keep empty.
 PasswordMode={{ password_mode | default('') }}
-# Language code (e.g., `en_US`); blank to inherit from system
+
+# Locale for the user (e.g., `en_US.UTF-8`, `de_DE`). Blank uses system locale.
 Language={{ language | default('') }}
-# Session type (e.g., `gnome`, `plasma`, `xfce`); blank for default
+
+# Default desktop session (e.g., `gnome`, `plasma`, `xfce`). Blank defaults to system session.
 Session={{ session | default('') }}
-# Login frequency: `never`, `recent`, `always`
+
+# How often the user appears in the login list: `never`, `recent`, or `always`.
 LoginFrequency={{ login_frequency | default('recent') }}
-# Last login time (epoch seconds; auto-updated)
+
+# Unix timestamp of last login. Auto-updated; set to 0 to reset.
 LastLogin={{ last_login | default(0) }}
-# Number of failed login attempts
+
+# Count of recent failed login attempts. Auto-updated.
 LoginFailed={{ login_failed | default(0) }}
-# Automatic login enabled?
-AutomaticLogin={{ 'true' if automatic_login else 'false' }}
-# Auto-login without password prompt (insecure)
-AutomaticLoginWhileLocked={{ 'true' if automatic_login_while_locked else 'false' }}
-# Password expiry (epoch seconds); 0 = never
+
+# Enable automatic login on boot (skips password prompt). Insecure on multi-user systems.
+AutomaticLogin={{ automatic_login | default(false) | ternary('true', 'false') }}
+
+# Allow auto-login even after locking (e.g., when resuming from suspend). Highly discouraged.
+AutomaticLoginWhileLocked={{ automatic_login_while_locked | default(false) | ternary('true', 'false') }}
+
+# Unix timestamp when password expires (0 = no expiry). Requires PAM module `pam_unix`.
 PasswordExpiry={{ password_expiry | default(0) }}
-# Password changed time (epoch seconds)
+
+# Unix timestamp when password was last changed. Auto-updated.
 PasswordChanged={{ password_changed | default(0) }}
-# System account flag (true for UID < 1000, usually hidden from greeter)
-SystemAccount={{ 'true' if system_account else 'false' }}
-# Custom fields (e.g., `PolicyKitIdentity=unix-user:{{ username }}`)
-{% for key, value in custom_fields.items() %}
-{{ key }}={{ value }}
+
+# Mark as a system account (UID < 1000). Hides user from greeter and UI tools.
+SystemAccount={{ system_account | default(false) | ternary('true', 'false') }}
+
+# Additional key-value pairs for custom integration (e.g., PolicyKit or LDAP extensions).
+# custom_fields is a list of dicts (each with 'key' and 'value' or similar structure).
+# Iterating the list directly to avoid filter errors on non-mappings.
+{% for item in custom_fields | default([]) %}
+{% if item is mapping %}
+{% for k, v in item | dict2items %}
+{{ k.key }}={{ v.value }}
+{% endfor %}
+{% else %}
+# Skipping invalid custom_fields entry: {{ item }}
+{% endif %}
 {% endfor %}

@@ -1,51 +1,86 @@
-# Enable or disable the firewalld service at boot
-{% if firewall_enabled %}Enable=yes{% else %}Enable=no{% endif %}
+# firewalld main configuration file
+# Managed by Ansible. Do not edit manually.
 
-# Default zone for untrusted interfaces
-# Zones define trust levels for network connections
-DefaultZone={{ default_zone }}
+# default_zone: default='public'
+# The initial zone assigned to interfaces with no explicit zone binding (e.g., 'public', 'internal', 'trusted').
+DefaultZone={{ default_zone | default('public') }}
 
-# Minimum UID/GID allowed to manage firewalld via D-Bus
-# Set to -1 to allow all users with appropriate Polkit rules
-MinUID={{ min_uid }}
+# CleanupOnExit: default='yes'
+# If set to no or false the firewall configuration will not get cleaned up
+# on exit or stop of firewalld.
+CleanupOnExit=yes
 
-# Maximum UID/GID allowed to manage firewalld via D-Bus
-# Set to -1 to disable upper limit
-MaxUID={{ max_uid }}
+# CleanupModulesOnExit: default='no'
+# If set to yes or true the firewall related kernel modules will be
+# unloaded on exit or stop of firewalld. This might attempt to unload
+# modules not originally loaded by firewalld.
+CleanupModulesOnExit=no
 
-# Enable or disable logging of denied packets
-# Options: yes, no
-LogDenied={{ log_denied }}
+# IPv6_rpfilter: default='strict'
+# Performs reverse path filtering (RPF) on IPv6 packets as per RFC 3704.
+# Possible values: strict, loose, strict-forward, loose-forward, no.
+# Note: This feature has a performance impact.
+IPv6_rpfilter=strict
 
-# Enable or disable automatic loading of kernel modules needed by firewalld
-# Required for full functionality (e.g., nftables backend)
-AutoInstall={{ auto_install }}
+# IndividualCalls: default='no'
+# Do not use combined -restore calls, but individual calls. This increases the
+# time that is needed to apply changes and to start the daemon, but is good for
+# debugging.
+IndividualCalls=no
 
-# Backend used by firewalld: nftables (modern) or iptables (legacy)
-# Recommended: nftables
-Backend={{ backend }}
+# log_denied: default='off'
+# Whether to log packets that are dropped or rejected. Valid values: 'off', 'unicast', 'broadcast', 'multicast', 'all'.
+LogDenied={{ log_denied | default('off') }}
 
-# Enable or disable D-Bus usage (required for most management tools)
-D-Bus=yes
+# backend: default='nftables'
+# Firewall backend. Use 'nftables' for modern kernels; 'iptables' for legacy.
+# Note: The iptables backend is deprecated.
+FirewallBackend={{ backend | default('nftables') }}
 
-# Enable or disable runtime-only mode (no persistent configuration)
-# For testing or embedded environments
-{% if runtime_only %}RuntimeOnly=yes{% else %}RuntimeOnly=no{% endif %}
+# FlushAllOnReload: default='yes'
+# Flush all runtime rules on a reload. In previous releases some runtime
+# configuration was retained during a reload, namely; interface to zone
+# assignment, and direct rules. This was confusing to users. To get the old
+# behavior set this to "no".
+FlushAllOnReload=yes
 
-# Maximum number of concurrent D-Bus connections
-MaxConnections={{ max_connections }}
+# reload_policy: default='INPUT:DROP,FORWARD:DROP,OUTPUT:DROP'
+# Policy during reload. By default all traffic except for established
+# connections is dropped while the rules are updated. Set to "DROP", "REJECT"
+# or "ACCEPT". Alternatively, specify it per table, like
+# "OUTPUT:ACCEPT,INPUT:DROP,FORWARD:REJECT".
+ReloadPolicy={{ reload_policy | default('INPUT:DROP,FORWARD:DROP,OUTPUT:DROP') }}
 
-# Enable or disable IPv6 support
-# Required for dual-stack environments
-{% if ipv6_enabled %}IPv6=yes{% else %}IPv6=no{% endif %}
+# RFC3964_IPv4: default='yes'
+# As per RFC 3964, filter IPv6 traffic with 6to4 destination addresses that
+# correspond to IPv4 addresses that should not be routed over the public
+# internet.
+RFC3964_IPv4=yes
 
-# Enable or disable direct rules (advanced iptables/nftables integration)
-# Use with caution — bypasses zone-based policy
-{% if direct_rules_enabled %}DirectRules=yes{% else %}DirectRules=no{% endif %}
+# StrictForwardPorts: default='no'
+# If set to yes, the generated destination NAT (DNAT) rules will NOT accept
+# traffic that was DNAT'd by other entities, e.g. docker. Firewalld will be
+# strict and not allow published container ports until they're explicitly
+# allowed via firewalld.
+# If set to no, then docker (and podman) integrates seamlessly with firewalld.
+# Published container ports are implicitly allowed.
+StrictForwardPorts=no
 
-# Paths to custom XML zone, service, and policy files (colon-separated)
-# These are searched *in addition* to the standard system/user paths
-{% if custom_config_paths | length > 0 %}ConfigDirectory={{ custom_config_paths | join(': ') }}{% else %}# ConfigDirectory= (use defaults only){% endif %}
+# NftablesFlowtable: default='off'
+# This may improve forwarded traffic throughput by enabling nftables flowtable.
+# It is a software fastpath and avoids calling nftables rule evaluation for
+# data packets. This only works for TCP and UDP traffic.
+# The value is a space separated list of interfaces.
+NftablesFlowtable=off
 
-# Paths to runtime-specific (non-persistent) XML files (colon-separated)
-{% if runtime_config_paths | length > 0 %}RuntimeDirectory={{ runtime_config_paths | join(': ') }}{% else %}# RuntimeDirectory= (use defaults only){% endif %}
+# NftablesCounters: default='no'
+# If set to yes, add a counter to every nftables rule. This is useful for
+# debugging and comes with a small performance cost.
+NftablesCounters=no
+
+# NftablesTableOwner: default='yes'
+# If set to yes, the generated nftables rule set will be owned exclusively by
+# firewalld. This prevents other entities from mistakenly (or maliciously)
+# modifying firewalld's rule set. If you intentionally modify firewalld's
+# rules, then you will have to set this to "no".
+NftablesTableOwner=yes

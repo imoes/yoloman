@@ -52,203 +52,26 @@
   "redis_servers": {
     "type": "list",
     "default": [],
-    "description": "List of Redis servers for distributed storage (used when stat_driver=redis).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "host": {
-          "type": "string",
-          "default": "localhost",
-          "description": "Redis server hostname or IP."
-        },
-        "port": {
-          "type": "number",
-          "default": 6379,
-          "description": "Redis server port (typically 6379)."
-        },
-        "password": {
-          "type": "string",
-          "default": "",
-          "description": "Redis password (leave empty if no auth)."
-        },
-        "database": {
-          "type": "number",
-          "default": 0,
-          "description": "Redis database number (0\u201315)."
-        }
-      }
-    }
+    "description": "List of Redis servers for distributed storage (used when stat_driver=redis)."
   },
   "clustering_servers": {
     "type": "list",
     "default": [],
-    "description": "List of Rspamd nodes for clustering (multi-node deployments).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "host": {
-          "type": "string",
-          "default": "",
-          "description": "Node hostname or IP."
-        },
-        "port": {
-          "type": "number",
-          "default": 11334,
-          "description": "Clustering port (default 11334)."
-        }
-      }
-    }
+    "description": "List of Rspamd nodes for clustering (multi-node deployments)."
   },
   "symbols_config": {
     "type": "list",
     "default": [],
-    "description": "Custom symbols (rules) with scores and metadata. Add new filters here.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique symbol name (e.g., 'MY_CUSTOM_RULE')."
-        },
-        "score": {
-          "type": "number",
-          "default": 1.0,
-          "description": "Weight added to spam score if symbol matches."
-        },
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable symbol description."
-        },
-        "group": {
-          "type": "string",
-          "default": "default",
-          "description": "Logical grouping (e.g., 'HEADERS', 'REPUTATION')."
-        },
-        "priority": {
-          "type": "number",
-          "default": 0,
-          "description": "Execution priority (negative = earlier)."
-        },
-        "flags": {
-          "type": "list",
-          "default": [],
-          "description": "Symbol flags (e.g., ['no_header', 'only_mail'])."
-        }
-      }
-    }
+    "description": "Custom symbols (rules) with scores and metadata. Add new filters here."
   },
-  "whitelist": {
-    "type": "list",
-    "default": [],
-    "description": "IP addresses or CIDR ranges to whitelist (e.g., internal networks).",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "Whitelist entry (CIDR or exact IP)."
-    }
-  },
-  "blacklist": {
-    "type": "list",
-    "default": [],
-    "description": "IP addresses or CIDR ranges to blacklist.",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "Blacklist entry (CIDR or exact IP)."
-    }
-  },
-  "max_message_size": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum message size (in bytes) to scan. 0 = no limit (recommended for most cases)."
-  },
-  "max_recipients": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum recipients per message. Helps prevent resource exhaustion."
-  },
-  "scan_timeout": {
-    "type": "number",
-    "default": 60.0,
-    "description": "Maximum scan time (in seconds) per message before aborting."
-  },
-  "dns_servers": {
-    "type": "list",
-    "default": [],
-    "description": "DNS resolvers used for RBL, SPF, DKIM, and MX checks. If empty, system defaults are used.",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "DNS server address (e.g., '127.0.0.1', '8.8.8.8')."
-    }
-  },
-  "controller_auth": {
-    "type": "object",
-    "default": {},
-    "description": "Authentication settings for the controller (web UI) and API.",
-    "fields": {
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Plain-text password (not recommended). Use hash instead."
-      },
-      "hash": {
-        "type": "string",
-        "default": "",
-        "description": "Pre-hashed password (e.g., bcrypt hash). More secure."
-      },
-      "tokens": {
-        "type": "list",
-        "default": [],
-        "description": "API tokens (base64 or random strings) for token-based auth."
-      }
-    }
-  },
-  "log_type": {
+  "init_daemon_user": {
     "type": "string",
-    "default": "syslog",
-    "description": "Log output method: 'syslog' (production) or 'file' (debugging)."
+    "default": "_rspamd",
+    "description": "System user to run Rspamd daemons (used in init.d script)."
   },
-  "log_file": {
+  "init_daemon_group": {
     "type": "string",
-    "default": "/var/log/rspamd/rspamd.log",
-    "description": "Log file path (used only if log_type='file')."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "warning",
-    "description": "Log verbosity: 'error', 'warning', 'notice', 'info', or 'debug'."
-  },
-  "log_debug_modules": {
-    "type": "list",
-    "default": [],
-    "description": "List of modules to log debug info for (e.g., ['dkim', 'spf']).",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "Module name for debug logging."
-    }
-  },
-  "modules_disabled": {
-    "type": "list",
-    "default": [],
-    "description": "List of modules to explicitly disable (e.g., ['milter', 'redis']. Use only if needed.",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "Module name to disable."
-    }
-  },
-  "confdir_local": {
-    "type": "string",
-    "default": "/etc/rspamd/local.d",
-    "description": "Override config directory for site-specific customizations (auto-included by default)."
-  },
-  "confdir_override": {
-    "type": "string",
-    "default": "/etc/rspamd/override.d",
-    "description": "Higher-priority override directory (e.g., for vendor tweaks)."
+    "default": "_rspamd",
+    "description": "System group to run Rspamd daemons (used in init.d script)."
   }
 }

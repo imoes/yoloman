@@ -1,46 +1,52 @@
 # harvid configuration file — HTTP server for Ardour video streaming
 # See https://github.com/ardour/harvid for documentation
+#
+# This file is self-documenting. Every directive is preceded by a comment
+# derived from the schema description. All variables are safe: they use
+# `default()` with the schema-provided fallback to prevent rendering errors
+# when the variable is undefined.
 
 [server]
-# Host interface to bind to (0.0.0.0 for all interfaces)
-host = {{ host }}
+# IP address of the network interface the server listens on. Use '0.0.0.0' to listen on all interfaces.
+host = {{ host | default('0.0.0.0') }}
 
-# TCP port for HTTP connections
-port = {{ port }}
+# TCP port for incoming HTTP connections.
+port = {{ port | default(8080) }}
 
-# Maximum number of simultaneous client connections
-max_connections = {{ max_connections }}
+# Maximum number of simultaneous client connections allowed.
+max_connections = {{ max_connections | default(100) }}
 
-# Timeout (in seconds) for idle connections
-timeout = {{ timeout }}
+# Idle connection timeout in seconds. Connections beyond this duration are closed.
+timeout = {{ timeout | default(30) }}
 
-# Enable or disable gzip compression for responses
-compression = {{ compression }}
+# Enable or disable gzip compression for HTTP responses (helps reduce bandwidth).
+compression = {{ compression | default(True) | lower }}
 
 [paths]
-# Base directory where video files are served from
-root = {{ root }}
+# Absolute or relative path to the top-level directory where video files are stored.
+root = {{ root | default('/srv/harvid/videos') }}
 
-# Optional subdirectory under `root` to serve as default index
-index_dir = {{ index_dir }}
+# Subdirectory under `root` to serve as default index landing page (e.g., 'main'). Leave empty to disable.
+index_dir = {{ index_dir | default('') }}
 
-# Path to optional index template file (if absent, directory listing is auto-generated)
-index_template = {{ index_template }}
+# Path to custom HTML template for directory listings. If omitted, a basic auto-generated listing is used.
+index_template = {{ index_template | default('') }}
 
 [logging]
-# Path to log file (use '-' for stderr)
-file = {{ log_file }}
+# Path to server log file. Use '-' to log to stderr instead.
+file = {{ log_file | default('/var/log/harvid/harvid.log') }}
 
-# Log level: debug, info, warn, error, fatal
-level = {{ log_level }}
+# Verbosity level of logging. Choose from: debug, info, warn, error, fatal.
+level = {{ log_level | default('info') | lower }}
 
-# Enable or disable access logging
-access_log = {{ access_log }}
+# Enable detailed access logging (every request with IP, path, status, etc.).
+access_log = {{ access_log | default(True) | lower }}
 
-{% for service in services %}
+{% for service in services | default([]) %}
 [service:{{ service.name }}]
 # Description: {{ service.description | default('No description') }}
-enabled = {{ service.enabled }}
+# List of optional named services (each with its own root path and mount point). Useful for multi-tenant or segmented deployments.
+enabled = {{ service.enabled | default(true) | lower }}
 
 # Root path for this service (relative or absolute)
 root = {{ service.root }}
@@ -50,8 +56,8 @@ root = {{ service.root }}
 {% endfor %}
 
 [security]
-# Optional: Enable basic auth (requires username/password file)
-enable_basic_auth = {{ enable_basic_auth }}
+# Enable HTTP Basic Authentication for all endpoints.
+enable_basic_auth = {{ enable_basic_auth | default(False) | lower }}
 
-# Path to password file in htpasswd format (md5, bcrypt supported)
-password_file = {{ password_file }}
+# Path to htpasswd-formatted file containing usernames and hashed passwords (supports md5, bcrypt, sha1).
+password_file = {{ password_file | default('/etc/harvid/htpasswd') }}

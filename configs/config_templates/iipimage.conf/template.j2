@@ -1,70 +1,164 @@
-# IIPImage server configuration file
+# ==============================================================================
+# IIPImage Server Configuration
+# This file controls the behavior of the IIPImage Fast Image Server.
+# It is structured as a JSON-like object but uses standard configuration syntax.
+#
+# Variables are sourced from Ansible facts/variables. If a variable is undefined,
+# the schema default is used (defined via | default(...)).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
 # Core settings
+# General parameters controlling memory, logging, image processing limits,
+# and caching behavior.
+# ------------------------------------------------------------------------------
 {
   "Core": {
+    # Verbosity level: 0=quiet, 1=normal, 2=debug
     "Verbose": {{ verbose | default(0) }},
+
+    # Minimum logging level: TRACE, DEBUG, INFO, WARN, ERROR, or FATAL
     "LogLevel": "{{ log_level | default('INFO') }}",
+
+    # Maximum number of images to cache (in memory)
     "MaxImageCacheSize": {{ max_image_cache_size | default(100) }},
+
+    # Cache entry expiration time in seconds
     "CacheExpirationTime": {{ cache_expiration_time | default(3600) }},
+
+    # Maximum pixel dimension (width or height) allowed for source images
     "MaxSize": {{ max_size | default(8192) }},
+
+    # JPEG compression quality (1–100)
     "JpegQuality": {{ jpeg_quality | default(75) }},
+
+    # WebP compression quality (1–100)
     "WebpQuality": {{ webp_quality | default(80) }},
+
+    # Maximum dimensions (in percent of original) for JPEG output before resizing is skipped
     "MaxJpegSize": {{ max_jpeg_size | default(100) }},
+
+    # Minimum zoom level (tile pyramid level)
     "MinZoomLevel": {{ min_zoom_level | default(0) }},
+
+    # Maximum zoom level allowed
     "MaxZoomLevel": {{ max_zoom_level | default(20) }},
+
+    # Tile size in pixels (both width and height)
     "TileSize": {{ tile_size | default(256) }},
+
+    # Overlap between adjacent tiles in pixels
     "TileOverlap": {{ tile_overlap | default(0) }},
+
+    # Default compression format for tiles: 'jpeg', 'png', 'webp'
     "Compression": "{{ compression | default('jpeg') }}",
+
+    # Enable support for animated GIF images
     "AllowAnimatedGif": {{ allow_animated_gif | default(false) | lower }},
+
+    # Enable support for animated WebP images
     "AllowAnimatedWebp": {{ allow_animated_webp | default(false) | lower }},
+
+    # Enable caching of rendered tiles
     "UseCaching": {{ use_caching | default(true) | lower }},
+
+    # Use system shared memory for caching (requires shared memory support)
     "UseSharedMemory": {{ use_shared_memory | default(false) | lower }},
-    "SharedMemoryKey": {{ shared_memory_key | default(0x4567) | int }}
+
+    # Hexadecimal key for shared memory segment (e.g., 0x4567)
+    # Note: The default schema value is an integer; rendered as-is.
+    "SharedMemoryKey": {{ shared_memory_key | default(17767) }}
   }
 }
+
+# ------------------------------------------------------------------------------
 # Logging configuration
+# Controls where and how IIPImage records its operational logs.
+# ------------------------------------------------------------------------------
 {
   "Log": {
+    # Path to log file
     "File": "{{ log_file | default('/var/log/iipimage/iipimage.log') }}",
+
+    # Log timestamp format (strftime-compatible)
     "Format": "{{ log_format | default('%Y-%m-%d %H:%M:%S') }}"
   }
 }
+
+# ------------------------------------------------------------------------------
 # Server settings
+# Network binding, concurrency, and SSL/TLS configuration.
+# ------------------------------------------------------------------------------
 {
   "Server": {
+    # Network address to bind the server to (e.g., '127.0.0.1' or '0.0.0.0')
     "BindAddress": "{{ bind_address | default('0.0.0.0') }}",
-    "Port": {{ port | default(80 | int) }},
+
+    # HTTP port to listen on
+    "Port": {{ port | default(80) }},
+
+    # Maximum simultaneous client connections
     "MaxConnections": {{ max_connections | default(100) }},
+
+    # Connection and request timeout in seconds
     "Timeout": {{ timeout | default(30) }},
+
+    # Maximum number of worker processes (for prefork mode)
     "MaxWorkers": {{ max_workers | default(4) }},
+
+    # Maximum number of threads per worker
     "MaxThreads": {{ max_threads | default(10) }},
+
+    # Enable HTTPS support
     "EnableSSL": {{ enable_ssl | default(false) | lower }},
+
+    # Path to SSL certificate file
     "SSLCertFile": "{{ ssl_cert_file | default('/etc/ssl/certs/iipimage.crt') }}",
+
+    # Path to SSL private key file
     "SSLKeyFile": "{{ ssl_key_file | default('/etc/ssl/private/iipimage.key') }}"
   }
 }
+
+# ------------------------------------------------------------------------------
 # Supported file formats and their loaders
+# Defines which image types IIPImage can process and which backend plugin to use.
+# ------------------------------------------------------------------------------
 {
   "Formats": [
-{% for fmt in formats %}
+{% for fmt in formats | default([
+    {'type': 'tiff', 'loader': 'tiff', 'options': ''},
+    {'type': 'jp2', 'loader': 'j2k', 'options': ''},
+    {'type': 'jpeg', 'loader': 'jpeg', 'options': ''},
+    {'type': 'png', 'loader': 'png', 'options': ''},
+    {'type': 'webp', 'loader': 'webp', 'options': ''},
+    {'type': 'bmp', 'loader': 'bmp', 'options': ''},
+    {'type': 'gif', 'loader': 'gif', 'options': ''}
+]) %}
     {
       "Type": "{{ fmt.type }}",
       "Loader": "{{ fmt.loader }}",
       "Options": "{{ fmt.options | default('') }}"
-    }{{ ',' if not loop.last else '' }}
+    }{% if not loop.last %},{% endif %}
 {% endfor %}
   ]
 }
+
+# ------------------------------------------------------------------------------
 # Filesystem paths and aliases
+# Maps URL aliases to physical directories on the server.
+# ------------------------------------------------------------------------------
 {
   "Paths": [
-{% for path in paths %}
+{% for path in paths | default([
+    {'alias': '/', 'path': '/data/images', 'read_only': False, 'recursive': True}
+]) %}
     {
       "Alias": "{{ path.alias }}",
       "Path": "{{ path.path }}",
       "ReadOnly": {{ path.read_only | default(false) | lower }},
       "Recursive": {{ path.recursive | default(true) | lower }}
-    }{{ ',' if not loop.last else '' }}
+    }{% if not loop.last %},{% endif %}
 {% endfor %}
   ]
 }

@@ -2,58 +2,59 @@
 # Shell defaults sourced by /etc/init.d/daemonlogger or systemd EnvironmentFile.
 # All variables map directly to daemonlogger CLI flags; see daemonlogger(8).
 
-# Enable or disable automatic start of the daemon at boot (yes/no)
-START_DAEMONLOGGER="{{ 'yes' if start_enabled else 'no' }}"
+# Start daemonlogger automatically at boot. Set to false to install the package without activating the daemon.
+START_DAEMONLOGGER="{{ 'yes' if (start_enabled | default(True)) else 'no' }}"
 
-# System user daemonlogger drops privileges to after binding the raw capture socket (-u)
-DAEMONLOGGER_USER="{{ daemon_user }}"
+# System user account the daemon drops privileges to after opening the raw capture socket. Must have write access to log_dir.
+DAEMONLOGGER_USER="{{ daemon_user | default('daemonlogger') }}"
 
-# System group daemonlogger drops privileges to after binding the raw capture socket (-g)
-DAEMONLOGGER_GROUP="{{ daemon_group }}"
+# System group the daemon drops privileges to after opening the raw capture socket.
+DAEMONLOGGER_GROUP="{{ daemon_group | default('daemonlogger') }}"
 
-# Network interface to capture packets from (positional argument passed to daemonlogger)
-INTERFACE="{{ interface }}"
+# Network interface to capture packets from (e.g. eth0, ens3, bond0). The interface must be up before the daemon starts.
+INTERFACE="{{ interface | default('eth0') }}"
 
-# Directory where rotating pcap log files are written (-l)
-LOGDIR="{{ log_dir }}"
+# Directory where rotating pcap log files are written. Must exist and be writable by daemon_user before the daemon starts.
+LOGDIR="{{ log_dir | default('/var/log/daemonlogger') }}"
 
-# Filename prefix for pcap log files (-n); a Unix timestamp suffix is appended automatically
-LOG_PREFIX="{{ log_prefix }}"
+# Filename prefix for pcap log files. A Unix timestamp suffix is appended automatically (e.g. capture.1718000000.pcap).
+LOG_PREFIX="{{ log_prefix | default('daemonlogger') }}"
 
-# Per-packet snapshot length in bytes (-s); 1514 covers a standard 1500-byte Ethernet payload
-SNAPLEN={{ snaplen }}
+# Per-packet snapshot length in bytes. 1514 captures the full payload of a standard 1500-byte MTU Ethernet frame. Increase to 9014 for jumbo frames.
+SNAPLEN={{ snaplen | default(1514) }}
 
-# Roll over to a new pcap file once this many bytes have been written (-S); 0 disables size-based rollover
-ROLLOVER_SIZE={{ rollover_size }}
+# Maximum pcap file size in bytes before rotating to a new file. 134217728 = 128 MiB. Set to 0 to disable size-based rotation.
+ROLLOVER_SIZE={{ rollover_size | default(134217728) }}
 
-# Roll over to a new pcap file after this many seconds (-t); 0 disables time-based rollover
-ROLLOVER_TIME={{ rollover_time }}
+# Maximum pcap file age in seconds before rotating to a new file. 3600 = 1 hour. Set to 0 to disable time-based rotation.
+ROLLOVER_TIME={{ rollover_time | default(3600) }}
 
-# Maximum number of pcap files retained on disk (-M); oldest is deleted when the limit is hit; 0 = unlimited
-MAX_FILES={{ max_files }}
+# Maximum number of pcap files to keep on disk. The oldest file is deleted when this limit is reached. 0 means unlimited — manage retention externally.
+MAX_FILES={{ max_files | default(0) }}
 
-# Soft-tap output interface (-T): a verbatim copy of each captured packet is forwarded here; empty = disabled
-TAP_INTERFACE="{{ tap_interface }}"
+# Optional soft-tap output interface. A verbatim copy of each captured packet is injected here in addition to being logged. Leave empty to disable.
+TAP_INTERFACE="{{ tap_interface | default('') }}"
 
-# Path to the PID file (-p); the parent directory must exist and be writable by DAEMONLOGGER_USER
-PIDFILE="{{ pid_file }}"
+# Absolute path to the PID file. The parent directory must exist and be writable by daemon_user before the daemon starts.
+PIDFILE="{{ pid_file | default('/var/run/daemonlogger/daemonlogger.pid') }}"
 
-{% if verbose %}
-# Verbose/debug output to syslog enabled (-v); disable in production to avoid log noise
+# Enable verbose debug output to syslog. Useful for initial setup and troubleshooting; disable in production to avoid log noise.
+{% if (verbose | default(False)) %}
 VERBOSE=1
 {% else %}
-# Verbose/debug output to syslog disabled
 VERBOSE=0
 {% endif %}
 
-{% if bpf_rules %}
-# Berkeley Packet Filter expression passed to libpcap (-f); individual rule atoms are OR-combined
-{% for rule in bpf_rules %}# Rule {{ loop.index }}: {{ rule.description }}
-{% endfor %}BPF_FILTER="{% for rule in bpf_rules %}{% if not loop.first %} or {% endif %}{{ rule.expr }}{% endfor %}"
+# Berkeley Packet Filter expression passed to libpcap (-f); individual rule atoms are OR-combined into a single expression.
+{% if (bpf_rules | default([])) %}
+# BPF filter rules provided:
+{% for rule in bpf_rules | default([]) %}
+# Rule {{ loop.index }}: {{ rule.description | default('') }}
+{% endfor %}BPF_FILTER="{% for rule in bpf_rules | default([]) %}{% if not loop.first %} or {% endif %}{{ rule.expr }}{% endfor %}"
 {% else %}
 # No BPF filter — all traffic on INTERFACE is captured
 BPF_FILTER=""
 {% endif %}
 
-# Additional command-line flags passed verbatim to daemonlogger (for options not covered above)
-EXTRA_ARGS="{{ extra_args }}"
+# Additional command-line flags passed verbatim to daemonlogger. Use only for options not exposed as dedicated variables above.
+EXTRA_ARGS="{{ extra_args | default('') }}"

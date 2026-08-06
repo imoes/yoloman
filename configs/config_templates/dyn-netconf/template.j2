@@ -1,6 +1,21 @@
 #!/bin/sh
 # Dynamic network configuration script for initramfs
 # Applies per-interface network settings from kernel command-line or initramfs
+#
+# This script serves as a self-documenting template for generating
+# initramfs network setup scripts. It supports both DHCP and static
+# IP configurations, with per-interface overrides and global fallbacks.
+#
+# Configuration variables:
+#   dhcp         - Enable DHCP for interfaces without explicit mode (bool)
+#   ip           - Static IPv4 address for fallback (string)
+#   gateway      - IPv4 default gateway for fallback (string)
+#   netmask      - IPv4 netmask or CIDR (string)
+#   hostname     - System hostname for fallback (string)
+#   dns          - DNS server(s), space-separated (string)
+#   interfaces   - List of interface configs (list of dicts)
+#
+# Interface dict keys: name, address, gateway, netmask, dhcp, dns, hostname
 
 PREREQ=""
 
@@ -18,32 +33,64 @@ esac
 # Source common functions
 . /scripts/functions
 
-# Read network configuration from initramfs-tools environment
-# Defaults if not overridden by environment variables
-DHCP="{{ dhcp }}"
-IP="{{ ip }}"
-GATEWAY="{{ gateway }}"
-NETMASK="{{ netmask }}"
-HOSTNAME="{{ hostname }}"
-DNS="{{ dns }}"
+# ---------------------------------------------------------------------------
+# Global Network Configuration Defaults
+# These variables provide fallback settings if per-interface configuration
+# is not specified or if no interfaces are listed.
+# ---------------------------------------------------------------------------
 
-# Apply per-interface configuration if provided
-{% for iface in interfaces %}
-{% if iface.name %}
-# Configure interface {{ iface.name }}
-IFACE="{{ iface.name }}"
-IP_ADDR="{{ iface.address | default(ip) }}"
-GATEWAY_ADDR="{{ iface.gateway | default(gateway) }}"
-NETMASK_ADDR="{{ iface.netmask | default(netmask) }}"
-DHCP_MODE="{{ iface.dhcp | default(dhcp) }}"
-DNS_SERVERS="{{ iface.dns | default(dns) }}"
-HOSTNAME_VAL="{{ iface.hostname | default(hostname) }}"
+# dhcp: Enable DHCP for interfaces that don’t specify their own mode.
+DHCP="{{ dhcp | default(true) }}"
+
+# ip: Static IPv4 address for fallback configuration (e.g., 192.168.1.10).
+IP="{{ ip | default('') }}"
+
+# gateway: IPv4 default gateway for fallback configuration.
+GATEWAY="{{ gateway | default('') }}"
+
+# netmask: IPv4 netmask or CIDR prefix length (e.g., 255.255.255.0 or 24).
+NETMASK="{{ netmask | default('') }}"
+
+# hostname: System hostname for fallback configuration.
+HOSTNAME="{{ hostname | default('') }}"
+
+# dns: DNS server(s) (space-separated) for fallback configuration.
+DNS="{{ dns | default('8.8.8.8') }}"
+
+# ---------------------------------------------------------------------------
+# Per-Interface Configuration
+# Iterates over the 'interfaces' list to apply specific settings to each
+# network interface. Each interface dict may override global defaults.
+# ---------------------------------------------------------------------------
+{% for iface in interfaces | default([]) %}
+{% if iface.name | default('') %}
+# Configure interface {{ iface.name | default('') }}
+IFACE="{{ iface.name | default('') }}"
+
+# iface.address: IPv4 address for this interface; falls back to global 'ip'.
+IP_ADDR="{{ iface.address | default(ip | default('')) }}"
+
+# iface.gateway: Gateway for this interface; falls back to global 'gateway'.
+GATEWAY_ADDR="{{ iface.gateway | default(gateway | default('')) }}"
+
+# iface.netmask: Netmask for this interface; falls back to global 'netmask'.
+NETMASK_ADDR="{{ iface.netmask | default(netmask | default('')) }}"
+
+# iface.dhcp: DHCP mode for this interface; falls back to global 'dhcp'.
+DHCP_MODE="{{ iface.dhcp | default(dhcp | default(true)) }}"
+
+# iface.dns: DNS servers for this interface; falls back to global 'dns'.
+DNS_SERVERS="{{ iface.dns | default(dns | default('8.8.8.8')) }}"
+
+# iface.hostname: Hostname for this interface; falls back to global 'hostname'.
+HOSTNAME_VAL="{{ iface.hostname | default(hostname | default('')) }}"
 
 # Bring interface up if not yet
 ip link set "$IFACE" up 2>/dev/null || true
 
-{% if DHCP_MODE == 'true' or DHCP_MODE is truthy %}
+{% if DHCP_MODE | lower == 'true' %}
 # Configure with DHCP
+# Tries dhclient first, then falls back to udhcpc.
 if command -v dhclient >/dev/null 2>&1; then
     dhclient -v "$IFACE" 2>&1 || true
 elif command -v udhcpc >/dev/null 2>&1; then
@@ -51,31 +98,51 @@ elif command -v udhcpc >/dev/null 2>&1; then
 fi
 {% else %}
 # Static IP configuration
-ip addr add "$IP_ADDR"{{ "" if not NETMASK_ADDR else "/" + NETMASK_ADDR }} dev "$IFACE"
+# Adds the IP address with netmask/CIDR if provided.
+{% if NETMASK_ADDR | default('') %}
+ip addr add "$IP_ADDR"/{{ NETMASK_ADDR }} dev "$IFACE"
+{% else %}
+ip addr add "$IP_ADDR" dev "$IFACE"
+{% endif %}
+
+# Adds the default route via the specified gateway.
 ip route add default via "$GATEWAY_ADDR" dev "$IFACE" 2>/dev/null || true
 {% endif %}
 
-{% if HOSTNAME_VAL %}
-# Set hostname
+{% if HOSTNAME_VAL | default('') %}
+# Set hostname if specified for this interface.
 hostname "$HOSTNAME_VAL" 2>/dev/null || true
 {% endif %}
 
-{% if DNS_SERVERS %}
-# Configure DNS
+{% if DNS_SERVERS | default('') %}
+# Configure DNS using the first server from the space-separated list.
 mkdir -p /etc
 echo "nameserver {{ DNS_SERVERS.split()[0] }}" > /etc/resolv.conf
 {% endif %}
 {% endif %}
 {% endfor %}
 
-# If no per-interface config and global static/DHCP set, apply to eth0 (fallback)
-{% if interfaces | count == 0 %}
-{% if not (dhcp | default('true') | lower == 'true') %}
+# ---------------------------------------------------------------------------
+# Fallback Configuration
+# If no per-interface configuration was provided (empty 'interfaces' list),
+# apply static network configuration to eth0 as a last resort, but ONLY
+# if global DHCP is disabled.
+# ---------------------------------------------------------------------------
+{% if interfaces | default([]) | length == 0 %}
+{% if dhcp | default(true) | lower != 'true' %}
 # Fallback: configure eth0 with static IP if no per-interface config
 if ip link show eth0 >/dev/null 2>&1; then
     ip link set eth0 up
-    ip addr add "{{ ip }}"{{ "" if not netmask else "/" + netmask }} dev eth0
-    ip route add default via "{{ gateway }}" dev eth0 2>/dev/null || true
+    
+    # Apply static address with netmask/CIDR if provided.
+{% if netmask | default('') %}
+    ip addr add "{{ ip | default('') }}"/{{ netmask | default('') }} dev eth0
+{% else %}
+    ip addr add "{{ ip | default('') }}" dev eth0
+{% endif %}
+    
+    # Apply default route via gateway if provided.
+    ip route add default via "{{ gateway | default('') }}" dev eth0 2>/dev/null || true
 fi
 {% endif %}
 {% endif %}

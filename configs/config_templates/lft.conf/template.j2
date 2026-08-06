@@ -1,53 +1,95 @@
 # LFT (Layer Four Tool) configuration file
-# Enables or disables verbose logging
-verbose {{ verbose }}
+# =========================================
+# This template is self-documenting. Every directive is preceded by
+# its schema description as a comment. All variables use `| default(...)`
+# to ensure safe rendering even when the variable is undefined.
 
-# Network interface to sniff/listen on
-interface {{ interface }}
+# --- General Settings ---
 
-# TCP port(s) to monitor (comma-separated list)
-tcp_ports {{ tcp_ports | join(',') }}
+# Enable verbose logging for detailed diagnostic output.
+# Defaults to: False
+verbose {{ verbose | default(False) | ternary('true', 'false') }}
 
-# UDP port(s) to monitor (comma-separated list)
-udp_ports {{ udp_ports | join(',') }}
+# --- Network Interface ---
 
-# Maximum number of simultaneous connections to track
-max_connections {{ max_connections }}
+# Network interface to capture traffic on (e.g., eth0, wlan0).
+# Defaults to: eth0
+interface {{ interface | default('eth0') }}
 
-# Path to the PID file
-pidfile {{ pidfile }}
+# --- Port Monitoring ---
 
-# Path to the log file
-logfile {{ logfile }}
+# TCP ports to monitor. Common choices: 22 (SSH), 80 (HTTP), 443 (HTTPS).
+# Defaults to: [22, 80, 443]
+tcp_ports {{ (tcp_ports | default([22, 80, 443])) | join(',') }}
 
-# Enable or disable promiscuous mode
-promiscuous {{ promiscuous }}
+# UDP ports to monitor. Common choices: 53 (DNS), 123 (NTP).
+# Defaults to: [53, 123]
+udp_ports {{ (udp_ports | default([53, 123])) | join(',') }}
 
-# Host(s) to whitelist (one per line, or empty for none)
-{% if whitelist | length > 0 %}
-{% for host in whitelist %}
+# --- Connection Tracking Limits ---
+
+# Maximum number of simultaneous connections LFT will track.
+# Defaults to: 1000
+max_connections {{ max_connections | default(1000) }}
+
+# --- File Paths ---
+
+# Path to write the process PID file.
+# Defaults to: /var/run/lft.pid
+pidfile {{ pidfile | default('/var/run/lft.pid') }}
+
+# Path to write operational logs. Ensure log directory exists and is writable.
+# Defaults to: /var/log/lft/lft.log
+logfile {{ logfile | default('/var/log/lft/lft.log') }}
+
+# --- Capture Options ---
+
+# Enable promiscuous mode on the interface to capture all traffic (requires root and interface support).
+# Defaults to: True
+promiscuous {{ promiscuous | default(True) | ternary('true', 'false') }}
+
+# Host(s) to whitelist (one per line, or empty for none).
+# List of hostnames or IP addresses to *only* monitor. Empty means monitor all (subject to blacklist).
+# Defaults to: []
+{% set wlist = whitelist | default([]) %}
+{% if wlist | length > 0 %}
+{% for host in wlist %}
 whitelist {{ host }}
 {% endfor %}
 {% endif %}
 
-# Host(s) to blacklist (one per line, or empty for none)
-{% if blacklist | length > 0 %}
-{% for host in blacklist %}
+# Host(s) to blacklist (one per line, or empty for none).
+# List of hostnames or IP addresses to ignore. Takes precedence over whitelist.
+# Defaults to: []
+{% set blist = blacklist | default([]) %}
+{% if blist | length > 0 %}
+{% for host in blist %}
 blacklist {{ host }}
 {% endfor %}
 {% endif %}
 
-# Timeout (in seconds) for idle connections
-connection_timeout {{ connection_timeout }}
+# --- Timeouts and Intervals ---
 
-# Interval (in seconds) between stats dumps to log
-stats_interval {{ stats_interval }}
+# Idle timeout (in seconds) after which a connection is removed from tracking.
+# Defaults to: 300
+connection_timeout {{ connection_timeout | default(300) }}
 
-# Enable or disable payload capture
-payload_capture {{ payload_capture }}
+# Interval (in seconds) between logging summary statistics.
+# Defaults to: 60
+stats_interval {{ stats_interval | default(60) }}
 
-# Maximum size (in bytes) of captured payload per connection
-max_payload_size {{ max_payload_size }}
+# --- Payload Capture ---
 
-# Enable or disable DNS reverse lookups on source/dest IPs
-dns_lookup {{ dns_lookup }}
+# Enable capture of packet payloads (requires more memory and CPU).
+# Defaults to: False
+payload_capture {{ payload_capture | default(False) | ternary('true', 'false') }}
+
+# Maximum bytes of payload to capture per connection (only relevant if payload_capture is enabled).
+# Defaults to: 512
+max_payload_size {{ max_payload_size | default(512) }}
+
+# --- DNS Resolution ---
+
+# Perform reverse DNS lookups on IP addresses to resolve hostnames in logs/output.
+# Defaults to: True
+dns_lookup {{ dns_lookup | default(True) | ternary('true', 'false') }}

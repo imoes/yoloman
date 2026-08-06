@@ -1,93 +1,122 @@
+# Cinder API Configuration Template
+# This template generates the cinder-api.conf file.
+# All variables are sourced from the Ansible role's defaults or host_vars/group_vars.
+# If a variable is not defined in the context, it falls back to the schema default.
+
 [DEFAULT]
-# Logging configuration
-log_dir = {{ cinder_log_dir }}
-log_file = {{ cinder_log_file }}
 
-# API server binding
-bind_host = {{ api_bind_host }}
-bind_port = {{ api_bind_port }}
+{# Directory where Cinder API logs will be stored. #}
+log_dir = {{ cinder_log_dir | default('/var/log/cinder') }}
 
-# Authentication backend (Keystone)
-auth_strategy = {{ auth_strategy }}
+{# Name of the main log file for Cinder API. #}
+log_file = {{ cinder_log_file | default('cinder-api.log') }}
 
-# Database connection (for state persistence; optional for stateless API nodes)
-{% if use_database %}
-connection = {{ db_connection }}
+{# IP address or hostname on which the Cinder API listens. #}
+bind_host = {{ api_bind_host | default('0.0.0.0') }}
+
+{# Port number the Cinder API listens on. #}
+bind_port = {{ api_bind_port | default(8776) }}
+
+{# Authentication method (e.g., 'keystone' for OpenStack Identity). #}
+auth_strategy = {{ auth_strategy | default('keystone') }}
+
+{# Set to true if the API node needs database access (e.g., for read replicas or deployments where the API stores state). Usually false for standard deployments. #}
+{% if use_database | default(False) | bool %}
+{# Database connection URL (only if use_database=true). #}
+connection = {{ db_connection | default('mysql+pymysql://cinder:password@127.0.0.1/cinder') }}
 {% endif %}
 
-# RPC backend (for coordination with other services)
-transport_url = {{ rpc_transport_url }}
+{# Message bus transport URL for RPC communication (e.g., RabbitMQ or other backends). #}
+transport_url = {{ rpc_transport_url | default('rabbit://openstack:RABBIT_PASSWORD@controller:5672/') }}
 
-# Enable verbose/debug output (for troubleshooting)
-debug = {{ debug_enabled }}
-verbose = {{ verbose_enabled }}
+{# Enable debug-level logging. #}
+debug = {{ debug_enabled | default(False) | bool }}
 
-# Enable API extensions
-{% for extension in api_extensions %}enabled_extensions = {{ extension }}
+{# Enable verbose (INFO-level) logging. #}
+verbose = {{ verbose_enabled | default(True) | bool }}
+
+{# List of enabled Cinder API extensions. Keep default unless specific features are disabled. #}
+{% for extension in api_extensions | default(['os-extended-volumes', 'os-vol-host-attr', 'os-vol-mig-status-attr', 'os-volume-type-manage']) %}
+enabled_extensions = {{ extension }}
 {% endfor %}
 
-# Rate limiting (optional)
-{% if rate_limits_enabled %}
-rate_limit_burst = {{ rate_limit_burst }}
-rate_limit_interval = {{ rate_limit_interval }}
+{# Enable request rate limiting for the API. #}
+{% if rate_limits_enabled | default(False) | bool %}
+rate_limit_burst = {{ rate_limit_burst | default(10) }}
+rate_limit_interval = {{ rate_limit_interval | default(1) }}
 {% endif %}
 
-# Security hardening: enable SSL/TLS
-{% if ssl_enabled %}
-certfile = {{ ssl_cert_file }}
-keyfile = {{ ssl_key_file }}
-ca_file = {{ ssl_ca_file }}
+{# Enable HTTPS/TLS encryption for API traffic. #}
+{% if ssl_enabled | default(True) | bool %}
+certfile = {{ ssl_cert_file | default('/etc/ssl/certs/cinder.crt') }}
+keyfile = {{ ssl_key_file | default('/etc/ssl/private/cinder.key') }}
+ca_file = {{ ssl_ca_file | default('/etc/ssl/certs/ca.crt') }}
 {% endif %}
 
-# CORS (Cross-Origin Resource Sharing)
-{% if cors_enabled %}
-allowed_origin = {{ cors_allowed_origin }}
+{# Enable CORS headers in API responses (for browser-based clients). #}
+{% if cors_enabled | default(False) | bool %}
+allowed_origin = {{ cors_allowed_origin | default('*') }}
 {% endif %}
 
-# Image cache configuration (for image volume creation)
-{% if image_cache_enabled %}
-image_cache_manager_interval = {{ image_cache_interval }}
-image_cache_size = {{ image_cache_size_gb }}
+{# Enable Cinder’s image cache manager for image-to-volume creation. #}
+{% if image_cache_enabled | default(True) | bool %}
+image_cache_manager_interval = {{ image_cache_interval | default(3600) }}
+image_cache_size = {{ image_cache_size_gb | default(100) }}
 {% endif %}
 
-# Backend pool configuration (multiple backends via driver)
-{% for backend in storage_backends %}
+{# List of storage backends to configure. Each backend defines a driver and its options. #}
+{% for backend in storage_backends | default([{'name': 'lvm', 'driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver', 'options': {'volume_group': 'cinder-volumes', 'iscsi_protocol': 'iscsi', 'iscsi_helper': 'lioadm', 'lvm_mirror_cleanup_interval': 0}}]) %}
 [{{ backend.name }}]
 driver = {{ backend.driver }}
 volume_backend_name = {{ backend.name }}
 volume_driver = {{ backend.driver }}
-{% for opt_key, opt_val in backend.options.items() %}{{ opt_key }} = {{ opt_val }}
+{% for opt in backend.options | default({}) | dict2items %}
+{{ opt.key }} = {{ opt.value }}
 {% endfor %}
 {% endfor %}
 
-# Scheduler configuration
-scheduler_driver = {{ scheduler_driver }}
-{% if scheduler_filters %}scheduler_available_filters = {{ scheduler_filters | join(', ') }}
+{# Scheduler class for volume provisioning decisions. #}
+scheduler_driver = {{ scheduler_driver | default('cinder.scheduler.filter_scheduler.FilterScheduler') }}
+
+{# List of scheduler filters to apply when placing new volumes. #}
+{% if scheduler_filters | default(['AvailabilityZoneFilter', 'CapacityFilter', 'CapabilitiesFilter']) is defined and scheduler_filters | default(['AvailabilityZoneFilter', 'CapacityFilter', 'CapabilitiesFilter']) | length > 0 %}
+scheduler_available_filters = {{ scheduler_filters | default(['AvailabilityZoneFilter', 'CapacityFilter', 'CapabilitiesFilter']) | join(', ') }}
 {% endif %}
 
-# Service token for internal API calls (if using service tokens)
-service_token_roles = {{ service_token_roles | join(', ') }}
-service_token_required = {{ service_token_required }}
+{# Required roles for service-to-service API calls. #}
+service_token_roles = {{ service_token_roles | default(['service']) | join(', ') }}
 
-# Message TTL (time-to-live for Cinder messages)
-message_ttl = {{ message_ttl_seconds }}
+{# Enforce service tokens for internal API calls for security. #}
+service_token_required = {{ service_token_required | default(True) | bool }}
 
-# Backup service integration
-backup_driver = {{ backup_driver }}
-{% if backup_driver == 'cinder.backup.drivers.ceph' %}backup_ceph_conf = {{ backup_ceph_conf }}
-backup_ceph_user = {{ backup_ceph_user }}
-backup_ceph_chunk_size = {{ backup_ceph_chunk_size_kb }}
-backup_ceph_pool = {{ backup_ceph_pool }}
+{# Time-to-live (in seconds) for Cinder messages in the message queue. #}
+message_ttl = {{ message_ttl | default(86400) }}
+
+{# Backup driver module (e.g., 'ceph', 'nfs', 'swift'). #}
+backup_driver = {{ backup_driver | default('cinder.backup.drivers.ceph') }}
+
+{# Path to Ceph configuration file (only if backup_driver=ceph). #}
+{# Ceph user for backup operations (only if backup_driver=ceph). #}
+{# Chunk size (KB) for incremental backups (only if backup_driver=ceph). #}
+{# Ceph pool name for backup objects (only if backup_driver=ceph). #}
+{% if backup_driver | default('cinder.backup.drivers.ceph') == 'cinder.backup.drivers.ceph' %}
+backup_ceph_conf = {{ backup_ceph_conf | default('/etc/ceph/ceph.conf') }}
+backup_ceph_user = {{ backup_ceph_user | default('client.cinder-backup') }}
+backup_ceph_chunk_size = {{ backup_ceph_chunk_size_kb | default(512) }}
+backup_ceph_pool = {{ backup_ceph_pool | default('cinder-backup') }}
 {% endif %}
 
-# Volume transfer and encryption settings
-{% if volume_transfer_enabled %}
-transfer_allow_encrypted = {{ transfer_allow_encrypted }}
-{% endif %}
-{% if encryption_enabled %}
-encryption_driver = {{ encryption_driver }}
+{# Enable volume transfer functionality (e.g., for cross-tenant moves). #}
+{% if volume_transfer_enabled | default(True) | bool %}
+transfer_allow_encrypted = {{ transfer_allow_encrypted | default(False) | bool }}
 {% endif %}
 
-# Hostname used in API responses
-{% if host_fqdn %}osapi_volume_link_prefix = {{ host_fqdn }}
+{# Enable encryption support in Cinder (requires backend support). #}
+{% if encryption_enabled | default(True) | bool %}
+encryption_driver = {{ encryption_driver | default('cinder.volume.encryption.drivers.lvm.LVMEncryptionDriver') }}
+{% endif %}
+
+{# Fully qualified domain name used in self-referential API links (e.g., for reverse proxy setups). #}
+{% if host_fqdn | default('https://cinder.example.com:8776') is defined and host_fqdn | default('https://cinder.example.com:8776') | trim != '' %}
+osapi_volume_link_prefix = {{ host_fqdn | default('https://cinder.example.com:8776') }}
 {% endif %}

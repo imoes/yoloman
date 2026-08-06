@@ -1,27 +1,46 @@
-# /etc/sudoers: sudo privilege configuration
+#! /bin/sh
 
-# Allow root to run any commands anywhere
-root	ALL=(ALL:ALL) ALL
+### BEGIN INIT INFO
+# Provides:          sudo
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:
+# X-Start-Before:    rmnologin
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Provide limited super user privileges to specific users
+# Description: Provide limited super user privileges to specific users.
+### END INIT INFO
 
-# Allow members of group 'wheel' to execute any command
-{% for group in sudo_groups %}# Members of group '{{ group.name }}' may {{ 'run any command' if group.full_access else 'run specific commands' }}
-%{{ group.name }}	ALL=(ALL:ALL) {% if group.full_access %}ALL{% else %}{{ group.commands | join(', ') }}{% endif %}
-{% endfor %}
+. /lib/lsb/init-functions
 
-# Include sudoers.d directory for modular configuration
-{% if include_sudoers_d %}# Include individual sudo configurations from /etc/sudoers.d
-@includedir /etc/sudoers.d
-{% endif %}
+N=/etc/init.d/sudo
 
-# Optional: Default settings
-{% if enable_passwd_prompt %}# Require password for sudo (default behavior)
-Defaults	!tty_tickets
-{% else %}# Allow passwordless sudo (security-sensitive — use only in trusted environments)
-Defaults	!authenticate
-{% endif %}
+set -e
 
-# Logging configuration
-{% if enable_logging %}# Log sudo activity for auditing
-Defaults	logfile=/var/log/sudo.log
-Defaults	log_input,log_output
-{% endif %}
+case "$1" in
+  start)
+	# make sure privileges don't persist across reboots
+	# if the /run/sudo directory doesn't exist, let's create it with the
+	# correct permissions and SELinux label
+        if ! [ -d /run/systemd/system ] ; then
+		if [ -d /run/sudo ]
+		then
+                        find /run/sudo -exec touch -d @0 '{}' \;
+		else
+	 		mkdir /run/sudo /run/sudo/ts
+			chown root:root /run/sudo /run/sudo/ts
+			chmod 0711 /run/sudo
+			chmod 0700 /run/sudo/ts
+			[ -x /sbin/restorecon ] && /sbin/restorecon /run/sudo /run/sudo/ts
+		fi
+	fi
+	;;
+  stop|reload|restart|force-reload|status)
+	;;
+  *)
+	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

@@ -1,7 +1,25 @@
-# Export directories and their access rules for NFS
-# Syntax: <path> <client>(<options>)
-#   - path: exported directory (absolute)
-#   - client: hostname, IP, network (CIDR), or special keywords (e.g., *)
-#   - options: comma-separated list of access options (see man exports)
-{% for export in exports %}{{ export.path }}{{ ' ' }}{{ export.client }}({{ export.options | join(', ') }})
+# ==============================================================================
+# NFS Exports Configuration
+# ==============================================================================
+# This template generates the /etc/exports file for NFS server.
+# It iterates over the 'exports' list provided by the Ansible role.
+#
+# Each export entry must contain:
+#   - path: The absolute path of the directory to export (string)
+#   - client: The client access specifier. Can be a hostname, IP address,
+#             CIDR network, or '*' for all clients (string)
+#   - options: A list of comma-separated NFS export options (list of strings)
+#
+# Example of an exports entry in the variable:
+#   exports:
+#     - path: /srv/nfs/share1
+#       client: 192.168.1.0/24
+#       options: [rw, sync, no_subtree_check]
+#
+# ==============================================================================
+
+{% for export in exports | default([]) %}
+# Export: {{ export.path | default('/') }} for client {{ export.client | default('*') }}
+# Options: {{ export.options | default([]) | join(', ') }}
+{{ export.path | default('/') }}{{ ' ' }}{{ export.client | default('*') }}({{ export.options | default([]) | join(', ') }})
 {% endfor %}

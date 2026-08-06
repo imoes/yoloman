@@ -1,43 +1,91 @@
-# Listen address and port for the DSMI over WLAN server
-listen = {{ listen_addr }}:{{ listen_port }}
+# ==============================================================================
+# dsmidiwifi service configuration
+# ==============================================================================
+# This template generates the configuration file for dsmidiwifi, a service that
+# exposes a Linux MIDI device over Wi-Fi using the DSMI protocol.
+# All variables are sourced from Ansible inventory/vars with safe defaults.
+# ==============================================================================
 
-# Path to the MIDI device to expose (e.g., /dev/midi0)
-midi_device = {{ midi_device_path }}
+# ------------------------------------------------------------------------------
+# Server Binding
+# ------------------------------------------------------------------------------
+# listen_addr: IP address the server listens on (e.g., 0.0.0.0 for all interfaces, or 127.0.0.1 for localhost only).
+# listen_port: TCP port for incoming DSMI over WLAN connections (standard port is 5004).
+# Syntax: listen = <ip>:<port>
+# Note: The colon separator is literal text, not Jinja syntax.
+listen = {{ (listen_addr | default('0.0.0.0')) }}:{{ (listen_port | default(5004)) }}
 
-# Enable or disable TCP keepalive on connections
-keepalive = {{ keepalive_enabled | lower }}
+# ------------------------------------------------------------------------------
+# MIDI Device
+# ------------------------------------------------------------------------------
+# midi_device_path: Path to the Linux MIDI device node (e.g., /dev/midiC0D0) to expose over the network.
+midi_device = {{ (midi_device_path | default('/dev/midi0')) }}
 
-# Maximum number of simultaneous client connections
-max_clients = {{ max_clients }}
+# ------------------------------------------------------------------------------
+# Connection Keepalive
+# ------------------------------------------------------------------------------
+# keepalive_enabled: Enable TCP keepalive packets to detect broken client connections.
+# Value: true or false
+keepalive = {{ (keepalive_enabled | default(true)) | lower }}
 
-# Timeout (seconds) for idle client connections
-idle_timeout = {{ idle_timeout }}
+# ------------------------------------------------------------------------------
+# Client Limits
+# ------------------------------------------------------------------------------
+# max_clients: Maximum number of concurrent client connections allowed.
+max_clients = {{ (max_clients | default(8)) }}
 
-# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug
-log_level = {{ log_level }}
+# idle_timeout: Seconds of inactivity after which a client connection is closed.
+idle_timeout = {{ (idle_timeout | default(300)) }}
 
-# Path to the log file (leave empty for syslog)
-log_file = {{ log_file_path | default('') | replace('\n', '') }}
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+# log_level: Verbosity of logging: 0=none, 1=error, 2=warn, 3=info (recommended), 4=debug.
+log_level = {{ (log_level | default(2)) }}
 
-# Optional: SSL/TLS support (enable only if cert/key provided)
-{% if ssl_enabled %}
+# log_file_path: Path to a file for logging output; leave empty to use syslog.
+# Note: We use a filter to ensure no newlines break the config syntax.
+log_file = {{ (log_file_path | default('')) | trim }}
+
+# ------------------------------------------------------------------------------
+# SSL/TLS Configuration
+# ------------------------------------------------------------------------------
+# ssl_enabled: Enable TLS encryption for connections (requires valid certificate and key).
+# If enabled, ssl_cert_path and ssl_key_path must be valid.
+# ssl_cert_path: Path to the TLS certificate file (PEM format).
+# ssl_key_path: Path to the TLS private key file (PEM format).
+{% if (ssl_enabled | default(false)) %}
+# SSL/TLS is ENABLED
 ssl = true
-ssl_cert = {{ ssl_cert_path }}
-ssl_key = {{ ssl_key_path }}
+ssl_cert = {{ (ssl_cert_path | default('/etc/dsmidiwifi/cert.pem')) }}
+ssl_key = {{ (ssl_key_path | default('/etc/dsmidiwifi/key.pem')) }}
 {% else %}
+# SSL/TLS is DISABLED
 ssl = false
 {% endif %}
 
-# Optional: Hostname advertised via mDNS (set to empty to disable mDNS)
-{% if mdns_hostname %}
-mdns_name = {{ mdns_hostname }}
+# ------------------------------------------------------------------------------
+# mDNS (Zeroconf/Bonjour) Advertising
+# ------------------------------------------------------------------------------
+# mdns_hostname: mDNS hostname to advertise (e.g., dsmidiwifi.local); leave blank to disable mDNS.
+{% if (mdns_hostname | default('dsmidiwifi')) is string and (mdns_hostname | default('dsmidiwifi')) != '' %}
+mdns_name = {{ (mdns_hostname | default('dsmidiwifi')) }}
 {% else %}
 mdns_name =
 {% endif %}
 
-# Optional: Access control list (IP/CIDR entries); leave empty to allow all
-{% if acl_entries | length > 0 %}
-# Allow connections only from these networks
-{% for entry in acl_entries %}acl = {{ entry['network'] }}
+# ------------------------------------------------------------------------------
+# Access Control List (ACL)
+# ------------------------------------------------------------------------------
+# acl_entries: List of allowed networks (IP/CIDR) — only clients from these networks may connect.
+# Leave empty (default) to allow all clients.
+# Each entry is expected to be a string containing an IP/CIDR block.
+{% set acl_list = acl_entries | default([]) %}
+{% if acl_list is iterable and (acl_list | length) > 0 %}
+# Access Control List: Restricting connections to specific networks
+{% for entry in acl_list %}
+acl = {{ (entry | string | trim) }}
 {% endfor %}
+{% else %}
+# No ACL configured: All clients are allowed to connect
 {% endif %}

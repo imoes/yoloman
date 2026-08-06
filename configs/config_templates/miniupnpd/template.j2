@@ -1,83 +1,137 @@
-# miniupnpd configuration file
-# Listen interface (e.g., eth0, br0) for UPnP/PCP/NAT-PMP traffic
-listen_address={{ listen_address }}
+#!/bin/sh
 
-# External network interface (WAN) providing Internet access
-ext_ifname={{ ext_ifname }}
+### BEGIN INIT INFO
+# Provides:		miniupnpd
+# Required-Start:	$remote_fs
+# Required-Stop:	$remote_fs
+# Should-Start:		$local_fs $network $time
+# Should-Stop:		$local_fs $network $time
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	Lightweight UPnP IGD & PCP/NAT-PMP daemon
+# Description:		MiniUPnPd is a small daemon which can be installed on a
+#			NAT router to provide UPnP IGD & PCP/NAT-PMP port
+#			mapping services, enabling clients on the LAN to ask for
+#			port maps. It is compatible with peer-to-peer software,
+#			messaging applications, and games consoles that connect
+#			to online services (including Xbox LIVE and the
+#			PlayStation Network).
+### END INIT INFO
 
-# Optional: internal network interface(s) for trusted clients (if not auto-detected)
-# Use multiple `listen_address` lines or set `listening_ip` instead
-# (This config uses explicit `listening_ip` for clarity)
-{% for addr in listening_ips %}
-listening_ip={{ addr }}
-{% endfor %}
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DAEMON_NAME="MiniUPnPd"
+DAEMON_SERVICE_NAME="Lightweight UPnP IGD & PCP/NAT-PMP daemon"
+DAEMON=/usr/sbin/miniupnpd
+PIDFILE=/var/run/miniupnpd.pid
+CONFFILE=/etc/miniupnpd/miniupnpd.conf
+DEFAULT=/etc/default/miniupnpd
+SCRIPT_DIR=/etc/miniupnpd
 
-# UPnP enabled? (set to 'no' to disable UPnP, default 'yes')
-upnp_enabled={{ upnp_enabled | lower }}
+. /lib/lsb/init-functions
 
-# NAT-PMP enabled? (set to 'no' to disable NAT-PMP, default 'yes')
-natpmp_enabled={{ natpmp_enabled | lower }}
+if [ -r /lib/init/vars.sh ] ; then
+	. /lib/init/vars.sh
+fi
 
-# PCP (Port Control Protocol) enabled? (requires kernel support and newer miniupnpd)
-pcp_enabled={{ pcp_enabled | lower }}
+read_config () {
+	sed -rn '
+s|^\s*"${2}"='\''([^'\'']+)\''\s*$|\1|g
+thold
+s|^\s*"${2}"='"'([^'"']+)'"'\s*$|\1|g
+thold
+s|^\s*"${2}"=(\S+)\s*$|\1|
+thold
+b
+:hold
+p
+	' "${1}"
+}
 
-# Enable secure mode: restricts UPnP to local subnet and requires authentication
-secure_mode={{ secure_mode | lower }}
+# Make sure the package hasn't been removed but not purged
+if ! [ -x ${DAEMON} ] ; then
+	exit 0
+fi
 
-# Enable UPnP for legacy devices (e.g., Windows XP-era clients)
-legacy_module={{ legacy_module | lower }}
+case "${1}" in
+	start)
+		if [ "${START_DAEMON}" = 0 ] ; then
+			log_daemon_msg "${DAEMON_NAME}: ${DEFAULT} isn't set to START_DAEMON=1: exiting"
+			log_end_msg 1
 
-# System uptime threshold (in seconds) before port mapping cleanup runs
-# Set to 0 to disable automatic cleanup (default: 0)
-system_uptime_threshold={{ system_uptime_threshold }}
+			exit 0
+		fi
 
-# Maximum number of port mappings per device/user (0 = unlimited, default: 0)
-max_ports_per_device={{ max_ports_per_device }}
+		log_daemon_msg "Initializing ${DAEMON_SERVICE_NAME} *tables" "${DAEMON_NAME}"
+		if ! /usr/libexec/miniupnpd-startstop-helper.sh start ; then
+			log_end_msg 1
+			exit 2
+		fi
 
-# Maximum total port mappings (0 = unlimited, default: 0)
-max_total_ports={{ max_total_ports }}
+		start-stop-daemon -q --start --exec "${DAEMON}" -- ${MiniUPnPd_OTHER_OPTIONS}
+		RET="${?}"
 
-# Minimum and maximum port range for automatic allocation (0 = use OS default)
-port_range_min={{ port_range_min }}
-port_range_max={{ port_range_max }}
+		case "${RET}" in
+			0|1)
+				log_end_msg 0
+				;;
 
-# Enable UPnP lease support (set to 'yes' to allow duration-based mappings)
-lease_enabled={{ lease_enabled | lower }}
+			*)
+				log_end_msg 1
 
-# Default lease duration (in seconds), 0 = infinite
-lease_duration={{ lease_duration }}
+				exit 1
+				;;
+			esac
+			;;
 
-# Enable UPnP for IGMP (multicast) support (e.g., for IPTV relay)
-igmp_enabled={{ igmp_enabled | lower }}
+	opt)
+		log_daemon_msg "Stopping ${DAEMON_SERVICE_NAME}" "${DAEMON_NAME}"
 
-# Enable SSDP notification broadcasting (set to 'no' to suppress announcements)
-ssdp_notify_enabled={{ ssdp_notify_enabled | lower }}
+		start-stop-daemon -q --stop --oknodo --pidfile ${PIDFILE}
+		RET="${?}"
 
-# SSDP multicast interface (usually same as ext_ifname)
-ssdp_broadcast_interval={{ ssdp_broadcast_interval }}
+		log_daemon_msg "Deconfiguring ${DAEMON_SERVICE_NAME} *tables" "${DAEMON_NAME}"
+		/usr/libexec/miniupnpd-startstop-helper.sh stop
 
-# SSDP server UUID (leave blank for auto-generated, or set custom UUID)
-%suuid={{ upnp_uuid | default('') }}
+		case "${RET}" in
+			0|1)
+				log_end_msg 0
+				;;
 
-# Friendly name for UPnP device (sent in SSDP M-SEARCH replies)
-friendly_name={{ friendly_name }}
+			*)
+				log_end_msg 1
 
-# Model name and number for UPnP device
-model_name={{ model_name }}
-model_number={{ model_number }}
+				exit 1
+				;;
+			esac
+			;;
 
-# Manufacturer name and URL
-manufacturer={{ manufacturer }}
-manufacturer_url={{ manufacturer_url }}
+	restart|force-reload)
+		${0} stop
+		case "$?" in
+			0|1)
+				${0} start
+				case "$?" in
+					0) log_end_msg 0 ;;
+					1) log_end_msg 1 ;; # Old process is still running
+					*) log_end_msg 1 ;; # Failed to start
+					esac
+					;;
+			*)
+				# Failed to stop
+				log_end_msg 1
+				;;
+		esac
+		;;
 
-# Presentation URL for web UI (e.g., router admin page)
-presentation_url={{ presentation_url }}
+	status)
+		status_of_proc "${DAEMON}" "${DAEMON_NAME}"
+		exit ${?}
+		;;
 
-# Enable debug logging (set to 'yes' or 'debug')
-debug={{ debug | lower }}
+	*)
+		echo "Usage: ${0} {start|stop|restart|status}"
+		exit 1
+		;;
+esac
 
-# Log file path (set to '-' for stdout)
-log_filename={{ log_filename }}
-
-# Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
-log_level={{ log_level }}
+exit 0

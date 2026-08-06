@@ -1,0 +1,31 @@
+# Provides:          {{ service_name | default('dnscache') }}
+# Should-Start:      $syslog
+# Required-Start:    $time $local_fs
+# Required-Stop:     $time $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ service_description | default('DNS cache - tool for finding addresses of Internet hosts') }}
+### END INIT INFO
+# Name of the service (used in init script, directory paths, and process naming)
+NAME='{{ service_name | default('dnscache') }}'
+# Short description of the service
+DESC='{{ service_description | default('DNS cache - tool for finding addresses of Internet hosts') }}'
+# Name of the main executable binary (without path)
+DAEMON='/usr/sbin/{{ service_binary | default('dnscache') }}'
+
+if ! test -x '/usr/bin/daemon' ; then
+	log_failure_msg "install \`daemon' package to use ${NAME} script"
+	exit 1
+fi
+if ! test -x '/usr/bin/chpst' ; then
+	log_failure_msg "install \`runit' package to use ${NAME} script"
+	exit 1
+fi
+
+daemon_ () { /usr/bin/daemon -D "/etc/sv/${NAME}" --noconfig --name "${NAME}" "$@"; }
+do_start_cmd_override () { daemon_ -- /usr/bin/chpst -e conf /bin/sh ./run; }
+do_stop_cmd_override () {
+	if daemon_ --running ; then
+		daemon_ --stop
+	fi
+}

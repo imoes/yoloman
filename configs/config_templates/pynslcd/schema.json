@@ -96,32 +96,7 @@
         "filter": "(objectClass=posixAccount)"
       }
     ],
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Logical name for this map (e.g., 'passwd', 'shadow')."
-      },
-      "map_passwd": {
-        "type": "string",
-        "default": "",
-        "description": "LDAP \u2192 local attribute mapping for passwd entries (space-separated)."
-      },
-      "map_shadow": {
-        "type": "string",
-        "default": "",
-        "description": "LDAP \u2192 local attribute mapping for shadow entries."
-      },
-      "map_group": {
-        "type": "string",
-        "default": "",
-        "description": "LDAP \u2192 local attribute mapping for group entries."
-      },
-      "filter": {
-        "type": "string",
-        "default": "",
-        "description": "LDAP search filter for this map (e.g., '(objectClass=posixAccount)')."
-      }
-    }
+    "description": "User maps configuration (passwd, shadow, group). See nslcd.conf man page for details."
   },
   "group_maps": {
     "type": "list",
@@ -132,84 +107,31 @@
         "local_attr": "cn"
       }
     ],
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Logical name for group map (e.g., 'group')."
-      },
-      "ldap_attr": {
-        "type": "string",
-        "description": "LDAP attribute containing group name (e.g., 'cn')."
-      },
-      "local_attr": {
-        "type": "string",
-        "description": "Local attribute name to map to (typically same as ldap_attr)."
-      }
-    }
+    "description": "Group maps configuration."
   },
-  "pam_maps": {
-    "type": "list",
-    "default": [
-      {
-        "name": "login",
-        "filter": "(objectClass=posixAccount)",
-        "login_attr": "uid",
-        "ssh_authz_attr": "uid"
-      }
-    ],
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "PAM service name (e.g., 'login', 'sshd')."
-      },
-      "filter": {
-        "type": "string",
-        "description": "LDAP filter to select users for this PAM service."
-      },
-      "login_attr": {
-        "type": "string",
-        "description": "LDAP attribute to use as PAM login name (e.g., 'uid' or 'mail')."
-      },
-      "ssh_authz_attr": {
-        "type": "string",
-        "default": "",
-        "description": "LDAP attribute for SSH authorization (e.g., 'uid' or 'cn')."
-      }
-    }
+  "k5start_start": {
+    "type": "string",
+    "default": "",
+    "description": "Whether to force starting k5start: \"yes\" to enable, empty (or any other value) to disable. Default empty (disabled unless auto-detected)."
   },
-  "base_time": {
-    "type": "number",
-    "default": 3600,
-    "description": "Base TTL (seconds) for caching directory entries (minimum)."
+  "k5start_bin": {
+    "type": "string",
+    "default": "/usr/bin/k5start",
+    "description": "Path to k5start binary."
   },
-  "reconnect_time": {
+  "k5start_keytab": {
+    "type": "string",
+    "default": "/etc/krb5.keytab",
+    "description": "Path to Kerberos keytab file for k5start."
+  },
+  "k5start_ccrefresh": {
     "type": "number",
     "default": 60,
-    "description": "Time to cache failed connection attempts (seconds)."
+    "description": "Seconds between Kerberos ticket refresh by k5start."
   },
-  "daemon_uid": {
+  "k5start_principal": {
     "type": "string",
-    "default": "nslcd",
-    "description": "User account to run the nslcd daemon as."
-  },
-  "daemon_gid": {
-    "type": "string",
-    "default": "nslcd",
-    "description": "Group account to run the nslcd daemon as."
-  },
-  "listen_addr": {
-    "type": "string",
-    "default": "/var/run/nslcd/socket",
-    "description": "Unix socket path for local PAM/NSS communication. Leave empty to use default."
-  },
-  "pidfile": {
-    "type": "string",
-    "default": "/var/run/nslcd.pid",
-    "description": "Path to PID file."
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debugging output (to syslog)."
+    "default": "host/$(hostname -f)",
+    "description": "Kerberos principal for k5start. Must match keytab."
   }
 }

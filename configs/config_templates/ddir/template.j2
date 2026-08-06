@@ -1,0 +1,95 @@
+{# ============================================================================== #}
+{# ddir(1) Configuration Template                                                     #}
+{#                                                                                   #}
+{# This template generates the command-line arguments for the `ddir` utility.        #}
+{# `ddir` is a directory listing tool that supports pattern matching and verbosity.  #}
+{#                                                                                   #}
+{# Each section below corresponds to a specific CLI flag or group of flags.          #}
+{# Variables are sourced from the Ansible inventory/role variables.                  #}
+{# If a variable is not defined, the schema default is used (see defaults below).    #}
+{# ============================================================================== #}
+
+# ------------------------------------------------------------------------------
+# Include Patterns
+# ------------------------------------------------------------------------------
+{# Schema Field: include_patterns #}
+{# Default: [] #}
+{# Description: List of regular expressions (strings) for --include; matches are done #}
+{# against whole path; multiple allowed. If empty, no include filter is applied.      #}
+# ------------------------------------------------------------------------------
+
+{%- set inc_patterns = include_patterns | default([]) %}
+{%- if inc_patterns | length > 0 %}
+{%- for pattern in inc_patterns %}
+--include {{ pattern }}
+{%- endfor %}
+{%- endif %}
+
+# ------------------------------------------------------------------------------
+# Exclude Patterns
+# ------------------------------------------------------------------------------
+{# Schema Field: exclude_patterns #}
+{# Default: [] #}
+{# Description: List of regular expressions (strings) for --exclude; applied          #}
+{# after include matches.                                                           #}
+# ------------------------------------------------------------------------------
+
+{%- set exc_patterns = exclude_patterns | default([]) %}
+{%- if exc_patterns | length > 0 %}
+{%- for pattern in exc_patterns %}
+--exclude {{ pattern }}
+{%- endfor %}
+{%- endif %}
+
+# ------------------------------------------------------------------------------
+# Verbosity Level
+# ------------------------------------------------------------------------------
+{# Schema Field: verbose_level #}
+{# Default: 0 #}
+{# Description: Numeric verbosity LEVEL for --verbose. Higher values produce more     #}
+{# informational messages.                                                          #}
+# ------------------------------------------------------------------------------
+
+{%- set verbose = verbose_level | default(0) %}
+{%- if verbose > 0 %}
+--verbose {{ verbose }}
+{%- endif %}
+
+# ------------------------------------------------------------------------------
+# Directory Only Mode
+# ------------------------------------------------------------------------------
+{# Schema Field: dir_only #}
+{# Default: False #}
+{# Description: If true, apply --dir to display only directories.                   #}
+# ------------------------------------------------------------------------------
+
+{%- set dir_only = dir_only | default(false) %}
+{%- if dir_only %}
+--dir
+{%- endif %}
+
+# ------------------------------------------------------------------------------
+# VCS Exclusion Handling
+# ------------------------------------------------------------------------------
+{# Schema Field: no_exclude_vcs #}
+{# Default: False #}
+{# Description: If true, apply --no-exclude-vcs to prevent exclusion of version      #}
+{# control directories (e.g., .git).                                                #}
+{#                                                                                 #}
+{# Schema Field: exclude_vcs #}
+{# Default: True #}
+{# Description: If false, apply --exclude-vcs to explicitly disable VCS exclusion    #}
+{# (rarely needed; --no-exclude-vcs takes precedence).                             #}
+# ------------------------------------------------------------------------------
+
+{%- set no_vcs = no_exclude_vcs | default(false) %}
+{%- if no_vcs %}
+--no-exclude-vcs
+{%- else %}
+    {# Only emit --exclude-vcs if the user explicitly set exclude_vcs to False #}
+    {# If exclude_vcs is True (default), we do nothing because it is the default behavior #}
+    {%- set exclude_vcs_val = exclude_vcs | default(true) %}
+    {%- if not exclude_vcs_val %}
+--exclude-vcs
+    {%- endif %}
+{%- endif %}

@@ -1,0 +1,29 @@
+# FCITX5 Input Method Framework
+#
+# This template generates a shell script wrapper to verify or launch the fcitx5 daemon.
+# Fcitx5 is a graphical input method framework primarily for Linux/X11/Wayland.
+# It does not operate as a standard network service (no ports, no config file with IP/Port).
+# Consequently, it has no database, cache, or network peer requirements.
+#
+# Usage: Place this script in /etc/init.d/ or call it via systemd ExecStart/ExecStop.
+# The script checks if the fcitx5 remote control socket is responsive.
+# If the socket is not responsive, it attempts to start the daemon.
+
+#!/bin/sh
+
+# Path to the fcitx5 remote control utility
+FCITX5_REMOTE="{{ fcitx5_remote_path | default('/usr/bin/fcitx5-remote') }}"
+
+# Path to the fcitx5 main daemon binary (for start operations if needed)
+FCITX5_DAEMON="{{ fcitx5_daemon_path | default('/usr/bin/fcitx5') }}"
+
+# X11 display name to target; default to current session or empty
+DISPLAY_ENV="{{ fcitx5_display | default('$DISPLAY') }}"
+
+# Wayland socket name; used if DISPLAY is not set or Wayland is preferred
+WAYLAND_SOCKET="{{ fcitx5_wayland_socket | default('$XDG_RUNTIME_DIR/fcitx5-socket-$USER') }}"
+
+# Check if the fcitx5 process is running and responsive via remote command
+# The --check flag verifies connectivity to the fcitx5 bus
+# The -x flag ensures it targets the X11 session (or current active session)
+exec "$FCITX5_REMOTE" --check -x

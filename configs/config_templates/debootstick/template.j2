@@ -1,0 +1,64 @@
+# ==============================================================================
+# debootstick Image Generation Configuration
+# ==============================================================================
+# This template generates the command-line invocation for `debootstick`, a tool
+# used to create bootable Linux images (live systems or installers) from a chroot.
+#
+# See the schema field descriptions below for detailed behavior of each option.
+# ==============================================================================
+
+debootstick \
+{# system_type: Target system type. 'live' creates a bootable live environment.
+   'installer' creates an installer that migrates to a larger disk on first boot. #}
+{%- if (system_type | default('live')) == 'installer' %} \
+  --system-type installer{%- else %} \
+  --system-type live{%- endif %}
+
+{# kernel_package: Name of the kernel package to install inside the image
+   (e.g., 'linux-image-amd64'). Leave empty to use the distribution default. #}
+{%- if kernel_package is defined and kernel_package | trim | length > 0 %} \
+  --kernel-package {{ kernel_package | trim }}{%- endif %}
+
+{# hostname: The hostname to assign to the generated system. #}
+{%- if hostname is defined and hostname | trim | length > 0 %} \
+  --config-hostname {{ hostname | trim }}{%- endif %}
+
+{# kernel_bootargs: A list of kernel boot arguments.
+   Strings starting with '+' are added, '-' are removed, others are added.
+   They are joined into a single space-separated string for the CLI. #}
+{%- if kernel_bootargs is defined and kernel_bootargs %}
+  --config-kernel-bootargs "{{ kernel_bootargs | join(' ') }}"{%- endif %}
+
+{# root_password_ask: If true, prompt for a root password during image generation. #}
+{%- if root_password_ask | default(False) %} \
+  --config-root-password-ask{%- endif %}
+
+{# root_password_none: If true, disable the root password entirely (no login required). #}
+{%- if root_password_none | default(False) %} \
+  --config-root-password-none{%- endif %}
+
+{# root_password_first_boot: If true, prompt for root password on first boot
+   of the generated image (useful for initial setup). #}
+{%- if root_password_first_boot | default(False) %} \
+  --config-root-password-first-boot{%- endif %}
+
+{# grub_on_serial_line: If true, configure GRUB to output the boot menu
+   to the serial line (PC/BIOS specific). #}
+{%- if grub_on_serial_line | default(False) %} \
+  --config-grub-on-serial-line{%- endif %}
+
+{# disk_layout: Path to a custom disk layout configuration file. #}
+{%- if disk_layout is defined and disk_layout | trim | length > 0 %} \
+  --disk-layout {{ disk_layout | trim }}{%- endif %}
+
+{# run_on_first_boot: Path (relative to the chroot root) to a script
+   to execute on the first boot after migration/resizing. #}
+{%- if run_on_first_boot is defined and run_on_first_boot | trim | length > 0 %} \
+  --run-on-first-boot {{ run_on_first_boot | trim }}{%- endif %}
+
+{# sector_size: Logical sector size in bytes (512 or 4096). #}
+{%- if sector_size is defined and sector_size != 512 %} \
+  --sector-size {{ sector_size }}{%- endif %}
+
+# Source chroot directory and destination image file path
+{{ source | default('') }} {{ dest | default('') }}

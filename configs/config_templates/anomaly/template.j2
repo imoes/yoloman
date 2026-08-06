@@ -1,0 +1,105 @@
+{# ============================================================================ #}
+{# Anomaly Detection Configuration Template                                    #}
+{# This template generates command-line flags for an anomaly detection daemon. #}
+{# It is self-documenting: every variable reference includes its schema default #}
+{# and is preceded by a comment describing the field's purpose.                 #}
+{# ============================================================================ #}
+
+{# --------------------------------------------------------------------------- #}
+{# Detection Method Configuration                                              #}
+{# --------------------------------------------------------------------------- #}
+
+{# Determine the detection algorithm: 'threshold' or 'stddev'.               #}
+{# Defaults to 'stddev' if not explicitly provided by the playbook.          #}
+{% set _detection_method = detection_method | default('stddev') %}
+
+{# If using threshold detection, compare values against min/max bounds.      #}
+{% if _detection_method == 'threshold' %}
+# Detection method: threshold comparison
+# Compares monitored values against defined minimum and/or maximum bounds.
+--threshold
+{% set _threshold_min = threshold_min %}
+{% set _threshold_max = threshold_max %}
+
+{# Optional: Lower bound for threshold detection.                          #}
+{# Omit entirely if not needed (None/default).                             #}
+{% if _threshold_min is not none %}
+# Lower bound for threshold detection; omit if not needed.
+--min {{ _threshold_min }}
+{% endif %}
+
+{# Optional: Upper bound for threshold detection.                          #}
+{# Omit entirely if not needed (None/default).                             #}
+{% if _threshold_max is not none %}
+# Upper bound for threshold detection; omit if not needed.
+--max {{ _threshold_max }}
+{% endif %}
+
+{# If using standard deviation detection, use a rolling sample window.      #}
+{% elif _detection_method == 'stddev' %}
+# Detection method: standard deviation
+# Uses a rolling sample window to calculate statistical anomalies.
+--stddev
+{% set _stddev_sample = stddev_sample | default(10) %}
+{% set _stddev_coefficient = stddev_coefficient | default(1.0) %}
+
+{# Sample size for standard deviation detection.                           #}
+{# Must be >= 2. Defaults to 10 if not specified.                          #}
+# Sample size for standard deviation detection; must be ≥ 2.
+--sample {{ _stddev_sample }}
+
+{# Multiplier for sigma (standard deviation).                              #}
+{# Higher values reduce sensitivity (fewer false positives).               #}
+# Multiplier for sigma (standard deviation); higher values reduce sensitivity.
+--coefficient {{ _stddev_coefficient }}
+
+{# Invalid detection method provided.                                      #}
+{% else %}
+# ERROR: Invalid detection_method '{{ _detection_method }}'.
+# Must be one of: 'threshold', 'stddev'.
+--unknown
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Response Behavior Configuration                                             #}
+{# --------------------------------------------------------------------------- #}
+
+{# Determine how the system responds when an anomaly is detected.            #}
+{# Options: 'message' (log only), 'execute' (run command), or 'signal' (send PID signal). }
+{% set _response_mode = response_mode | default('message') %}
+
+{% if _response_mode == 'execute' %}
+# Response mode: execute
+# Executes a specified program when an anomaly is detected.
+--execute '{{ execute_program | default('') }}'
+
+{% elif _response_mode == 'signal' %}
+# Response mode: signal
+# Sends a USR1 signal to a target process ID when an anomaly is detected.
+{% set _signal_pid = signal_pid | default(0) %}
+# Target process ID to signal with USR1 (used only with response_mode='signal').
+--pid {{ _signal_pid }}
+
+{% elif _response_mode == 'message' %}
+# Response mode: message
+# Default behavior: logs a descriptive message upon anomaly detection.
+# No additional flags required for default message output.
+
+{% else %}
+# ERROR: Invalid response_mode '{{ _response_mode }}'.
+# Must be one of: 'message', 'execute', 'signal'.
+--unknown
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Output Control Configuration                                                #}
+{# --------------------------------------------------------------------------- #}
+
+{# Suppress the default descriptive message on anomaly detection.            #}
+{# Defaults to False (messages are shown).                                   #}
+{% set _quiet = quiet | default(False) %}
+
+{% if _quiet %}
+# Suppress default message output
+--quiet
+{% endif %}

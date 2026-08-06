@@ -1,0 +1,53 @@
+# Configuration for the daemonize wrapper service.
+# This template generates a configuration file for the `daemonize` utility (or similar daemontools),
+# which runs a foreground command as a background daemon.
+
+# Path to the executable program to run as a daemon (required).
+command: {{ command | default('') }}
+
+# List of arguments to pass to the command.
+args:
+{%- for arg in args | default([]) %}
+  - {{ arg }}
+{%- endfor %}
+
+# Working directory for the daemon (default: root directory).
+chdir: {{ chdir | default('/') }}
+
+# Path to redirect standard output (must be on same filesystem as chdir).
+stdout: {{ stdout | default('/dev/null') }}
+
+# Path to redirect standard error (must be on same filesystem as chdir).
+stderr: {{ stderr | default('/dev/null') }}
+
+# Append to output files instead of overwriting (only effective with stdout/stderr set).
+# Note: Boolean values are rendered as lowercase 'true' or 'false' to match daemonize expectations.
+append_output: {{ append_output | default(false) | ternary('true', 'false') }}
+
+# Path to write the daemon's PID (empty string means disabled).
+# Only emitted if a non-empty pidfile path is provided.
+{%- if pidfile | default('') %}
+pidfile: {{ pidfile | default('') }}
+{%- endif %}
+
+# Path to lockfile for single-instance enforcement (empty string means disabled).
+# Only emitted if a non-empty lockfile path is provided.
+{%- if lockfile | default('') %}
+lockfile: {{ lockfile | default('') }}
+{%- endif %}
+
+# User to run the daemon as (requires root privileges to switch).
+# Only emitted if a non-empty user name is provided.
+{%- if user | default('') %}
+user: {{ user | default('') }}
+{%- endif %}
+
+# List of environment variables in NAME=value format (e.g., ['PATH=/usr/bin', 'FOO=bar']).
+env:
+{%- for var in env | default([]) %}
+  - {{ var }}
+{%- endfor %}
+
+# Enable verbose logging of daemonize's actions to stderr.
+# Note: Boolean values are rendered as lowercase 'true' or 'false' to match daemonize expectations.
+verbose: {{ verbose | default(false) | ternary('true', 'false') }}

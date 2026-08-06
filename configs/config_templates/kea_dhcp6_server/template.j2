@@ -1,6 +1,10 @@
-{# Top-level KEA DHCPv6 configuration #}
+{# KEA DHCPv6 Server Configuration Template #}
+{# This template generates a valid JSON configuration for Kea DHCPv6. #}
+{# It is self-documenting: every field has a corresponding description comment. #}
+
 {
   "Dhcp6": {
+    # Logging severity level (e.g., DEBUG, INFO, WARN, ERROR, FATAL)
     "loggers": [
       {
         "name": "kea-dhcp6",
@@ -9,103 +13,168 @@
             "output": "stdout"
           }
         ],
-        "severity": "{{ logger_severity }}",
-        "debuglevel": {{ logger_debuglevel }}
+        # Logging severity level
+        "severity": "{{ logger_severity | default('INFO') }}",
+        # Debug level (0–99); higher values produce more verbose logs
+        "debuglevel": {{ logger_debuglevel | default(0) }}
       }
     ],
+    # Path to the Unix domain socket for KEA control agent communication
     "control-socket": {
       "socket-type": "unix",
-      "socket-name": "{{ control_socket_path }}"
+      "socket-name": "{{ control_socket_path | default('/run/kea/dhcp6-ctrl.sock') }}"
     },
+    # Server ID configuration
     "server-id": {
-      "type": "{{ server_id_type }}",
-      "enterprise-id": {{ server_id_enterprise_id }}{% if server_id_type == 'LLT' %},
-      "hardware-type": {{ server_id_hardware_type }},
-      "identifier": "{{ server_id_identifier }}"{% endif %}
+      # Server ID type. Use 'LLT' (Link-layer Address plus Time) or 'EN' (Enterprise Number)
+      "type": "{{ server_id_type | default('LLT') }}",
+      # Enterprise number for EN-type server ID (e.g., IANA-assigned value like 5642)
+      "enterprise-id": {{ server_id_enterprise_id | default(0) }}{% if server_id_type | default('LLT') == 'LLT' %},
+      # Hardware type (for LLT). 1 = Ethernet (IEEE 802.3)
+      "hardware-type": {{ server_id_hardware_type | default(1) }},
+      # Identifier string or 'auto' to auto-generate from interface MAC(s)
+      "identifier": "{{ server_id_identifier | default('auto') }}"{% endif %}
     },
-    "reconfigure-wait": {{ reconfigure_wait_seconds }},
+    # Seconds the server waits before reconfiguring after receiving a SIGHUP
+    "reconfigure-wait": {{ reconfigure_wait_seconds | default(30) }},
+    # List of IPv6 subnets to serve
     "subnets": [
-{% for subnet in subnets %}      {
-        "id": {{ subnet.id }},
-        "subnet": "{{ subnet.subnet }}",
+{% for subnet in subnets | default([]) %}      {
+        # Subnet identifier (unique within the subnet list)
+        "id": {{ subnet.id | default(0) }},
+        # IPv6 subnet address/prefix (e.g., '2001:db8::/64')
+        "subnet": "{{ subnet.subnet | default('') }}",
         "pools": [
-{% for pool in subnet.pools %}          {
-            "pool": "{{ pool.pool }}"
+{% for pool in subnet.pools | default([]) %}          {
+            # IPv6 address pool range (e.g., '2001:db8::1-2001:db8::100')
+            "pool": "{{ pool.pool | default('') }}"
           }{% if not loop.last %},{% endif %}
 {% endfor %}        ],
         "option-data": [
-{% for option in subnet.option_data %}          {
-            "name": "{{ option.name }}",
-            "data": "{{ option.data }}"{% if option.code is defined %},
-            "code": {{ option.code }}{% endif %}{% if option.space is defined %},
-            "space": "{{ option.space }}"{% endif %}{% if option.csv_format is defined %},
-            "csv-format": {{ option.csv_format | lower }}{% endif %}
+{% for option in subnet.option_data | default([]) %}          {
+            # Option name (e.g., 'dns-servers', 'domain-name')
+            "name": "{{ option.name | default('') }}",
+            # Option data value (e.g., '2001:db8::53')
+            "data": "{{ option.data | default('') }}"{% if option.code is defined %},
+            # Option code (numeric, if not using standard names)
+            "code": {{ option.code | default(0) }}{% endif %}{% if option.space is defined %},
+            # Option space (e.g., 'dhcp6')
+            "space": "{{ option.space | default('dhcp6') }}"{% endif %}{% if option.csv_format is defined %},
+            # Whether the data is CSV format
+            "csv-format": {{ option.csv_format | default(false) | lower }}{% endif %}
           }{% if not loop.last %},{% endif %}
 {% endfor %}        ],
-        "reservation-mode": "{{ subnet.reservation_mode }}"{% if subnet.reservations is defined %},
+        # Reservation mode: 'none', 'all', 'failover', 'local'
+        "reservation-mode": "{{ subnet.reservation_mode | default('none') }}"{% if subnet.reservations is defined %},
         "reservations": [
 {% for res in subnet.reservations %}          {
-            "hostname": "{{ res.hostname }}",
-            "ip-address": "{{ res.ip_address }}",
-            "du-id": "{{ res.du_id }}"{% if res.client_id is defined %},
-            "client-id": "{{ res.client_id }}"{% endif %}{% if res.hw_address is defined %},
-            "hw-address": "{{ res.hw_address }}"{% endif %}
+            # Hostname for the reservation
+            "hostname": "{{ res.hostname | default('') }}",
+            # IPv6 address to assign
+            "ip-address": "{{ res.ip_address | default('') }}",
+            # DUID (DHCP Unique Identifier) for the client
+            "du-id": "{{ res.du_id | default('') }}"{% if res.client_id is defined %},
+            # Client ID (hex string)
+            "client-id": "{{ res.client_id | default('') }}"{% endif %}{% if res.hw_address is defined %},
+            # Hardware address (MAC)
+            "hw-address": "{{ res.hw_address | default('') }}"{% endif %}
           }{% if not loop.last %},{% endif %}
 {% endfor %}        ]{% endif %}{% if subnet.preferred_lifetime is defined %},
-        "preferred-lifetime": {{ subnet.preferred_lifetime }}{% endif %}{% if subnet.valid_lifetime is defined %},
-        "valid-lifetime": {{ subnet.valid_lifetime }}{% endif %}{% if subnet.min_valid_lifetime is defined %},
-        "min-valid-lifetime": {{ subnet.min_valid_lifetime }}{% endif %}{% if subnet.max_valid_lifetime is defined %},
-        "max-valid-lifetime": {{ subnet.max_valid_lifetime }}{% endif %}{% if subnet.declined_leases_detection is defined %},
-        "declined-leases-detection": {{ subnet.declined_leases_detection | lower }}{% endif %}{% if subnet.cache-threshold is defined %},
-        "cache-threshold": {{ subnet.cache_threshold | default(0.0) }}{% endif %}{% if subnet.cache-max-age is defined %},
+        # Preferred lifetime in seconds
+        "preferred-lifetime": {{ subnet.preferred_lifetime | default(3600) }}{% endif %}{% if subnet.valid_lifetime is defined %},
+        # Valid lifetime in seconds
+        "valid-lifetime": {{ subnet.valid_lifetime | default(7200) }}{% endif %}{% if subnet.min_valid_lifetime is defined %},
+        # Minimum valid lifetime in seconds
+        "min-valid-lifetime": {{ subnet.min_valid_lifetime | default(600) }}{% endif %}{% if subnet.max_valid_lifetime is defined %},
+        # Maximum valid lifetime in seconds
+        "max-valid-lifetime": {{ subnet.max_valid_lifetime | default(86400) }}{% endif %}{% if subnet.declined_leases_detection is defined %},
+        # Whether to detect declined leases (true/false)
+        "declined-leases-detection": {{ subnet.declined_leases_detection | default(false) | lower }}{% endif %}{% if subnet.cache_threshold is defined %},
+        # Cache threshold (0.0-1.0)
+        "cache-threshold": {{ subnet.cache_threshold | default(0.0) }}{% endif %}{% if subnet.cache_max_age is defined %},
+        # Cache max age in seconds
         "cache-max-age": {{ subnet.cache_max_age | default(0) }}{% endif %}
       }{% if not loop.last %},{% endif %}
 {% endfor %}    ],
+    # Interfaces configuration
     "interfaces-config": {
-      "interfaces": [{{ interfaces | map('quote') | join(', ') | indent(2) }}],
-      "re-detect": {{ interfaces_re_detect }}
+      # List of interface names for DHCPv6 traffic
+      "interfaces": [{{ interfaces | default([]) | map('quote') | join(', ') }}],
+      # If true, re-scan network interfaces at reconfigure time
+      "re-detect": {{ interfaces_re_detect | default(true) | lower }}
     },
+    # Lease backend database configuration
     "lease-database": {
-      "type": "{{ lease_database_type }}",
-{% if lease_database_type == 'memfile' %}      "persist": {{ lease_database_memfile_persist | lower }},
-      "name": "{{ lease_database_memfile_name }}",
-      "lfc-interval": {{ lease_database_memfile_lfc_interval }}{% else %}
-      "host": "{{ lease_database_host }}",
-      "name": "{{ lease_database_name }}",
-      "password": "{{ lease_database_password }}",
-      "port": {{ lease_database_port }},
-      "user": "{{ lease_database_user }}",
-      "type": "{{ lease_database_type }}"{% endif %}
+      # Lease backend: 'memfile' (file-based) or 'mysql', 'postgresql', 'cql' for SQL backends
+      "type": "{{ lease_database_type | default('memfile') }}",
+{% if lease_database_type | default('memfile') == 'memfile' %}
+      # If true, write leases to disk (needed for restart persistence)
+      "persist": {{ lease_database_memfile_persist | default(true) | lower }},
+      # Path to the IPv6 lease file for memfile backend
+      "name": "{{ lease_database_memfile_name | default('/var/lib/kea/kea-dhcp6.leases') }}",
+      # Lease file cleanup (LFC) interval in seconds; 0 disables
+      "lfc-interval": {{ lease_database_memfile_lfc_interval | default(3600) }}
+{% else %}
+      # Database host (for SQL backends)
+      "host": "{{ lease_database_host | default('localhost') }}",
+      # Database name (for SQL backends)
+      "name": "{{ lease_database_name | default('kea_dhcp6') }}",
+      # Database password (for SQL backends); leave empty if using system auth
+      "password": "{{ lease_database_password | default('') }}",
+      # Database port (for SQL backends; default for PostgreSQL)
+      "port": {{ lease_database_port | default(5432) }},
+      # Database user (for SQL backends)
+      "user": "{{ lease_database_user | default('kea_user') }}",
+      # Lease backend type (repeated for some parsers/compat)
+      "type": "{{ lease_database_type | default('memfile') }}"
+{% endif %}
     },
+    # Dynamic DNS (RFC 4704) configuration
     "dhcp-ddns": {
-      "enable-updates": {{ dhcp_ddns_enable_updates | lower }},
-      "qualifying-suffix": "{{ dhcp_ddns_qualifying_suffix }}",
-      "server-ip": "{{ dhcp_ddns_server_ip }}",
-      "server-port": {{ dhcp_ddns_server_port }}{% if dhcp_ddns_dns_regions is defined %},
-      "ncr-protocol": "{{ dhcp_ddns_ncr_protocol }}",
-      "ncr-format": "{{ dhcp_ddns_ncr_format }}",
+      # If true, enable dynamic DNS updates
+      "enable-updates": {{ dhcp_ddns_enable_updates | default(false) | lower }},
+      # Suffix to append to hostnames for DDNS (e.g., 'lan.' or 'example.com')
+      "qualifying-suffix": "{{ dhcp_ddns_qualifying_suffix | default('example.com') }}",
+      # Primary DDNS server IP (for TSIG-authenticated updates)
+      "server-ip": "{{ dhcp_ddns_server_ip | default('127.0.0.1') }}",
+      # DDNS server port (usually 53 or 5300 for TSIG)
+      "server-port": {{ dhcp_ddns_server_port | default(53) }}{% if dhcp_ddns_dns_regions is defined %},
+      # NCR Protocol (UDP or TCP)
+      "ncr-protocol": "{{ dhcp_ddns_ncr_protocol | default('UDP') }}",
+      # NCR Format (JSON or XML)
+      "ncr-format": "{{ dhcp_ddns_ncr_format | default('JSON') }}",
       "dns-regions": [
-{% for region in dhcp_ddns_dns_regions %}        {
-          "name": "{{ region.name }}",
-          "dns-server-ips": [{{ region.dns_server_ips | map('quote') | join(', ') | indent(10) }}],
+{% for region in dhcp_ddns_dns_regions | default([]) %}        {
+          # Region name (identifier)
+          "name": "{{ region.name | default('') }}",
+          # List of DNS server IPs for this region
+          "dns-server-ips": [{{ region.dns_server_ips | default([]) | map('quote') | join(', ') }}],
           "tsig-keys": [
-{% for tsig in region.tsig_keys %}            {
-              "name": "{{ tsig.name }}",
-              "algorithm": "{{ tsig.algorithm }}",
-              "secret": "{{ tsig.secret }}"
+{% for tsig in region.tsig_keys | default([]) %}            {
+              # TSIG key name
+              "name": "{{ tsig.name | default('') }}",
+              # TSIG algorithm (e.g., 'hmac-sha256')
+              "algorithm": "{{ tsig.algorithm | default('hmac-sha256') }}",
+              # TSIG secret key (base64 encoded)
+              "secret": "{{ tsig.secret | default('') }}"
             }{% if not loop.last %},{% endif %}
 {% endfor %}          ]
         }{% if not loop.last %},{% endif %}
 {% endfor %}      ]{% endif %}
     },
+    # Hook libraries to load
     "hooks-libraries": [
-{% for hook in hooks_libraries %}      {
-        "library": "{{ hook.library }}"{% if hook.parameters is defined %},
-        "parameters": {{ hook.parameters | tojson | replace('\n', '\n' + '        ') | indent(12, true) }}{% endif %}
+{% for hook in hooks_libraries | default([]) %}      {
+        # Path to the hook library .so file
+        "library": "{{ hook.library | default('') }}"{% if hook.parameters is defined %},
+        # Parameters for the hook (JSON object)
+        "parameters": {{ hook.parameters | tojson | default('{}') }}{% endif %}
       }{% if not loop.last %},{% endif %}
 {% endfor %}    ],
+    # User-defined context for documentation
     "user-context": {
-      "comment": "{{ user_context_comment }}"
+      # Free-form comment stored in user-context for documentation
+      "comment": "{{ user_context_comment | default('Generated by configuration wizard') }}"
     }
   }
 }

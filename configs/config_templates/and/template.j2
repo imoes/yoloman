@@ -1,0 +1,89 @@
+#
+# =============================================================================
+# Ansible-managed configuration for the Auto Nice Daemon (and)
+# Source: /etc/and.conf
+# =============================================================================
+#
+# This configuration controls how the 'and' daemon adjusts process priorities
+# (nice levels) based on CPU time consumption, command name, user, and group.
+#
+# See and.conf(5) for detailed documentation of each directive.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# defaultnice: Nice level for jobs not matched in and.priorities.
+# Description: Sets the default nice value for processes that do not match
+#              any specific rule defined in the priorities list.
+#              0 means do not renice.
+# Default: 0
+# -----------------------------------------------------------------------------
+defaultnice {{ defaultnice | default(0) }}
+
+# -----------------------------------------------------------------------------
+# interval: Time interval between renice cycles, in seconds.
+# Description: The daemon will check process CPU times and apply renicing
+#              every N seconds specified here.
+# Default: 60
+# -----------------------------------------------------------------------------
+interval {{ interval | default(60) }}
+
+# -----------------------------------------------------------------------------
+# CPU Time Thresholds (lv1time, lv2time, lv3time)
+# -----------------------------------------------------------------------------
+# These thresholds determine when a process qualifies for a higher priority
+# adjustment (lower nice value) based on its accumulated CPU usage.
+#
+# Logic:
+# 1. CPU time < lv1time:   No renicing.
+# 2. lv1time <= CPU < lv2time: Renice to Priority Level 1.
+# 3. lv2time <= CPU < lv3time: Renice to Priority Level 2.
+# 4. CPU >= lv3time:       Renice to Priority Level 3.
+# -----------------------------------------------------------------------------
+
+# lv1time: CPU time threshold (seconds) for first-level renice.
+# Description: Processes running less than this many seconds are ignored.
+# Default: 120
+lv1time {{ lv1time | default(120) }}
+
+# lv2time: CPU time threshold (seconds) for second-level renice.
+# Description: Processes running between lv1time and this value are
+#              reniced to the first priority level.
+# Default: 1200
+lv2time {{ lv2time | default(1200) }}
+
+# lv3time: CPU time threshold (seconds) for third-level renice.
+# Description: Processes running between lv2time and this value are
+#              reniced to the second priority level. Processes exceeding
+#              this value are reniced to the third (highest priority) level.
+# Default: 3600
+lv3time {{ lv3time | default(3600) }}
+
+# -----------------------------------------------------------------------------
+# affinity: Order of priority lookup: permutation of 'c'ommand, 'g'roup, 'u'ser.
+# Description: Defines the precedence when matching a process against
+#              priorities rules.
+#              'c' = Command name match has highest priority.
+#              'g' = Group match has highest priority.
+#              'u' = User match has highest priority.
+#              Example: "cug" means Command > Group > User.
+# Default: cpug
+# -----------------------------------------------------------------------------
+affinity {{ affinity | default('cpug') }}
+
+# -----------------------------------------------------------------------------
+# minuid: Minimum user ID considered for renicing (root 0 always ignored).
+# Description: Processes owned by a user with an UID lower than this value
+#              will be ignored by the daemon. Root (UID 0) is always
+#              excluded regardless of this setting.
+# Default: 1
+# -----------------------------------------------------------------------------
+minuid {{ minuid | default(1) }}
+
+# -----------------------------------------------------------------------------
+# mingid: Minimum group ID considered for renicing.
+# Description: Processes belonging to a group with a GID lower than this
+#              value will be ignored by the daemon.
+# Default: 1
+# -----------------------------------------------------------------------------
+mingid {{ mingid | default(1) }}

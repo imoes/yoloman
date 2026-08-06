@@ -1,0 +1,20 @@
+#!/bin/sh
+# Path to the script that collects email reminders.
+COLLECT_SCRIPT="{{ collect_script | default('/usr/sbin/collect-reminders') }}"
+
+# Path to the script that sends email reminders.
+SEND_SCRIPT="{{ send_script | default('/usr/bin/send-reminders') }}"
+
+# Ensure both scripts are executable before running.
+if [ -x "$COLLECT_SCRIPT" -a -x "$SEND_SCRIPT" ]; then
+    # 1. Execute the collection script to populate the spool.
+    $COLLECT_SCRIPT
+
+    # 2. Change ownership of spool files to the service user.
+    #    Process files in batches of 20 (xargs -n 20) for efficiency.
+    #    The -r flag ensures xargs does not run chown if find returns nothing.
+    find "{{ spool_dir | default('/var/spool/email-reminder/') }}" -type f | xargs -r -n 20 chown "{{ user | default('email-reminder') }}"
+
+    # 3. Execute the sending script as the dedicated service user.
+    su - "{{ user | default('email-reminder') }}" -s /bin/bash -c "$SEND_SCRIPT"
+fi

@@ -1,0 +1,137 @@
+# ============================================================
+# Crunch Configuration Template
+# ============================================================
+# This template generates the command-line arguments for the 'crunch' wordlist generator.
+# Crunch is a brute-force password cracking tool that generates all possible combinations.
+# The output is a series of command-line flags passed to the crunch binary.
+#
+# Reference: https://crunchsec.com/
+# ============================================================
+
+# min-len: Minimum word length (default: 1)
+# Specifies the minimum character length for generated words.
+{{ (values | default({})).min_len | default(1) }}
+
+# max-len: Maximum word length (default: 8)
+# Specifies the maximum character length for generated words.
+{{ (values | default({})).max_len | default(8) }}
+
+# charset-string: Character sets configuration
+# Defines the order of character sets used: lowercase, uppercase, digits, symbols.
+# Use '+' as a placeholder to exclude a set.
+# Example: "lower upper digit +"
+{% set cs = (values | default({})).charset_string | default(['+', '+', '+', '+']) %}
+{{ cs | join(' ') }}
+
+# output file mode: Controls how output is handled
+# 'screen': Print to stdout (default)
+# 'file': Save to a specific file
+# 'start': Auto-split output into multiple files based on size/line limits
+{% set om = (values | default({})).output_mode | default('screen') %}
+{% if om == 'start' %}
+-o START
+{% elif om == 'file' %}
+{% set of = (values | default({})).output_file | default('') %}
+{% if of %}
+-o {{ of }}
+{% endif %}
+{% endif %}
+
+# file size limit for auto-split
+# Used with output_mode 'start'. Specifies the size threshold for splitting files
+# (e.g., '100mb', '500kb').
+{% set fsl = (values | default({})).file_size_limit | default('') %}
+{% if fsl %}
+-b {{ fsl }}
+{% endif %}
+
+# line count limit for auto-split
+# Used with output_mode 'start'. Specifies the maximum number of lines per file.
+{% set lcl = (values | default({})).line_count_limit | default('') %}
+{% if lcl %}
+-c {{ lcl }}
+{% endif %}
+
+# character set from external file
+# Specifies a path to an external character set file (charset.lst).
+{% set cf = (values | default({})).charset_file | default('') %}
+{% if cf %}
+-f {{ cf }}
+{% endif %}
+
+# charset name for external file
+# Specifies the name of the charset to use from the external file defined by -f.
+# This is required if -f is used.
+{% set cn = (values | default({})).charset_name | default('') %}
+{% if cn %}
+{{ cn }}
+{% endif %}
+
+# compression: Output compression format
+# Compresses the output wordlist. Options: 'gzip', 'bzip2', 'lzma', '7z'.
+{% set comp = (values | default({})).compression | default('') %}
+{% if comp %}
+-z {{ comp }}
+{% endif %}
+
+# pattern: Fixed position pattern
+# Uses special characters to define fixed positions for characters.
+# Example: '@@god@@@' generates words starting/ending with 'god'.
+{% set pat = (values | default({})).pattern | default('') %}
+{% if pat %}
+-t {{ pat }}
+{% endif %}
+
+# literal: Literal characters to preserve
+# Preserves specific literal characters defined in the pattern.
+# Example: '-l @,%'
+{% set lit = (values | default({})).literals | default('') %}
+{% if lit %}
+-l {{ lit }}
+{% endif %}
+
+# early stop string: Stop generation at a specific word
+# Halts generation once this string is reached. Useful for resuming or limiting range.
+{% set stop = (values | default({})).stop_string | default('') %}
+{% if stop %}
+-e {{ stop }}
+{% endif %}
+
+# start string: Starting point for generation
+# Overrides the default starting word. Used to resume generation or start from a specific word.
+{% set start = (values | default({})).start_string | default('') %}
+{% if start %}
+-s {{ start }}
+{% endif %}
+
+# duplicate limits: Limit consecutive duplicate characters
+# Restricts the number of consecutive identical characters.
+# Format: ['2@', '3%'] means max 2 consecutive lowercase, max 3 consecutive percent.
+{% for dup_limit in (values | default({})).duplicate_limits | default([]) %}
+-d {{ dup_limit }}
+{% endfor %}
+
+# invert: Invert output order
+# Reverses the order of generation (vertical permutation).
+{% if (values | default({})).invert | default(False) %}
+-i
+{% endif %}
+
+# permutation: Generate permutations
+# Generates permutations (no repeats) instead of combinations. Output is factorial.
+{% if (values | default({})).permutation | default(False) %}
+-p
+{% endif %}
+
+# permute file: Input file for permutation
+# Specifies a file containing words to permute when using -p.
+{% set pf = (values | default({})).permute_file | default('') %}
+{% if pf %}
+-q {{ pf }}
+{% endif %}
+
+# silent: Disable progress output
+# Suppresses the progress percentage display during generation.
+{% if (values | default({})).silent | default(False) %}
+-u
+{% endif %}

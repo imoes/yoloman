@@ -1,124 +1,136 @@
 {
   "nodes": {
     "type": "list",
-    "default": [
-      "192.168.1.10",
-      "192.168.1.11",
-      "192.168.1.12"
-    ],
+    "default": {
+      "value": [
+        "192.168.1.10",
+        "192.168.1.11",
+        "192.168.1.12"
+      ]
+    },
     "description": "IP addresses (or hostnames) of cluster nodes, one per line."
   },
   "public_addresses_file": {
     "type": "string",
-    "default": "/etc/ctdb/public_ips",
+    "default": {
+      "value": "/etc/ctdb/public_ips"
+    },
     "description": "Path to file containing public (virtual) IP addresses for clients."
   },
   "base_path": {
     "type": "string",
-    "default": "/var/lib/ctdb",
+    "default": {
+      "value": "/var/lib/ctdb"
+    },
     "description": "Directory where CTDB stores persistent state, databases, and event scripts."
   },
   "lock_file": {
     "type": "string",
-    "default": "/var/lib/ctdb/ctdb.lock",
+    "default": {
+      "value": "/var/lib/ctdb/ctdb.lock"
+    },
     "description": "Path to lock file for shared storage coordination (e.g., for GFS2/NFS)."
   },
   "recovery_lock_file": {
     "type": "string",
-    "default": "/var/lib/ctdb/recovery.lock",
+    "default": {
+      "value": "/var/lib/ctdb/recovery.lock"
+    },
     "description": "Path to lock file used during recovery operations to prevent split-brain."
   },
   "recovery_grace_period": {
     "type": "number",
-    "default": 60,
+    "default": {
+      "value": 60
+    },
     "description": "Seconds to wait before starting recovery after a node joins or rejoins."
   },
   "recovery_blackout_period": {
     "type": "number",
-    "default": 300,
+    "default": {
+      "value": 300
+    },
     "description": "Seconds after which a misbehaving node will be forcibly fenced (set to 0 to disable)."
   },
   "ip_allocation_method": {
     "type": "string",
-    "default": "dhcp",
-    "description": "Method for assigning public IPs: 'dhcp' (recommended), 'static', or 'random'."
+    "default": {
+      "value": "static"
+    },
+    "description": "Method for assigning public IPs: 'dhcp', 'static', or 'random'. Note: 'dhcp' is *not* recommended per CTDB docs \u2014 'static' or 'none' are preferred for production."
   },
   "ip_allocations": {
     "type": "list",
-    "default": [],
-    "description": "Static public IP assignments (only used if ip_allocation_method = 'static').",
-    "items": {
-      "node": {
-        "type": "string",
-        "description": "Node IP or hostname."
-      },
-      "address": {
-        "type": "string",
-        "description": "Static public IP to assign to the node."
-      }
-    }
+    "default": {
+      "value": []
+    },
+    "description": "Static public IP assignments (only used if ip_allocation_method = 'static')."
   },
   "log_level": {
     "type": "string",
-    "default": "NOTICE",
+    "default": {
+      "value": "NOTICE"
+    },
     "description": "Minimum severity level for logs (e.g., 'DEBUG' for troubleshooting, 'WARNING' for production)."
   },
   "log_subsystems": {
     "type": "list",
-    "default": [
-      "all"
-    ],
+    "default": {
+      "value": [
+        "all"
+      ]
+    },
     "description": "CTDB subsystems to log. Use 'all' or comma-separated names like 'lcp','notify'."
   },
   "log_file_path": {
     "type": "string",
-    "default": "/var/log/ctdb/ctdb.log",
-    "description": "Path to main CTDB log file."
+    "default": {
+      "value": "/var/log/ctdb/log.ctdb"
+    },
+    "description": "Path to main CTDB log file. Official default: /var/log/ctdb/log.ctdb (not /var/log/ctdb/ctdb.log)."
   },
   "event_scripts_max": {
     "type": "number",
-    "default": 10,
+    "default": {
+      "value": 10
+    },
     "description": "Max concurrent event script invocations. Increase for large clusters with complex HA scripts."
   },
   "client_connect_limit": {
     "type": "number",
-    "default": 1000,
+    "default": {
+      "value": 1000
+    },
     "description": "Max simultaneous client TCP connections per CTDB node."
   },
   "client_timeout": {
     "type": "number",
-    "default": 30,
+    "default": {
+      "value": 30
+    },
     "description": "Seconds before a client call is considered failed (increase for slow backends)."
   },
   "event_scripts_enable": {
     "type": "bool",
-    "default": true,
+    "default": {
+      "value": true
+    },
     "description": "Enable built-in event scripting engine (required for HA, failover, etc.)."
   },
   "event_script_dirs": {
     "type": "list",
-    "default": [
-      "/etc/ctdb/events.d"
-    ],
+    "default": {
+      "value": [
+        "/etc/ctdb/events.d"
+      ]
+    },
     "description": "Additional directories containing custom event scripts."
   },
   "node_hints": {
     "type": "list",
-    "default": [],
-    "description": "Optional hints to influence node preferability during failover (priority: higher = more preferred).",
-    "items": {
-      "node": {
-        "type": "string",
-        "description": "Node IP or hostname."
-      },
-      "priority": {
-        "type": "number",
-        "description": "Node preference (higher = more likely to host public IPs)."
-      },
-      "weight": {
-        "type": "number",
-        "description": "Optional weight (for weighted allocation methods)."
-      }
-    }
+    "default": {
+      "value": []
+    },
+    "description": "Optional hints to influence node preferability during failover (priority: higher = more preferred)."
   }
 }

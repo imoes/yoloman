@@ -1,0 +1,51 @@
+{# ============================================================================ #}
+{# ascii(1) configuration template                                              #}
+{# Self-documenting Jinja2 template for managing ascii(1) character encoding    #}
+{# parameters. This tool converts character specifications into various         #}
+{# encoding representations (decimal, hex, octal, binary).                      #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# mode: Encoding base for table output. Valid values:                          #}
+{#   'decimal', 'hex', 'octal', 'binary'. Note: 'iso' is not a valid mode;     #}
+{#   ISO names are printed alternatively.                                       #}
+{# Default: 'decimal'                                                           #}
+{# ---------------------------------------------------------------------------- #}
+mode: {{ (mode | default('decimal')) | lower }}
+
+{# ---------------------------------------------------------------------------- #}
+{# aspect_ratio: Layout orientation for the character table.                    #}
+{#   'vertical'   = 4 columns × 16 rows (equivalent to -a flag)                #}
+{#   'horizontal' = 16 columns × 4 rows (default)                              #}
+{# Default: 'horizontal'                                                        #}
+{# ---------------------------------------------------------------------------- #}
+aspect_ratio: {{ (aspect_ratio | default('horizontal')) | lower }}
+
+{# ---------------------------------------------------------------------------- #}
+{# input_items: List of character specifications to parse.                    #}
+{#   Each entry may be a literal character, mnemonic, hex/decimal/octal/binary #}
+{#   prefixed number, or ISO code. One item per line in the output.           #}
+{# Default: [] (empty list)                                                     #}
+{# ---------------------------------------------------------------------------- #}
+{% for item in (input_items | default([])) %}input: {{ item | string }}
+{% endfor %}
+
+{# ---------------------------------------------------------------------------- #}
+{# verbose: If true, show program version and exit (equivalent to -v).        #}
+{# Default: False                                                               #}
+{# ---------------------------------------------------------------------------- #}
+verbose: {{ verbose | default(False) | bool | ternary('true', 'false') }}
+
+{# ---------------------------------------------------------------------------- #}
+{# script_friendly: If true, emit only ISO/decimal/hex/octal/binary encodings #}
+{#   (equivalent to -t). Useful for machine parsing.                            #}
+{# Default: False                                                               #}
+{# ---------------------------------------------------------------------------- #}
+script_friendly: {{ script_friendly | default(False) | bool | ternary('true', 'false') }}
+
+{# ---------------------------------------------------------------------------- #}
+{# parse_multiple: If true, parse multiple characters in a string (equivalent   #}
+{#   to -s). Without this, strings are treated as single input items.         #}
+{# Default: False                                                               #}
+{# ---------------------------------------------------------------------------- #}
+parse_multiple: {{ parse_multiple | default(False) | bool | ternary('true', 'false') }}

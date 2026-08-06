@@ -6,7 +6,7 @@
   },
   "barman_locks": {
     "type": "string",
-    "default": "/var/lib/barman",
+    "default": "/var/run/barman",
     "description": "Directory for Barman lock files (used for concurrent operation safety)."
   },
   "barman_log_file": {
@@ -17,191 +17,36 @@
   "log_level": {
     "type": "string",
     "default": "INFO",
-    "description": "Verbosity level for logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+    "description": "Verbosity level for logging (DEBUG, INFO, WARNING, ERROR, CRITICAL).\", \"enum\": [\"DEBUG\", \"INFO\", \"WARNING\", \"ERROR\", \"CRITICAL\", \"NOTSET\"]",
+    "enum": [
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ]
   },
-  "wal_retention_policy": {
-    "type": "number",
-    "default": 7,
-    "description": "Number of days to retain WAL files before automatic cleanup (0 to disable)."
-  },
-  "compression": {
+  "servers_conf_dir": {
     "type": "string",
-    "default": "none",
-    "description": "Default compression for backups: 'none', 'gzip', 'bzip2', 'lz4'."
-  },
-  "compression_filter": {
-    "type": "string",
-    "default": "gzip",
-    "description": "Compression command/program to use (e.g., 'gzip' or 'lz4 -z')."
+    "default": "/etc/barman.d",
+    "description": "Subdirectory of /etc/barman.d/ where server configuration files are placed (default: empty string for /etc/barman.d/, or e.g. 'conf.d' for /etc/barman.d/conf.d/)."
   },
   "parallel_jobs": {
     "type": "number",
     "default": 1,
     "description": "Maximum number of parallel jobs for backup and recovery operations."
   },
-  "ssh_command": {
+  "compression": {
     "type": "string",
-    "default": "ssh -o BatchMode=yes -o StrictHostKeyChecking=no",
-    "description": "SSH command used to connect to PostgreSQL servers (used by default if per-server override not set)."
-  },
-  "rsync_ssh_command": {
-    "type": "string",
-    "default": "ssh -o BatchMode=yes -o StrictHostKeyChecking=no",
-    "description": "SSH command used for rsync transfers to PostgreSQL servers."
-  },
-  "servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of PostgreSQL servers to manage with Barman.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique identifier (section name) for the server in Barman config."
-        },
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description of the PostgreSQL server."
-        },
-        "conninfo_host": {
-          "type": "string",
-          "default": "localhost",
-          "description": "Hostname or IP of the PostgreSQL server for main connection."
-        },
-        "conninfo_user": {
-          "type": "string",
-          "default": "barman",
-          "description": "PostgreSQL user used for Barman connections (must have replication privileges)."
-        },
-        "conninfo_dbname": {
-          "type": "string",
-          "default": "postgres",
-          "description": "Database name to connect to (usually 'postgres')."
-        },
-        "conninfo_port": {
-          "type": "number",
-          "default": 5432,
-          "description": "Port of the PostgreSQL server."
-        },
-        "ssh_command": {
-          "type": "string",
-          "default": "",
-          "description": "Optional SSH command override for this server (leave empty to use global default)."
-        },
-        "pg_data_directory": {
-          "type": "string",
-          "default": "/var/lib/postgresql/14/main",
-          "description": "Path to PostgreSQL data directory on the remote server."
-        },
-        "pg_bin_directory": {
-          "type": "string",
-          "default": "/usr/lib/postgresql/14/bin",
-          "description": "Path to PostgreSQL binaries on the remote server."
-        },
-        "pg_config_directory": {
-          "type": "string",
-          "default": "/etc/postgresql/14/main",
-          "description": "Path to PostgreSQL configuration directory on the remote server."
-        },
-        "base_backup_method": {
-          "type": "string",
-          "default": "postgres",
-          "description": "Method for base backup (e.g., 'postgres' for pg_basebackup)."
-        },
-        "streaming_archiver": {
-          "type": "string",
-          "default": "on",
-          "description": "Enable WAL streaming from this server ('on' or 'off')."
-        },
-        "streaming_conninfo_host": {
-          "type": "string",
-          "default": "localhost",
-          "description": "Host for streaming replication connection."
-        },
-        "streaming_conninfo_user": {
-          "type": "string",
-          "default": "repl",
-          "description": "User for streaming replication (must have REPLICATION privilege)."
-        },
-        "streaming_conninfo_port": {
-          "type": "number",
-          "default": 5432,
-          "description": "Port for streaming replication."
-        },
-        "wal_archive_method": {
-          "type": "string",
-          "default": "barman_wal_archive",
-          "description": "Method to archive WALs: 'barman_wal_archive' (recommended) or 'archive_command'."
-        },
-        "archive_timeout": {
-          "type": "number",
-          "default": 0,
-          "description": "Force switch of WAL file after this many seconds (0 to disable)."
-        },
-        "min_wal_size_to_keep": {
-          "type": "string",
-          "default": "8GB",
-          "description": "Minimum WAL size to retain before cleanup (e.g., '8GB', '32')."
-        },
-        "max_wal_size_to_keep": {
-          "type": "string",
-          "default": "40GB",
-          "description": "Maximum WAL size to retain before cleanup."
-        },
-        "backup_method": {
-          "type": "string",
-          "default": "rsync",
-          "description": "Backup method: 'rsync' (local) or 'pg_basebackup' (remote)."
-        },
-        "compression": {
-          "type": "string",
-          "default": "",
-          "description": "Compression for this server (overrides global default if set)."
-        },
-        "compression_filter": {
-          "type": "string",
-          "default": "",
-          "description": "Custom compression command (overrides global default if set)."
-        },
-        "archive_directory": {
-          "type": "string",
-          "default": "",
-          "description": "Local path for archived WAL files for this server (if different from default)."
-        },
-        "check_postgreSQL": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable check that PostgreSQL is running and accessible."
-        },
-        "check_wal_archive": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable check that WAL archiving is working."
-        },
-        "check_min_wal_size": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable check of WAL minimum size policy."
-        },
-        "check_archiver": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable check of WAL archiver status."
-        },
-        "check_backup": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable check of backup retention policy."
-        },
-        "check_wal_archive_latency": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable check for WAL archiving latency/delay."
-        }
-      }
-    }
+    "default": "none",
+    "description": "Default compression for backups: 'none', 'gzip', 'bzip2', 'lz4'.",
+    "enum": [
+      "none",
+      "gzip",
+      "bzip2",
+      "pigz",
+      "pygzip",
+      "pybzip2"
+    ]
   }
 }

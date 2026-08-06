@@ -1,0 +1,95 @@
+# ==============================================================================
+# fnotifystat configuration template
+# ==============================================================================
+# This template generates the command-line options for `fnotifystat`.
+# fnotifystat monitors filesystem activity (syscalls) and reports statistics.
+# See `man fnotifystat` for detailed documentation on each option.
+#
+# Each block below corresponds to a specific configuration field.
+# If a field is omitted or unset, the option is not emitted.
+# Defaults are applied inline to ensure safe rendering even if variables
+# are undefined in the Ansible context.
+# ==============================================================================
+
+# Sampling delay: The time interval between samples.
+# Accepts integers (seconds) or suffixes like 'm' (minutes), 'h' (hours),
+# 'd' (days), 'w' (weeks), 'y' (years). Default is '1' (second).
+# Output: The value itself (no flag).
+{{ delay | default('1') }}
+
+# Count: Number of sampling intervals to run before exiting.
+# If omitted or null, fnotifystat runs indefinitely until interrupted.
+# Output: The value itself (no flag).
+{% if count is defined and count is not none %}{{ count }}{% endif %}
+
+# Cumulative totals: Use cumulative totals over all time instead of per-interval averages.
+# When set to true, the -c flag is emitted. Default is False.
+{% if cumulative | default(False) %}-c{% endif %}
+
+# Strip path: Strip directory path from filenames, showing only the basename.
+# When set to true, the -d flag is emitted. Default is False.
+{% if strip_path | default(False) %}-d{% endif %}
+
+# Force output: Force output even when no file activity occurred during the interval.
+# When set to true, the -f flag is emitted. Default is False.
+{% if force_output | default(False) %}-f{% endif %}
+
+# By device: Order statistics by unique device (major, minor) instead of filename.
+# When set to true, the -D flag is emitted. Default is False.
+{% if by_device | default(False) %}-D{% endif %}
+
+# Include paths: Comma-separated list of filesystem paths to monitor.
+# If empty, all filesystems are monitored by default.
+# Output: -i <paths>
+{% if include_paths is defined and include_paths | length > 0 %}-i {{ include_paths | join(',') }}{% endif %}
+
+# By inode: Order statistics by unique device (major, minor) and inode number.
+# When set to true, the -I flag is emitted. Default is False.
+{% if by_inode | default(False) %}-I{% endif %}
+
+# Merge events: Merge consecutive events on the same file from the same process.
+# When set to true, the -m flag is emitted. Default is False.
+{% if merge_events | default(False) %}-m{% endif %}
+
+# No periodic: Suppress periodic statistics updates; show only verbose (event-level) output.
+# When set to true, the -n flag is emitted. Default is False.
+{% if no_periodic | default(False) %}-n{% endif %}
+
+# Processes: Comma-separated list of process IDs (PIDs) or names to monitor.
+# If empty, all processes are monitored.
+# Output: -p <processes>
+{% if processes is defined and processes | length > 0 %}-p {{ processes | join(',') }}{% endif %}
+
+# Sort by PID: Sort statistics by PID first, then by totals, then by filename.
+# When set to true, the -P flag is emitted. Default is False.
+{% if sort_by_pid | default(False) %}-P{% endif %}
+
+# Sort by reads: Sort statistics by the number of read operations first.
+# When set to true, the -r flag is emitted. Default is False.
+{% if sort_by_reads | default(False) %}-r{% endif %}
+
+# Disable scaling: Disable K/M/B scaling of numeric output (show raw bytes).
+# When set to true, the -s flag is emitted. Default is False.
+{% if disable_scaling | default(False) %}-s{% endif %}
+
+# Top N: Only display the top N busiest files in the output.
+# If omitted, all files are shown (subject to other sorting).
+# Output: -t <n>
+{% if top_n is defined and top_n is not none %}-t {{ top_n }}{% endif %}
+
+# Show timestamp: Include a timestamp in periodic output lines.
+# When set to true, the -T flag is emitted. Default is False.
+{% if show_timestamp | default(False) %}-T{% endif %}
+
+# Verbose: Enable verbose mode to show per-event access information.
+# When set to true, the -v flag is emitted. Default is False.
+{% if verbose | default(False) %}-v{% endif %}
+
+# Sort by writes: Sort statistics by the number of write operations first.
+# When set to true, the -w flag is emitted. Default is False.
+{% if sort_by_writes | default(False) %}-w{% endif %}
+
+# Exclude paths: Comma-separated list of filesystem paths to EXCLUDE from monitoring.
+# If empty, nothing is excluded by default.
+# Output: -x <paths>
+{% if exclude_paths is defined and exclude_paths | length > 0 %}-x {{ exclude_paths | join(',') }}{% endif %}

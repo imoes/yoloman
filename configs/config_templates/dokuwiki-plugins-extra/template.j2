@@ -1,0 +1,81 @@
+{# ============================================================================ #}
+{# dokuwiki-plugins-extra configuration template                                 #}
+{#                                                                              #}
+{# Self-documenting configuration for DokuWiki extra plugins.                   #}
+{#                                                                              #}
+{# Variables used from Ansible inventory/vars (with schema defaults):           #}
+{#   - plugins                      : list of plugin names to enable            #}
+{#   - addnewpage_namespace_selection: boolean to enable namespace selection    #}
+{#   - mathjax_cdn                  : string CDN URL for MathJax library        #}
+{#   - wrap_safe_mode               : boolean to enable wrap plugin safe mode   #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Installed Plugins List                                                       #}
+{# Description: Comma-separated list of enabled plugins.                        #}
+{# Schema: plugins (list), default=['addnewpage', 'color', 'mathjax', 'wrap']   #}
+{# ---------------------------------------------------------------------------- #}
+{% if (plugins | default(['addnewpage', 'color', 'mathjax', 'wrap'])) | length > 0 %}
+# Installed plugins (comma-separated list)
+PLUGINS="{{ (plugins | default(['addnewpage', 'color', 'mathjax', 'wrap'])) | join(', ') }}"
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Plugin-Specific Configuration Directories                                    #}
+{# Description: Iterate over enabled plugins and emit their specific config vars. #}
+{# Schema: plugins (list)                                                       #}
+{# ---------------------------------------------------------------------------- #}
+{% for plugin in (plugins | default(['addnewpage', 'color', 'mathjax', 'wrap'])) %}
+# Plugin configuration directory for '{{ plugin }}'
+
+{# ------------------------------------------------------------------------- #}
+{# Plugin: addnewpage                                                        #}
+{# Description: Namespace selection in addnewpage plugin.                    #}
+{# Schema: addnewpage_namespace_selection (bool), default=False              #}
+{# ------------------------------------------------------------------------- #}
+{% if plugin == 'addnewpage' %}
+# Enable namespace selection in addnewpage plugin
+# Default: disabled (False)
+{% if addnewpage_namespace_selection | default(false) %}
+CONFIG_ADDNEWPAGE_NAMESPACE_SELECTION=1
+{% else %}
+CONFIG_ADDNEWPAGE_NAMESPACE_SELECTION=0
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Plugin: color                                                             #}
+{# Description: Enable color plugin usage for colored text.                  #}
+{# ------------------------------------------------------------------------- #}
+{% elif plugin == 'color' %}
+# Enable color plugin usage (required for colored text) — always enabled
+CONFIG_COLOR_ENABLED=1
+
+{# ------------------------------------------------------------------------- #}
+{# Plugin: mathjax                                                           #}
+{# Description: CDN URL for the MathJax JavaScript library.                  #}
+{# Schema: mathjax_cdn (str), default='https://cdnjs.cloudflare.com/.../latest.js' #}
+{# ------------------------------------------------------------------------- #}
+{% elif plugin == 'mathjax' %}
+# MathJax CDN URL (default: latest version from Cloudflare)
+# Default: https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML
+CONFIG_MATHJAX_CDN="{{ mathjax_cdn | default('https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML') }}"
+
+{# ------------------------------------------------------------------------- #}
+{# Plugin: wrap                                                              #}
+{# Description: Safe mode to restrict HTML/JS injection in wrap plugin.      #}
+{# Schema: wrap_safe_mode (bool), default=True                               #}
+{# ------------------------------------------------------------------------- #}
+{% elif plugin == 'wrap' %}
+# Wrap plugin: enable safe mode (recommended for untrusted input)
+# Default: enabled (True)
+{% if wrap_safe_mode | default(true) %}
+CONFIG_WRAP_SAFE_MODE=1
+{% else %}
+CONFIG_WRAP_SAFE_MODE=0
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Unknown plugin: fallback (no specific config emitted)                     #}
+{# ------------------------------------------------------------------------- #}
+{% endif %}
+{% endfor %}

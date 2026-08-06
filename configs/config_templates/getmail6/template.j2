@@ -1,74 +1,115 @@
-# getmail6 configuration — retriever, destination, and options
-# https://getmail6.readthedocs.io/
+# ==============================================================================
+# getmail6 Configuration Template
+# ==============================================================================
+# This template generates a valid getmail6 configuration file (INI-style with
+# Python-like tuple syntax for lists/commands). It configures a mail retriever
+# (IMAP/POP3) and a destination (Maildir, Mbox, or MDA).
+#
+# Key sections:
+#   [retriever]   - Connection details for the incoming mail server
+#   [destination] - How/where delivered messages are stored
+#   [options]     - General behavior (logging, deletion, filtering)
+#   [filter]      - One block per filter chain entry (applied before delivery)
+#
+# See https://getmail6.readthedocs.io/ for full documentation.
+# ==============================================================================
 
 [retriever]
-# Retriever protocol class: SimpleIMAPSSLRetriever, SimpleIMAPRetriever, SimplePOP3SSLRetriever, SimplePOP3Retriever, MultidropIMAPSSLRetriever, MultidropPOP3SSLRetriever
-type = {{ retriever_type }}
-# Hostname or IP address of the mail server
-server = {{ retriever_server }}
-# TCP port: 993=IMAPS, 143=IMAP, 995=POP3S, 110=POP3
-port = {{ retriever_port }}
-# Login username for the mail account (usually the full e-mail address)
-username = {{ retriever_username }}
-{% if retriever_password_command %}
-# Shell command (argv list) whose stdout is used as the account password
-password_command = ({% for arg in retriever_password_command %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %})
+# Retriever protocol class. Determines transport (IMAP/POP3), encryption (SSL/plain),
+# and delivery mode (simple/multidrop).
+# Common values: SimpleIMAPSSLRetriever, SimpleIMAPRetriever, SimplePOP3SSLRetriever,
+# SimplePOP3Retriever, MultidropIMAPSSLRetriever, MultidropPOP3SSLRetriever
+type = {{ retriever_type | default('SimpleIMAPSSLRetriever') }}
+
+# Hostname or IP address of the incoming mail server
+server = {{ retriever_server | default('imap.example.com') }}
+
+# TCP port of the mail server. Standard ports:
+#   993 (IMAPS), 143 (IMAP STARTTLS), 995 (POP3S), 110 (POP3)
+port = {{ retriever_port | default(993) }}
+
+# Login name for the mail account, typically the full e-mail address
+username = {{ retriever_username | default('user@example.com') }}
+
+# Shell command as an argument list whose stdout is read as the password (e.g. a pass/secret-tool call).
+# Set to null to use retriever_password. If set, it overrides the plaintext password.
+{% if retriever_password_command | default(None) is not none %}
+password_command = ({% for arg in retriever_password_command | default([]) %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %},)
 {% else %}
-# Plaintext account password; prefer password_command for better security
-password = {{ retriever_password }}
+# Plaintext password for the mail account. Ignored when retriever_password_command is set.
+password = {{ retriever_password | default('') }}
 {% endif %}
-{% if "IMAP" in retriever_type %}
-# IMAP mailboxes to fetch; Python tuple syntax with trailing comma is required
-mailboxes = ({% for mb in retriever_mailboxes %}"{{ mb }}"{% if not loop.last %}, {% endif %}{% endfor %},)
+
+# IMAP mailboxes to retrieve messages from. Only relevant for IMAP retriever types; ignored for POP3.
+{% if "IMAP" in (retriever_type | default('SimpleIMAPSSLRetriever')) %}
+mailboxes = ({% for mb in retriever_mailboxes | default(['INBOX']) %}"{{ mb }}"{% if not loop.last %}, {% endif %}{% endfor %},)
 {% endif %}
 
 [destination]
-# Delivery method: Maildir (recommended), Mboxrd, MDA_external, MDA_qmaillocal
-type = {{ destination_type }}
-# Filesystem path for Maildir/Mboxrd; executable path for MDA_external
-path = {{ destination_path }}
-{% if destination_type == "MDA_external" and destination_arguments %}
-# Command-line arguments passed to the MDA executable (Python tuple syntax)
-arguments = ({% for arg in destination_arguments %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %},)
+# Delivery method. Maildir is recommended for reliability.
+# Options: Maildir, Mboxrd, MDA_external, MDA_qmaillocal
+type = {{ destination_type | default('Maildir') }}
+
+# Filesystem path to the Maildir directory or mbox file; or path to the MDA executable when destination_type is MDA_external
+path = {{ destination_path | default('~/Maildir/') }}
+
+# Argument list passed to the MDA executable. Only used when destination_type is MDA_external; set to null otherwise.
+{% if destination_type | default('Maildir') == "MDA_external" and destination_arguments | default(None) is not none %}
+arguments = ({% for arg in destination_arguments | default([]) %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %},)
 {% endif %}
-{% for f in filters %}
+
+# Message filters applied to each message before delivery. Each entry produces a [filter] section.
+{% for f in filters | default([]) %}
 [filter]
-# Filter class applied to each message before delivery
-type = {{ f.type }}
+# Filter class applied to each message before delivery.
+# Common classes: FileFilter, Pipe, ProcFilter, etc.
+type = {{ f.type | default('') }}
+
 # Absolute path to the filter program executable
-path = {{ f.path }}
-{% if f.arguments %}
-# Arguments passed to the filter executable (Python tuple syntax)
+path = {{ f.path | default('') }}
+
+# Arguments passed to the filter executable.
+# Syntax requires a Python tuple with a trailing comma.
+{% if f.arguments is defined and f.arguments is not none and (f.arguments | length) > 0 %}
 arguments = ({% for arg in f.arguments %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %},)
 {% endif %}
 {% endfor %}
 
 [options]
-# true = retrieve all server messages; false = skip already-seen UIDs
-read_all = {{ options_read_all | lower }}
-# true = delete messages from the server after successful local delivery
-delete = {{ options_delete | lower }}
-# Absolute path for the retrieval log file; empty string disables logging
-message_log = {{ options_message_log }}
-# Verbosity: 0=silent, 1=normal status lines, 2=verbose/debug output
-verbose = {{ options_verbose }}
-# true = prepend a Received: header to each retrieved message
-received = {{ options_received | lower }}
-# true = prepend a Delivered-To: header with the envelope recipient address
-delivered_to = {{ options_delivered_to | lower }}
-{% if options_max_message_size %}
-# Skip retrieval of messages larger than this many bytes
-max_message_size = {{ options_max_message_size }}
+# If true, retrieve all messages present on the server. If false, skip messages whose UID was already retrieved in a previous session
+read_all = {{ options_read_all | default(False) | lower }}
+
+# If true, delete messages from the server immediately after successful local delivery. Use with caution — set to false until delivery is verified.
+delete = {{ options_delete | default(False) | lower }}
+
+# Absolute or tilde-expanded path to the retrieval log file. Set to an empty string to disable logging entirely.
+message_log = {{ options_message_log | default('~/.getmail/log') }}
+
+# Log verbosity: 0=silent (errors only), 1=normal one-line status per session, 2=verbose per-message output for debugging.
+verbose = {{ options_verbose | default(1) }}
+
+# If true, prepend a Received: header to each message documenting when and from where it was retrieved.
+received = {{ options_received | default(True) | lower }}
+
+# If true, prepend a Delivered-To: header containing the envelope recipient address.
+delivered_to = {{ options_delivered_to | default(True) | lower }}
+
+# Skip retrieval of any message larger than this many bytes. Set to 0 to retrieve messages of any size.
+{% if options_max_message_size | default(0) != 0 %}
+max_message_size = {{ options_max_message_size | default(0) }}
 {% endif %}
-{% if options_max_bytes_per_session %}
-# Terminate the session after retrieving this many bytes total
-max_bytes_per_session = {{ options_max_bytes_per_session }}
+
+# Stop the retrieval session after downloading this many bytes. Useful to cap bandwidth per run. Set to 0 for no limit.
+{% if options_max_bytes_per_session | default(0) != 0 %}
+max_bytes_per_session = {{ options_max_bytes_per_session | default(0) }}
 {% endif %}
-{% if options_delete_after %}
-# Delete server messages older than this many days even if not yet retrieved
-delete_after = {{ options_delete_after }}
+
+# Delete messages from the server that are older than this many days, regardless of whether they have been retrieved. Set to 0 to disable.
+{% if options_delete_after | default(0) != 0 %}
+delete_after = {{ options_delete_after | default(0) }}
 {% endif %}
-{% if options_delete_bigger_than %}
-# Delete messages larger than this many bytes from server without retrieving
-delete_bigger_than = {{ options_delete_bigger_than }}
+
+# Delete messages larger than this many bytes from the server without downloading them. Set to 0 to disable.
+{% if options_delete_bigger_than | default(0) != 0 %}
+delete_bigger_than = {{ options_delete_bigger_than | default(0) }}
 {% endif %}

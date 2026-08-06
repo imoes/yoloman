@@ -1,0 +1,65 @@
+# bwm-ng configuration file
+# See: man bwm-ng(5)
+#
+# This template is self-documenting: every directive is preceded by
+# its schema description, and every variable uses its schema default
+# via the `default()` filter so the file renders even if Ansible
+# variables are absent.
+
+# Input method for network data; e.g., proc, getifaddrs, kstat, sysctl, netstat, libstatgrab.
+# Must be compiled-in.
+INPUT={{ input_method | default('') }}
+
+# Path to proc file used by proc input method.
+PROCFILE={{ procfile | default('/proc/net/dev') }}
+
+# Path to diskstats file used by disk input method.
+DISKSTATSFILE={{ diskstatsfile | default('/proc/diskstats') }}
+
+# Path to partitions file used by disk input method on older kernels.
+PARTITIONSFILE={{ partitionsfile | default('/proc/partitions') }}
+
+# Output method: curses, curses2, plain, csv, html.
+OUTPUT={{ output_method | default('') }}
+
+# Unit to display: bytes, bits, packets, errors.
+UNIT={{ unit | default('') }}
+
+# Type of stats: rate, max, sum, avg.
+TYPE={{ stat_type | default('') }}
+
+# Number of outputs for plain/csv mode; 0 in csv mode skips initial zero output.
+COUNT={{ count | default(0) }}
+
+# Delimiter character for CSV output.
+CSVDLIM={{ csv_char | default(';') }}
+
+# Output file path (required for daemon mode with csv/html output).
+OUTFILE={{ outfile | default('') }}
+
+# HTML page refresh interval in seconds.
+HTMLREFRESH={{ html_refresh | default(0) }}
+
+# If true, print full HTML header (including meta refresh).
+HTMLHEADER={{ html_header | default(True) | ternary(1, 0) }}
+
+# Interval between measurements in milliseconds.
+TIMEOUT={{ timeout | default(500) }}
+
+# If true, display dynamic units (K/M/G).
+DYNAMIC={{ dynamic | default(True) | ternary(1, 0) }}
+
+# Interface selection: 0=up+selected, 1=all up, 2=all (incl. down).
+ALLIF={{ allif | default(1) }}
+
+# Comma-separated list of interface names. Prefix with '%' for blacklist.
+INTERFACES={{ interfaces | default('') }}
+
+# If true, include hidden interfaces in totals.
+SUMHIDDEN={{ sumhidden | default(False) | ternary(1, 0) }}
+
+# Length of averaging window in seconds for avg stat_type.
+AVGLENGTH={{ avglength | default(30) }}
+
+# If true, fork into background (requires outfile).
+DAEMON={{ daemon | default(False) | ternary(1, 0) }}

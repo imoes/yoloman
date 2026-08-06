@@ -1,0 +1,57 @@
+{# ============================================================================= #}
+{# genromfs Command-Line Configuration Template                                   #}
+{# This template generates a command-line invocation for the genromfs utility.    #}
+{# genromfs creates ROM-RAM filesystem images from a source directory.            #}
+{# Each variable uses the `default()` filter to ensure safe rendering even if    #}
+{# the variable is undefined in the Ansible execution context.                   #}
+{# ============================================================================= #}
+
+{# Volume label for the romfs image (not used by kernel but recorded in image)   #}
+{# Default: '' (empty string)                                                     #}
+{%- if label | default('') %}
+-V {{ label | default('') }}
+{%- endif %}
+
+{# Default alignment for regular files in bytes (must be power of two)           #}
+{# Default: 16                                                                    #}
+{%- if alignment | default(16) != 16 %}
+-a {{ alignment | default(16) }}
+{%- endif %}
+
+{# List of alignment patterns; each entry matches files and specifies alignment  #}
+{# in bytes. Patterns may be absolute (starting with /) or relative.            #}
+{# Each entry is a mapping with keys: pattern (str), alignment (int)            #}
+{# Default: [] (empty list)                                                       #}
+{%- if align_patterns | default([]) %}
+{%- for entry in align_patterns | default([]) %}
+{# Align pattern {{ entry.pattern | default('') }} to {{ entry.alignment | default(0) }} bytes #}
+-A {{ entry.alignment | default(0) }},{{ entry.pattern | default('') }}
+{%- endfor %}
+{%- endif %}
+
+{# List of shell wildcard patterns to exclude from the image (e.g., 'CVS', '*~') #}
+{# Default: [] (empty list)                                                       #}
+{%- if exclude_patterns | default([]) %}
+{%- for pattern in exclude_patterns | default([]) %}
+{# Exclude pattern {{ pattern | default('') }} #}
+-x {{ pattern | default('') }}
+{%- endfor %}
+{%- endif %}
+
+{# Source directory to scan for files (defaults to current directory)            #}
+{# Default: '.'                                                                   #}
+{%- if source_dir | default('.') != '.' %}
+-d {{ source_dir | default('.') }}
+{%- endif %}
+
+{# Output file or device for the romfs image (required)                         #}
+{# Default: '' (empty string)                                                     #}
+{%- if output_file | default('') %}
+-f {{ output_file | default('') }}
+{%- endif %}
+
+{# Enable verbose mode; prints each file included and its offset                #}
+{# Default: False                                                                 #}
+{%- if verbose | default(False) %}
+-v
+{%- endif %}

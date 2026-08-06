@@ -1,0 +1,74 @@
+# ==============================================================================
+# Buildbot Master Instance Configuration Template
+# ==============================================================================
+# This template generates the instance configuration for a Buildbot Master.
+# It manages the metadata for a specific Buildbot master instance, including
+# its activation status, identity, and runtime environment.
+#
+# Variables are sourced from the Ansible role's variables (schema fields).
+# All variables use inline defaults to ensure safe rendering even if
+# specific variables are undefined in the playbook context.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Instance Identifier
+# Description: The unique identifier for this Buildbot master instance.
+#              Used as an index/key in array-like variable names within the
+#              configuration file to distinguish between multiple masters.
+# ------------------------------------------------------------------------------
+# Instance ID (used as index in array-like variable names)
+MASTER_ID[{{ instance_id | default('default') }}]={{ instance_id | default('default') }}
+
+# ------------------------------------------------------------------------------
+# Instance Name
+# Description: A short, human-readable name for this Buildbot instance.
+#              This name is typically printed during start/stop operations
+#              or displayed in logging to help identify the specific master.
+# ------------------------------------------------------------------------------
+# Short name printed on start/stop
+MASTER_NAME[{{ instance_id | default('default') }}]="{{ name | default('default') }}"
+
+# ------------------------------------------------------------------------------
+# Master Enabled Status
+# Description: Controls whether this specific Buildbot master instance is
+#              active. '1', 'yes', or 'true' enables the instance.
+#              '0', 'no', or 'false' disables it. Other values are
+#              considered syntax errors by the Buildbot init scripts.
+# ------------------------------------------------------------------------------
+# Enable (1/true/yes) or disable (0/false/no) the buildbot master instance
+MASTER_ENABLED[{{ instance_id | default('default') }}]={{ master_enabled | default('0') }}
+
+# ------------------------------------------------------------------------------
+# Master User
+# Description: The system user account under which the Buildbot master
+#              process will run. This user must have appropriate permissions
+#              to access the basedir and bind to required ports.
+# ------------------------------------------------------------------------------
+# User to run master as
+MASTER_USER[{{ instance_id | default('default') }}]="{{ user | default('buildbot') }}"
+
+# ------------------------------------------------------------------------------
+# Master Basedir
+# Description: The absolute path to the base directory for this master.
+#              This directory typically contains the master's configuration
+#              files (master.cfg), logs, and runtime state.
+# ------------------------------------------------------------------------------
+# Absolute path to master's basedir
+MASTER_BASEDIR[{{ instance_id | default('default') }}]="{{ basedir | default('/var/lib/buildbot/masters/default') }}"
+
+# ------------------------------------------------------------------------------
+# Master Options
+# Description: Additional command-line options or flags to pass to the
+#              Buildbot master process. This string is passed verbatim.
+# ------------------------------------------------------------------------------
+# Buildbot options
+MASTER_OPTIONS[{{ instance_id | default('default') }}]="{{ options | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Master Prefix Command
+# Description: A command prefix executed before the main Buildbot master
+#              command. Commonly used for resource limiting or environment
+#              setup, e.g., 'nice -n 19' or 'linux32'.
+# ------------------------------------------------------------------------------
+# Prefix command, e.g. nice, linux32, dchroot
+MASTER_PREFIXCMD[{{ instance_id | default('default') }}]="{{ prefixcmd | default('') }}"

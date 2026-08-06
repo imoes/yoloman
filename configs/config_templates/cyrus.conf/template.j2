@@ -1,14 +1,29 @@
-# Global configuration for Cyrus IMAP/POP/NNTP services
-# Service definitions: format is <daemon> <service> <type> <cmd>
-#   daemon: 'defaults', 'imap', 'pop3', 'nntp', 'sieve', 'lmtp', etc.
-#   service: name of service (e.g., 'imap', 'pop3')
-#   type: 'socket' (Unix socket) or 'inet' (TCP socket)
-#   cmd: command to run, often including options and socket path
-#
-# This file is read by the 'master' Cyrus daemon at startup.
-{% for service in services %}{{ service.daemon }}	{{ service.service }}	{{ service.type }}	{{ service.cmd }}{% endfor %}
-# Optional per-service-specific config overrides (via service name or socket path)
-# These are included for illustration; typically managed via imapd.conf or site-specific includes
-# (Not part of cyrus.conf itself but useful for deployers)
-# Example: sieve service options
-{% for sieve_opt in sieve_options %}{{ sieve_opt.key }}:	{{ sieve_opt.value }}{% endfor %}
+# Cyrus IMAP Server Master Configuration Template
+# This file defines the startup sections for the Cyrus IMAP master daemon.
+# Each section contains entries (services, daemons, or events) that determine
+# what processes are spawned and how they behave.
+
+# Iterate over the defined configuration sections (START, SERVICES, EVENTS, DAEMON)
+{% for section in (sections | default([
+    {'name': 'START', 'entries': [{'name': 'recover', 'args': 'cmd="ctl_cyrusdb -r"'}]},
+    {'name': 'SERVICES', 'entries': [
+        {'name': 'imap', 'args': 'cmd="imapd" listen="imap" prefork=1'},
+        {'name': 'imaps', 'args': 'cmd="imapd -s" listen="imaps" prefork=0'},
+        {'name': 'lmtpunix', 'args': 'cmd="lmtpd" listen="/var/imap/socket/lmtp"'},
+        {'name': 'lmtp', 'args': 'cmd="lmtpd" listen="localhost:lmtp"'}
+    ]},
+    {'name': 'EVENTS', 'entries': [{'name': 'checkpoint', 'args': 'cmd="ctl_cyrusdb -c" period=30'}]},
+    {'name': 'DAEMON', 'entries': [{'name': 'idled', 'args': 'cmd="idled"'}]}
+])) %}
+    # Section: {{ section.name | default('UNKNOWN') }}
+    # Description: {{ section.description | default('') }}
+{{ section.name | default('UNKNOWN') }} {
+
+    # Iterate over the entries within the current section
+    {% for entry in (section.entries | default([])) %}
+        # Entry: {{ entry.name | default('unnamed') }}
+        # Args: {{ entry.args | default('') }}
+        {{ entry.name | default('unnamed') }} {{ entry.args | default('') }}
+    {% endfor %}
+}
+{% endfor %}

@@ -1,0 +1,12 @@
+# Ansible-managed cron.d entry for fwanalog log analysis
+# Generated from template; do not edit manually.
+
+# {{ service_name | default('fwanalog') }} — Human-readable name of the service (informational)
+# {{ analysis_interval | default('daily') }} — Frequency of the analysis
+# {{ log_email_type | default('log-email') }} — Purpose of the cron job (e.g., log-email, analysis)
+
+# Cron schedule: runs at {{ minute | default('59') }} past {{ hour | default('23') }} every day.
+# Command: executes the script at {{ cron_script_path | default('/usr/lib/fwanalog/cron') }}
+# if it exists and is executable, redirecting stderr to /dev/null.
+
+{{ minute | default('59') }} {{ hour | default('23') }} * * * root test -x {{ cron_script_path | default('/usr/lib/fwanalog/cron') }} && {{ cron_script_path | default('/usr/lib/fwanalog/cron') }} 2> /dev/null

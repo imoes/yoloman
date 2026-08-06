@@ -1,0 +1,99 @@
+# ==============================================================================
+# anonip Configuration Template
+# ==============================================================================
+# Purpose: {{ description | default('anonip configuration') }}
+#
+# This template generates a shell command line for the `anonip` utility,
+# which anonymizes IP addresses in log files by masking or replacing them.
+# It is typically used as a pipe for web server access logs (e.g., Apache
+# CustomLog or Nginx access_log with a filter).
+#
+# Self-documentation: Every variable reference includes its default value
+# as specified in the schema, ensuring the command structure is predictable
+# even if optional parameters are omitted.
+# ==============================================================================
+
+# --- Main Binary & Description ---
+# The path to the anonip executable.
+{{ command | default('/usr/bin/anonip') }} \
+
+# --- IPv4 Masking ---
+# Truncate the last n bits of IPv4 addresses.
+# Default: 12 (leaves the first 20 bits, i.e., the Class C network + more).
+{% if ipv4_mask is defined %}
+    -4 {{ ipv4_mask | default(12) }} \
+{% endif %}
+
+# --- IPv6 Masking ---
+# Truncate the last n bits of IPv6 addresses.
+# Default: 84 (leaves the first 32 bits, typical for many deployments).
+{% if ipv6_mask is defined %}
+    -6 {{ ipv6_mask | default(84) }} \
+{% endif %}
+
+# --- Increment ---
+# Add an increment value to the anonymized IP.
+# Useful for load balancing or to avoid identical hashes across different servers.
+# Default: 0 (no increment).
+{% if increment is defined %}
+    -i {{ increment | default(0) }} \
+{% endif %}
+
+# --- Output File ---
+# Path to write the anonymized logs.
+# If empty, output goes to stdout (standard for piping to other tools).
+{% if output_file is defined %}
+    -o {{ output_file | default('') }} \
+{% endif %}
+
+# --- Input File ---
+# Path to read logs from.
+# If empty, input is read from stdin (standard for piping from other tools).
+{% if input_file is defined %}
+    --input {{ input_file | default('') }} \
+{% endif %}
+
+# --- Column Selection ---
+# Space-separated list of 1-based column indices where IP addresses are found.
+# Default: 1 (first column, typical for Apache combined log format).
+# Example: "1 4" for logs where IP is in column 1 and another IP in column 4.
+{% if columns is defined %}
+    -c {{ columns | default([]) | join(' ') }} \
+{% endif %}
+
+# --- Delimiter ---
+# Field delimiter used to parse log columns.
+# Default: space.
+{% if delimiter is defined %}
+    -l '{{ delimiter | default(' ') }}' \
+{% endif %}
+
+# --- Regex Patterns ---
+# Custom regex patterns to detect IP addresses, overriding column-based detection.
+# If provided, -c (columns) is typically ignored.
+# Default: empty list.
+{% if regex_patterns is defined %}
+    --regex {{ regex_patterns | default([]) | join(' ') }} \
+{% endif %}
+
+# --- Replacement String ---
+# Replacement string for addresses that cannot be parsed or masked.
+# Example: '0.0.0.0' or 'XXX'.
+# Default: empty (leave as-is or skip, depending on anonip version).
+{% if replacement is defined %}
+    -r '{{ replacement | default('') }}' \
+{% endif %}
+
+# --- Skip Private ---
+# If true, do not mask addresses in private/reserved ranges (e.g., 10.x.x.x, 192.168.x.x).
+# Default: false (mask everything).
+{% if skip_private is defined %}
+    -p \
+{% endif %}
+
+# --- Debug ---
+# If true, print debug messages to stderr.
+# Default: false.
+{% if debug is defined %}
+    -d \
+{% endif %}

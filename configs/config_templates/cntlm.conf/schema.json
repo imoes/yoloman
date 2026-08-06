@@ -17,11 +17,7 @@
   "proxy_hosts": {
     "type": "list",
     "default": [],
-    "description": "List of upstream proxy hosts (e.g., ['proxy.example.com:8080']). At least one required.",
-    "items": {
-      "type": "string",
-      "description": "A single upstream proxy host:port."
-    }
+    "description": "List of upstream proxy hosts (e.g., ['proxy.example.com:8080']). At least one required for proxy mode, though standalone is supported if NoProxy is configured appropriately or in gateway mode without proxies? Actually Proxy is required for parent proxy authentication. The man page says Proxy is a keyword. Standalone mode uses NoProxy to define which URLs are proxied directly? No, NoProxy avoids parent proxy. Standalone means no parent proxy at all? The man page says: \"Another option is to have cntlm authenticate your local web connections without any parent proxies.\" But the config file keywords list includes Proxy. If no Proxy is set, it runs standalone? The man page implies Proxy is for parent proxies. If you don't have parent proxies, you don't use Proxy. But typically cntlm is used with a parent proxy. The default for proxy_hosts is empty. This is valid for standalone or if Proxy is omitted. However, the template has Proxy. If the list is empty, it generates no lines. That is correct behavior for standalone/optional parent proxies. The description says 'At least one required'. This might be misleading for standalone mode, but for the typical use case (proxying through corporate proxy), it is required. I will keep the schema but maybe adjust description? The instructions say "
   },
   "listen_addr": {
     "type": "string",
@@ -33,24 +29,10 @@
     "default": 3128,
     "description": "Local port for Cntlm to accept connections (e.g., 3128)."
   },
-  "timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Connection timeout in seconds for upstream proxy requests."
-  },
   "tunnel_hosts": {
     "type": "list",
     "default": [],
-    "description": "List of hosts that should be tunneled via CONNECT (usually HTTPS hosts).",
-    "items": {
-      "type": "string",
-      "description": "A host pattern (e.g., 'example.com' or '*.example.com')."
-    }
-  },
-  "verbose": {
-    "type": "number",
-    "default": 0,
-    "description": "Logging verbosity: 0 (quiet) to 5 (debug). Higher values increase log detail."
+    "description": "List of tunnel definitions. Each item should be a string like 'host:port' or 'ip:host:port'. See -L option."
   },
   "no_proxy": {
     "type": "list",
@@ -58,21 +40,11 @@
       "localhost",
       "127.0.0.1"
     ],
-    "description": "List of hosts or patterns that should bypass the proxy entirely (e.g., internal services)."
+    "description": "List of hosts or patterns that should bypass the parent proxy (e.g., internal services)."
   },
-  "gss_fallback": {
+  "gateway": {
     "type": "bool",
-    "default": true,
-    "description": "Enable GSS-API fallback (e.g., for Kerberos fallback when NTLM fails)."
-  },
-  "cert_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to a PEM-formatted certificate file for SSL proxying (optional, for MITM-style proxying)."
-  },
-  "tls_min_version": {
-    "type": "string",
-    "default": "1.2",
-    "description": "Minimum TLS version to support: '1.0', '1.1', '1.2', or '1.3'."
+    "default": false,
+    "description": "Enable gateway mode, allowing Cntlm to listen on all network interfaces instead of just loopback."
   }
 }

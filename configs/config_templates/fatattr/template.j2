@@ -1,0 +1,18 @@
+# Configuration for fatattr: Manage file attributes (chattr/fatattr)
+# This template generates commands to set file attributes using the 'fatattr' tool.
+# It iterates over the 'files_attrs' list provided in the Ansible variables.
+
+{# Guard against undefined files_attrs by defaulting to an empty list #}
+{% for file_item in files_attrs | default([], true) %}
+{# Each item in files_attrs is expected to be a dictionary/map with 'file' and 'attrs' keys #}
+{# Extract the file path, defaulting to empty string if missing to prevent errors #}
+{% set file_path = file_item.file | default('') %}
+
+{# Extract the list of attribute modifiers (e.g., '+a', '-h'), defaulting to empty list #}
+{% set attrs_list = file_item.attrs | default([], true) %}
+
+{# Only generate a command if a valid file path is provided #}
+{% if file_path %}
+fatattr {{ attrs_list | join(' ') }} {{ file_path }}{% if not loop.last %} \ {% endif %}
+{% endif %}
+{% endfor %}

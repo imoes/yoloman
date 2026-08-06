@@ -1,94 +1,127 @@
-{# General server identity #}
-host: {{ host }}
-port: {{ port }}
-{% if ssl.enabled %}
-{# Enable and configure TLS (required for secure submission) #}
-ssl_cert: {{ ssl.cert_path }}
-ssl_key: {{ ssl.key_path }}
-{% endif %}
-{% if auth.enabled %}
-{# Enable authentication (for mail submission) #}
-auth_backend: {{ auth.backend }}
-{% if auth.backend == 'passwd' %}
-auth_passwd_file: {{ auth.passwd_file }}
-{% elif auth.backend == 'ldap' %}
-auth_ldap_url: {{ auth.ldap_url }}
-auth_ldap_base: {{ auth.ldap_base }}
-auth_ldap_bind_dn: {{ auth.ldap_bind_dn }}
-auth_ldap_bind_password: {{ auth.ldap_bind_password }}
-auth_ldap_filter: {{ auth.ldap_filter }}
-{% endif %}
-{% endif %}
-{% if log.enabled %}
-{# Logging configuration #}
-log_level: {{ log.level }}
-log_file: {{ log.file }}
-{% endif %}
-{% for domain in domains %}
-{# per-domain configuration #}
-{% if domain.enabled is not false %}
-domain: {{ domain.name }}
-{% if domain.local %}
-local: true
-{% endif %}
-{% if domain.remote_smtp %}
-remote_smtp: {{ domain.remote_smtp | join(', ') }}
-{% endif %}
-{% if domain.relay_host %}
-relay_host: {{ domain.relay_host }}
-{% if domain.relay_port %}
-relay_port: {{ domain.relay_port }}
-{% endif %}
-{% endif %}
-{% if domain.auth_relay %}
-relay_auth_user: {{ domain.relay_auth_user }}
-relay_auth_pass: {{ domain.relay_auth_pass }}
-{% endif %}
-{% if domain.max_message_size %}
-max_message_size: {{ domain.max_message_size }}
-{% endif %}
-{% if domain.sender_maps %}
-{% for map in domain.sender_maps %}
-sender_map: {{ map.pattern }} = {{ map.target }}
+# ==============================================================================
+# chasquid SMTP Server Configuration Template
+# ==============================================================================
+# This template configures chasquid, a simple, lightweight SMTP server.
+# All directives are commented with their schema descriptions and default values.
+# Variables use Jinja2 defaults to ensure valid output even if variables are unset.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Hostname
+# Description: Default hostname for HELO/EHLO and server identification.
+# Default: mx.example.com
+# -----------------------------------------------------------------------------
+hostname: "{{ hostname | default('mx.example.com') }}"
+
+# -----------------------------------------------------------------------------
+# Maximum Email Data Size
+# Description: Maximum email size in megabytes.
+# Default: 50
+# -----------------------------------------------------------------------------
+max_data_size_mb: {{ max_data_size_mb | default(50) }}
+
+# -----------------------------------------------------------------------------
+# SMTP Listening Address
+# Description: Port for SMTP (typically 25).
+# Note: This template uses a direct bind to the specified port.
+# Default: 25
+# -----------------------------------------------------------------------------
+smtp_address: ":{{ (port | default({})).smtp | default(25) }}"
+
+# -----------------------------------------------------------------------------
+# Submission Listening Address
+# Description: Port for submission (typically 587).
+# Note: This template uses a direct bind to the specified port.
+# Default: 587
+# -----------------------------------------------------------------------------
+submission_address: ":{{ (submission_port | default({})).submission | default(587) }}"
+
+# -----------------------------------------------------------------------------
+# Monitoring Address
+# Description: Address for the monitoring HTTP server (localhost only).
+# Security: Do NOT expose this to the public internet.
+# Default: 127.0.0.1:1099
+# -----------------------------------------------------------------------------
+monitoring_address: "{{ monitoring_address | default('127.0.0.1:1099') }}"
+
+# -----------------------------------------------------------------------------
+# Mail Delivery Agent Binary
+# Description: Path to mail delivery agent binary.
+# Default: maildrop
+# -----------------------------------------------------------------------------
+mail_delivery_agent_bin: "{{ mail_delivery_agent_bin | default('maildrop') }}"
+
+# -----------------------------------------------------------------------------
+# Mail Delivery Agent Arguments
+# Description: Command-line arguments for the mail delivery agent.
+# Supported replacements:
+#   %from%       -> from address (e.g. marsnik@mars)
+#   %from_user%  -> from user (e.g. marsnik)
+#   %from_domain%-> from domain (e.g. mars)
+#   %to%         -> to address (e.g. venera@venus)
+#   %to_user%    -> to user (e.g. venera)
+#   %to_domain%  -> to domain (e.g. venus)
+# Default: ['-f', '%from%', '-d', '%to_user%']
+# -----------------------------------------------------------------------------
+{% for arg in mail_delivery_agent_args | default(['-f', '%from%', '-d', '%to_user%']) %}
+mail_delivery_agent_args: {{ arg | tojson }}
 {% endfor %}
-{% endif %}
-{% if domain.accept_mail_from %}
-accept_mail_from:
-{% for pattern in domain.accept_mail_from %}
-  - {{ pattern }}
-{% endfor %}
-{% endif %}
-{% if domain.accept_rcpt_to %}
-accept_rcpt_to:
-{% for pattern in domain.accept_rcpt_to %}
-  - {{ pattern }}
-{% endfor %}
-{% endif %}
-{% if domain.reject_mail_from %}
-reject_mail_from:
-{% for pattern in domain.reject_mail_from %}
-  - {{ pattern }}
-{% endfor %}
-{% endif %}
-{% if domain.reject_rcpt_to %}
-reject_rcpt_to:
-{% for pattern in domain.reject_rcpt_to %}
-  - {{ pattern }}
-{% endfor %}
-{% endif %}
-{% endif %}
-{% endfor %}
-{# Global limits #}
-max_message_size: {{ max_message_size }}
-max_recipients_per_message: {{ max_recipients_per_message }}
-{% if rate_limit.enabled %}
-{# Rate limiting (per-IP) #}
-rate_limit.enabled: true
-rate_limit.per_ip: {{ rate_limit.per_ip }}
-rate_limit.per_domain: {{ rate_limit.per_domain }}
-{% endif %}
-{# Delivery settings #}
-delivery_timeout: {{ delivery_timeout }}
-delivery_threads: {{ delivery_threads }}
-queue_dir: {{ queue_dir }}
-spool_dir: {{ spool_dir }}
+
+# -----------------------------------------------------------------------------
+# Data Directory
+# Description: Directory where persistent data is stored.
+# Default: /var/lib/chasquid
+# -----------------------------------------------------------------------------
+data_dir: "{{ data_dir | default('/var/lib/chasquid') }}"
+
+# -----------------------------------------------------------------------------
+# Suffix Separators
+# Description: Suffix separators to strip from local usernames (e.g., user+tag -> user).
+# Default: +
+# -----------------------------------------------------------------------------
+suffix_separators: "{{ suffix_separators | default('+') }}"
+
+# -----------------------------------------------------------------------------
+# Drop Characters
+# Description: Characters to drop from local usernames during normalization.
+# Default: .
+# -----------------------------------------------------------------------------
+drop_characters: "{{ drop_characters | default('.') }}"
+
+# -----------------------------------------------------------------------------
+# Log Destination
+# Description: Logging destination: '<syslog>', '<stdout>', or '<stderr>'.
+# Default: syslog
+# -----------------------------------------------------------------------------
+log: "{{ log | default('syslog') }}"
+
+# -----------------------------------------------------------------------------
+# Dovecot Authentication
+# Description: Enable Dovecot authentication for unknown users.
+# Default: false
+# -----------------------------------------------------------------------------
+dovecot_auth: {{ dovecot_auth | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Dovecot Userdb Socket Path
+# Description: Explicit path to Dovecot userdb socket (leave blank for auto-detect).
+# Default: (empty/autodetect)
+# -----------------------------------------------------------------------------
+dovecot_userdb_path: "{{ dovecot_userdb_path | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Dovecot Client Socket Path
+# Description: Explicit path to Dovecot client socket (leave blank for auto-detect).
+# Default: (empty/autodetect)
+# -----------------------------------------------------------------------------
+dovecot_client_path: "{{ dovecot_client_path | default('') }}"
+
+# -----------------------------------------------------------------------------
+# HAProxy Protocol
+# Description: Expect incoming SMTP connections to use the HAProxy protocol.
+# Note: EXPERIMENTAL - Might change in backwards-incompatible ways.
+# Allows deploying chasquid behind a HAProxy server to preserve client address
+# info for SPF checks.
+# Default: false
+# -----------------------------------------------------------------------------
+haproxy_incoming: {{ haproxy_incoming | default(false) | lower }}

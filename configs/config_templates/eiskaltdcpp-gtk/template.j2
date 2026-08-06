@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  EiskaltDC++ GTK Configuration File
+  ==================================
+  This file is managed by Ansible. Do not edit manually.
+  Target location: ~/.config/eiskaltdc++/EiskaltDC++_Gtk.xml
+  
+  Variables used:
+    - sound_command: Command to execute for sound notifications (e.g., 'aplay', 'paplay')
+    - main_window_geometry: Main window geometry in WxH+X+Y format (e.g., '1024x768+50+50')
+    - show_tray_icon: Boolean, whether to show system tray icon when minimized
+    - auto_connect: Boolean, whether to automatically reconnect to hubs on disconnect
+    - hubs: List of configured hubs (dchub:// or adc(s):// URLs). Each entry must include at least 'address'.
+    - user_list_visible: Boolean, whether user list panel is visible on startup
+    - downloads_widget_visible: Boolean, whether downloads queue widget is visible on startup
+    - search_widget_visible: Boolean, whether search widget is visible on startup
+    - emoticons_enabled: Boolean, whether emoticons are enabled in chat
+    - ipfilter_enabled: Boolean, whether IP filtering is enabled
+    - ipfilter_rules: List of IP filter rules. Format: CIDR::direction::action (e.g., '192.168.1.0/24::in::allow')
+-->
+
+<EiskaltDC++_Gtk>
+  <!-- sound-command: program used for sound notifications -->
+  <SoundCommand>{{ (sound_command | default('aplay')) | string }}</SoundCommand>
+
+  <!-- main-window-geometry: saved window position/size as "WxH+X+Y" -->
+  <MainWindowGeometry>{{ (main_window_geometry | default('1024x768+50+50')) | string }}</MainWindowGeometry>
+
+  <!-- show-tray-icon: whether to show notification area icon -->
+  <ShowTrayIcon>{{ show_tray_icon | default(true) | lower }}</ShowTrayIcon>
+
+  <!-- auto-connect: whether to reconnect automatically on hub disconnect -->
+  <AutoConnect>{{ auto_connect | default(false) | lower }}</AutoConnect>
+
+  <!-- hubs: list of hub connections to configure -->
+  <Hubs>
+    {% for hub in (hubs | default([])) %}
+    <Hub>
+      {% if hub is mapping %}
+        {% if hub.get('address') is defined and hub.address %}
+        <!-- address: hub URL (e.g., dchub://hub.example.com:411) -->
+        <Address>{{ hub.address | string }}</Address>
+        {% endif %}
+        {% if hub.get('name') is defined %}
+        <!-- name: human-readable hub name -->
+        <Name>{{ hub.name | string }}</Name>
+        {% endif %}
+        {% if hub.get('favourite') is defined %}
+        <!-- favourite: mark hub as favourite -->
+        <Favourite>{{ hub.favourite | default(false) | lower }}</Favourite>
+        {% endif %}
+      {% else %}
+      <!-- fallback: if hub entry is not a mapping, treat as raw string address -->
+      <Address>{{ hub | string }}</Address>
+      {% endif %}
+    </Hub>
+    {% endfor %}
+  </Hubs>
+
+  <!-- user-list-visible: whether user list panel is visible on startup -->
+  <UserListVisible>{{ user_list_visible | default(true) | lower }}</UserListVisible>
+
+  <!-- downloads-widget-visible: whether downloads queue widget is visible on startup -->
+  <DownloadsWidgetVisible>{{ downloads_widget_visible | default(true) | lower }}</DownloadsWidgetVisible>
+
+  <!-- search-widget-visible: whether search widget is visible on startup -->
+  <SearchWidgetVisible>{{ search_widget_visible | default(true) | lower }}</SearchWidgetVisible>
+
+  <!-- emoticons-enabled: enable emoticons in chat -->
+  <EmoticonsEnabled>{{ emoticons_enabled | default(true) | lower }}</EmoticonsEnabled>
+
+  <!-- ipfilter-enabled: enable IP filtering -->
+  <IPFilterEnabled>{{ ipfilter_enabled | default(false) | lower }}</IPFilterEnabled>
+
+  <!-- ipfilter-rules: list of IP filter rules (format: CIDR::direction::action) -->
+  <IPFilterRules>
+    {% for rule in (ipfilter_rules | default([])) %}
+    <Rule>{{ rule | string }}</Rule>
+    {% endfor %}
+  </IPFilterRules>
+</EiskaltDC++_Gtk>

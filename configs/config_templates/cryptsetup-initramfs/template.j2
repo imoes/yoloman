@@ -1,0 +1,55 @@
+#
+# Configuration file for the cryptroot initramfs hook.
+# This template is self-documenting. All directives are derived from the
+# `cryptsetup-initramfs` package schema. Defaults match the system's
+# standard behavior to ensure safety when variables are absent.
+#
+
+#
+# KEYFILE_PATTERN: Shell pattern to match key files from /etc/crypttab to include in the initramfs image.
+# Empty string means no key files are copied (default).
+#
+# The value of this variable is interpreted as a shell pattern.
+# Matching key files from the crypttab(5) are included in the initramfs
+# image. The associated devices can then be unlocked without manual
+# intervention. (For instance if /etc/crypttab lists two key files
+# /etc/keys/{root,swap}.key, you can set KEYFILE_PATTERN="/etc/keys/*.key"
+# to add them to the initrd.)
+#
+# If KEYFILE_PATTERN is null or unset (default) then no key file is
+# copied to the initramfs image.
+#
+# Note that the glob(7) is not expanded for crypttab(5) entries with a
+# 'keyscript=' option. In that case, the field is not treated as a file
+# name but given as argument to the keyscript.
+#
+# WARNING:
+# * If the initramfs image is to include private key material, you'll
+#   want to create it with a restrictive umask in order to keep
+#   non-privileged users at bay. For instance, set UMASK=0077 in
+#   /etc/initramfs-tools/initramfs.conf
+# * If you use cryptsetup-suspend, private key material inside the
+#   initramfs will be in memory during suspend period, defeating the
+#   purpose of cryptsetup-suspend.
+#
+#
+# Default: '' (empty string, no key files included)
+#
+KEYFILE_PATTERN={{ KEYFILE_PATTERN | default('') }}
+
+#
+# ASKPASS: [ y | n ]
+#
+# Whether to include the askpass binary in the initramfs image.
+# Default is 'y'.
+#
+# Whether to include the askpass binary to the initramfs image. askpass
+# is required for interactive passphrase prompts, and ASKPASS=y (the
+# default) is implied when the hook detects that same device needs to be
+# unlocked interactively (i.e., not via keyfile nor keyscript) at
+# initramfs stage. Setting ASKPASS=n also skips `cryptroot-unlock`
+# inclusion as it requires the askpass executable.
+#
+# Default: 'y'
+#
+ASKPASS={{ ASKPASS | default('y') }}

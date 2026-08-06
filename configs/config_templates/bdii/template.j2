@@ -1,63 +1,45 @@
-{# Main configuration file for BDII (Berkeley Database Information Index) #}
+# =============================================================================
+# BDII (BEIRUT Data Integration Index) Configuration
+# =============================================================================
+# This template configures the BDII service, which provides a GIP-compliant
+# LDAP interface to Grid Infrastructure information.
+# =============================================================================
 
-{# Hostname or IP address the BDII service will bind to #}
-global:Host = {{ host }}
+# Path to the BDII update log file.
+BDII_LOG_FILE={{ log_file | default('/var/log/bdii/bdii-update.log') }}
 
-{# Port on which the BDII service listens for LDAP queries (standard: 2170) #}
-global:Port = {{ port }}
+# Path to the PID file for the BDII update process.
+BDII_PID_FILE={{ pid_file | default('/run/bdii/bdii-update.pid') }}
 
-{# Directory where BDII stores its database files (must be writable by the bdii user) #}
-global:DatabaseDir = {{ database_dir }}
+# Verbosity level for logging (e.g., DEBUG, INFO, ERROR).
+BDII_LOG_LEVEL={{ log_level | default('ERROR') }}
 
-{# Directory for temporary files and logs #}
-global:TmpDir = {{ tmp_dir }}
+# Directory containing LDIF files used by GIP updates.
+BDII_LDIF_DIR={{ ldif_dir | default('/var/lib/bdii/gip/ldif') }}
 
-{# Maximum number of concurrent client connections #}
-global:MaxConnections = {{ max_connections }}
+# Directory with GIP provider scripts.
+BDII_PROVIDER_DIR={{ provider_dir | default('/var/lib/bdii/gip/provider') }}
 
-{# Number of worker threads for processing requests #}
-global:Threads = {{ threads }}
+# Directory with GIP plugin scripts.
+BDII_PLUGIN_DIR={{ plugin_dir | default('/var/lib/bdii/gip/plugin') }}
 
-{# Enable or disable GIP (Grid Information Provider) updates from local grid services #}
-global:GIPEnable = {{ gip_enable | lower }}
+# LDAP port for incoming queries (standard BDII port is 2170).
+BDII_PORT={{ port | default(2170) }}
 
-{# Interval (in seconds) between GIP updates (0 disables periodic updates) #}
-global:GIPUpdateInterval = {{ gip_update_interval }}
+# Time in seconds to wait after an update cycle completes before allowing the next update.
+BDII_BREATHE_TIME={{ breathe_time | default(120) }}
 
-{# List of additional configuration files or scripts to include (space-separated paths) #}
-global:Include = {{ include_files | join(' ') }}
+# Read timeout in seconds for LDAP connections.
+BDII_READ_TIMEOUT={{ read_timeout | default(300) }}
 
-{# Log level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug #}
-global:LogLevel = {{ log_level }}
+# Maximum size of the archive directory in MB. 0 means no limit.
+BDII_ARCHIVE_SIZE={{ archive_size | default(0) }}
 
-{# LDAP suffix for the BDII root DSE (typically based on site name) #}
-global:Suffix = {{ suffix }}
+# Delay in seconds before deleting old archive files.
+BDII_DELETE_DELAY={{ delete_delay | default(0) }}
 
-{# Root DN for the BDII directory #}
-global:RootDN = {{ root_dn }}
+# System user under which the BDII service runs.
+BDII_USER={{ user | default('openldap') }}
 
-{# Password for the root DN (use 'none' if unauthenticated binds are allowed) #}
-global:RootPW = {{ root_pw }}
-
-{# ACL: define access control rules — format: [suffix] [who] [access] [what] #}
-{% for acl in acls %}acl: {{ acl }}
-{% endfor %}
-
-{# Backend database type — 'bdb' for Berkeley DB (default), 'hdb' for hierarchical BDB #}
-global:Backend = {{ backend }}
-
-{# Enable or disable SSL/TLS for secure connections (requires valid certificates) #}
-global:TLSEnable = {{ tls_enable | lower }}
-
-{# Path to the server certificate for TLS #}
-global:TLSCertificateFile = {{ tls_cert_file }}
-
-{# Path to the server private key for TLS #}
-global:TLSCertificateKeyFile = {{ tls_cert_key_file }}
-
-{# Path to CA certificate bundle for client verification (optional) #}
-global:TLSCACertificateFile = {{ tls_ca_cert_file }}
-
-{# List of additional schemas to load (e.g., 'glue2.ldif') #}
-{% for schema in schemas %}schema: {{ schema }}
-{% endfor %}
+# Directory where BDII stores its Berkeley DB files.
+BDII_VAR_DIR={{ database_dir | default('/var/lib/bdii') }}

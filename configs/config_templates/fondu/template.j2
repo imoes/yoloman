@@ -1,0 +1,102 @@
+# ==============================================================================
+# Fondu Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for the `fondu` utility,
+# which processes Macintosh font files (FOND resources).
+#
+# Variables are mapped from the Ansible role's schema. All defaults are specified
+# inline to ensure the rendered configuration is valid even if variables are
+# omitted in the playbook.
+# ==============================================================================
+
+# Service identifier used for logging or file naming conventions
+# Default: 'fondu'
+# Description: Service name — required for identification; defaults to 'fondu'
+# {{ service_name | default('fondu') }}
+
+# ------------------------------------------------------------------------------
+# Input File Definitions
+# ------------------------------------------------------------------------------
+# Iterates over the list of Macintosh font files to process.
+# Schema: input_files (List of objects)
+# Each object expects 'path' (string) and optional 'resource_fork' (bool).
+# Default: [] (empty list)
+
+{% for input_file in input_files | default([]) %}
+# --------------------------------------------------------------------------
+# Input File Entry
+# --------------------------------------------------------------------------
+# Description: Path to the input Macintosh font file.
+# Variable: input_file.path
+# {{ input_file.path | default('') }}
+
+{% if input_file.resource_fork is defined and input_file.resource_fork %}
+# Description: Flag indicating presence of a Macintosh resource fork.
+# Variable: input_file.resource_fork
+# Resource fork present: {{ input_file.resource_fork }}
+{% endif %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Overwrite Behavior
+# ------------------------------------------------------------------------------
+
+# Force overwrite of existing output files without prompting.
+# Flag: -force
+# Default: false
+# Description: If true, use -force flag to overwrite existing files without prompting
+{% if force_overwrite | default(false) %}
+-force
+{% endif %}
+
+# Prompt the user before overwriting existing files.
+# Flag: -inquire
+# Default: false
+# Description: If true, use -inquire flag to prompt before overwriting (takes precedence over -force)
+{% if prompt_before_overwrite | default(false) %}
+-inquire
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Output Behavior
+# ------------------------------------------------------------------------------
+
+# Print the contents of each created file to stdout.
+# Flag: -show
+# Default: false
+# Description: If true, use -show flag to print each created file to stdout
+{% if show_output | default(false) %}
+-show
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Encoding and Conversion Options
+# ------------------------------------------------------------------------------
+
+# Recode Macintosh Roman bitmap fonts to Latin-1 encoding.
+# Flag: -latin1
+# Default: false
+# Description: If true, use -latin1 flag to recode Mac Roman bitmap fonts to Latin-1
+{% if recode_to_latin1 | default(false) %}
+-latin1
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# PostScript and Metrics Options
+# ------------------------------------------------------------------------------
+
+# Track and process external PostScript files referenced by FOND resources.
+# Flag: -trackps
+# Default: false
+# Description: If true, use -trackps flag to follow FOND references and process external PostScript files
+{% if track_postscript_files | default(false) %}
+-trackps
+{% endif %}
+
+# Generate Adobe Font Metrics (AFM) files alongside the processed fonts.
+# Flag: -afm
+# Default: false
+# Description: If true, use -afm flag to generate Adobe Font Metrics (AFM) files from FOND + PostScript data
+{% if generate_afm_files | default(false) %}
+-afm
+{% endif %}

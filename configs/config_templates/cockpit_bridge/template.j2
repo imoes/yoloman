@@ -1,45 +1,102 @@
+# ==============================================================================
+# Cockpit Bridge Configuration (cockpit_bridge.conf)
+# ==============================================================================
+# This file configures the Cockpit bridge daemon, handling WebSocket connections,
+# reverse-proxy integration, session management, and remote machine connectivity.
+#
+# Self-documenting: Every directive is preceded by a comment derived from the
+# Ansible role schema. All variables use inline defaults to ensure safe rendering
+# even when specific fields are omitted from the inventory.
+# ==============================================================================
+
 [WebService]
-# Space-separated list of allowed WebSocket origins (scheme+host); must include all hostnames clients use to reach Cockpit
-Origins = {{ origins | join(' ') }}
-{% if protocol_header %}
-# HTTP header set by a reverse proxy to indicate the forwarded protocol (e.g. X-Forwarded-Proto)
-ProtocolHeader = {{ protocol_header }}
+# Allowed WebSocket origins (space-separated). Each entry must include scheme,
+# host, and optional port (e.g. https://cockpit.example.com:9090).
+# Default: https://localhost:9090
+Origins = {{ origins | default(['https://localhost:9090']) | join(' ') }}
+
+# HTTP header name injected by an upstream reverse proxy to signal the original
+# client protocol (e.g. X-Forwarded-Proto). Leave empty if Cockpit terminates
+# TLS itself.
+# Default: (empty string)
+{% if protocol_header | default('') %}
+ProtocolHeader = {{ protocol_header | default('') }}
 {% endif %}
-{% if forwarded_for_header %}
-# HTTP header set by a reverse proxy to carry the real client IP address (e.g. X-Forwarded-For)
-ForwardedForHeader = {{ forwarded_for_header }}
+
+# HTTP header name carrying the real client IP address set by a reverse proxy
+# (e.g. X-Forwarded-For). Leave empty if Cockpit is not behind a proxy or if
+# the proxy does not forward the IP.
+# Default: (empty string)
+{% if forwarded_for_header | default('') %}
+ForwardedForHeader = {{ forwarded_for_header | default('') }}
 {% endif %}
-# Maximum number of unauthenticated connection attempts permitted in parallel
-MaxStartups = {{ max_startups }}
-# Text displayed as the HTML page title on the Cockpit login screen
-LoginTitle = {{ login_title }}
-# Show the 'Connect to' host-selection field on the login screen (true/false)
-LoginTo = {{ 'true' if login_to else 'false' }}
-# Require the host field to be explicitly filled before login is accepted
-RequireHost = {{ 'true' if require_host else 'false' }}
-# Permit plain HTTP connections; only enable when TLS is terminated by an upstream proxy
-AllowUnencrypted = {{ 'true' if allow_unencrypted else 'false' }}
-# Enable per-message deflate compression on WebSocket connections to reduce bandwidth
-Compression = {{ 'true' if compression else 'false' }}
-# Enable mutual-TLS client-certificate authentication in addition to password login
-ClientCertAuthentication = {{ 'true' if client_cert_auth else 'false' }}
-{% if url_root %}
-# Serve Cockpit under this URL sub-path when placed behind a path-rewriting reverse proxy
-UrlRoot = {{ url_root }}
+
+# Maximum number of simultaneous unauthenticated connection attempts permitted.
+# Increase on busy servers; lower to harden against connection floods.
+# Default: 10
+MaxStartups = {{ max_startups | default(10) }}
+
+# Text displayed as the browser page title on the Cockpit login page.
+# Typically set to the organisation or server name.
+# Default: Cockpit
+LoginTitle = {{ login_title | default('Cockpit') }}
+
+# Whether to display the 'Connect to' host-selection field on the login screen.
+# Set to false for single-host deployments where users only manage this host.
+# Default: true
+LoginTo = {{ login_to | default(true) | ternary('true', 'false') }}
+
+# Require the operator to explicitly specify a target host before login is
+# accepted. Useful in jump-host or gateway deployments.
+# Default: false
+RequireHost = {{ require_host | default(false) | ternary('true', 'false') }}
+
+# Allow plain HTTP access to Cockpit. Enable ONLY when TLS is terminated by an
+# upstream reverse proxy that already enforces encryption.
+# Default: false
+AllowUnencrypted = {{ allow_unencrypted | default(false) | ternary('true', 'false') }}
+
+# Enable per-message deflate compression on WebSocket connections. Reduces
+# bandwidth usage at the cost of additional CPU. Recommended on slow or
+# metered links.
+# Default: false
+Compression = {{ compression | default(false) | ternary('true', 'false') }}
+
+# Enable mutual-TLS (mTLS) client-certificate authentication in addition to
+# standard password login. Requires the reverse proxy to forward and verify
+# the client certificate.
+# Default: false
+ClientCertAuthentication = {{ client_cert_auth | default(false) | ternary('true', 'false') }}
+
+# URL path prefix under which Cockpit is served (e.g. /cockpit). Required when
+# a path-rewriting reverse proxy places Cockpit at a sub-path. Leave empty if
+# Cockpit is served at the root (/).
+# Default: (empty string)
+{% if url_root | default('') %}
+UrlRoot = {{ url_root | default('') }}
 {% endif %}
 
 [Log]
-# Minimum severity level treated as fatal and written to stderr; leave empty to suppress
-Fatal = {{ log_fatal }}
+# Severity level threshold written as a fatal log entry to stderr (e.g. 'critical').
+# Leave empty to disable fatal-log escalation.
+# Default: (empty string)
+Fatal = {{ log_fatal | default('') }}
 
 [Session]
-# Minutes of inactivity after which a session is forcibly terminated; 0 disables the timeout
-IdleTimeout = {{ idle_timeout }}
-{% if banner_file %}
-# Absolute path to a plain-text file whose contents are shown as a pre-login banner
-Banner = {{ banner_file }}
+# Minutes of session inactivity before Cockpit forcibly terminates the session.
+# Set to 0 to disable the idle timeout entirely.
+# Default: 15
+IdleTimeout = {{ idle_timeout | default(15) }}
+
+# Absolute path to a plain-text file shown as a login banner before the
+# credentials form is displayed. Leave empty to show no banner.
+# Default: (empty string)
+{% if banner_file | default('') %}
+Banner = {{ banner_file | default('') }}
 {% endif %}
 
 [Machines]
-# Maximum number of simultaneous connections Cockpit maintains to remote managed machines
-MaxConnections = {{ max_connections }}
+# Maximum number of simultaneous connections Cockpit keeps open to remote
+# managed machines. Raise for large environments; lower to conserve resources.
+# Default: 16
+MaxConnections = {{ max_connections | default(16) }}

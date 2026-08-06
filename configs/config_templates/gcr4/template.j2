@@ -2,62 +2,91 @@
 # See 'man gcr.conf' for detailed documentation
 
 [ui]
+# User interface behavior for PIN and dialog interaction
+#
 # Enable/disable the PIN entry dialog (true/false)
-show_pin_entry={{ ui.show_pin_entry }}
+# Default: true (show the dialog by default for usability)
+show_pin_entry={{ (ui | default({})).show_pin_entry | default(true) }}
 
 # Timeout (in seconds) before PIN entry dialog auto-closes
-pin_entry_timeout={{ ui.pin_entry_timeout }}
+# Default: 30 seconds. Set to 0 to disable timeout.
+pin_entry_timeout={{ (ui | default({})).pin_entry_timeout | default(30) }}
 
 # Enable/disable password echo (show characters as typed)
-pin_entry_echo={{ ui.pin_entry_echo }}
+# Default: false (security best practice: hide input)
+pin_entry_echo={{ (ui | default({})).pin_entry_echo | default(false) }}
 
 [storage]
+# Certificate and key storage settings
+#
 # Path to the certificate storage directory
-storage_dir={{ storage.storage_dir }}
+# Default: ~/.local/share/gcr (user-specific secure directory)
+storage_dir={{ (storage | default({})).storage_dir | default('~/.local/share/gcr') }}
 
 # Enable/disable persistent storage of keys and certificates
-enable_storage={{ storage.enable_storage }}
+# Default: true (persist keys across sessions)
+enable_storage={{ (storage | default({})).enable_storage | default(true) }}
 
 # Enable/disable secure erase of sensitive data (e.g., keys on cleanup)
-secure_erase={{ storage.secure_erase }}
+# Default: true (secure deletion for security compliance)
+secure_erase={{ (storage | default({})).secure_erase | default(true) }}
 
 [logging]
+# Diagnostic logging configuration
+#
 # Logging level: 0=error, 1=warn, 2=info, 3=debug
-level={{ logging.level }}
+# Default: 1 (warn) - balance between visibility and noise
+level={{ (logging | default({})).level | default(1) }}
 
 # Path to log file (empty means stderr only)
-log_file={{ logging.log_file | default('') }}
+# Default: empty (stderr only)
+log_file={{ (logging | default({})).log_file | default('') }}
 
 # Enable/disable logging to systemd journal
-log_to_journal={{ logging.log_to_journal }}
+# Default: false (fall back to file/stderr unless journald is explicitly configured)
+log_to_journal={{ (logging | default({})).log_to_journal | default(false) }}
 
 [trust]
+# Trust evaluation policy
+#
 # Enable/disable automatic trust policy evaluation
-auto_trust={{ trust.auto_trust }}
+# Default: true (automatically evaluate trust for imported certs)
+auto_trust={{ (trust | default({})).auto_trust | default(true) }}
 
 # Default trust level for newly imported CA certificates: 'none', 'partial', 'full'
-default_ca_trust={{ trust.default_ca_trust }}
+# Default: 'partial' (partial trust is safer than full, more useful than none)
+default_ca_trust={{ (trust | default({})).default_ca_trust | default('partial') }}
 
 [daemon]
+# GCR daemon (gcr-daemon) settings
+#
 # Enable/disable the GCR daemon (gcr-daemon)
-enabled={{ daemon.enabled }}
+# Default: true (daemon provides background services)
+enabled={{ (daemon | default({})).enabled | default(true) }}
 
 # List of services to auto-start (empty means none)
-{% for service in daemon.auto_start_services %}
+# Generated dynamically if a list is provided
+{% for service in (daemon | default({})).auto_start_services | default([]) %}
 autostart_service={{ service }}
 {% endfor %}
 
 # Maximum number of concurrent operations
-max_concurrent={{ daemon.max_concurrent }}
+# Default: 4 (reasonable concurrency limit for crypto operations)
+max_concurrent={{ (daemon | default({})).max_concurrent | default(4) }}
 
 [ssh]
+# SSH agent integration
+#
 # Enable/disable SSH agent support (SSH_AUTH_SOCK forwarding)
-enabled={{ ssh.enabled }}
+# Default: false (disabled by default for security isolation)
+enabled={{ (ssh | default({})).enabled | default(false) }}
 
 # Path to the SSH socket (if enabled)
-socket_path={{ ssh.socket_path | default('') }}
+# Default: empty (use SSH_AUTH_SOCK environment variable if not specified)
+socket_path={{ (ssh | default({})).socket_path | default('') }}
 
 # List of keys to import from SSH agent (empty means all)
-{% for key in ssh.import_keys %}
+# Generated dynamically if a list is provided
+{% for key in (ssh | default({})).import_keys | default([]) %}
 import_key={{ key }}
 {% endfor %}

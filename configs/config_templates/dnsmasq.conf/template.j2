@@ -66,12 +66,12 @@ dhcp-option={{ opt.code }},{{ opt.value }}
 
 # Set gateway (router) for DHCP clients
 {% if dhcp_gateway is defined %}
-dhcp-option=3,{{ dhcp_gateway }}
+dhcp-option=option:router,{{ dhcp_gateway }}
 {% endif %}
 
 # Set DNS servers for DHCP clients
 {% if dhcp_dns is defined %}
-dhcp-option=6,{{ dhcp_dns | join(',') }}
+dhcp-option=option:dns-server,{{ dhcp_dns | join(',') }}
 {% endif %}
 {% endif %}
 
@@ -87,8 +87,8 @@ dns-cache-size={{ cache_size }}
 {% endif %}
 
 # Log level (0 = quiet, 7 = verbose)
-{% if log_level is defined %}
-log-queries={{ log_level | int >= 1 | string }}
+{% if log_level is defined and log_level | int >= 1 %}
+log-queries
 log-facility={{ log_file | default('-') }}
 log-dhcp
 {% endif %}
@@ -103,5 +103,5 @@ dhcp-port={{ dhcp_port }}
 
 # Ignore /etc/hosts for DHCP (only use static-hosts above)
 {% if ignore_hosts is defined and ignore_hosts %}
-dhcpx-hostfile=/dev/null
+dhcp-hostfile=/dev/null
 {% endif %}

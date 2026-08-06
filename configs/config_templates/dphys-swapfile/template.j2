@@ -1,0 +1,38 @@
+# /etc/dphys-swapfile - user settings for dphys-swapfile package
+# author Neil Franklin, last modification 2010.05.05
+# copyright ETH Zuerich Physics Departement
+#   use under either modified/non-advertising BSD or GPL license
+
+# this file is sourced with . so full normal sh syntax applies
+
+# the default settings are added as commented out CONF_*=* lines
+
+
+# where we want the swapfile to be, this is the default
+# This variable specifies the absolute path to the swapfile.
+# Ensure the target partition has enough free space.
+CONF_SWAPFILE="{{ CONF_SWAPFILE | default('/var/swap') }}"
+
+
+# set size to absolute value, leaving empty (default) then uses computed value
+#   you most likely don't want this, unless you have an special disk situation
+# This variable sets the swapfile size to a specific value in megabytes.
+# If left empty, the size is computed dynamically using CONF_SWAPFACTOR.
+# CONF_SWAPSIZE={{ CONF_SWAPSIZE | default('', true) }}
+
+
+# set size to computed value, this times RAM size, dynamically adapts,
+#   guarantees that there is enough swap without wasting disk space on excess
+# This variable is a multiplier applied to the total RAM size to calculate
+# the dynamic swap size when CONF_SWAPSIZE is empty.
+CONF_SWAPFACTOR="{{ CONF_SWAPFACTOR | default(2) }}"
+
+
+# restrict size (computed and absolute!) to maximally this limit
+#   can be set to empty for no limit, but beware of filled partitions!
+#   this is/was a (outdated?) 32bit kernel limit (in MBytes), do not overrun it
+#   but is also sensible on 64bit to prevent filling /var or even / partition
+# This variable sets the maximum allowed swap size in megabytes, applying
+# to both absolute (CONF_SWAPSIZE) and computed values.
+# A sensible default prevents accidental disk exhaustion.
+CONF_MAXSWAP="{{ CONF_MAXSWAP | default(2048) }}"

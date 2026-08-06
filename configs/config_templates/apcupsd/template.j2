@@ -1,62 +1,233 @@
-# UPS device type (e.g., USB, SERIAL, NET)
-UPS_TYPE {{ ups_type }}
+#
+# apcupsd configuration file
+#
+# This file configures the apcupsd daemon which monitors APC UPS devices.
+# Changes require a restart of the apcupsd service to take effect.
+#
 
-# Device communication port/device path (e.g., /dev/ttyS0 for serial, or host:port for network)
-DEVICE {{ device_path }}
+#
+# ========= General configuration parameters ============
+#
 
-# UPS name identifier (used for logging and notifications)
-UPSNAME {{ ups_name }}
+# UPSCABLE <cable>
+#   Defines the type of cable connecting the UPS to your computer.
+#   Possible generic choices: simple, smart, ether, usb.
+#   Specific cable model numbers are also supported.
+#   Default: usb
+UPSCABLE {{ upscable | default('usb') }}
 
-# Time in seconds before UPS initiates shutdown after power loss
-TIMEOUT {{ timeout }}
+# UPSTYPE <type>
+#   Specifies the type of UPS (e.g., usb, apcsmart, net, snmp, pcnet).
+#   For USB UPSes, 'usb' is recommended. For networked UPSes, use 'net'.
+#   Default: usb
+UPSTYPE {{ ups_type | default('usb') }}
 
-# Time in seconds between automatic self-tests (0 = disabled)
-SELFTEST {{ selftest_interval }}
+# DEVICE <path or host:port>
+#   Specifies the device path (e.g., /dev/ttyS0) for SERIAL connections,
+#   or host:port for NET connections.
+#   For USB UPSes, leave this blank to enable autodetection.
+#   Additional device-specific options (e.g., baud rate '-b 9600') can be
+#   appended via the device_options variable.
+DEVICE {{ device_path | default('/dev/ttyS0') }} {{ device_options | default('') }}
 
-# Battery level (%) below which shutdown is forced (if no runtime estimate available)
-BATTERYLEVEL {{ battery_level_percent }}
+# POLLTIME <int>
+#   Interval (in seconds) at which apcupsd polls the UPS for status.
+#   Lowering this increases responsiveness but also CPU usage.
+#   Default: 60 (commented out in template, use default behavior or explicit)
+#POLLTIME 60
 
-# Remaining runtime (minutes) below which shutdown is forced
-MINUTES {{ min_runtime_minutes }}
+# LOCKFILE <path>
+#   Directory for device lock files for USB/serial UPSes.
+#   Default: /var/lock
+LOCKFILE /var/lock
 
-# Time in minutes to wait after power returns before resuming operations
-ANNOY {{ annoy_delay_minutes }}
+# SCRIPTDIR <path>
+#   Directory containing apccontrol and event scripts.
+#   Default: /etc/apcupsd
+SCRIPTDIR /etc/apcupsd
 
-# Time in minutes to delay before sending first shutdown warning
-ANNOUNCE {{ announce_delay_minutes }}
+# PWRFAILDIR <path>
+#   Directory for the powerfail flag file, checked by OS halt scripts.
+#   Default: /etc/apcupsd
+PWRFAILDIR /etc/apcupsd
 
-# Enable/disable status reporting via HTTP (off = no web status)
-HTTP_ENABLE {{ http_enabled | lower }}
+# NOLOGINDIR <path>
+#   Directory for the nologin file to disallow new logins during power failure.
+#   Default: /etc
+NOLOGINDIR /etc
 
-# HTTP server listening port (if HTTP_ENABLE is on)
-HTTP_PORT {{ http_port }}
+#
+# ======== Configuration parameters used during power failures ==========
+#
 
-# Hostname/IP to bind HTTP server to (empty = bind to all)
-HTTP_HOST {{ http_host }}
+# ONBATTERYDELAY <seconds>
+#   Time in seconds from power failure detection until the onbattery event is triggered.
+#   Default: 6
+ONBATTERYDELAY 6
 
-# Enable/disable mail notifications
-MAIL_ENABLE {{ mail_enabled | lower }}
+# BATTERYLEVEL <percent>
+#   Minimum battery charge (%) that triggers forced shutdown if runtime estimate is unavailable.
+#   Default: 5
+BATTERYLEVEL {{ battery_level_percent | default(5) }}
 
-# Email address for notifications
-EMAIL_ADDRESS {{ mail_address }}
+# MINUTES <minutes>
+#   Minimum remaining runtime (minutes) before forced shutdown.
+#   Default: 3
+MINUTES {{ min_runtime_minutes | default(3) }}
 
-# Log file path (empty = syslog only)
-LOGFILE {{ logfile }}
+# TIMEOUT <seconds>
+#   Maximum time (seconds) UPS will power connected devices before forced shutdown.
+#   0 disables this timer.
+#   Default: 0
+TIMEOUT {{ timeout | default(0) }}
 
-# Enable/disable NIS server (for network status access)
-NIS_ENABLE {{ nis_enabled | lower }}
+# ANNOY <seconds>
+#   Time in seconds between annoying users to signoff prior to system shutdown.
+#   0 disables.
+#   Default: 300
+ANNOY 300
 
-# NIS server listening port
-NISPORT {{ nis_port }}
+# ANNOYDELAY <minutes>
+#   Minutes to wait after power failure before warning users.
+#   Default: 60
+ANNOYDELAY {{ annoy_delay_minutes | default(60) }}
 
-# Host to bind NIS server to
-NISIP {{ nis_ip }}
+# NOLOGON <string>
+#   Condition determining when users are prevented from logging in during power failure.
+#   Options: disable, timeout, percent, minutes, always.
+#   Default: disable
+NOLOGON disable
 
-# Optional extra options for device-specific configuration
-# (e.g., "-b 9600" for serial baud rate; leave empty if none)
-DEVICE_OPTIONS {{ device_options }}
+# KILLDELAY <seconds>
+#   Time in seconds after shutdown request to attempt killing power.
+#   0 disables.
+#   Default: 0
+KILLDELAY 0
 
-# List of hosts to allow NIS connections from
-{% for host in nis_allowed_hosts %}# Allow NIS access from {{ host }}
-NISADDR {{ host }}
-{% endfor %}
+#
+# ==== Configuration statements for Network Information Server ====
+#
+
+# NETSERVER [ on | off ]
+#   Enable Network Information Server (NIS) to serve STATUS and EVENT data over network.
+#   Required for remote monitoring and CGI interfaces.
+#   Default: True
+NETSERVER {{ nis_enabled | default(True) }}
+
+# NISIP <ip address>
+#   IP address to bind NIS daemon to.
+#   Use 127.0.0.1 for local-only access, or 0.0.0.0 for all interfaces.
+#   Default: 127.0.0.1
+NISIP {{ nis_ip | default('127.0.0.1') }}
+
+# NISPORT <port>
+#   Port for NIS daemon. Only used if NETSERVER is on.
+#   Default: 3551
+NISPORT {{ nis_port | default(3551) }}
+
+# EVENTSFILE <path>
+#   File to store last few EVENTS for network retrieval.
+#   Default: /var/log/apcupsd.events
+EVENTSFILE /var/log/apcupsd.events
+
+# EVENTSFILEMAX <kilobytes>
+#   Maximum size of EVENTSFILE in kilobytes. 0 for unlimited.
+#   Default: 10
+EVENTSFILEMAX 10
+
+#
+# ========== Configuration statements used if sharing =============
+#            a UPS with more than one machine
+#
+
+# UPSCLASS [ standalone | shareslave | sharemaster ]
+#   Class of UPS for ShareUPS configurations.
+#   Default: standalone
+UPSCLASS standalone
+
+# UPSMODE [ disable | share ]
+#   Mode for ShareUPS configurations.
+#   Default: disable
+UPSMODE disable
+
+#
+# ===== Configuration statements to control apcupsd system logging ========
+#
+
+# STATTIME <seconds>
+#   Time interval in seconds between writing the STATUS file. 0 disables.
+#   Default: 0
+STATTIME 0
+
+# STATFILE <path>
+#   Location of STATUS file (written to only if STATTIME is non-zero).
+#   Default: /var/log/apcupsd.status
+STATFILE /var/log/apcupsd.status
+
+# LOGSTATS [ on | off ]
+#   Enable logging of statistics. Generates significant output.
+#   Default: off
+LOGSTATS off
+
+# DATATIME <seconds>
+#   Time interval in seconds between writing DATA records to log. 0 disables.
+#   Default: 0
+DATATIME 0
+
+# FACILITY <string>
+#   Syslog facility for apcupsd logging. Defaults to DAEMON if not specified.
+#FACILITY DAEMON
+
+#
+# ========== Configuration statements used in updating the UPS EPROM =========
+#
+# These statements are used only by apctest for EEPROM updates and do not affect apcupsd.
+#
+
+# UPSNAME <string>
+#   UPS name, max 8 characters.
+#UPSNAME UPS_IDEN
+
+# BATTDATE <date>
+#   Battery date - 8 characters (mm/dd/yy).
+#BATTDATE mm/dd/yy
+
+# SENSITIVITY <level>
+#   Sensitivity to line voltage quality (H, M, L).
+#SENSITIVITY H
+
+# WAKEUP <seconds>
+#   UPS delay after power return (seconds).
+#WAKEUP 60
+
+# SLEEP <seconds>
+#   UPS Grace period after request to power off (seconds).
+#SLEEP 180
+
+# LOTRANSFER <volts>
+#   Low line voltage causing transfer to batteries.
+#LOTRANSFER 208
+
+# HITRANSFER <volts>
+#   High line voltage causing transfer to batteries.
+#HITRANSFER 253
+
+# RETURNCHARGE <percent>
+#   Battery charge needed to restore power.
+#RETURNCHARGE 15
+
+# BEEPSTATE <state>
+#   Alarm delay (0, T, L, N).
+#BEEPSTATE T
+
+# LOWBATT <minutes>
+#   Low battery warning delay in minutes.
+#LOWBATT 2
+
+# OUTPUTVOLTS <volts>
+#   UPS Output voltage when running on batteries.
+#OUTPUTVOLTS 230
+
+# SELFTEST <hours/ON/OFF>
+#   Self test interval in hours.
+#SELFTEST 336

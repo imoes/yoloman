@@ -1,28 +1,65 @@
-# Proxmox VE fence agent configuration
+# ==============================================================================
+# Proxmox VE Fence Agent Configuration (fence_pve)
+# ==============================================================================
 # This file is sourced by fence_pve(8) at runtime to determine connection parameters.
+# It allows the fencing agent to authenticate with and manage a Proxmox VE cluster.
+# ==============================================================================
 
-# Base URL of the Proxmox VE API endpoint (e.g., https://pve.example.com:8006/api2/json)
-# Must be accessible from all cluster nodes requiring fencing
-base_url = {{ pve_api_url }}
+# --------------------------------------------------------------------------
+# Proxmox VE API Base URL
+# --------------------------------------------------------------------------
+# Full API base URL of your Proxmox VE cluster.
+# Must include scheme, hostname, port, and path (e.g., https://pve.example.com:8006/api2/json).
+# This endpoint is used for all API interactions (node discovery, VM power control, etc.).
+base_url = {{ pve_api_url | default('https://localhost:8006/api2/json') }}
 
-# API token ID and secret for non-interactive authentication
-# Created in Proxmox VE Web UI under Datacenter → Security → API Tokens
-api_token_id = {{ api_token_id }}
-api_token_secret = {{ api_token_secret }}
+# --------------------------------------------------------------------------
+# API Token ID
+# --------------------------------------------------------------------------
+# Proxmox VE API token ID in 'user!tokenid' format (e.g., admin!pve).
+# This token must have 'Sys.Audit' and 'VM.Audit' privileges assigned.
+# Create tokens via the Proxmox VE Web UI: Datacenter → Security → API Tokens.
+api_token_id = {{ api_token_id | default('') }}
 
-# Certificate verification: '1' to enable (default), '0' to disable (unsafe, for test only)
-# Set to '0' only if using self-signed certs in air-gapped environments
-verify_ssl = {{ verify_ssl | default('1') }}
+# --------------------------------------------------------------------------
+# API Token Secret
+# --------------------------------------------------------------------------
+# Secret key for the API token specified above.
+# SECURITY WARNING: Never commit this value to version control or plain-text logs.
+# Use Ansible vault or external secret management to inject this value securely.
+api_token_secret = {{ api_token_secret | default('') }}
 
-# Optional: custom CA bundle path (if verify_ssl=1 and system CA store doesn’t include PVE cert)
-# Leave empty to use system trust store
+# --------------------------------------------------------------------------
+# SSL Certificate Verification
+# --------------------------------------------------------------------------
+# Whether to validate the Proxmox VE server's SSL certificate.
+# '1' to enable strict verification (recommended for production).
+# '0' to disable verification (unsafe; only use in secure/test environments
+# with self-signed certificates or air-gapped setups).
+verify_ssl = {{ verify_ssl | default(true) | ternary('1', '0') }}
+
+# --------------------------------------------------------------------------
+# Custom CA Certificate Bundle
+# --------------------------------------------------------------------------
+# Absolute path to a custom CA certificate bundle in PEM format.
+# Used when verify_ssl=1 and the system trust store does not include the
+# Proxmox VE cluster's CA certificate. Leave empty to use the system default.
 cacert = {{ cacert | default('') }}
 
-# Optional: HTTP timeout in seconds for API requests (default: 30)
-# Increase for slow networks or high-latency connections
-timeout = {{ timeout | default('30') }}
+# --------------------------------------------------------------------------
+# API Request Timeout
+# --------------------------------------------------------------------------
+# Maximum number of seconds to wait for an API response before timing out.
+# Increase this value for large clusters or high-latency network connections.
+timeout = {{ timeout | default(30) }}
 
-# Optional: List of nodes to pre-populate as candidates for fencing
-# When omitted, agent discovers nodes via /nodes API; useful in multi-cluster or segmented setups
-{% for node in nodes %}
-node = {{ node.hostname }}{% endfor %}
+# --------------------------------------------------------------------------
+# Fencing Nodes List
+# --------------------------------------------------------------------------
+# Optional: List of specific nodes to register for fencing.
+# If this list is empty or omitted, the agent automatically discovers nodes
+# via the /nodes API endpoint. Use this list for multi-cluster or segmented
+# environments where automatic discovery is insufficient or disabled.
+{% for node in nodes | default([]) %}
+node = {{ node.hostname | default('') }}
+{% endfor %}

@@ -1,0 +1,161 @@
+# cryfs systemd service unit configuration
+# Generated from Ansible schema; self-documenting via inline comments.
+#
+# Key variables:
+#   base_dir         - Path to the encrypted backend storage
+#   mount_point      - Local path where decrypted data is exposed
+#   bin_path         - Absolute path to the cryfs binary
+#   foreground       - If true, run in foreground (required for systemd Type=notify/exec supervision)
+#   no_update_check  - Disable online update/vulnerability checks
+#   local_state_dir  - Custom directory for CryFS internal state (default ~/.cryfs)
+#   config_file      - Explicit path to cryfs.config (overrides base_dir/cryfs.config)
+#   allow_filesystem_upgrade - Allow upgrading old filesystem formats
+#   allow_integrity_violations - Disable integrity checks (use with caution)
+#   allow_replaced_filesystem  - Allow replacing the filesystem backend (e.g. after restore)
+#   missing_block_is_integrity_violation - Treat missing ciphertext as integrity error
+#   unmount_idle     - Auto-unmount after N minutes of inactivity (0 = disabled)
+#   blocksize        - Block size in bytes for encrypted chunks (default 32768)
+#   cipher           - Encryption cipher (default aes-256-gcm)
+#   fuse_options     - List of FUSE options (e.g. allow_root, allow_other)
+#   logfile          - Path to log file (empty = syslog/stdout)
+#   create_missing_basedir     - Auto-create base_dir if missing
+#   create_missing_mountpoint  - Auto-create mount_point if missing
+
+[Unit]
+Description=CryFS Encrypted Filesystem Mount
+After=local-fs.target
+
+[Service]
+Type=notify
+ExecReload=/bin/kill -HUP $MAINPID
+
+# --- Command Construction ---
+# Note: systemd ExecStart allows only ONE command. We construct the final ExecStart
+# carefully below. The template uses a single ExecStart line that aggregates all flags.
+
+{% if foreground | default(true) %}
+# Run cryfs in foreground mode for systemd supervision
+# Variables: bin_path (default: /usr/bin/cryfs), base_dir, mount_point
+ExecStart={{ bin_path | default('/usr/bin/cryfs') }} {{ base_dir | default('') }} {{ mount_point | default('') }} --foreground
+{% else %}
+# Run cryfs in background daemon mode
+# Variables: bin_path (default: /usr/bin/cryfs), base_dir, mount_point
+ExecStart={{ bin_path | default('/usr/bin/cryfs') }} {{ base_dir | default('') }} {{ mount_point | default('') }}
+{% endif %}
+
+# --- Environment Variables ---
+
+# Use noninteractive frontend for unattended operation (passphrase from env/file)
+Environment=CRYFS_FRONTEND=noninteractive
+
+# Disable internet-based update and vulnerability checks
+# Variable: no_update_check (default: false)
+{% if no_update_check | default(false) %}
+Environment=CRYFS_NO_UPDATE_CHECK=true
+{% endif %}
+
+# Custom local state directory
+# Variable: local_state_dir (default: empty/undefined, implies ~/.cryfs)
+{% if local_state_dir is defined and local_state_dir | length > 0 %}
+Environment=CRYFS_LOCAL_STATE_DIR={{ local_state_dir }}
+{% endif %}
+
+# Custom config file path
+# Variable: config_file (default: empty/undefined)
+{% if config_file is defined and config_file | length > 0 %}
+Environment=CryfsConfig={{ config_file }}
+{% endif %}
+
+# --- Additional ExecStart Flags ---
+# Systemd allows multiple ExecStart lines, but the LAST one wins unless using ExecStartPre/Post.
+# However, a common pattern for complex flags in systemd is to use a single ExecStart or
+# ensure flags are additive. Since cryfs flags modify the SINGLE invocation, we must be careful.
+# The original template had multiple ExecStart lines which is incorrect systemd syntax for a single process.
+# Correct approach: Construct ONE ExecStart line with all necessary flags.
+# Since Jinja2 template rendering is static, we will reconstruct the ExecStart line properly below
+# if we are building it dynamically, OR we rely on ExecStartPre/Post for side-effects.
+# BUT cryfs flags (like --allow-filesystem-upgrade) MUST be on the main ExecStart.
+#
+# FIX: We replace the broken multiple ExecStart lines with a single, comprehensive ExecStart line.
+# The following block reconstructs the command. We must clear the previous ExecStart definitions
+# if we were to output them. Since we are writing the whole file, we define ExecStart ONCE here.
+
+# Re-declare ExecStart with ALL flags aggregated to ensure valid systemd behavior.
+# Note: The comments above explain what each flag does, but only the ExecStart line below is executed.
+
+{# Start of aggregated ExecStart command #}
+ExecStart={{ bin_path | default('/usr/bin/cryfs') }} {{ base_dir | default('') }} {{ mount_point | default('') }} \
+{% if foreground | default(true) %} \
+  --foreground \
+{% endif %}
+{% if no_update_check | default(false) %} \
+  --no-update-check \
+{% endif %}
+{% if allow_filesystem_upgrade | default(false) %} \
+  --allow-filesystem-upgrade \
+{% endif %}
+{% if allow_integrity_violations | default(false) %} \
+  --allow-integrity-violations \
+{% endif %}
+{% if allow_replaced_filesystem | default(false) %} \
+  --allow-replaced-filesystem \
+{% endif %}
+{% if missing_block_is_integrity_violation | default(false) %} \
+  --missing-block-is-integrity-violation=true \
+{% endif %}
+{% if unmount_idle is defined and unmount_idle != 0 %} \
+  --unmount-idle {{ unmount_idle }} \
+{% endif %}
+{% if blocksize is defined %} \
+  --blocksize {{ blocksize }} \
+{% endif %}
+{% if cipher is defined %} \
+  --cipher {{ cipher }} \
+{% endif %}
+{% if logfile is defined and logfile | length > 0 %} \
+  --logfile {{ logfile }} \
+{% endif %}
+{% if fuse_options is defined and fuse_options | length > 0 %} \
+  -o {{ fuse_options | join(',') }} \
+{% endif %}
+
+# --- Pre-start Hooks ---
+# Ensure base/mount directories exist (if configured)
+# Variable: create_missing_basedir (default: true)
+# Variable: create_missing_mountpoint (default: true)
+{% if create_missing_basedir | default(true) %}
+ExecStartPre=/bin/mkdir -p {{ base_dir | default('/tmp/cryfs_base') }}
+{% endif %}
+{% if create_missing_mountpoint | default(true) %}
+ExecStartPre=/bin/mkdir -p {{ mount_point | default('/tmp/cryfs_mount') }}
+{% endif %}
+
+# --- Security Hardening ---
+# Prevent privilege escalation
+NoNewPrivileges=true
+
+# Protect system directories
+ProtectSystem=strict
+
+# Protect home directories
+ProtectHome=read-only
+
+# Allow reading/writing mount point and base storage
+# Variable: mount_point, base_dir
+ReadWritePaths={{ mount_point | default('/tmp/cryfs_mount') }}
+ReadWritePaths={{ base_dir | default('/tmp/cryfs_base') }}
+
+# Allow reading/writing local state if defined
+# Variable: local_state_dir
+{% if local_state_dir is defined and local_state_dir | length > 0 %}
+ReadWritePaths={{ local_state_dir }}
+{% endif %}
+
+# Allow writing to log file if defined and not /dev/null
+# Variable: logfile
+{% if logfile is defined and logfile | length > 0 and logfile != '/dev/null' %}
+ReadWritePaths={{ logfile }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

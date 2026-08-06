@@ -1,0 +1,63 @@
+# ==============================================================================
+# abootimg Configuration Template
+# ==============================================================================
+# This template generates a configuration manifest for an Android boot image
+# using the abootimg tooling. It captures metadata such as title, board name,
+# image dimensions, boot command line, and unique identifiers.
+#
+# Each field below is self-documenting with its purpose and default value.
+# Variables are safely defaulted to ensure valid output even if upstream
+# roles omit optional parameters.
+# ==============================================================================
+
+# Optional human-readable title for the boot image header.
+# Schema default: ''
+# abootimg uses this to label the image in tools like abootimg -i.
+{% if title | default('') | length > 0 %}# Title: {{ title | default('') }}
+{% else %}# Title: <unset>
+{% endif %}
+
+# Board name identifying the target hardware platform (e.g., qcom, samsung).
+# Schema default: ''
+# abootimg embeds this into the boot image header for identification.
+# Board: {{ board | default('') }}
+
+# Page size in bytes for the flash memory layout (e.g., 2048, 4096).
+# Schema default: 2048
+# Must align with the target device's NAND/eMMC page size.
+# Page size: {{ pagesize | default(2048) }} bytes
+
+# Kernel image size in bytes.
+# Schema default: 0
+# Often derived dynamically; 0 indicates "auto-detect" or "not set" in config mode.
+# Kernel size: {{ kernel_size | default(0) }} bytes
+
+# Ramdisk image size in bytes.
+# Schema default: 0
+# Same semantics as kernel_size; 0 means unset.
+# Ramdisk size: {{ ramdisk_size | default(0) }} bytes
+
+# Second stage initramfs size in bytes.
+# Schema default: 0
+# Optional; present only if a second-stage image is used.
+# Second stage size: {{ second_size | default(0) }} bytes
+
+# Kernel tags physical address (hex string).
+# Schema default: '0x00000100'
+# Points to the ATAGS list in memory for legacy kernel booting.
+# Kernel tags: {{ kernel_tags | default('0x00000100') }}
+
+# Maximum command line length (chars).
+# Schema default: 512
+# abootimg reserves this much space for cmdline arguments.
+# Compression: {{ cmdlinelen | default(512) }}
+
+# Boot command line arguments passed to the kernel at runtime.
+# Schema default: 'console=ttyHSL0,115200,n8 androidboot.hardware=qcom user_debug=31'
+# Contains console settings, hardware identifiers, and kernel debug flags.
+# Command line: {{ cmdline | default('console=ttyHSL0,115200,n8 androidboot.hardware=qcom user_debug=31') }}
+
+# Optional image ID as hex bytes (8 × 4-byte words).
+# Schema default: ''
+# Used to uniquely identify the boot image; often derived from content hash.
+# Id: {{ id | default('') }}

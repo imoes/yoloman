@@ -1,44 +1,75 @@
-# Port on which the SKK dictionary server listens for incoming connections
-port: {{ port }}
+# ===========================================================================
+# dbskkd_cdb configuration template
+# ---------------------------------------------------------------------------
+# This file configures dbskkd-cdb, a lightweight SKK dictionary server.
+# It listens for TCP connections and serves CDB (Hashed DataBase) files
+# containing Japanese/English conversion dictionaries (typically SKK-JISYO).
+#
+# Self-documentation: every directive is commented with its schema description.
+# All variables use Jinja2 `| default(...)` to ensure safe rendering even if
+# the role does not define a specific value.
+# ===========================================================================
 
-# Host address to bind to (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces)
-bind: {{ bind }}
+# TCP port number for the SKK dictionary server to listen on (standard SKK port is 1178).
+# The port must be free and, if < 1024, root privileges are required to bind.
+port: {{ port | default(1178) }}
 
-# Path to the CDB dictionary file (generated from SKK JISYO.* files)
-dict_file: {{ dict_file }}
+# IP address to bind the server to. Use '127.0.0.1' to restrict to local connections,
+# or '0.0.0.0' for all interfaces. Set to '0.0.0.0' only if clients connect remotely.
+bind: {{ bind | default('0.0.0.0') }}
 
-# Maximum number of concurrent connections
-max_connections: {{ max_connections }}
+# Path to the primary SKK dictionary CDB file (e.g., SKK-JISYO.L.cdb).
+# This file must exist and be readable by the user specified below.
+dict_file: {{ dict_file | default('/var/lib/dbskkd-cdb/SKK-JISYO.L.cdb') }}
 
-# Enable/Disable verbose logging (true = log requests and errors; false = minimal logging)
-verbose: {{ verbose }}
+# Maximum number of simultaneous client connections the server will accept.
+# Connections exceeding this limit will be refused until a slot frees up.
+max_connections: {{ max_connections | default(1024) }}
 
-# Enable/Disable TCP_NODELAY (disables Nagle's algorithm for lower latency)
-tcp_nodelay: {{ tcp_nodelay }}
+# If enabled, logs request details and errors to stdout/stderr for debugging.
+# Set to false in production to avoid excessive log noise.
+verbose: {{ verbose | default(false) }}
 
-# Optional: Chroot directory for security isolation (set to empty string to disable chroot)
+# If enabled, disables Nagle's algorithm to reduce latency for small packets
+# (recommended for interactive dictionary lookups where responsiveness matters).
+tcp_nodelay: {{ tcp_nodelay | default(true) }}
+
+# Directory to chroot into for security. Leave empty to disable chrooting.
+# If set, the server will change its root directory to this path after binding.
+# Ensure all required files (dicts, binaries) are accessible within this tree.
 chroot_dir: {{ chroot_dir | default('') }}
 
-# Optional: User to drop privileges to after binding to port
-user: {{ user }}
+# System user to drop privileges to after starting the server (must exist).
+# The server binds to the port as root (if privileged) then switches to this user.
+user: {{ user | default('nobody') }}
 
-# Optional: Group to drop privileges to after binding to port
-group: {{ group }}
+# System group to drop privileges to after starting the server (must exist).
+# Must be compatible with the user and file permissions for the dictionary files.
+group: {{ group | default('nogroup') }}
 
-# Optional: PID file path (empty string disables PID file creation)
-pid_file: {{ pid_file | default('') }}
+# Path for the PID file. Set to empty string to avoid creating a PID file.
+# Useful for containerized environments or systems using systemd for process tracking.
+pid_file: {{ pid_file | default('/run/dbskkd-cdb.pid') }}
 
-# List of additional dictionary files to include (in order; used for fallback lookups)
-# Each entry must be a path to a valid CDB file
+# List of additional CDB dictionary files to include for fallback lookups
+# (processed in order). If a key is not found in dict_file, subsequent files
+# are checked until a match is found or the list is exhausted.
+{% if extra_dicts is defined %}
 {% for extra_dict in extra_dicts %}
 extra_dict_file: {{ extra_dict }}
 {% endfor %}
+{% endif %}
 
-# Optional: Connection timeout in seconds (0 = no timeout)
-timeout: {{ timeout }}
+# Idle connection timeout in seconds. Set to 0 to disable timeouts.
+# Connections inactive for this duration will be closed by the server.
+timeout: {{ timeout | default(30) }}
 
-# Enable/Disable IPv6 support
-ipv6: {{ ipv6 }}
+# Enable listening on IPv6 addresses in addition to IPv4.
+# If true, the server will attempt to bind to both IPv4 and IPv6 sockets.
+# Requires `bind` to support dual-stack or separate IPv6 addresses.
+ipv6: {{ ipv6 | default(false) }}
 
-# Optional: Listen backlog size (kernel's queue length for pending connections)
-backlog: {{ backlog }}
+# Socket listen backlog size (depth of pending connection queue).
+# Controls how many connections can wait in the kernel's queue before the
+# server accepts them. Increase if you expect connection bursts.
+backlog: {{ backlog | default(128) }}

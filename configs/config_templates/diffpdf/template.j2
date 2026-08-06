@@ -1,0 +1,48 @@
+{# ============================================================================ #}
+{# DiffPDF Configuration Template                                                 #}
+{# Self-documenting: every directive is preceded by its schema description.       #}
+{# Variables use the exact schema field names and have safe defaults.             #}
+{# ============================================================================ #}
+
+{# Comparison mode: 'text' (word-by-word) or 'appearance' (pixel-level visual diff). #}
+{# Defaults to 'text'. Only emit --appearance if the mode is explicitly 'appearance'. #}
+{% if (mode | default('text')) == 'appearance' -%}
+  --appearance
+{%- endif %}
+
+{# List of page range strings (e.g., ['1-5', '8-12']) for targeted comparison. #}
+{# Required only when comparing non-sequential or renumbered pages. #}
+{% if pages_ranges is defined and pages_ranges | length > 0 -%}
+  --pages {{ pages_ranges | join(' ') }}
+{%- endif %}
+
+{# Color to use for highlighting added text (e.g., 'cyan', 'yellow', '#00ff00'). #}
+{% if highlight_added is defined and highlight_added %}
+  --highlight-added {{ highlight_added }}
+{%- endif %}
+
+{# Color to use for highlighting deleted text (e.g., 'red', 'magenta', '#ff0000'). #}
+{% if highlight_deleted is defined and highlight_deleted %}
+  --highlight-deleted {{ highlight_deleted }}
+{%- endif %}
+
+{# Color to use for highlighting replaced text (e.g., 'magenta', 'blue', '#ff00ff'). #}
+{% if highlight_replaced is defined and highlight_replaced %}
+  --highlight-replaced {{ highlight_replaced }}
+{%- endif %}
+
+{# List of rectangle specs (x1,y1,x2,y2) to exclude from comparison, e.g., ['0,0,100,50'] for header exclusion. #}
+{% if exclude_rects is defined and exclude_rects | length > 0 -%}
+  --exclude {{ exclude_rects | join(',') }}
+{%- endif %}
+
+{# Output file path for the generated diff report (PDF or text). #}
+{# If empty, no report is produced. #}
+{% if output_report is defined and output_report %}
+  --report {{ output_report }}
+{%- endif %}
+
+{# Input PDFs must be positional arguments. #}
+{# file1: Path to first PDF file (required positional argument). #}
+{# file2: Path to second PDF file (required positional argument). #}
+{{ file1 | default('') }} {{ file2 | default('') }}

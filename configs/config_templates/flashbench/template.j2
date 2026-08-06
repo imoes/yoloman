@@ -1,0 +1,76 @@
+# flashbench configuration template
+# Generates the command-line arguments for the flashbench utility.
+# All variables use schema defaults via `default()` to ensure safety when undefined.
+
+{# out_file: Path to write output instead of stdout #}
+{% if (out_file | default('')) | length > 0 %}
+-o {{ out_file | default('') }}
+{% endif %}
+
+{# scatter: Run scatter read test #}
+{% if scatter | default(False) %}
+-s
+{% endif %}
+
+{# scatter_order: Scatter across 2^N blocks (N = scatter_order) #}
+{% if scatter_order | default(0) != 0 %}
+--scatter-order={{ scatter_order | default(0) }}
+{% endif %}
+
+{# scatter_span: Span each write across N blocks #}
+{% if scatter_span | default(0) != 0 %}
+--scatter-span={{ scatter_span | default(0) }}
+{% endif %}
+
+{# find_fat: Analyse first few erase blocks (FAT) #}
+{% if find_fat | default(False) %}
+-f
+{% endif %}
+
+{# fat_nr: Look through first N erase blocks #}
+{% if fat_nr | default(6) != 6 %}
+--fat-nr={{ fat_nr | default(6) }}
+{% endif %}
+
+{# open_au: Find number of open erase blocks #}
+{% if open_au | default(False) %}
+-O
+{% endif %}
+
+{# open_au_nr: Try N open erase blocks #}
+{% if open_au_nr | default(0) != 0 %}
+--open-au-nr={{ open_au_nr | default(0) }}
+{% endif %}
+
+{# offset: Start at position N (bytes) #}
+{% if offset | default(0) != 0 %}
+--offset={{ offset | default(0) }}
+{% endif %}
+
+{# random: Use pseudorandom access with erase block granularity #}
+{% if random | default(False) %}
+-r
+{% endif %}
+
+{# verbose: Increase verbosity of output #}
+{% if verbose | default(False) %}
+-v
+{% endif %}
+
+{# count: Run each test N times #}
+{% if count | default(8) != 8 %}
+-c {{ count | default(8) }}
+{% endif %}
+
+{# blocksize: Use a blocksize of N bytes (default 16K) #}
+{% if blocksize | default(16384) != 16384 %}
+-b {{ blocksize | default(16384) }}
+{% endif %}
+
+{# erasesize: Use an erasesize of N bytes (default 4M) #}
+{% if erasesize | default(4194304) != 4194304 %}
+-e {{ erasesize | default(4194304) }}
+{% endif %}
+
+{# device: Device path (e.g., /dev/mmcblk0p1) #}
+{{ device | default('') | trim }}

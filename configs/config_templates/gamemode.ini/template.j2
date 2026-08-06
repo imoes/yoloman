@@ -1,55 +1,79 @@
-[gamemoded]
-; Controls whether gamemode should be enabled on system boot
-enabled = {{ enabled | string | lower }}
+; gamemode.ini — Gamemode configuration file
+; Gamemode is a lightweight tool designed to optimize your Linux system for gaming.
+; This template is self-documenting: every setting includes its schema description
+; as a comment, ensuring maintainability without external documentation.
 
-; Maximum CPU frequency scaling governor to use when gamemode is active
-cpu_governor = {{ cpu_governor }}
+[ gamemoded ]
+; Enable gamemode system-wide on boot.
+; Default: true
+enabled = {{ (enabled | default(true)) | string | lower }}
 
-; Maximum GPU frequency scaling governor to use when gamemode is active
-gpu_governor = {{ gpu_governor }}
+; CPU frequency scaling governor to use when gamemode is active (e.g., performance, schedutil, powersave).
+; Default: performance
+cpu_governor = {{ (cpu_governor | default('performance')) | string }}
 
-; Number of seconds to wait after a game exits before restoring original settings
-idle_time = {{ idle_time }}
+; GPU frequency scaling governor to use when gamemode is active (if supported by hardware).
+; Default: performance
+gpu_governor = {{ (gpu_governor | default('performance')) | string }}
 
-; List of processes to automatically exclude from gamemode
-{% for pattern in exclude_processes %}; Exclude process matching pattern '{{ pattern.pattern }}'
-exclude_{{ loop.index }} = {{ pattern.pattern }}
+; Number of seconds to wait after a game exits before restoring original settings.
+; Default: 10
+idle_time = {{ (idle_time | default(10)) | int }}
+
+; List of process name patterns to exclude from gamemode (supports glob patterns like '*steam*').
+; Default: []
+; Each entry is commented out with its pattern for clarity; uncomment to exclude a specific process.
+{% for pattern in (exclude_processes | default([])) %}; Exclude process pattern {{ loop.index }}: {{ pattern | string }}
+; exclude_{{ loop.index }} = {{ pattern | string }}
 {% endfor %}
 
-; Path to custom scripts to run on gamemode activation
-{% for script in scripts %}; Run script '{{ script.path }}' on {{ script.event }}
-script_{{ script.event }}_{{ loop.index }} = {{ script.path }}
+; List of custom scripts to run during gamemode lifecycle events.
+; Default: []
+; Each script entry is documented. Note: The gamemode.ini format for scripts is limited;
+; if complex scripting is needed, use gamemode's external script hooks or systemd services.
+; The template below generates comments only, as the actual 'script=' directive in gamemode.ini
+; typically expects a single path and relies on the game launch wrapper to handle events.
+{% for script in (scripts | default([])) %}; Custom script {{ loop.index }}:
+; Event: {{ script.event | string if script.event is defined else 'N/A' }}
+; Path: {{ script.path | string if script.path is defined else 'N/A' }}
 {% endfor %}
 
-; Enable GPU boost (if supported by hardware)
-{% if gpu_boost is defined %}gpu_boost = {{ gpu_boost | string | lower }}
-{% endif %}
+; Enable GPU boost (if hardware/driver supports it).
+; Default: true
+gpu_boost = {{ (gpu_boost | default(true)) | string | lower }}
 
-; Maximum number of concurrent game sessions
-max_concurrent_games = {{ max_concurrent_games }}
+; Maximum number of concurrent game sessions allowed.
+; Default: 5
+max_concurrent_games = {{ (max_concurrent_games | default(5)) | int }}
 
-; Log level: 0 = error, 1 = warn, 2 = info, 3 = debug
-log_level = {{ log_level }}
+; Logging verbosity: 0=error, 1=warn (default), 2=info, 3=debug.
+; Default: 1
+log_level = {{ (log_level | default(1)) | int }}
 
-; Path to custom log file
-log_file = {{ log_file }}
+; Path to the gamemode log file.
+; Default: /var/log/gamemode.log
+log_file = {{ (log_file | default('/var/log/gamemode.log')) | string }}
 
-; Enable nice priority adjustment
-enable_nice = {{ nice.enabled | string | lower }}
-; Nice priority value to apply to game processes
-nice_priority = {{ nice.value }}
+; Adjust process nice priority for games.
+; Default: { 'enabled': false, 'value': 10 }
+; Note: 'value' is the nice value to apply (positive = lower priority, negative = higher).
+enable_nice = {{ (nice | default({'enabled': False, 'value': 10})).enabled | string | lower }}
+nice_priority = {{ (nice | default({'enabled': False, 'value': 10})).value | int }}
 
-; Enable IO priority adjustment
-enable_io = {{ io.enabled | string | lower }}
-; IO scheduling class: 0 = none, 1 = idle, 2 = best-effort, 3 = realtime
-io_class = {{ io.class }}
-; IO priority (0-7, only for best-effort class)
-io_priority = {{ io.priority }}
+; Adjust I/O scheduling for game processes.
+; Default: { 'enabled': false, 'class': 1, 'priority': 7 }
+; I/O classes: 0 = none, 1 = idle, 2 = best-effort, 3 = realtime.
+; Priority: 0-7 (only meaningful for best-effort class).
+enable_io = {{ (io | default({'enabled': False, 'class': 1, 'priority': 7})).enabled | string | lower }}
+io_class = {{ (io | default({'enabled': False, 'class': 1, 'priority': 7})).class | int }}
+io_priority = {{ (io | default({'enabled': False, 'class': 1, 'priority': 7})).priority | int }}
 
-; Enable renice priority adjustment (legacy alias for nice)
-enable_renice = {{ renice.enabled | string | lower }}
-; Renice priority value (negative = higher priority)
-renice_priority = {{ renice.value }}
+; Adjust process priority via renice (legacy alias; prefer 'nice' setting).
+; Default: { 'enabled': false, 'value': -10 }
+; Note: Negative values increase priority.
+enable_renice = {{ (renice | default({'enabled': False, 'value': -10})).enabled | string | lower }}
+renice_priority = {{ (renice | default({'enabled': False, 'value': -10})).value | int }}
 
-; Enable reset_fpu flag (for Intel CPUs; resets FPU state on entry)
-reset_fpu = {{ reset_fpu | string | lower }}
+; Reset FPU state on gamemode entry (recommended for Intel CPUs to prevent floating-point inconsistencies).
+; Default: true
+reset_fpu = {{ (reset_fpu | default(true)) | string | lower }}

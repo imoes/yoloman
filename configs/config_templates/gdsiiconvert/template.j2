@@ -1,0 +1,69 @@
+{# GDSIIConvert Configuration Template #}
+{# This template generates command-line arguments or configuration directives for gdsiiconvert. #}
+{# It handles string bases, numeric units, list of layers, boolean flags, and output format selection. #}
+
+{# ----------------------------------------------------------------------------- #}
+{# FileBase: Base name for output files (without extension)                     #}
+{# ----------------------------------------------------------------------------- #}
+{% if FileBase is defined %}
+# Base name for output files (no extension)
+FileBase={{ (FileBase | default('output')) | string }}
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# LengthUnit: Output length unit in mm (e.g., 0.001 for microns)               #}
+{# ----------------------------------------------------------------------------- #}
+{% if LengthUnit is defined %}
+# Output length unit in mm
+LengthUnit={{ (LengthUnit | default(1)) | float }}
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# MetalLayer: List of GDSII layer numbers to treat as metal layers             #}
+{# ----------------------------------------------------------------------------- #}
+{% if MetalLayer is defined %}
+{% set _metal_layers = MetalLayer | default([]) %}
+{% if _metal_layers | length > 0 %}
+# Metal layers (may be specified multiple times)
+{% for layer in _metal_layers %}
+MetalLayer={{ layer }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# verbose: Enable verbose output                                               #}
+{# ----------------------------------------------------------------------------- #}
+{% if verbose is defined %}
+# Verbose mode
+{% if verbose | default(False) | bool %}
+verbose
+{% endif %}
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# SeparateLayers: Write separate output files for objects on each layer        #}
+{# ----------------------------------------------------------------------------- #}
+{% if SeparateLayers is defined %}
+# Separate output per layer
+{% if SeparateLayers | default(False) | bool %}
+SeparateLayers
+{% endif %}
+{% endif %}
+
+{# ----------------------------------------------------------------------------- #}
+{# output_format: Output format directive                                       #}
+{# ----------------------------------------------------------------------------- #}
+{% if output_format is defined %}
+# Output format directive
+{% set _fmt = output_format | default('GMSH') | lower %}
+{% if _fmt == 'raw' %}
+--raw
+{% elif _fmt == 'analyze' %}
+--analyze
+{% elif _fmt == 'gmsh' %}
+--GMSH
+{% elif _fmt == 'scuff-rf' %}
+--scuff-rf
+{% endif %}
+{% endif %}

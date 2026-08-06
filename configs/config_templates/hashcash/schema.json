@@ -1,0 +1,116 @@
+{
+  "database": {
+    "type": "string",
+    "default": "database.sdb",
+    "description": "Path to double-spend database file."
+  },
+  "expiry": {
+    "type": "string",
+    "default": "28d",
+    "description": "Default expiry period for stamps; units: s, m, h, d, M, y. 0 = forever."
+  },
+  "grace": {
+    "type": "number",
+    "default": 172800,
+    "description": "Grace period in seconds for clock skew during stamp verification."
+  },
+  "bits": {
+    "type": "number",
+    "default": 20,
+    "description": "Default minimum bits of preimage required for stamp validation. 0 disables bit check."
+  },
+  "time_width": {
+    "type": "number",
+    "default": 6,
+    "description": "Time field width in minted stamps: 6=YYMMDD, 10=YYMMDDhhmm, 12=YYMMDDhhmmss."
+  },
+  "purge_interval": {
+    "type": "number",
+    "default": 86400,
+    "description": "Purge interval in seconds; 0=purge on every access, -1=never purge."
+  },
+  "purge_unexpired": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, purge unexpired stamps during purge operations."
+  },
+  "resources": {
+    "type": "list",
+    "default": [],
+    "description": "List of resource-specific policies. Each entry can override expiry and bits per resource."
+  },
+  "resources.items": {
+    "type": "object",
+    "description": "Per-resource policy configuration (flat structure)."
+  },
+  "resources.items.resource": {
+    "type": "string",
+    "default": "email",
+    "description": "Resource name (e.g., email address or pattern).",
+    "enum": [
+      "default",
+      "email",
+      "ip"
+    ]
+  },
+  "resources.items.expiry": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom expiry period for this resource; inherits global if empty."
+  },
+  "resources.items.bits": {
+    "type": "number",
+    "default": 0,
+    "description": "Optional custom minimum bits for this resource; inherits global if 0."
+  },
+  "case_sensitive_resources": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, do not canonicalize resources to lower case during comparison."
+  },
+  "use_wildcards": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, use wildcard (not regex) matching for resources during verification."
+  },
+  "quiet": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, suppress informational output (only output required by flags)."
+  },
+  "x_header": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, output 'X-Hashcash: ' prefix when minting or parsing email headers."
+  },
+  "progress": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, print minting progress (iterations, percentage done)."
+  },
+  "time_fuzz_seconds": {
+    "type": "number",
+    "default": 0,
+    "description": "If positive, add a random amount (0 to this value) of seconds to stamp creation time to hide exact time."
+  },
+  "accept_partially_checked": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, accept stamps even if not fully checked (implies -y flag behavior)."
+  },
+  "compression": {
+    "type": "number",
+    "default": 0,
+    "description": "Stamp compression level: 0=fastest, 1=compressed, 2=high compression."
+  },
+  "core": {
+    "type": "number",
+    "default": 0,
+    "description": "Select hashcash minting core (0=auto, 1-9=specific core)."
+  },
+  "utc_time": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, use UTC (GMT) for time inputs/outputs; false = local time."
+  }
+}

@@ -1,0 +1,44 @@
+# Asahi NVRAM Configuration Template
+#
+# This template generates the configuration for asahi-nvram, a utility to manage
+# Apple Silicon NVRAM variables. It defines the target device and a list of
+# operations (read, write, delete) to perform.
+
+# Path to the Apple Silicon NVRAM device file.
+# Defaults to '/dev/nvram' if not specified.
+device: "{{ (device | default('/dev/nvram')) | string }}"
+
+# Ordered list of NVRAM operations (read/write/delete).
+# Each entry corresponds to one asahi-nvram subcommand invocation.
+# WARNING: Write operations can modify critical system variables. Use with caution.
+# Defaults to an empty list if not specified.
+operations:
+{%- set ops = (operations | default([])) %}
+{%- if ops is iterable and ops | length > 0 %}
+{%-   for op in ops %}
+  - type: "{{ (op.type | default('read')) | string }}"
+{%-     if op.type == 'write' %}
+    assignments:
+{%-       set assignments = op.assignments | default([]) %}
+{%-       if assignments is iterable and assignments | length > 0 %}
+{%-         for assignment in assignments %}
+      - "{{ (assignment.partition | default('')) | string }}:{{ (assignment.name | default('')) | string }}={{ (assignment.value | default('')) | string }}"
+{%-         endfor %}
+{%-       else %}
+      - []  # Empty assignments list
+{%-       endif %}
+{%-     elif op.type == 'read' or op.type == 'delete' %}
+    variables:
+{%-       set variables = op.variables | default([]) %}
+{%-       if variables is iterable and variables | length > 0 %}
+{%-         for var in variables %}
+      - "{{ (var.partition | default('')) | string }}:{{ (var.name | default('')) | string }}"
+{%-         endfor %}
+{%-       else %}
+      - []  # Empty variables list
+{%-       endif %}
+{%-     endif %}
+{%-   endfor %}
+{%- else %}
+  - []  # No operations defined
+{%- endif %}

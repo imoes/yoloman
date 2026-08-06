@@ -1,32 +1,114 @@
-# Listen on the specified host and port
-bind {{ bind_host }} {{ bind_port }}
+# ==============================================================================
+# dictionary_server Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the dictionary server (dictd).
+# It supports RFC 2229 features including compression, authentication realms,
+# and per-database access control.
+# ==============================================================================
 
-# Maximum number of simultaneous client connections
-max_connections {{ max_connections }}
+# --------------------------------------------------------------------------
+# Network Binding Configuration
+# --------------------------------------------------------------------------
+# bind_host: IP address or hostname to bind the server to.
+#            Use '0.0.0.0' to listen on all interfaces.
+# bind_port: Port number to listen on.
+#            RFC 2229 reserves port 2628 for DICOD.
+# --------------------------------------------------------------------------
+bind {{ bind_host | default('0.0.0.0') }} {{ bind_port | default(2628) }}
 
-# Enable or disable verbose logging
-{{ 'debug' if debug else '# debug' }}
+# --------------------------------------------------------------------------
+# Connection Limits
+# --------------------------------------------------------------------------
+# max_connections: Maximum number of simultaneous client connections allowed.
+#                  Prevents resource exhaustion under heavy load.
+# --------------------------------------------------------------------------
+max_connections {{ max_connections | default(100) }}
 
-# Default database(s) to query (comma-separated list of DB names)
-default_db {{ default_db | join(', ') }}
+# --------------------------------------------------------------------------
+# Debugging Mode
+# --------------------------------------------------------------------------
+# debug: Enable verbose debugging output.
+#        Logs extra diagnostics useful for troubleshooting connection issues.
+#        Disabled by default for production stability.
+# --------------------------------------------------------------------------
+{% if debug | default(False) | bool %}
+debug
+{% else %}
+# debug
+{% endif %}
 
-# Directory where dictionary database files are stored
-dict_dir {{ dict_dir }}
+# --------------------------------------------------------------------------
+# Default Databases
+# --------------------------------------------------------------------------
+# default_db: List of dictionary database names to use by default when no
+#             database is specified in a client query.
+#             Entries are joined by commas.
+# --------------------------------------------------------------------------
+default_db {{ default_db | default(['gcide']) | join(', ') }}
 
-# Timeout (in seconds) for client connections
-client_timeout {{ client_timeout }}
+# --------------------------------------------------------------------------
+# Dictionary Data Directory
+# --------------------------------------------------------------------------
+# dict_dir: Absolute path to the directory containing dictionary database
+#           files (e.g., dictd-index, dictd-str).
+# --------------------------------------------------------------------------
+dict_dir {{ dict_dir | default('/usr/share/dictd') }}
 
-# Enable compression for large responses
-{{ 'compression' if compression else '# compression' }}
+# --------------------------------------------------------------------------
+# Client Timeout Configuration
+# --------------------------------------------------------------------------
+# client_timeout: Idle timeout in seconds before disconnecting a client.
+#                 Helps release resources from hung or abandoned connections.
+# --------------------------------------------------------------------------
+client_timeout {{ client_timeout | default(30) }}
 
-# Optional authentication realm (for RFC 2229 AUTH command)
-{{ 'auth_realm ' + auth_realm if auth_realm else '# auth_realm disabled' }}
+# --------------------------------------------------------------------------
+# Compression Settings
+# --------------------------------------------------------------------------
+# compression: Enable gzip compression for large response bodies.
+#              Supported by RFC 2229 compliant clients.
+#              Reduces bandwidth usage for large dictionary lookups.
+# --------------------------------------------------------------------------
+{% if compression | default(True) | bool %}
+compression
+{% else %}
+# compression
+{% endif %}
 
-# Per-database access control (optional)
-{% for db in databases %}{{ '# ' + db.name + ': ' + db.description if db.description else '# ' + db.name }}
-database {{ db.name }} {{ db.path }}
-{% if db.allow_hosts %}  allow {{ db.allow_hosts | join(', ') }}
-{% endif %}{% if db.deny_hosts %}  deny {{ db.deny_hosts | join(', ') }}
-{% endif %}{% if db.max_results %}  max_results {{ db.max_results }}
-{% endif %}{% if db.description %}  description "{{ db.description }}"
-{% endif %}{% endfor %}
+# --------------------------------------------------------------------------
+# Authentication Realm
+# --------------------------------------------------------------------------
+# auth_realm: Authentication realm name string (used in RFC 2229 AUTH).
+#             Leave empty to disable authentication.
+#             If specified, the string will follow the 'auth_realm' directive.
+# --------------------------------------------------------------------------
+{% if auth_realm | default('') | trim %}
+auth_realm {{ auth_realm | default('') | trim }}
+{% else %}
+# auth_realm disabled
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Per-Database Definitions
+# --------------------------------------------------------------------------
+# databases: List of database definitions with per-database settings.
+#            Each entry defines a dictionary source located in dict_dir
+#            (or an absolute path). Supports access control lists (allow/deny)
+#            and result limiting (max_results).
+# --------------------------------------------------------------------------
+{% for db in databases | default([]) %}
+# Database: {{ db.name | default('unnamed') }}
+{% if db.description | default('') %}
+# Description: {{ db.description | default('') }}
+{% endif %}
+database {{ db.name | default('') }} {{ db.path | default('') }}
+{% if db.allow_hosts | default([]) %}
+  allow {{ db.allow_hosts | default([]) | join(', ') }}
+{% endif %}
+{% if db.deny_hosts | default([]) %}
+  deny {{ db.deny_hosts | default([]) | join(', ') }}
+{% endif %}
+{% if db.max_results | default(omit) is defined %}
+  max_results {{ db.max_results | default(omit) }}
+{% endif %}
+{% endfor %}

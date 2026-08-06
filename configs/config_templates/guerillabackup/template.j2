@@ -1,87 +1,118 @@
-# Guerilla Backup Daemon configuration - primary config file
-# Base runtime settings
-runtime:
-  data_dir: {{ data_dir }}
-  cache_dir: {{ cache_dir }}
-  log_file: {{ log_file }}
-  log_level: {{ log_level }}
+# GuerillaBackup main configuration file.
+#
+# This template is self-documenting. Every active configuration directive
+# is preceded by its schema description as a comment.
+# All variables are safely defaulted using `| default()` to prevent
+# template rendering failures when variables are undefined.
 
-# Network and identity
-identity:
-  node_id: "{{ node_id }}"
-  node_name: "{{ node_name }}"
-  cluster_name: "{{ cluster_name }}"
+# ==============================================================================
+# General parameters
+# ==============================================================================
+#
+# General parameters influence behavior of various backup elements,
+# e.g. source units, sinks or the generator itself. All those
+# parameters start with "General" to indicate their global relevance.
 
-# Storage backends — each backend is independently configured and named
-backends:
-{% for backend in backends %}  - name: "{{ backend.name }}"
-    type: "{{ backend.type }}"
-    enabled: {{ backend.enabled }}
-{% if backend.type == 's3' %}    endpoint: "{{ backend.endpoint }}"
-    region: "{{ backend.region }}"
-    bucket: "{{ backend.bucket }}"
-    access_key: "{{ backend.access_key }}"
-    secret_key: "{{ backend.secret_key }}"
-{% elif backend.type == 'local' %}    path: "{{ backend.path }}"
-{% elif backend.type == 'ssh' %}    host: "{{ backend.host }}"
-    port: {{ backend.port }}
-    user: "{{ backend.user }}"
-    key_file: "{{ backend.key_file }}"
-    path: "{{ backend.path }}"
-{% endif %}    compression: {{ backend.compression }}
-    encryption: {{ backend.encryption }}
-{% endfor %}
+# This is the default persistency storage base directory for all
+# components. All components will create files or subdirectories
+# starting with the component class name unless changed within
+# configuration. See also "ComponentPersistencyPrefix" in unit
+# or subunit configuration files.
+# GeneralPersistencyBaseDir = '/var/lib/guerillabackup/state'
 
-# Backup schedules — list of cron-style or interval-based jobs
-schedules:
-{% for schedule in schedules %}  - name: "{{ schedule.name }}"
-    enabled: {{ schedule.enabled }}
-    policy: "{{ schedule.policy }}"
-    source_dirs:
-{% for dir in schedule.source_dirs %}      - "{{ dir }}"
-{% endfor %}    retention:
-      keep_daily: {{ schedule.retention.keep_daily }}
-      keep_weekly: {{ schedule.retention.keep_weekly }}
-      keep_monthly: {{ schedule.retention.keep_monthly }}
-{% if schedule.cron %}    cron: "{{ schedule.cron }}"
-{% else %}    interval_seconds: {{ schedule.interval_seconds }}
-{% endif %}
-{% endfor %}
+# This is the default runtime data directory for all components.
+# It is used to create sockets, PID files and similar, that need
+# not be preserved between reboots.
+# GeneralRuntimeDataDir = '/run/guerillabackup'
 
-# Worker and resource limits
-workers:
-  max_concurrent_backups: {{ workers.max_concurrent_backups }}
-  max_upload_workers_per_backend: {{ workers.max_upload_workers_per_backend }}
-  chunk_size_mb: {{ workers.chunk_size_mb }}
-  cache_ttl_seconds: {{ workers.cache_ttl_seconds }}
-  mem_limit_mb: {{ workers.mem_limit_mb }}
+# This parameter defines the default pipeline element to use to
+# compress backup data of any kind before sending it to downstream
+# processing, usually encryption of sink. When enabling compression
+# and encryption, you may want to disable the additional compression
+# step included in many encryption tools, e.g. via "--compress-algo
+# none" in gpg.
+# GeneralDefaultCompressionElement = guerillabackup.OSProcessPipelineElement('/bin/bzip2', ['/bin/bzip2', '-c9'])
 
-# Network and reliability tuning
-network:
-  connect_timeout_seconds: {{ network.connect_timeout_seconds }}
-  read_timeout_seconds: {{ network.read_timeout_seconds }}
-  retry_max_attempts: {{ network.retry_max_attempts }}
-  retry_backoff_seconds: {{ network.retry_backoff_seconds }}
-  enable_tls: {{ network.enable_tls }}
-  ca_cert_file: "{{ network.ca_cert_file }}"
+# This parameter defines the default encryption pipeline element
+# to use to encrypt backup data of any kind before sending it
+# to donwstream processing. For security reasons, a unit might
+# use an alternative encryption element, e.g. with different options
+# or keys, but it should NEVER ignore the parameter, even when
+# unit-specific encryption is disabled. Hence the unit shall never
+# generate uncencrypted data while this parameter is not also
+# overriden in the unit-specific configuration. See also function
+# "getDefaultDownstreamPipeline" documentation.
+# GeneralDefaultEncryptionElement = guerillabackup.GpgEncryptionPipelineElement('some key name')
 
-# Notification and alerting
-notifications:
-  email_enabled: {{ notifications.email_enabled }}
-  smtp_host: "{{ notifications.smtp_host }}"
-  smtp_port: {{ notifications.smtp_port }}
-  from_address: "{{ notifications.from_address }}"
-  recipients:
-{% for email in notifications.recipients %}    - "{{ email }}"
-{% endfor %}
-  on_error: {{ notifications.on_error }}
-  on_success: {{ notifications.on_success }}
+# Debugging settings:
 
-# Security and auditing
-security:
-  enable_audit_log: {{ security.enable_audit_log }}
-  audit_log_file: "{{ security.audit_log_file }}"
-  require_client_cert: {{ security.require_client_cert }}
-  allowed_client_ips:
-{% for ip in security.allowed_client_ips %}    - "{{ ip }}"
-{% endfor %}
+# This flag enables test mode for all configurable components
+# in the data pipe from source to sink. As testing of most features
+# will require to run real backups, the testing mode will cause
+# an abort in the very last moment before completion. Wellbehaved
+# components will roll back most of the actions under this circumstances.
+# GeneralDebugTestModeFlag = False
+
+
+# ==============================================================================
+# Generator specific settings
+# ==============================================================================
+#
+# Generator specific settings: Those settings configure the local
+# default backup generator.
+
+# Use this sink for storage of backup data elements. The class
+# has to have a constructor only taking one argument, that is
+# the generator configuration context as defined by the SinkInterface.
+# When empty, the guerillabackup.DefaultFileSystemSink is used.
+# GeneratorSinkClass = guerillabackup.DefaultFileSystemSink
+
+# Use this directory for storage of the backup data elements generated
+# locally. The default location is "/var/lib/guerillabackup/data".
+# You may want also to enable transfer services using this directory
+# as source to copy or move backup data to an offsite location.
+# Schema: data_dir = '/var/lib/guerillabackup/data'
+# Description: Directory for storage of backup data elements generated locally (maps to DefaultFileSystemSinkBaseDir).
+DefaultFileSystemSinkBaseDir = '{{ data_dir | default("/var/lib/guerillabackup/data") }}'
+
+# This parameter defines the conditions that have to be met to
+# run any backup unit. The settings is intended to avoid running
+# units at unfavorable times, e.g. during machine maintenance,
+# immediately during boot time high CPU/disk activity but also
+# when there is abnormally high load on the machine. When the
+# condition is not met yet it will be reevaluated at the next
+# scheduler run, usually some seconds later.
+# DefaultUnitRunCondition = guerillabackup.LogicalAndCondition([
+#   guerillabackup.MinPowerOnTimeCondition(600),
+#   guerillabackup.AverageLoadLimitCondition(0.5, 240)])
+
+# Unit specific default and specific settings can be found in
+# the units directory.
+
+
+# ==============================================================================
+# Transfer service configuration
+# ==============================================================================
+#
+# Transfer service configuration: this part of configuration does
+# not take effect automatically, a transfer service has to be
+# started loading this configuration file. When security considerations
+# prohibit use of same configuration, e.g. due to inaccessibility
+# of configuration file because of permission settings, then this
+# file should be copied to "config-[agent name]" instead.
+
+# Storage directory used by this transfer service. When not present,
+# the DefaultFileSystemSinkBaseDir is used instead.
+# TransferServiceStorageBaseDir = '/var/spool/guerillabackup/transfer'
+
+# Class to load to define the transfer receiver policy.
+# TransferReceiverPolicyClass = guerillabackup.Transfer.ReceiverStoreDataTransferPolicy
+# Arguments for creating the named transfer policy to pass after
+# the configuration context.
+# TransferReceiverPolicyInitArgs = None
+
+# Class to load to define the transfer sender policy.
+# TransferSenderPolicyClass = guerillabackup.Transfer.SenderMoveDataTransferPolicy
+# Arguments for creating the named transfer policy to pass after
+# the configuration context.
+# TransferSenderPolicyInitArgs = [False]

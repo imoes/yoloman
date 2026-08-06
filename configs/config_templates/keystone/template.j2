@@ -1,259 +1,272 @@
-[DEFAULT]
-# The name of the service (used for logging and notifications)
-{% if service_name %}name = {{ service_name }}{% endif %}
-
-# Logging configuration
-# Debug mode (enabled by default in dev, typically disabled in prod)
-{% if debug is defined %}debug = {{ debug | lower }}{% endif %}
-
-# Default log format
-{% if log_format %}log_format = {{ log_format }}{% endif %}
-
-# Log file path (empty string means log to stderr)
-{% if log_file %}log_file = {{ log_file }}{% endif %}
-
-[database]
-# Database connection string
-connection = {{ database.connection }}
-
-# Maximum number of database connections in the pool
-max_retries = {{ database.max_retries }}
-
-# Idle timeout (in seconds) for database connections
-retry_interval = {{ database.retry_interval }}
-
-# Connection pool size
-pool_size = {{ database.pool_size }}
-
-# Connection pool recycle interval (in seconds)
-pool_recycle = {{ database.pool_recycle }}
-
-# Connection pool timeout (in seconds)
-pool_timeout = {{ database.pool_timeout }}
-
-[token]
-# Token provider: Fernet, PKI, PKIZ, or UUID
-provider = {{ token.provider }}
-
-# Token expiration time (in seconds)
-total_expiration = {{ token.total_expiration }}
-
-# Number of Fernet keys to rotate (used only with Fernet provider)
-{% if token.provider == 'fernet' %}fernet_max_active_keys = {{ token.fernet_max_active_keys }}{% endif %}
-
-# Fernet key directory (used only with Fernet provider)
-{% if token.provider == 'fernet' %}key_repository = {{ token.key_repository }}{% endif %}
-
-# UUID token cache time-to-live (seconds)
-{% if token.provider == 'uuid' %}cache_time = {{ token.uuid_cache_time }}{% endif %}
-
-[fernet_tokens]
-# Fernet token key directory (deprecated; use [token].key_repository)
-{% if fernet_tokens.key_repository is defined %}key_repository = {{ fernet_tokens.key_repository }}{% endif %}
-
-[revoke]
-# Revoke driver: SQL (default), Kafka, or custom
-{% if revoke.driver %}driver = {{ revoke.driver }}{% endif %}
-
-# Revocation event expiration (in seconds)
-{% if revoke.expiration %}expiration = {{ revoke.expiration }}{% endif %}
-
-[cache]
-# Cache backend (e.g., keystone.cache.memcached, keystone.cache.sql)
-{% if cache.backend %}backend = {{ cache.backend }}{% endif %}
-
-# Memcached servers list (comma-separated)
-{% if cache.memcache_servers %}memcache_servers = {{ cache.memcache_servers }}{% endif %}
-
-# Cache TTL (in seconds)
-{% if cache.expiration_time %}expiration_time = {{ cache.expiration_time }}{% endif %}
-
-[assignment]
-# Default domain ID for projects and users (if no domain is specified)
-{% if assignment.default_domain_id %}default_domain_id = {{ assignment.default_domain_id }}{% endif %}
-
-[auth]
-# List of auth methods to support
-methods = {{ auth.methods | join(', ') }}
-
-{% for method in auth.methods %}# Configuration for {{ method }} auth plugin
-[{{ method }}]
-# Plugin name (e.g., password, token, oauth1, etc.)
-{% if auth.plugins.get(method) %}{% set plugin = auth.plugins[method] %}{% if plugin.enabled is defined %}enabled = {{ plugin.enabled | lower }}{% endif %}
-# Plugin class path (e.g., keystone.auth.plugins.password.Password)
-{% if plugin.method %}method = {{ plugin.method }}{% endif %}
-{% endif %}
-{% endfor %}
-
-[endpoint_filter]
-# Enable endpoint filter by project (for multi-region deployments)
-{% if endpoint_filter.enabled is defined %}enabled = {{ endpoint_filter.enabled | lower }}{% endif %}
-
-[endpoint_policy]
-# Enable endpoint policy (deprecated; use endpoint_filter)
-{% if endpoint_policy.enabled is defined %}enabled = {{ endpoint_policy.enabled | lower }}{% endif %}
-
-[identity]
-# Driver for identity backend (e.g., sql, ldap)
-driver = {{ identity.driver }}
-
-# Domain-specific config directories (for domain-specific backends)
-{% if identity.domain_config_dir %}domain_config_dir = {{ identity.domain_config_dir }}{% endif %}
-
-{% if identity.extra_attributes %}# Additional attributes to return in user/project responses
-extra_attributes = {{ identity.extra_attributes | join(', ') }}{% endif %}
-
-[ldap]
-# LDAP URL (e.g., ldap://ldap.example.com)
-url = {{ ldap.url }}
-
-# LDAP user and password (bind DN and credential)
-user = {{ ldap.user }}
-password = {{ ldap.password }}
-
-# LDAP suffix for users and groups
-suffix = {{ ldap.suffix }}
-
-# User filter
-user_filter = {{ ldap.user_filter }}
-
-# User object class
-user_objectclass = {{ ldap.user_objectclass }}
-
-# User ID attribute
-user_id_attribute = {{ ldap.user_id_attribute }}
-
-# User name attribute
-user_name_attribute = {{ ldap.user_name_attribute }}
-
-# User enabled attribute
-user_enabled_attribute = {{ ldap.user_enabled_attribute }}
-
-# User enabled mask (if applicable)
-user_enabled_mask = {{ ldap.user_enabled_mask }}
-
-# User default project ID attribute
-user_default_project_id_attribute = {{ ldap.user_default_project_id_attribute }}
-
-# Group filter
-group_filter = {{ ldap.group_filter }}
-
-# Group object class
-group_objectclass = {{ ldap.group_objectclass }}
-
-# Group ID attribute
-group_id_attribute = {{ ldap.group_id_attribute }}
-
-# Group name attribute
-group_name_attribute = {{ ldap.group_name_attribute }}
-
-# Group member attribute
-group_member_attribute = {{ ldap.group_member_attribute }}
-
-# Group description attribute
-group_description_attribute = {{ ldap.group_description_attribute }}
-
-# Use pool for LDAP connections
-use_pool = {{ ldap.use_pool }}
-
-# LDAP connection pool size
-pool_size = {{ ldap.pool_size }}
-
-# LDAP connection pool timeout (in seconds)
-pool_timeout = {{ ldap.pool_timeout }}
-
-# LDAP connection pool retry interval (in seconds)
-pool_retry_max = {{ ldap.pool_retry_max }}
-
-# LDAP connection pool retry delay (in seconds)
-pool_connection_retry_interval = {{ ldap.pool_connection_retry_interval }}
-
-{% if ldap.use_tls %}[ldap_tls]
-# Enable start_tls
-start_tls = {{ ldap.use_tls }}
-
-# CA cert bundle path
-ca_cert = {{ ldap.ca_cert }}
-
-# Client cert and key (optional)
-client_cert = {{ ldap.client_cert }}
-client_key = {{ ldap.client_key }}
-
-# TLS cipher suite (optional)
-tls_ciphers = {{ ldap.tls_ciphers }}
-{% endif %}
-
-[oslo_middleware]
-# Maximum request body size (in bytes)
-max_request_body_size = {{ oslo_middleware.max_request_body_size }}
-
-# Enable CORS
-{% if oslo_middleware.enable_cors is defined %}enable_cors = {{ oslo_middleware.enable_cors | lower }}{% endif %}
-
-{% if oslo_middleware.cors_origins %}# Allowed CORS origins (comma-separated)
-cors_origins = {{ oslo_middleware.cors_origins | join(', ') }}{% endif %}
-
-{% if oslo_middleware.cors_headers %}# Allowed CORS headers
-cors_headers = {{ oslo_middleware.cors_headers | join(', ') }}{% endif %}
-
-{% if oslo_middleware.cors_expose_headers %}# Exposed CORS headers
-cors_expose_headers = {{ oslo_middleware.cors_expose_headers | join(', ') }}{% endif %}
-
-[oslo_policy]
-# Policy file path
-policy_file = {{ oslo_policy.policy_file }}
-
-# Policy default rule
-{% if oslo_policy.policy_default_rule %}policy_default_rule = {{ oslo_policy.policy_default_rule }}{% endif %}
-
-{% if oslo_policy.enforce_scope is defined %}# Enforce scope-based policy rules
-enforce_scope = {{ oslo_policy.enforce_scope | lower }}{% endif %}
-
-{% if oslo_policy.enforce_new_defaults is defined %}# Enforce new default policy rules
-enforce_new_defaults = {{ oslo_policy.enforce_new_defaults | lower }}{% endif %}
-
-[signing]
-# Token signing directory (for PKI/PKIZ providers)
-{% if signing.token_dir %}token_dir = {{ signing.token_dir }}{% endif %}
-
-# Certificate authority cert path
-{% if signing.ca_cert %}ca_certs = {{ signing.ca_cert }}{% endif %}
-
-# Signing certificate key path
-{% if signing.certkey %}certfile = {{ signing.certfile }}
-keyfile = {{ signing.certkey }}{% endif %}
-
-[security_compliance]
-# Enable password complexity checks
-{% if security_compliance.password_length is defined %}password_length = {{ security_compliance.password_length }}{% endif %}
-
-{% if security_compliance.password_minimum_age is defined %}password_minimum_age = {{ security_compliance.password_minimum_age }}{% endif %}
-
-{% if security_compliance.password_minimum_character_classes is defined %}password_minimum_character_classes = {{ security_compliance.password_minimum_character_classes }}{% endif %}
-
-{% if security_compliance.password_regex is defined %}password_regex = {{ security_compliance.password_regex }}{% endif %}
-
-{% if security_compliance.password_regex_description is defined %}password_regex_description = {{ security_compliance.password_regex_description }}{% endif %}
-
-{% if security_compliance.password_history_count is defined %}password_history_count = {{ security_compliance.password_history_count }}{% endif %}
-
-{% if security_compliance.lockout_failure_attempts is defined %}lockout_failure_attempts = {{ security_compliance.lockout_failure_attempts }}{% endif %}
-
-{% if security_compliance.lockout_duration is defined %}lockout_duration = {{ security_compliance.lockout_duration }}{% endif %}
-
-[oslo_concurrency]
-# Lock path for process coordination
-lock_path = {{ oslo_concurrency.lock_path }}
-
-[oslo_messaging_notifications]
-# Notification driver (e.g., messaging, messagingv2, log)
-{% if oslo_messaging_notifications.driver %}driver = {{ oslo_messaging_notifications.driver }}{% endif %}
-
-{% if oslo_messaging_notifications.transport_url %}# Messaging transport URL
-transport_url = {{ oslo_messaging_notifications.transport_url }}{% endif %}
-
-# Notification topics
-{% if oslo_messaging_notifications.topics %}topics = {{ oslo_messaging_notifications.topics | join(', ') }}{% endif %}
-
-# Retry policy
-{% if oslo_messaging_notifications.retry %}retry = {{ oslo_messaging_notifications.retry | lower }}{% endif %}
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          keystone
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs
+# Should-Start:      postgresql mysql keystone rabbitmq-server ntp
+# Should-Stop:       postgresql mysql keystone rabbitmq-server ntp
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Keystone API server
+# Description:       Frontend Keystone API server
+### END INIT INFO
+
+# Service name used in logs and notifications.
+DESC="OpenStack Keystone API (keystone)"
+PROJECT_NAME=keystone
+NAME=${PROJECT_NAME}
+# Port on which the Keystone uWSGI server listens.
+UWSGI_PORT={{ keystone_uwsgi_port | default(5000) }}
+UWSGI_INI_PATH=/etc/keystone/keystone-uwsgi.ini
+UWSGI_INI_APP=/usr/bin/keystone-wsgi-public
+#!/bin/sh
+# The content after this line comes from openstack-pkg-tools
+# and has been automatically added to a .init.in script, which
+# contains only the descriptive part for the daemon. Everything
+# else is standardized as a single unique script.
+
+# Author: Thomas Goirand <zigo@debian.org>
+# Author: Ondřej Nový <novy@ondrej.org>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+if [ -n "${UWSGI_PORT}" ] && [ -n "${UWSGI_INI_PATH}" ] && [ -n "${UWSGI_INI_APP}" ] ; then
+	if ! [ -f "${UWSGI_INI_APP}" ] ; then
+		exit 0
+	fi
+	if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
+		KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
+	fi
+
+	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
+		# This is needed for puppet...
+		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
+	else
+		if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
+			CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
+		fi
+	fi
+
+	# Sid doesn't have /usr/bin/uwsgi_python3, so we need
+	# to search for a more specific daemon name. For stretch
+	# /usr/bin/uwsgi_python3 is fine.
+	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
+		if [ -x /usr/bin/uwsgi_python${i} ] ; then
+			DAEMON=/usr/bin/uwsgi_python${i}
+		fi
+	done
+
+	if [ -n "${UWSGI_BIND_CONFIG_FILE}" ] && [ -r "${UWSGI_BIND_CONFIG_FILE}" ] && [ -n "${UWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${UWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
+		. /usr/share/openstack-pkg-tools/pkgos_func
+		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_IP_DIRECTIVE}
+	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_BIND_IP=${RET}
+		fi
+		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}
+	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_PORT=${RET}
+		fi
+		if [ -n "${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
+			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
+		        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				UWSGI_PROCESSES=" --processes ${RET}"
+			else
+				# If we can't find the directive in the config file,
+				# we fallback to the number of thread / 2.
+				UWSGI_PROCESSES=" --processes "$(( $(nproc) / 2 ))
+			fi
+		fi
+		if [ "${UWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
+			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} devices
+			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				DEVICES_PATH=${RET}
+				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
+				COUNT=0
+				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
+					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
+					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
+					COUNT=$(( ${COUNT} + 1 ))
+				done
+			fi
+		fi
+	else
+		UWSGI_BIND_IP=""
+	fi
+
+	if [ -n "${BIND_PARAMS}" ] ; then
+		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
+	else
+		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
+			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
+		else
+			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
+		fi
+	fi
+
+	DAEMON_ARGS="${DAEMON_ARGS} --ini ${UWSGI_INI_PATH}"
+	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
+	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
+fi
+
+if [ -z "${DAEMON}" ] ; then
+	DAEMON=/usr/bin/${NAME}
+fi
+PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
+if [ -z "${SCRIPTNAME}" ] ; then
+	SCRIPTNAME=/etc/init.d/${NAME}
+fi
+if [ -z "${SYSTEM_USER}" ] ; then
+	SYSTEM_USER=${PROJECT_NAME}
+fi
+if [ -z "${SYSTEM_GROUP}" ] ; then
+	SYSTEM_GROUP=${PROJECT_NAME}
+fi
+if [ "${SYSTEM_USER}" != "root" ] ; then
+	STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
+fi
+if [ -z "${CONFIG_FILE}" ] ; then
+	CONFIG_FILE=/etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
+fi
+LOGFILE=/var/log/${PROJECT_NAME}/${NAME}.log
+if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
+	DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
+fi
+
+# Exit if the package is not installed
+[ -x $DAEMON ] || exit 0
+
+# If ran as root, create /var/lock/X, /var/run/X and /var/cache/X as needed
+if [ `whoami` = "root" ] ; then
+	for i in lock run cache ; do
+		mkdir -p /var/$i/${PROJECT_NAME}
+		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
+	done
+fi
+
+# This defines support functions which we use later on
+. /lib/lsb/init-functions
+
+RET=0
+
+# Manage log options: logfile and/or syslog, depending on user's choosing
+[ -r /etc/default/openstack ] && . /etc/default/openstack
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
+if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
+	[ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
+fi
+
+do_start() {
+	start-stop-daemon \
+		--start \
+		--quiet \
+		--background ${STARTDAEMON_CHUID} \
+		--make-pidfile --pidfile ${PIDFILE} \
+		--chdir /var/lib/${PROJECT_NAME} \
+		--startas $DAEMON \
+		--test > /dev/null \
+		|| return 1
+	if [ -n "${PYARGV}" ] ; then
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/${PROJECT_NAME} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS --pyargv "${PYARGV}" \
+			|| return 2
+	else
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/${PROJECT_NAME} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS \
+			|| return 2
+	fi
+}
+
+do_stop() {
+	start-stop-daemon \
+		--stop \
+		--quiet \
+		--retry=TERM/30/KILL/5 \
+		--pidfile $PIDFILE
+	RETVAL=$?
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+do_systemd_start() {
+	# Set umask to ensure log files are created with 0644 mode bits
+	# Note we can't set 0026 to have files 0640, because that's going
+	# to be in use in for example neutron-dhcp-agent, which makes it
+	# so it wont be able to read /var/lib/neutron/external/pids/*.pid.haproxy
+	# and then fail hardly. However, 0022 is enough, since the log
+	# folders are owned by <project>:adm, so users don't have access
+	# to it unless they are on the adm group, which is what we want.
+	umask 0022
+	if [ -n "${PYARGV}" ] ; then
+		exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
+	else
+		exec $DAEMON $DAEMON_ARGS
+	fi
+}
+
+case "$1" in
+start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+status)
+	status_of_proc "$DAEMON" "$NAME"
+	RET=$?
+;;
+systemd-start)
+	do_systemd_start
+;;  
+show-args)
+	if [ -n "${PYARGV}" ] ; then
+		echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}\"
+	else
+		echo $DAEMON $DAEMON_ARGS
+	fi
+;;
+restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1)
+			do_start
+			case $? in
+				0) log_end_msg 0 ; RET=$? ;;
+				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
+				*) log_end_msg 1 ; RET=$? ;; # Failed to start
+			esac
+		;;
+		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
+	esac
+;;
+*)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
+	RET=3
+;;
+esac
+
+exit $RET

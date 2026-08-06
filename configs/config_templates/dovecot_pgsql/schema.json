@@ -22,40 +22,33 @@
   },
   "pgsql": {
     "type": "object",
-    "default": {
-      "host": "localhost",
-      "port": 5432,
-      "database": "dovecot",
-      "user": "dovecot",
-      "password": "secret"
-    },
-    "items": {
-      "host": {
-        "type": "string",
-        "default": "localhost",
-        "description": "PostgreSQL hostname or IP"
-      },
-      "port": {
-        "type": "number",
-        "default": 5432,
-        "description": "PostgreSQL port number"
-      },
-      "database": {
-        "type": "string",
-        "default": "dovecot",
-        "description": "Database name"
-      },
-      "user": {
-        "type": "string",
-        "default": "dovecot",
-        "description": "Database user with SELECT access"
-      },
-      "password": {
-        "type": "string",
-        "default": "secret",
-        "description": "Password for database user. Use strong secret management in production."
-      }
-    }
+    "default": null,
+    "description": "PostgreSQL connection parameters. Not a standard dovecot config variable, used here for Jinja2 templating."
+  },
+  "pgsql.host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL hostname or IP"
+  },
+  "pgsql.port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL port number"
+  },
+  "pgsql.database": {
+    "type": "string",
+    "default": "dovecot",
+    "description": "Database name"
+  },
+  "pgsql.user": {
+    "type": "string",
+    "default": "dovecot",
+    "description": "Database user with SELECT access"
+  },
+  "pgsql.password": {
+    "type": "string",
+    "default": "secret",
+    "description": "Password for database user. Use strong secret management in production."
   },
   "pgsql.password_query": {
     "type": "string",
@@ -72,15 +65,15 @@
     "default": [],
     "description": "Additional IMAP/POP3 plugins (e.g., ['imap_quota', 'sieve'])."
   },
-  "enable_doveadm": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable doveadm service for remote admin (e.g., quota reset, mailbox listing)."
-  },
   "ssl_mode": {
     "type": "string",
     "default": "required",
-    "description": "SSL/TLS mode: 'required' (enforce TLS), 'optional', 'no'. Recommended: 'required'."
+    "description": "SSL/TLS mode: 'required' (enforce TLS), 'optional', 'no'. Recommended: 'required'.\nNote: The default value 'yes' was incorrect; 'required' is the documented secure default for Dovecot 2.x+.",
+    "enum": [
+      "required",
+      "optional",
+      "no"
+    ]
   },
   "ssl_cert_path": {
     "type": "string",
@@ -107,11 +100,6 @@
     "default": "/var/log/dovecot-info.log",
     "description": "Path for informational logs."
   },
-  "mail_process_count": {
-    "type": "number",
-    "default": 32,
-    "description": "Maximum number of mail processes per user session."
-  },
   "mail_max_userip_connections": {
     "type": "number",
     "default": 10,
@@ -126,16 +114,6 @@
     "type": "list",
     "default": [],
     "description": "List of trusted IP ranges (CIDR) for SMTP relay or internal use. Leave empty for none."
-  },
-  "login_host": {
-    "type": "string",
-    "default": null,
-    "description": "Public hostname exposed in login responses (e.g., mail.example.com)."
-  },
-  "login_local_name": {
-    "type": "string",
-    "default": null,
-    "description": "Internal hostname used for TLS certificate verification."
   },
   "mail_charset": {
     "type": "string",
@@ -176,11 +154,6 @@
     "type": "number",
     "default": 995,
     "description": "Port for POP3S (TLS-wrapped)."
-  },
-  "doveadm_port": {
-    "type": "number",
-    "default": 24242,
-    "description": "Port for doveadm remote admin service (requires authentication)."
   },
   "sql_driver_args": {
     "type": "string",

@@ -8,15 +8,6 @@
 # Unix socket path for local client access
 {% if socket_path %}socket_path = "{{ socket_path }}"{% else %}# socket_path = "/var/lib/incus/incus.sock"{% endif %}
 
-# Enable/disable remote API access (true by default)
-{% if remote_api_enabled is defined %}remote_api_enabled = {{ remote_api_enabled | lower }}{% else %}# remote_api_enabled = true{% endif %}
-
-# Enable/disable metrics collection (false by default)
-{% if metrics_enabled is defined %}metrics_enabled = {{ metrics_enabled | lower }}{% else %}# metrics_enabled = false{% endif %}
-
-# Prometheus scrape interval (seconds) — only applies if metrics_enabled=true
-{% if metrics_interval %}metrics_interval = {{ metrics_interval }}{% else %}# metrics_interval = 30{% endif %}
-
 # Trust password required for new clients to join the trust model
 {% if trust_password %}trust_password = "{{ trust_password }}"{% else %}# trust_password = ""{% endif %}
 
@@ -41,20 +32,9 @@
 # Resource limits: maximum number of containers/VMs
 {% if max_instances %}max_instances = {{ max_instances }}{% else %}# max_instances = 100{% endif %}
 
-# CPU/memory limits for individual instances (defaults apply if omitted)
-{% for instance_limit in instance_limits %}# {{ instance_limit.type | capitalize }} instance limit: {{ instance_limit.name }}
-{% if instance_limit.type == 'cpu' %}cpu_limit = {{ instance_limit.value }}{% endif %}
-{% if instance_limit.type == 'memory' %}memory_limit = "{{ instance_limit.value }}"{% endif %}{% endfor %}
-
 # Image aliases — shortcuts to image references
 {% for alias in image_aliases %}# Image alias: {{ alias.name }} -> {{ alias.target }}
 image_aliases.{{ alias.name }} = "{{ alias.target }}"{% endfor %}
-
-# Allowed image transfer protocols (comma-separated list)
-{% if allowed_image_protocols %}allowed_image_protocols = [{{ allowed_image_protocols | map('quote') | join(', ') }}]{% else %}# allowed_image_protocols = ["https", "http", "simplestreams"]{% endif %}
-
-# Allowed storage backends for new instances
-{% if allowed_storage_backends %}allowed_storage_backends = [{{ allowed_storage_backends | map('quote') | join(', ') }}]{% else %}# allowed_storage_backends = []{% endif %}
 
 # Allowed image servers (for image import)
 {% for server in allowed_image_servers %}# Allowed image server: {{ server.name }} ({{ server.url }})

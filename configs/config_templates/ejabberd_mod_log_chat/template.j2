@@ -1,25 +1,41 @@
-# Enable the chat logging module
-modules:
-  mod_log_chat: "{{ mod_log_chat.module_path | default('mod_log_chat') }}"
+# ==============================================================================
+# ejabberd_mod_log_chat — Chat Logging Module Configuration
+# ==============================================================================
+# This template configures the `mod_log_chat` module for ejabberd.
+# It controls where XMPP chat transcripts are stored and in what format.
+# ==============================================================================
 
-# Log format: "text" or "html"
+# ------------------------------------------------------------------------------
+# Module Registration
+# ------------------------------------------------------------------------------
+# The fully-qualified Erlang module name for the chat logging functionality.
+# Rarely changed; usually left as the default 'mod_log_chat'.
+modules:
+  # Field: module_path
+  # Default: mod_log_chat
+  # Desc: Fully-qualified Erlang module name for the chat logging module (rarely changed).
+  mod_log_chat: "{{ (mod_log_chat | default({})).module_path | default('mod_log_chat') }}"
+
+# ------------------------------------------------------------------------------
+# Logging Parameters
+# ------------------------------------------------------------------------------
+# Configuration block for the specific behaviors of mod_log_chat.
 mod_log_chat:
-  # Directory where log files are stored
-  log_dir: "{{ log_dir }}"
-  # Format of the log files (text or html)
-  format: "{{ format }}"
-  # Maximum number of days to keep logs (0 = keep forever)
-  max_days: {{ max_days }}
-  # Whether to log room (MUC) chats
-  muc_log: {{ muc_log | lower }}
-  # Whether to log private one-on-one chats
-  private_log: {{ private_log | lower }}
-  # Whether to compress old logs with gzip
-  compress: {{ compress | lower }}
-  # Log file permissions (octal string)
-  file_mode: "{{ file_mode }}"
-  # Optional prefix for log filenames (e.g., "chat-")
-  file_prefix: "{{ file_prefix }}"
-  # Log only from specific virtual hosts (empty = all vhosts)
+  # Field: log_dir
+  # Default: /var/log/ejabberd/chat
+  # Desc: Directory where chat log files are stored. Must be writable by the ejabberd process.
+  log_dir: "{{ log_dir | default('/var/log/ejabberd/chat') }}"
+
+  # Field: format
+  # Default: text
+  # Desc: Format of log files. Choose 'text' for plain text or 'html' for styled web-readable logs.
+  format: "{{ format | default('text') }}"
+
+  # Field: vhosts
+  # Default: []
+  # Desc: List of XMPP virtual hosts (domains) to log chat for. Leave empty to log all vhosts.
   vhosts:
-{% for vhost in vhosts %}    - "{{ vhost }}"{% endfor %}
+  {# Iterate over the list of virtual hosts. If empty, this block produces no entries. #}
+  {% for vhost in (vhosts | default([])) %}
+    - "{{ vhost }}"
+  {% endfor %}

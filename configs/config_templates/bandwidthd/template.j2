@@ -1,56 +1,9 @@
-# BandwidthD configuration file
-# Enables logging to syslog
-# Logs to /var/log/bandwidthd.log
-# Stores tracked data in /var/lib/bandwidthd/track
-# Stores HTML output in /var/www/html/bandwidthd
-# Configures how long data is retained (in days)
-# Sets the number of days to retain graphs
-# Enables/disables graphing of subnet traffic
-# Enables/disables HTTP daemon for web interface
-# Sets HTTP daemon port
-# Sets HTTP daemon listen address
-# Enables/disables HTTPS for web interface
-# Sets HTTPS port (if enabled)
-# Sets the maximum number of peers to track
-# Sets the maximum number of subnets to track
-# Sets the network interfaces to monitor
-# Enables/disables CIDR-based subnet aggregation
-# Enables/disables quiet mode (suppresses stdout)
-# Sets the prefix for HTML output filenames
-# Sets the time between graph updates (in seconds)
-# Sets the maximum bandwidth to graph (in kbps)
-# Sets the minimum bandwidth to graph (in kbps)
-# Enables/disables logging of packet rates (not just bytes)
-# Sets the maximum number of bytes to track before resetting counter (0 = unlimited)
-# Enables/disables tracking of UDP traffic
-# Enables/disables tracking of ICMP traffic
-# Enables/disables tracking of other IP protocols
+# Document root directory for the built-in HTTP server of bandwidthd.
+# Default: /var/lib/bandwidthd/htdocs
+<Directory {{ htdocs_dir | default('/var/lib/bandwidthd/htdocs') }}>
+    Options +FollowSymLinks
+    Require all granted
+</Directory>
 
-pidfile "/var/run/bandwidthd/bandwidthd.pid"
-log_file "/var/log/bandwidthd.log"
-stat_file "/var/lib/bandwidthd/track/bandwidthd.dat"
-graph_dir "/var/www/html/bandwidthd"
-graph_span {{ graph_span_days }}
-graph_days {{ retention_days }}
-subnet_graph {{ subnet_graph_enabled }}
-httpd {{ httpd_enabled }}
-httpd_port {{ httpd_port }}
-httpd_listen "{{ httpd_listen }}"
-https {{ https_enabled }}
-https_port {{ https_port }}
-peer_count {{ max_peers }}
-subnet_count {{ max_subnets }}
-{% for iface in interfaces %}
-device "{{ iface.name }}"
-{% endfor %}
-cidr {{ cidr_aggregation_enabled }}
-quiet {{ quiet_mode }}
-prefix "{{ output_filename_prefix }}"
-update_interval {{ update_interval_seconds }}
-max_bandwidth_kbps {{ max_graph_bandwidth_kbps }}
-min_bandwidth_kbps {{ min_graph_bandwidth_kbps }}
-rate {{ log_packet_rates }}
-max_bytes {{ max_bytes_before_reset }}
-udp {{ track_udp }}
-icmp {{ track_icmp }}
-others {{ track_other_protocols }}
+# Alias the /bandwidthd URL path to the document root directory.
+Alias /bandwidthd {{ htdocs_dir | default('/var/lib/bandwidthd/htdocs') }}/

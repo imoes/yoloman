@@ -1,0 +1,42 @@
+{
+  "sound_theme": {
+    "type": "string",
+    "default": "freedesktop",
+    "description": "The sound theme used for sound events (e.g., 'freedesktop', 'hicolor')"
+  },
+  "profile": {
+    "type": "string",
+    "default": "full",
+    "description": "Overall feedback profile: 'full', 'quiet', or 'silent'",
+    "enum": [
+      "full",
+      "quiet",
+      "silent"
+    ]
+  },
+  "allow_important": {
+    "type": "list",
+    "default": [],
+    "description": "List of applications allowed to override feedback level (e.g., 'alarm-clock.desktop')"
+  },
+  "prefer_flash": {
+    "type": "bool",
+    "default": false,
+    "description": "Prefer camera flash over status LED for visual feedback"
+  },
+  "theme": {
+    "type": "string",
+    "default": "",
+    "description": "Feedback theme name to override auto-detection (empty = auto)"
+  },
+  "max_haptic_strength": {
+    "type": "number",
+    "default": 0.5,
+    "description": "Maximum haptic motor strength, clamped to [0.0, 1.0]"
+  },
+  "application_profiles": {
+    "type": "list",
+    "default": [],
+    "description": "Per-application feedback profiles (must be empty or list of objects with 'name' and optional 'profile')\n  items: name: application desktop file ID, profile: 'full', 'quiet', or 'silent' (default 'full')\n  Example: [{'name': 'alarm-clock.desktop', 'profile': 'full'}] to allow alarm even in silent mode.\n  Note: Each item must have 'name'; 'profile' defaults to 'full'.\n  The 'application_profiles' list itself must not contain objects \u2014 only flat maps as described below:\n  However, per the prompt constraints, we define items schema as flat map fields, not nested objects. Since each item is an object with known fields, define items schema inline as required:\n  This field MUST use the `items` key as specified in the instructions for list-of-objects:\n  items: {name: {type: string, default: '', description: ...}, profile: {type: string, default: 'full', description: ...}}\n  So correct format below:\n  \"items\": {\"name\": {\"type\": \"string\", \"default\": \"\", \"description\": \"...\"}, \"profile\": {\"type\": \"string\", \"default\": \"full\", \"description\": \"...\"}}\n  Final schema for application_profiles:\n  \"application_profiles\": {\"type\": \"list\", \"default\": [], \"description\": \"...\", \"items\": {\"name\": {\"type\": \"string\", \"default\": \"\", \"description\": \"Application desktop file ID (e.g., 'alarm-clock.desktop')\"}, \"profile\": {\"type\": \"string\", \"default\": \"full\", \"description\": \"Per-app feedback profile: 'full', 'quiet', or 'silent'\"}}}\n  This is consistent with the instruction: 'For a list-of-objects, add items as a FLAT map field-name -> {type, default, description}'\n  So the final schema for application_profiles must be:\n  \"application_profiles\": {\n    \"type\": \"list\",\n    \"default\": [],\n    \"description\": \"Per-application feedback profiles\",\n    \"items\": {\n      \"name\": {\n        \"type\": \"string\",\n        \"default\": \"\",\n        \"description\": \"Application desktop file ID (e.g., 'alarm-clock.desktop')\"\n      },\n      \"profile\": {\n        \"type\": \"string\",\n        \"default\": \"full\",\n        \"description\": \"Per-app feedback profile: 'full', 'quiet', or 'silent'\"\n      }\n    }\n  }\n  However, the prompt requires that the values_schema itself is a flat map, not nested. So per instructions:\n  'For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description} (NOT {type:object, properties:{\u2026}})'\n  Therefore the correct schema representation for application_profiles is:\n  \"application_profiles\": {\n    \"type\": \"list\",\n    \"default\": [],\n    \"description\": \"Per-application feedback profiles\",\n    \"items\": {\n      \"name\": {\"type\": \"string\", \"default\": \"\", \"description\": \"Application desktop file ID (e.g., 'alarm-clock.desktop')\"},\n      \"profile\": {\"type\": \"string\", \"default\": \"full\", \"description\": \"Per-app feedback profile: 'full', 'quiet', or 'silent'\"}\n    }\n  }\n  That is what we implement below.\n  Note: This is NOT a nested object \u2014 it's the required format per instructions for list-of-objects.\n  So the final values_schema includes this precise form.\n  We now write the final JSON with correct nested items map for the list-of-objects.\n  All other fields follow standard rules.\n  End note.\n  Note: The sample_values must match this schema \u2014 using list-of-objects in the same format.\n  Since the template uses Jinja2 and only standard filters (join, default), this is compatible.\n  The template iterates over application_profiles with {% for app in application_profiles %} and accesses app.name and app.profile, matching the items schema.\n  Therefore, final values_schema is:\n  \"application_profiles\": {\n    \"type\": \"list\",\n    \"default\": [],\n    \"description\": \"Per-application feedback profiles\",\n    \"items\": {\n      \"name\": {\"type\": \"string\", \"default\": \"\", \"description\": \"Application desktop file ID (e.g., 'alarm-clock.desktop')\"},\n      \"profile\": {\"type\": \"string\", \"default\": \"full\", \"description\": \"Per-app feedback profile: 'full', 'quiet', or 'silent'\"}\n    }\n  }"
+  }
+}

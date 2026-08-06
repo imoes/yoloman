@@ -1,59 +1,123 @@
-[# Global settings]
-port = {{ server_port }}
-# Enable/disable server (1=enabled, 0=disabled)
-enabled = {{ server_enabled }}
-# Log file path (empty string for stderr)
-log_file = {{ log_file }}
-# Logging verbosity level (0=silent, 1=errors only, 2=warnings+errors, 3=info+, 4=debug)
-log_level = {{ log_level }}
+# ==============================================================================
+# GKrellMD Configuration Template
+# ==============================================================================
+# This file configures the gkrellmd daemon, the network server component of
+# gkrellm (a remote system monitor). It handles listening ports, authentication,
+# logging, SSL, plugins, and alerting mechanisms.
+# ==============================================================================
+
+[# Global Settings]
+
+# TCP port on which gkrellmd listens for client connections
+# Default: 19100
+port = {{ server_port | default(19100) }}
+
+# Whether the gkrellmd server should be active
+# 1 = enabled, 0 = disabled
+# Default: True
+enabled = {{ server_enabled | default(true) | ternary(1, 0) }}
+
+# Path to log file. Use empty string to log to stderr.
+# Default: '/var/log/gkrellmd.log'
+log_file = {{ log_file | default('/var/log/gkrellmd.log') }}
+
+# Logging verbosity: 0=silent, 1=errors only, 2=warnings+errors, 3=info+, 4=debug
+# Default: 2
+log_level = {{ log_level | default(2) }}
 
 [# Authentication]
-# Require authentication (1=enabled, 0=disabled)
-auth_required = {{ auth_required }}
-# Comma-separated list of usernames with full access
-admins = {{ admins | join(', ') }}
-# Comma-separated list of usernames with read-only access
-viewers = {{ viewers | join(', ') }}
 
-[# SSL/TLS (optional)]
-# Enable SSL (1=enabled, 0=disabled)
-ssl_enabled = {{ ssl_enabled }}
-# SSL certificate chain file
-ssl_cert = {{ ssl_cert }}
-# SSL private key file
-ssl_key = {{ ssl_key }}
-# CA certificate for client verification (optional)
-ssl_ca_cert = {{ ssl_ca_cert }}
+# Require username/password authentication for client connections
+# 1 = enabled, 0 = disabled
+# Default: True
+auth_required = {{ auth_required | default(true) | ternary(1, 0) }}
 
-[# Server binding]
-# Bind to specific hostname/IP (empty = all interfaces)
-bind_hostname = {{ bind_hostname }}
+# List of usernames with full (admin) privileges
+# Admins can change settings and restart the server.
+# Default: ['admin']
+admins = {{ admins | default(['admin']) | join(', ') }}
 
-[# Client session timeout (seconds)]
-timeout = {{ timeout }}
+# List of usernames with read-only (viewer) privileges
+# Viewers can only see monitor data.
+# Default: []
+viewers = {{ viewers | default([]) | join(', ') }}
 
-[# Plugins and monitoring]
-# Comma-separated list of plugin modules to load (plugin names)
-plugins = {{ plugins | join(', ') }}
+[# SSL/TLS Configuration]
 
-[# Disk monitoring options]
-# Comma-separated list of disk devices to monitor explicitly (leave empty for auto)
-disks = {{ disks | join(', ') }}
+# Enable SSL/TLS encryption for server connections
+# 1 = enabled, 0 = disabled
+# Default: False
+ssl_enabled = {{ ssl_enabled | default(false) | ternary(1, 0) }}
 
-[# SNMP monitoring (optional)]
-# Enable SNMP (1=enabled, 0=disabled)
-snmp_enabled = {{ snmp_enabled }}
-# SNMP community string (use 'public' for default read-only)
-snmp_community = {{ snmp_community }}
+# Path to SSL certificate file
+# Required if ssl_enabled is True.
+# Default: '/etc/ssl/gkrellmd.crt'
+ssl_cert = {{ ssl_cert | default('/etc/ssl/gkrellmd.crt') }}
 
-[# Mail alerts (optional)]
-# Comma-separated list of recipient email addresses
-mail_recipients = {{ mail_recipients | join(', ') }}
-# SMTP server hostname
-mail_server = {{ mail_server }}
-# SMTP port (default 25)
-mail_port = {{ mail_port }}
-# Enable TLS for SMTP (1=enabled, 0=disabled)
-mail_tls = {{ mail_tls }}
-# Sender email address
-mail_from = {{ mail_from }}
+# Path to SSL private key file
+# Required if ssl_enabled is True.
+# Default: '/etc/ssl/gkrellmd.key'
+ssl_key = {{ ssl_key | default('/etc/ssl/gkrellmd.key') }}
+
+# Path to CA certificate for client verification
+# Leave empty to disable client certificate authentication.
+# Default: ''
+ssl_ca_cert = {{ ssl_ca_cert | default('') }}
+
+[# Server Binding]
+
+# Host/IP to bind to. Empty string binds to all interfaces.
+# Default: ''
+bind_hostname = {{ bind_hostname | default('') }}
+
+[# Client Session Timeout]
+
+# Client session timeout in seconds
+# Clients inactive for this duration will be disconnected.
+# Default: 300
+timeout = {{ timeout | default(300) }}
+
+[# Plugins and Monitoring]
+
+# List of plugin modules to load (e.g., 'core' for built-in monitor)
+# Default: ['core']
+plugins = {{ plugins | default(['core']) | join(', ') }}
+
+# List of specific disk device names to monitor
+# Empty list implies auto-detection of all available disks.
+# Default: []
+disks = {{ disks | default([]) | join(', ') }}
+
+[# SNMP Monitoring]
+
+# Enable SNMP monitoring of remote hosts
+# 1 = enabled, 0 = disabled
+# Default: False
+snmp_enabled = {{ snmp_enabled | default(false) | ternary(1, 0) }}
+
+# SNMP community string for read-only access
+# Default: 'public'
+snmp_community = {{ snmp_community | default('public') }}
+
+[# Mail Alerts]
+
+# List of email addresses to receive alerts
+# Default: []
+mail_recipients = {{ mail_recipients | default([]) | join(', ') }}
+
+# SMTP server hostname for sending alert emails
+# Default: 'localhost'
+mail_server = {{ mail_server | default('localhost') }}
+
+# SMTP server port
+# Default: 25
+mail_port = {{ mail_port | default(25) }}
+
+# Use STARTTLS for SMTP connection
+# 1 = enabled, 0 = disabled
+# Default: False
+mail_tls = {{ mail_tls | default(false) | ternary(1, 0) }}
+
+# Sender email address for alerts
+# Default: 'gkrellmd@localhost'
+mail_from = {{ mail_from | default('gkrellmd@localhost') }}

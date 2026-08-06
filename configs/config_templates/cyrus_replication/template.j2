@@ -1,31 +1,55 @@
 # Cyrus Replication Service configuration
-# Enable replication-related services
-# Format: <service> <type> <command> [args]
+# This template generates the cyrus.conf (or similar supervisor config) for managing
+# Cyrus IMAP replication services, along with optional TLS and debug settings.
 
-# Standalone services
-{% for svc in services %}{{ svc.name }}	{{ svc.type }}	{{ svc.command }}{% if svc.args %} {{ svc.args | join(' ') }}{% endif %}
+# ==============================================================================
+# Services Section
+# Description: List of Cyrus replication services to start. Each object defines
+#              the service name, type (e.g. 'unix' or 'cmd'), command to run,
+#              and optional arguments.
+# Format: <service_name> <type> <command> [args...]
+# ==============================================================================
+{% for svc in services | default([
+  {'name': 'replica', 'type': 'cmd', 'command': 'cyrus replicator', 'args': ['-C', '/etc/imapd.conf']},
+  {'name': 'replicator-manager', 'type': 'cmd', 'command': 'cyrus replicator-manager', 'args': []}
+]) %}
+{{ svc.name | default('unknown-service') }}	{{ svc.type | default('cmd') }}	{{ svc.command | default('') }}{% if svc.args is iterable and (svc.args | first) is not string %} {{ svc.args | join(' ') }}{% endif %}
 {% endfor %}
 
-# Standard cyrus.conf includes for replication
-# These ensure replication daemons start after master services
-# See also: /etc/imapd.conf for replication settings
+# ==============================================================================
+# TLS Configuration
+# Description: Secure replication connections between master and replica servers
+#              using TLS. If enabled, the following certificate paths are used.
+# ==============================================================================
+{% if tls_enabled | default(False) %}
+# TLS support for replication connections is enabled.
+# CA Certificate Bundle: Used to verify the identity of the master/replica peers.
+TLS_CA_FILE	{{ tls_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
 
-# Service: master replication daemon (cyrus master) — handles replication coordination
-# Service: replicator daemon (cyrus replicator) — applies changes from master to replica
-# Service: replicator manager (cyrus replicator-manager) — monitors replicator health
-# Service: replnotify service (if enabled) — triggers notifications on replication events
+# TLS Certificate: The server's certificate presented during TLS handshake.
+TLS_CERT_FILE	{{ tls_cert_file | default('/etc/cyrus/tls/replica.crt') }}
 
-# Optional: TLS and auth hooks (if used)
-{% if tls_enabled %}
-# TLS support for replication connections
-TLS_CA_FILE	{{ tls_ca_file }}
-TLS_CERT_FILE	{{ tls_cert_file }}
-TLS_KEY_FILE	{{ tls_key_file }}
+# TLS Private Key: The private key corresponding to tls_cert_file.
+TLS_KEY_FILE	{{ tls_key_file | default('/etc/cyrus/tls/replica.key') }}
+{% else %}
+# TLS is disabled. Replication traffic may be unencrypted.
+# To enable, set tls_enabled to true and provide valid certificate paths.
 {% endif %}
 
-# Replication-specific logging verbosity
-{% if debug_enabled %}
+# ==============================================================================
+# Debugging / Logging Verbosity
+# Description: Enable verbose debugging output in logs for troubleshooting
+#              replication issues. 1=verbose, 0=normal.
+# ==============================================================================
+{% if debug_enabled | default(False) %}
 DEBUG	1
 {% else %}
 DEBUG	0
 {% endif %}
+
+# ==============================================================================
+# Notes
+# - Standard cyrus.conf includes for replication are assumed to be handled
+#   by the service manager or included configuration files.
+# - See also /etc/imapd.conf for replication-specific IMAP settings (replica master/replica slave).
+# ==============================================================================

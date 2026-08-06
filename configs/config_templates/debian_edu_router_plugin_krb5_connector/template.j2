@@ -1,93 +1,184 @@
-# Enable or disable the Kerberos connector plugin
-enabled = {{ enabled }}
+# =============================================================================
+# Kerberos Connector Plugin Configuration
+# =============================================================================
+# This file configures the Kerberos connector plugin for the Debian Edu router.
+# It manages authentication, KDC connectivity, LDAP integration, and TLS settings.
+# See the schema description for each field for detailed semantics.
 
-# Path to the Kerberos configuration file (krb5.conf)
-krb5_conf = {{ krb5_conf }}
+# -- Core Plugin Settings -----------------------------------------------------
 
-# Path to the keytab file used for service principal authentication
-keytab_path = {{ keytab_path }}
+# Toggle the Kerberos connector plugin on or off.
+# Default: True
+enabled = {{ enabled | default(true) }}
 
-# Kerberos service principal (e.g., HTTP/router.example.com@REALM)
-service_principal = {{ service_principal }}
+# Path to the main Kerberos configuration file (krb5.conf).
+# This file is often managed by the system's krb5-user package.
+# Default: /etc/krb5.conf
+krb5_conf = {{ krb5_conf | default('/etc/krb5.conf') }}
 
-# Realm to use for Kerberos authentication
-realm = {{ realm }}
+# Path to the Kerberos keytab file used by the service.
+# The service account must have read permissions on this file.
+# Default: /etc/krb5kdc/service.keytab
+keytab_path = {{ keytab_path | default('/etc/krb5kdc/service.keytab') }}
 
-# KDC server hostname(s); multiple entries supported for redundancy
-{% for kdc in kdcs %}kdc = {{ kdc.host }}{% if kdc.port %}:{{ kdc.port }}{% endif %}
+# The Kerberos service principal for this router.
+# Format: service/hostname@REALM
+# Default: HTTP/router.example.com@EXAMPLE.COM
+service_principal = {{ service_principal | default('HTTP/router.example.com@EXAMPLE.COM') }}
+
+# The Kerberos realm this connector serves.
+# This should match the realm configured in krb5.conf and the principal above.
+# Default: EXAMPLE.COM
+realm = {{ realm | default('EXAMPLE.COM') }}
+
+# -- KDC (Key Distribution Center) Configuration ------------------------------
+
+# List of KDC servers. At least one is required; ports are optional (default 88).
+# Format: host:port or just host.
+{% for kdc in kdcs | default([{'host': 'kdc.example.com', 'port': None}]) %}
+kdc = {{ kdc.host }}{% if kdc.port %}:{{ kdc.port }}{% endif %}
 {% endfor %}
 
-# Admin server hostname (used for administrative operations like password changes)
-admin_server = {{ admin_server.host }}{% if admin_server.port %}:{{ admin_server.port }}{% endif %}
+# Kerberos administration server for realm management (e.g., password changes).
+# Format: host:port or just host.
+# Default: {'host': 'kdc.example.com', 'port': None}
+{% set _admin_server = admin_server | default({'host': 'kdc.example.com', 'port': None}) %}
+admin_server = {{ _admin_server.host }}{% if _admin_server.port %}:{{ _admin_server.port }}{% endif %}
 
-# Default ticket lifetime in hours
-default_lifetime = {{ default_lifetime }}
+# -- Ticket Lifetime Settings -------------------------------------------------
 
-# Maximum renewable ticket lifetime in hours
-max_renewable_lifetime = {{ max_renewable_lifetime }}
+# Default ticket lifetime in hours (must be ≥ 1).
+# Determines how long initial tickets are valid without renewal.
+# Default: 24
+default_lifetime = {{ default_lifetime | default(24) }}
 
-# Enable or disable DNS-based realm discovery (uses _kerberos.*._tcp SRV records)
-enable_dns_realms = {{ enable_dns_realms }}
+# Maximum renewable ticket lifetime in hours (must be ≥ default_lifetime).
+# Determines the maximum total lifespan of a renewable ticket.
+# Default: 168
+max_renewable_lifetime = {{ max_renewable_lifetime | default(168) }}
 
-# Enable or disable canonicalization of hostnames in principal names
-canonicalize = {{ canonicalize }}
+# -- Discovery and Canonicalization -------------------------------------------
 
-# Logging level: INFO, DEBUG, WARN, ERROR
-log_level = {{ log_level }}
+# Enable DNS SRV record lookups for realm discovery.
+# If enabled, the plugin will query DNS for _kerberos._tcp.REALM records.
+# Default: False
+enable_dns_realms = {{ enable_dns_realms | default(false) }}
 
-# Log file path (use 'syslog' for system logging)
-log_file = {{ log_file }}
+# Canonicalize hostnames in principal names (e.g., resolve CNAMEs).
+# Ensures consistent principal matching regardless of DNS aliases.
+# Default: True
+canonicalize = {{ canonicalize | default(true) }}
 
-# LDAP server(s) for Kerberos principal lookups (e.g., if using LDAP backend)
-{% for ldap in ldaps %}ldap_server = ldap://{{ ldap.host }}{% if ldap.port %}:{{ ldap.port }}{% endif %}
+# -- Logging ------------------------------------------------------------------
+
+# Logging verbosity for the plugin.
+# Options: DEBUG, INFO, WARN, ERROR
+# Default: INFO
+log_level = {{ log_level | default('INFO') }}
+
+# Path to plugin log file. Use 'syslog' to send logs to system logger.
+# Default: /var/log/krb5-connector.log
+log_file = {{ log_file | default('/var/log/krb5-connector.log') }}
+
+# -- LDAP Integration (Optional) ----------------------------------------------
+
+# Optional list of LDAP servers for principal/user lookup (e.g., in distributed deployments).
+# Format: host:port
+{% for ldap in ldaps | default([]) %}
+ldap_server = ldap://{{ ldap.host }}{% if ldap.port %}:{{ ldap.port }}{% endif %}
 {% endfor %}
 
-# LDAP bind DN and optional password file (for non-anonymous binds)
-ldap_bind_dn = {{ ldap_bind_dn }}
-ldap_bind_password_file = {{ ldap_bind_password_file }}
+# DN to bind as for LDAP (empty for anonymous bind).
+# If empty, anonymous binds are used for searches.
+# Default: '' (empty string)
+ldap_bind_dn = {{ ldap_bind_dn | default('') }}
 
-# LDAP search base for user/principal lookups
-ldap_search_base = {{ ldap_search_base }}
+# Path to file containing LDAP bind password (if used).
+# The file must be readable only by the service account.
+# Default: /etc/krb5-connector/ldap_bind_password
+ldap_bind_password_file = {{ ldap_bind_password_file | default('/etc/krb5-connector/ldap_bind_password') }}
 
-# LDAP filter for user principal lookup (e.g., (krbPrincipalName=%u))
-ldap_user_filter = {{ ldap_user_filter }}
+# LDAP search base for user/principal entries.
+# Example: dc=example,dc=com
+# Default: dc=example,dc=com
+ldap_search_base = {{ ldap_search_base | default('dc=example,dc=com') }}
 
-# Enable or disable certificate-based authentication (for HTTPS to KDC/LDAP)
-enable_tls = {{ enable_tls }}
+# LDAP filter for user lookup. %u will be replaced by the principal name.
+# Default: (krbPrincipalName=%u)
+ldap_user_filter = {{ ldap_user_filter | default('(krbPrincipalName=%u)') }}
 
-# Path to CA certificate bundle for TLS verification
-ca_cert_path = {{ ca_cert_path }}
+# -- TLS / Certificate Settings -----------------------------------------------
 
-# Client certificate and key (optional, for mutual TLS)
-client_cert_path = {{ client_cert_path }}
-client_key_path = {{ client_key_path }}
+# Enable TLS encryption for LDAP/KDC connections where supported.
+# Default: True
+enable_tls = {{ enable_tls | default(true) }}
 
-# Enable or disable OCSP/CRL validation for TLS certificates
-verify_tls = {{ verify_tls }}
+# Path to CA certificate bundle for TLS trust validation.
+# Used to verify the identity of KDC and LDAP servers.
+# Default: /etc/ssl/certs/ca-certificates.crt
+ca_cert_path = {{ ca_cert_path | default('/etc/ssl/certs/ca-certificates.crt') }}
 
-# Maximum number of concurrent connections to Kerberos services
-max_connections = {{ max_connections }}
+# Optional client certificate for mutual TLS (PEM format).
+# Required if the KDC/LDAP server requires client authentication.
+# Default: '' (empty string)
+client_cert_path = {{ client_cert_path | default('') }}
 
-# Connection timeout in seconds
-connect_timeout = {{ connect_timeout }}
+# Optional client private key for mutual TLS (PEM format).
+# Corresponding to client_cert_path.
+# Default: '' (empty string)
+client_key_path = {{ client_key_path | default('') }}
 
-# Request timeout in seconds
-request_timeout = {{ request_timeout }}
+# Enable OCSP/CRL certificate revocation checks.
+# Ensures that revoked certificates are not trusted.
+# Default: True
+verify_tls = {{ verify_tls | default(true) }}
 
-# Retry count on connection failures
-retry_count = {{ retry_count }}
+# -- Connection and Timeout Settings ------------------------------------------
 
-# Enable or disable fallback to TCP on UDP failure
-fallback_to_tcp = {{ fallback_to_tcp }}
+# Maximum concurrent network connections to Kerberos services.
+# Default: 50
+max_connections = {{ max_connections | default(50) }}
 
-# Enable or disable UDP preference (if network supports it)
-prefer_udp = {{ prefer_udp }}
+# Connection timeout in seconds (0 for infinite).
+# Time to wait while establishing a TCP connection.
+# Default: 10
+connect_timeout = {{ connect_timeout | default(10) }}
 
-# Enable or disable FAST (Flexible Authentication Secure Tunneling)
-enable_fast = {{ enable_fast }}
+# Maximum time to wait for a full Kerberos request (seconds).
+# Time to wait after connection is established for a response.
+# Default: 30
+request_timeout = {{ request_timeout | default(30) }}
 
-# FAST armor cache (e.g., FILE:/tmp/krb5_fast_armor)
-fast_armor_cache = {{ fast_armor_cache }}
+# Number of retries for transient failures.
+# Default: 3
+retry_count = {{ retry_count | default(3) }}
 
-# Preauth mechanisms to try (comma-separated list: e.g., 'paetype1,paetype2')
-preauth_types = {{ preauth_types | join(', ') }}
+# -- Protocol Preferences -----------------------------------------------------
+
+# Fall back to TCP if UDP response is truncated.
+# Kerberos uses UDP by default; some large tickets require TCP.
+# Default: True
+fallback_to_tcp = {{ fallback_to_tcp | default(true) }}
+
+# Prefer UDP when packet size permits (reduces overhead).
+# If False, TCP may be used exclusively.
+# Default: True
+prefer_udp = {{ prefer_udp | default(true) }}
+
+# -- FAST (Flexible Authentication Secure Tunneling) --------------------------
+
+# Enable FAST (Anonymous or authenticated armor) for secure authentication.
+# Provides mutual authentication and encryption of the AS-REQ/AS-REP exchange.
+# Default: True
+enable_fast = {{ enable_fast | default(true) }}
+
+# Cache location for FAST armor tickets (e.g., FILE:/path).
+# Default: FILE:/tmp/krb5_fast_armor
+fast_armor_cache = {{ fast_armor_cache | default('FILE:/tmp/krb5_fast_armor') }}
+
+# -- Pre-authentication -------------------------------------------------------
+
+# Ordered list of preauth type OIDs/numbers to offer (e.g., PA-ETYPE-INFO2=18, PA-PW-SALT=19).
+# The client will try these types in order during authentication.
+# Default: ['18', '19']
+preauth_types = {{ preauth_types | default(['18', '19']) | join(', ') }}

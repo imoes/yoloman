@@ -1,116 +1,138 @@
-<?php
-/*
- * DokuWiki local configuration
- * Managed by configuration management — do not edit manually.
- */
+#!/bin/sh
+set -e
 
-# Human-readable name of the wiki, shown in page titles and the site header
-$conf['title'] = '{{ wiki_title }}';
+# =============================================================================
+# DokuWiki Maintenance Script
+#
+# This script handles periodic maintenance tasks for DokuWiki installations.
+# It performs two main functions:
+# 1. Cleanup of old cached files, attic revisions, and stale lock files.
+# 2. Update of the local spam/wordblock blacklist from Wikimedia.
+#
+# Configuration is read from /etc/default/dokuwiki, with defaults applied here
+# if variables are not set.
+# =============================================================================
 
-# ISO 639-1 language code that controls the DokuWiki UI (e.g. en, de, fr, es)
-$conf['lang'] = '{{ wiki_lang }}';
+# Function to cleanup a wiki data directory
+# (see <https://www.dokuwiki.org/tips:maintenance>)
+#
+# Args:
+#   $1 - Full path to the wiki data directory
+#   $2 - Maximum age in days for files before deletion
+#   $3 - Whether to remove old revision files ("true" or "false")
+cleanup() {
+	# $1 ... full path to data directory of wiki
+	# $2 ... number of days after which old files are to be removed
+	# $3 ... whether or not to remove old revision files
+	data_path="$1"
+	max_days="$2"
+	remove_attic="$3"
 
-# Content license key shown in the page footer (cc-by-sa, cc-by, publicdomain, ...)
-$conf['license'] = '{{ wiki_license }}';
+	# Change to the data directory to operate on relative paths
+	cd "$data_path"
 
-# Canonical base URL (https://wiki.example.com); leave empty for automatic HTTP-header detection
-$conf['baseurl'] = '{{ wiki_baseurl }}';
+	# -----------------------------------------------------------------------
+	# Purge old revision files from attic directories
+	# -----------------------------------------------------------------------
+	if [ "$remove_attic" = "true" ]
+	then
+		# Find files older than max_days in attic and media_attic and delete them
+		find attic media_attic -type f -mtime "+$max_days" -delete
+	fi
 
-# Filesystem path to the DokuWiki data directory (pages, media, metadata, cache)
-$conf['savedir'] = '{{ savedir }}';
+	# -----------------------------------------------------------------------
+	# Remove stale lock files
+	# -----------------------------------------------------------------------
+	# Lock files older than 1 day are likely stale and can be removed safely
+	find locks -name '*.lock' -type f -mtime +1 -delete
 
-# Page ID used as the wiki home/start page
-$conf['start'] = '{{ wiki_start }}';
+	# -----------------------------------------------------------------------
+	# Remove empty directories
+	# -----------------------------------------------------------------------
+	# Clean up empty directories in standard DokuWiki subdirectories
+	find attic cache index locks media media_attic media_meta \
+		meta pages tmp -mindepth 1 -type d -empty -delete
 
-# Active theme; must be installed under lib/tpl/ (e.g. dokuwiki, vector, bootstrap3)
-$conf['template'] = '{{ wiki_template }}';
+	# -----------------------------------------------------------------------
+	# Purge old cache files
+	# -----------------------------------------------------------------------
+	# Remove cache files older than max_days
+	find cache -type f -mtime "+$max_days" -delete
 
-# Short subtitle displayed below the wiki name in the header; empty string hides it
-$conf['tagline'] = '{{ wiki_tagline }}';
+	# Return to previous working directory silently
+	cd - > /dev/null
+}
 
-# Page ID rendered as the persistent sidebar alongside page content
-$conf['sidebar'] = '{{ wiki_sidebar }}';
+# Function to update the spam blacklist
+# (see <https://www.dokuwiki.org/blacklist>)
+#
+# Downloads the current spam blacklist from Wikimedia and installs it as
+# the local wordblock configuration file.
+update_blacklist() {
+	# Create a temporary file for the downloaded blacklist
+	temp="$(tempfile -p doku -s blist)"
+	# Ensure the temporary file is cleaned up on exit, unless overridden
+	trap "rm -f -- '$temp'" EXIT
 
-# -- Display --
+	# Download the raw blacklist and strip the <pre> wrapper tags
+	wget -q -O - 'http://meta.wikimedia.org/wiki/Spam_blacklist?action=raw' | grep -vF '<pre>' > "$temp"
 
-# Maximum heading level included in auto-generated tables of contents (1-5)
-$conf['maxsecdepth'] = {{ max_section_depth }};
+	# Install the updated blacklist into the DokuWiki config directory
+	mv "$temp" "/etc/dokuwiki/wordblock.local.conf"
 
-# Use a page's first heading as its display title: 0=off, 1=navigation only, 2=everywhere
-$conf['useheading'] = {{ use_heading }};
+	# Clear the exit trap since the temp file has been moved
+	trap - EXIT
+}
 
-# Hide the sitemap/index from unauthenticated visitors (1=yes, 0=no)
-$conf['sneaky_index'] = {% if sneaky_index %}1{% else %}0{% endif %};
+# -----------------------------------------------------------------------
+# Get configuration from system defaults file
+# -----------------------------------------------------------------------
+. /etc/default/dokuwiki
 
-# PCRE regex; page IDs matching this pattern are excluded from search and the index
-$conf['hidepages'] = '{{ hidden_pages }}';
+# -----------------------------------------------------------------------
+# Set variable default values
+# These defaults are applied if /etc/default/dokuwiki does not define them.
+# -----------------------------------------------------------------------
 
-# -- Access control --
+# Whether to run the cleanup routine ("true" or "false")
+run_cleanup="${RUN_CLEANUP:-{{ run_cleanup_default | default('true') }}"
 
-# Enable the ACL access-control system; disable only on fully isolated intranets (1=on, 0=off)
-$conf['useacl'] = {% if use_acl %}1{% else %}0{% endif %};
+# Maximum age in days for files before they are considered for deletion
+cleanup_maxdays="${CLEANUP_MAXDAYS:-{{ cleanup_maxdays_default | default(180) }}}"
 
-# Login name or @group granted full superuser privileges (manages everything)
-$conf['superuser'] = '{{ superuser }}';
+# Whether to remove old revision files from attic directories ("true" or "false")
+remove_attic="${REMOVE_REVISIONS:-{{ remove_attic_default | default('false') }}}"
 
-# Login name or @group granted manager privileges (user and page management)
-$conf['manager'] = '{{ manager }}';
+# Whether to update the spam/wordblock blacklist ("true" or "false")
+update_blacklist="${UPDATE_BLACKLIST:-{{ update_blacklist_default | default('false') }}}"
 
-# Allow unauthenticated visitors to self-register an account (1=yes, 0=no)
-$conf['openregister'] = {% if open_register %}1{% else %}0{% endif %};
+# -----------------------------------------------------------------------
+# If configured, run the purge for files older than specified (~6 months by
+# default)
+# -----------------------------------------------------------------------
+if [ "$run_cleanup" = "true" ]
+then
+	# Change to the base DokuWiki directory
+	cd {{ wiki_basedir | default('/var/lib/dokuwiki') }}
 
-# Require email confirmation before activating a self-registered account (1=yes, 0=no)
-$conf['emailconfirm'] = {% if email_confirm %}1{% else %}0{% endif %};
+	# Iterate over all wiki data directories (supports multi-wiki farm setups)
+	for data_dir in data farm/*/data
+	do
+		# Skip non-existent directories (glob might not match in single-wiki setups)
+		if [ -d "$data_dir" ]
+		then
+			cleanup "$data_dir" "$cleanup_maxdays" "$remove_attic"
+		fi
+	done
 
-# Comma-separated DokuWiki actions to disable site-wide (register, search, revisions, ...)
-$conf['disableactions'] = '{{ disabled_actions | join(',') }}';
+	# Return to previous working directory silently
+	cd - > /dev/null
+fi
 
-# -- Performance & caching --
-
-# Lifetime in seconds for rendered page cache entries; -1=never expire, 0=no caching
-$conf['cachetime'] = {{ cache_time }};
-
-# Seconds a page remains locked after being opened for editing
-$conf['locktime'] = {{ lock_time }};
-
-# Number of entries shown on the Recent Changes page
-$conf['recent'] = {{ recent_count }};
-
-# -- File uploads & media --
-
-# Maximum permitted upload size in bytes; 0 disables uploads entirely
-$conf['maxfilesize'] = {{ max_file_size }};
-
-# JPEG compression quality for resized images (0-100; higher = sharper but larger file)
-$conf['jpg_quality'] = {{ jpg_quality }};
-
-# Absolute path to the ImageMagick convert binary; leave empty to use the GD PHP extension
-$conf['im_convert'] = '{{ im_convert }}';
-
-# -- Email / SMTP --
-
-# Envelope-from address for all outgoing notification and registration emails
-$conf['mailfrom'] = '{{ mail_from }}';
-
-# SMTP relay hostname; leave empty to use PHP built-in mail()
-$conf['smtphost'] = '{{ smtp_host }}';
-
-# TCP port for the SMTP relay (25=plain, 465=implicit TLS, 587=STARTTLS)
-$conf['smtpport'] = {{ smtp_port }};
-
-# SMTP authentication username; leave empty for an anonymous relay
-$conf['smtpuser'] = '{{ smtp_user }}';
-
-# SMTP authentication password
-$conf['smtppass'] = '{{ smtp_pass }}';
-
-# SMTP encryption mode: empty=none, ssl=implicit TLS (port 465), tls=STARTTLS (port 587)
-$conf['smtpsecure'] = '{{ smtp_secure }}';
-{% if extra_conf %}
-
-# -- Additional directives --
-{% for item in extra_conf %}
-# {{ item.description }}
-$conf['{{ item.key }}'] = '{{ item.value }}';
-{% endfor %}
-{% endif %}
+# -----------------------------------------------------------------------
+# If configured, update the spam blacklist
+# -----------------------------------------------------------------------
+if [ "$update_blacklist" = "true" ] && [ -x /usr/bin/wget ]
+then
+	update_blacklist
+fi

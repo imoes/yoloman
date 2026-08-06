@@ -1,112 +1,159 @@
-# Apache HTTP Server main configuration file (apache2.conf)
-# Server root directory
-ServerRoot "{{ server_root }}"
+{# ============================================================================== #}
+{# Apache HTTP Server Main Configuration Template (apache2.conf)                  #}
+{# Self-documenting: every directive is preceded by a comment explaining its      #}
+{# purpose and source variable. All variables use safe defaults via Jinja2 filter #}
+{# |default(D) to prevent rendering failures when variables are omitted.           #}
+{# ============================================================================== #}
 
-# Runtime configuration directory for modules and temp files
-RunTimeDir "{{ runtime_dir }}"
+{# The top of the Apache HTTP Server directory tree.                               #}
+ServerRoot "{{ server_root | default('/etc/apache2') }}"
 
-# Listen on specified address and port
-{% for listen_addr in listen_addresses %}
-{% if listen_addr.port is defined %}
-Listen {{ listen_addr.address }}:{{ listen_addr.port }}
-{% else %}
+{# Directory used for runtime files (pids, locks, etc.).                           #}
+RunTimeDir "{{ runtime_dir | default('/run/apache2') }}"
+
+{# List of addresses and ports the server should listen on.                        #}
+{# Supports both simple port strings (e.g., '80', '443') and complex dicts        #}
+{# with 'address' and 'port' keys (e.g., {'address': '127.0.0.1', 'port': 8080}). #}
+{% for listen_addr in listen_addresses | default(['80']) %}
+    {% if listen_addr is mapping and listen_addr.port is defined %}
+Listen {{ listen_addr.address | default('0.0.0.0') }}:{{ listen_addr.port }}
+    {% else %}
 Listen {{ listen_addr }}
-{% endif %}
+    {% endif %}
 {% endfor %}
 
-# User and group for worker processes
-User {{ worker_user }}
-Group {{ worker_group }}
+{# User account under which Apache worker processes run.                           #}
+User {{ worker_user | default('www-data') }}
 
-# Server administration email
-ServerAdmin {{ server_admin }}
+{# Group under which Apache worker processes run.                                  #}
+Group {{ worker_group | default('www-data') }}
 
-# Default server name (for virtual hosts without ServerName)
+{# Email address shown in server-generated error pages.                            #}
+ServerAdmin {{ server_admin | default('admin@localhost') }}
+
+{# Hostname and port that the server uses for self-referential URLs.               #}
 ServerName {{ server_name | default('localhost') }}
 
-# Timeout settings
-Timeout {{ timeout }}
-KeepAlive {{ 'On' if keepalive else 'Off' }}
-MaxKeepAliveRequests {{ max_keepalive_requests }}
-KeepAliveTimeout {{ keepalive_timeout }}
+{# Number of seconds before receives and sends time out.                           #}
+Timeout {{ timeout | default(60) }}
 
-# Logging configuration
-ErrorLog "{{ error_log_path }}"
-LogLevel {{ log_level }}
+{# Enable persistent connections (HTTP Keep-Alive).                                #}
+{# Maps boolean true/false to Apache's 'On'/'Off'.                                #}
+KeepAlive {{ keepalive | default(True) | ternary('On', 'Off') }}
 
-# Load modules
-{% for module in modules_to_load %}
+{# Maximum number of requests allowed per persistent connection.                   #}
+MaxKeepAliveRequests {{ max_keepalive_requests | default(100) }}
+
+{# Number of seconds to wait for the next request from the same client.            #}
+KeepAliveTimeout {{ keepalive_timeout | default(5) }}
+
+{# Path to the global error log file.                                              #}
+ErrorLog "{{ error_log_path | default('/var/log/apache2/error.log') }}"
+
+{# Verbosity of error log (debug, info, notice, warn, error, crit, alert, emerg).  #}
+LogLevel {{ log_level | default('warn') }}
+
+{# List of modules to load explicitly.                                              #}
+{# Each item must have 'name' and 'path'. If empty, default modules are included   #}
+{# via IncludeOptional below.                                                      #}
+{% for module in modules_to_load | default([]) %}
 LoadModule {{ module.name }} {{ module.path }}
 {% endfor %}
 
-# Include module-specific configurations
-{% for included_conf in included_configs %}
-{% if included_conf.enabled is not defined or included_conf.enabled %}
+{# List of config snippet paths to include conditionally.                           #}
+{# Each item is a dict with 'path' (string) and 'enabled' (bool).                 #}
+{% for included_conf in included_configs | default([{'path': '/etc/apache2/mods-enabled/*.conf', 'enabled': True}, {'path': '/etc/apache2/conf-enabled/*.conf', 'enabled': True}, {'path': '/etc/apache2/sites-enabled/*.conf', 'enabled': True}]) %}
+    {% if included_conf.enabled is not defined or included_conf.enabled %}
 IncludeOptional {{ included_conf.path }}
-{% endif %}
+    {% endif %}
 {% endfor %}
 
-# Default directory permissions and access
+{# Global directory block: deny access to everything by default.                    #}
 <Directory />
     Options FollowSymLinks
     AllowOverride None
     Require all denied
 </Directory>
 
-<Directory {{ docroot }}>
-    Options {{ docroot_options | join(', ') | default('Indexes FollowSymLinks') }}
+{# Document root directory for the default virtual host.                            #}
+{# Sets permissions for the main web content directory.                            #}
+<Directory {{ docroot | default('/var/www/html') }}>
+    {# Options for the document root directory (e.g., 'Indexes', 'FollowSymLinks',  #}
+    {# 'ExecCGI'). Joined with ', ' for Apache syntax.                              #}
+    Options {{ docroot_options | default(['Indexes', 'FollowSymLinks']) | join(', ') }}
+    {# Which directives are allowed in .htaccess files (e.g., 'All', 'Options',    #}
+    {# 'FileInfo').                                                                #}
     AllowOverride {{ allow_override | default('None') }}
     Require all granted
 </Directory>
 
-# Default index files
-DirectoryIndex {{ directory_index | join(', ') }}
+{# List of filenames to look for when a directory is requested.                    #}
+DirectoryIndex {{ directory_index | default(['index.html', 'index.cgi', 'index.pl', 'index.php']) | join(', ') }}
 
-# MIME types configuration
-TypesConfig {{ mime_types_config }}
+{# Path to the MIME types configuration file.                                      #}
+TypesConfig {{ mime_types_config | default('/etc/mime.types') }}
 
-# MPM module settings
-<IfModule mpm_{{ mpm }}_module>
-    StartServers             {{ mpm_start_servers }}
-    MinSpareServers          {{ mpm_min_spare_servers }}
-    MaxSpareServers          {{ mpm_max_spare_servers }}
-    MaxRequestWorkers        {{ mpm_max_request_workers }}
-    MaxConnectionsPerChild   {{ mpm_max_connections_per_child }}
+{# Multi-Processing Module to use (prefork, worker, event).                        #}
+{# Dynamic IfModule block ensures MPM-specific settings are applied only if that  #}
+{# specific MPM module is loaded.                                                  #}
+<IfModule mpm_{{ mpm | default('prefork') }}_module>
+    {# Number of child server processes created at startup.                         #}
+    StartServers             {{ mpm_start_servers | default(5) }}
+    {# Minimum number of idle child server processes.                              #}
+    MinSpareServers          {{ mpm_min_spare_servers | default(5) }}
+    {# Maximum number of idle child server processes.                              #}
+    MaxSpareServers          {{ mpm_max_spare_servers | default(10) }}
+    {# Maximum number of simultaneous requests that can be served.                  #}
+    MaxRequestWorkers        {{ mpm_max_request_workers | default(150) }}
+    {# Number of connections a child process will handle before terminating         #}
+    {# (0 = unlimited).                                                             #}
+    MaxConnectionsPerChild   {{ mpm_max_connections_per_child | default(0) }}
 </IfModule>
 
-# Logging format (if not overridden by modules)
+{# Logging format (if not overridden by modules).                                  #}
+{# Standard Combined Log Format.                                                  #}
 LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" combined
 
-# Enable default server-status and server-info (if enabled)
-{% if server_status_enabled %}
+{# Enable Apache server-status page at /server-status.                             #}
+{# Restricts access to specified hosts/IPs.                                        #}
+{% if server_status_enabled | default(False) %}
 <Location /server-status>
     SetHandler server-status
-    Require host {{ server_status_allowed_hosts | join(' ') }}
-</Location>
-{% endif %}
-{% if server_info_enabled %}
-<Location /server-info>
-    SetHandler server-info
-    Require host {{ server_info_allowed_hosts | join(' ') }}
+    Require host {{ server_status_allowed_hosts | default(['localhost', '127.0.0.1', '::1']) | join(' ') }}
 </Location>
 {% endif %}
 
-# Default virtual host (if needed)
-{% if default_vhost_enabled %}
-<VirtualHost *:{{ default_vhost_port }}>
-    ServerName {{ server_name }}
-    DocumentRoot {{ docroot }}
-    ErrorLog {{ vhost_error_log | default(error_log_path) }}
-    CustomLog {{ vhost_access_log | default(access_log_path | default('/dev/null')) }} combined
+{# Enable Apache server-info page at /server-info.                                 #}
+{# Restricts access to specified hosts/IPs.                                        #}
+{% if server_info_enabled | default(False) %}
+<Location /server-info>
+    SetHandler server-info
+    Require host {{ server_info_allowed_hosts | default(['localhost', '127.0.0.1', '::1']) | join(' ') }}
+</Location>
+{% endif %}
+
+{# Default virtual host configuration block.                                        #}
+{# Generated only if default_vhost_enabled is true.                                #}
+{% if default_vhost_enabled | default(False) %}
+<VirtualHost *:{{ default_vhost_port | default(80) }}>
+    ServerName {{ server_name | default('localhost') }}
+    DocumentRoot {{ docroot | default('/var/www/html') }}
+    {# Error log file path for the default virtual host (defaults to global       #}
+    {# error_log_path if empty).                                                   #}
+    ErrorLog {{ vhost_error_log | default(error_log_path | default('/var/log/apache2/error.log')) }}
+    {# Access log file path for the default virtual host (defaults to '/dev/null' #}
+    {# if empty).                                                                  #}
+    CustomLog {{ vhost_access_log | default('/dev/null') }} combined
 </VirtualHost>
 {% endif %}
 
-# Enable default modules (if not included in modules_to_load)
-{% if include_default_modules %}
+{# Enable default modules (if not included in modules_to_load).                     #}
+{# Includes common module configurations via glob patterns.                       #}
+{% if include_default_modules | default(True) %}
 IncludeOptional mods-enabled/*.load
 IncludeOptional mods-enabled/*.conf
 {% endif %}
 
-# Include additional configuration snippets (e.g., sites-enabled)
+{# Include additional configuration snippets (e.g., sites-enabled).                 #}
 IncludeOptional conf-enabled/*.conf
 IncludeOptional sites-enabled/*.conf

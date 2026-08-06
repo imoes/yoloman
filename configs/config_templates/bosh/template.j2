@@ -1,0 +1,76 @@
+{# bosh configuration file #}
+command{{
+{% if command is string %}{{ command }}{% else %}{% for line in command %}{{ line }}{% endfor %}
+{% endif %}
+}}
+
+{# Optional: command arguments passed as positional args #}
+{% if args %}
+command={{ args }}
+{% endif %}
+
+{# Preaction: common setup for all actions #}
+{% if preaction %}
+preaction={{ preaction }}
+{% endif %}
+
+{# Header lines to skip (prevent cursor entering top rows) #}
+{% if header is number %}
+header={{ header }}
+{% endif %}
+
+{# Refresh behavior after action execution #}
+{% if refresh is bool %}
+{% if refresh %}
+refresh=1
+{% else %}
+refresh=0
+{% endif %}
+{% endif %}
+
+{# Auto-refresh interval in seconds #}
+{% if autorefresh is number %}
+autorefresh={{ autorefresh }}
+{% endif %}
+
+{# Cursor size (height in lines) #}
+{% if cursorsize is number %}
+cursorsize={{ cursorsize }}
+{% endif %}
+
+{# Cursor movement step (lines per up/down key) #}
+{% if cursormovement is number %}
+cursormovement={{ cursormovement }}
+{% endif %}
+
+{# Multi-line separator for actions on multi-line selection #}
+{% if multilineseperator is string %}
+multilineseperator={{ multilineseperator }}
+{% endif %}
+
+{# Number of user variables ($BOSHVAR1..$BOSHVARx) #}
+{% if uservars is number %}
+uservars={{ uservars }}
+{% endif %}
+
+{# Actions: key=command (or key=[.]command, key=[>]command, key=[!]command, key=[!:prompt]command) #}
+{% for key, action in actions %}
+{% if action is string %}
+{# plain action #}
+{{ key | lower }}={{ action }}
+{% elif action is mapping %}
+{# action with output mode and optional prompt #}
+{% if 'mode' in action %}
+{# mode: . > ! #}
+{{ key | lower }}=[{{ action.mode | lower }}]
+{% else %}
+{{ key | lower }}=[!]
+{% endif %}
+{% if action.prompt is string %}
+({{ action.prompt }})
+{% endif %}
+{{ action.command }}
+{% else %}
+{{ key | lower }}={{ action | string }}
+{% endif %}
+{% endfor %}

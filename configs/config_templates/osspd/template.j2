@@ -1,72 +1,103 @@
-# OSS Proxy Daemon configuration
-# Enables verbose logging for debugging and diagnostics
-log_level: {{ log_level }}
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          osspd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: OSS Proxy Daemon: Userland OSS emulation
+# Description:       Daemon providing a userland implementation of OSS devices.
+#                    Currently it supports forwarding OSS sound streams to
+#                    PulseAudio and ALSA.
+### END INIT INFO
 
-# Path to the PID file for the daemon process
-pid_file: "{{ pid_file }}"
+# Author: Ralf Jung <post@ralfj.de>
 
-# Base directory for temporary device nodes and emulation state
-work_dir: "{{ work_dir }}"
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="OSS Proxy Daemon"
+NAME=osspd
+DAEMON=/usr/sbin/$NAME
+DAEMON_ARGS="--dsp-slave=/usr/lib/osspd/ossp-slave"
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
 
-# Network interface to bind to (empty string = all interfaces)
-bind_addr: "{{ bind_addr }}"
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
 
-# TCP port for control interface
-control_port: {{ control_port }}
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
 
-# TCP port(s) for audio emulation (one or more, typically 1–10)
-audio_ports:
-{% for port in audio_ports %}- {{ port }}
-{% endfor %}
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	start-stop-daemon --start --background --quiet --pidfile $PIDFILE --make-pidfile --exec $DAEMON --test > /dev/null \
+		|| return 1
+	# -f: run in foreground, start-stop-daemon does the forking - this is required to let start-stop-daemon handle the pidfile
+	start-stop-daemon --start --background --quiet --pidfile $PIDFILE --make-pidfile --exec $DAEMON -- -f \
+		$DAEMON_ARGS \
+		|| return 2
+}
 
-# Maximum number of simultaneous client connections
-max_clients: {{ max_clients }}
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	return "$?"
+}
 
-# Enable/Disable OSS v4.x compatibility mode (defaults to v3.9 if false)
-osss_compat_v4: {{ osss_compat_v4|lower }}
-
-# List of devices to emulate (e.g., /dev/dsp, /dev/mixer)
-device_emulation:
-{% for dev in device_emulation %}- device: "{{ dev.device }}"
-  channels: {{ dev.channels }}
-  sample_rate: {{ dev.sample_rate }}
-  format: "{{ dev.format }}"
-{% endfor %}
-
-# Optional: Backend DSP implementation (e.g., ALSA, JACK, PipeWire)
-{% if backend_dsp is defined %}backend_dsp: "{{ backend_dsp }}"
-{% endif %}
-
-# Optional: ALSAPCM device name if using ALSA backend
-{% if alsa_device is defined %}alsa_device: "{{ alsa_device }}"
-{% endif %}
-
-# Optional: JACK client name if using JACK backend
-{% if jack_client_name is defined %}jack_client_name: "{{ jack_client_name }}"
-{% endif %}
-
-# Optional: PipeWire node name if using PipeWire backend
-{% if pipewire_node_name is defined %}pipewire_node_name: "{{ pipewire_node_name }}"
-{% endif %}
-
-# Enable real-time scheduling for improved latency (requires CAP_SYS_NICE)
-realtime: {{ realtime|lower }}
-
-# Priority for real-time scheduling (0–99; higher = more urgent)
-realtime_priority: {{ realtime_priority }}
-
-# Buffer size (in frames) for audio processing
-buffer_size: {{ buffer_size }}
-
-# Number of periods in the audio ring buffer (usually 2 or 4)
-periods: {{ periods }}
-
-# Enable latency compensation (adjusts delay based on system load)
-latency_compensation: {{ latency_compensation|lower }}
-
-# Optional: Custom OSS device mappings (e.g., /dev/dsp0 -> OSS device 0)
-{% if device_mappings is defined %}device_mappings:
-{% for map in device_mappings %}- oss_device: "{{ map.oss_device }}"
-  oss_instance: {{ map.oss_instance }}
-{% endfor %}
-{% endif %}
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
+esac

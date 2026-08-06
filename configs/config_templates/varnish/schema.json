@@ -8,87 +8,12 @@
         "port": "8080"
       }
     ],
-    "description": "List of backend servers (web applications) to proxy to. Each must have at least name, host, and port.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "web1",
-          "description": "Unique identifier for this backend"
-        },
-        "host": {
-          "type": "string",
-          "default": "127.0.0.1",
-          "description": "IP address or hostname of backend server"
-        },
-        "port": {
-          "type": "string",
-          "default": "8080",
-          "description": "Port the backend service listens on"
-        },
-        "connect_timeout": {
-          "type": "number",
-          "default": null,
-          "description": "Seconds to wait for connection establishment (optional)"
-        },
-        "first_byte_timeout": {
-          "type": "number",
-          "default": null,
-          "description": "Seconds to wait for first byte from backend (optional)"
-        },
-        "between_bytes_timeout": {
-          "type": "number",
-          "default": null,
-          "description": "Seconds to wait between bytes from backend (optional)"
-        },
-        "max_connections": {
-          "type": "number",
-          "default": null,
-          "description": "Maximum concurrent connections to backend (optional)"
-        }
-      }
-    }
+    "description": "List of backend servers (web applications) to proxy to. Each must have at least name, host, and port."
   },
   "directors": {
     "type": "list",
     "default": [],
-    "description": "Backend pools for load balancing (e.g., 'random', 'round-robin'). Each director references backends by name.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name for the director"
-        },
-        "algorithm": {
-          "type": "string",
-          "default": "random",
-          "description": "Load balancing algorithm; e.g., 'random', 'round-robin', 'hash', 'client'"
-        },
-        "members": {
-          "type": "list",
-          "default": [],
-          "description": "List of backend members in this director",
-          "items": {
-            "type": "object",
-            "properties": {
-              "backend": {
-                "type": "string",
-                "default": "",
-                "description": "Name of the backend to include (must match a backend.name)"
-              },
-              "weight": {
-                "type": "number",
-                "default": 1,
-                "description": "Relative weight for weighted balancing (e.g., 'random' with weights)"
-              }
-            }
-          }
-        }
-      }
-    }
+    "description": "Backend pools for load balancing (e.g., 'random', 'round-robin'). Each director references backends by name."
   },
   "default_ttl": {
     "type": "number",
@@ -126,9 +51,11 @@
       "127.0.0.1",
       "::1"
     ],
-    "description": "List of IP addresses authorized to send PURGE requests. Keep minimal for security.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of IP addresses allowed to send PURGE requests"
+  },
+  "logrotate_log_file": {
+    "type": "string",
+    "default": "/var/log/varnish/varnishncsa.log",
+    "description": "Path to the varnishncsa log file for logrotate configuration"
   }
 }

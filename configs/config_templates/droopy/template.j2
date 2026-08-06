@@ -1,64 +1,115 @@
-# Listen on this host (IP or hostname); use 0.0.0.0 to listen on all interfaces
-bind = {{ bind }}
+# Droopy simple HTTP file uploader configuration
+# This file is a Jinja2 template; variables are resolved at Ansible render time.
+# Every directive below has a corresponding schema field. Defaults are inlined to
+# prevent render errors if a variable is undefined.
 
-# Listen on this TCP port
-port = {{ port }}
+# IP address or hostname to bind the server to (e.g., '127.0.0.1' or '0.0.0.0' for all interfaces).
+# Default: '0.0.0.0' (listen on all interfaces)
+bind = {{ bind | default('0.0.0.0') }}
 
-# Directory where uploaded files will be stored
-upload_dir = {{ upload_dir }}
+# TCP port number for the web server to listen on.
+# Default: 8080
+port = {{ port | default(8080) }}
 
-# Maximum file size allowed for uploads (in bytes)
-max_file_size = {{ max_file_size }}
+# Absolute path to the directory where uploaded files will be stored.
+# Ensure the Droopy process user has write permissions to this path.
+# Default: '/var/lib/droopy/uploads'
+upload_dir = {{ upload_dir | default('/var/lib/droopy/uploads') }}
 
-# Enable/disable authentication
-auth_enabled = {{ auth_enabled | lower }}
+# Maximum file size allowed for uploads, in bytes (e.g., 104857600 = 100 MiB).
+# Files larger than this will be rejected by the server.
+# Default: 104857600
+max_file_size = {{ max_file_size | default(104857600) }}
 
-{% if auth_enabled %}# Authentication method: 'basic' (HTTP Basic Auth)
+# Enable HTTP Basic Authentication to restrict uploads to authorized users.
+# When enabled, auth_file and auth_realm must also be configured.
+# Default: False
+auth_enabled = {{ auth_enabled | default(False) | lower }}
+
+# --- Authentication Configuration ---
+# The following block is only rendered when auth_enabled is True.
+{% if auth_enabled | default(False) %}
+# Authentication method: 'basic' (HTTP Basic Auth)
 auth_method = 'basic'
 
-# Path to the htpasswd file (used with basic auth)
-auth_file = {{ auth_file }}
+# Path to the htpasswd file containing user credentials (used only when auth is enabled).
+# Create this file using `htpasswd` utility from apache2-utils or similar.
+# Default: '/etc/droopy/htpasswd'
+auth_file = {{ auth_file | default('/etc/droopy/htpasswd') }}
 
-# Realm string shown in the auth prompt
-auth_realm = {{ auth_realm }}
+# Authentication realm string displayed in the login prompt.
+# This string appears in the browser's password dialog.
+# Default: 'Droopy Upload'
+auth_realm = {{ auth_realm | default('Droopy Upload') }}
 {% endif %}
 
-# Allow overwrite of existing files?
-allow_overwrite = {{ allow_overwrite | lower }}
+# --- File Upload Policies ---
 
-# Maximum number of simultaneous uploads
-max_concurrent_uploads = {{ max_concurrent_uploads }}
+# Allow uploading files with names that already exist (overwriting them).
+# If False, existing files are skipped or renamed (depending on Droopy version).
+# Default: False
+allow_overwrite = {{ allow_overwrite | default(False) | lower }}
 
-# Optional: custom HTML message displayed on upload page
-{% if custom_message %}custom_message = '''
-{{ custom_message }}
-'''
+# Maximum number of simultaneous upload sessions allowed.
+# Limits concurrent connections to prevent resource exhaustion.
+# Default: 5
+max_concurrent_uploads = {{ max_concurrent_uploads | default(5) }}
+
+# Optional: Custom HTML snippet to display above the upload form on the main page.
+# Useful for instructions, disclaimers, or branding.
+# If empty or not set, no custom message is displayed.
+{% if custom_message | default('') | trim %}
+# Note: Custom message is embedded directly. Ensure no syntax errors in HTML.
+custom_message = {{ custom_message | default('') | tojson }}
 {% endif %}
 
-# Enable HTTPS? (requires ssl_cert and ssl_key)
-ssl_enabled = {{ ssl_enabled | lower }}
+# --- SSL/TLS Configuration ---
+# Enable HTTPS using the provided SSL certificate and key.
+# Requires valid ssl_cert and ssl_key paths.
+# Default: False
+ssl_enabled = {{ ssl_enabled | default(False) | lower }}
 
-{% if ssl_enabled %}# Path to SSL certificate file (PEM format)
-ssl_cert = {{ ssl_cert }}
+# The following block is only rendered when ssl_enabled is True.
+{% if ssl_enabled | default(False) %}
+# Path to the SSL certificate file (PEM format).
+# Must contain the public certificate, optionally followed by intermediate CAs.
+# Default: '/etc/ssl/droopy.crt'
+ssl_cert = {{ ssl_cert | default('/etc/ssl/droopy.crt') }}
 
-# Path to SSL private key file (PEM format)
-ssl_key = {{ ssl_key }}
+# Path to the SSL private key file (PEM format).
+# Must match the public certificate provided in ssl_cert.
+# Default: '/etc/ssl/droopy.key'
+ssl_key = {{ ssl_key | default('/etc/ssl/droopy.key') }}
 {% endif %}
 
-# Optional: list of allowed MIME types (empty = all allowed)
-{% if allowed_mime_types %}allowed_mime_types = [
-{% for mime in allowed_mime_types %}    "{{ mime }}",
+# --- File Type Restrictions ---
+
+# Optional: List of allowed MIME types for uploaded files.
+# Empty list (default) means all MIME types are allowed.
+# Examples: ['image/jpeg', 'application/pdf', 'text/plain']
+{% if allowed_mime_types | default([]) | length > 0 %}
+allowed_mime_types = [
+{% for mime in allowed_mime_types | default([]) %}    {{ mime | tojson }},
 {% endfor %}]
 {% endif %}
 
-# Optional: list of allowed file extensions (empty = all allowed)
-{% if allowed_extensions %}allowed_extensions = [
-{% for ext in allowed_extensions %}    "{{ ext }}",
+# Optional: List of allowed file extensions for uploads.
+# Empty list (default) means all extensions are allowed.
+# Examples: ['.jpg', '.pdf', '.doc']
+{% if allowed_extensions | default([]) | length > 0 %}
+allowed_extensions = [
+{% for ext in allowed_extensions | default([]) %}    {{ ext | tojson }},
 {% endfor %}]
 {% endif %}
 
-# Log level: 'debug', 'info', 'warning', 'error', 'critical'
-log_level = '{{ log_level }}'
+# --- Logging ---
 
-# Path to log file (use '-' for stdout)
-log_file = {{ log_file }}
+# Verbosity level for server logs.
+# Allowed values: 'debug', 'info', 'warning', 'error', 'critical'
+# Default: 'info'
+log_level = '{{ log_level | default('info') }}'
+
+# Path to the log file.
+# Use '-' to log to standard output (useful for systemd/journald).
+# Default: '-'
+log_file = {{ log_file | default('-') }}

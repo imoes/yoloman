@@ -1,0 +1,151 @@
+# ==============================================================================
+# AppArmor Profile for Irssi
+# ==============================================================================
+# This Jinja2 template generates a self-contained AppArmor profile for the
+# Irssi IRC client. It enforces mandatory access control limits on the binary
+# specified, granting only the minimum file system and network permissions
+# required for standard operation (including screen integration, logging,
+# and help/theme loading).
+#
+# The resulting profile is intended to be placed in /etc/apparmor.d/ and
+# loaded via the apparmor service.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Profile Definition
+# --------------------------------------------------------------------------
+# The variable profile_path defines the absolute path to the Irssi binary.
+# The 'flags=(complain)' mode allows the profile to log violations without
+# blocking them initially, facilitating tuning before enforcement.
+# Default: /usr/bin/irssi
+# --------------------------------------------------------------------------
+#include <tunables/global>
+
+{{ (profile_path | default('/usr/bin/irssi')) }} flags=(complain) {
+  # ----------------------------------------------------------------------
+  # Base Abstractions
+  # ----------------------------------------------------------------------
+  # Include standard abstractions for basic system operation, DNS resolution,
+  # Perl interpreter support (often used by Irssi scripts), and SSL certificate
+  # access.
+  # ----------------------------------------------------------------------
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/perl>
+  #include <abstractions/ssl_certs>
+
+  # ----------------------------------------------------------------------
+  # Theme and Help Data Access
+  # ----------------------------------------------------------------------
+  # Read-only access to Irssi's distribution-provided themes and help files.
+  # ----------------------------------------------------------------------
+  /usr/share/irssi/themes/*.theme r,
+  /usr/share/irssi/help/* r,
+
+  # ----------------------------------------------------------------------
+  # Script Execution Permissions
+  # ----------------------------------------------------------------------
+  # Allow reading of system-wide scripts installed by the package.
+  # ----------------------------------------------------------------------
+  # Enable system wide scripts
+  /usr/share/irssi/scripts/* r,
+
+  # ----------------------------------------------------------------------
+  # System Certificates
+  # ----------------------------------------------------------------------
+  # Allow reading the system's CA certificate store for secure connections.
+  # ----------------------------------------------------------------------
+  /usr/share/ca-certificates/** r,
+
+  # ----------------------------------------------------------------------
+  # Process Information
+  # ----------------------------------------------------------------------
+  # Allow reading process uptime and status information.
+  # ----------------------------------------------------------------------
+  @{PROC}/uptime r,
+
+  # ----------------------------------------------------------------------
+  # Shell Interpreter Access
+  # ----------------------------------------------------------------------
+  # Allow execution of dash, which may be invoked by scripts or plugins.
+  # ----------------------------------------------------------------------
+  /{usr/,}bin/dash ix,
+
+  # ----------------------------------------------------------------------
+  # Screen Integration (screen_away)
+  # ----------------------------------------------------------------------
+  # Permissions required for the 'screen_away' feature, which interacts with
+  # GNU Screen to manage away status.
+  # ----------------------------------------------------------------------
+  #include <abstractions/wutmp>
+  /usr/bin/screen ix,
+  owner /{,var/}run/screen/** r,
+  owner /{,var/}run/screen/S-[a-zA-Z0-9]*/[0-9]* w,
+
+  # Allow reading process stats for uptime/health checks.
+  @{PROC}/[0-9]*/stat r,
+
+  # ----------------------------------------------------------------------
+  # System Utilities (/uptime)
+  # ----------------------------------------------------------------------
+  # Execute permissions for utilities used to display system uptime.
+  # ----------------------------------------------------------------------
+  /usr/bin/gawk ix,
+  /usr/bin/expr ix,
+  /{usr/,}bin/date ix,
+
+  # ----------------------------------------------------------------------
+  # Calculator Support (/calc)
+  # ----------------------------------------------------------------------
+  # Execute permissions for bc and which, used by the /calc command plugin.
+  # ----------------------------------------------------------------------
+  /usr/bin/bc ix,
+  /{usr/,}bin/which ixr,
+
+  # ----------------------------------------------------------------------
+  # Configuration Files
+  # ----------------------------------------------------------------------
+  # Read access to the system-wide Irssi configuration.
+  # ----------------------------------------------------------------------
+  /etc/irssi.conf r,
+
+  # ----------------------------------------------------------------------
+  # User Configuration and State
+  # ----------------------------------------------------------------------
+  # Allow reading and writing (where specified) to the user's private
+  # configuration directory ($HOME/.irssi).
+  # 'r'  = read
+  # 'w'  = write (truncate/modify)
+  # 'k'  = lock (flock)
+  # 'wk' = write and lock
+  # ----------------------------------------------------------------------
+  owner @{HOME}/.irssi/ r,
+  owner @{HOME}/.irssi/** r,
+  owner @{HOME}/.irssi/away.log wk,
+  owner @{HOME}/.irssi/config{,.autosave} wk,
+  owner @{HOME}/.irssi/*.theme wk,
+
+  # ----------------------------------------------------------------------
+  # IRC Logs
+  # ----------------------------------------------------------------------
+  # Allow reading and writing logs.
+  # Default location is ~/irclogs or ~/.irssi/irclogs as per Irssi docs.
+  # ----------------------------------------------------------------------
+  owner @{HOME}/{.irssi/,}irclogs/ r,
+  owner @{HOME}/{.irssi/,}irclogs/** rwk,
+
+  # ----------------------------------------------------------------------
+  # Fnotify Support
+  # ----------------------------------------------------------------------
+  # Allow writing to the fnotify pipe if the fnotify plugin is active.
+  # ----------------------------------------------------------------------
+  owner @{HOME}/.irssi/fnotify rwk,
+
+  # ----------------------------------------------------------------------
+  # Local Overrides
+  # ----------------------------------------------------------------------
+  # Include site-specific additions. See /etc/apparmor.d/local/README for
+  # customization details.
+  # ----------------------------------------------------------------------
+  #include <local/usr.bin.irssi>
+}

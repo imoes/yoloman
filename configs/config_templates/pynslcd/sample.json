@@ -1,21 +1,20 @@
 {
   "ldap_uris": [
-    "ldap://ldap.example.com/",
-    "ldap://ldap-backup.example.com/"
+    "ldap://localhost/"
   ],
   "ldap_base": "dc=example,dc=com",
   "ldap_version": 3,
-  "ldap_bind_dn": "cn=admin,dc=example,dc=com",
-  "ldap_bind_pw": "secret",
+  "ldap_bind_dn": "",
+  "ldap_bind_pw": "",
   "sasl_mech": "",
   "sasl_authzid": "",
-  "tls_cacert": "/etc/ssl/certs/ca-certificates.crt",
+  "tls_cacert": "",
   "tls_cert": "",
   "tls_key": "",
   "tls_reqcert": "demand",
-  "ssl_mode": "start_tls",
+  "ssl_mode": "",
   "reconnect_retry": 60,
-  "nslcd_threads": 8,
+  "nslcd_threads": 5,
   "min_uid": 1000,
   "max_uid": 65534,
   "user_maps": [
@@ -24,6 +23,10 @@
       "map_passwd": "uid uidNumber cn homeDirectory loginShell gidNumber gecos shadowLastChange",
       "map_shadow": "uid userPassword shadowLastChange shadowMax shadowWarning shadowInactive shadowExpire shadowFlag",
       "map_group": "cn gidNumber memberUid",
+      "filter": "(objectClass=posixAccount)"
+    },
+    {
+      "name": "shadow",
       "filter": "(objectClass=posixAccount)"
     }
   ],
@@ -34,19 +37,9 @@
       "local_attr": "cn"
     }
   ],
-  "pam_maps": [
-    {
-      "name": "login",
-      "filter": "(objectClass=posixAccount)",
-      "login_attr": "uid",
-      "ssh_authz_attr": "uid"
-    }
-  ],
-  "base_time": 3600,
-  "reconnect_time": 60,
-  "daemon_uid": "nslcd",
-  "daemon_gid": "nslcd",
-  "listen_addr": "/var/run/nslcd/nslcd.ctl",
-  "pidfile": "/run/nslcd.pid",
-  "debug": true
+  "k5start_start": "",
+  "k5start_bin": "/usr/bin/k5start",
+  "k5start_keytab": "/etc/krb5.keytab",
+  "k5start_ccrefresh": 60,
+  "k5start_principal": "host/$(hostname -f)"
 }

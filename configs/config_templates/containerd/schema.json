@@ -1,147 +1,37 @@
 {
   "config": {
     "type": "object",
-    "properties": {
-      "root": {
-        "type": "string",
-        "default": "/var/lib/containerd",
-        "description": "Root directory for persistent containerd state (snapshots, image storage)."
-      },
-      "state": {
-        "type": "string",
-        "default": "/run/containerd",
-        "description": "Directory for runtime state (sockets, PID files, temp files)."
-      },
-      "grpc": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string",
-            "default": "/run/containerd/containerd.sock",
-            "description": "gRPC server socket address (Unix socket path or tcp://host:port)."
-          },
-          "socket": {
-            "type": "string",
-            "default": "0700",
-            "description": "Permissions for the gRPC socket file (octal string)."
-          },
-          "max_recv_message_size": {
-            "type": "number",
-            "default": 16777216,
-            "description": "Maximum size of incoming gRPC messages (in bytes)."
-          },
-          "max_send_message_size": {
-            "type": "number",
-            "default": 16777216,
-            "description": "Maximum size of outgoing gRPC messages (in bytes)."
-          }
-        }
-      },
-      "ttrpc": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string",
-            "default": "/run/containerd/containerd-ttrpc.sock",
-            "description": "TTRPC server socket address (Unix socket path)."
-          },
-          "socket": {
-            "type": "string",
-            "default": "0700",
-            "description": "Permissions for the TTRPC socket file (octal string)."
-          }
-        }
-      },
-      "defaults": {
-        "type": "object",
-        "properties": {
-          "runtime": {
-            "type": "string",
-            "default": "runc",
-            "description": "Default runtime name (must match a configured runtime)."
-          },
-          "runtime_type": {
-            "type": "string",
-            "default": "io.containerd.runc.v2",
-            "description": "Fully-qualified runtime type (e.g., io.containerd.runc.v2, io.containerd.shim.v1)."
-          },
-          "sandbox": {
-            "type": "string",
-            "default": "systemd",
-            "description": "Cgroup driver for sandbox containers ('cgroupfs' or 'systemd')."
-          }
-        }
-      },
-      "plugins": {
-        "type": "object",
-        "properties": {
-          "cri": {
-            "type": "string",
-            "properties": {
-              "sandbox_image": {
-                "type": "string",
-                "default": "registry.k8s.io/pause:3.9",
-                "description": "Image used for sandbox (pause container) in CRI."
-              },
-              "max_container_log_size": {
-                "type": "number",
-                "default": 16384,
-                "description": "Maximum size (in bytes) of container stdout/stderr logs before rotation."
-              },
-              "disable_tcp_service": {
-                "type": "bool",
-                "default": true,
-                "description": "Disable TCP service for CRI streaming (only Unix sockets allowed)."
-              },
-              "stream_server_address": {
-                "type": "string",
-                "default": "127.0.0.1",
-                "description": "Address for streaming server (exec/attach/port-forward)."
-              },
-              "stream_server_port": {
-                "type": "string",
-                "default": "0",
-                "description": "Port for streaming server (0 = auto-assign)."
-              },
-              "cni": {
-                "type": "string",
-                "properties": {
-                  "bin_dir": {},
-                  "type": "string",
-                  "default": "/opt/cni/bin",
-                  "description": "Path to CNI binary plugins."
-                },
-                "conf_dir": {},
-                "default": "/etc/cni/net.d",
-                "description": "Path to CNI network configuration directory."
-              },
-              "max_conf_num": {},
-              "type": "number",
-              "default": 1,
-              "description": "Maximum number of CNI config files to load."
-            },
-            "network_plugin_conf_dir": {},
-            "default": "",
-            "description": "Directory for dynamic CNI config files (e.g., k8s network plugins)."
-          }
-        }
-      },
-      "containerd": {
-        "type": "string",
-        "properties": {
-          "snapshotter": {},
-          "type": "string",
-          "default": "overlayfs",
-          "description": "Default snapshotter backend ('overlayfs', 'native', 'btrfs', etc.)."
-        },
-        "default_runtime_name": {},
-        "default": "runc",
-        "description": "Name of the default runtime used by CRI."
-      },
-      "no_pivot": {},
-      "type": "bool",
-      "default": false,
-      "description": "If true, disables pivot_root during container startup (for chroot environments)."
-    }
+    "description": "containerd configuration object. All top-level keys mirror the TOML structure of the real config file, with nested objects for sections like plugins, grpc, etc. Only replace site-specific values \u2014 preserve all sections, comments, and directive order exactly as in the shipped config file."
+  },
+  "plugins": {
+    "type": "object",
+    "description": "Top-level [plugins] section and its sub-sections (e.g., CRI, opt). Only the values that an admin would change are parametrized."
+  },
+  "plugins.cri": {
+    "type": "object",
+    "description": "CRI plugin config ([plugins.\"io.containerd.grpc.v1.cri\"]) \u2014 reused from provided schema, only extended with new keys needed for verbatim config."
+  },
+  "plugins.cri.cni": {
+    "type": "object",
+    "description": "CNI plugin config ([plugins.\"io.containerd.grpc.v1.cri\".cni])"
+  },
+  "plugins.cri.cni.bin_dir": {
+    "type": "string",
+    "default": "/usr/lib/cni",
+    "description": "Path to CNI binary plugins (reused from real config \u2014 /usr/lib/cni in Debian package default)."
+  },
+  "plugins.cri.cni.conf_dir": {
+    "type": "string",
+    "default": "/etc/cni/net.d",
+    "description": "Path to CNI configuration directory (reused from real config \u2014 /etc/cni/net.d in Debian package default)."
+  },
+  "plugins.opt": {
+    "type": "object",
+    "description": "Internal opt plugin config ([plugins.\"io.containerd.internal.v1.opt\"]) \u2014 new section not in prior schema but present in real config."
+  },
+  "plugins.opt.path": {
+    "type": "string",
+    "default": "/var/lib/containerd/opt",
+    "description": "Path for opt plugin storage (reused from real config \u2014 /var/lib/containerd/opt)."
   }
 }

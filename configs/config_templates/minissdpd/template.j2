@@ -1,28 +1,104 @@
-# UPnP device cache daemon configuration
-# Listen addresses and ports
-# Interface(s) to listen on (e.g., eth0, br0); leave empty for all (but not recommended)
-INTERFACE={{ interface }}
+#!/bin/sh -e
 
-# Port for HTTP-based discovery (standard: 80)
-PORT={{ port }}
+### BEGIN INIT INFO
+# Provides:          minissdpd
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Should-Start:      $local_fs $network $time
+# Should-Stop:       $local_fs $network $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: keep memory of all UPnP devices that announced themselves
+# Description:       MiniSSDPd is a small daemon used by MiniUPnPc (a UPnP control point for IGD
+#                    devices) to speed up device discoveries. MiniSSDPd keep memory of all UPnP
+#                    devices that announced themselves on the network through SSDP NOTIFY packets.
+#                    MiniSSDPd also has the ability to handle all SSDP traffic recieved on a
+#                    computer via the multicast group 239.255.255.250:1900.
+### END INIT INFO
 
-# IPv4 address to bind to for SSDP multicast traffic
-SSDP_ADDRESS={{ ssdp_address }}
+NAME=MiniSSDPd
+DESC="UPnP devices daemon"
+DAEMON=/usr/sbin/minissdpd
+DEFAULT_FILE=/etc/default/minissdpd
+PIDFILE=/var/run/minissdpd.pid
 
-# Maximum number of devices to cache (prevents memory exhaustion)
-MAX_ENTRIES={{ max_entries }}
+[ -x "${DAEMON}" ] || exit 0
 
-# Enable or disable logging to syslog
-LOGGING={{ logging | lower }}
+. /lib/lsb/init-functions
 
-# Optional: additional interface-specific network interfaces (one per line)
-{% for iface in extra_interfaces %}# Interface: {{ iface.name }}
-# Description: {{ iface.description }}
-INTERFACES+=({{ iface.device }})
-{% endfor %}
+case "$1" in
+	start)
+		if [ -r "${DEFAULT_FILE}" ] ; then
+			. "${DEFAULT_FILE}"
+		else
+			log_daemon_msg "MiniSSDPd: Default file not found; exiting"
+			log_end_msg 1
+			exit 1
+		fi
 
-# PID file location
-PIDFILE={{ pidfile }}
+		if [ "${START_DAEMON}" != 1 ] ; then
+			log_daemon_msg "MiniSSDPd: START_DAEMON is not set to 1; exiting"
+			log_end_msg 1
+			exit 1
+		fi
 
-# Extra daemon arguments (e.g., -d for daemonize, -f for foreground)
-DAEMON_ARGS={{ daemon_args }}
+		if [ -z "${MiniSSDPd_INTERFACE_ADDRESS}" ] ; then
+			log_daemon_msg "MiniSSDPd: No interface defined; exiting"
+			log_end_msg 1
+			exit 1
+		fi
+
+		log_daemon_msg "Starting ${DESC}" "${NAME}"
+
+		listening_ip=
+		for ip_or_iface in ${MiniSSDPd_INTERFACE_ADDRESS} ; do
+			listening_ip="${listening_ip} -i ${ip_or_iface}"
+		done
+
+		start-stop-daemon --start --pidfile "${PIDFILE}" --exec "${DAEMON}" -- ${listening_ip} ${MiniSSDPd_OTHER_OPTIONS}
+		RET=$?
+		case "${RET}" in
+			0|1)
+				log_end_msg 0
+			;;
+
+			*)
+				log_end_msg 1
+				exit 1
+			;;
+		esac
+	;;
+
+	stop)
+		log_daemon_msg "Stopping ${DESC}" "${NAME}"
+		start-stop-daemon --stop --oknodo --pidfile "${PIDFILE}"
+		RET=$?
+		case "${RET}" in
+			0|1)
+				log_end_msg "${RET}"
+			;;
+
+			*)
+				log_end_msg 1
+				exit 1
+			;;
+		esac
+	;;
+
+	status)
+		status_of_proc "${DAEMON}" "${NAME}"
+		exit $?
+	;;
+
+	restart|reload|force-reload)
+		$0 stop
+		sleep 1
+		$0 start
+	;;
+
+	*)
+		echo "Usage: ${0} {start|stop|status|restart|reload}"
+		exit 1
+esac
+
+exit 0

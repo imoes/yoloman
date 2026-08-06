@@ -1,0 +1,108 @@
+# =============================================================================
+# dkimpy-milter Configuration Template
+# =============================================================================
+# This template generates a self-documenting configuration file for dkimpy-milter.
+# It handles socket binding, process identity, and DKIM signing parameters.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Syslog: Enable logging to the system syslog daemon.
+# -----------------------------------------------------------------------------
+Syslog			yes
+
+# -----------------------------------------------------------------------------
+# UMask: File permission mask for created sockets/files.
+# -----------------------------------------------------------------------------
+# Required to use local socket with MTAs that access the socket as a non-
+# privileged user (e.g. Postfix)
+UMask			007
+
+# -----------------------------------------------------------------------------
+# Domain: The domain(s) to sign email messages for.
+# -----------------------------------------------------------------------------
+# Multiple domains can be space-separated. Uncomment to enable.
+{% if (dkim_domain | default('', true) | trim) != '' %}
+Domain			{{ dkim_domain | default('', true) | trim }}
+{% else %}
+# Domain
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# KeyFile: Path to the private key file used for signing.
+# -----------------------------------------------------------------------------
+# Uncomment to enable.
+{% if (dkim_key_file | default('/etc/dkimkeys/dkim.key', true) | trim) != '' %}
+KeyFile			{{ dkim_key_file | default('/etc/dkimkeys/dkim.key', true) | trim }}
+{% else %}
+# KeyFile
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Selector: DKIM selector used in the DNS TXT record.
+# -----------------------------------------------------------------------------
+# Example: If domain is example.com and selector is 'default',
+# the DNS record is 'default._domainkey.example.com'.
+{% if (dkim_selector | default('default', true) | trim) != '' %}
+Selector		{{ dkim_selector | default('default', true) | trim }}
+{% else %}
+# Selector
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Canonicalization: Algorithm for normalizing email headers/body.
+# -----------------------------------------------------------------------------
+# Commonly-used options; the commented-out versions show the defaults.
+# Canonicalization	relaxed/simple
+
+# -----------------------------------------------------------------------------
+# Mode: Operation mode (sv = sign/verify).
+# -----------------------------------------------------------------------------
+# Canonicalization	relaxed/simple
+# Mode			sv
+
+# -----------------------------------------------------------------------------
+# Socket: Specification for milter communication with the MTA.
+# -----------------------------------------------------------------------------
+# Names the socket where this filter should listen for milter connections
+# from the MTA. Required. Should be in one of these forms:
+#   inet:port@address           to listen on a specific interface
+#   inet:port                   to listen on all interfaces
+#   local:/path/to/socket       to listen on a UNIX domain socket
+#
+# We parse the dkim_socket variable to determine if it is inet or local.
+{% set _socket = (dkim_socket | default('inet:8892@localhost', true) | trim) %}
+{% if _socket is string and _socket.startswith('local:') %}
+# Local socket specified
+Socket			{{ _socket }}
+{% elif _socket is string and _socket.startswith('inet:') %}
+# Inet socket specified.
+# Format: inet:port[@address]
+# We strip 'inet:' to get the port@address part.
+{% set _inet_part = (_socket | replace('inet:', '', 1)) %}
+# Extract port and address.
+{% if '@' in _inet_part %}
+{% set _inet_port = (_inet_part.split('@')[0]) %}
+{% set _inet_addr = (_inet_part.split('@')[1]) %}
+Socket			inet:{{ _inet_port }}@{{ _inet_addr }}
+{% else %}
+{% set _inet_port = _inet_part %}
+Socket			inet:{{ _inet_port }}
+{% endif %}
+{% else %}
+# Default to local socket if format is unclear
+Socket			local:/run/dkimpy-milter/dkimpy-milter.sock
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# PidFile: Path to write the process PID file.
+# -----------------------------------------------------------------------------
+# Name of the file where the filter should write its pid before beginning
+# normal operations.
+PidFile			{{ dkim_pid_file | default('/run/dkimpy-milter/dkimpy-milter.pid', true) | trim }}
+
+# -----------------------------------------------------------------------------
+# UserID: User (and optionally group) to run the service as.
+# -----------------------------------------------------------------------------
+# Change to user "userid" before starting normal operation?
+# May include a group ID as well, separated from the userid by a colon.
+UserID			{{ dkim_user | default('dkimpy-milter', true) | trim }}

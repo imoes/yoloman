@@ -1,0 +1,73 @@
+# ============================================================================
+# caveconverter Configuration Template
+# ============================================================================
+# This template configures the 'caveconverter' tool, which converts survey data
+# between various formats (Survex, Compass, Toporobot, DXF).
+#
+# All variables below are sourced from the Ansible role's inventory/group_vars/
+# or defaults file. Every variable reference provides a safe default using the
+# Jinja2 `default` filter to prevent render errors if the variable is undefined.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Input File Configuration
+# ---------------------------------------------------------------------------
+# Path to the input survey data file.
+# Supported formats depend on input_format:
+#   - Survex: .svx, .txt
+#   - Compass: .csv, .txt
+#   - PocketTopo: .txt
+#   - DXF: .dxf
+# Default: empty string (must be provided by the user/role)
+input_file: {{ input_file | default('') }}
+
+# ---------------------------------------------------------------------------
+# Output File Configuration
+# ---------------------------------------------------------------------------
+# Path to the output file where the converted survey data will be written.
+# Example: 'output.text' or 'output.svx'
+# Default: empty string (must be provided by the user/role)
+output_file: {{ output_file | default('') }}
+
+# ---------------------------------------------------------------------------
+# Input Format Code
+# ---------------------------------------------------------------------------
+# Specifies the format of the input file.
+#   's' : Survex native format
+#   'c' : Compass format
+#   'p' : PocketTopo text format
+#   'd' : AutoCAD DXF format
+# Default: 's' (Survex)
+input_format: {{ input_format | default('s') }}
+
+# ---------------------------------------------------------------------------
+# Output Format Code
+# ---------------------------------------------------------------------------
+# Specifies the desired format for the output file.
+#   't' : Toporobot format
+#   's' : Survex native format
+# Default: 't' (Toporobot)
+output_format: {{ output_format | default('t') }}
+
+# ---------------------------------------------------------------------------
+# LRUD Generation (Passage Dimensions)
+# ---------------------------------------------------------------------------
+# If true, the converter will attempt to generate Left/Right/Up/Down passage
+# dimensions from splay legs in the survey data. This is an optional feature.
+# Default: false
+{% if lrud | default(false) %}
+lrud_generation: true
+{% else %}
+lrud_generation: false
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Character Encoding
+# ---------------------------------------------------------------------------
+# Specifies the character encoding used for reading input files and writing
+# output files. Common values are 'UTF-8' or 'ISO-8859-1'.
+# If omitted, the tool may use system default or UTF-8 depending on version.
+# Default: 'UTF-8'
+{% if encoding | default('UTF-8') %}
+character_encoding: {{ encoding | default('UTF-8') }}
+{% endif %}

@@ -19,6 +19,11 @@
     "default": "",
     "description": "System hostname to set at boot (overrides kernel command line)."
   },
+  "runlevel_default": {
+    "type": "number",
+    "default": 2,
+    "description": "Default runlevel to jump to after bootstrap (runlevel S)."
+  },
   "runlevels": {
     "type": "list",
     "default": [
@@ -40,25 +45,7 @@
         ]
       }
     ],
-    "description": "Runlevels and services to activate per runlevel. Each entry defines a runlevel number and an ordered list of service names.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "number": {
-          "type": "number",
-          "required": true,
-          "description": "Runlevel number (e.g., 3 for multi-user, 5 for GUI)."
-        },
-        "services": {
-          "type": "list",
-          "required": true,
-          "description": "List of service names to start in this runlevel (must match service names below).",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    }
+    "description": "Runlevels and services to activate per runlevel. Each entry defines a runlevel number and an ordered list of service names."
   },
   "services": {
     "type": "list",
@@ -83,112 +70,6 @@
         "depends_on": "network"
       }
     ],
-    "description": "List of system services to manage. Each service defines name, command, and optional lifecycle behavior.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "required": true,
-          "description": "Unique service name (e.g., sshd, network). Must match references in runlevels."
-        },
-        "description": {
-          "type": "string",
-          "required": false,
-          "description": "Optional human-readable description (not parsed \u2014 for documentation only)."
-        },
-        "cmd": {
-          "type": "string",
-          "required": true,
-          "description": "Command to execute (full path and args). Must be non-blocking (e.g., -D for daemons) or use 'exec' wrapper."
-        },
-        "pidfile": {
-          "type": "string",
-          "required": false,
-          "description": "Path to PID file for process monitoring (required for non-daemonizing services)."
-        },
-        "restart_delay": {
-          "type": "number",
-          "required": false,
-          "default": 0,
-          "description": "Seconds to wait before restarting a crashed service."
-        },
-        "start_timeout": {
-          "type": "number",
-          "required": false,
-          "default": 0,
-          "description": "Seconds to wait for service to signal readiness (via pidfile or watchdog)."
-        },
-        "restart_limit": {
-          "type": "number",
-          "required": false,
-          "default": 0,
-          "description": "Maximum restart attempts before disabling the service."
-        },
-        "network_required": {
-          "type": "bool",
-          "required": false,
-          "default": false,
-          "description": "If true, service waits until basic network is up (uses /run/finit/network.state)."
-        },
-        "depends_on": {
-          "type": "string",
-          "required": false,
-          "description": "Name of service that must be running before this one starts."
-        },
-        "early_boot": {
-          "type": "bool",
-          "required": false,
-          "default": false,
-          "description": "If true, start this service *before* runlevel 3 (e.g., for filesystem checks)."
-        }
-      }
-    }
-  },
-  "ttys": {
-    "type": "list",
-    "default": [
-      {
-        "device": "/dev/tty1",
-        "baud_rate": 38400
-      },
-      {
-        "device": "/dev/tty2",
-        "baud_rate": 38400,
-        "getty_cmd": "/sbin/agetty -n tty2 38400"
-      }
-    ],
-    "description": "Virtual console terminals to spawn (e.g., for login prompts).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "device": {
-          "type": "string",
-          "required": true,
-          "description": "TTY device path (e.g., /dev/tty1)."
-        },
-        "baud_rate": {
-          "type": "number",
-          "required": false,
-          "default": 38400,
-          "description": "Baud rate for serial/tty (only used if getty_cmd omitted)."
-        },
-        "getty_cmd": {
-          "type": "string",
-          "required": false,
-          "description": "Full getty command to run (e.g., '/sbin/agetty -n tty2 38400'). If provided, overrides baud_rate and default getty."
-        }
-      }
-    }
-  },
-  "poweroff_cmd": {
-    "type": "string",
-    "default": "",
-    "description": "Custom command to execute on power button press (e.g., /sbin/poweroff). If omitted, defaults to /sbin/poweroff."
-  },
-  "reboot_cmd": {
-    "type": "string",
-    "default": "",
-    "description": "Custom command to execute on reboot (e.g., /sbin/reboot -f). If omitted, defaults to /sbin/reboot."
+    "description": "List of system services to manage. Each service defines name, command, and optional lifecycle behavior."
   }
 }

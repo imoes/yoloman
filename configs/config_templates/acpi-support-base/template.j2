@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# This script initiates a shutdown when the power button has been
+# pressed. Loosely based on the sample that ships with the acpid package.
+# If the acpid sample is present as a real config file (as it was in earlier
+# versions of acpid), we skip this script. (Purging and reinstalling acpid
+# resolves this situation, or simply deleting /etc/acpi/events/powerbtn.)
+
+# Check if a legacy acpid handler already exists; if so, defer to it.
+if [ -f /etc/acpi/events/powerbtn -o -f /etc/acpi/events/powerbtn.dpkg-bak ] ; then
+	logger Acpi-support not handling power button, acpid handler exists at /etc/acpi/events/powerbtn or /etc/acpi/events/powerbtn.dpkg-bak.
+	exit 0
+fi
+
+# Source the acpi-support policy functions to check system state.
+# If the path is invalid, we cannot proceed with policy checks.
+{{ policy_funcs_path | default('/usr/share/acpi-support/policy-funcs') }}
+
+# Load the policy functions script.
+# If the script does not exist, exit gracefully as there is no policy context.
+[ -e {{ policy_funcs_path | default('/usr/share/acpi-support/policy-funcs') }} ] || exit 0
+
+. {{ policy_funcs_path | default('/usr/share/acpi-support/policy-funcs') }}
+
+# If the system supports policy checking via pm-utils or has systemd-logind via D-Bus,
+# let the upstream policy manager handle the power button event.
+if { CheckPolicy || HasDBusLogin1; }; then
+	exit 0
+fi
+
+# Fallback to legacy power button handler script if it exists and is executable.
+# This maintains compatibility with older acpid configurations.
+if [ -x {{ powerbtn_script | default('/etc/acpi/powerbtn.sh') }} ] ; then
+	# Compatibility with old config script from acpid package
+	{{ powerbtn_script | default('/etc/acpi/powerbtn.sh') }}
+elif [ -x {{ powerbtn_script | default('/etc/acpi/powerbtn.sh') }}.dpkg-bak ] ; then
+        # Compatibility with old config script from acpid package
+        # which is still around because it was changed by the admin
+        {{ powerbtn_script | default('/etc/acpi/powerbtn.sh') }}.dpkg-bak
+else
+	# Default action: shut down the machine immediately when no other handler is present.
+	{{ shutdown_command | default('/sbin/shutdown -h -P now "Power button pressed"') }}
+fi

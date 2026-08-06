@@ -1,0 +1,197 @@
+{# ============================================================================== #}
+{# Gobuster CLI Configuration Template                                            #}
+{#                                                                                #}
+{# This template generates a command-line invocation or argument list for gobuster. #}
+{# It supports multiple operation modes: dir, dns, s3, gcs, vhost, fuzz, tftp.    #}
+{#                                                                                #}
+{# Variables used correspond to the gobuster CLI flags. All variables have         #}
+{# defaults defined in the schema to ensure safe rendering even if undefined.      #}
+{# ============================================================================== #}
+
+{# --- Global Flags --- #}
+
+{# --delay: Time each thread waits between requests (e.g., '1500ms') #}
+{%- if delay | default('') | length > 0 -%}
+--delay {{ delay | default('') | string }}
+{%- endif -%}
+
+{# --no-color: Disable color output #}
+{%- if no_color | default(False) -%}
+--no-color
+{%- endif -%}
+
+{# --no-error: Don’t display errors #}
+{%- if no_error | default(False) -%}
+--no-error
+{%- endif -%}
+
+{# --no-progress: Don’t display progress #}
+{%- if no_progress | default(False) -%}
+--no-progress
+{%- endif -%}
+
+{# --output: Output file path for results #}
+{%- if output | default('') | length > 0 -%}
+-o {{ output | default('') }}
+{%- endif -%}
+
+{# --patterns: File(s) containing replacement patterns (gobuster fuzz mode only) #}
+{%- if patterns | default([]) | length > 0 -%}
+-p {{ patterns | default([]) | join(' ') }}
+{%- endif -%}
+
+{# --quiet: Suppress banner and other noise #}
+{%- if quiet | default(False) -%}
+--quiet
+{%- endif -%}
+
+{# --threads: Number of concurrent threads #}
+{%- if threads | default(10) is number -%}
+-t {{ threads | default(10) | int }}
+{%- endif -%}
+
+{# --verbose: Verbose output (errors) #}
+{%- if verbose | default(False) -%}
+--verbose
+{%- endif -%}
+
+{# --wordlist: Path to wordlist #}
+{%- if wordlist | default('') | length > 0 -%}
+-w {{ wordlist | default('') }}
+{%- endif -%}
+
+{# --- Mode-Specific Configuration --- #}
+
+{# Mode declaration: dir, dns, s3, gcs, vhost, fuzz, tftp #}
+{# Note: The first non-flag argument to gobuster is the mode. #}
+{{ mode | default('dir') }}
+
+{# ============================================================================== #}
+{# Directory Brute-Force Mode                                                     #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 'dir' %}
+
+    {# --url: Target URL (dir/vhost/fuzz modes) #}
+    {%- if url | default('') | length > 0 -%}
+    -u {{ url | default('') }}
+    {%- endif -%}
+
+    {# --extensions: File extensions to append (dir mode) #}
+    {%- if extensions | default([]) | length > 0 -%}
+    -x {{ extensions | default([]) | join(',') }}
+    {%- endif -%}
+
+    {# --headers: HTTP headers to use (dir/vhost modes); each item is a list of two strings: [Header-Name, Value] #}
+    {%- if headers | default([]) | length > 0 -%}
+    {%- for header_pair in headers | default([]) %}
+    -H {{ header_pair | default(['', '']) | join(': ') }}
+    {%- endfor -%}
+    {%- endif -%}
+
+    {# --cookies: Cookie strings (dir mode); each item is a cookie string like 'session=abc' #}
+    {%- if cookies | default([]) | length > 0 -%}
+    {%- for cookie in cookies | default([]) %}
+    -c {{ cookie | default('') }}
+    {%- endfor -%}
+    {%- endif -%}
+{%- endif %}
+
+{# ============================================================================== #}
+{# DNS Subdomain Brute-Force Mode                                                 #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 'dns' %}
+
+    {# --domain: Target domain (dns mode) #}
+    {%- if domain | default('') | length > 0 -%}
+    -d {{ domain | default('') }}
+    {%- endif -%}
+
+    {# --wildcard: Enable wildcard detection (dns mode) #}
+    {%- if wildcard | default(False) -%}
+    --wildcard
+    {%- endif -%}
+
+    {# --servers: DNS servers to query (dns mode) #}
+    {%- if servers | default([]) | length > 0 -%}
+    {%- for server in servers | default([]) %}
+    -r {{ server | default('') }}
+    {%- endfor -%}
+    {%- endif -%}
+{%- endif %}
+
+{# ============================================================================== #}
+{# S3 Bucket Enumeration Mode                                                     #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 's3' %}
+
+    {# --region: AWS region (s3/gcs modes) #}
+    {%- if region | default('') | length > 0 -%}
+    -R {{ region | default('') }}
+    {%- endif -%}
+
+    {# --list-buckets: Attempt to list bucket contents (s3/gcs modes) #}
+    {%- if list_buckets | default(False) -%}
+    --list-buckets
+    {%- endif -%}
+{%- endif %}
+
+{# ============================================================================== #}
+{# Google Cloud Storage Bucket Enumeration Mode                                   #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 'gcs' %}
+
+    {# --region: AWS region (s3/gcs modes) - Note: Gobuster uses same flag for GCS context #}
+    {%- if region | default('') | length > 0 -%}
+    -R {{ region | default('') }}
+    {%- endif -%}
+
+    {# --list-buckets: Attempt to list bucket contents (s3/gcs modes) #}
+    {%- if list_buckets | default(False) -%}
+    --list-buckets
+    {%- endif -%}
+{%- endif %}
+
+{# ============================================================================== #}
+{# Virtual Host Brute-Force Mode                                                  #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 'vhost' %}
+
+    {# --url: Target URL (dir/vhost/fuzz modes) #}
+    {%- if url | default('') | length > 0 -%}
+    -u {{ url | default('') }}
+    {%- endif -%}
+
+    {# --headers: HTTP headers to use (dir/vhost modes); each item is a list of two strings: [Header-Name, Value] #}
+    {%- if headers | default([]) | length > 0 -%}
+    {%- for header_pair in headers | default([]) %}
+    -H {{ header_pair | default(['', '']) | join(': ') }}
+    {%- endfor -%}
+    {%- endif -%}
+{%- endif %}
+
+{# ============================================================================== #}
+{# Fuzzing Mode                                                                   #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 'fuzz' %}
+
+    {# --url: Target URL (dir/vhost/fuzz modes) #}
+    {%- if url | default('') | length > 0 -%}
+    -u {{ url | default('') }}
+    {%- endif -%}
+
+    {# --pattern-file: Pattern file for fuzzing #}
+    {%- if pattern_file | default('') | length > 0 -%}
+    -p {{ pattern_file | default('') }}
+    {%- endif -%}
+{%- endif %}
+
+{# ============================================================================== #}
+{# TFTP File Brute-Force Mode                                                     #}
+{# ============================================================================== #}
+{%- if mode | default('dir') == 'tftp' %}
+
+    {# --server: TFTP server hostname/IP (tftp mode) #}
+    {%- if server | default('') | length > 0 -%}
+    -s {{ server | default('') }}
+    {%- endif -%}
+{%- endif %}

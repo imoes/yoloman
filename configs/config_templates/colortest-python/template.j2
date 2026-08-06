@@ -1,0 +1,91 @@
+{#
+  colortest-python CLI Arguments Template
+  ----------------------------------------
+  Generates the command-line invocation for `colortest-python` based on Ansible variables.
+  Each option corresponds to a field in the provided schema. If a variable is not defined
+  in the playbook, the template defaults to the schema's default value to ensure valid output.
+#}
+
+{#
+  Command prefix. The executable name itself.
+#}
+colortest-python
+
+{#
+  Color mode options: '16', '88', '256'.
+  Renders each specified color depth as a separate argument.
+#}
+{% if colors | default([]) | length > 0 %}
+{% for opt in colors %}
+  -C {{ opt }}
+{% endfor %}
+{% endif %}
+
+{#
+  Display mode: 'block' (short option: -b) or 'cube' (short option: -c).
+  Defaults to 'block' if not specified.
+#}
+{% if mode | default('block') == 'block' %}
+  -b
+{% elif mode | default('block') == 'cube' %}
+  -c
+{% endif %}
+
+{#
+  Orientation: 'vertical' (short option: -v) or 'horizontal' (short option: -z).
+  Defaults to 'vertical' if not specified.
+#}
+{% if orientation | default('vertical') == 'vertical' %}
+  -v
+{% elif orientation | default('vertical') == 'horizontal' %}
+  -z
+{% endif %}
+
+{#
+  Include numeric color escape codes in the output (short option: -n).
+#}
+{% if numbers | default(false) %}
+  -n
+{% endif %}
+
+{#
+  Include hexadecimal color codes in the output (short option: -x).
+#}
+{% if hex | default(false) %}
+  -x
+{% endif %}
+
+{#
+  Display RGB values as long text strings (short option: -l).
+#}
+{% if rgb | default(false) %}
+  -l
+{% endif %}
+
+{#
+  Add extra padding between color blocks for better readability (short option: -p).
+#}
+{% if padding | default(false) %}
+  -p
+{% endif %}
+
+{#
+  Use color for foreground text instead of background (short option: -f).
+#}
+{% if foreground | default(false) %}
+  -f
+{% endif %}
+
+{#
+  Convert a specific 88-color index to its 256-color equivalent (long option: --88to256).
+#}
+{% if convert_88to256 is defined and convert_88to256 is not none %}
+  --88to256={{ convert_88to256 }}
+{% endif %}
+
+{#
+  Convert a specific 256-color index to its 88-color equivalent (long option: --256to88).
+#}
+{% if convert_256to88 is defined and convert_256to88 is not none %}
+  --256to88={{ convert_256to88 }}
+{% endif %}

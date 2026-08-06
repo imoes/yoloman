@@ -1,0 +1,64 @@
+{# dnsjit script configuration - Lua script header #}
+{# Optional comment to include at the top of the script (e.g., copyright or license). #}
+{% if script_header_comment | default('') %}{{ script_header_comment | default('') }}
+{% endif %}#!/usr/bin/env dnsjit
+
+{# Whether to include a version compatibility check at startup. #}
+{% if dnsjit_version_check | default(False) | bool %}-- Check minimum dnsjit version
+if DNSJIT_MAJOR_VERSION < {{ version_major | default(1) }} or (DNSJIT_MAJOR_VERSION == {{ version_major | default(1) }} and DNSJIT_MINOR_VERSION < {{ version_minor | default(5) }}) then
+    error("dnsjit >= {{ version_major | default(1) }}.{{ version_minor | default(5) }} required")
+end
+{% endif %}
+
+{# Load required modules #}
+{# Input module to use (e.g., pcapthread, etc.). #}
+local input = require("dnsjit.input.{{ input_module | default('pcapthread') }}").new()
+
+{# List of key-value pairs for input module configuration options. Values are passed as Lua literals. #}
+{% set input_options = input_module_options | default([]) %}
+{% if input_options is iterable and (input_options is mapping or input_options is sequence) %}
+    {% if input_options is mapping %}
+        {% for key, val in input_options | dict2items %}
+input:{{ key.key | replace('.', '_') }}({{ val.value | default('') }})
+        {% endfor %}
+    {% elif input_options is sequence %}
+        {% for item in input_options %}
+            {% if item is mapping %}
+input:{{ item.key | replace('.', '_') }}({{ item.value | default('') }})
+            {% else %}
+{# Invalid input module option format, skipping #}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endif %}
+
+{# Filter/output module to use. #}
+local output = require("dnsjit.filter.{{ filter_module | default('lua') }}").new()
+
+output:func(function(filter, object)
+    local packet = object:cast()
+    {# Whether to parse the DNS message using dnsjit.core.object.dns. #}
+    {% if parse_dns | default(True) | bool %}local dns = require("dnsjit.core.object.dns").new(packet)
+    dns:parse()
+    {% endif %}
+    {# Lua code to execute per DNS packet — must be valid Lua code. #}
+    {% if output_statement | default('') %}{{ output_statement | default('') | indent(4) }}
+    {% else %}print("DNS packet processed")
+    {% endif %}
+end)
+
+input:receiver(output)
+
+{# Input file path for offline pcap input modules. #}
+{% set im = input_module | default('pcapthread') %}
+{% if im == 'pcapthread' or im == 'pcapfile' %}input:open_offline("{{ input_file | default('input.pcap') }}")
+{% endif %}
+
+{# Filter input to queries only. #}
+{% if only_queries | default(False) | bool %}input:only_queries(true)
+{% endif %}
+
+{# Filter input to responses only. #}
+{% if only_responses | default(False) | bool %}input:only_responses(true)
+{% endif %}
+input:run()

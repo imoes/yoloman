@@ -1,0 +1,56 @@
+# dbf2mysql configuration
+# One-per-service instance config for dbf2mysql(1)
+{% for svc in services %}# Service: {{ svc.name }}
+{%   if svc.description %}# Description: {{ svc.description }}
+{%   endif %}{# dbf2mysql binary #}
+dbf2mysql \
+{%   if svc.verbose %}  -{{ 'v' * svc.verbose }} \
+{%   endif %}{# field transformations #}
+{%   if svc.lowercase_fields %}  -f \
+{%   endif %}
+{%   if svc.uppercase_text == 'u' %}  -u \
+{%   elif svc.uppercase_text == 'l' %}  -l \
+{%   elif svc.uppercase_text == 'L' %}  -L \
+{%   endif %}{# NULL handling #}
+{%   if svc.allow_null is defined and svc.allow_null %}  -n \
+{%   endif %}{# field selection #}
+{%   if svc.include_fields | length > 0 %}  -o {{ svc.include_fields | join(',') }} \
+{%   endif %}
+{%   if svc.skip_fields | length > 0 %}  -s {{ svc.skip_fields | map('join=') | join(',') }} \
+{%   endif %}
+{%   if svc.rename_fields | length > 0 %}  -s {{ svc.rename_fields | map('join=') | join(',') }} \
+{%   endif %}{# indexing #}
+{%   if svc.index_fields | length > 0 %}  -i {{ svc.index_fields | join(',') }} \
+{%   endif %}{# table/database #}
+{%   if svc.database is not none %}  -d {{ svc.database }} \
+{%   endif %}
+{%   if svc.table is not none %}  -t {{ svc.table }} \
+{%   endif %}{# table creation #}
+{%   if svc.create_mode == 'drop_create' %}  -c \
+{%   elif svc.create_mode == 'create_only' %}  -cc \
+{%   endif %}{# primary key #}
+{%   if svc.primary_key is not none %}  -p {{ svc.primary_key }} \
+{%   endif %}{# connection #}
+{%   if svc.host is not none %}  -h {{ svc.host }} \
+{%   endif %}
+{%   if svc.user is not none %}  -U {{ svc.user }} \
+{%   endif %}
+{%   if svc.password is not none %}  -P '{{ svc.password }}' \
+{%   endif %}{# data handling #}
+{%   if svc.fixed_length %}  -F \
+{%   endif %}
+{%   if svc.trim_chars %}  -r \
+{%   endif %}
+{%   if svc.quick_mode %}  -q \
+{%   endif %}
+{%   if svc.local_infile %}  -L \
+{%   endif %}{# metadata #}
+{%   if svc.add_rec_timestamp %}  -x \
+{%   endif %}{# character set #}
+{%   if svc.charset is not none %}  -C {{ svc.charset }} \
+{%   endif %}{# conversions #}
+{%   if svc.conversion_file is not none %}  -e '{{ svc.conversion_file }}' \
+{%   endif %}
+  "{{ svc.input_file }}"
+
+{% endfor %}

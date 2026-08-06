@@ -1,0 +1,221 @@
+# ==============================================================================
+# btm (Bashtop Monitor / System Monitor) Configuration
+# ==============================================================================
+# This template generates a TOML configuration file for `btm`.
+# `btm` is a terminal-based system monitor similar to htop/btop.
+#
+# Structure:
+#   [colors]     - Color and temperature display settings
+#   [graphs]     - Graph rendering and time-scale behaviors
+#   [widgets]    - Layout, default widgets, and per-widget tuning
+#   [system]     - Input handling, refresh rates, and retention policies
+# ==============================================================================
+
+[colors]
+  # ============================================================================
+  # Temperature Display Settings
+  # ============================================================================
+
+  # Use Celsius as the default temperature unit.
+  # If disabled, the global temperature_unit setting controls the unit.
+  # Schema: celsius (boolean, default: True)
+  celsius = {{ celsius | default(true) }}
+
+  # Override the temperature unit globally.
+  # Valid values: 'celsius', 'fahrenheit', 'kelvin'.
+  # If celsius is false, this setting determines the unit used.
+  # Schema: temperature_unit (string, default: 'celsius')
+  {{ temperature_unit | default('celsius') }} = true
+
+  # Hide the "Average CPU" entry from the CPU chart legend/area.
+  # Schema: hide_avg_cpu (boolean, default: False)
+  hide_avg_cpu = {{ hide_avg_cpu | default(false) }}
+
+[graphs]
+  # ============================================================================
+  # Graph Time-Scale and Zoom Behavior
+  # ============================================================================
+
+  # Time in milliseconds before the time scale auto-hides in graphs when zooming.
+  # Set to 0 to disable auto-hiding entirely.
+  # Schema: autohide_time (integer, default: 0)
+  autohide_time = {{ autohide_time | default(0) }}
+
+  # Hide the time scale axis entirely from all graphs.
+  # Schema: hide_time (boolean, default: False)
+  hide_time = {{ hide_time | default(false) }}
+
+  # Time delta in milliseconds applied per zoom step.
+  # Must be at least 1000 ms. Controls how fast the time window expands/contracts.
+  # Schema: time_delta (integer, default: 15000)
+  time_delta = {{ time_delta | default(15000) }}
+
+  # Default graph time window in milliseconds.
+  # The initial zoom level when the application starts. Must be at least 30000 ms.
+  # Schema: default_time_value (integer, default: 60000)
+  default_time_value = {{ default_time_value | default(60000) }}
+
+[widgets]
+  # ============================================================================
+  # Widget Layout and Defaults
+  # ============================================================================
+
+  # Use dot markers for graph plots instead of braille characters.
+  # Useful for terminals that do not support braille or where dot clarity is preferred.
+  # Schema: dot_marker (boolean, default: False)
+  dot_marker = {{ dot_marker | default(false) }}
+
+  # Expand the default widget immediately on startup.
+  # Ignored if running in basic mode.
+  # Schema: expanded (boolean, default: False)
+  expanded = {{ expanded | default(false) }}
+
+  # Hide spacing (gap) between table headers and their data entries.
+  # Makes the table more compact.
+  # Schema: hide_table_gap (boolean, default: False)
+  hide_table_gap = {{ hide_table_gap | default(false) }}
+
+  # Show a scroll position tracker in table widget titles.
+  # Indicates how far the user has scrolled into the list.
+  # Schema: show_table_scroll_position (boolean, default: False)
+  show_table_scroll_position = {{ show_table_scroll_position | default(false) }}
+
+  # The type of widget to display by default.
+  # Valid values: 'cpu', 'mem', 'net', 'network', 'proc', 'process', 'processes',
+  #               'temp', 'temperature', 'disk', 'batt', 'battery'.
+  # Schema: default_widget_type (string, default: 'process')
+  default_widget_type = "{{ default_widget_type | default('process') }}"
+
+  # The index (1-based) of the default widget to focus/expand.
+  # Positions are determined left-to-right, then top-to-bottom.
+  # Schema: default_widget_count (integer, default: 1)
+  default_widget_count = {{ default_widget_count | default(1) }}
+
+  # --------------------------------------------------------------------------
+  # Process Widget Specific Defaults
+  # --------------------------------------------------------------------------
+  [widgets.process]
+    # Enable case-sensitive matching for process search.
+    # Schema: process_case_sensitive (boolean, default: False)
+    case_sensitive = {{ process_case_sensitive | default(false) }}
+
+    # Calculate process CPU% based on current system usage rather than total capacity.
+    # Schema: process_current_usage (boolean, default: False)
+    current_usage = {{ process_current_usage | default(false) }}
+
+    # Group processes that share the same name by default.
+    # Schema: process_group_processes (boolean, default: False)
+    group_processes = {{ process_group_processes | default(false) }}
+
+    # Display process memory usage as a raw byte value instead of a percentage.
+    # Schema: process_memory_as_value (boolean, default: False)
+    memory_as_value = {{ process_memory_as_value | default(false) }}
+
+    # Show the full command line string instead of just the process name.
+    # Schema: process_command (boolean, default: False)
+    process_command = {{ process_command | default(false) }}
+
+    # Enable regular expression support in process search.
+    # Schema: process_regex (boolean, default: False)
+    regex = {{ process_regex | default(false) }}
+
+    # Use a tree view layout for the process list by default.
+    # Schema: process_tree (boolean, default: False)
+    tree = {{ process_tree | default(false) }}
+
+    # Show process CPU% without averaging over all cores (raw thread usage).
+    # Schema: process_unnormalized_cpu (boolean, default: False)
+    unnormalized_cpu = {{ process_unnormalized_cpu | default(false) }}
+
+    # Enable whole-word matching in process search (exact word boundaries).
+    # Schema: process_whole_word (boolean, default: False)
+    whole_word = {{ process_whole_word | default(false) }}
+
+  # --------------------------------------------------------------------------
+  # CPU Widget Specific Defaults
+  # --------------------------------------------------------------------------
+  [widgets.cpu]
+    # Default CPU entry type displayed in the chart.
+    # Valid values: 'all' (sum of all cores), 'avg' (average across cores).
+    # Schema: cpu_default_entry (string, default: 'avg')
+    default_entry = "{{ cpu_default_entry | default('avg') }}"
+
+    # Position the CPU chart legend on the left side.
+    # Schema: cpu_left_legend (boolean, default: False)
+    left_legend = {{ cpu_left_legend | default(false) }}
+
+  # --------------------------------------------------------------------------
+  # Memory Widget Specific Defaults
+  # --------------------------------------------------------------------------
+  [widgets.memory]
+    # Enable cache and buffer memory usage display in the memory widget.
+    # Schema: memory_enable_cache (boolean, default: False)
+    enable_cache = {{ memory_enable_cache | default(false) }}
+
+    # Position of the memory chart legend.
+    # Valid values: 'none', 'top-left', 'top', 'top-right', 'left', 'right',
+    #               'bottom-left', 'bottom', 'bottom-right'.
+    # Schema: memory_legend_position (string, default: 'top-right')
+    legend_position = "{{ memory_legend_position | default('top-right') }}"
+
+  # --------------------------------------------------------------------------
+  # Network Widget Specific Defaults
+  # --------------------------------------------------------------------------
+  [widgets.network]
+    # Position of the network chart legend.
+    # Valid values: 'none', 'top-left', 'top', 'top-right', 'left', 'right',
+    #               'bottom-left', 'bottom', 'bottom-right'.
+    # Schema: network_legend_position (string, default: 'top-right')
+    legend_position = "{{ network_legend_position | default('top-right') }}"
+
+    # Display network speeds in bytes per second instead of bits per second.
+    # Schema: network_use_bytes (boolean, default: False)
+    use_bytes = {{ network_use_bytes | default(false) }}
+
+    # Use binary prefixes (KiB, MiB, GiB) instead of decimal prefixes (KB, MB, GB).
+    # Schema: network_use_binary_prefix (boolean, default: False)
+    use_binary_prefix = {{ network_use_binary_prefix | default(false) }}
+
+    # Apply a logarithmic scale to the network widget graph.
+    # Useful for visualizing traffic with large variance.
+    # Schema: network_use_log (boolean, default: False)
+    use_log = {{ network_use_log | default(false) }}
+
+  # --------------------------------------------------------------------------
+  # Battery Widget Specific Defaults
+  # --------------------------------------------------------------------------
+  [widgets.battery]
+    # Enable the battery widget.
+    # Only useful if the hardware supports battery reporting (laptops/UPS).
+    # Schema: battery_enabled (boolean, default: False)
+    enabled = {{ battery_enabled | default(false) }}
+
+[system]
+  # ============================================================================
+  # System Interaction and Performance Settings
+  # ============================================================================
+
+  # Disable GPU monitoring entirely.
+  # Prevents `btm` from querying GPU drivers/stats.
+  # Schema: disable_gpu (boolean, default: False)
+  disable_gpu = {{ disable_gpu | default(false) }}
+
+  # Disable advanced process termination options.
+  # Limits kill signals to SIGTERM only; disables signals like SIGKILL, SIGHUP in UI.
+  # Schema: disable_advanced_kill (boolean, default: False)
+  disable_advanced_kill = {{ disable_advanced_kill | default(false) }}
+
+  # Disable mouse interaction within the terminal UI.
+  # Makes the interface keyboard-only.
+  # Schema: disable_click (boolean, default: False)
+  disable_click = {{ disable_click | default(false) }}
+
+  # Refresh rate of the monitor in milliseconds.
+  # Controls how frequently data is polled from the system. Minimum 250 ms.
+  # Schema: rate (integer, default: 1000)
+  rate = {{ rate | default(1000) }}
+
+  # Data retention time in milliseconds.
+  # How long historical data is kept in memory for graphing purposes. Minimum 60000 ms.
+  # Schema: retention (integer, default: 600000)
+  retention = {{ retention | default(600000) }}

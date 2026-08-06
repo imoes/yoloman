@@ -9,6 +9,11 @@
     "default": "/var/lib/activemq/data",
     "description": "Root directory for all broker data (includes KahaDB, logs, etc.)"
   },
+  "enable_jmx": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable JMX management (default is true in ActiveMQ core)"
+  },
   "enable_statistics": {
     "type": "bool",
     "default": false,
@@ -22,19 +27,7 @@
   "plug_ins": {
     "type": "list",
     "default": [],
-    "description": "List of plugin references (bean IDs) to inject into broker",
-    "items": {
-      "ref": {
-        "type": "string",
-        "default": "",
-        "description": "Spring bean ID of the plugin to instantiate"
-      }
-    }
-  },
-  "enable_jmx": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable JMX management (must be true to expose JMX port)"
+    "description": "List of plugin references (bean IDs) to inject into broker\nItems must be objects with 'ref' string property\nItems: { ref: string }"
   },
   "jmx_port": {
     "type": "number",
@@ -79,133 +72,17 @@
   "transport_connectors": {
     "type": "list",
     "default": [],
-    "description": "List of transport endpoints for client connections (e.g., OpenWire, MQTT, STOMP)",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Logical name for this connector (e.g., 'openwire')"
-      },
-      "protocol": {
-        "type": "string",
-        "default": "tcp",
-        "description": "Underlying transport protocol: 'tcp', 'nio', 'ssl', 'ws', etc."
-      },
-      "host": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "Network interface to bind to (e.g., '0.0.0.0', '127.0.0.1')"
-      },
-      "port": {
-        "type": "number",
-        "default": 61616,
-        "description": "Port number to listen on"
-      },
-      "wire_format_opts": {
-        "type": "list",
-        "default": [],
-        "description": "List of key=value wire format options (e.g., ['maxInactivityDuration=30000'])"
-      }
-    }
+    "description": "List of transport endpoints for client connections (e.g., OpenWire, MQTT, STOMP)\nItems must be objects with name, protocol, host, port, wire_format_opts properties\nItems: { name: string, protocol: string, host: string, port: number, wire_format_opts: list }"
   },
   "network_connectors": {
     "type": "list",
     "default": [],
-    "description": "Optional list of network connectors to bridge to other brokers",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Identifier for this network connector"
-      },
-      "uri": {
-        "type": "string",
-        "default": "",
-        "description": "URI to remote broker(s); e.g., 'static://(tcp://remote1:61616,tcp://remote2:61616)'"
-      },
-      "dynamic_only": {
-        "type": "bool",
-        "default": true,
-        "description": "Only forward messages to destinations with active consumers on downstream brokers"
-      },
-      "prefetch": {
-        "type": "number",
-        "default": 1000,
-        "description": "Number of messagesprefetched per consumer over the network"
-      },
-      "decrease_priority": {
-        "type": "bool",
-        "default": true,
-        "description": "Reduce consumer priority for network connections (helps local consumers)"
-      }
-    }
+    "description": "Optional list of network connectors to bridge to other brokers\nItems must be objects with name, uri, dynamic_only, prefetch, decrease_priority properties\nItems: { name: string, uri: string, dynamic_only: bool, prefetch: number, decrease_priority: bool }"
   },
   "destination_policy_entries": {
     "type": "list",
     "default": [],
-    "description": "List of destination-specific policies (queues/topics) to control behavior",
-    "items": {
-      "queue": {
-        "type": "string",
-        "default": "",
-        "description": "Queue name pattern (e.g., 'MYQUEUE.*', '>' for all)"
-      },
-      "topic": {
-        "type": "string",
-        "default": "",
-        "description": "Topic name pattern"
-      },
-      "dead_letter_queue": {
-        "type": "string",
-        "default": "DLQ",
-        "description": "Name of queue to hold expired/unroutable messages"
-      },
-      "memory_limit_mb": {
-        "type": "number",
-        "default": 100,
-        "description": "Max memory (MB) allowed for this destination before backpressure"
-      },
-      "max_entries": {
-        "type": "number",
-        "default": 200000,
-        "description": "Maximum number of messages cached in memory (for slow consumers)"
-      },
-      "use_cache": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether to cache messages in memory"
-      },
-      "expire_messages_period": {
-        "type": "number",
-        "default": 300000,
-        "description": "Interval (ms) between runs to check for expired messages"
-      },
-      "inactive_timeout": {
-        "type": "number",
-        "default": 300000,
-        "description": "Time (ms) after which an unused destination is eligible for GC"
-      },
-      "gc_inactive_destinations": {
-        "type": "bool",
-        "default": false,
-        "description": "Whether to garbage-collect inactive destinations"
-      },
-      "dispatch_policy": {
-        "type": "string",
-        "default": "",
-        "description": "Dispatch strategy: 'strictOrder', 'roundRobin', 'random', etc."
-      },
-      "max_producers_audit": {
-        "type": "number",
-        "default": 1000,
-        "description": "Max number of producers tracked to prevent duplicates"
-      },
-      "max_consumers_audit": {
-        "type": "number",
-        "default": 1000,
-        "description": "Max number of consumers tracked to prevent duplicate deliveries"
-      }
-    }
+    "description": "List of destination-specific policies (queues/topics) to control behavior\nItems must be objects with queue, topic, dead_letter_queue, memory_limit_mb, max_entries, use_cache, expire_period_ms, inactive_timeout, gc_inactive_destinations, dispatch_policy, max_producers_audit, max_consumers_audit properties\nItems: { queue: string, topic: string, dead_letter_queue: string, memory_limit_mb: number, max_entries: number, use_cache: bool, expire_period_ms: number, inactive_timeout: number, gc_inactive_destinations: bool, dispatch_policy: string, max_producers_audit: number, max_consumers_audit: number }"
   },
   "enable_auth": {
     "type": "bool",
@@ -215,52 +92,6 @@
   "auth_rules": {
     "type": "list",
     "default": [],
-    "description": "Authorization rules mapping destination patterns to roles",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "queue",
-        "description": "Destination type: 'queue' or 'topic'"
-      },
-      "queue": {
-        "type": "string",
-        "default": ">",
-        "description": "Queue name pattern"
-      },
-      "topic": {
-        "type": "string",
-        "default": ">",
-        "description": "Topic name pattern"
-      },
-      "group": {
-        "type": "string",
-        "default": "",
-        "description": "Human-readable label for this rule (for documentation)"
-      },
-      "read": {
-        "type": "list",
-        "default": [],
-        "description": "Roles allowed to consume messages",
-        "items": {
-          "type": "string"
-        }
-      },
-      "write": {
-        "type": "list",
-        "default": [],
-        "description": "Roles allowed to publish messages",
-        "items": {
-          "type": "string"
-        }
-      },
-      "admin": {
-        "type": "list",
-        "default": [],
-        "description": "Roles allowed to manage destination (e.g., delete, purge)",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
+    "description": "Authorization rules mapping destination patterns to roles\nItems must be objects with type, queue, topic, group, read, write, admin properties\nItems: { type: string, queue: string, topic: string, group: string, read: list, write: list, admin: list }"
   }
 }

@@ -1,0 +1,35 @@
+# ============================================================================
+# aoetools Configuration
+# ============================================================================
+# NOTE: This file is NOT READ under systemd. It is consumed by shell scripts.
+# WARNING: All the following settings are interpolated in the shell.
+# Make sure to not configure anything that is shell syntax (e.g. semicolons).
+# ============================================================================
+
+# Enter the list of network interfaces to restrict the AoE discovery to,
+# separated by spaces. It can be blank, i.e., "", if you want to run AoE
+# over all the interfaces. If you do not want AoE discovery at all,
+# enter "none" as the list of interfaces.
+# If neither the aoe_iflist module load option nor this list of
+# interfaces are used, the aoe driver will use any network interface for
+# AoE traffic.
+# Schema default: 'none'
+INTERFACES='{{ interfaces | default('none') }}'
+
+# Enter a list of RAID arrays to be activated after AoE volumes are
+# ready, separated by spaces, without the /dev/ prefix and quoted. It
+# may be blank.
+# Example: RAID_ARRAYS='md0 md1'
+# Schema default: ''
+RAID_ARRAYS='{{ raid_arrays | default('') }}'
+
+# Enter a list of LVM2 volume groups to be activated after AoE volumes
+# are ready, separated by spaces. It can be blank, i.e., ''.
+# Schema default: ''
+LVMGROUPS='{{ lvm_groups | default('') }}'
+
+# Enter a list of file systems to be mounted over AoE. Note that those
+# entries listed in /etc/fstab that contain "/dev/etherd/" will be
+# automatically added to this list.
+# Schema default: ''
+AOEMOUNTS='{{ aoemounts | default('') }}'

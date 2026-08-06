@@ -22,35 +22,42 @@
   "downstream": {
     "type": "list",
     "default": [],
-    "description": "List of downstream (client-facing) interfaces and their associated subnets.",
-    "items": {
-      "interface": {
-        "type": "string",
-        "default": "eth1",
-        "description": "Name of the downstream network interface."
-      },
-      "subnet": {
-        "type": "string",
-        "default": "192.168.1.0/24",
-        "description": "CIDR-formatted subnet served by this interface."
-      },
-      "allowed_groups": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "string"
-        },
-        "description": "List of specific multicast groups (e.g., 239.1.1.1) allowed for forwarding on this interface. Leave empty to allow all."
-      },
-      "excluded_groups": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "string"
-        },
-        "description": "List of multicast groups explicitly excluded from forwarding."
-      }
-    }
+    "description": "List of downstream (client-facing) interfaces and their associated subnets and roles. Each item must define 'interface', 'role', 'subnet', and optionally 'allowed_groups'. 'excluded_groups' have no direct igmpproxy.conf equivalent and are ignored in the rendered config (must be handled externally)."
+  },
+  "items": {
+    "type": "object",
+    "default": null,
+    "description": "Downstream interface configuration block. Not a list-item schema wrapper in the rendered config; instead used only as a data model for Jinja generation."
+  },
+  "interface": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Name of the downstream network interface."
+  },
+  "role": {
+    "type": "string",
+    "default": "downstream",
+    "description": "Role of the interface: upstream, downstream or disabled. Must be 'downstream' for items in this list.",
+    "enum": [
+      "upstream",
+      "downstream",
+      "disabled"
+    ]
+  },
+  "subnet": {
+    "type": "string",
+    "default": "192.168.1.0/24",
+    "description": "CIDR-formatted subnet served by this interface (used only for documentation in this template, actual igmpproxy.conf does not embed subnets)."
+  },
+  "allowed_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific multicast groups (e.g., 239.1.1.1) allowed for forwarding on this interface. Each group is rendered as a whitelist directive for downstream interfaces. Leave empty to allow all (no whitelist entry)."
+  },
+  "excluded_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of multicast groups explicitly excluded from forwarding. This has no direct equivalent in igmpproxy.conf syntax and is not rendered; must be handled via external firewalling or alternative igmpproxy configuration strategies."
   },
   "query_interval": {
     "type": "number",
@@ -59,7 +66,12 @@
   },
   "threshold": {
     "type": "number",
-    "default": 3,
-    "description": "Number of missed queries before a downstream host is considered inactive."
+    "default": 1,
+    "description": "TTL threshold for downstream interfaces (default per igmpproxy.conf is 1; this setting maps to the threshold TTL in the phyint directive)."
+  },
+  "quickleave": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable quickleave mode to reduce multicast latency when clients leave groups."
   }
 }

@@ -1,58 +1,50 @@
-# The user or machine that receives root mail (required)
-# Used as 'From: root@...' in root's outgoing mail
-root={{ root_user }}
+# ssmtp.conf: configuration file for sSMTP sendmail.
+#
+# The format of this file is line-based with key=value pairs.
+# Comments start with a '#' and may appear on their own line or at the end of a value line.
+#
+# For more information, see ssmtp.conf(5).
 
-# The mail server (SMTP relay) to use for outbound mail
-# Format: host[:port]; port defaults to 25 if omitted
-mailhub={{ mailhub }}
+# The person who gets all mail for uid 0 (root)
+# Set this to your main email address or local user
+# If you want all mail for root to go to user "admin", set to "admin"
+# If you want mail for root to go to an external address, set to "admin@example.com"
+#root={{ root_user }}
 
-# Whether to use TLS/SSL encryption for the connection
-# Set to 'YES' if the relay supports STARTTLS or SSL
-UseTLS={{ use_tls | string | upper }}
+# The SMTP relay server (hostname or IP), optionally with port
+# Example: mailhub=smtp.gmail.com:587
+#mailhub={{ mailhub }}
 
-# Whether to use STARTTLS explicitly (if UseTLS is YES, this may be optional)
-UseSTARTTLS={{ use_starttls | string | upper }}
+# Use TLS (STARTTLS or implicit TLS)
+#use_tls={{ use_tls | lower }}
 
-# Hostname to present in the SMTP HELO/EHLO command
-# If empty, the system's hostname is used
-Hostname={{ hostname | default('') }}
+# Use STARTTLS negotiation explicitly (ignored if UseTLS=NO)
+#use_starttls={{ use_starttls | lower }}
 
-# Whether to rewrite the 'From:' header to match the relay's domain
-# Set to 'YES' to replace local addresses (e.g., root@localhost) with user@domain
-FromLineOverride={{ from_line_override | string | upper }}
+# Hostname to send in HELO/EHLO (empty means use system hostname)
+#hostname={{ hostname }}
 
-# Optional: Auth credentials for the mail hub (if required by relay)
-# Format: username:password
-AuthUser={{ auth_user | default('') }}
-AuthPass={{ auth_pass | default('') }}
+# Allow overriding the From: line for root's mail
+#from_line_override={{ from_line_override | lower }}
 
-# Optional: Override the email address used in 'From:' for non-root users
-# If not set, defaults to 'username@hostname'
-# Example: AuthUser=mailuser@mydomain.com
-#          # (this is typically handled by FromLineOverride=NO and mailhub config)
+# SMTP authentication (if required by relay)
+#auth_user={{ auth_user }}
+#auth_pass={{ auth_pass }}
 
-# Optional: Add additional SMTP options (e.g., TLS options, debug)
-# Values: DEBUG, TLS_VERSION=..., CIPHERS=..., etc.
-# (Note: ssmtp has limited options; only supported ones are listed here)
-#{{ debug | if('') }}# Debug=TRUE
-#{{ debug | endif }}
+# Certificate verification for TLS (set to NO only for testing)
+#tls_cert_check={{ tls_cert_check | lower }}
 
-# Optional: Certificate verification (only when UseTLS=YES)
-# Set to 'NO' to skip CA cert verification (insecure, for testing only)
-TLSCertCheck={{ tls_cert_check | string | upper }}
+# Domain to append to From: addresses without domain
+#rewrite_domain={{ rewrite_domain }}
 
-# Optional: Allow rewriting of 'From:' header for all users (not just root)
-# Set to 'YES' to force all outgoing mail to appear from the configured mailhub domain
-# (Note: FromLineOverride above applies only to root by default; this extends it)
-RewriteDomain={{ rewrite_domain | default('') }}
+# Default domain to append to addresses missing one (e.g., local-only addresses)
+#default_domain={{ default_domain }}
 
-# Optional: Default domain to append to addresses missing a domain part
-# E.g., 'localhost' or 'example.com'
-# If empty, no domain is appended (addresses must be fully qualified)
-RewriteDomain={{ default_domain | default('') }}
+# CA certificate bundle for TLS verification
+#tls_ca_file={{ ca_cert_file }}
 
-# Optional: Set the location of the CA certificate bundle for TLS verification
-# Common: /etc/ssl/certs/ca-certificates.crt (Debian/Ubuntu) or /etc/pki/tls/certs/ca-bundle.crt (RHEL)
-{% if ca_cert_file %}
-TLSCAInfo={{ ca_cert_file }}
-{% endif %}
+# Enable debug output to stderr (for troubleshooting)
+#debug={{ debug | lower }}
+
+# IMPORTANT: This file is read-only by default (mode 600).
+# Keep it secured — especially if auth_pass is set.

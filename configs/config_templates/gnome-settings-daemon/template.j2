@@ -1,0 +1,39 @@
+# GNOME Settings Daemon Accessibility Autostart Entry
+# This template generates a .desktop autostart file for the GNOME accessibility settings daemon.
+# It controls visibility, execution phase, and systemd integration for the gsd-a11y-settings service.
+
+# Type of entry; must remain Application for autostart services
+Type=Application
+
+# Human-readable name displayed by desktop environments
+# Schema: desktop_entry_name (default: 'GNOME accessibility')
+Name={{ desktop_entry_name | default('GNOME accessibility') }}
+
+# Executable path for the daemon
+# Schema: service_name (default: 'gsd-a11y-settings')
+Exec=/usr/libexec/{{ service_name | default('gsd-a11y-settings') }}
+
+# Desktop environments where this autostart entry is visible
+# Schema: only_show_in (default: ['GNOME'])
+# Rendered as a semicolon-separated list
+OnlyShowIn={{ only_show_in | default(['GNOME']) | join(';') }}
+
+# If true, hide this entry from menus and desktops
+# Schema: no_display (default: True)
+NoDisplay={{ no_display | default(true) | lower }}
+
+# Phase of autostart execution
+# Schema: autostart_phase (default: 'Initialization')
+X-GNOME-Autostart-Phase={{ autostart_phase | default('Initialization') }}
+
+# If true, send a notification when autostart completes
+# Schema: autostart_notify (default: True)
+X-GNOME-Autostart-Notify={{ autostart_notify | default(true) | lower }}
+
+# If true, automatically restart the daemon if it crashes
+# Schema: auto_restart (default: True)
+X-GNOME-AutoRestart={{ auto_restart | default(true) | lower }}
+
+# If true, hide the service under systemd management
+# Schema: hidden_under_systemd (default: True)
+X-GNOME-HiddenUnderSystemd={{ hidden_under_systemd | default(true) | lower }}

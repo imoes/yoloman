@@ -1,0 +1,39 @@
+{# Enriched Jinja2 template for generating a dpkg-repack command line. #}
+{# This template produces a multi-line shell command fragment. It is safe to reuse #}
+{# in an Ansible role and is self-documenting via schema comments. #}
+
+{# Root directory to use instead of / when repacking; useful for repacking from a chroot or mounted filesystem. #}
+{% if root is defined and root %}
+  --root={{ root | string }} \
+{% endif %}
+
+{# Architecture to force for the repacked package (e.g., amd64, arm64). Omit if using the installed package's architecture. #}
+{% if arch is defined and arch %}
+  --arch={{ arch | string }} \
+{% endif %}
+
+{# List of options to pass directly to dpkg-deb during .deb building (e.g., ['-Zgzip', '-z9']). Each item is a string argument to --deb-option= #}
+{% if deb_options is defined and deb_options is iterable and deb_options | length > 0 %}
+{% for opt in deb_options %}
+  --deb-option={{ opt | string }} \
+{% endfor %}
+{% endif %}
+
+{# If true, only generate a temporary package directory without building the .deb file. #}
+{% if generate is defined and generate | bool %}
+  --generate \
+{% endif %}
+
+{# Comma-separated list of tagging options (e.g., 'version', 'description', 'none', 'all'); overrides default 'description' tagging if specified #}
+{% if tag is defined and tag %}
+  --tag={{ tag | string }} \
+{% endif %}
+
+{# List of package names to repack (e.g., ['curl', 'openssh-server']). Required; at least one package must be listed. #}
+{% if packages is defined and packages is iterable and packages | length > 0 %}
+{% for pkg in packages %}
+  {{ pkg | string }} \
+{% endfor %}
+{% else %}
+  {# WARNING: No packages were specified for repacking. #}
+{% endif %}

@@ -1,44 +1,111 @@
-# Use NTP servers from pool for time synchronization
-pool {{ ntp_pool }} iburst
+# Chrony Client Configuration Template
+# This template generates the chrony.conf file for a NTP client.
+# It handles pool/server definitions, logging, and optional features like
+# hardware timestamping and command authentication.
 
-# Use specific NTP servers as fallback or preferred sources
-{% for server in ntp_servers %}
-server {{ server.hostname }} {{ 'iburst' if server.iburst else '' }} {{ 'prefer' if server.prefer else '' }}
+# ==============================================================================
+# NTP Pool Configuration
+# ==============================================================================
+# NTP pool hostname used for initial synchronization. Use a region-specific
+# pool like '0.pool.ntp.org' for reliability.
+#
+# @var ntp_pool (string, default: 'pool.ntp.org')
+pool {{ (ntp_pool | default('pool.ntp.org')) }} iburst
+
+# ==============================================================================
+# NTP Server Configuration
+# ==============================================================================
+# List of specific NTP servers to use as primary or backup sources.
+# Each server entry in the list should be a map/object containing:
+#   - hostname: string (required) - The IP address or hostname of the server.
+#   - iburst: bool (optional) - If true, sends a burst of packets on start.
+#   - prefer: bool (optional) - If true, marks this server as preferred.
+#
+# @var ntp_servers (list, default: [])
+{% for server in (ntp_servers | default([])) %}
+server {{ server.hostname }} {{ 'iburst' if (server.iburst | default(false)) else '' }} {{ 'prefer' if (server.prefer | default(false)) else '' }}
 {% endfor %}
 
-# Enable hardware timestamping if supported and enabled
-{% if enable_hwtimestamping %}
+# ==============================================================================
+# Hardware Clock Synchronization
+# ==============================================================================
+# Enable hardware timestamping support (requires compatible NIC and kernel config).
+# When enabled, chrony reads the hardware clock directly for higher precision.
+#
+# @var enable_hwtimestamping (bool, default: False)
+{% if (enable_hwtimestamping | default(false)) %}
 hwclockfile /var/lib/chrony/hwclock
 hwclockslew yes
 {% endif %}
 
-# Make the client only — do NOT accept NTP connections from other hosts
-# (chronyd runs in client-only mode; no server port listening)
+# ==============================================================================
+# Command Address Binding
+# ==============================================================================
+# The address chronyd binds to for local management commands.
+# Typically restricted to loopback for security.
+#
+# @var bindcmdaddress (string, implicit default: '127.0.0.1')
+# Note: This is hardcoded to 127.0.0.1 in this client-only template for safety.
 bindcmdaddress 127.0.0.1
 
-# Logging configuration
-{% for loglevel in logging_levels %}
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+# Log levels to enable; choose from: raw, packets, stats, data, events,
+# measures, timing, tracking, rtcout, temp, clockstats, nts.
+# These directives tell chronyd which types of information to log.
+#
+# @var logging_levels (list, default: ['measures', 'stats', 'temp'])
+{% for loglevel in (logging_levels | default(['measures', 'stats', 'temp'])) %}
 log {{ loglevel }}
 {% endfor %}
 
-# Allow chronyd to run as unprivileged user
+# ==============================================================================
+# User Permissions
+# ==============================================================================
+# Allow chronyd to run as unprivileged user to minimize security impact.
 user chrony
 
-# Directory for runtime state
+# ==============================================================================
+# Time Stepping and RTC Synchronization
+# ==============================================================================
+# Makestep: Allow large time corrections when the offset is greater than 1.0 second
+# and the adjustment count is less than 3.
 makestep 1.0 3
+
+# Rtcsync: Periodically update the hardware clock with the current system time.
 rtcsync
 
-# Key file and command authentication (optional — disabled by default)
-{% if enable_cmdauth %}
+# ==============================================================================
+# Command Authentication
+# ==============================================================================
+# Enable command authentication for chronyd (requires chrony.conf key file setup).
+# Typically unnecessary for client-only in secure environments.
+# When enabled, local commands are allowed on loopback.
+#
+# @var enable_cmdauth (bool, default: False)
+{% if (enable_cmdauth | default(false)) %}
 cmdallow 127.0.0.1
 {% endif %}
 
-# Drift file location
+# ==============================================================================
+# Drift and Leap Second Handling
+# ==============================================================================
+# Directory for runtime state / Drift file location.
+# Stores the rate at which the system clock drifts.
 driftfile /var/lib/chrony/drift
 
 # Leap seconds file (optional, usually default is fine)
+# Use slewing instead of jumping to handle leap seconds.
 leapsecmode slew
 maxslewrate 1000
 
-# Enable NTP client mode strictly
+# ==============================================================================
+# Daemon Mode
+# ==============================================================================
+# Enable NTP client mode strictly.
+# This ensures chronyd runs as a daemon in the background.
+# In some containerized or systemd-managed contexts, this might be omitted
+# if the service manager handles daemonization, but it is standard for
+# standalone config files.
 nodaemon

@@ -1,0 +1,48 @@
+{# ============================================================================ #}
+{# fr_settings.conf: FlameRobin User Preferences Configuration                   #}
+{# ============================================================================ #}
+{# This template generates the XML-like configuration file used by FlameRobin   #}
+{# to store user preferences. Each setting corresponds to a field in the schema. #}
+{# Variables are required to have defaults as specified in the schema to ensure  #}
+{# the file is always valid and self-documenting.                               #}
+{# ============================================================================ #}
+
+<settings>
+
+    {# Enable system tray icon (0=disabled, 1=enabled) #}
+    <setting name="enableTrayIcon">{{ enableTrayIcon | default('0') }}</setting>
+
+    {# Font size for SQL editor in points #}
+    <setting name="sqlEditorFontSize">{{ sqlEditorFontSize | default(10) }}</setting>
+
+    {# Allow multiline text display in data grid cells (0=off, 1=on) #}
+    <setting name="gridShowMultilineText">{{ gridShowMultilineText | default('0') }}</setting>
+
+    {# Field delimiter when exporting data to CSV #}
+    <setting name="exportSeparator">{{ exportSeparator | default(',') }}</setting>
+
+    {# Text qualifier when exporting data to CSV #}
+    <setting name="exportQuote">{{ exportQuote | default('"') }}</setting>
+
+    {# Escape character for embedded quotes in exported text #}
+    <setting name="exportEscape">{{ exportEscape | default('\"') }}</setting>
+
+    {# Automatically save SQL statements (0=off, 1=on) #}
+    <setting name="autoSaveSQL">{{ autoSaveSQL | default('0') }}</setting>
+
+    {# Interval (seconds) between auto-saves of SQL statements #}
+    <setting name="autoSaveInterval">{{ autoSaveInterval | default(300) }}</setting>
+
+    {# Path of last opened database (empty if none) #}
+    <setting name="lastDatabase">{{ lastDatabase | default('') }}</setting>
+
+    {# List of recently accessed database paths (up to 10 entries) #}
+    {% if databaseHistory is defined %}
+        {% for item in databaseHistory %}
+    <historyitem>{{ item }}</historyitem>
+        {% endfor %}
+    {% else %}
+        {# No database history to output #}
+    {% endif %}
+
+</settings>

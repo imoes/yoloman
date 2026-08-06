@@ -1,90 +1,88 @@
-# System Autosuspend Daemon configuration file
-# See `man 5 autosuspend.conf` for detailed documentation
+# Ansible-enriched template for autosuspend.conf
+# Self-documenting: every directive includes a comment derived from its schema description
+# and a safe default value using | default().
 
-# Timeout (in seconds) of inactivity before the first suspension attempt
-timeout = {{ timeout }}
+[general]
+# Seconds between activity checks
+interval = {{ general_interval | default(30) }}
 
-# Timeout (in seconds) of inactivity before forced suspension (after first timeout)
-force_timeout = {{ force_timeout }}
+# Seconds of inactivity before triggering suspension (replaces 'timeout')
+idle_time = {{ general_idle_time | default(900) }}
 
-# Action to perform when suspension is triggered
-# Valid values: 'suspend', 'hibernate', 'hybrid', 'shutdown'
-action = "{{ action }}"
+# Command to execute for suspending the system
+suspend_cmd = {{ general_suspend_cmd | default('/usr/bin/systemctl suspend') }}
 
-# Whether to wake the system before suspension (for maintenance, logs, etc.)
-# Valid values: 'none', 'suspend', 'hibernate', 'hybrid'
-wakeup_action = "{{ wakeup_action }}"
+# Command to set up scheduled wake-up alarm before suspending
+wakeup_cmd = {{ general_wakeup_cmd | default("sh -c 'echo 0 > /sys/class/rtc/rtc0/wakealarm && echo {timestamp:.0f} > /sys/class/rtc/rtc0/wakealarm'") }}
 
-# File to record activity (used by helper scripts or external tools)
-activity_log = "{{ activity_log }}"
+# Path to file indicating system just woke up (used to suppress immediate resuspension)
+woke_up_file = {{ general_woke_up_file | default('/var/run/autosuspend-just-woke-up') }}
 
-# Ignore activity from these users (space-separated list of usernames)
-ignore_users = {{ ignore_users | join(' ') }}
+# Path to lock file to prevent concurrent invocations
+lock_file = {{ general_lock_file | default('/var/lock/autosuspend.lock') }}
 
-# Ignore activity from these processes (exact names, space-separated)
-ignore_processes = {{ ignore_processes | join(' ') }}
+# Seconds to wait for lock before giving up
+lock_timeout = {{ general_lock_timeout | default(30) }}
 
-# Ignore activity from these devices (by path, space-separated)
-ignore_devices = {{ ignore_devices | join(' ') }}
+# Basic activity check configuration.
+# The check class name is derived from the section header (Ping in this case).
+# Remember to enable desired checks. They are disabled by default.
+[check.Ping]
+# Whether to enable the Ping-based activity check
+enabled = {{ check_Ping_enabled | default(true) }}
 
-# Patterns of files or directories whose modification time indicates activity
-# Each pattern may contain wildcards (glob-style)
-{% for pattern in activity_watch_paths %}activity_watch_path = "{{ pattern }}"
-{% endfor %}
+# Space-separated list of hosts to ping for network activity detection
+hosts = {{ check_Ping_hosts | default('192.168.0.7') }}
 
-# Whether to suspend when AC power is disconnected
-suspend_on_battery_only = {{ 'true' if suspend_on_battery_only else 'false' }}
+# This check is disabled.
+[check.Smb]
+# Whether to enable the SMB-based activity check
+enabled = {{ check_Smb_enabled | default(false) }}
 
-# Minimum battery level (percentage) required to allow suspension on battery
-# Set to 0 to disable check
-battery_min_percent = {{ battery_min_percent }}
+# Example for a custom check name.
+# This will use the Users check with the custom name RemoteUsers.
+# Custom names are necessary in case a check class is used multiple times.
+# Custom names can also be used for clarification.
+[check.RemoteUsers]
+# Class is fixed to 'Users' in the original schema, but we leave it as is.
+# If you need to change it, add a variable. Here we hardcode 'Users' as per original intent.
+class = Users
 
-# Whether to ignore network activity on these interfaces
-# Interface names space-separated (e.g., 'eth0 wlan0')
-ignore_network_interfaces = {{ ignore_network_interfaces | join(' ') }}
+# Whether to enable the custom RemoteUsers activity check
+enabled = {{ check_RemoteUsers_enabled | default(true) }}
 
-# Command(s) to run before and after suspension
-# Commands are executed as-is; use `;` to chain
-{% if pre_suspend_command %}pre_suspend_command = "{{ pre_suspend_command }}"
-{% endif %}
-{% if post_suspend_command %}post_suspend_command = "{{ post_suspend_command }}"
-{% endif %}
+# Regex pattern for usernames to consider in RemoteUsers check
+name = {{ check_RemoteUsers_name | default('.*') }}
 
-# Whether to suspend only if no active X11 sessions are present
-require_no_x11 = {{ 'true' if require_no_x11 else 'false' }}
+# Regex pattern for terminal types to consider in RemoteUsers check
+terminal = {{ check_RemoteUsers_terminal | default('.*') }}
 
-# Whether to suspend only if no active Wayland sessions are present
-require_no_wayland = {{ 'true' if require_no_wayland else 'false' }}
+# Regex pattern for remote host patterns to consider in RemoteUsers check
+host = {{ check_RemoteUsers_host | default('[0-9].*') }}
 
-# Whether to suspend only if no active console sessions (via loginctl) are present
-require_no_console_sessions = {{ 'true' if require_no_console_sessions else 'false' }}
+# Here the Users activity check is used again with different settings and a different name
+[check.LocalUsers]
+# Class is fixed to 'Users' in the original schema.
+class = Users
 
-# Whether to suspend only if no active SSH sessions are present
-require_no_ssh_sessions = {{ 'true' if require_no_ssh_sessions else 'false' }}
+# Whether to enable the custom LocalUsers activity check
+enabled = {{ check_LocalUsers_enabled | default(true) }}
 
-# Whether to suspend only if no active VNC sessions are present
-require_no_vnc_sessions = {{ 'true' if require_no_vnc_sessions else 'false' }}
+# Regex pattern for usernames to consider in LocalUsers check
+name = {{ check_LocalUsers_name | default('.*') }}
 
-# Whether to suspend only if no active UPnP/DLNA players are active
-require_no_upnp_players = {{ 'true' if require_no_upnp_players else 'false' }}
+# Regex pattern for terminal types to consider in LocalUsers check
+terminal = {{ check_LocalUsers_terminal | default('.*') }}
 
-# Whether to suspend only if no active printing jobs are pending
-require_no_printer_jobs = {{ 'true' if require_no_printer_jobs else 'false' }}
+# Regex pattern for host patterns to consider in LocalUsers check
+host = {{ check_LocalUsers_host | default('localhost') }}
 
-# Whether to suspend only if no active media playback is detected
-require_no_media_playback = {{ 'true' if require_no_media_playback else 'false' }}
+# Checks to determine the next scheduled wakeup are prefixed with 'wakeup'.
+[wakeup.Calendar]
+# Whether to enable the calendar-based wake-up check
+enabled = {{ wakeup_Calendar_enabled | default(true) }}
 
-# Whether to suspend only if no active file transfers (via rsync, cp, etc.) are running
-require_no_file_transfers = {{ 'true' if require_no_file_transfers else 'false' }}
+# URL of calendar file (e.g., iCal) for scheduled wake-ups
+url = {{ wakeup_Calendar_url | default('http://example.org/test.ics') }}
 
-# Whether to suspend only if no active backups are running
-require_no_backups = {{ 'true' if require_no_backups else 'false' }}
-
-# Whether to suspend only if no active database services are running
-require_no_database_services = {{ 'true' if require_no_database_services else 'false' }}
-
-# Whether to suspend only if no active web services are listening
-require_no_web_services = {{ 'true' if require_no_web_services else 'false' }}
-
-# Whether to suspend only if no active container runtimes are active (docker, podman, etc.)
-require_no_containers = {{ 'true' if require_no_containers else 'false' }}
+# Apart from this, wake up checks reuse the same configuration mechanism.

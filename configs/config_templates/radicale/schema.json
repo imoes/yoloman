@@ -1,214 +1,121 @@
 {
   "server": {
     "type": "object",
-    "default": {
-      "hosts": [
-        "localhost:5232"
-      ],
-      "port": 5232,
-      "ssl": {
-        "enabled": false
-      },
-      "debug": false
-    },
-    "properties": {
-      "hosts": {
-        "type": "list",
-        "description": "List of host:port bindings (e.g., ['localhost:5232', '0.0.0.0:443'])."
-      },
-      "port": {
-        "type": "number",
-        "description": "Default port (used if not embedded in hosts)."
-      },
-      "ssl": {
-        "type": "object",
-        "default": {
-          "enabled": false
-        },
-        "properties": {
-          "enabled": {
-            "type": "bool",
-            "description": "Enable SSL/TLS encryption."
-          },
-          "certificate": {
-            "type": "string",
-            "description": "Path to SSL certificate file (PEM format)."
-          },
-          "key": {
-            "type": "string",
-            "description": "Path to SSL private key file."
-          }
-        }
-      },
-      "debug": {
-        "type": "bool",
-        "description": "Enable verbose debug logging (for troubleshooting only)."
-      }
-    }
+    "default": null,
+    "description": "Server configuration (port, hosts, SSL, debug mode)."
   },
   "auth": {
     "type": "object",
-    "default": {
-      "type": "None",
-      "htpasswd_filename": "/etc/radicale/users",
-      "htpasswd_encryption": "bcrypt",
-      "ldap_url": "ldap://localhost",
-      "ldap_base": "ou=users,dc=example,dc=com",
-      "ldap_bind_user": "cn=admin,dc=example,dc=com",
-      "ldap_bind_password": ""
-    },
-    "properties": {
-      "type": {
-        "type": "string",
-        "enum": [
-          "None",
-          "htpasswd",
-          "LDAP",
-          "PAM",
-          "remote_user",
-          "proxy"
-        ],
-        "description": "Authentication backend to use."
-      },
-      "htpasswd_filename": {
-        "type": "string",
-        "description": "Path to htpasswd file (required if `type=htpasswd`)."
-      },
-      "htpasswd_encryption": {
-        "type": "string",
-        "description": "Password hashing method (e.g., bcrypt, md5)."
-      },
-      "ldap_url": {
-        "type": "string",
-        "description": "LDAP server URL (required if `type=LDAP`)."
-      },
-      "ldap_base": {
-        "type": "string",
-        "description": "LDAP base DN for user searches."
-      },
-      "ldap_bind_user": {
-        "type": "string",
-        "description": "DN to bind as for searching (may be anonymous if empty)."
-      },
-      "ldap_bind_password": {
-        "type": "string",
-        "description": "Password for bind user."
-      }
-    }
+    "default": null,
+    "description": "Authentication backend configuration."
   },
   "storage": {
     "type": "object",
-    "default": {
-      "type": "filesystem",
-      "filesystem_folder": "/var/lib/radicale/collections",
-      "locking": {
-        "lock_file": "/var/lib/radicale/lock"
-      }
-    },
-    "properties": {
-      "type": {
-        "type": "string",
-        "enum": [
-          "filesystem",
-          "multifilesystem",
-          "sql"
-        ],
-        "description": "Storage backend type."
-      },
-      "filesystem_folder": {
-        "type": "string",
-        "description": "Root directory where calendar/addressbook data is stored."
-      },
-      "locking": {
-        "type": "object",
-        "default": {
-          "lock_file": "/var/lib/radicale/lock"
-        },
-        "properties": {
-          "lock_file": {
-            "type": "string",
-            "description": "Path to lock file for concurrent access safety."
-          }
-        }
-      }
-    }
+    "default": null,
+    "description": "Storage backend configuration."
   },
   "rights": {
     "type": "object",
-    "default": {
-      "type": "owner_only",
-      "from_file": {
-        "path": "/etc/radicale/rights"
-      }
-    },
-    "properties": {
-      "type": {
-        "type": "string",
-        "enum": [
-          "owner_only",
-          "owner_write",
-          "authenticated",
-          "public",
-          "from_file"
-        ],
-        "description": "Rights management policy."
-      },
-      "from_file": {
-        "type": "object",
-        "default": {
-          "path": "/etc/radicale/rights"
-        },
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Path to file defining custom ACL rules (required if `type=from_file`)."
-          }
-        }
-      }
-    }
+    "default": null,
+    "description": "Rights management configuration."
   },
-  "logging": {
-    "type": "object",
-    "default": {
-      "level": "INFO",
-      "file": ""
-    },
-    "properties": {
-      "level": {
-        "type": "string",
-        "enum": [
-          "DEBUG",
-          "INFO",
-          "WARNING",
-          "ERROR",
-          "CRITICAL"
-        ],
-        "description": "Global logging verbosity."
-      },
-      "file": {
-        "type": "string",
-        "description": "Path to log file. Leave empty to log to stderr."
-      }
-    }
+  "server.hosts": {
+    "type": "list",
+    "default": [
+      "localhost:5232"
+    ],
+    "description": "List of host:port bindings."
   },
-  "headers": {
-    "type": "object",
-    "default": {
-      "Access-Control-Allow-Origin": "*",
-      "X-Frame-Options": "DENY"
-    },
-    "description": "Custom HTTP response headers to add (e.g., for CORS or security)."
+  "server.port": {
+    "type": "number",
+    "default": 5232,
+    "description": "Default port (used if not embedded in hosts)."
   },
-  "types": {
-    "type": "object",
-    "default": {
-      "default": "text/calendar; charset=utf-8"
-    },
-    "properties": {
-      "default": {
-        "type": "string",
-        "description": "Default MIME type for unknown file extensions."
-      }
-    }
+  "server.ssl.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption."
+  },
+  "server.ssl.certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/radicale.pem",
+    "description": "Path to SSL certificate file (PEM format)."
+  },
+  "server.ssl.key": {
+    "type": "string",
+    "default": "/etc/ssl/private/radicale.key",
+    "description": "Path to SSL private key file."
+  },
+  "server.debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging."
+  },
+  "auth.type": {
+    "type": "string",
+    "default": "None",
+    "description": "Authentication backend type."
+  },
+  "auth.htpasswd_filename": {
+    "type": "string",
+    "default": "/etc/radicale/users",
+    "description": "Path to htpasswd file."
+  },
+  "auth.htpasswd_encryption": {
+    "type": "string",
+    "default": "bcrypt",
+    "description": "Password hashing method.",
+    "enum": [
+      "bcrypt",
+      "sha256",
+      "md5",
+      "plain",
+      "autodetect"
+    ]
+  },
+  "auth.ldap_url": {
+    "type": "string",
+    "default": "ldap://localhost",
+    "description": "LDAP server URL."
+  },
+  "auth.ldap_base": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "LDAP base DN."
+  },
+  "auth.ldap_bind_user": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "LDAP bind DN."
+  },
+  "auth.ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "LDAP bind password."
+  },
+  "storage.type": {
+    "type": "string",
+    "default": "filesystem",
+    "description": "Storage backend type."
+  },
+  "storage.filesystem_folder": {
+    "type": "string",
+    "default": "/var/lib/radicale/collections",
+    "description": "Root directory for storing collections."
+  },
+  "storage.locking.lock_file": {
+    "type": "string",
+    "default": "/var/lib/radicale/lock",
+    "description": "Path to lock file."
+  },
+  "rights.type": {
+    "type": "string",
+    "default": "owner_only",
+    "description": "Rights management policy."
+  },
+  "rights.from_file.path": {
+    "type": "string",
+    "default": "/etc/radicale/rights",
+    "description": "Path to rights configuration file."
   }
 }

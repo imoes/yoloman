@@ -1,8 +1,9 @@
 {
-  "syslog_enable": true,
+  "runlevel_default": 2,
+  "syslog_enable": false,
   "loglevel": 3,
-  "console_device": "/dev/console",
-  "hostname": "mydevice",
+  "console_device": "",
+  "hostname": "",
   "runlevels": [
     {
       "number": 3,
@@ -27,7 +28,8 @@
       "name": "network",
       "cmd": "/usr/sbin/networkctl enable --global",
       "pidfile": "/run/network/networkctl.pid",
-      "network_required": true
+      "network_required": true,
+      "early_boot": false
     },
     {
       "name": "sshd",
@@ -40,24 +42,6 @@
       "name": "crond",
       "cmd": "/usr/sbin/crond -n",
       "depends_on": "network"
-    },
-    {
-      "name": "display-manager",
-      "cmd": "/usr/bin/startx /etc/X11/xinit/xinitrc --",
-      "depends_on": "network",
-      "early_boot": false
     }
-  ],
-  "ttys": [
-    {
-      "device": "/dev/tty1",
-      "baud_rate": 38400
-    },
-    {
-      "device": "/dev/tty2",
-      "getty_cmd": "/sbin/agetty -n tty2 38400"
-    }
-  ],
-  "poweroff_cmd": "/sbin/poweroff",
-  "reboot_cmd": "/sbin/reboot -f"
+  ]
 }

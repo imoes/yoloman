@@ -1,0 +1,43 @@
+{# ==============================================================================
+  # Claws Mail vCalendar Plugin Configuration
+  # ==============================================================================
+  #
+  # This file configures the vCalendar plugin for Claws Mail.
+  # The plugin allows Claws Mail to display and manage calendar meetings
+  # extracted from email messages.
+  #
+  # NOTE: This plugin is primarily GUI-driven. Many settings are
+  # persisted in Claws Mail's general configuration or GSettings,
+  # but this template provides explicit defaults for Ansible role management.
+  #
+  # Format: Each directive is on its own line. Comments explain the
+  # corresponding schema field.
+  # ============================================================================== #}
+
+{# -----------------------------------------------------------------------------
+  # mailbox_name
+  # Description: Name of the mailbox folder created for vCalendar meetings;
+  #              matches documented UI folder name.
+  # ----------------------------------------------------------------------------- #}
+mailbox_name = {{ mailbox_name | default('vCalendar') }}
+
+{# -----------------------------------------------------------------------------
+  # meetings_folder_name
+  # Description: Name of the subfolder under the mailbox where meetings are
+  #              stored; matches the 'Meetings' inbox shown in the UI.
+  # ----------------------------------------------------------------------------- #}
+meetings_folder_name = {{ meetings_folder_name | default('Meetings') }}
+
+{# -----------------------------------------------------------------------------
+  # enable_webcal
+  # Description: Whether webCal (i.e., CalDAV/web-based calendar) subscription
+  #              support is enabled.
+  # Note: Per claws-mail-vcalendar-plugin(7), this is controlled via the GUI.
+  #       However, enabling this flag allows the plugin to recognize webCal
+  #       subscriptions added via the folder context menu.
+  # ----------------------------------------------------------------------------- #}
+{% if enable_webcal | default(false) %}
+enable_webcal = yes
+{% else %}
+enable_webcal = no
+{% endif %}

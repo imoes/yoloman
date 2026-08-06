@@ -1,0 +1,128 @@
+{# ============================================================================ #}
+{# eg25-manager configuration template                                          #}
+{#                                                                              #}
+{# This template generates the configuration file for eg25-manager, a service   #}
+{# used to manage Sierra Wireless EG25 LTE modems. It handles modem             #}
+{# initialization, network registration, APN settings, and logging.             #}
+{#                                                                              #}
+{# All variables are sourced from the Ansible host/group variables or defaults  #}
+{# defined in the schema. Every directive is preceded by a comment explaining   #}
+{# its purpose, derived from the schema description.                            #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Device Identification                                                        #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Device-tree compatible string; used to locate config file and identify hardware variant. #}
+compatible = {{ (compatible | default('pine64,pinephone')) | string }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Modem Device Settings                                                        #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Path to the modem's serial device node. #}
+modem_device = {{ (modem_device | default('/dev/tty/ttyACM0')) | string }}
+
+{# Serial port speed (baud rate) in bps. #}
+baud_rate = {{ (baud_rate | default(115200)) | int }}
+
+{# GPIO number for manual modem power control (if hardware supports it). #}
+{# Only include this line if a GPIO is specified. #}
+{%- if power_gpio is defined and power_gpio is not none %}
+power_gpio = {{ (power_gpio | default(None)) | int }}
+{%- endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Network Interface Settings                                                   #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Network interface name to associate with the modem (e.g., 'wwan0'). #}
+{# Only include this line if a network interface is specified. #}
+{%- if network_interface is defined and network_interface is not none %}
+network_interface = {{ (network_interface | default(None)) | string }}
+{%- endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# APN (Access Point Name) Configuration                                        #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Access Point Name for mobile data connection. #}
+{# Only include this line if an APN is specified. #}
+{%- if apn is defined and apn is not none %}
+apn = {{ (apn | default(None)) | string }}
+{%- endif %}
+
+{# Username for APN authentication (if required by carrier). #}
+{# Only include this line if an APN username is specified. #}
+{%- if apn_username is defined and apn_username is not none %}
+apn_username = {{ (apn_username | default(None)) | string }}
+{%- endif %}
+
+{# Password for APN authentication (if required by carrier). #}
+{# Only include this line if an APN password is specified. #}
+{%- if apn_password is defined and apn_password is not none %}
+apn_password = {{ (apn_password | default(None)) | string }}
+{%- endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# SIM Security Settings                                                        #}
+{# ---------------------------------------------------------------------------- #}
+
+{# SIM PIN code for unlocking (must be set if SIM requires PIN). #}
+{# Only include this line if a PIN is specified. #}
+{%- if pin is defined and pin is not none %}
+pin = {{ (pin | default(None)) | string }}
+{%- endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Connection Behavior                                                          #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Enable network registration and monitoring. #}
+register_network = {{ (register_network | default(True)) | lower }}
+
+{# Enable automatic data connection upon successful network registration. #}
+auto_connect = {{ (auto_connect | default(False)) | lower }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Feature Flags                                                                #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Enable SMS delivery notifications (requires ModemManager or ofono integration). #}
+sms_notification = {{ (sms_notification | default(False)) | lower }}
+
+{# Enable periodic signal strength reporting (RSSI, RSRP, etc.). #}
+signal_monitor = {{ (signal_monitor | default(False)) | lower }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Timeouts                                                                     #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Timeout in seconds for modem initialization and AT command responses. #}
+init_timeout = {{ (init_timeout | default(30)) | int }}
+
+{# Timeout in seconds for data connection (PPP/NAT) establishment. #}
+connect_timeout = {{ (connect_timeout | default(45)) | int }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Logging Configuration                                                        #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Log verbosity: 'error', 'warn', 'info', or 'debug'. #}
+log_level = {{ (log_level | default('info')) | lower }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Firmware Management                                                          #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Absolute path to QDL firmware image file for EG25 flashing (optional). #}
+{# Only include this line if a firmware path is specified. #}
+{%- if firmware_path is defined and firmware_path is not none %}
+firmware_path = {{ (firmware_path | default(None)) | string }}
+{%- endif %}
+
+{# Enable automatic firmware flashing on boot if firmware_path is set. #}
+{# Only include this line if auto-update is explicitly defined or differs from default logic. #}
+{# Note: Since the default is False, we emit it only if explicitly set or to ensure clarity. #}
+auto_update_firmware = {{ (auto_update_firmware | default(False)) | lower }}

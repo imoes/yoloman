@@ -1,141 +1,62 @@
-# leafnode configuration file — read by leafnode(8)
-# This file is sourced by the leafnode daemon at startup.
-# Lines starting with '#' are comments and ignored.
+#!/bin/sh
+#
+# Leafnode cron job. To be run daily.
+# By Joey Hess <joeyh@master.debian.org>
+# with bugs by Mark Brown <broonie@debian.org>
+#
+# This script is managed by Ansible. Do not edit manually.
+# It sources the Debian-specific config and performs routine NNTP maintenance:
+#   - Expiring old articles via texpire
+#   - Marking newsgroups as read via touch_newsgroup (optional)
+#   - Reporting failed postings via newsq
 
-# Hostname that this server advertises to peers and clients
-fqdn: {{ values.fqdn }}
+# Get configuration
+# Source the Debian-specific configuration file where Leafnode's runtime settings are defined.
+# This file typically defines variables like max_articles, max_age, spool_directory, etc.
+. {{ debian_config_path | default('/etc/news/leafnode/debian-config') }}
 
-# Listen address for incoming NNTP connections (IPv4/IPv6)
-address: {{ values.listen_address }}
+# Do the cd so that it doesn't matter if we cannot read /root.
+cd /
 
-# Port to listen on for NNTP (standard: 119)
-port: {{ values.port }}
+# Expire old news.
+# Removes articles older than max_age days from the spool directory.
+# Ignores the messages texpire generates to stdout about which articles it
+# expires. If you'd rather get that info mailed to you, remove the >/dev/null
+if [ -x /usr/sbin/texpire ]; then
+   su news -s /bin/sh -c "/usr/sbin/texpire" >/dev/null
+fi
 
-# Port to listen on for NNTPS (TLS/SSL, optional; standard: 563)
-{% if values.nntps_enabled %}
-nntps_port: {{ values.nntps_port }}
-{% endif %}
+# Run touch_newsgroups if the user wants it and we can
+# This marks specific newsgroups as "read" for local users.
+# It requires Perl and the Net::NNTP module (libnet-perl).
+if [ -x /usr/bin/touch_newsgroup -a -f {{ touch_groups_file | default('/etc/news/leafnode/touch_groups') }} ]; then
+   if /usr/bin/perl -MNet::NNTP < /dev/null 2>/dev/null ; then
+      su news -s /bin/sh -c "/usr/bin/touch_newsgroup -f {{ touch_groups_file | default('/etc/news/leafnode/touch_groups') }}"
+   else
+      cat << EOF
+      You have requested that touch_newsgroup be run to mark the groups 
+      listed in {{ touch_groups_file | default('/etc/news/leafnode/touch_groups') }} as read.  This requires
+      that both perl and the Net::NNTP module (part of libnet-perl) are
+      avalible, which does not appear to be the case:
 
-# Maximum number of simultaneous client connections
-maxconnections: {{ values.max_connections }}
+EOF
+      /usr/bin/perl -MNet::NNTP < /dev/null
+   fi
+fi
 
-# Maximum number of articles to keep per group (0 = unlimited)
-maxarticles: {{ values.max_articles }}
+# generate mail about any failed postings.
+# Checks if there are any files in the failed.postings directory.
+# If so, it notifies the admin that articles were rejected by upstream servers.
+if [ "" != "`ls {{ failed_postings_dir | default('/var/spool/news/failed.postings') }}/ 2>/dev/null`" ]; then
+   cat << EOF
+Some articles posted via Leafnode have been placed in the
+failed.postings directory.  This typically means that they were
+rejected by one or more of the upstream news servers.  Examining the
+news log files should provide some indication as to why.
 
-# Retention period for articles in days (0 = keep forever)
-maxage: {{ values.max_age }}
+To retry the posting move the queue files into /var/spool/news/out.going
+and run /usr/sbin/fetchnews.
 
-# Path to the spool directory where articles are stored
-spool_directory: {{ values.spool_directory }}
-
-# Path to the config directory (usually same as spool_directory)
-config_directory: {{ values.config_directory }}
-
-# Enable/Disable interactive mode (e.g., for batch postprocessing)
-{% if values.interactive %}
-interactive: yes
-{% else %}
-interactive: no
-{% endif %}
-
-# Enable/Disable server mode (required for NNTP serving)
-{% if values.server %}
-server: yes
-{% else %}
-server: no
-{% endif %}
-
-# Enable/Disable debugging (for troubleshooting)
-{% if values.debug %}
-debug: yes
-{% else %}
-debug: no
-{% endif %}
-
-# List of upstream NNTP servers ( peers ) to fetch articles from
-{% for peer in values.peers %}
-# Peer: {{ peer.name }} — {{ peer.host }}:{{ peer.port }}
-server: {{ peer.host }}:{{ peer.port }}
-{% if peer.username and peer.password %}
-user: {{ peer.username }}
-password: {{ peer.password }}
-{% endif %}
-{% if peer.groups %}
-# Only fetch articles from these groups (optional)
-{% for group in peer.groups %}
-allowgroup: {{ group }}
-{% endfor %}
-{% endif %}
-{% endfor %}
-
-# List of IP addresses or CIDR subnets allowed to connect and read
-{% for allowed in values.allow_read %}
-# Allow read from: {{ allowed }}
-allow_read: {{ allowed }}
-{% endfor %}
-
-# List of IP addresses or CIDR subnets allowed to post
-{% for allowed in values.allow_post %}
-# Allow post from: {{ allowed }}
-allow_post: {{ allowed }}
-{% endfor %}
-
-# Default group to subscribe new users to
-{% if values.default_group %}
-default_group: {{ values.default_group }}
-{% endif %}
-
-# Enable/Disable posting (user-submitted articles)
-{% if values.posting_enabled %}
-posting: yes
-{% else %}
-posting: no
-{% endif %}
-
-# Path to the post filter (e.g., for spam filtering or moderation)
-{% if values.post_filter %}
-postfilter: {{ values.post_filter }}
-{% endif %}
-
-# Path to the news spool lock file (for concurrency safety)
-lockfile: {{ values.lockfile }}
-
-# Enable/Disable group listing (can be disabled for security)
-{% if values.listgroups %}
-listgroups: yes
-{% else %}
-listgroups: no
-{% endif %}
-
-# Enable/Disable XOVER support (required for modern clients)
-{% if values.xover %}
-xover: yes
-{% else %}
-xover: no
-{% endif %}
-
-# Maximum size (in bytes) of an article (0 = unlimited)
-maxartsize: {{ values.max_article_size }}
-
-# Path to the configuration for local newsgroups (if any)
-{% if values.localgroups_config %}
-localgroups: {{ values.localgroups_config }}
-{% endif %}
-
-# Enable/Disable RFC 3977 capability advertisement (e.g., STARTTLS)
-{% if values.capabilities %}
-capabilities: yes
-{% else %}
-capabilities: no
-{% endif %}
-
-# TLS certificate and key paths (for NNTPS / STARTTLS)
-{% if values.tls_enabled %}
-tls_cert: {{ values.tls_cert_path }}
-tls_key: {{ values.tls_key_path }}
-{% endif %}
-
-# Minimum TLS protocol version (e.g., 'TLSv1.2')
-{% if values.tls_min_version %}
-tls_min_version: {{ values.tls_min_version }}
-{% endif %}
+EOF
+   /usr/bin/newsq -f
+fi

@@ -1,343 +1,358 @@
 [EMC]
-# Name of the machine/instance
-MACHINE = {{ machine_name }}
+# Unique name for this LinuxCNC instance (used in GUI and log messages).
+MACHINE = {{ machine_name | default('my-machine') }}
 
-# Debug level (0 = none, 0x7fff = maximum)
-DEBUG = {{ debug_level }}
+# Debug verbosity level (0 = no debug, higher values increase debug output). Use 0x7fff for maximum.
+DEBUG = {{ debug_level | default(0) }}
 
 [VERSION]
-# LinuxCNC version (auto-filled by packaging)
+# LinuxCNC version stamp (auto-filled by packaging).
 STAMP = 1.1
 
 [DISPLAY]
-# Display name shown in title bar and GUI
-DISPLAY = {{ display.name }}
+# Display section configuration.
+{% set _display = display | default({}) %}
+# Display name shown in title bar and GUI.
+DISPLAY = {{ _display.name | default('') }}
 
-# Editor used for G-code editing
-EDITOR = {{ display.editor }}
+# Editor used for G-code editing.
+EDITOR = {{ _display.editor | default('') }}
 
 # Maximum feed rate override (%)
-MAX_FEED_OVERRIDE = {{ display.max_feed_override }}
+MAX_FEED_OVERRIDE = {{ _display.max_feed_override | default('1.0') }}
 
 # Minimum feed rate override (%)
-MIN_FEED_OVERRIDE = {{ display.min_feed_override }}
+MIN_FEED_OVERRIDE = {{ _display.min_feed_override | default('0.1') }}
 
 # Maximum spindle override (%)
-MAX_SPINDLE_OVERRIDE = {{ display.max_spindle_override }}
+MAX_SPINDLE_OVERRIDE = {{ _display.max_spindle_override | default('1.0') }}
 
 # Minimum spindle override (%)
-MIN_SPINDLE_OVERRIDE = {{ display.min_spindle_override }}
+MIN_SPINDLE_OVERRIDE = {{ _display.min_spindle_override | default('0.1') }}
 
 # Maximum position override (fraction of programmed speed)
-MAX_LINEAR_VELOCITY = {{ display.max_linear_velocity }}
+MAX_LINEAR_VELOCITY = {{ _display.max_linear_velocity | default('1.0') }}
 
 # Default linear velocity (for jog, units/sec)
-DEFAULT_LINEAR_VELOCITY = {{ display.default_linear_velocity }}
+DEFAULT_LINEAR_VELOCITY = {{ _display.default_linear_velocity | default('0') }}
 
 # Maximum angular velocity (degrees/sec for rotary axes)
-MAX_ANGULAR_VELOCITY = {{ display.max_angular_velocity }}
+MAX_ANGULAR_VELOCITY = {{ _display.max_angular_velocity | default('0') }}
 
 # Default angular velocity (for jog)
-DEFAULT_ANGULAR_VELOCITY = {{ display.default_angular_velocity }}
+DEFAULT_ANGULAR_VELOCITY = {{ _display.default_angular_velocity | default('0') }}
 
 # Prefix for program files (empty = default location)
-OPEN_FILE = {{ display.open_file | default('') }}
+OPEN_FILE = {{ _display.open_file | default('') }}
 
 # Tool offset mode: 0=none, 1=relative, 2=absolute
-TOOL_OFFSET_MODE = {{ display.tool_offset_mode }}
+TOOL_OFFSET_MODE = {{ _display.tool_offset_mode | default('0') }}
 
-# Unit mode: 0=mm, 1=inch
-USER_MODE = {{ 'mm' if display.units == 'metric' else 'inch' }}
+# Unit mode: 0=mm, 1=inch. Map 'metric' to 'mm', otherwise 'inch'.
+USER_MODE = {{ 'mm' if _display.units | default('metric') == 'metric' else 'inch' }}
 
 # Maximum zoom (percentage of view)
-MAX_ZOOM = {{ display.max_zoom }}
+MAX_ZOOM = {{ _display.max_zoom | default('100') }}
 
 # Minimum zoom (percentage of view)
-MIN_ZOOM = {{ display.min_zoom }}
+MIN_ZOOM = {{ _display.min_zoom | default('10') }}
 
 # Position update rate (Hz)
-POSITION_UPDATE = {{ display.position_update }}
+POSITION_UPDATE = {{ _display.position_update | default('10') }}
 
 # Status message timeout (seconds)
-STATUS_UPDATE = {{ display.status_update }}
+STATUS_UPDATE = {{ _display.status_update | default('5') }}
 
 # Preview precision (digits after decimal)
-PYVCP_PRECISION = {{ display.pyvcp_precision }}
+PYVCP_PRECISION = {{ _display.pyvcp_precision | default('3') }}
 
 # Hide or show MDI button (true/false)
-HIDE_MDI_BUTTON = {{ '1' if display.hide_mdi_button else '0' }}
+HIDE_MDI_BUTTON = {{ '1' if _display.hide_mdi_button | default(false) else '0' }}
 
 # Hide or show manual button (true/false)
-HIDE_MANUAL_BUTTON = {{ '1' if display.hide_manual_button else '0' }}
+HIDE_MANUAL_BUTTON = {{ '1' if _display.hide_manual_button | default(false) else '0' }}
 
 # Hide or show auto button (true/false)
-HIDE_AUTO_BUTTON = {{ '1' if display.hide_auto_button else '0' }}
+HIDE_AUTO_BUTTON = {{ '1' if _display.hide_auto_button | default(false) else '0' }}
 
 # Hide or show setup button (true/false)
-HIDE_SETUP_BUTTON = {{ '1' if display.hide_setup_button else '0' }}
+HIDE_SETUP_BUTTON = {{ '1' if _display.hide_setup_button | default(false) else '0' }}
 
 # Hide or show preferences button (true/false)
-HIDE_PREFERENCES_BUTTON = {{ '1' if display.hide_preferences_button else '0' }}
+HIDE_PREFERENCES_BUTTON = {{ '1' if _display.hide_preferences_button | default(false) else '0' }}
 
 # Hide or show tools button (true/false)
-HIDE_TOOLS_BUTTON = {{ '1' if display.hide_tools_button else '0' }}
+HIDE_TOOLS_BUTTON = {{ '1' if _display.hide_tools_button | default(false) else '0' }}
 
 # Hide or show statistics button (true/false)
-HIDE_STATISTICS_BUTTON = {{ '1' if display.hide_statistics_button else '0' }}
+HIDE_STATISTICS_BUTTON = {{ '1' if _display.hide_statistics_button | default(false) else '0' }}
 
 # Hide or show diagnostics button (true/false)
-HIDE_DIAGNOSTICS_BUTTON = {{ '1' if display.hide_diagnostics_button else '0' }}
+HIDE_DIAGNOSTICS_BUTTON = {{ '1' if _display.hide_diagnostics_button | default(false) else '0' }}
 
 # Hide or show help button (true/false)
-HIDE_HELP_BUTTON = {{ '1' if display.hide_help_button else '0' }}
+HIDE_HELP_BUTTON = {{ '1' if _display.hide_help_button | default(false) else '0' }}
 
 # Hide or show system button (true/false)
-HIDE_SYSTEM_BUTTON = {{ '1' if display.hide_system_button else '0' }}
+HIDE_SYSTEM_BUTTON = {{ '1' if _display.hide_system_button | default(false) else '0' }}
 
 # Hide or show utilities button (true/false)
-HIDE_UTILITIES_BUTTON = {{ '1' if display.hide_utilities_button else '0' }}
+HIDE_UTILITIES_BUTTON = {{ '1' if _display.hide_utilities_button | default(false) else '0' }}
 
 # Hide or show settings button (true/false)
-HIDE_SETTINGS_BUTTON = {{ '1' if display.hide_settings_button else '0' }}
+HIDE_SETTINGS_BUTTON = {{ '1' if _display.hide_settings_button | default(false) else '0' }}
 
 # Hide or show config button (true/false)
-HIDE_CONFIG_BUTTON = {{ '1' if display.hide_config_button else '0' }}
+HIDE_CONFIG_BUTTON = {{ '1' if _display.hide_config_button | default(false) else '0' }}
 
 # Hide or show about button (true/false)
-HIDE_ABOUT_BUTTON = {{ '1' if display.hide_about_button else '0' }}
+HIDE_ABOUT_BUTTON = {{ '1' if _display.hide_about_button | default(false) else '0' }}
 
 # Show or hide status tab
-HIDE_STATUS_TAB = {{ '1' if display.hide_status_tab else '0' }}
+HIDE_STATUS_TAB = {{ '1' if _display.hide_status_tab | default(false) else '0' }}
 
 # Show or hide MDI tab
-HIDE_MDI_TAB = {{ '1' if display.hide_mdi_tab else '0' }}
+HIDE_MDI_TAB = {{ '1' if _display.hide_mdi_tab | default(false) else '0' }}
 
 # Show or hide manual tab
-HIDE_MANUAL_TAB = {{ '1' if display.hide_manual_tab else '0' }}
+HIDE_MANUAL_TAB = {{ '1' if _display.hide_manual_tab | default(false) else '0' }}
 
 # Show or hide auto tab
-HIDE_AUTO_TAB = {{ '1' if display.hide_auto_tab else '0' }}
+HIDE_AUTO_TAB = {{ '1' if _display.hide_auto_tab | default(false) else '0' }}
 
 # Show or hide setup tab
-HIDE_SETUP_TAB = {{ '1' if display.hide_setup_tab else '0' }}
+HIDE_SETUP_TAB = {{ '1' if _display.hide_setup_tab | default(false) else '0' }}
 
 # Show or hide tools tab
-HIDE_TOOLS_TAB = {{ '1' if display.hide_tools_tab else '0' }}
+HIDE_TOOLS_TAB = {{ '1' if _display.hide_tools_tab | default(false) else '0' }}
 
 # Show or hide statistics tab
-HIDE_STATISTICS_TAB = {{ '1' if display.hide_statistics_tab else '0' }}
+HIDE_STATISTICS_TAB = {{ '1' if _display.hide_statistics_tab | default(false) else '0' }}
 
 # Show or hide diagnostics tab
-HIDE_DIAGNOSTICS_TAB = {{ '1' if display.hide_diagnostics_tab else '0' }}
+HIDE_DIAGNOSTICS_TAB = {{ '1' if _display.hide_diagnostics_tab | default(false) else '0' }}
 
 # Show or hide help tab
-HIDE_HELP_TAB = {{ '1' if display.hide_help_tab else '0' }}
+HIDE_HELP_TAB = {{ '1' if _display.hide_help_tab | default(false) else '0' }}
 
 # Show or hide system tab
-HIDE_SYSTEM_TAB = {{ '1' if display.hide_system_tab else '0' }}
+HIDE_SYSTEM_TAB = {{ '1' if _display.hide_system_tab | default(false) else '0' }}
 
 # Show or hide utilities tab
-HIDE_UTILITIES_TAB = {{ '1' if display.hide_utilities_tab else '0' }}
+HIDE_UTILITIES_TAB = {{ '1' if _display.hide_utilities_tab | default(false) else '0' }}
 
 # Show or hide settings tab
-HIDE_SETTINGS_TAB = {{ '1' if display.hide_settings_tab else '0' }}
+HIDE_SETTINGS_TAB = {{ '1' if _display.hide_settings_tab | default(false) else '0' }}
 
 # Show or hide config tab
-HIDE_CONFIG_TAB = {{ '1' if display.hide_config_tab else '0' }}
+HIDE_CONFIG_TAB = {{ '1' if _display.hide_config_tab | default(false) else '0' }}
 
 # Show or hide about tab
-HIDE_ABOUT_TAB = {{ '1' if display.hide_about_tab else '0' }}
+HIDE_ABOUT_TAB = {{ '1' if _display.hide_about_tab | default(false) else '0' }}
 
 # Show or hide welcome screen
-HIDE_WELCOME_SCREEN = {{ '1' if display.hide_welcome_screen else '0' }}
+HIDE_WELCOME_SCREEN = {{ '1' if _display.hide_welcome_screen | default(false) else '0' }}
 
 # Show or hide splash screen
-HIDE_SPLASH_SCREEN = {{ '1' if display.hide_splash_screen else '0' }}
+HIDE_SPLASH_SCREEN = {{ '1' if _display.hide_splash_screen | default(false) else '0' }}
 
 # Show or hide tooltip
-HIDE_TOOLTIP = {{ '1' if display.hide_tooltip else '0' }}
+HIDE_TOOLTIP = {{ '1' if _display.hide_tooltip | default(false) else '0' }}
 
 # Show or hide grid
-HIDE_GRID = {{ '1' if display.hide_grid else '0' }}
+HIDE_GRID = {{ '1' if _display.hide_grid | default(false) else '0' }}
 
 # Show or hide axes
-HIDE_AXES = {{ '1' if display.hide_axes else '0' }}
+HIDE_AXES = {{ '1' if _display.hide_axes | default(false) else '0' }}
 
 # Show or hide machine limits
-HIDE_MACHINE_LIMITS = {{ '1' if display.hide_machine_limits else '0' }}
+HIDE_MACHINE_LIMITS = {{ '1' if _display.hide_machine_limits | default(false) else '0' }}
 
 # Show or hide workpiece bounds
-HIDE_WORKPIECE_BOUNDS = {{ '1' if display.hide_workpiece_bounds else '0' }}
+HIDE_WORKPIECE_BOUNDS = {{ '1' if _display.hide_workpiece_bounds | default(false) else '0' }}
 
 # Show or hide tool path preview
-HIDE_TOOL_PATH_PREVIEW = {{ '1' if display.hide_tool_path_preview else '0' }}
+HIDE_TOOL_PATH_PREVIEW = {{ '1' if _display.hide_tool_path_preview | default(false) else '0' }}
 
 # Show or hide tool length offset preview
-HIDE_TOOL_LENGTH_OFFSET_PREVIEW = {{ '1' if display.hide_tool_length_offset_preview else '0' }}
+HIDE_TOOL_LENGTH_OFFSET_PREVIEW = {{ '1' if _display.hide_tool_length_offset_preview | default(false) else '0' }}
 
 # Show or hide coordinate system preview
-HIDE_COORDINATE_SYSTEM_PREVIEW = {{ '1' if display.hide_coordinate_system_preview else '0' }}
+HIDE_COORDINATE_SYSTEM_PREVIEW = {{ '1' if _display.hide_coordinate_system_preview | default(false) else '0' }}
 
 # Show or hide tool preview
-HIDE_TOOL_PREVIEW = {{ '1' if display.hide_tool_preview else '0' }}
+HIDE_TOOL_PREVIEW = {{ '1' if _display.hide_tool_preview | default(false) else '0' }}
 
 # Show or hide workpiece preview
-HIDE_WORKPIECE_PREVIEW = {{ '1' if display.hide_workpiece_preview else '0' }}
+HIDE_WORKPIECE_PREVIEW = {{ '1' if _display.hide_workpiece_preview | default(false) else '0' }}
 
 # Show or hide machine preview
-HIDE_MACHINE_PREVIEW = {{ '1' if display.hide_machine_preview else '0' }}
+HIDE_MACHINE_PREVIEW = {{ '1' if _display.hide_machine_preview | default(false) else '0' }}
 
 # Show or hide simulation preview
-HIDE_SIMULATION_PREVIEW = {{ '1' if display.hide_simulation_preview else '0' }}
+HIDE_SIMULATION_PREVIEW = {{ '1' if _display.hide_simulation_preview | default(false) else '0' }}
 
 # Show or hide path overlay
-HIDE_PATH_OVERLAY = {{ '1' if display.hide_path_overlay else '0' }}
+HIDE_PATH_OVERLAY = {{ '1' if _display.hide_path_overlay | default(false) else '0' }}
 
 # Show or hide trajectory overlay
-HIDE_TRAJECTORY_OVERLAY = {{ '1' if display.hide_trajectory_overlay else '0' }}
+HIDE_TRAJECTORY_OVERLAY = {{ '1' if _display.hide_trajectory_overlay | default(false) else '0' }}
 
 # Show or hide velocity overlay
-HIDE_VELOCITY_OVERLAY = {{ '1' if display.hide_velocity_overlay else '0' }}
+HIDE_VELOCITY_OVERLAY = {{ '1' if _display.hide_velocity_overlay | default(false) else '0' }}
 
 # Show or hide acceleration overlay
-HIDE_ACCELERATION_OVERLAY = {{ '1' if display.hide_acceleration_overlay else '0' }}
+HIDE_ACCELERATION_OVERLAY = {{ '1' if _display.hide_acceleration_overlay | default(false) else '0' }}
 
 # Show or hide jerk overlay
-HIDE_JERK_OVERLAY = {{ '1' if display.hide_jerk_overlay else '0' }}
+HIDE_JERK_OVERLAY = {{ '1' if _display.hide_jerk_overlay | default(false) else '0' }}
 
 # Show or hide error overlay
-HIDE_ERROR_OVERLAY = {{ '1' if display.hide_error_overlay else '0' }}
+HIDE_ERROR_OVERLAY = {{ '1' if _display.hide_error_overlay | default(false) else '0' }}
 
 # Show or hide warning overlay
-HIDE_WARNING_OVERLAY = {{ '1' if display.hide_warning_overlay else '0' }}
+HIDE_WARNING_OVERLAY = {{ '1' if _display.hide_warning_overlay | default(false) else '0' }}
 
 # Show or hide info overlay
-HIDE_INFO_OVERLAY = {{ '1' if display.hide_info_overlay else '0' }}
+HIDE_INFO_OVERLAY = {{ '1' if _display.hide_info_overlay | default(false) else '0' }}
 
 # Show or hide debug overlay
-HIDE_DEBUG_OVERLAY = {{ '1' if display.hide_debug_overlay else '0' }}
+HIDE_DEBUG_OVERLAY = {{ '1' if _display.hide_debug_overlay | default(false) else '0' }}
 
 [EMCMOT]
+# Emcmot (motion controller) section configuration.
+{% set _emcmot = emcmot | default({}) %}
 # Timeout for communications with motion controller (sec)
-EMCMOT_TIMEOUT = {{ emcmot.timeout }}
+EMCMOT_TIMEOUT = {{ _emcmot.timeout | default('5') }}
 
 # Base task period (sec) — must match HAL period
-EMCMOT_BASE_PERIOD = {{ emcmot.base_period }}
+EMCMOT_BASE_PERIOD = {{ _emcmot.base_period | default('0.001') }}
 
 # Motion controller type: 0=legacy, 1=mk2
-EMCMOT_MOTION_TYPE = {{ emcmot.motion_type }}
+EMCMOT_MOTION_TYPE = {{ _emcmot.motion_type | default('1') }}
 
 # Number of motion segments to buffer
-EMCMOT_SEGMENTS = {{ emcmot.segments }}
+EMCMOT_SEGMENTS = {{ _emcmot.segments | default('1000') }}
 
 # Lookahead time (sec) for smoothing
-EMCMOT_LOOKAHEAD = {{ emcmot.lookahead }}
+EMCMOT_LOOKAHEAD = {{ _emcmot.lookahead | default('0.1') }}
 
 # Trajectory planner type: 0=linear, 1=circular
-EMCMOT_TP_TYPE = {{ emcmot.tp_type }}
+EMCMOT_TP_TYPE = {{ _emcmot.tp_type | default('0') }}
 
 # Maximum velocity (units/sec)
-EMCMOT_MAX_VELOCITY = {{ emcmot.max_velocity }}
+EMCMOT_MAX_VELOCITY = {{ _emcmot.max_velocity | default('100') }}
 
 # Maximum acceleration (units/sec²)
-EMCMOT_MAX_ACCELERATION = {{ emcmot.max_acceleration }}
+EMCMOT_MAX_ACCELERATION = {{ _emcmot.max_acceleration | default('1000') }}
 
 # Default velocity (units/sec)
-EMCMOT_DEFAULT_VELOCITY = {{ emcmot.default_velocity }}
+EMCMOT_DEFAULT_VELOCITY = {{ _emcmot.default_velocity | default('50') }}
 
 # Default acceleration (units/sec²)
-EMCMOT_DEFAULT_ACCELERATION = {{ emcmot.default_acceleration }}
+EMCMOT_DEFAULT_ACCELERATION = {{ _emcmot.default_acceleration | default('500') }}
 
 [HOSTMOT]
+# HostMot (HAL driver) section configuration.
+{% set _hostmot = hostmot | default({}) %}
 # HostMot driver name (e.g., 'hm2_pci', 'hm2_rpspi')
-DRIVER = {{ hostmot.driver }}
+DRIVER = {{ _hostmot.driver | default('') }}
 
 # Board name or instance (e.g., '0' for single-board systems)
-BOARD = {{ hostmot.board | default('0') }}
+BOARD = {{ _hostmot.board | default('0') }}
 
 # Config string passed to driver (e.g., 'num_encoders=4 num_pwms=2 num_stepgen=5')
-CONFIG = {{ hostmot.config | join(' ') }}
+CONFIG = {{ _hostmot.config | default([]) | join(' ') }}
 
 # IP address for Ethernet boards (e.g., '192.168.1.100')
-IPADDR = {{ hostmot.ipaddr | default('') }}
+IPADDR = {{ _hostmot.ipaddr | default('') }}
 
 [HAL]
-# HAL configuration file(s) — listed as a list, rendered as multiple lines
-{% for halfile in hal.halfiles %}HALFILE = {{ halfile }}
+# HAL (Hardware Abstraction Layer) configuration.
+{% set _hal = hal | default({}) %}
+# HAL configuration file(s) — listed as a list, rendered as multiple lines.
+{% for halfile in _hal.halfiles | default([]) %}HALFILE = {{ halfile }}
 {% endfor %}
-
 # Post-run HAL file (executed after main halfile(s))
-POSTGUI_HALFILE = {{ hal.postgui_halfile | default('') }}
+POSTGUI_HALFILE = {{ _hal.postgui_halfile | default('') }}
 
 # HALUI script (executed before postgui halfile)
-HALUI = {{ hal.halui | default('') }}
+HALUI = {{ _hal.halui | default('') }}
 
 [RS274NGC]
-# Number of parameters in RS274NGC interpreter
-PARAMETER_FILE = {{ rs274ngc.parameter_file | default('') }}
+# RS274NGC (G-code interpreter) section configuration.
+{% set _rs274ngc = rs274ngc | default({}) %}
+# Number of parameters in RS274NGC interpreter (path to parameter file)
+PARAMETER_FILE = {{ _rs274ngc.parameter_file | default('') }}
 
-# Subroutine search paths
-SUBROUTINE_PATH = {{ rs274ngc.subroutine_path | join(':') }}
+# Subroutine search paths (colon-separated)
+SUBROUTINE_PATH = {{ _rs274ngc.subroutine_path | default([]) | join(':') }}
 
 # G-code file encoding (e.g., 'utf-8')
-ENCODING = {{ rs274ngc.encoding }}
+ENCODING = {{ _rs274ngc.encoding | default('utf-8') }}
 
-# Log file for RS274NGC interpreter
-LOG_LEVEL = {{ rs274ngc.log_level }}
+# Log file for RS274NGC interpreter (level)
+LOG_LEVEL = {{ _rs274ngc.log_level | default('0') }}
 
 [EMCIO]
+# EMCIO (I/O) section configuration.
+{% set _emcio = emcio | default({}) %}
 # Tool changer type: 0=none, 1=carousel, 2=chain, 3=pallete
-TOOL_CHANGER_TYPE = {{ emcio.tool_changer_type }}
+TOOL_CHANGER_TYPE = {{ _emcio.tool_changer_type | default('0') }}
 
-# Number of tool pockets in magazine
-TOOL_TOOLKIT = {{ emcio.tool_toolkit }}
+# Number of tool pockets in magazine (tool toolkit)
+TOOL_TOOLKIT = {{ _emcio.tool_toolkit | default('0') }}
 
-# Tool change position (X,Y,Z in machine units)
-TOOL_CHANGE_POSITION = {{ emcio.tool_change_position }}
+# Tool change position (X,Y,Z in machine units, space-separated)
+TOOL_CHANGE_POSITION = {{ _emcio.tool_change_position | default('0 0 0') }}
 
 # Tool change spindle speed (RPM)
-TOOL_CHANGE_SPINDLE_SPEED = {{ emcio.tool_change_spindle_speed }}
+TOOL_CHANGE_SPINDLE_SPEED = {{ _emcio.tool_change_spindle_speed | default('0') }}
 
 # Tool change approach distance
-TOOL_CHANGE_APPROACH = {{ emcio.tool_change_approach }}
+TOOL_CHANGE_APPROACH = {{ _emcio.tool_change_approach | default('0') }}
 
 # Tool change retract distance
-TOOL_CHANGE_RETRACT = {{ emcio.tool_change_retract }}
+TOOL_CHANGE_RETRACT = {{ _emcio.tool_change_retract | default('0') }}
 
 # Tool change wait time (sec)
-TOOL_CHANGE_WAIT = {{ emcio.tool_change_wait }}
+TOOL_CHANGE_WAIT = {{ _emcio.tool_change_wait | default('0') }}
 
 # Tool changer sequence file (optional)
-TOOL_CHANGE_SEQUENCE = {{ emcio.tool_change_sequence | default('') }}
+TOOL_CHANGE_SEQUENCE = {{ _emcio.tool_change_sequence | default('') }}
 
 # Tool table file (e.g., 'tool.tbl')
-TOOL_TABLE = {{ emcio.tool_table | default('tool.tbl') }}
+TOOL_TABLE = {{ _emcio.tool_table | default('tool.tbl') }}
 
 [PYTHON]
+# Python interpreter integration section.
+{% set _python = python | default({}) %}
 # Enable Python support (true/false)
-ENABLE = {{ python.enable }}
+ENABLE = {{ _python.enable | default('false') }}
 
-# Python path (colon-separated)
-PATH = {{ python.path | join(':') }}
+# Python path (colon-separated list of directories)
+PATH = {{ _python.path | default([]) | join(':') }}
 
 # Preload modules (comma-separated)
-PRELOAD = {{ python.preload | join(',') }}
+PRELOAD = {{ _python.preload | default([]) | join(',') }}
 
 [LOG]
+# Logging configuration section.
+{% set _log = log | default({}) %}
 # Logging level: 0=none, 1=error, 2=warning, 3=info, 4=debug
-LEVEL = {{ log.level }}
+LEVEL = {{ _log.level | default('3') }}
 
 # Log file path (empty = stderr)
-FILE = {{ log.file | default('') }}
+FILE = {{ _log.file | default('') }}
 
 # Log to syslog (true/false)
-SYSLOG = {{ log.syslog }}
+SYSLOG = {{ _log.syslog | default('false') }}
 
 # Log to console (true/false)
-CONSOLE = {{ log.console }}
+CONSOLE = {{ _log.console | default('true') }}
 
 # Log rotation (bytes); 0 = no rotation
-ROTATE = {{ log.rotate }}
+ROTATE = {{ _log.rotate | default('0') }}
 
 # Max number of rotated log files
-MAX_ROTATED = {{ log.max_rotated }}
+MAX_ROTATED = {{ _log.max_rotated | default('5') }}

@@ -1,5 +1,38 @@
-# /etc/crypttab: mappings for encrypted block devices (LUKS)
-# Format: <name> <device> <keyfile> <options>
-# See `man crypttab` for details.
-{% for entry in crypttab_entries %}
-{{ entry.name }} {{ entry.device }} {% if entry.keyfile %}{{ entry.keyfile }}{% else %}-{% endif %} {{ entry.options | join(', ') }}{% endfor %}
+# Configuration for cryptsetup-init scripts (Debian/Ubuntu specific)
+# This file manages the behavior of the cryptdisks initscript.
+# Variables defined here are read by /etc/init.d/cryptdisks.
+
+# -----------------------------------------------------------------------------
+# cryptdisks_enable
+# Description: Whether to run cryptdisks initscripts at startup.
+# Type: string
+# Default: Yes
+# -----------------------------------------------------------------------------
+# If set to 'Yes', the init script will attempt to unlock all devices listed
+# in /etc/crypttab during boot. Set to 'No' to disable automatic unlocking.
+CRYPTDISKS_ENABLE={{ cryptdisks_enable | default('Yes') }}
+
+# -----------------------------------------------------------------------------
+# cryptdisks_mount
+# Description: Space-separated list of mountpoints to mount before cryptsetup
+#              is invoked at init scripts (e.g., for keyfiles on removable media).
+# Type: string
+# Default: (empty)
+# -----------------------------------------------------------------------------
+# Specify mount points (from /etc/fstab) that must be mounted before cryptsetup
+# runs. This is critical if your encryption key resides on a filesystem that
+# itself requires mounting (e.g., a keyfile on an external USB drive).
+# Multiple mountpoints should be separated by spaces.
+CRYPTDISKS_MOUNT="{{ cryptdisks_mount | default('') }}"
+
+# -----------------------------------------------------------------------------
+# cryptdisks_check
+# Description: Default check script used when 'check' option is set in crypttab
+#              without a value.
+# Type: string
+# Default: blkid
+# -----------------------------------------------------------------------------
+# Specifies the command used to verify the integrity of the block device
+# before attempting to open it. Common values are 'blkid' or 'test'.
+# This is overridden if a specific check command is provided in /etc/crypttab.
+CRYPTDISKS_CHECK={{ cryptdisks_check | default('blkid') }}

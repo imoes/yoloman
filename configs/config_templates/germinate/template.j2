@@ -1,0 +1,126 @@
+{# ========================================================================= #}
+{# germinate configuration template                                         #}
+{# Self-documenting Jinja2 template for the germinate seed expansion tool.   #}
+{# gerenerate reads package seed definitions (from Ubuntu/Debian archives)   #}
+{# and expands dependency trees (depends, recommends, suggests, etc.).       #}
+{#                                                                           #}
+{# This file is an environment-style key=value config. Each directive is     #}
+{# commented with its schema description for clarity. Variables use          #}
+{# `| default(...)` to ensure safe rendering even when the Ansible variable  #}
+{# is undefined. Boolean flags emit "1" when true; empty lists are skipped.  #}
+{# ========================================================================= #}
+
+{# ------------------------------------------------------------------------- #}
+{# Seed sources: where to fetch the base seed packages from                  #}
+{# ------------------------------------------------------------------------- #}
+{# List of URLs or file:// paths to fetch seeds from (e.g., https://ubuntu-archive-team.ubuntu.com/seeds/, file:///home/user/seeds/). #}
+{# Empty list means no explicit seed sources are configured (germinate uses defaults). #}
+{% if seed_source | default([]) | length > 0 %}
+SEED_SOURCE={{ seed_source | default([]) | join(',') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Seed distribution: which Ubuntu/Debian distro profile to use              #}
+{# ------------------------------------------------------------------------- #}
+{# Distribution name for seeds (e.g., ubuntu.trixie, debian.stable). #}
+SEED_DIST={{ seed_dist | default('ubuntu.trixie') }}
+
+{# ------------------------------------------------------------------------- #}
+{# Binary mirrors: where to download binary package indices                  #}
+{# ------------------------------------------------------------------------- #}
+{# List of mirror URLs for binary package indices (e.g., http://archive.ubuntu.com/ubuntu/). #}
+{# Empty list means germinate will use its built-in defaults. #}
+{% if mirror | default([]) | length > 0 %}
+MIRROR={{ mirror | default([]) | join(',') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Source mirrors: where to download source package indices                  #}
+{# ------------------------------------------------------------------------- #}
+{# List of mirror URLs for source package indices. Defaults to using binary mirrors if not set. #}
+{# Empty list means germinate will fall back to binary mirrors. #}
+{% if source_mirror | default([]) | length > 0 %}
+SOURCE_MIRROR={{ source_mirror | default([]) | join(',') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Distributions to process                                                  #}
+{# ------------------------------------------------------------------------- #}
+{# List of distributions to process (e.g., trixie, trixie-updates). #}
+{# Empty list means germinate processes all available distributions. #}
+{% if dist | default([]) | length > 0 %}
+DIST={{ dist | default([]) | join(',') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Target architecture                                                       #}
+{# ------------------------------------------------------------------------- #}
+{# Target architecture (e.g., amd64, arm64). #}
+ARCH={{ arch | default('amd64') }}
+
+{# ------------------------------------------------------------------------- #}
+{# Package components to include                                             #}
+{# ------------------------------------------------------------------------- #}
+{# List of components to include (e.g., main, universe, restricted). #}
+{# Empty list means germinate uses all available components. #}
+{% if components | default([]) | length > 0 %}
+COMPONENTS={{ components | default([]) | join(',') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Version control system for seed checkout                                  #}
+{# ------------------------------------------------------------------------- #}
+{# Version control system to use for seed checkout: 'auto', 'bzr', or 'git'. #}
+{% if vcs | default('auto') %}
+VCS={{ vcs | default('auto') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# APT config override                                                       #}
+{# ------------------------------------------------------------------------- #}
+{# Path to APT config file to override mirror/dist/components settings. #}
+{% if apt_config | default('') %}
+APT_CONFIG={{ apt_config | default('') }}
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Verbose output                                                            #}
+{# ------------------------------------------------------------------------- #}
+{# Enable verbose output. #}
+{% if verbose | default(False) %}
+VERBOSE=1
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Reverse dependency calculations                                           #}
+{# ------------------------------------------------------------------------- #}
+{# Disable reverse-dependency calculations (skip generating rdepends/ directory). #}
+{# Useful for speeding up processing when rdeps are not needed. #}
+{% if no_rdepends | default(False) %}
+NO_RDEPENDS=1
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Debian-installer udeb packages                                            #}
+{# ------------------------------------------------------------------------- #}
+{# Exclude debian-installer udeb packages from consideration. #}
+{% if no_installer | default(False) %}
+NO_INSTALLER=1
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Build-Depends handling                                                    #}
+{# ------------------------------------------------------------------------- #}
+{# Always follow Build-Depends, ignoring seed-specific feature flags. #}
+{% if always_follow_build_depends | default(False) %}
+ALWAYS_FOLLOW_BUILD_DEPENDS=1
+{% endif %}
+
+{# ------------------------------------------------------------------------- #}
+{# Extra seed packages                                                       #}
+{# ------------------------------------------------------------------------- #}
+{# List of 'parent/seed-pkg' pairs to treat as extra seeds inheriting from parent. #}
+{# Example: "ubuntu/main-apt" #}
+{% if seed_packages | default([]) | length > 0 %}
+SEED_PACKAGES={{ seed_packages | default([]) | join(',') }}
+{% endif %}

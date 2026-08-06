@@ -1,0 +1,46 @@
+#!/bin/sh
+# Run the expire function of apt-cacher-ng non-interactively (unless errors
+# are detected).
+#
+# This script is intended to be used as a cron job or systemd timer entry
+# to maintain the apt-cacher-ng cache and log archives.
+
+# Optional: specify hostname to appear in error messages and links.
+# If left empty or unset, the default behavior is used.
+# HOSTNAME={{ hostname | default('') }}
+# export HOSTNAME
+
+# Ensure the acngtool binary exists and is executable before proceeding.
+test -x /usr/lib/apt-cacher-ng/acngtool || exit 0
+
+# Check for administrative override in /etc/default/apt-cacher-ng.
+# If NO_CRON_RUN is set to any non-empty value, this script exits immediately,
+# effectively disabling automated maintenance tasks.
+if test -e /etc/default/apt-cacher-ng
+then
+	. /etc/default/apt-cacher-ng
+	test -z "$NO_CRON_RUN" || exit 0
+fi
+
+# Log maintenance: clean up old HTML reports and compress recent ones.
+if [ -d /var/log/apt-cacher-ng ]; then
+		# Remove maintenance logs older than 10 days to prevent disk space exhaustion.
+		# Targets compressed (xz) and uncompressed HTML log formats.
+		find /var/log/apt-cacher-ng -maxdepth 1 -name 'maint_*.log.html.xz' -or -name 'maint_*.log.html' -type f -user apt-cacher-ng -mtime +10 -delete
+		# Compress uncompressed maintenance logs older than 5 days.
+		find /var/log/apt-cacher-ng -maxdepth 1 -name 'maint_*.log.html' -type f -user apt-cacher-ng -mtime +5 -print0 | xargs -r0 xz
+fi
+
+# Verify that the ReportPage functionality is enabled.
+# If disabled by an administrator, warn the user and exit with a specific error code.
+rpage=$(/usr/lib/apt-cacher-ng/acngtool -c /etc/apt-cacher-ng 2>/dev/null printvar ReportPage)
+if test 0 = $(echo "$rpage" | wc -w)
+then
+	echo Warning: ReportPage setting of apt-cacher-ng was disabled by administrator. >&2
+	echo See /usr/share/doc/apt-cacher-ng/README.Debian for details. >&2
+	exit 42
+fi
+
+# Execute the maintenance mode of apt-cacher-ng using the configured socket.
+# This step performs actual cache expiry and internal housekeeping.
+/usr/lib/apt-cacher-ng/acngtool maint -c /etc/apt-cacher-ng SocketPath=/var/run/apt-cacher-ng/socket

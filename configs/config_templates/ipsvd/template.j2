@@ -1,39 +1,74 @@
-# /etc/ipsvd/ipsvd.conf — Main configuration for Internet Protocol Service Daemons (ipsvd)
-# Load-order: read from top to bottom; directives are processed in order
-# Each line defines a service, with optional per-service settings
+# /etc/ipsvd/tcpsvd.conf — Configuration for tcpsvd (part of ipsvd suite)
+# Syntax: tcpsvd [-h] [-p] [-l name] [-u user[:group]] [-i dir|-x cdb] [-t sec] host port prog
+#
+# This template generates a configuration line by line for each directive.
+# Variables are sourced from the Ansible role's inventory or defaults.
+# All variable references use `| default(...)` to ensure safe rendering even if
+# specific fields are not defined in the current context.
 
-# Enable verbose logging (overrides default log level)
-{% if verbose %}verbose{% endif %}
+# host: IP address or hostname to listen on.
+# This is the primary network interface address the service will bind to.
+host {{ (host | default(None)) | default('0.0.0.0') }}
 
-# Maximum number of concurrent connections per service
-maxconn {{ maxconn }}
+# port: Port number to listen on.
+# The TCP port the service will accept connections on.
+port {{ (port | default(None)) | default('0') }}
 
-# Default user and group for services not explicitly overridden
-default_user {{ default_user }}
-default_group {{ default_group }}
+# prog: Command/program to execute when a connection is accepted.
+# The executable that handles the client connection.
+prog {{ (prog | default(None)) | default('') }}
 
-# DNS lookup timeout in seconds
-timeout_dns {{ timeout_dns }}
+# look_up_hostname: Enable -h: Look up the client's hostname in DNS.
+# If true, the service performs a DNS lookup on the connecting client's IP address.
+{% if look_up_hostname | default(False) %}
+look_up_hostname
+{% endif %}
 
-# TCP connection idle timeout in seconds
-timeout_idle {{ timeout_idle }}
+# paranoid: Enable -p: Paranoid mode. Verifies IP matches hostname via DNS reverse lookup.
+# Implies look_up_hostname. Rejects connections if the forward and reverse DNS records do not match.
+{% if paranoid | default(False) %}
+paranoid
+{% endif %}
 
-# Enable TCP wrappers support
-{% if tcp_wrappers %}tcp_wrappers{% endif %}
+# local_hostname: Enable -l name: Use this name as the local hostname instead of DNS lookup.
+# Overrides the system's reported hostname for the local end of the connection.
+{% if local_hostname | default('') | length > 0 %}
+local_hostname {{ local_hostname | default('') }}
+{% endif %}
 
-# Enable IPv6 support
-{% if ipv6 %}ipv6{% endif %}
+# user: Enable -u user: User to drop privileges to (run as).
+# The service will switch to this user after binding to the port.
+{% if user | default('') | length > 0 %}
+user {{ user | default('') }}{% if group | default('') | length > 0 %}:{{ group | default('') }}{% endif %}
+{% endif %}
 
-# List of services to manage, each with optional per-service overrides
-{% for service in services %}
-# Service: {{ service.name }}
-# Port: {{ service.port }}
-# Protocol: {{ service.protocol }}
-{% if service.chroot %}chroot {{ service.chroot }}{% endif %}
-{% if service.user %}user {{ service.user }}{% endif %}
-{% if service.group %}group {{ service.group }}{% endif %}
-{% if service.log_prefix %}log_prefix {{ service.log_prefix }}{% endif %}
-{% if service.maxconn is defined %}maxconn {{ service.maxconn }}{% endif %}
-{% if service.timeout_idle is defined %}timeout_idle {{ service.timeout_idle }}{% endif %}
-{% if service.cmd %}cmd {{ service.cmd | join(' ') }}{% endif %}
-{% endfor %}
+# group: Enable -g group: Group to drop privileges to. Optional if user specifies user:group.
+# Separate group field for clarity, though tcpsvd often expects user:group format.
+# Note: In tcpsvd syntax, group is usually passed as part of the user argument (user:group).
+# This block is included for explicit configuration if the role splits them,
+# but primarily handled in the 'user' block above for correct tcpsvd syntax.
+{% if group | default('') | length > 0 and user | default('') | length == 0 %}
+# Warning: group specified without user. tcpsvd may require user:group format.
+# This line is included for completeness but might be invalid in strict tcpsvd mode.
+group {{ group | default('') }}
+{% endif %}
+
+# instructions_dir: Enable -i dir: Directory to read per-connection instructions from.
+# If this directory exists, tcpsvd will read a file named after the client's IP
+# from this directory for connection-specific settings.
+{% if instructions_dir | default('') | length > 0 %}
+instructions_dir {{ instructions_dir | default('') }}
+{% endif %}
+
+# constant_database: Enable -x cdb: Constant database file to read instructions from.
+# Alternative to instructions_dir. Uses a cdb (CDB) file for faster lookups.
+# Mutually exclusive with instructions_dir.
+{% if constant_database | default('') | length > 0 %}
+constant_database {{ constant_database | default('') }}
+{% endif %}
+
+# timeout: Enable -t sec: Timeout in seconds for removing stale files in the instructions directory.
+# Applies only if instructions_dir is used. 0 disables automatic cleanup.
+{% if timeout | default(0) != 0 %}
+timeout {{ timeout | default(0) }}
+{% endif %}

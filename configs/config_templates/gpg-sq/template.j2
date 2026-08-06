@@ -1,0 +1,92 @@
+# ==============================================================================
+# gpg-sq (Sequoia PGP) Configuration Template
+# ==============================================================================
+# This template generates a configuration file for gpg-sq, a Rust-based
+# implementation of the OpenPGP standard (RFC 4880) compatible with GnuPG.
+#
+# Variables are sourced from the Ansible role's inventory or defaults.
+# Every variable uses the `default()` filter to prevent rendering errors
+# if the variable is undefined in the playbook context.
+# ==============================================================================
+
+{# Absolute path to GnuPG home directory; overrides $GNUPGHOME and --gnupghome. #}
+{% set gpg_home_val = gpg_home | default('') %}
+{% if gpg_home_val %}
+GNUPGHOME {{ gpg_home_val }}
+{% endif %}
+
+{# Absolute path to cryptographic policy configuration file. #}
+{% set crypto_policy_file_val = crypto_policy_file | default('/etc/crypto-policies/back-ends/sequoia.config') %}
+{% if crypto_policy_file_val != '/etc/crypto-policies/back-ends/sequoia.config' %}
+SEQUOIA_CRYPTO_POLICY {{ crypto_policy_file_val }}
+{% endif %}
+
+{# List of configuration directives.
+# Each item in 'options' must specify 'name' and optionally 'type' and values.
+# Supported types:
+#   - flag:    Adds the directive if 'enabled' is true.
+#   - value:   Adds 'name value'.
+#   - list:    Adds 'name value' for each item in 'values'. #}
+{% for item in options | default([]) %}
+    {# Directive name #}
+    {% set item_name = item.name | default('unknown') %}
+    {# Directive type #}
+    {% set item_type = item.type | default('value') %}
+    # Directive: {{ item_name }} (Type: {{ item_type }})
+
+    {% if item_type == 'flag' %}
+        {# Flag type: only output if enabled is true #}
+        {% if item.enabled | default(true) %}
+        {{ item_name }}
+        {% endif %}
+
+    {% elif item_type == 'value' %}
+        {# Value type: output name and value if value is defined #}
+        {% if item.value is defined %}
+        {{ item_name }} {{ item.value | trim }}
+        {% endif %}
+
+    {% elif item_type == 'list' %}
+        {# List type: output name followed by each value in the list #}
+        {% for val in item.values | default([]) %}
+        {{ item_name }} {{ val | trim }}
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+
+{# Path to write server mode logs. Enables --server mode logging. #}
+{% set log_file_val = log_file | default('') %}
+{% if log_file_val %}
+--log-file {{ log_file_val }}
+{% endif %}
+
+{# Key ID or user ID to use as default for signing/decryption. #}
+{% set default_key_val = default_key | default('') %}
+{% if default_key_val %}
+--default-key {{ default_key_val }}
+{% endif %}
+
+{# List of user IDs to encrypt to in addition to intended recipients.
+# Each entry adds a --encrypt-to directive. #}
+{% for uid in encrypt_to | default([]) %}
+--encrypt-to {{ uid }}
+{% endfor %}
+
+{# Email alias group specification string for --group. #}
+{% set group_spec_val = group_spec | default('') %}
+{% if group_spec_val %}
+--group {{ group_spec_val }}
+{% endif %}
+
+{# Colon-separated list of key location mechanisms for --auto-key-locate
+# (e.g., 'node,ldap,wkd'). #}
+{% set auto_key_locate_val = auto_key_locate | default('') %}
+{% if auto_key_locate_val %}
+--auto-key-locate {{ auto_key_locate_val }}
+{% endif %}
+
+{# Compression level for output (0 = disabled). Accepts integers 0-9. #}
+{% set compression_level_val = compression_level | default(0) %}
+{% if compression_level_val != 0 %}
+-z {{ compression_level_val }}
+{% endif %}

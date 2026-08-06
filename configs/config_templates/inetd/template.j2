@@ -1,8 +1,34 @@
-# /etc/inetd.conf: Internet Superserver configuration
-# Each line describes a service to offer, in the format:
-# service_name flags protocol server_type server_program server_args
+# /etc/inetd.conf: Internet Superserver (xinetd/inetd) configuration
+#
+# This file defines network services managed by the Internet Superserver.
+# Each non-comment, non-empty line follows this format:
+#   service_name  flags  protocol  server_type  server_program  server_args
+#
+# - service_name: The name of the service as defined in /etc/services.
+# - flags: Options such as 'stream' or 'dgram', plus modifiers like 'wait' or 'nowait'.
+# - protocol: 'tcp' or 'udp'.
+# - server_type: Usually 'stream' or 'dgram'.
+# - server_program: Path to the executable (e.g., /usr/sbin/in.telnetd).
+# - server_args: Arguments passed to the server program.
+#
+# Services are dynamically generated from the 'services' variable defined in the playbook/role.
+# If 'services' is empty, this file will contain only comments.
 
-# TCP/UDP services are listed below.
-{% for service in services %}# {{ service.name | replace('_', ' ') }}: {{ service.description or 'No description' }}
-{{ service.name }}	{{ service.flags }}	{{ service.protocol }}	{{ service.server_type }}	{{ service.server_program }}	{{ service.server_args | join(' ') }}
+{% set _services = services | default([], true) %}
+{% if _services | length > 0 %}
+# --- Managed Services ---
+{% for service in _services %}
+# {{ service.name | default('unknown_service') | replace('_', ' ') }}
+# Description: {{ service.description | default('No description provided.') }}
+#
+# Service Entry:
+#   Name:     {{ service.name | default('unknown_service') }}
+#   Flags:    {{ service.flags | default('stream') }}
+#   Protocol: {{ service.protocol | default('tcp') }}
+#   Type:     {{ service.server_type | default('stream') }}
+#   Program:  {{ service.server_program | default('/usr/sbin/in.{{ service.name | default("unknown") }}') }}
+#   Args:     {{ service.server_args | default([]) | join(' ') }}
+{{ service.name | default('unknown_service') }}	{{ service.flags | default('stream') }}	{{ service.protocol | default('tcp') }}	{{ service.server_type | default('stream') }}	{{ service.server_program | default('/usr/sbin/in.{{ service.name | default("unknown") }}') }}	{{ service.server_args | default([]) | join(' ') }}
 {% endfor %}
+{% endif %}
+# --- End of managed services ---

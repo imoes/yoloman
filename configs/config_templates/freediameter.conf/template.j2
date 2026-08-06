@@ -1,57 +1,90 @@
-{# FreeDiameter main configuration file #}
-{# This file uses YAML-like syntax but is parsed by freediameterd as key = value pairs. #}
-{# Each line is a directive; comments start with # #}
+# FreeDiameter main configuration file
+# This file uses a key-value syntax parsed by the freediameter daemon.
+# Lines ending with ; are valid directives. Comments start with #.
+# All variables are provided with safe defaults from the role schema.
 
-{# Identity of this Diameter node (FQDN or URI) #}
-Identity = {{ identity }};
+# Identity of this Diameter node (FQDN or URI).
+# Uniquely identifies this node in the Diameter network.
+Identity = {{ identity | default('freediameter.example.net') }};
 
-{# Realm this node belongs to (used for routing) #}
-Realm = {{ realm }};
+# Realm this node belongs to (used for routing and authentication).
+# Diameter peers use this to determine trust and routing paths.
+Realm = {{ realm | default('example.net') }};
 
-{# Vendor ID (IANA-assigned) #}
-VendorID = {{ vendor_id }};
+# Vendor ID (IANA-assigned).
+# 193 is commonly used for FreeSWITCH/freeswitch.org. 0 implies default/undefined.
+VendorID = {{ vendor_id | default(193) }};
 
-{# Product name (free-form string) #}
-ProductName = "{{ product_name }}";
+# Product name (free-form string).
+# Displayed in the product-name AVP during exchanges.
+ProductName = "{{ product_name | default('FreeDiameter') }}";
 
-{# Force FQDN format for local host lookup #}
-FQDN_format = {{ fqdn_format }};
+# Enable TLS for secure Diameter connections (TCP/SCTP).
+# Requires valid certificate files to be specified below.
+Use_TLS = {{ use_tls | default(False) }};
 
-{# Use TLS/DTLS (on/off) #}
-Use_TLS = {{ use_tls }};
-Use_DTLS = {{ use_dtls }};
+# Enable DTLS for Diameter over UDP (less common, e.g., for roaming).
+# Requires valid certificate files to be specified below.
+Use_DTLS = {{ use_dtls | default(False) }};
 
-{# TLS/DTLS certificate and key file paths #}
-{# Only needed if Use_TLS or Use_DTLS is enabled #}
-Certificate_File = {{ tls_certificate_file }};
-Private_Key_File = {{ tls_private_key_file }};
-CA_List = {{ ca_list }};
+# Path to TLS/DTLS certificate (PEM format).
+# Only required if Use_TLS or Use_DTLS is True.
+Certificate_File = {{ tls_certificate_file | default('/etc/freediameter/server.pem') }};
 
-{# Listen on specified IP addresses and ports #}
-{# Format: IP:port; multiple lines allowed #}
-{% for listener in listeners %}Listen{% if listener.proto == 'sctp' %}_SCTP{% elif listener.proto == 'tcp' %}_TCP{% elif listener.proto == 'udp' %}_UDP{% endif %} = {{ listener.address }}:{{ listener.port }};
+# Path to TLS/DTLS private key (PEM format, unencrypted).
+# Only required if Use_TLS or Use_DTLS is True.
+Private_Key_File = {{ tls_private_key_file | default('/etc/freediameter/server.key') }};
+
+# Path to CA certificate bundle (PEM format).
+# Used for peer verification when TLS/DTLS is enabled.
+CA_List = {{ ca_list | default('/etc/freediameter/cacerts.pem') }};
+
+# Network listeners for incoming Diameter connections.
+# Format: IP:Port;
+# FreeDiameter typically requires one Listen directive per protocol/interface combination.
+# Supported protocols: SCTP (recommended), TCP, UDP.
+{% for listener in (listeners | default([{'address': '0.0.0.0', 'port': 3868, 'proto': 'sctp'}])) %}
+{% if listener.proto == 'sctp' %}
+Listen_SCTP = {{ listener.address }}:{{ listener.port }};
+{% elif listener.proto == 'tcp' %}
+Listen_TCP = {{ listener.address }}:{{ listener.port }};
+{% elif listener.proto == 'udp' %}
+Listen_UDP = {{ listener.address }}:{{ listener.port }};
+{% endif %}
 {% endfor %}
 
-{# Allowed peers (by FQDN) #}
-{# If empty, any peer is accepted (not recommended in production) #}
-{% for peer in allowed_peers %}Allowed_Peer = {{ peer }};
+# Allowed peers (by FQDN).
+# List of peer FQDNs permitted to connect.
+# If this list is empty, any peer is accepted (not recommended for production security).
+{% for peer in (allowed_peers | default([])) %}
+Allowed_Peer = {{ peer }};
 {% endfor %}
 
-{# Diameter Application extensions #}
-{# Load-specific extensions (e.g., 3GPP, ETSI) #}
-{% for app in extensions %}{% if app.enabled %}LoadExtension = "{{ app.path }}";
-{% endif %}{% endfor %}
-
-{# Logging configuration #}
-Log_File = {{ log_file }};
-Log_Level = {{ log_level }};
-
-{# Enable/Disable specific Diameter commands (debugging) #}
-{% for cmd in disabled_commands %}Disabled_Command = {{ cmd }};
+# Diameter Application extensions.
+# List of modules to load (e.g., 3GPP, ETSI, custom extensions).
+# Only modules where 'enabled' is True are loaded.
+{% for app in (extensions | default([{'path': 'libfreediameter-3gpp.so', 'enabled': True}])) %}
+{% if app.enabled is defined and app.enabled %}
+LoadExtension = "{{ app.path }}";
+{% endif %}
 {% endfor %}
 
-{# Peer connection timeouts and behavior #}
-Originate_Conn = {{ originate_conn }};
-CnxRetryTime = {{ cnx_retry_time }};
-CnxMaxRetryTime = {{ cnx_max_retry_time }};
-CnxMaxRetrans = {{ cnx_max_retrans }};
+# Path to the log file.
+# Leave empty or set to '' to log to stdout/syslog instead of a file.
+Log_File = {{ log_file | default('/var/log/freediameter/freediameter.log') }};
+
+# Verbosity level for logging.
+# Range: 0 (no logs) to 9 (full debug). Recommend 7 (info) for production.
+Log_Level = {{ log_level | default(7) }};
+
+# Initial retry timeout (seconds) for failed peer connections.
+# Used when a peer becomes unreachable or connection fails.
+CnxRetryTime = {{ cnx_retry_time | default(30) }};
+
+# Maximum retry timeout (seconds) after exponential backoff.
+# Prevents aggressive retry loops during prolonged outages.
+CnxMaxRetryTime = {{ cnx_max_retry_time | default(300) }};
+
+# Maximum retransmissions for unacknowledged messages.
+# If a peer does not ACK within this limit, the connection is considered failed.
+CnxMaxRetrans = {{ cnx_max_retrans | default(3) }};

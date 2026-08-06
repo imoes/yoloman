@@ -1,0 +1,29 @@
+{# ============================================================================== #}
+{# Global configuration file for gpgconf(1) - /etc/gnupg/gpgconf.conf            #}
+{#                                                                              #}
+{# This file controls global configuration rules per component and option.      #}
+{# See gpgconf(1) section 'FILES' and --list-config command for details.         #}
+{#                                                                              #}
+{# Format:                                                                     #}
+{#   Key record : k:<user>:<group>:                                            #}
+{#   Rule record: r::<user>:<group>:<component>:<option>:<flag>:<value>:       #}
+{#                                                                              #}
+{# If user and group are empty in the rule record, the rule applies globally    #}
+{# or is associated with the preceding key record.                              #}
+{# ============================================================================== #}
+
+{% for rule_set in rule_sets | default([]) %}
+  {# ----- Begin Rule Set ----- #}
+  {# A rule set can optionally start with a user/group key record to scope  #}
+  {# the subsequent rules to a specific system user and/or group.           #}
+  {% if rule_set.user or rule_set.group %}
+k:{{ rule_set.user | default('') }}:{{ rule_set.group | default('') }}:
+  {% endif %}
+
+  {# Iterate over each rule within the current rule set. Each rule targets  #}
+  {# a specific GnuPG component, option, and assigns a value.               #}
+  {% for rule in rule_set.rules | default([]) %}
+r:::{{ rule.component | default('') }}:{{ rule.option | default('') }}:{{ rule.flag | default('') }}:{{ rule.value | default('') }}:
+  {% endfor %}
+  {# ----- End Rule Set ----- #}
+{% endfor %}

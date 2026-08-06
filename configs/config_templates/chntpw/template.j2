@@ -1,0 +1,85 @@
+# ==============================================================================
+# chntpw - Offline NT Password & Registry Editor
+# ==============================================================================
+# This template generates the command-line arguments for chntpw.
+# chntpw is a utility to reset Windows passwords and edit SAM hives offline.
+# It operates on raw registry hive files, not on a running system.
+#
+# IMPORTANT: chntpw is a CLI tool. It does not have a persistent configuration
+# file. The "configuration" here is the assembled set of flags and file paths
+# passed to the `chntpw` binary invocation.
+# ==============================================================================
+
+{% if interactive | default(False) %}
+# Enable interactive menu (chntpw -i)
+# Lists users and prompts for selection.
+# Note: This is a mode flag; usually 'username' is preferred for automation.
+-I
+{% endif %}
+
+{% if list_users | default(False) %}
+# List all users in the SAM database and exit (chntpw -l).
+# Does not edit anything; just outputs the user list.
+-l
+{% endif %}
+
+{% if username | default('') | length > 0 %}
+# Target specific username (or RID) to edit.
+# If empty, chntpw defaults to 'Administrator' in non-list mode.
+-u {{ username | default('Administrator') }}
+{% endif %}
+
+{% if log_changes | default(False) %}
+# Log all changed hive filenames to /tmp/changed (chntpw -L).
+# Auto-saves without prompting. Use with caution in multiuser environments.
+-L
+{% endif %}
+
+{% if safe_mode | default(False) %}
+# Safe mode: do not allocate more space, only allow in-place editing (chntpw -N).
+-N
+{% endif %}
+
+{% if no_expand | default(False) %}
+# Do not expand the hive file (chntpw -E).
+-E
+{% endif %}
+
+{% if verbose | default(False) %}
+# Print verbose information and debug messages (chntpw -v).
+-v
+{% endif %}
+
+{% if registry_editor | default(False) %}
+# Launch registry editor with write support (chntpw -e).
+-e
+{% endif %}
+
+{% if hex_editor | default(False) %}
+# Launch hex/buffer debugger (chntpw -d).
+-d
+{% endif %}
+
+{% if sam_file | default('') | length > 0 %}
+# Path to SAM registry hive file (required positional argument).
+# This is the primary target file for chntpw.
+{{ sam_file }}
+{% endif %}
+
+{% if system_file | default('') | length > 0 %}
+# Path to SYSTEM registry hive file (optional).
+# Often required for password reset to update the default user account.
+{{ system_file }}
+{% endif %}
+
+{% if security_file | default('') | length > 0 %}
+# Path to SECURITY registry hive file (optional).
+# Often required for password reset to update security descriptors.
+{{ security_file }}
+{% endif %}
+
+{% if other_hive_files | default([]) | length > 0 %}
+# Additional registry hive file paths to open (optional).
+# These are appended as positional arguments after the main hive files.
+{% for hive in other_hive_files %}{{ hive }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endif %}

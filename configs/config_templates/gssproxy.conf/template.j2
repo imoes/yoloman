@@ -3,64 +3,73 @@
 # and delegating credential management to a user-space daemon.
 
 [general]
-# List of socket paths where gssproxy will listen for client connections
-sock_paths = {{ sock_paths | join(', ') }}
+# List of Unix socket paths where gssproxy will accept client connections.
+# Default: ['/run/gssproxy.sock']
+sock_paths = {{ (sock_paths | default(['/run/gssproxy.sock'])) | join(', ') }}
 
-# Debug level (0=quiet, 1=normal, 2=verbose, 3=debug)
-debug_level = {{ debug_level }}
+# Debug verbosity level (0 = quiet, 1 = normal, 2 = verbose, 3 = debug).
+# Default: 1
+debug_level = {{ debug_level | default(1) }}
 
-# Enable or disable the use of systemd socket activation
-use_socket_activation = {{ use_socket_activation }}
+# If true, gssproxy will use systemd socket activation instead of binding sockets itself.
+# Default: False
+use_socket_activation = {{ use_socket_activation | default(False) }}
 
-# Default time (in seconds) a credential cache entry is considered valid
-ccache_timeout = {{ ccache_timeout }}
+# Time (in seconds) after which a credential cache entry is considered expired.
+# Default: 600
+ccache_timeout = {{ ccache_timeout | default(600) }}
 
 [ecosystem]
-# Enable support for the 'gssproxy' ecosystem (e.g., Kerberos, SSSD integration)
-enabled = {{ ecosystem_enabled }}
+# Enable support for ecosystem extensions (e.g., integration with SSSD, Kerberos, etc.).
+# Default: True
+enabled = {{ ecosystem_enabled | default(True) }}
 
 [mechs]
-# Mechanisms to support; each entry defines a GSS mechanism with its configuration
-{% for mech in mechanisms %}
+# List of GSS mechanisms (e.g., Kerberos) to support, each with its own configuration.
+# Default: [{'name': 'krb5', 'oid': '1.2.840.113554.1.2.2', 'keytab': '/etc/krb5.keytab', 'ccache': 'FILE:/run/gssproxy.d/krb5_ccache', 'allowed_enctypes': ['aes256-cts-hmac-sha1-96', 'aes128-cts-hmac-sha1-96'], 'server_principal': 'host@EXAMPLE.COM', 'credentials_cache': 'FILE:/run/gssproxy.d/krb5_ccache'}]
+{% for mech in (mechanisms | default([{'name': 'krb5', 'oid': '1.2.840.113554.1.2.2', 'keytab': '/etc/krb5.keytab', 'ccache': 'FILE:/run/gssproxy.d/krb5_ccache', 'allowed_enctypes': ['aes256-cts-hmac-sha1-96', 'aes128-cts-hmac-sha1-96'], 'server_principal': 'host@EXAMPLE.COM', 'credentials_cache': 'FILE:/run/gssproxy.d/krb5_ccache'}])) %}
 [{{ mech.name }}]
 mech_oid = {{ mech.oid }}
-{% if mech.keytab %}
+{% if mech.keytab is defined %}
 keytab = {{ mech.keytab }}
 {% endif %}
-{% if mech.ccache %}
+{% if mech.ccache is defined %}
 ccache = {{ mech.ccache }}
 {% endif %}
-{% if mech.allowed_enctypes %}
+{% if mech.allowed_enctypes is defined and mech.allowed_enctypes %}
 allowed_enctypes = {{ mech.allowed_enctypes | join(', ') }}
 {% endif %}
-{% if mech.client_principal %}
+{% if mech.client_principal is defined %}
 client_principal = {{ mech.client_principal }}
 {% endif %}
-{% if mech.server_principal %}
+{% if mech.server_principal is defined %}
 server_principal = {{ mech.server_principal }}
 {% endif %}
-{% if mech.credentials_cache %}
+{% if mech.credentials_cache is defined %}
 credentials_cache = {{ mech.credentials_cache }}
 {% endif %}
-{% if mech.euid %}
+{% if mech.euid is defined %}
 euid = {{ mech.euid }}
 {% endif %}
 {% endfor %}
 
 [emulated_princs]
-# Emulated principal mappings for backward compatibility
-{% for mapping in emulated_principals %}
+# List of principal emulations to support legacy client requests.
+# Default: []
+{% for mapping in (emulated_principals | default([])) %}
 {{ mapping.principal }} = {{ mapping.target }}
 {% endfor %}
 
 [trusted_princs]
-# Principals that are allowed to use delegated credentials
-{% for princ in trusted_principals %}
+# List of principals (with realm) that are trusted to use delegated credentials.
+# Default: ['root@EXAMPLE.COM']
+{% for princ in (trusted_principals | default(['root@EXAMPLE.COM'])) %}
 {{ princ }}
 {% endfor %}
 
 [trusted_dirs]
-# Directories whose content (e.g., keytabs) are trusted for reading
-{% for dir in trusted_dirs %}
+# List of directories whose contents (e.g., keytabs) are trusted for reading.
+# Default: ['/etc/gssproxy', '/var/lib/gssproxy']
+{% for dir in (trusted_dirs | default(['/etc/gssproxy', '/var/lib/gssproxy'])) %}
 {{ dir }}
 {% endfor %}

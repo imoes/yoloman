@@ -1,77 +1,157 @@
-# JupyterHub configuration file
-# Set the service to run in the background as a daemon
-# Specify the base directory for JupyterHub data
-# Define the database connection string
-# Configure the authenticator class
-# Configure the spawner class
-# Set maximum number of concurrent users
-# Set maximum age of the Hub's database
-# Configure proxy settings
-# Define hub IP and port
-# Define public-facing URL
-# Define SSL/TLS settings
-# Configure idle timeout behavior
-# Define custom resources for spawners
-# Define docker image for single-user servers
-# Configure OAuth settings (if used)
-# Define custom service endpoints
+# JupyterHub Configuration Template
+# This Jinja2 template generates a self-documenting `jupyterhub_config.py` file.
+# All variables are sourced from the Ansible role variables, with explicit defaults
+# matching the JupyterHub schema to ensure safe rendering and reuse.
 
-# Whether to start the Hub in daemon mode
-daemonize = {{ daemonize }}
+# ==============================================================================
+# Core Process Settings
+# ==============================================================================
 
-# Base directory for JupyterHub data (config, certs, logs, etc.)
-cwd = '{{ cwd }}'
+# Whether to run JupyterHub as a background daemon process.
+# Default: True (runs as a daemon). Set to False if running under systemd or similar.
+c.JupyterHub.daemonize = {{ daemonize | default(True) }}
 
-# Database connection string (e.g., 'sqlite:///jupyterhub.sqlite', 'postgresql+psycopg2://user:pass@host/db')
-c.JupyterHub.db_url = '{{ db_url }}'
+# Base directory for JupyterHub configuration, logs, and data files.
+# Default: /etc/jupyterhub
+c.JupyterHub.cwd = '{{ cwd | default("/etc/jupyterhub") }}'
 
-# Authenticator class to use for login (e.g., 'jupyterhub.auth.PAMAuthenticator')
-c.JupyterHub.authenticator_class = '{{ authenticator_class }}'
+# ==============================================================================
+# Database Configuration
+# ==============================================================================
 
-# Spawner class to use for launching user servers (e.g., 'jupyterhub.spawner.LocalProcessSpawner')
-c.JupyterHub.spawner_class = '{{ spawner_class }}'
+# Database connection string.
+# For single-node: sqlite:///jupyterhub.sqlite
+# For production: postgresql+psycopg2://user:pass@host/db or mysql+pymysql://...
+# Default: sqlite:///jupyterhub.sqlite
+c.JupyterHub.db_url = '{{ db_url | default("sqlite:///jupyterhub.sqlite") }}'
 
-# Maximum number of concurrent users that can be spawned at once
-c.JupyterHub.concurrent_spawn_limit = {{ concurrent_spawn_limit }}
+# ==============================================================================
+# Authenticator & Spawner Backend Selection
+# ==============================================================================
 
-# Maximum age (in seconds) of the Hub's database before it is auto-archived
-# Set to 0 to disable archival
-c.JupyterHub.db_archive_max_age = {{ db_archive_max_age }}
+# Authenticator backend class to handle user login.
+# Examples: jupyterhub.auth.PAMAuthenticator, oauthenticator.GitHubOAuthenticator
+# Default: jupyterhub.auth.PAMAuthenticator
+c.JupyterHub.authenticator_class = '{{ authenticator_class | default("jupyterhub.auth.PAMAuthenticator") }}'
 
-# Proxy API IP and port
-c.ConfigurableHTTPProxy.api_ip = '{{ proxy_api_ip }}'
-c.ConfigurableHTTPProxy.api_port = {{ proxy_api_port }}
+# Spawner backend to launch user servers.
+# Examples: jupyterhub.spawner.LocalProcessSpawner, dockerspawner.DockerSpawner, kubespawner.KubeSpawner
+# Default: jupyterhub.spawner.LocalProcessSpawner
+c.JupyterHub.spawner_class = '{{ spawner_class | default("jupyterhub.spawner.LocalProcessSpawner") }}'
 
-# Hub IP address (usually '127.0.0.1')
-c.JupyterHub.hub_ip = '{{ hub_ip }}'
+# ==============================================================================
+# Concurrency & Resource Limits
+# ==============================================================================
 
-# Hub port (internal port for JupyterHub UI and API)
-c.JupyterHub.hub_port = {{ hub_port }}
+# Maximum number of user servers that may be spawned concurrently.
+# Prevents resource exhaustion during peak login times.
+# Default: 100
+c.JupyterHub.concurrent_spawn_limit = {{ concurrent_spawn_limit | default(100) }}
 
-# Public-facing URL of the JupyterHub (e.g., 'https://hub.example.com/')
-c.JupyterHub.base_url = '{{ base_url }}'
+# ==============================================================================
+# Database Maintenance
+# ==============================================================================
 
-# SSL/TLS: Path to SSL certificate and key
-c.JupyterHub.certfile = '{{ ssl_certfile }}'
-c.JupyterHub.keyfile = '{{ ssl_keyfile }}'
+# Maximum age (in seconds) for database entries before archiving.
+# Set to 0 to disable automatic archival.
+# Default: 0 (disabled)
+c.JupyterHub.db_archive_max_age = {{ db_archive_max_age | default(0) }}
 
-# Idle timeout settings (seconds before idle user servers are stopped)
-c.JupyterHub.idle_timeout = {{ idle_timeout }}
+# ==============================================================================
+# Proxy Configuration (ConfigurableHTTPProxy)
+# ==============================================================================
 
-# Enable container image configuration via per-user config
-c.LocalProcessSpawner.docker_image = '{{ docker_image }}'
+# IP address for the ConfigurableHTTPProxy's internal API.
+# Usually bound to localhost or an internal network interface.
+# Default: 127.0.0.1
+c.ConfigurableHTTPProxy.api_ip = '{{ proxy_api_ip | default("127.0.0.1") }}'
 
-# OAuth settings (e.g., for GitHub authentication)
-{% for oauth in oauth_configs %}
-c.{{ oauth.config_var }} = {{ oauth.value }}
+# Port for the ConfigurableHTTPProxy's internal API.
+# Default: 8001
+c.ConfigurableHTTPProxy.api_port = {{ proxy_api_port | default(8001) }}
+
+# ==============================================================================
+# Hub Network Settings
+# ==============================================================================
+
+# IP address the Hub binds to.
+# Typically 127.0.0.1 for local setups, or the host's internal IP for remote access.
+# Default: 127.0.0.1
+c.JupyterHub.hub_ip = '{{ hub_ip | default("127.0.0.1") }}'
+
+# Port the Hub binds to for internal communication and UI.
+# Default: 8081
+c.JupyterHub.hub_port = {{ hub_port | default(8081) }}
+
+# ==============================================================================
+# Public URL Configuration
+# ==============================================================================
+
+# Public base URL path for the JupyterHub.
+# Examples: '/' for root, '/hub/' if behind a sub-path reverse proxy.
+# Default: /
+c.JupyterHub.base_url = '{{ base_url | default("/") }}'
+
+# ==============================================================================
+# SSL/TLS Configuration
+# ==============================================================================
+
+# Path to the SSL certificate file.
+# Leave empty string '' to disable HTTPS (use reverse proxy for SSL in production).
+# Default: '' (empty, HTTPS disabled)
+c.JupyterHub.certfile = '{{ ssl_certfile | default("") }}'
+
+# Path to the SSL private key file.
+# Required if SSL/TLS is enabled via certfile.
+# Default: '' (empty, key disabled)
+c.JupyterHub.keyfile = '{{ ssl_keyfile | default("") }}'
+
+# ==============================================================================
+# Idle Timeout Settings
+# ==============================================================================
+
+# Seconds of inactivity before an idle user server is automatically stopped.
+# Set to 0 to disable idle timeout (servers run indefinitely until user logs out).
+# Default: 0 (disabled)
+c.JupyterHub.idle_timeout = {{ idle_timeout | default(0) }}
+
+# ==============================================================================
+# Spawner Container/Image Settings
+# ==============================================================================
+
+# Default Docker image used to spawn single-user servers.
+# Only used if the spawner supports Docker (e.g., DockerSpawner).
+# Default: jupyter/base-notebook
+# Note: While 'docker_image' is in the schema, it is technically a Spawner config,
+# but often applied at the root or specific spawner class level depending on version.
+# We apply it to the spawner class instance if it supports it, or generally.
+# JupyterHub root config often allows setting docker_image directly if using default spawner.
+c.JupyterHub.docker_image = '{{ docker_image | default("jupyter/base-notebook") }}'
+
+# ==============================================================================
+# OAuth Configuration (Dynamic List)
+# ==============================================================================
+
+# Iterates over oauth_configs list to set specific OAuth parameters.
+# Expected item structure: { config_var: "string", value: <any> }
+{% for oauth in oauth_configs | default([]) %}
+# OAuth Override: {{ oauth.config_var }}
+c.{{ oauth.config_var }} = {{ oauth.value | tojson }}
 {% endfor %}
 
-# Custom services (e.g., Prometheus exporter)
-{% for service in services %}
+# ==============================================================================
+# Custom Services Configuration (Dynamic List)
+# ==============================================================================
+
+# Iterates over services list to register additional JupyterHub services
+# (e.g., culling, metrics, custom admin tools).
+# Expected item structure: { name: "string", url: "string", admin: bool, api_token: "string" }
+{% for service in services | default([]) %}
+# Service: {{ service.name }}
 c.JupyterHub.services.append({
     'name': '{{ service.name }}',
     'url': '{{ service.url }}',
-    'admin': {{ service.admin|lower }},
+    'admin': {{ service.admin | default(False) | lower }},
     'api_token': '{{ service.api_token }}'
 })
 {% endfor %}

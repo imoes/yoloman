@@ -11,7 +11,7 @@
   },
   "forward_host": {
     "type": "string",
-    "default": "127.0.0.1",
+    "default": "127.0.0.2",
     "description": "Hostname or IP of the upstream recursive resolver (e.g., Unbound or systemd-resolved)."
   },
   "forward_port": {
@@ -19,109 +19,9 @@
     "default": 53,
     "description": "Port of the upstream recursive resolver (usually 53)."
   },
-  "dnscurve_mode": {
-    "type": "string",
-    "default": "none",
-    "description": "DNSCurve operation mode: disabled, server (respond to Curve clients), client ( Curve to upstream), or both."
-  },
-  "dnscurve_public_key": {
-    "type": "string",
-    "default": "",
-    "description": "DNSCurve public key (hex or PEM) for server mode. Leave empty to auto-generate (not safe for production)."
-  },
-  "dnscurve_secret_key": {
-    "type": "string",
-    "default": "",
-    "description": "DNSCurve secret key (hex or PEM). Required for any active DNSCurve mode."
-  },
-  "peers": {
-    "type": "list",
-    "default": [],
-    "description": "List of authenticated DNSCurve peers (pre-shared keys).",
-    "items": {
-      "public_key_hex": {
-        "type": "string",
-        "description": "Hex-encoded 64-char public key of the peer (Curve25519)."
-      },
-      "secret_key_hex": {
-        "type": "string",
-        "description": "Hex-encoded 64-char secret key (same key pair, or peer\u2019s public + our secret)."
-      },
-      "role": {
-        "type": "string",
-        "default": "client",
-        "enum": [
-          "client",
-          "server",
-          "both"
-        ],
-        "description": "Direction: how this peer interacts (client = sends to us, server = we query them)."
-      },
-      "comment": {
-        "type": "string",
-        "default": "",
-        "description": "Optional human-readable note (e.g., 'reseller-server')."
-      }
-    }
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum simultaneous connections (0 = no limit). Adjust for high-traffic deployments."
-  },
-  "query_timeout_seconds": {
-    "type": "number",
-    "default": 5,
-    "description": "Seconds to wait for an upstream response before failing."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 2,
-    "minimum": 0,
-    "maximum": 5,
-    "description": "Verbosity of logs: 0=quiet, 5=debug. Set to 1\u20132 for normal operation."
-  },
   "chroot_path": {
     "type": "string",
-    "default": "",
+    "default": "/var/lib/curvedns/empty",
     "description": "Chroot directory for security hardening (empty = disabled)."
-  },
-  "run_user": {
-    "type": "string",
-    "default": "curvedns",
-    "description": "User account under which curvedns runs (must exist)."
-  },
-  "run_group": {
-    "type": "string",
-    "default": "curvedns",
-    "description": "Group for the curvedns process (must exist)."
-  },
-  "pidfile_path": {
-    "type": "string",
-    "default": "/var/run/curvedns/curvedns.pid",
-    "description": "Path to write the process PID file."
-  },
-  "udp_forward": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable forwarding of UDP queries to upstream resolver."
-  },
-  "edns0": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable EDNS0 support for upstream queries (e.g., for large DNSSEC responses)."
-  },
-  "upstream_allow": {
-    "type": "list",
-    "default": [],
-    "description": "List of allowed IPs to which upstream recursion is permitted. Empty = allow all.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "fallback_to_plain": {
-    "type": "bool",
-    "default": false,
-    "description": "If DNSCurve handshake fails with upstream, fall back to plain DNS (insecure but resilient)."
   }
 }

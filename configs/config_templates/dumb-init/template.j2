@@ -1,0 +1,35 @@
+# dumb-init configuration / command-line arguments template
+# This template generates the command-line flags for the dumb-init entrypoint wrapper.
+# Self-documenting: every variable and block is commented with its schema description.
+
+# --- Signal rewrite rules ---
+# desc="List of signal rewrite rules in format 'old_signal:new_signal'. Example: '10:15' to rewrite SIGUSR1 to SIGUSR2. Use ':0' to ignore a signal."
+# render_rule: macro to format a single rewrite rule into a dumb-init flag
+{% macro render_rule(rule) %}
+--rewrite {{ rule }}
+{% endmacro %}
+
+# {% set rules = rewrite_rules | default([]) %}
+# {% if rules | length > 0 %}
+# Signal rewrite rules (format: old_signal:new_signal)
+# List of signal rewrite rules in format 'old_signal:new_signal'. Example: '10:15' to rewrite SIGUSR1 to SIGUSR2. Use ':0' to ignore a signal.
+# {% for rule in rules %}
+{{ render_rule(rule) }}
+# {% endfor %}
+# {% endif %}
+
+# --- Single-child mode ---
+# desc="Run in single-child mode, forwarding signals only to the direct child. Derived from '-c/--single-child' option."
+# {% if single_child | default(False) | bool %}
+# Run in single-child mode
+# Run in single-child mode, forwarding signals only to the direct child. Derived from '-c/--single-child' option.
+-c
+# {% endif %}
+
+# --- Verbose mode ---
+# desc="Print debugging information to stderr. Derived from '-v/--verbose' option."
+# {% if verbose | default(False) | bool %}
+# Enable verbose output
+# Print debugging information to stderr. Derived from '-v/--verbose' option.
+-v
+# {% endif %}

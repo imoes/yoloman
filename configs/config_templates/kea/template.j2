@@ -1,80 +1,185 @@
-{# Kea DHCP Server configuration file #}
-{# This configuration controls the DHCP service behavior, interfaces, subnets, and logging #}
+{# =============================================================================
+   # Kea DHCP4 Server Configuration
+   # =============================================================================
+   # This Jinja2 template generates a valid JSON configuration for the Kea DHCPv4
+   # server. It uses Ansible variables to parameterize interfaces, subnets, lease
+   # storage, logging, and global options.
+   #
+   # Self-Documenting Principle:
+   # - Every configuration key is preceded by a comment describing its purpose
+   #   based on the Ansible schema.
+   # - All variables use the `default()` filter to ensure safe rendering even if
+   #   an upstream role omits a variable.
+   # ============================================================================= #}
 {
   "Dhcp4": {
+    # Unix socket path for the Kea DHCP control socket.
+    # Allows external tools (likekea-admin) to manage the server via a local socket.
     "control-socket": {
       "socket-type": "unix",
-      "socket-name": "{{ control_socket_path }}"
+      "socket-name": "{{ control_socket_path | default('/run/kea/dhcp4-ctrl.sock') }}"
     },
+
+    # Hooks libraries to load. The lease-file hook enables logging of leases to CSV files.
     "hooks-libraries": [
-      {"library": "{{ hooks_lease_file_path }}"}
+      {"library": "{{ hooks_lease_file_path | default('/usr/lib/x86_64-linux-gnu/kea/hooks/libdhcp_lease_file.so') }}"}
     ],
+
+    # Identifiers used to match clients to reservations (Hardware MAC or DUID).
     "host-reservations-identifiers": [ "hw-address", "duid" ],
+
     "interface-config": {
-      "interfaces": [{{ interfaces | map('quote') | join(', ') }}],
-      "re-detect": {{ interface_re_detect | lower }}
+      # List of network interfaces the DHCP server will listen on.
+      "interfaces": [{{ interfaces | default(['eth0']) | map('quote') | join(', ') }}],
+
+      # If true, Kea will re-detect interfaces periodically; usually false in stable environments.
+      "re-detect": {{ interface_re_detect | default(false) | lower }}
     },
+
     "lease-database": {
-      "type": "{{ lease_database_type }}",
-      {{- "lfc-interval": "{{ lease_file_cleanup_interval }}", "name": "{{ lease_database_name }}" if lease_database_type == "memfile" else "" | indent(6) }}
-      {{- "name": "{{ lease_database_name }}", "user": "{{ lease_database_user }}", "password": "{{ lease_database_password }}" if lease_database_type == "mysql" or lease_database_type == "postgresql" else "" | indent(6) }}
-      {{- "host": "{{ lease_database_host }}", "port": {{ lease_database_port }}" if lease_database_type == "mysql" or lease_database_type == "postgresql" else "" | indent(6) }}
+      # Type of backend for storing lease data. 'memfile' stores leases in CSV files; 'mysql'/'postgresql' use relational databases.
+      "type": "{{ lease_database_type | default('memfile') }}",
+
+      # --- Memfile Backend Configuration ---
+      # (Only emitted if lease_database_type is 'memfile')
+      # Path to lease CSV file (for 'memfile') or database name (for SQL).
+      {% if lease_database_type | default('memfile') == 'memfile' %}
+      "lfc-interval": {{ lease_file_cleanup_interval | default(3600) }},
+      "name": "{{ lease_database_name | default('kea_dhcp4') }}",
+      {% endif %}
+
+      # --- SQL Backend Configuration ---
+      # (Only emitted if lease_database_type is 'mysql' or 'postgresql')
+      # Database server hostname (used when lease_database_type is mysql/postgresql).
+      {% if lease_database_type | default('memfile') in ['mysql', 'postgresql'] %}
+      "host": "{{ lease_database_host | default('localhost') }}",
+      # Database server port (used when lease_database_type is mysql/postgresql).
+      "port": {{ lease_database_port | default(5432) }},
+      # Name of the database (for SQL backends) or path to lease CSV file (for 'memfile').
+      "name": "{{ lease_database_name | default('kea_dhcp4') }}",
+      # Database user with access to the lease database (used when lease_database_type is mysql/postgresql).
+      "user": "{{ lease_database_user | default('kea_user') }}",
+      # Password for the lease database user (used when lease_database_type is mysql/postgresql).
+      "password": "{{ lease_database_password | default('') }}"
+      {% endif %}
     },
-    {{- "loggers": [{"name": "kea-dhcp4", "output_options": [{"output": "{{ log_output }}"{{- ", flush": "{{ log_flush | lower }}" if log_flush is defined else "" }}{{- ", max_size": "{{ log_max_size }}" if log_max_size is defined else "" }}{{- ", max_ver": "{{ log_max_ver }}" if log_max_ver is defined else "" }}], "severity": "{{ log_severity | upper }}"{{- ", debuglevel": {{ log_debuglevel }} if log_debuglevel is defined else "" }}], "prepend": false, "severity": "{{ log_global_severity | upper }}"{{- ", debuglevel": {{ log_global_debuglevel }} if log_global_debuglevel is defined else "" }}]" | indent(4) }}
+
+    # Logging configuration for the Kea DHCP4 process.
+    # Overrides per-logger if set.
+    "loggers": [
+      {
+        "name": "kea-dhcp4",
+        "output_options": [
+          {
+            "output": "{{ log_output | default('/var/log/kea/kea-dhcp4.log') }}",
+            {% if log_flush is defined and log_flush %}
+            "flush": true,
+            {% endif %}
+            {% if log_max_size is defined %}
+            "max_size": {{ log_max_size | default(10485760) }},
+            {% endif %}
+            {% if log_max_ver is defined %}
+            "max_ver": {{ log_max_ver | default(5) }},
+            {% endif %}
+          }
+        ],
+        # Log severity for Kea DHCP4 process.
+        "severity": "{{ log_severity | default('INFO') | upper }}",
+        {% if log_debuglevel is defined %}
+        # Debug verbosity level (0–99); only used in DEBUG mode.
+        "debuglevel": {{ log_debuglevel | default(0) }}
+        {% endif %}
+      }
     ],
-    {{- "option-data": [" | indent(4) }}
-    {% for option in dhcp_option_data %}
-    {{- "{\"name\": "\"" + option.name + "\"", "space\": \"" + option.space + "\"", "data\": \"" + option.data + "\"}" }}{{ "," if not loop.last else "" }}
-    {% endfor %}
-    {{- "]" | indent(4) }}
+    # Global log severity (overrides per-logger if set).
+    "log-global-severity": "{{ log_global_severity | default('INFO') | upper }}",
+    {% if log_global_debuglevel is defined %}
+    # Global debug level (overrides per-logger if set).
+    "log-global-debuglevel": {{ log_global_debuglevel | default(0) }}
+    {% endif %}
+
+    # Global DHCP options to include in responses (e.g., DNS servers, domain name).
+    # Each option has a name, space (dhcp4/dhcp6), and data string.
+    "option-data": [
+      {% for option in dhcp_option_data | default([{'name': 'domain-name-servers', 'space': 'dhcp4', 'data': '8.8.8.8, 8.8.4.4'}, {'name': 'domain-name', 'space': 'dhcp4', 'data': 'example.com'}]) %}
+      {
+        "name": "{{ option.name }}",
+        "space": "{{ option.space }}",
+        "data": "{{ option.data }}"
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
     ],
+
+    # List of IPv4 subnets to serve. Each subnet defines pools, options, and reservations.
     "subnet4": [
-      {% for subnet in subnets %}
+      {% for subnet in subnets | default([{'id': 1, 'network': '192.168.10.0', 'prefix': 24, 'pools': [{'start': '192.168.10.10', 'end': '192.168.10.200'}], 'option_data': [{'name': 'routers', 'space': 'dhcp4', 'data': '192.168.10.1'}, {'name': 'domain-name-servers', 'space': 'dhcp4', 'data': '192.168.10.1'}], 'valid_lifetime': 3600, 'min_valid_lifetime': 1800, 'max_valid_lifetime': 7200, 'renew_timer': 1800, 'rebind_timer': 2700, 'reservations': []}]) %}
       {
         "id": {{ subnet.id }},
+        # Subnet definition in CIDR notation.
         "subnet": "{{ subnet.network }}/{{ subnet.prefix }}",
-        {{- "" | indent(8) }}
+
+        # IP address pools available for leasing.
         "pool": [
-          {% for pool in subnet.pools %}
+          {% for pool in subnet.pools | default([{'start': '192.168.10.10', 'end': '192.168.10.200'}]) %}
           {
             "pool": "{{ pool.start }} - {{ pool.end }}"
-          }{{ "," if not loop.last else "" }}
+          }{% if not loop.last %},{% endif %}
           {% endfor %}
         ],
-        {{- "" | indent(8) }}
+
+        # Subnet-specific options (e.g., router IP, DNS servers).
         "option-data": [
-          {% for opt in subnet.option_data %}
+          {% for opt in subnet.option_data | default([{'name': 'routers', 'space': 'dhcp4', 'data': '192.168.10.1'}, {'name': 'domain-name-servers', 'space': 'dhcp4', 'data': '192.168.10.1'}]) %}
           {
             "name": "{{ opt.name }}",
             "space": "{{ opt.space }}",
             "data": "{{ opt.data }}"
-          }{{ "," if not loop.last else "" }}
+          }{% if not loop.last %},{% endif %}
           {% endfor %}
         ],
-        {{- "" | indent(8) }}
-        "valid-lifetime": {{ subnet.valid_lifetime }},
-        "min-valid-lifetime": {{ subnet.min_valid_lifetime }},
-        "max-valid-lifetime": {{ subnet.max_valid_lifetime }},
-        {{- "renew-timer": {{ subnet.renew_timer }}, "rebind-timer": {{ subnet.rebind_timer }}," if subnet.renew_timer is defined else "" | indent(8) }}
+
+        # Global default lease lifetime in seconds for clients not covered by per-subnet values.
+        "valid-lifetime": {{ subnet.valid_lifetime | default(3600) }},
+        # Minimum valid lifetime.
+        "min-valid-lifetime": {{ subnet.min_valid_lifetime | default(1800) }},
+        # Maximum valid lifetime.
+        "max-valid-lifetime": {{ subnet.max_valid_lifetime | default(7200) }},
+
+        # Global default T1 renewal timer (fraction of valid_lifetime).
+        "renew-timer": {{ subnet.renew_timer | default(1800) }},
+        # Global default T2 rebind timer (fraction of valid_lifetime).
+        "rebind-timer": {{ subnet.rebind_timer | default(2700) }},
+
+        # Static reservations for specific hardware addresses.
         "reservations": [
-          {% for reservation in subnet.reservations %}
+          {% for reservation in subnet.reservations | default([]) %}
           {
             "hw-address": "{{ reservation.mac }}",
             "hostname": "{{ reservation.hostname }}",
             "ip-address": "{{ reservation.ip }}"
-          }{{ "," if not loop.last else "" }}
+          }{% if not loop.last %},{% endif %}
           {% endfor %}
         ]
-      }{{ "," if not loop.last else "" }}
+      }{% if not loop.last %},{% endif %}
       {% endfor %}
     ],
+
+    # Shared networks (empty in this default configuration).
     "shared-networks": [],
+
+    # Server identifier configuration.
+    # Algorithm used to generate server identifier (Hardware MAC-based is standard for DHCPv4).
     "server-id": {
-      "type": "{{ server_id_type }}",
-      "value": "{{ server_id_value }}"
+      "type": "{{ server_id_type | default('hardware') }}",
+      # Explicit server identifier value (usually left blank and auto-generated when server_id_type='hardware').
+      "value": "{{ server_id_value | default('') }}"
     },
-    "valid-lifetime": {{ default_valid_lifetime }},
-    "renew-timer": {{ default_renew_timer }},
-    "rebind-timer": {{ default_rebind_timer }}
+
+    # Global default lease lifetime in seconds for clients not covered by per-subnet values.
+    "valid-lifetime": {{ default_valid_lifetime | default(3600) }},
+    # Global default T1 renewal timer (fraction of valid_lifetime).
+    "renew-timer": {{ default_renew_timer | default(1800) }},
+    # Global default T2 rebind timer (fraction of valid_lifetime).
+    "rebind-timer": {{ default_rebind_timer | default(2700) }}
   }
 }

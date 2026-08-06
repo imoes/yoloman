@@ -1,0 +1,96 @@
+# ==============================================================================
+# Flatpak XDG Environment Configuration
+# ==============================================================================
+# This template configures XDG base directories for Flatpak installations.
+# It is designed for C-shell (csh/tcsh) environments.
+#
+# Variables:
+#   XDG_DATA_HOME: User-specific data directory for Flatpak (default: $HOME/.local/share)
+#   XDG_DATA_DIRS: System-wide fallback data directories (default: /usr/local/share:/usr/share)
+# ==============================================================================
+
+# Check if the 'flatpak' command is available in the system PATH
+# We use a subshell to find the binary; if found, proceed with configuration
+set _flatpak=`which flatpak 2>/dev/null | head -n 1`
+if ( "${_flatpak}" != "" ) then
+
+    # -------------------------------------------------------------------------
+    # Configure XDG_DATA_HOME
+    # Description: User-specific data directory, typically used by Flatpak for
+    #              user installations.
+    # Default: $HOME/.local/share
+    # -------------------------------------------------------------------------
+    # If the variable is not currently set in the environment...
+    if ( ! ${?XDG_DATA_HOME} ) then
+        # ...set it to the default value defined in the schema or provided by Ansible
+        setenv XDG_DATA_HOME "{{ XDG_DATA_HOME | default('$HOME/.local/share') }}"
+    endif
+    # If the variable is empty (zero length), enforce the default
+    if ( "${XDG_DATA_HOME}" == "" ) then
+        setenv XDG_DATA_HOME "{{ XDG_DATA_HOME | default('$HOME/.local/share') }}"
+    endif
+
+    # -------------------------------------------------------------------------
+    # Configure XDG_DATA_DIRS
+    # Description: Fallback system-wide data directories. Flatpak appends its
+    #              installation export paths to this list.
+    # Default: /usr/local/share:/usr/share
+    # -------------------------------------------------------------------------
+    # If the variable is not currently set in the environment...
+    if ( ! ${?XDG_DATA_DIRS} ) then
+        # ...set it to the default value defined in the schema or provided by Ansible
+        # Note: String values are unquoted here as they are passed to setenv
+        setenv XDG_DATA_DIRS "{{ XDG_DATA_DIRS | default('/usr/local/share:/usr/share') }}"
+    endif
+    # If the variable is empty (zero length), enforce the default
+    if ( "${XDG_DATA_DIRS}" == "" ) then
+        setenv XDG_DATA_DIRS "{{ XDG_DATA_DIRS | default('/usr/local/share:/usr/share') }}"
+    endif
+
+    # -------------------------------------------------------------------------
+    # Dynamic Injection of Flatpak Export Paths
+    # -------------------------------------------------------------------------
+    # Iterate through Flatpak's configured installations to find their export
+    # share directories and append them to XDG_DATA_DIRS if not already present.
+    
+    # Initialize the accumulator for new directories found
+    set _new_dirs=""
+
+    # Loop through each Flatpak installation export path
+    # We construct the path: <XDG_DATA_HOME>/flatpak/exports/share
+    # and verify it against the current XDG_DATA_DIRS to avoid duplicates.
+    # Note: The command list in the original template is preserved but made safe
+    # by ensuring variables are expanded correctly.
+    foreach _line (`(unset G_MESSAGES_DEBUG; echo "${XDG_DATA_HOME}"/flatpak/exports/share; setenv GIO_USE_VFS local; flatpak --installations 2>/dev/null)`)
+        
+        # Append /exports/share to the line if it wasn't the specific XDG_DATA_HOME path
+        # The logic from the original template assumes the loop body handles the path construction
+        # or the echo provided the base. Here we ensure the path ends correctly.
+        # Based on original: _line=${_line}/exports/share
+        set _line="${_line}/exports/share"
+
+        # Check if this path is already in XDG_DATA_DIRS (exact match)
+        if ( ":${XDG_DATA_DIRS}:" =~ *:${_line}:* ) then
+            continue
+        endif
+        # Check if this path is a subdirectory of an existing entry (safety)
+        if ( ":${XDG_DATA_DIRS}:" =~ *:${_line}/:* ) then
+            continue
+        endif
+
+        # If we have found a new directory, add it to the accumulator
+        if ( "${_new_dirs}" != "" ) then
+            set _new_dirs="${_new_dirs}:"
+        endif
+        set _new_dirs="${_new_dirs}${_line}"
+    end
+
+    # If any new directories were found, update the environment variable
+    if ( "${_new_dirs}" != "" ) then
+        setenv XDG_DATA_DIRS "${_new_dirs}${XDG_DATA_DIRS}"
+    endif
+
+endif
+
+# Clean up temporary local variables to avoid polluting the shell environment
+unset _flatpak _line _new_dirs

@@ -1,0 +1,106 @@
+#
+# Copyright (C) 2009-2015 Mika Ilmaranta <ilmis@nullnet.fi>
+#
+# License: GPLv2
+#
+# This file configures the "foolsm" monitoring service.
+# It defines default values for connection probes and includes local overrides.
+#
+
+#
+# Debug level: 0 .. 8 are normal, 9 gives lots of stuff
+# Setting this higher than 8 is generally for development/troubleshooting.
+#
+#debug=10
+#debug=9
+#debug=8
+
+#
+# Defaults for the connection entries
+# These are set in the code. You may override any values here.
+# This block defines the global behavior for probes if not specified per-connection.
+#
+defaults {
+  # Name identifier for this defaults block
+  name=defaults
+
+  # IP address used for monitoring (default in code)
+  # The service will typically ping or probe this IP.
+  checkip={{ defaults_checkip | default('127.0.0.1') }}
+
+  # Path to event script (empty = none)
+  # If provided, this script is executed on state changes.
+  eventscript={{ defaults_eventscript | default('') }}
+
+  # Path to notification script
+  # Called when alerts are generated.
+  notifyscript={{ defaults_notifyscript | default('/usr/libexec/foolsm/default_script') }}
+
+  # Maximum allowed packet loss percentage
+  # Alert if loss exceeds this threshold.
+  max_packet_loss={{ defaults_max_packet_loss | default(15) }}
+
+  # Maximum successive packets lost before alarm
+  # Triggers alert after this many consecutive losses.
+  max_successive_pkts_lost={{ defaults_max_successive_pkts_lost | default(7) }}
+
+  # Minimum packet loss percentage to trigger alert
+  # Ignores minor fluctuations below this value.
+  min_packet_loss={{ defaults_min_packet_loss | default(5) }}
+
+  # Minimum successive packets received before declaring up
+  # Requires this many successful responses to mark a connection as 'up'.
+  min_successive_pkts_rcvd={{ defaults_min_successive_pkts_rcvd | default(10) }}
+
+  # Interval between probes in milliseconds
+  # Controls the frequency of monitoring.
+  interval_ms={{ defaults_interval_ms | default(1000) }}
+
+  # Per-probe timeout in milliseconds
+  # If a probe takes longer than this, it is considered failed.
+  timeout_ms={{ defaults_timeout_ms | default(1000) }}
+
+  # Email address for warnings
+  # Notifications are sent to this address.
+  warn_email={{ defaults_warn_email | default('root') }}
+
+  # Whether to check ARP (0 = no, 1 = yes)
+  # 1 enables ARP resolution checks during probing.
+  check_arp={{ defaults_check_arp | default(0) }}
+
+  # Source IP for probes (empty = system default)
+  # Forces probes to originate from this specific IP address.
+  sourceip={{ defaults_sourceip | default('') }}
+
+  # Network device for probes (if needed)
+  # e.g., eth0, ens33. Leave empty for auto-discovery.
+  device={{ defaults_device | default('eth0') }}
+
+  # TTL for probes (0 = use system default)
+  # Sets the Time-To-Live value in probe packets.
+  ttl={{ defaults_ttl | default(0) }}
+
+  # Initial status (1 = up, 0 = down, 2 = unknown)
+  # Sets the starting state of connections at service launch.
+  status={{ defaults_status | default(1) }}
+
+  # How many packets have to go through before a connection is declared up
+  # (0 = disabled)
+  # Accelerates the 'up' declaration after restarts.
+  startup_acceleration={{ defaults_startup_acceleration | default(0) }}
+
+  # Send first 10 packets in a burst (0 = disabled) with interval 200ms
+  # Used in conjunction with startup_acceleration for rapid convergence.
+  startup_burst_pkts={{ defaults_startup_burst_pkts | default(10) }}
+
+  # Interval between burst packets in ms
+  # Time gap between packets in the initial startup burst.
+  startup_burst_interval={{ defaults_startup_burst_interval | default(200) }}
+}
+
+#
+# Some example connections are found in foolsm.conf.sample
+# You can include additional configuration files here.
+#
+
+-include /etc/foolsm/local*.conf

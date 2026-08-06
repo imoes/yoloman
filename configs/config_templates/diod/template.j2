@@ -1,51 +1,23 @@
-# Listen address and port for the 9P server
-listen: {{ listen_addr }}:{{ listen_port }}
+# ==============================================================================
+# diod (RBD iSCSI Gateway) Configuration Template
+# ==============================================================================
+# This template configures the default settings for the diod service.
+# It is self-documenting: every variable is sourced from the schema with
+# explicit defaults, and every directive is commented with its purpose.
+# ==============================================================================
 
-# Root export path (must be accessible by diod user)
-export: {{ export_root }}
+# ------------------------------------------------------------------------------
+# Enable diod at startup
+# Schema Field: diod_enable (boolean)
+# Default: false
+# Description: Whether to enable the diod server at startup.
+# ------------------------------------------------------------------------------
+DIOD_ENABLE={{ diod_enable | default(false) | lower }}
 
-# Maximum number of open files per connection (ulimit -n equivalent)
-maxfiles: {{ maxfiles }}
-
-# Authentication method: 'none', 'user', or 'cert'
-auth: {{ auth_mode }}
-
-# If using 'cert' auth, paths to CA and server cert/key
-{% if auth_mode == 'cert' %}
-# Certificate authority cert (PEM format)
-ca_cert: {{ ca_cert_path }}
-# Server certificate (PEM format)
-server_cert: {{ server_cert_path }}
-# Server private key (PEM format)
-server_key: {{ server_key_path }}
-{% endif %}
-
-# Log level: 'debug', 'info', 'warn', 'error', 'fatal'
-loglevel: {{ loglevel }}
-
-# Optional: list of allowed client IPs/networks (empty = allow all)
-{% if allowed_clients %}
-# Restrict connections to these IPs/networks (CIDR or plain IP)
-allow: {% for client in allowed_clients %}{% if loop.first %}{{ client }}{% else %}, {{ client }}{% endif %}{% endfor %}
-{% else %}
-# Allow all clients (no IP restriction)
-allow: all
-{% endif %}
-
-# Optional: list of rejected IPs/networks
-{% if denied_clients %}
-# Deny connections from these IPs/networks (CIDR or plain IP)
-deny: {% for client in denied_clients %}{% if loop.first %}{{ client }}{% else %}, {{ client }}{% endif %}{% endfor %}
-{% endif %}
-
-# Worker threads (increase for high concurrency)
-workers: {{ workers }}
-
-# Enable TCP_NODELAY (disable Nagle's algorithm) for lower latency
-nodelay: {{ nodelay }}
-
-# Timeout for idle connections (seconds)
-idle_timeout: {{ idle_timeout }}
-
-# Enable chroot to export root for security
-chroot: {{ chroot_enabled }}
+# ------------------------------------------------------------------------------
+# Additional daemon arguments
+# Schema Field: daemon_args (string)
+# Default: '' (empty string)
+# Description: Additional options passed to the diod daemon.
+# ------------------------------------------------------------------------------
+DAEMON_ARGS="{{ daemon_args | default('') }}"

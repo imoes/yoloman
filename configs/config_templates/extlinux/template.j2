@@ -1,0 +1,48 @@
+# extlinux configuration file
+# Installs to {{ install_dir | default('/boot') }}/syslinux.cfg or extlinux.conf
+#
+# Variables used:
+#   install_dir   - Directory where extlinux is installed (default: '/boot')
+#   default_label - The boot entry label to select by default (default: 'default')
+#   timeout       - Boot timeout in tenths of a second (default: 50, i.e., 5 seconds)
+#   global_append - Kernel command-line arguments appended to all menu entries (default: '')
+#   menu_labels   - List of boot labels/entries to render in the menu.
+
+# Directory where extlinux is installed and where config file resides
+# Default: /boot
+# Note: The comment above referred to install_dir. The value here is actually default_label.
+# Correcting logic for DEFAULT directive:
+# Default: default
+DEFAULT {{ default_label | default('default') }}
+
+# Boot timeout in tenths of a second (e.g., 50 = 5 seconds)
+# Default: 50
+TIMEOUT {{ timeout | default(50) }}
+
+# Global kernel command-line arguments appended to all labels
+# Default: (empty)
+{% if (global_append | default('')) is string and global_append | default('') %}
+APPEND {{ global_append | default('') }}
+{% endif %}
+
+# List of boot labels (entries) to include in the menu
+# Each entry defines a boot option. Only labels present in this list will be rendered.
+# Default: [] (empty list)
+{% for label in menu_labels | default([]) %}
+# Label: {{ label.name }}
+LABEL {{ label.name }}
+  # Kernel image path
+  KERNEL {{ label.kernel }}
+{% if label.initrd is defined and label.initrd %}
+  # Initial RAM disk
+  INITRD {{ label.initrd }}
+{% endif %}
+{% if label.append is defined and label.append %}
+  # Label-specific kernel arguments
+  APPEND {{ label.append }}
+{% endif %}
+{% if label.text_help is defined and label.text_help %}
+  # Help text for the menu entry
+  HELP {{ label.text_help }}
+{% endif %}
+{% endfor %}

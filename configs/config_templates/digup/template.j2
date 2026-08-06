@@ -1,0 +1,131 @@
+# digup configuration file
+# This template generates command-line arguments for the `digup` utility.
+# `digup` is a tool for checking and updating file digests (checksums).
+
+# ==============================================================================
+# Path and File Settings
+# ==============================================================================
+
+# Directory to change into before scanning (equivalent to -d/--directory=...)
+# Default: Current working directory
+# If empty, digup operates from the current directory.
+--directory={{ (directory | default('')) | string }}
+
+# Path to digest file to check/update (equivalent to -f/--file=...)
+# Default: 'sha1sum.txt'
+# This is the file that stores or will store the checksums.
+--file={{ file | default('sha1sum.txt') | string }}
+
+# Digest algorithm type (equivalent to -t/--type=...)
+# Default: 'sha1'
+# Supported algorithms: md5, sha1, sha256, or sha512.
+# Changing this alters the format of the digest file.
+--type={{ type | default('sha1') | string }}
+
+# ==============================================================================
+# Scan Behavior Settings
+# ==============================================================================
+
+# Marker file to exclude directories (equivalent to --exclude-marker=...)
+# Default: '' (empty, no exclusion marker)
+# If a directory contains a file with this name, that directory and its
+# subdirectories are skipped during the scan. Useful for build artifacts
+# or version control directories.
+{% if exclude_marker | default('') | trim != '' %}
+--exclude-marker={{ exclude_marker | default('') | string }}
+{% endif %}
+
+# Restrict check to filepaths containing substring (equivalent to --restrict=...)
+# Default: '' (empty, no restriction)
+# Only process files whose paths contain this specific substring.
+# This allows scanning subsets of a large directory tree without moving files.
+{% if restrict | default('') | trim != '' %}
+--restrict={{ restrict | default('') | string }}
+{% endif %}
+
+# ==============================================================================
+# Time and Tolerance Settings
+# ==============================================================================
+
+# Modify window tolerance in seconds (equivalent to --modify-window=...)
+# Default: 0
+# Allows a difference in modification time (mtime) of this many seconds
+# between the recorded time and the current time without flagging a file
+# as changed. Useful for filesystems with low time resolution (e.g., FAT).
+--modify-window={{ modify_window | default(0) | int }}
+
+# ==============================================================================
+# Output and Verbosity Settings
+# ==============================================================================
+
+# Quiet mode (equivalent to -q/--quiet)
+# Default: false
+# Reduces verbosity. Typically suppresses informational messages,
+# showing only errors or significant changes.
+{% if quiet | default(false) | bool %}
+--quiet
+{% endif %}
+
+# Verbose mode (equivalent to -v/--verbose)
+# Default: false
+# Increases verbosity by one level. Provides more detailed output about
+# what digup is doing. Can be used multiple times for extreme verbosity
+# if supported by the specific version, but here it acts as a single toggle.
+{% if verbose | default(false) | bool %}
+--verbose
+{% endif %}
+
+# ==============================================================================
+# Operational Modes
+# ==============================================================================
+
+# Batch mode (equivalent to -b/--batch)
+# Default: false
+# Enables non-interactive mode.
+# - Prevents pausing for user input.
+# - Exits with code 1 if changes or errors are detected (useful for CI/CD).
+{% if batch | default(false) | bool %}
+--batch
+{% endif %}
+
+# Auto-update digest in batch mode (equivalent to -u/--update)
+# Default: false
+# Automatically updates the digest file with new/changed entries.
+# This should ideally only be used in conjunction with batch mode.
+{% if update | default(false) | bool %}
+--update
+{% endif %}
+
+# Full digest scan (equivalent to -c/--check)
+# Default: false
+# Forces a full scan of all files, ignoring mtime and size optimizations.
+# This ensures absolute consistency with the digest file, at the cost of
+# performance on large directories.
+{% if check | default(false) | bool %}
+--check
+{% endif %}
+
+# Follow symlinks (equivalent to -l/--links)
+# Default: false
+# If set, digup follows symbolic links and digests the target file's content.
+# If not set (default), digup stores the path of the symlink itself.
+{% if links | default(false) | bool %}
+--links
+{% endif %}
+
+# Modified-only output (equivalent to -m/--modified)
+# Default: false
+# Prints only files that have changed, been renamed, moved, or deleted
+# since the last digest was recorded. Useful for quick status checks.
+{% if modified | default(false) | bool %}
+--modified
+{% endif %}
+
+# Windows FAT mtime tolerance (equivalent to -w/--windows)
+# Default: false
+# Shortcut for setting --modify-window=1.
+# FAT filesystems have a 2-second mtime resolution; this prevents false
+# positives due to time rounding differences.
+{% if windows | default(false) | bool %}
+--windows
+{% endif %}

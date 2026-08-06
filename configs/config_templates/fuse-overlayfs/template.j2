@@ -1,67 +1,125 @@
-# Default storage driver for rootless containers
+# ==============================================================================
+# fuse-overlayfs Storage Configuration
+# ==============================================================================
+# This template generates the configuration file for fuse-overlayfs storage.
+# It manages container layer storage, user namespace mappings, and FUSE overlay
+# options for rootless container environments (typically used with Podman).
+# ==============================================================================
+
+# --- General Storage Settings ---
+
+# Default storage driver for rootless containers.
+# Determines the backend filesystem driver used by the container runtime.
+# Allowed values: "overlay", "vfs", "btrfs", "zfs".
 storage_driver = "overlay"
 
-# Root directory for container storage (must be a user-writable path)
-storage_root = "{{ storage_root }}"
+# Root directory where container layers, images, and metadata are stored.
+# Must be writable by the current user.
+# Typically points to the user's local share directory.
+storage_root = "{{ storage_root | default('~/.local/share/containers/storage') }}"
 
-# Additional image store path (for image caching)
-{% if additional_image_stores %}
+# Runtime directory for transient storage (e.g., mount points, lock files).
+# Can be the same as storage_root, but a separate directory is often cleaner
+# for cleanup purposes.
+storage_runroot = "{{ storage_runroot | default('~/.local/share/containers/storage/run') }}"
+
+# List of additional directories containing read-only container images.
+# Useful for shared caches or pre-pulled images.
+# If the list is empty, no additional stores are configured.
+{% if additional_image_stores is defined and additional_image_stores | length > 0 %}
 additional_image_stores = [
-{% for path in additional_image_stores %}  "{{ path }}",
-{% endfor %}]
+{% for path in additional_image_stores %}
+  "{{ path }}",
+{% endfor %}
+]
 {% endif %}
 
-# Path to the storage metadata database
-storage_runroot = "{{ storage_runroot }}"
+# --- Overlay Limits ---
 
-# Maximum number of overlay layers per container
-max_layer_count = {{ max_layer_count }}
+# Maximum number of overlay layers that can be stacked per container image.
+# Higher values may consume more memory or inode resources.
+max_layer_count = {{ max_layer_count | default(128) }}
 
-# UID/GID mapping mode (for rootless mode)
+# --- User Namespace Mapping ---
+# These settings configure how host UIDs/GIDs map to container UIDs/GIDs,
+# which is essential for rootless containers to have proper ownership.
+
+# UID mapping rules.
+# Format: [{"container_id": ..., "host_id": ..., "size": ...}, ...]
 uidmap = [
-  {"container_id": 0, "host_id": {{ uidmap_host_id }}, "size": {{ uidmap_size }}},
-  {"container_id": {{ uidmap_container_offset }}, "host_id": {{ uidmap_host_offset }}, "size": {{ uidmap_size_offset }}},
-]
-gidmap = [
-  {"container_id": 0, "host_id": {{ gidmap_host_id }}, "size": {{ gidmap_size }}},
-  {"container_id": {{ gidmap_container_offset }}, "host_id": {{ gidmap_host_offset }}, "size": {{ gidmap_size_offset }}},
+  {# Primary mapping: container root (0) maps to the first mapped host UID #}
+  {"container_id": 0, "host_id": {{ uidmap_host_id | default(100000) }}, "size": {{ uidmap_size | default(65536) }}},
+  {# Secondary mapping: allows additional ranges if needed #}
+  {"container_id": {{ uidmap_container_offset | default(100000) }}, "host_id": {{ uidmap_host_offset | default(165536) }}, "size": {{ uidmap_size_offset | default(65536) }}},
 ]
 
-# Enable/disable using the FUSE overlay filesystem (fuse-overlayfs)
-{% if fuse_overlayfs_enabled %}
-# Use fuse-overlayfs instead of native kernel overlay
-# (required for rootless users without /etc/subuid mappings)
+# GID mapping rules.
+# Format: [{"container_id": ..., "host_id": ..., "size": ...}, ...]
+gidmap = [
+  {# Primary mapping: container root group (0) maps to the first mapped host GID #}
+  {"container_id": 0, "host_id": {{ gidmap_host_id | default(100000) }}, "size": {{ gidmap_size | default(65536) }}},
+  {# Secondary mapping: allows additional ranges if needed #}
+  {"container_id": {{ gidmap_container_offset | default(100000) }}, "host_id": {{ gidmap_host_offset | default(165536) }}, "size": {{ gidmap_size_offset | default(65536) }}},
+]
+
+# --- FUSE Overlay Options ---
+
+# Enable or disable the use of fuse-overlayfs.
+# If true, forces the use of fuse-overlayfs even if a kernel overlay might be available.
+# This is often required for rootless users without specific kernel support.
+{% if fuse_overlayfs_enabled is defined %}
+{% if fuse_overlayfs_enabled | bool %}
+# fuse-overlayfs is enabled; override kernel check to allow FUSE usage
 override_kernel_check = true
 {% else %}
+# fuse-overlayfs is disabled; rely on native kernel overlay if possible
 override_kernel_check = false
 {% endif %}
+{% endif %}
 
-# Log level: "debug", "info", "warn", "error", "fatal", "panic"
-log_level = "{{ log_level }}"
+# --- Logging ---
 
-# Filesystem mount options (empty string = default)
-mountopt = "{{ mountopt }}"
+# Logging verbosity level for container storage operations.
+# Allowed values: "debug", "info", "warn", "error", "fatal", "panic".
+log_level = "{{ log_level | default('info') }}"
 
-# Number of worker threads for image operations
-workers = {{ workers }}
+# --- Mount Options ---
 
-# Enable or disable VFS fallback for image verification
-{% if disable_vfs_fallback %}
-# Disable VFS fallback for image verification (use only overlay)
+# Comma-separated mount options for the overlay filesystem.
+# Leave empty for defaults.
+mountopt = "{{ mountopt | default('') }}"
+
+# Number of parallel workers used for image operations (e.g., copy, verification).
+# Adjust based on CPU cores and I/O capabilities.
+workers = {{ workers | default(4) }}
+
+# Disable fallback to VFS-based operations if overlay mount fails.
+# If true, strict overlay usage is enforced; if false, VFS is used as a safety net.
+{% if disable_vfs_fallback is defined %}
+{% if disable_vfs_fallback | bool %}
+# VFS fallback is disabled; strict overlay enforcement is active
 fs_vfs_fallback = false
 {% else %}
-# Enable VFS fallback (if overlay fails, try plain filesystem)
+# VFS fallback is enabled; if overlay fails, VFS will be used
 fs_vfs_fallback = true
 {% endif %}
-
-# Path to the container image cache
-imagestore = "{{ imagestore }}"
-
-# Enable or disable using the `mount_program` (e.g., fuse-overlayfs)
-{% if use_mount_program %}
-# Use external mount program for overlay (required for rootless)
-mount_program = "{{ mount_program }}"
 {% endif %}
 
-# Active mount program options (passed directly to fuse-overlayfs)
-mountopt_fuse = ["{{ mountopt_fuse | join('", "') }}"]
+# Path to an additional image store directory.
+# Used for sharing images across users or providing pre-loaded images.
+imagestore = "{{ imagestore | default('') }}"
+
+# --- Mount Program Configuration ---
+
+# Enable or disable using an external mount program (e.g., fuse-overlayfs).
+# If true, the `mount_program` path is used instead of direct kernel mounts.
+{% if use_mount_program is defined %}
+{% if use_mount_program | bool %}
+# External mount program is enabled
+mount_program = "{{ mount_program | default('/usr/bin/fuse-overlayfs') }}"
+{% endif %}
+{% endif %}
+
+# Active mount program options passed directly to fuse-overlayfs.
+# List of strings. Common options: "allow_other", "uid=...", "gid=...".
+mountopt_fuse = ["{{ mountopt_fuse | default(['allow_other', 'uid=1000', 'gid=1000']) | join('", "') }}"]

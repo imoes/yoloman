@@ -1,37 +1,79 @@
-# Global DHCP options and defaults
-default-lease-time {{ default_lease_time }};
-max-lease-time {{ max_lease_time }};
+# ==============================================================================
+# ISC DHCP Server Configuration Template
+# ==============================================================================
+# This template generates the main dhcpd.conf configuration file for the ISC
+# DHCP server (dhcpd). It supports IPv4 and IPv6 subnets, address pools,
+# static host reservations, shared networks, and global defaults.
+#
+# The configuration is self-documenting: every directive is preceded by a
+# comment derived from the Ansible role schema.
+# ==============================================================================
 
-# Authoritative mode — required for serving leases in a managed subnet
+# --- Global Defaults ---
+
+# Default lease duration (seconds) assigned to clients if they do not request a specific duration.
+default-lease-time {{ default_lease_time | default(86400) }};
+
+# Maximum lease duration (seconds) the server will assign, regardless of client request.
+max-lease-time {{ max_lease_time | default(604800) }};
+
+# Authoritative mode — required for serving leases in a managed subnet.
+# Prevents the server from giving out addresses on subnets for which it is not
+# authoritative, avoiding conflicts with other DHCP servers.
 authoritative;
 
 # Logging configuration
-log-facility {{ log_facility }};
+# Syslog facility to use for DHCP server logs. Common values: local0 through local7, daemon, user.
+log-facility {{ log_facility | default('local7') }};
 
-{% if subnet4 %}
-# IPv4 subnet declarations
-{% for s in subnet4 %}
-# Subnet {{ s.network }}/{{ s.prefix }} — {{ s.name or 'unnamed' }}
+# --- IPv4 Subnet Declarations ---
+# List of IPv4 subnets to serve. Each subnet defines network, netmask, gateway, DNS,
+# and optional reservations.
+{% if subnet4 | default([]) %}
+{% for s in subnet4 | default([]) %}
+# Subnet {{ s.network }}/{{ s.prefix }} — {{ s.name | default('unnamed') }}
 subnet {{ s.network }} netmask {{ s.netmask }} {
+  # The default gateway/router for this subnet.
   option routers {{ s.gateway }};
+
+  # The subnet mask for clients.
   option subnet-mask {{ s.netmask }};
-  option domain-name-servers {{ s.dns_servers | join(', ') }};
-  option domain-name "{{ s.domain_name }}";
-  {% if s.ntp_servers %}option ntp-servers {{ s.ntp_servers | join(', ') }};{% endif %}
-  {% if s.broadcast_address %}option broadcast-address {{ s.broadcast_address }};{% endif %}
-  {% if s.lease_time is not none %}default-lease-time {{ s.lease_time }};
-  max-lease-time {{ s.max_lease_time or s.lease_time }};{% endif %}
-  {% if s.range_start %}range {{ s.range_start }} {{ s.range_end }};{% endif %}
-  {% if s.reservations %}
+
+  # DNS servers available to clients in this subnet.
+  option domain-name-servers {{ s.dns_servers | default([]) | join(', ') }};
+
+  # The DNS domain name for this subnet.
+  option domain-name "{{ s.domain_name | default('') }}";
+
+  # NTP servers available to clients, if defined.
+  {% if s.ntp_servers | default([]) %}option ntp-servers {{ s.ntp_servers | default([]) | join(', ') }};{% endif %}
+
+  # Broadcast address, if explicitly defined.
+  {% if s.broadcast_address is defined and s.broadcast_address is not none %}option broadcast-address {{ s.broadcast_address }};{% endif %}
+
+  # Per-subnet lease times.
+  {% if s.lease_time is defined and s.lease_time is not none %}
+  default-lease-time {{ s.lease_time }};
+  max-lease-time {{ s.max_lease_time | default(s.lease_time) }};
+  {% endif %}
+
+  # Dynamic address range for this subnet.
+  {% if s.range_start is defined and s.range_start is not none %}range {{ s.range_start }} {{ s.range_end }};{% endif %}
+
+  # Static host reservations for this specific subnet.
+  {% if s.reservations | default([]) %}
   # Host reservations for {{ s.network }}/{{ s.prefix }}
-  {% for r in s.reservations %}
+  {% for r in s.reservations | default([]) %}
   host {{ r.name | default('reserved-' ~ r.mac | replace(':', '')) }} {
     hardware ethernet {{ r.mac }};
     fixed-address {{ r.ip }};
-    {% if r.hostname %}option host-name "{{ r.hostname }}";{% endif %}
-    {% if r.options %}
+
+    {% if r.hostname is defined and r.hostname is not none %}option host-name "{{ r.hostname }}";{% endif %}
+
+    # Custom DHCP options for this host.
+    {% if r.options | default([]) %}
     # Custom DHCP options for {{ r.name }}
-    {% for opt in r.options %}
+    {% for opt in r.options | default([]) %}
     option {{ opt.code | replace('.', '') | replace('_', '-') }} {{ opt.value }};
     {% endfor %}
     {% endif %}
@@ -42,32 +84,41 @@ subnet {{ s.network }} netmask {{ s.netmask }} {
 {% endfor %}
 {% endif %}
 
-{% if subnet6 %}
-# IPv6 subnet declarations (RFC 3315 / SLAAC + DHCPv6)
-{% for s in subnet6 %}
-# IPv6 Subnet {{ s.network }}/{{ s.prefix }} — {{ s.name or 'unnamed' }}
+# --- IPv6 Subnet Declarations ---
+# List of IPv6 subnets to serve (DHCPv6 only, not SLAAC).
+{% if subnet6 | default([]) %}
+{% for s in subnet6 | default([]) %}
+# IPv6 Subnet {{ s.network }}/{{ s.prefix }} — {{ s.name | default('unnamed') }}
 subnet6 {{ s.network }}/{{ s.prefix }} {
-  {% if s.range_start %}range6 {{ s.range_start }} {{ s.range_end }};{% endif %}
-  {% if s.dns_servers %}dhcp6.name-servers {{ s.dns_servers | join(', ') }};{% endif %}
-  {% if s.dns_search %}dhcp6.domain-search "{{ s.dns_search | join('", "') }}";{% endif %}
+  # IPv6 address range for DHCPv6 leases.
+  {% if s.range_start is defined and s.range_start is not none %}range6 {{ s.range_start }} {{ s.range_end }};{% endif %}
+
+  # DHCPv6 name servers.
+  {% if s.dns_servers | default([]) %}dhcp6.name-servers {{ s.dns_servers | default([]) | join(', ') }};{% endif %}
+
+  # DHCPv6 domain search list.
+  {% if s.dns_search | default([]) %}dhcp6.domain-search "{{ s.dns_search | default([]) | join('", "') }}";{% endif %}
 }
 {% endfor %}
 {% endif %}
 
-{% if pools %}
-# Additional address pools (e.g., for non-subnetted ranges, VLANs, or multi-homed setups)
-{% for p in pools %}
-# Pool: {{ p.name }} — {{ p.description or 'unspecified' }}
+# --- Additional Address Pools ---
+# Additional address pools (e.g., for VLANs, multi-homed interfaces).
+{% if pools | default([]) %}
+{% for p in pools | default([]) %}
+# Pool: {{ p.name }} — {{ p.description | default('unspecified') }}
 pool {{ p.network }}/{{ p.prefix }} {
   range {{ p.range_start }} {{ p.range_end }};
   option routers {{ p.gateway }};
-  {% if p.dns_servers %}option domain-name-servers {{ p.dns_servers | join(', ') }};{% endif %}
+
+  {% if p.dns_servers | default([]) %}option domain-name-servers {{ p.dns_servers | default([]) | join(', ') }};{% endif %}
 }
 {% endfor %}
 {% endif %}
 
-# Static host reservations outside subnets (fallback or cross-subnet)
-{% for host in static_hosts %}
+# --- Static Host Reservations ---
+# Statically assigned hosts (outside subnets or fallback).
+{% for host in static_hosts | default([]) %}
 # Static host: {{ host.name }}
 host {{ host.name | default('static-' ~ host.mac | replace(':', '')) }} {
   hardware ethernet {{ host.mac }};
@@ -76,19 +127,22 @@ host {{ host.name | default('static-' ~ host.mac | replace(':', '')) }} {
 }
 {% endfor %}
 
-# Optional shared-network declaration (for multi-homed or VLAN-aware deployments)
-{% for sn in shared_networks %}
+# --- Shared Network Declarations ---
+# Shared-network blocks for multi-homed or VLAN-aware setups.
+{% for sn in shared_networks | default([]) %}
 # Shared network: {{ sn.name }}
 shared-network {{ sn.name }} {
-  {% for iface in sn.interfaces %}
+  {% for iface in sn.interfaces | default([]) %}
   interface {{ iface }};
   {% endfor %}
-  {% for subnet in sn.subnets %}
+
+  {% for subnet in sn.subnets | default([]) %}
   subnet {{ subnet.network }} netmask {{ subnet.netmask }} {
     option routers {{ subnet.gateway }};
     option subnet-mask {{ subnet.netmask }};
-    option domain-name-servers {{ subnet.dns_servers | join(', ') }};
-    {% if subnet.range_start %}range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
+    option domain-name-servers {{ subnet.dns_servers | default([]) | join(', ') }};
+
+    {% if subnet.range_start is defined and subnet.range_start is not none %}range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
   }
   {% endfor %}
 }

@@ -1,0 +1,93 @@
+# ==============================================================================
+# deluge-gtk CLI Argument Configuration
+# ==============================================================================
+# This template generates a documentation-style reflection of command-line
+# options for the Deluge GTK application. It does NOT generate a persistent
+# configuration file, but rather documents the CLI arguments that can be
+# passed to the application based on the provided variables.
+#
+# Each section corresponds to a specific CLI option. If a variable is unset
+# or matches the default value, the corresponding block is omitted to keep
+# the output clean and focused on customizations.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Log Level Configuration
+# ------------------------------------------------------------------------------
+# Schema: loglevel
+# Description: Set the log level (default is error): none, info, warning, error, debug.
+#              Corresponds to -L/--loglevel.
+# Default: error
+{% if loglevel | default('error') != 'error' %}
+# Log level override (default: error)
+# -L or --loglevel {{ loglevel | default('error') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Log File Output Configuration
+# ------------------------------------------------------------------------------
+# Schema: logfile
+# Description: Output to specified logfile instead of stdout.
+#              Corresponds to -l/--logfile.
+# Default: ''
+{% if logfile | default('') %}
+# Log file override
+# -l or --logfile {{ logfile | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Configuration Directory Path
+# ------------------------------------------------------------------------------
+# Schema: config_path
+# Description: Set the config directory location.
+#              Corresponds to -c/--config.
+# Default: ''
+{% if config_path | default('') %}
+# Config directory override
+# -c or --config {{ config_path | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Log Rotation Configuration
+# ------------------------------------------------------------------------------
+# Schema: logrotate_enabled
+# Description: Enable logfile rotation, with optional maximum logfile size,
+#              default: 2M. Logfile rotation count is 5.
+#              Corresponds to --logrotate[=max-size].
+# Default: False
+{% if logrotate_enabled | default(false) %}
+# Log rotation enabled (default max-size: 2M, count: 5)
+{% if logrotate_max_size | default('2M') != '2M' %}
+# --logrotate={{ logrotate_max_size | default('2M') }}
+{% else %}
+# --logrotate
+{% endif %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Quiet Mode Configuration
+# ------------------------------------------------------------------------------
+# Schema: quiet
+# Description: Sets the log level to none, same as -L none.
+#              Corresponds to -q/--quiet.
+# Default: False
+{% if quiet | default(false) %}
+# Quiet mode (equivalent to --loglevel=none)
+# -q or --quiet
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Profiling Configuration
+# ------------------------------------------------------------------------------
+# Schema: profile_enabled
+# Description: Profile with cProfile. Outputs to stdout unless a filename is
+#              specified. Corresponds to --profile[=file].
+# Default: False
+{% if profile_enabled | default(false) %}
+# Profiling enabled
+{% if profile_file | default('') %}
+# --profile={{ profile_file | default('') }}
+{% else %}
+# --profile
+{% endif %}
+{% endif %}

@@ -1,113 +1,12 @@
 {
-  "cluster_fsid": {
-    "type": "string",
-    "default": "",
-    "description": "The globally unique cluster identifier (UUID). Must be identical on all nodes."
-  },
-  "mon_hosts": {
-    "type": "list",
-    "default": [
-      "10.0.0.1:6789"
-    ],
-    "items": {
-      "type": "string",
-      "description": "A monitor (MON) node address (IP or hostname), optionally with port (default 6789)."
-    },
-    "description": "List of monitor addresses used by OSDs to discover the cluster."
-  },
-  "public_network": {
-    "type": "string",
-    "default": "10.0.0.0/24",
-    "description": "CIDR notation of the public (client-facing) network for the Ceph cluster."
-  },
-  "cluster_network": {
-    "type": "string",
-    "default": "10.1.0.0/24",
-    "description": "CIDR notation of the cluster (replication/internal) network. Separate from public for production."
-  },
-  "auth_cluster_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for cluster communication (mon-daemon \u2194 mon-daemon, osd-daemon \u2194 mon-daemon)."
-  },
-  "auth_service_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for service communication (rbd-mirror, etc.)."
-  },
-  "auth_client_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for client connections (e.g., via CephFS, RBD, S3)."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/ceph/ceph-osd.log",
-    "description": "Path to the main OSD log file. Use empty string to disable file logging."
-  },
-  "osd_journal_size": {
+  "fs_aio_max_nr": {
     "type": "number",
-    "default": 1024,
-    "description": "Size (in MiB) of the journal for non-journal-devices (legacy filestore). Ignored for bluestore."
+    "default": 1048576,
+    "description": "Maximum number of asynchronous I/O operations per process."
   },
-  "osd_max_backfills": {
+  "kernel_pid_max": {
     "type": "number",
-    "default": 2,
-    "description": "Maximum number of concurrent backfill operations per OSD. Reduce under heavy load."
-  },
-  "osd_recovery_max_active": {
-    "type": "number",
-    "default": 3,
-    "description": "Maximum number of concurrent recovery (backfill/recovery) objects per OSD."
-  },
-  "osds": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "number",
-          "default": 0,
-          "description": "OSD ID (non-negative integer). Must be unique within the cluster."
-        },
-        "data_path": {
-          "type": "string",
-          "default": "/var/lib/ceph/osd/ceph-0",
-          "description": "Path to the OSD data directory (filestore) or device (bluestore, e.g., /dev/sdb1 or /dev/disk/by-id/...)."
-        },
-        "has_journal": {
-          "type": "bool",
-          "default": false,
-          "description": "Whether to include a dedicated journal device for this OSD (legacy filestore)."
-        },
-        "journal_path": {
-          "type": "string",
-          "default": "/var/lib/ceph/osd/ceph-0/journal",
-          "description": "Path to journal file or device (ignored for bluestore or when has_journal is false)."
-        },
-        "has_wal": {
-          "type": "bool",
-          "default": false,
-          "description": "Whether to use a separate WAL device (e.g., for high-performance NVMe)."
-        },
-        "wal_path": {
-          "type": "string",
-          "default": "/var/lib/ceph/osd/ceph-0/wal",
-          "description": "Path to WAL device or file."
-        },
-        "host_name": {
-          "type": "string",
-          "default": "",
-          "description": "Custom host name for CRUSH placement (overrides default hostname)."
-        },
-        "device_class": {
-          "type": "string",
-          "default": "",
-          "description": "CRUSH device class (e.g., 'hdd', 'ssd', 'nvme') \u2014 used for tiering and rules."
-        }
-      }
-    },
-    "description": "List of OSD configurations. Each entry defines an OSD and its storage layout."
+    "default": 4194304,
+    "description": "Maximum number of processes (PIDs) allowed on the system."
   }
 }

@@ -58,11 +58,7 @@
       "1.1.1.1:53",
       "8.8.8.8:53"
     ],
-    "description": "List of upstream DNS resolvers to use when upstream_mode is 'custom'.",
-    "items": {
-      "type": "string",
-      "description": "Resolver address in host:port format (e.g., '1.1.1.1:53', '[2001:4860:4860::8888]:53')."
-    }
+    "description": "List of upstream DNS resolvers to use when upstream_mode is 'custom'. This is a deprecated key. Use the 'upstream' key with a list of 'resolver::UpstreamConfig' objects instead, which allows specifying protocol (TCP, UDP, TLS, HTTPS) and trust anchors. Example: upstream = [{address = '1.1.1.1:53', proto = 'UDP'}]. See https://github.com/hickory-dns/hickory-dns/blob/main/docs/configuration.md#upstreams for details."
   },
   "cache_size": {
     "type": "number",
@@ -92,43 +88,7 @@
   "hosted_zones": {
     "type": "list",
     "default": [],
-    "description": "List of authoritative zones served by this server. Each zone defines its own zone file and optional settings.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "zone_name": {
-          "type": "string",
-          "description": "Domain name for the zone (e.g., 'example.com')."
-        },
-        "zone_file": {
-          "type": "string",
-          "description": "Path to the zone file (e.g., '/etc/hickory-dns/zones/example.com.zone')."
-        },
-        "zone_type": {
-          "type": "string",
-          "default": "master",
-          "description": "Zone type: 'master' (primary) or 'slave' (secondary, AXFR from masters)."
-        },
-        "masters": {
-          "type": "list",
-          "default": [],
-          "description": "List of master servers for slave zones.",
-          "items": {
-            "type": "string",
-            "description": "IP address of master server (e.g., '192.168.1.10')."
-          }
-        },
-        "allow_notify": {
-          "type": "list",
-          "default": [],
-          "description": "List of IPs allowed to send AXFR notifies to this server.",
-          "items": {
-            "type": "string",
-            "description": "Permitted IP address (e.g., '192.168.1.10')."
-          }
-        }
-      }
-    }
+    "description": "List of authoritative zones served by this server. Each zone defines its own zone file and optional settings."
   },
   "rate_limit_enabled": {
     "type": "bool",

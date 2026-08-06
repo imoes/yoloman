@@ -1,54 +1,5 @@
-# Maildrop configuration file — main filter rules and delivery settings
-# Set default delivery location (Maildir by default)
-# Use 'maildrop' group for set-GID execution
-# Enable verbose logging if debugging is needed
+# Global maildrop filter file
 
-# Global settings
-DEFAULT_MAILDROP_PERMS="660"
-DEFAULT_MAILDROP_GROUP="mail"
-DEFAULT_MAILDROP_UID="mail"
-
-# Logging verbosity: 0=silent, 1=errors, 2=warnings, 3=info, 4=debug
-LOGLEVEL={{ loglevel }}
-
-# Default delivery directory (Maildir format)
-DEFAULTDELIVERY="{{ default_delivery }}"
-
-# Enable/disable verbose logging to syslog
-LOGFILE="{{ logfile }}"
-
-# Enable or disable quota enforcement
-QUOTA_ENABLED={{ quota_enabled }}
-QUOTA={{ quota_mb }}
-
-# Maximum message size (in bytes); 0 = no limit
-MAXSIZE={{ maxsize }}
-
-# Enable or disable sieve-like extended filtering
-EXT_FILTER_ENABLED={{ ext_filter_enabled }}
-
-# Sieve script path (if extended filtering enabled)
-SIEVE_SCRIPT="{{ sieve_script }}"
-
-# Additional maildrop filter rules (per-user or global filters)
-{% for rule in filter_rules %}
-# {{ rule.description }}
-{% if rule.condition %}
-if ( {{ rule.condition }} )
-{
-    action {{ rule.action }}
-}
-{% else %}
-action {{ rule.action }}
-{% endif %}
-
-{% endfor %}
-
-# Pre-delivery hook: run command before final delivery (optional)
-{% if pre_delivery_hook %}
-# Run command before final delivery
-action "{{ pre_delivery_hook }}"
-{% endif %}
-
-# Fallback: deliver to default mailbox if no filter matched
-action "{{ default_delivery }}"
+# Uncomment this line to make maildrop default to ~/Maildir for
+# delivery- this is where courier-imap (amongst others) will look.
+#DEFAULT="$HOME/Maildir"

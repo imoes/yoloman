@@ -1,0 +1,30 @@
+# Ansible-managed configuration for extrepo tool
+# Source: roles/extrepo/templates/extrepo.yml.j2
+# This file configures the 'extrepo' utility which helps enable and configure
+# additional APT repositories for Debian/Ubuntu systems.
+
+# url: URL of the extrepo-data repository
+# Default: 'https://extrepo-team.pages.debian.net/extrepo-data'
+# The location from which extrepo fetches metadata about available repositories.
+url: {{ (url | default('https://extrepo-team.pages.debian.net/extrepo-data')) }}
+
+# dist: Distribution name (e.g., debian, ubuntu)
+# Default: 'debian'
+# Specifies the target distribution for repository configuration.
+dist: {{ (dist | default('debian')) }}
+
+# version: Distribution version/codename (e.g., trixie, bullseye)
+# Default: 'trixie'
+# Specifies the specific release version or codename of the distribution.
+version: {{ (version | default('trixie')) }}
+
+# enabled_policies: List of enabled Debian policy components
+# Default: ['main']
+# Components allowed in repositories (e.g., main, contrib, non-free).
+# The template ensures 'main' is always present, then appends any other
+# specified policies, excluding duplicates of 'main'.
+enabled_policies:
+{%- set policies = (enabled_policies | default(['main'])) %}
+{%- for policy in policies %}
+- {{ policy }}
+{%- endfor %}

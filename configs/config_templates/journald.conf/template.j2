@@ -1,161 +1,142 @@
-# Enables or disables logging to the systemd-journald journal
-# (default: yes)
 [Journal]
-#Storage=auto
+# Where to store journal data: 'auto', 'persistent', 'volatile', or 'none'
+# Defaults to 'auto' (systemd decides based on /var/log/journal existence).
+Storage={{ storage | default('auto') }}
 
-# Directory where journal files are stored
-# (default: /var/log/journal)
-#RuntimeDirectory=
+# Directory where journal files are stored.
+# Only applies if Storage=persistent. If empty, systemd uses default paths.
+# Defaults to '' (empty/automatic).
+RuntimeDirectory={{ runtime_directory | default('') }}
 
-# Maximum size of a single journal file
-# (default: 100M)
-#SystemMaxUse=
+# Maximum disk space to use for system journal files.
+# Defaults to 100M.
+SystemMaxUse={{ system_max_use | default('100M') }}
 
-# Minimum free disk space to preserve on the journal storage device
-# (default: 10%
-#SystemKeepFree=
+# Minimum free disk space to preserve on the system partition.
+# Defaults to 10%.
+SystemKeepFree={{ system_keep_free | default('10%') }}
 
-# Maximum size of journal files on the system partition
-# (default: 10G)
-#SystemMaxFileSize=
+# Maximum size per system journal file.
+# Defaults to 10G.
+SystemMaxFileSize={{ system_max_file_size | default('10G') }}
 
-# Maximum age of journal files on the system partition
-# (default: 2 weeks)
-#SystemMaxFiles=
+# Maximum number of system journal files to keep (0 = unlimited).
+# Defaults to 0.
+SystemMaxFiles={{ system_max_files | default(0) }}
 
-# Maximum size of journal files on the runtime partition
-# (default: 10% of /run)
-#RuntimeMaxUse=
+# Maximum disk space to use for runtime journal files.
+# Defaults to 10%.
+RuntimeMaxUse={{ runtime_max_use | default('10%') }}
 
-# Minimum free space to preserve on the runtime partition
-# (default: 15% of /run)
-#RuntimeKeepFree=
+# Minimum free space to preserve on /run.
+# Defaults to 15%.
+RuntimeKeepFree={{ runtime_keep_free | default('15%') }}
 
-# Maximum size of journal files on the runtime partition
-# (default: 1G)
-#RuntimeMaxFileSize=
+# Maximum size per runtime journal file.
+# Defaults to 1G.
+RuntimeMaxFileSize={{ runtime_max_file_size | default('1G') }}
 
-# Maximum age of journal files on the runtime partition
-# (default: 2 weeks)
-#RuntimeMaxFiles=
+# Maximum number of runtime journal files to keep (0 = unlimited).
+# Defaults to 0.
+RuntimeMaxFiles={{ runtime_max_files | default(0) }}
 
-# Maximum number of journals to keep for each boot
-# (default: 0 = unlimited)
-#MaxFileSec=
+# Maximum time to retain journal files (e.g., '3days', '6months').
+# Defaults to 2weeks.
+MaxFileSec={{ max_file_sec | default('2weeks') }}
 
-# Maximum retention period for journal entries
-# (default: 1 month)
-#MaxRetentionSec=
+# Maximum age of journal entries overall.
+# Defaults to 1month.
+MaxRetentionSec={{ max_retention_sec | default('1month') }}
 
-# Maximum size of the journal in bytes
-# (default: 0 = automatic)
-#MaxLevelStore=
+# Whether to compress archived journal files.
+# Defaults to True.
+Compress={{ compress | default(True) | lower }}
 
-# Maximum size of the journal in bytes (legacy, use MaxLevelStore)
-# (default: info)
-#MaxLevelStore=
+# How often to sync journal data to disk (in seconds).
+# 0 means default behavior.
+# Defaults to 0.
+SyncIntervalSec={{ sync_interval_sec | default(0) }}
 
-# Enable or disable compression of archived journal files
-# (default: yes)
-#Compress=yes
+# Time window for rate limiting (seconds).
+# Defaults to 30.
+RateLimitIntervalSec={{ rate_limit_interval_sec | default(30) }}
 
-# Enable or disable synchronous writes to disk
-# (default: no)
-#SyncIntervalSec=0
+# Maximum messages allowed per rate limit interval.
+# Defaults to 10000.
+RateLimitBurst={{ rate_limit_burst | default(10000) }}
 
-# Enable or disable rate limiting of messages
-# (default: yes)
-#RateLimitIntervalSec=30
-#RateLimitBurst=10000
+# Forward journal entries to the system syslog daemon.
+# Defaults to False.
+ForwardToSyslog={{ forward_to_syslog | default(False) | lower }}
 
-# Enable or disable journal message rate limiting per unit
-# (default: no)
-#RateLimitIntervalSec=30
-#RateLimitBurst=10000
+# Path to the syslog socket for forwarding.
+# Defaults to /run/systemd/journal/syslog.
+SyslogSocket={{ syslog_socket | default('/run/systemd/journal/syslog') }}
 
-# Enable or disable journal message rate limiting per unit (unit-specific)
-# (default: yes)
-#SystemMaxUse=80%
-#RuntimeMaxUse=10%
+# Forward journal entries to kernel ring buffer.
+# Defaults to False.
+ForwardToKMsg={{ forward_to_kmsg | default(False) | lower }}
 
-# Enable or disable journal message rate limiting per unit (per unit)
-# (default: yes)
-#SystemMaxUse=80%
-#RuntimeMaxUse=10%
+# Forward journal entries to console.
+# Defaults to False.
+ForwardToConsole={{ forward_to_console | default(False) | lower }}
 
-# Forward journal entries to the system syslog daemon
-# (default: no)
-#ForwardToSyslog=no
+# Format of console output: 'auto', 'verbose', 'short', etc.
+# Defaults to verbose.
+ConsoleFormat={{ console_format | default('verbose') }}
 
-# Forward journal entries to the specified syslog socket
-# (default: /run/systemd/journal/syslog)
-#SyslogSocket=
+# Enable or disable colorized console output.
+# Defaults to True.
+Color={{ color | default(True) | lower }}
 
-# Forward journal entries to the kernel ring buffer
-# (default: no)
-#ForwardToKMsg=no
+# Include boot ID in console output.
+# Defaults to True.
+ShowBootId={{ show_boot_id | default(True) | lower }}
 
-# Forward journal entries to the console
-# (default: no)
-#ForwardToConsole=no
+# Maximum log level to store (e.g., 'debug', 'info', 'warning').
+# Defaults to info.
+MaxLevelStore={{ max_level_store | default('info') }}
 
-# Path to the console device to forward to
-# (default: /dev/console)
-#ConsoleFormat=
+# Enable journal sealing (requires hardware security module).
+# Defaults to False.
+Seal={{ seal | default(False) | lower }}
 
-# Enable or disable colorized output to the console
-# (default: yes)
-#Color=yes
+# Enable header checksums for integrity verification.
+# Defaults to False.
+HeaderChecksum={{ header_checksum | default(False) | lower }}
 
-# Enable or disable display of the boot ID in console output
-# (default: yes)
-#ShowBootId=yes
+# Maximum number of boot IDs to retain (0 = unlimited).
+# Defaults to 0.
+BootIDs={{ boot_ids | default(0) }}
 
-# Maximum number of lines shown in the journal dump (for `journalctl -n` default)
-# (default: 10)
-#MaxLevelStore=
+# Path for journal streaming socket.
+# Defaults to /run/systemd/journal/stdout.
+StreamSocket={{ stream_socket | default('/run/systemd/journal/stdout') }}
 
-# Enable or disable journal metadata validation (for security)
-# (default: no)
-# Seal=
+# Path where journal streaming is available.
+# Defaults to /run/systemd/journal/stdout.
+StreamPath={{ stream_path | default('/run/systemd/journal/stdout') }}
 
-# Enable or disable journal header checksums (for integrity)
-# (default: no)
-# HeaderChecksum=
-
-# Maximum number of boot entries to retain in the journal
-# (default: 0 = unlimited)
-#BootIDs=
-
-# Enable or disable journal streaming over Unix domain socket
-# (default: no)
-#StreamSocket=
-
-# Path to the journal streaming socket
-# (default: /run/systemd/journal/stdout)
-#StreamPath=
-
-# Enable or disable journal output over HTTP/2 (for `systemd-journald --socket`)
-# (default: no)
-#Http2=no
-
-# List of remote journal servers to forward to
-# (default: empty)
-{% for remote in remote_servers %}#{{ remote.address }}={{ remote.port }}{% if remote.tls %}{{ ' TLS' }}{% endif %}
+# List of remote journal servers to forward entries to.
+# Format: RemoteSyslogHost=IP:PORT
+{% if remote_servers | default([]) | length > 0 %}
+{% for server in remote_servers | default([]) %}
+RemoteSyslogHost={{ server }}
 {% endfor %}
+{% endif %}
 
-# Enable or disable journal audit logging
-# (default: no)
-#Audit=no
+# Enable audit logging to the journal.
+# Defaults to False.
+Audit={{ audit | default(False) | lower }}
 
-# Enable or disable journal logging of kernel messages
-# (default: yes)
-#WriteKernelMessages=yes
+# Log kernel messages to the journal.
+# Defaults to True.
+WriteKernelMessages={{ write_kernel_messages | default(True) | lower }}
 
-# Enable or disable journal logging of service manager messages
-# (default: yes)
-#WriteServiceMessages=yes
+# Log service manager messages to the journal.
+# Defaults to True.
+WriteServiceMessages={{ write_service_messages | default(True) | lower }}
 
-# Enable or disable journal logging of user session messages
-# (default: yes)
-#WriteUserSessionMessages=yes
+# Log user session manager messages to the journal.
+# Defaults to True.
+WriteUserSessionMessages={{ write_user_session_messages | default(True) | lower }}

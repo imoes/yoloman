@@ -1,0 +1,176 @@
+# bashtop configuration file
+# This file is managed by Ansible. Do not edit manually.
+# See 'man bashtop' or the upstream GitHub repository for documentation.
+# All variables must have defaults to ensure safe rendering.
+
+# -----------------------------------------------------------------------------
+# Update interval in seconds.
+# Controls how often bashtop refreshes its metrics.
+# -----------------------------------------------------------------------------
+update_pos: {{ update_pos | default(2) }}
+
+# -----------------------------------------------------------------------------
+# Color theme (0-7: default, light, dark, red, green, blue, yellow, cyan, magenta).
+# Selects the visual color palette for the interface.
+# -----------------------------------------------------------------------------
+color_theme: {{ color_theme | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Update process list on draw.
+# When true, the process table is refreshed every update cycle.
+# -----------------------------------------------------------------------------
+update_procs: {{ update_procs | default(true) }}
+
+# -----------------------------------------------------------------------------
+# Show memory as bytes.
+# When true, memory usage is displayed in bytes instead of human-readable units.
+# -----------------------------------------------------------------------------
+show_bytes: {{ show_bytes | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show network in bits per second.
+# When true, network I/O is displayed in bits/s instead of bytes/s.
+# -----------------------------------------------------------------------------
+show_bits: {{ show_bits | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show process CPU% as sum of thread CPU%.
+# When true, a multi-threaded process shows the total CPU usage across all its threads.
+# -----------------------------------------------------------------------------
+show_cpu_threads: {{ show_cpu_threads | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show detailed process info.
+# Enables the detailed information pane for the selected process.
+# -----------------------------------------------------------------------------
+show_process_tree: {{ show_process_tree | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show process arguments.
+# When true, the full command line with arguments is displayed in the process list.
+# -----------------------------------------------------------------------------
+show_process_args: {{ show_process_args | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Sort processes by column.
+# 0: cpu, 1: mem, 2: time, 3: pid, 4: name, 5: user, 6: status, 7: mem%.
+# -----------------------------------------------------------------------------
+sort_type: {{ sort_type | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Sort order.
+# 0: descending, 1: ascending.
+# -----------------------------------------------------------------------------
+sort_reverse: {{ sort_reverse | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show only user processes.
+# When true, root and system processes are hidden from the list.
+# -----------------------------------------------------------------------------
+show_user_procs: {{ show_user_procs | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Auto-scale network graph.
+# When true, the network graph automatically adjusts its scale to fit the data.
+# -----------------------------------------------------------------------------
+auto_scale_net: {{ auto_scale_net | default(true) }}
+
+# -----------------------------------------------------------------------------
+# Show graph for network in/out separately.
+# When false, network in/out are plotted on the same graph.
+# -----------------------------------------------------------------------------
+net_in_one_line: {{ net_in_one_line | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show graph for disk read/write separately.
+# When true, disk read and write I/O are plotted on separate graphs.
+# -----------------------------------------------------------------------------
+disk_io_separate: {{ disk_io_separate | default(true) }}
+
+# -----------------------------------------------------------------------------
+# Show graph for CPU temperature.
+# When true, CPU temperature is fetched and displayed in a graph (if available).
+# -----------------------------------------------------------------------------
+cpu_temp: {{ cpu_temp | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show only physical cores.
+# When true, hyper-threading/sMT logical cores are aggregated into physical cores.
+# -----------------------------------------------------------------------------
+physical_cores_only: {{ physical_cores_only | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show CPU frequency.
+# When true, the current CPU frequency is displayed in the CPU section.
+# -----------------------------------------------------------------------------
+cpu_freq: {{ cpu_freq | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show uptime in days/hours/minutes/seconds.
+# When true, system uptime is formatted with days; otherwise hours are used.
+# -----------------------------------------------------------------------------
+long_uptime: {{ long_uptime | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Update disk I/O stats every N updates.
+# Reduces overhead by only reading disk stats periodically.
+# -----------------------------------------------------------------------------
+disk_io_update_rate: {{ disk_io_update_rate | default(5) }}
+
+# -----------------------------------------------------------------------------
+# Update network stats every N updates.
+# Reduces overhead by only reading network stats periodically.
+# -----------------------------------------------------------------------------
+net_io_update_rate: {{ net_io_update_rate | default(5) }}
+
+# -----------------------------------------------------------------------------
+# Enable mouse support.
+# When true, mouse clicks can be used to select processes and scroll graphs.
+# -----------------------------------------------------------------------------
+mouse_support: {{ mouse_support | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Show only running processes.
+# When true, stopped/zombie/idle processes are hidden from the list.
+# -----------------------------------------------------------------------------
+only_running_procs: {{ only_running_procs | default(true) }}
+
+# -----------------------------------------------------------------------------
+# Show process tree depth limit.
+# Limits how deep the process tree is expanded by default.
+# -----------------------------------------------------------------------------
+tree_depth_limit: {{ tree_depth_limit | default(3) }}
+
+# -----------------------------------------------------------------------------
+# Show process tree indentation spaces.
+# Number of spaces used to indent child processes in the tree view.
+# -----------------------------------------------------------------------------
+tree_indent: {{ tree_indent | default(2) }}
+
+# -----------------------------------------------------------------------------
+# Custom process filter string.
+# Only processes whose name or command contains this string will be shown.
+# -----------------------------------------------------------------------------
+process_filter: "{{ process_filter | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Custom process command filter string.
+# Only processes whose full command line matches this string will be shown.
+# -----------------------------------------------------------------------------
+process_cmd_filter: "{{ process_cmd_filter | default('') }}"
+
+# -----------------------------------------------------------------------------
+# List of user-defined processes to highlight.
+# These processes will be visually highlighted in the process list regardless of sorting.
+# -----------------------------------------------------------------------------
+highlight_procs:
+{% for item in highlight_procs | default([]) %}  - "{{ item }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# List of user-defined processes to exclude.
+# These processes will be hidden from the process list entirely.
+# -----------------------------------------------------------------------------
+exclude_procs:
+{% for item in exclude_procs | default([]) %}  - "{{ item }}"
+{% endfor %}

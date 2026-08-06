@@ -1,0 +1,38 @@
+# aggregate configuration
+# This template generates command-line flags for the 'aggregate' utility which
+# processes routing prefixes read from stdin, aggregating them for efficiency.
+# All flags are emitted with their schema defaults applied so the resulting
+# command is fully deterministic and idempotent.
+
+# -max_length: Maximum prefix length for entries read from stdin;
+# longer prefixes are discarded before processing.
+-m {{ max_length | default(32) }}
+
+# -max_opt_length: Maximum prefix length for optimisation;
+# longer prefixes are not subject to aggregation.
+-o {{ max_opt_length | default(32) }}
+
+# -default_length: Default prefix length for bare IP addresses
+# (without /mask). Must be an integer between 1 and 32.
+# The variable is conditionally emitted only when explicitly defined and non-null
+# to allow omitting the flag when the user does not want a default mask.
+{%- if (default_length is defined) and (default_length is not none) %}
+-p {{ default_length }}
+{%- endif %}
+
+# -quiet: Enable quiet mode: suppress warning messages and other stderr output.
+{%- if quiet | default(False) %}
+-q
+{%- endif %}
+
+# -truncate: Silently truncate inconsistent prefixes
+# (e.g., 203.97.2.226/24 → 203.97.2.0/24).
+{%- if truncate | default(False) %}
+-t
+{%- endif %}
+
+# -verbose: Enable verbose mode: output includes line numbers and
+# '+/−' indicators for aggregations and suppressions.
+{%- if verbose | default(False) %}
+-v
+{%- endif %}

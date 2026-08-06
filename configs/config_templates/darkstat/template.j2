@@ -1,38 +1,224 @@
-# Enable darkstat (yes/no)
-START_DARKSTAT={{ start_enabled | string | lower }}
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          darkstat
+# Required-Start: $remote_fs $network
+# Required-Stop:  $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: start darkstat monitoring system at boot time
+### END INIT INFO
+#
+# Please read /usr/share/doc/darkstat/README.Debian
 
-# Interface(s) to monitor (space-separated); use 'any' for all interfaces
-INTERFACE="{{ interfaces | join(' ') }}"
+set -e
 
-# IP address to bind the web interface to (0.0.0.0 = all interfaces)
-BIND_ADDRESS="{{ bind_address }}"
+. /lib/lsb/init-functions
 
-# TCP port for the web UI
-PORT={{ port }}
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DAEMON="/usr/sbin/darkstat"
+NAME="darkstat"
+DESC="darkstat network daemon"
+INIT="/etc/darkstat/init.cfg"
+# Directory for chroot and DB persistence; used in --chroot $DIR.
+HOMEDIR="{{ db_dir | default('/var/lib/darkstat') }}"
+PIDFILE="/var/run/$NAME.pid"
+DIR="{{ db_dir | default('/var/lib/darkstat') }}"
 
-# Path to store persistent data (usage stats, hosts, etc.)
-DB_DIR="{{ db_dir }}"
+test -f $DAEMON || exit 0
 
-# Directory to store daily graphs (if enabled)
-GRAPH_DIR="{{ graph_dir }}"
+test -f $INIT || exit 0
 
-# Enable daily graph generation (yes/no)
-ENABLE_GRAPHING={{ enable_graphing | string | lower }}
 
-# Retention period for daily graphs (in days)
-GRAPH_RETENTION={{ graph_retention_days }}
+INTERFACE=""
+PORT=""
+BINDIP=""
+LOCAL=""
+DNS=""
+DAYLOG=""
+DB="--import darkstat.db --export darkstat.db"
+FILTER=""
 
-# Maximum number of hosts to track
-MAX_HOSTS={{ max_hosts }}
+. $INIT
 
-# Maximum number of ports to track per host
-MAX_PORTS={{ max_ports }}
+# Whether to set START_DARKSTAT=yes in /etc/darkstat/init.cfg (controls if darkstat starts on boot).
+START_DARKSTAT="{{ start_enabled | default('yes') }}"
 
-# Enable compression for HTTP responses (yes/no)
-COMPRESSION={{ enable_compression | string | lower }}
+if [ "$START_DARKSTAT" = "no" ] ; then
+  log_warning_msg "please change the value of START_DARKSTAT in $INIT, in order to start darkstat"
+  exit 0
+fi
 
-# Enable DNS reverse lookups (yes/no) — may impact performance
-DNS_LOOKUPS={{ enable_dns_lookups | string | lower }}
+test "$START_DARKSTAT" = "yes" || exit 0
 
-# Additional command-line options (e.g., --no-macs to disable MAC lookups)
-EXTRA_OPTS="{{ extra_options }}"
+case "$1" in
+start)
+  log_begin_msg "Starting $DESC : $NAME "
+
+  # Construct interface arguments: each interface becomes a separate `-i <iface>` argument
+  INTERFACE_ARGS=""
+  {% for iface in (interfaces | default(['eth0'])) %}
+  INTERFACE_ARGS="${INTERFACE_ARGS} -i {{ iface | default('eth0') | string }}"
+  {% endfor %}
+
+  # TCP port for the web UI; becomes `-p <port>`.
+  PORT_ARGS="-p {{ port | default(667) | string }}"
+
+  # IP address to bind to; becomes `-l <address>`.
+  BINDIP_ARGS="-l {{ bind_address | default('0.0.0.0') | string }}"
+
+  # Enable reverse DNS lookups; becomes `-r` when true.
+  DNS_ARGS=""
+  {% if enable_dns_lookups | default(True) %}
+  DNS_ARGS="-r"
+  {% endif %}
+
+  # Directory for daily graph data. Not used directly in init script, but darkstat uses -g option if set.
+  DAYLOG_ARGS=""
+  {% if enable_graphing | default(False) %}
+  {% if graph_dir | default('') %}
+  DAYLOG_ARGS="-g {{ graph_dir | default('') | string }}"
+  {% endif %}
+  {% endif %}
+
+  # Maximum hosts. Not used directly in init script; darkstat uses -m option if set.
+  HOSTS_ARGS=""
+  {% if max_hosts | default(0) %}
+  HOSTS_ARGS="-m {{ max_hosts | default(0) | string }}"
+  {% endif %}
+
+  # Maximum ports per host. Not used directly in init script.
+  PORTS_ARGS=""
+  {% if max_ports | default(0) %}
+  PORTS_ARGS="-M {{ max_ports | default(0) | string }}"
+  {% endif %}
+
+  # Enable compression. Not used directly in init script.
+  COMPRESS_ARGS=""
+  {% if enable_compression | default(False) %}
+  COMPRESS_ARGS="--compress"
+  {% endif %}
+
+  # Additional darkstat options (e.g., '--no-macs', '--chroot').
+  EXTRA_ARGS="{{ extra_options | default('') }}"
+
+  if start-stop-daemon --start --quiet -b --exec $DAEMON -- \
+      {{ INTERFACE_ARGS | default('') | trim }} \
+      {{ PORT_ARGS | default('') }} \
+      --chroot $DIR \
+      --pidfile $PIDFILE \
+      {{ BINDIP_ARGS | default('') }} \
+      $LOCAL \
+      $DNS \
+      $DAYLOG \
+      $DB \
+      $OPTIONS \
+      $HOSTS_ARGS \
+      $PORTS_ARGS \
+      $COMPRESS_ARGS \
+      $EXTRA_ARGS \
+      -f "$FILTER"; then
+      log_success_msg "done"
+  else
+      log_progress_msg "already running"
+  fi
+  log_end_msg 0
+  ;;
+stop)
+  log_begin_msg "Stopping $DESC : $NAME... "
+  if [ ! -f "$PIDFILE" ] ; then
+	  log_progress_msg "not running"
+  else
+      if start-stop-daemon --quiet --oknodo --stop --name $NAME --pidfile $PIDFILE --retry 30; then
+           rm -f $PIDFILE
+	   log_success_msg "stopped"
+      else
+           log_progress_msg "not running"
+      fi
+  fi
+  log_end_msg 0
+  ;;
+restart | force-reload)
+  log_begin_msg "Restarting $DESC : $NAME "
+  if [ ! -f "$PIDFILE" ] ; then
+     log_progress_msg "not running "
+  else
+     if start-stop-daemon --stop --oknodo --name $NAME --pidfile $PIDFILE --retry 30; then
+          rm -f $PIDFILE
+      else
+         log_progress_msg "$DESC : $NAME is not running"
+         rm -f $PIDFILE
+     fi
+  fi
+  sleep 1
+
+  # Reconstruct arguments for restart
+  INTERFACE_ARGS=""
+  {% for iface in (interfaces | default(['eth0'])) %}
+  INTERFACE_ARGS="${INTERFACE_ARGS} -i {{ iface | default('eth0') | string }}"
+  {% endfor %}
+
+  PORT_ARGS="-p {{ port | default(667) | string }}"
+  BINDIP_ARGS="-l {{ bind_address | default('0.0.0.0') | string }}"
+
+  DNS_ARGS=""
+  {% if enable_dns_lookups | default(True) %}
+  DNS_ARGS="-r"
+  {% endif %}
+
+  DAYLOG_ARGS=""
+  {% if enable_graphing | default(False) %}
+  {% if graph_dir | default('') %}
+  DAYLOG_ARGS="-g {{ graph_dir | default('') | string }}"
+  {% endif %}
+  {% endif %}
+
+  HOSTS_ARGS=""
+  {% if max_hosts | default(0) %}
+  HOSTS_ARGS="-m {{ max_hosts | default(0) | string }}"
+  {% endif %}
+
+  PORTS_ARGS=""
+  {% if max_ports | default(0) %}
+  PORTS_ARGS="-M {{ max_ports | default(0) | string }}"
+  {% endif %}
+
+  COMPRESS_ARGS=""
+  {% if enable_compression | default(False) %}
+  COMPRESS_ARGS="--compress"
+  {% endif %}
+
+  EXTRA_ARGS="{{ extra_options | default('') }}"
+
+  start-stop-daemon --start --quiet -b --exec $DAEMON -- \
+      {{ INTERFACE_ARGS | default('') | trim }} \
+      {{ PORT_ARGS | default('') }} \
+      --chroot $DIR \
+      --pidfile $PIDFILE \
+      {{ BINDIP_ARGS | default('') }} \
+      $LOCAL \
+      $DNS \
+      $DAYLOG \
+      $DB \
+      $OPTIONS \
+      $HOSTS_ARGS \
+      $PORTS_ARGS \
+      $COMPRESS_ARGS \
+      $EXTRA_ARGS \
+      -f "$FILTER"
+  log_success_msg "done"
+  log_end_msg 0
+  ;;
+debug-run)
+  log_success_msg "$0: this option is not longer available."
+  log_success_msg "$0: please run darkstat with --no-daemon option"
+  log_success_msg "$0: for more info please check darkstat(8)."
+  ;;
+
+*)
+  N=/etc/init.d/$NAME
+   log_success_msg "Usage: $N {start|stop|restart|force-reload|debug-run}" >&2
+  exit 1
+  ;;
+esac
+
+exit 0

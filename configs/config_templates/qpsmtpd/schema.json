@@ -17,22 +17,7 @@
         "port": 25
       }
     ],
-    "description": "List of addresses and ports to listen on",
-    "items": {
-      "type": "object",
-      "fields": {
-        "address": {
-          "type": "string",
-          "default": "0.0.0.0",
-          "description": "IP address to bind to (e.g., 127.0.0.1, ::, 0.0.0.0)"
-        },
-        "port": {
-          "type": "number",
-          "default": 25,
-          "description": "Port number to bind to (typically 25 for SMTP, 465/587 for submission)"
-        }
-      }
-    }
+    "description": "List of addresses and ports to listen on"
   },
   "config.max_connections_per_ip": {
     "type": "number",
@@ -47,22 +32,7 @@
   "config.auth_backends": {
     "type": "list",
     "default": [],
-    "description": "Authentication backends (e.g., PAM, SQL, passwd file)",
-    "items": {
-      "type": "object",
-      "fields": {
-        "type": {
-          "type": "string",
-          "default": "pam",
-          "description": "Auth backend type (e.g., pam, sql, passwd_file)"
-        },
-        "config_file": {
-          "type": "string",
-          "default": "",
-          "description": "Path to auth config (e.g., /etc/pam.d/smtp, /etc/passwd-smtp)"
-        }
-      }
-    }
+    "description": "Authentication backends (e.g., PAM, SQL, passwd file)"
   },
   "config.plugins": {
     "type": "list",
@@ -124,219 +94,32 @@
         "enabled": true
       }
     ],
-    "description": "List of qpsmtpd plugins to enable (order matters). Set 'enabled' to false to skip a plugin.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Plugin name (e.g., spamassassin, greylisting, rbl)"
-        },
-        "enabled": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable or disable this plugin"
-        },
-        "options": {
-          "type": "list",
-          "default": [],
-          "description": "Space-separated options passed to the plugin",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
-        }
-      }
-    }
+    "description": "List of qpsmtpd plugins to enable (order matters). Set 'enabled' to false to skip a plugin."
   },
   "config.spamassassin": {
     "type": "object",
-    "default": {
-      "enabled": true,
-      "port": 783,
-      "timeout": 30
-    },
-    "description": "SpamAssassin integration settings",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable SpamAssassin content filter"
-      },
-      "port": {
-        "type": "number",
-        "default": 783,
-        "description": "Port where spamd is listening"
-      },
-      "timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Timeout in seconds for SpamAssassin connection"
-      }
-    }
+    "default": true,
+    "description": "SpamAssassin integration settings"
   },
-  "config.rbl": {
-    "type": "object",
-    "default": {
-      "enabled": false,
-      "server": "zen.spamhaus.org"
-    },
-    "description": "Real-time blacklist (RBL) checking",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable RBL checks"
-      },
-      "server": {
-        "type": "string",
-        "default": "zen.spamhaus.org",
-        "description": "RBL server to query (e.g., zen.spamhaus.org, bl.spamcop.net)"
-      }
-    }
+  "service.port": {
+    "type": "number",
+    "default": 25,
+    "description": "SMTP listening port (used in init script)"
   },
-  "config.tls": {
-    "type": "object",
-    "default": {
-      "enabled": true,
-      "cert_file": "/etc/ssl/certs/qpsmtpd.pem",
-      "key_file": "/etc/ssl/private/qpsmtpd.key",
-      "ciphers": "HIGH:!aNULL:!MD5"
-    },
-    "description": "TLS/SSL configuration for encrypted SMTP",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable TLS on this daemon"
-      },
-      "cert_file": {
-        "type": "string",
-        "default": "/etc/ssl/certs/qpsmtpd.pem",
-        "description": "Path to TLS certificate"
-      },
-      "key_file": {
-        "type": "string",
-        "default": "/etc/ssl/private/qpsmtpd.key",
-        "description": "Path to TLS private key"
-      },
-      "ciphers": {
-        "type": "string",
-        "default": "HIGH:!aNULL:!MD5",
-        "description": "TLS cipher suite specification"
-      }
-    }
-  },
-  "config.vpopmail": {
-    "type": "object",
-    "default": {
-      "enabled": false,
-      "vpopmail_dir": "/home/vpopmail"
-    },
-    "description": "Vpopmail support for virtual domains/users",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable vpopmail integration"
-      },
-      "vpopmail_dir": {
-        "type": "string",
-        "default": "/home/vpopmail",
-        "description": "Base directory of vpopmail installation"
-      }
-    }
-  },
-  "config.greylisting": {
-    "type": "object",
-    "default": {
-      "enabled": true,
-      "delay": 300,
-      "whitelist_time": 86400
-    },
-    "description": "Greylisting settings to defer unknown senders",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable greylisting"
-      },
-      "delay": {
-        "type": "number",
-        "default": 300,
-        "description": "Initial delay in seconds before accepting mail from new senders"
-      },
-      "whitelist_time": {
-        "type": "number",
-        "default": 86400,
-        "description": "Seconds to whitelist a sender after successful first delivery"
-      }
-    }
-  },
-  "config.rate_limit": {
-    "type": "object",
-    "default": {
-      "enabled": false,
-      "seconds": 60,
-      "max_per_second": 5
-    },
-    "description": "Per-IP rate limiting to prevent abuse",
-    "fields": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable per-IP rate limiting"
-      },
-      "seconds": {
-        "type": "number",
-        "default": 60,
-        "description": "Time window in seconds for counting messages"
-      },
-      "max_per_second": {
-        "type": "number",
-        "default": 5,
-        "description": "Maximum messages allowed per second per IP (within the window)"
-      }
-    }
-  },
-  "config.whitelist": {
-    "type": "list",
-    "default": [
-      {
-        "ip": "127.0.0.1",
-        "reason": "Localhost"
-      },
-      {
-        "ip": "::1",
-        "reason": "IPv6 localhost"
-      }
-    ],
-    "description": "IPs to whitelist from certain checks (e.g., RBL, greylisting)",
-    "items": {
-      "type": "object",
-      "fields": {
-        "ip": {
-          "type": "string",
-          "default": "127.0.0.1",
-          "description": "IP address or CIDR (e.g., 192.168.0.0/24)"
-        },
-        "reason": {
-          "type": "string",
-          "default": "",
-          "description": "Optional comment explaining why this IP is whitelisted"
-        }
-      }
-    }
-  },
-  "config.reject_action": {
+  "service.runas": {
     "type": "string",
-    "default": "bounce",
-    "description": "How to handle rejected mail: 'bounce' (deliver bounce to sender) or custom rejection string"
+    "default": "qpsmtpd",
+    "description": "User account under which qpsmtpd runs (used in init script)"
   },
-  "config.queue": {
+  "service.enabled": {
     "type": "string",
-    "default": "qmail-queue",
-    "description": "Queue backend (e.g., qmail-queue, maildrop, sendmail)"
+    "default": "false",
+    "description": "Whether qpsmtpd service is enabled ('true' or 'false'; used in init script)",
+    "enum": [
+      "false",
+      "true",
+      "0",
+      "1"
+    ]
   }
 }

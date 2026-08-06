@@ -1,128 +1,148 @@
+# OpenStack Designate Configuration
+# This file configures the Designate DNS-as-a-Service components:
+# Central API, Worker, Producer, mDNS, and API gateway.
+# It uses INI-style sections and key-value pairs.
+
 [DEFAULT]
-# Enable debug mode for verbose logging
-# debug = {{ debug }}
+# Enable debug mode for verbose logging (not recommended for production)
+# debug = {{ debug | default(false) | lower }}
 
-# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-# log_level = {{ log_level }}
+# Logging level for the service (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+# log_level = {{ log_level | default('INFO') | upper }}
 
-# Path to the log file (empty string to log to stdout only)
-# log_file = {{ log_file }}
+# Path to the log file. Leave empty to log to stdout only
+# log_file = {{ log_file | default('') }}
 
-# The IP address to bind the central API
-# bind_host = {{ bind_host }}
+# IP address to bind the central API server
+# bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# The port to listen on for the central API
-# api_port = {{ api_port }}
+# Port number for the central API server
+# api_port = {{ api_port | default(9001) }}
 
-# Number of workers for the central service
-# workers = {{ workers }}
+# Number of worker processes for the central service
+# workers = {{ workers | default(1) }}
 
-# Maximum number of tasks that can be processed concurrently
-# task_manager_max_concurrent_tasks = {{ task_manager_max_concurrent_tasks }}
+# Maximum number of tasks that can be processed concurrently by the task manager
+# task_manager_max_concurrent_tasks = {{ task_manager_max_concurrent_tasks | default(10) }}
 
-# DNS backend driver (e.g., 'dnsdist', 'designate-mdns')
-# backend_driver = {{ backend_driver }}
+# DNS backend driver. Common values: 'designate-mdns', 'dnsdist', 'nsd', 'bind9'
+# backend_driver = {{ backend_driver | default('designate-mdns') }}
 
-# Redis host for task coordination
-# redis_host = {{ redis_host }}
+# Hostname or IP address of the Redis server used for coordination
+# redis_host = {{ redis_host | default('localhost') }}
 
-# Redis port
-# redis_port = {{ redis_port }}
+# Port of the Redis server
+# redis_port = {{ redis_port | default(6379) }}
 
-# Default TTL for new zones/records
-# default_ttl = {{ default_ttl }}
+# Default TTL (Time To Live) for new DNS zones and records (seconds)
+# default_ttl = {{ default_ttl | default(3600) }}
 
-# Default serial refresh interval for SOA records
-# default_serial = {{ default_serial }}
+# Default SOA serial number format: YYYYMMDDnn
+# default_serial = {{ default_serial | default(1) }}
 
-[service:central]
-# Enable the central service
-# enabled = {{ central_enabled }}
+# Database connection string (replace username/password/DB with production values)
+# connection = {{ db_connection | default('mysql+pymysql://designate:password@localhost/designate') }}
 
-# Maximum number of records per zone
-# max_records_per_zone = {{ max_records_per_zone }}
+# Authentication strategy for the API. Common: 'keystone', 'none'
+# auth_strategy = {{ auth_strategy | default('keystone') }}
 
-# Maximum number of zones per tenant
-# max_zones_per_tenant = {{ max_zones_per_tenant }}
+# List of CIDR blocks allowed to perform AXFR requests (comma-separated in config)
+# allowed_axfr_cidrs = {{ allowed_axfr_cidrs | default(['127.0.0.1/32']) | join(', ') }}
 
-# Zone name validation regex
-# zone_name_regex = {{ zone_name_regex }}
+# List of allowed origins for CORS (comma-separated in config)
+# cors_allowed_origins = {{ cors_allowed_origins | default([]) | join(', ') }}
 
-[pool_manager_cache]
-# Enable pool manager caching
-# enabled = {{ pool_manager_cache_enabled }}
+# List of RabbitMQ/Kafka topics to consume notifications from
+# notification_topics = {{ notification_topics | default(['notifications']) | join(', ') }}
 
-# Cache TTL in seconds
-# ttl = {{ pool_manager_cache_ttl }}
-
+# Database backend connection
 [storage:sqlalchemy]
 # Database connection string (use placeholder for secrets)
-# connection = {{ db_connection }}
+# connection = {{ db_connection | default('mysql+pymysql://designate:password@localhost/designate') }}
+
+[service:central]
+# Enable the designate-central service
+# enabled = {{ central_enabled | default(true) | lower }}
+
+# Maximum number of DNS records allowed per zone
+# max_records_per_zone = {{ max_records_per_zone | default(1000) }}
+
+# Maximum number of DNS zones allowed per tenant
+# max_zones_per_tenant = {{ max_zones_per_tenant | default(100) }}
+
+# Regular expression for validating zone names
+# zone_name_regex = {{ zone_name_regex | default('^(([a-zA-Z0-9_\\-]*\\.)+[a-zA-Z]{2,})$') }}
+
+[pool_manager_cache]
+# Enable caching for pool manager data
+# enabled = {{ pool_manager_cache_enabled | default(true) | lower }}
+
+# TTL for pool manager cache entries (seconds)
+# ttl = {{ pool_manager_cache_ttl | default(60) }}
 
 [service:worker]
 # Enable the worker service
-# enabled = {{ worker_enabled }}
+# enabled = {{ worker_enabled | default(true) | lower }}
 
-# Number of worker threads
-# workers = {{ worker_threads }}
+# Number of worker threads for the worker service
+# workers = {{ worker_threads | default(1) }}
 
 [service:producer]
 # Enable the producer service
-# enabled = {{ producer_enabled }}
+# enabled = {{ producer_enabled | default(true) | lower }}
 
 [service:mdns]
 # Enable the mDNS service
-# enabled = {{ mdns_enabled }}
+# enabled = {{ mdns_enabled | default(true) | lower }}
 
-# mDNS bind address
-# bind_host = {{ mdns_bind_host }}
+# IP address to bind the mDNS service
+# bind_host = {{ mdns_bind_host | default('0.0.0.0') }}
 
-# mDNS bind port
-# bind_port = {{ mdns_bind_port }}
+# Port for the mDNS service
+# bind_port = {{ mdns_bind_port | default(5354) }}
 
-# Allowed AXFR CIDR (comma-separated list)
-# allowed_axfr_cidrs = {{ allowed_axfr_cidrs | join(', ') }}
+# List of CIDR blocks allowed to perform AXFR requests (comma-separated in config)
+# allowed_axfr_cidrs = {{ allowed_axfr_cidrs | default(['127.0.0.1/32']) | join(', ') }}
 
 [service:api]
-# Enable the API service
-# enabled = {{ api_enabled }}
+# Enable the designate-api service
+# enabled = {{ api_enabled | default(true) | lower }}
 
-# API bind address
-# bind_host = {{ api_bind_host }}
+# IP address to bind the API server
+# bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# API bind port
-# bind_port = {{ api_port }}
+# Port number for the central API server
+# bind_port = {{ api_port | default(9001) }}
 
-# Number of API workers
-# workers = {{ api_workers }}
+# Number of worker processes for the API service
+# workers = {{ api_workers | default(1) }}
 
-# API root path (for reverse proxy support)
-# api_base_uri = {{ api_base_uri }}
+# Public base URI for the API (used for self-referential links)
+# api_base_uri = {{ api_base_uri | default('http://localhost:9001/v2') }}
 
-# API auth strategy (none, keystone, etc.)
-# auth_strategy = {{ auth_strategy }}
+# Authentication strategy for the API. Common: 'keystone', 'none'
+# auth_strategy = {{ auth_strategy | default('keystone') }}
 
-# Enable CORS
-# enable_cors = {{ cors_enabled }}
+# Enable Cross-Origin Resource Sharing (CORS)
+# enable_cors = {{ cors_enabled | default(false) | lower }}
 
-# CORS allowed origins (comma-separated)
-# cors_allowed_origin = {{ cors_allowed_origins | join(', ') }}
+# List of allowed origins for CORS (comma-separated in config)
+# cors_allowed_origin = {{ cors_allowed_origins | default([]) | join(', ') }}
 
-{% if endpoint_templates %}
+{% if endpoint_templates is defined and endpoint_templates | length > 0 %}
 [service:api:endpoint_templates]
 # Endpoint templates for DNS API endpoints (used by Keystone federation)
 {% for ep in endpoint_templates %}
-# {{ ep.service_name }} endpoint template: {{ ep.description }}
+# Endpoint template for service: {{ ep.service_name }}
 # service_name = {{ ep.service_name }}
 # endpoint_template = {{ ep.endpoint_template }}
 {% endfor %}
 {% endif %}
 
-{% if pool_servers %}
-[pool:{{ pool_servers[0].pool_id }}]
-# Pool servers configuration for the {{ pool_servers[0].pool_id }} pool
+{% if pool_servers is defined and pool_servers | length > 0 %}
+# Pool servers configuration
 {% for server in pool_servers %}
-# Server {{ loop.index }}: {{ server.hostname }}
+# Server {{ loop.index }}: {{ server.hostname if server.hostname is defined else 'unknown' }}
 # nameserver = {{ server.nameserver }}
 # host = {{ server.host }}
 # port = {{ server.port }}
@@ -131,34 +151,42 @@
 {% endif %}
 
 [notifications]
-# Notification driver (e.g., 'designate', 'nova', 'neutron')
-# driver = {{ notification_driver }}
+# Notification driver to use (e.g., 'designate', 'nova', 'neutron')
+# driver = {{ notification_driver | default('designate') }}
 
 # Topics to listen on (comma-separated)
-# topics = {{ notification_topics | join(', ') }}
+# topics = {{ notification_topics | default(['notifications']) | join(', ') }}
 
 [service:worker:resolver]
-# Resolver IP address
-# resolver_ip = {{ resolver_ip }}
+# IP address of the resolver to use for health checks
+# resolver_ip = {{ resolver_ip | default('127.0.0.1') }}
 
-# Resolver port
-# resolver_port = {{ resolver_port }}
+# Port the resolver listens on
+# resolver_port = {{ resolver_port | default(53) }}
 
-# Resolver timeout in seconds
-# resolver_timeout = {{ resolver_timeout }}
+# Timeout in seconds for resolver queries
+# resolver_timeout = {{ resolver_timeout | default(10) }}
 
-{% if pools %}
-[pool:{{ pools[0].id }}]
+{% if pools is defined and pools | length > 0 %}
 # DNS pool configuration (e.g., for multi-backend support)
-# id = {{ pools[0].id }}
-# name = {{ pools[0].name }}
-# description = {{ pools[0].description }}
-# ns_records = {{ pools[0].ns_records | map(attribute='hostname') | join(', ') }}
-# nameservers = {{ pools[0].nameservers | map(attribute='hostname') | join(', ') }}
+{% for pool in pools %}
+# Pool: {{ pool.name if pool.name is defined else pool.id }}
+# id = {{ pool.id }}
+# name = {{ pool.name }}
+# description = {{ pool.description }}
+{% if pool.ns_records is defined %}
+# ns_records = {{ pool.ns_records | map(attribute='hostname') | join(', ') }}
+{% endif %}
+{% if pool.nameservers is defined %}
+# nameservers = {{ pool.nameservers | map(attribute='hostname') | join(', ') }}
+{% endif %}
+{% endfor %}
 {% endif %}
 
+{% if zones is defined and zones | length > 0 %}
+# Zone-specific defaults (reference only)
 {% for zone in zones %}
-# Zone-specific defaults: {{ zone.name }}
+# Zone: {{ zone.name }}
 # default_ttl = {{ zone.default_ttl }}
 # retry_refresh = {{ zone.retry_refresh }}
 # minimum = {{ zone.minimum }}
@@ -167,3 +195,4 @@
 # expire = {{ zone.expire }}
 # negative_ttl = {{ zone.negative_ttl }}
 {% endfor %}
+{% endif %}

@@ -1,0 +1,46 @@
+{# ============================================================================= #}
+{# /etc/atftp.conf - atftp client configuration template                       #}
+{# This template generates the configuration for the Advanced TFTP Client.      #}
+{# It supports server targeting, connection tuning, and custom option passing.  #}
+{# ============================================================================= #}
+
+{# --- Custom Options --- #}
+{# Iterates over the list of custom TFTP options provided in the schema.        #}
+{# Each option is a mapping with 'name' and 'value' keys.                       #}
+{# These are passed to the atftp binary via --option flags.                     #}
+{% for opt in options | default([]) -%}
+# {{ opt.name | default('') }}
+{{ opt.name | default('') }}={{ opt.value | default('') }}
+{% endfor %}
+
+{# --- Server Connection Settings --- #}
+
+{# TFTP server hostname or IP address.                                            #}
+{# Optional — omitted for interactive use or when provided on command line.       #}
+# TFTP server host
+{% if host is defined and host != '' %}
+host {{ host }}
+{% else %}
+# host <not configured>
+{% endif %}
+
+{# TFTP server port.                                                              #}
+{# Default is 69 as per RFC1350.                                                  #}
+# TFTP server port
+{% if port is defined %}
+port {{ port }}
+{% else %}
+port 69
+{% endif %}
+
+{# Timeout in seconds.                                                            #}
+{# Must be ≥1. Default matches atftp's built-in default.                          #}
+# Timeout in seconds
+{% if timeout is defined %}
+timeout {{ timeout }}
+{% else %}
+timeout 5
+{% endif %}
+
+{# Block size setting (from --option blksize)                                     #}
+# Note: blksize is handled via the options list above if specified.

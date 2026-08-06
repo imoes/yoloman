@@ -1,225 +1,32 @@
 {
-  "base_url": {
+  "imap.host": {
     "type": "string",
-    "default": "/",
-    "description": "URL path where the webmail is accessible (e.g., /webmail/). Must begin with '/' and not end with '/' unless root."
+    "default": "localhost",
+    "description": "IMAP server hostname or IP address."
   },
-  "template_dir": {
-    "type": "string",
-    "default": "/usr/share/ciderwebmail/templates",
-    "description": "Absolute path to the directory containing Jinja2 templates."
-  },
-  "static_dir": {
-    "type": "string",
-    "default": "/usr/share/ciderwebmail/static",
-    "description": "Absolute path to the directory containing static assets (CSS, JS, images)."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity. Choose from DEBUG, INFO, WARNING, ERROR, CRITICAL."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/ciderwebmail/ciderwebmail.log",
-    "description": "Path to log file. Leave empty ('') to log only to stdout/stderr."
-  },
-  "imap": {
-    "type": "object",
-    "default": {
-      "host": "imap.example.com",
-      "port": 993,
-      "use_tls": false,
-      "use_ssl": true,
-      "auth_method": "PLAIN"
-    },
-    "description": "IMAP server connection settings for fetching mail.",
-    "items": {
-      "host": {
-        "type": "string",
-        "default": "imap.example.com",
-        "description": "IMAP server hostname or IP address."
-      },
-      "port": {
-        "type": "number",
-        "default": 993,
-        "description": "IMAP port (typically 143 for STARTTLS, 993 for IMAPS)."
-      },
-      "use_tls": {
-        "type": "boolean",
-        "default": false,
-        "description": "If true, attempt STARTTLS upgrade after connecting (port 143)."
-      },
-      "use_ssl": {
-        "type": "boolean",
-        "default": true,
-        "description": "If true, use SSL/TLS from the start (IMAPS on port 993)."
-      },
-      "auth_method": {
-        "type": "string",
-        "default": "PLAIN",
-        "description": "IMAP auth mechanism. Supported: LOGIN, PLAIN, CRAM-MD5."
-      }
-    }
-  },
-  "secret_key": {
-    "type": "string",
-    "default": "",
-    "description": "Cryptographically secure random key for session signing and encryption. Must be unique per deployment and kept secret."
-  },
-  "session_cookie_name": {
-    "type": "string",
-    "default": "cider_session",
-    "description": "Name of the session cookie."
-  },
-  "session_cookie_path": {
-    "type": "string",
-    "default": "/",
-    "description": "Path scope of the session cookie."
-  },
-  "session_cookie_domain": {
-    "type": "string",
-    "default": "",
-    "description": "Domain scope of the cookie. Leave blank to auto-detect from request."
-  },
-  "session_timeout": {
+  "imap.port": {
     "type": "number",
-    "default": 3600,
-    "description": "Session lifetime in seconds. After this period of inactivity, the session expires."
+    "default": 143,
+    "description": "IMAP port (typically 143 for STARTTLS, 993 for IMAPS)."
   },
-  "secure_cookie": {
-    "type": "boolean",
-    "default": true,
-    "description": "If true, the session cookie is only sent over HTTPS (recommended in production)."
-  },
-  "inbox_folder": {
+  "managesieve.host": {
     "type": "string",
-    "default": "INBOX",
-    "description": "Default IMAP folder displayed on login. Common alternatives: 'INBOX', 'INBOX/Inbox'."
+    "default": "localhost",
+    "description": "Managesieve server hostname or IP address."
   },
-  "folder_separator": {
-    "type": "string",
-    "default": ".",
-    "description": "Character used to separate folder hierarchy levels (e.g., '.' for GMail, '/' for Dovecot)."
-  },
-  "messages_per_page": {
+  "managesieve.port": {
     "type": "number",
-    "default": 30,
-    "description": "Number of messages to show per page in message list views."
+    "default": 4190,
+    "description": "Managesieve port (Dovecot default: 4190)."
   },
-  "max_recipients_displayed": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of recipients (To/Cc/Bcc) shown before truncating with 'and X others'."
-  },
-  "hidden_folders": {
-    "type": "list",
-    "default": [
-      "Drafts",
-      "Trash",
-      "Junk"
-    ],
-    "description": "List of IMAP folder names to hide from the folder listing UI."
-  },
-  "smtp": {
-    "type": "object",
-    "default": {
-      "host": "smtp.example.com",
-      "port": 587,
-      "use_tls": true,
-      "use_ssl": false,
-      "username": "",
-      "password": "",
-      "helo_hostname": ""
-    },
-    "description": "SMTP relay configuration for sending outbound mail.",
-    "items": {
-      "host": {
-        "type": "string",
-        "default": "smtp.example.com",
-        "description": "SMTP relay hostname."
-      },
-      "port": {
-        "type": "number",
-        "default": 587,
-        "description": "SMTP port (25 for direct, 465 for SSL, 587 for STARTTLS)."
-      },
-      "use_tls": {
-        "type": "boolean",
-        "default": true,
-        "description": "If true, initiate STARTTLS after connecting (port 587)."
-      },
-      "use_ssl": {
-        "type": "boolean",
-        "default": false,
-        "description": "If true, use SSL/TLS from start (port 465)."
-      },
-      "username": {
-        "type": "string",
-        "default": "",
-        "description": "SMTP username for authentication. Leave blank for unauthenticated relay."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "SMTP password for authentication. Leave blank for unauthenticated relay."
-      },
-      "helo_hostname": {
-        "type": "string",
-        "default": "",
-        "description": "Hostname to present in HELO/EHLO. Defaults to server's hostname."
-      }
-    }
-  },
-  "theme": {
+  "database.path": {
     "type": "string",
-    "default": "default",
-    "description": "Name of the UI theme to apply (must exist under static_dir/themes/)."
+    "default": "/var/lib/ciderwebmail/user_settings.sql",
+    "description": "Path to SQLite user settings database file."
   },
-  "language": {
+  "session.storage_path": {
     "type": "string",
-    "default": "en-US",
-    "description": "Default language tag (BCP 47). Fallback if user has no language preference."
-  },
-  "auto_detect_language": {
-    "type": "boolean",
-    "default": true,
-    "description": "If true, attempt to detect user language from HTTP Accept-Language headers."
-  },
-  "plugins": {
-    "type": "object",
-    "default": {
-      "enabled": [],
-      "configs": []
-    },
-    "description": "Plugin configuration. 'enabled' lists plugin names; 'configs' defines per-plugin settings.",
-    "items": {
-      "enabled": {
-        "type": "list",
-        "default": [],
-        "description": "List of plugin names to load (e.g., ['auth_ldap'])."
-      },
-      "configs": {
-        "type": "list",
-        "default": [],
-        "description": "Per-plugin configuration blocks. Each object defines a plugin name and its key-value settings.",
-        "items": {
-          "type": "object",
-          "description": "Single plugin configuration block.",
-          "items": {
-            "name": {
-              "type": "string",
-              "default": "",
-              "description": "Plugin name, used as section header (e.g., 'auth_ldap')."
-            },
-            "settings": {
-              "type": "object",
-              "default": {},
-              "description": "Plugin-specific key-value configuration (string \u2192 string/number/bool)."
-            }
-          }
-        }
-      }
-    }
+    "default": "/var/lib/ciderwebmail/session",
+    "description": "Path to session storage directory."
   }
 }

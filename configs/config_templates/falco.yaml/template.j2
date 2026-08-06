@@ -1,128 +1,204 @@
-# Falco configuration file — controls rule loading, output format, and system call source behavior
-# Rule file paths — where Falco looks for rules files
+# ==============================================================================
+# Falco Configuration Template
+# ==============================================================================
+# Falco is a behavioral activity monitor for containers and Linux systems.
+# This file controls rule loading, output formatting, system call sources,
+# logging, metrics, and optional integrations (gRPC, Kubernetes Audit).
+#
+# All variables are sourced from Ansible host/group vars or defaults defined
+# within this template. If a variable is not defined in Ansible, the schema
+# default is used.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Rule File Paths
+# ------------------------------------------------------------------------------
+# List of paths to Falco rules files or directories containing .yaml/.yml rules files.
+# Falco reads these files in order. Directories are scanned recursively for .yaml/.yml files.
 rules_files:
-{% for path in rules_files_paths %}
+{% for path in rules_files_paths | default(['/etc/falco/rules.d', '/etc/falco/rules.yaml']) %}
   - "{{ path }}"
 {% endfor %}
 
-# Enable/disable gvisor support (requires gvisor container runtime)
+# ------------------------------------------------------------------------------
+# gVisor Support
+# ------------------------------------------------------------------------------
+# Enable support for gvisor container runtime.
+# Requires gvisor and the Falco gvisor plugin to be installed and configured.
 gvisor:
-  enabled: {{ gvisor_enabled }}
+  enabled: {{ gvisor_enabled | default(False) | lower }}
 
-# Output format: text (human-readable) or json (machine-parsable)
+# ------------------------------------------------------------------------------
+# Output Configuration
+# ------------------------------------------------------------------------------
+# Global output format: 'text' for human-readable logs, 'json' for structured/machine-parsable logs.
 output:
-  format: "{{ output_format }}"
+  format: "{{ output_format | default('json') }}"
 
-# Enable/disable JSON output timestamp, include program name, etc.
+# ------------------------------------------------------------------------------
+# JSON Output Properties and Fields
+# ------------------------------------------------------------------------------
+# Controls the inclusion of metadata properties (timestamp, hostname, etc.) in JSON output.
+# Also allows appending custom JSON fields to every event.
 output_json:
-  include_output_properties: {{ output_json_include_properties }}
-  add_json_fields: {{ output_json_add_fields }}
-
-# Syscall source configuration — controls kernel module or eBPF behavior
-syscall:
-  # Enable/disable syscall event capture
-  enabled: {{ syscall_enabled }}
+  # Include output properties (timestamp, hostname, etc.) in JSON output.
+  include_output_properties: {{ output_json_include_properties | default(True) | lower }}
   
-  # eBPF driver settings — preferred over kernel module where supported
+  # Additional JSON fields to include in output.
+  # Example values: 'proc.aname', 'fd.typechar', 'container.id'
+  add_json_fields: {{ output_json_add_fields | default([]) }}
+
+# ------------------------------------------------------------------------------
+# Syscall Source Configuration
+# ------------------------------------------------------------------------------
+# Controls how Falco captures kernel system call events.
+# eBPF is the modern, recommended driver. Kernel module is legacy.
+syscall:
+  # Enable capture of kernel syscall events (required for Falco’s core detection).
+  enabled: {{ syscall_enabled | default(True) | lower }}
+  
+  # eBPF Driver Settings
   ebpf:
-    # Path to the eBPF probe (`.so` or `.bpf` file)
-    # Leave blank to use default (Falco will attempt automatic loading)
-    # If specified, must point to a valid, compatible driver binary
-    # Example: "/usr/share/falco/falco-bpf.o"
-    # If not set, Falco will fall back to kernel module (if enabled)
-    # path: "{{ syscall_ebpf_path | default('') }}"
-    
-    # Enable/disable eBPF probe (if available on system)
-    enabled: {{ syscall_ebpf_enabled }}
+    # Enable/disable the eBPF driver.
+    # Recommended to be True on modern Linux kernels.
+    enabled: {{ syscall_ebpf_enabled | default(True) | lower }}
 
-  # Kernel module driver settings — legacy fallback
-  # Not recommended on modern kernels (eBPF is preferred)
-  # Set enabled=false unless explicitly needed
+  # Kernel Module Driver Settings (Legacy Fallback)
   module:
-    enabled: {{ syscall_module_enabled }}
+    # Enable/disable the legacy kernel module driver.
+    # Should only be True if eBPF is unavailable and you have the kernel module loaded.
+    enabled: {{ syscall_module_enabled | default(False) | lower }}
 
-# Buffer settings — for high-throughput environments
+# ------------------------------------------------------------------------------
+# Buffer Settings
+# ------------------------------------------------------------------------------
+# Controls the size of per-CPU ring buffers for syscall events.
+# Increase if you see "syscall event lost" warnings in logs.
 buffers:
-  # Size (in bytes) of per-CPU ring buffers
-  # Increase if you see "syscall event lost" warnings
-  syscalls: {{ buffers_syscalls_size }}
+  # Size (in MB) of per-CPU syscall ring buffers.
+  syscalls: {{ buffers_syscalls_size | default(1024) }}
 
-# Logging verbosity and file
-log_level: "{{ log_level }}"
-log_stderr: {{ log_stderr }}
-log_file: "{{ log_file_path }}"
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+# Controls logging verbosity and destinations (stderr vs file).
+log_level: "{{ log_level | default('info') }}"
+log_stderr: {{ log_stderr | default(True) | lower }}
+log_file: "{{ log_file_path | default('/var/log/falco.log') }}"
 
-# Metrics configuration — optional Prometheus-style metrics endpoint
+# ------------------------------------------------------------------------------
+# Metrics Configuration (Prometheus)
+# ------------------------------------------------------------------------------
+# Enables a Prometheus-style metrics endpoint for scraping system health and performance data.
+# Requires Falco to be compiled with metrics support enabled.
 metrics:
-  enabled: {{ metrics_enabled }}
-  # Frequency (seconds) of metrics export to /metrics endpoint
-  interval: "{{ metrics_interval }}"
-  # Path to Prometheus metrics endpoint (e.g., "/metrics" or "/falco-metrics")
-  # Only active if metrics are enabled and Falco is compiled with metrics support
-  # endpoint: "{{ metrics_endpoint }}"
+  enabled: {{ metrics_enabled | default(False) | lower }}
+  
+  # Metrics export interval (e.g., '5s', '1m').
+  # Only used if metrics_enabled is True.
+  interval: "{{ metrics_interval | default('5s') }}"
+  
+  # HTTP path for the Prometheus metrics endpoint (e.g., '/metrics').
+  endpoint: "{{ metrics_endpoint | default('/metrics') }}"
 
-# File integrity monitoring (FIM) — optional, for file integrity monitoring rules
-fim_enabled: {{ fim_enabled }}
+# ------------------------------------------------------------------------------
+# File Integrity Monitoring (FIM)
+# ------------------------------------------------------------------------------
+# Optional feature to monitor critical system files for unauthorized changes.
+fim_enabled: {{ fim_enabled | default(False) | lower }}
 
-# File integrity monitoring intervals and settings
 fim:
-  # Directory paths to monitor for file changes
+  # List of directories to monitor for file integrity changes.
+  # Each entry specifies a path and whether to scan recursively.
   directories:
-{% for dir in fim_directories %}
+{% for dir in fim_directories | default([{'path': '/etc', 'recursive': True}, {'path': '/bin', 'recursive': True}, {'path': '/sbin', 'recursive': True}, {'path': '/usr/bin', 'recursive': True}, {'path': '/usr/sbin', 'recursive': True}, {'path': '/usr/lib', 'recursive': True}]) %}
     - path: "{{ dir.path }}"
-      recursive: {{ dir.recursive }}
+      recursive: {{ dir.recursive | lower }}
 {% endfor %}
 
-# Syscall source timeout (ms) — max time to wait for events before dropping
-syscall_timeout: {{ syscall_timeout }}
+# ------------------------------------------------------------------------------
+# Syscall Timeout
+# ------------------------------------------------------------------------------
+# Timeout in milliseconds for syscall event processing.
+# If processing takes longer, events may be dropped to maintain system performance.
+syscall_timeout: {{ syscall_timeout | default(100) }}
 
-# JSON output fields — customize fields emitted in JSON mode
-json_include_output_properties: {{ json_include_output_properties }}
+# ------------------------------------------------------------------------------
+# JSON Output Properties (Legacy Alias)
+# ------------------------------------------------------------------------------
+# Alias for output_json.include_output_properties. Kept for backward compatibility.
+json_include_output_properties: {{ json_include_output_properties | default(True) | lower }}
+
+# ------------------------------------------------------------------------------
+# JSON Add Fields (Legacy Alias)
+# ------------------------------------------------------------------------------
+# List of additional JSON fields to append to each event output.
+# Legacy alias for output_json.add_json_fields.
 json_add_fields:
-{% for field in json_add_fields %}
+{% for field in json_add_fields | default(['proc.aname', 'fd.typechar', 'container.id']) %}
   - "{{ field }}"
 {% endfor %}
 
-# Output source — where to send alerts: stdout, file, or gRPC
-# Use file for logging to disk, gRPC for external sinks (e.g., Falcosidekick)
+# ------------------------------------------------------------------------------
+# Output File Configuration
+# ------------------------------------------------------------------------------
+# Enables writing raw alert events to a file instead of (or in addition to) stdout.
+# Useful for local logging or ingestion by log collectors.
 output_file:
-  # Enable/disable writing to file
-  enabled: {{ output_file_enabled }}
-  # Path to output file (if enabled)
-  path: "{{ output_file_path }}"
+  # Enable/disable writing to file.
+  enabled: {{ output_file_enabled | default(False) | lower }}
+  
+  # Path to the file where alert events will be written.
+  path: "{{ output_file_path | default('/var/log/falco_alerts.json') }}"
 
-# gRPC output configuration — for external alert receivers
+# ------------------------------------------------------------------------------
+# gRPC Configuration
+# ------------------------------------------------------------------------------
+# Enables gRPC output for forwarding alerts to external consumers (e.g., Falcosidekick, K8s operators).
 grpc:
-  enabled: {{ grpc_enabled }}
+  # Enable gRPC output.
+  enabled: {{ grpc_enabled | default(False) | lower }}
+  
+  # gRPC Output Settings
   output:
-    # Path to gRPC output config (optional, if using external file)
+    # Path to an external gRPC output config file (optional).
     # path: "{{ grpc_output_path | default('') }}"
-  # Server settings — only needed if Falco acts as gRPC server
+
+  # gRPC Server Settings
   server:
-    enabled: {{ grpc_server_enabled }}
-    # Bind address for gRPC server (e.g., "0.0.0.0:5060")
-    bind_address: "{{ grpc_server_bind_address }}"
-    # TLS configuration (optional)
-    # certificate: "{{ grpc_certificate }}"
-    # private_key: "{{ grpc_private_key }}"
-    # client_ca: "{{ grpc_client_ca }}"
+    # Enable Falco to run as a gRPC server (accept incoming connections).
+    # Only set to True if Falco is intended to receive gRPC requests.
+    enabled: {{ grpc_server_enabled | default(False) | lower }}
+    
+    # Host:Port for the gRPC server to bind to.
+    bind_address: "{{ grpc_server_bind_address | default('0.0.0.0:5060') }}"
 
-# Kubernetes audit configuration — optional, for Kubernetes audit logs
+# ------------------------------------------------------------------------------
+# Kubernetes Audit Log Configuration
+# ------------------------------------------------------------------------------
+# Enables monitoring of Kubernetes API server audit logs for security events.
+# Requires access to the audit log file or an HTTP endpoint streaming audit logs.
 kubernetes_audit:
-  enabled: {{ k8s_audit_enabled }}
-  # Path to Kubernetes audit policy file (if enabled)
-  policy: "{{ k8s_audit_policy_path }}"
-  # Path to Kubernetes audit log file (or HTTP endpoint if streaming)
+  # Enable Kubernetes audit log monitoring.
+  enabled: {{ k8s_audit_enabled | default(False) | lower }}
+  
+  # Path to the Kubernetes audit policy YAML file.
+  policy: "{{ k8s_audit_policy_path | default('') }}"
+  
+  # Kubernetes Audit Log Source Configuration
   log:
-    # For file-based: path to audit log file
-    # path: "{{ k8s_audit_log_path }}"
-    # For HTTP streaming: endpoint URL
-    # url: "{{ k8s_audit_log_url }}"
+    # Path to the Kubernetes audit log file (for file-based input).
+    path: "{{ k8s_audit_log_path | default('/var/log/kubernetes/audit/audit.log') }}"
+    
+    # HTTP endpoint URL to stream Kubernetes audit logs (for HTTP-based input).
+    url: "{{ k8s_audit_log_url | default('') }}"
 
-# Rule overrides — disable specific rules or set rule severity
-rules:
-  # Example: disable a known false-positive rule
-  # - rule: "Rule Name"
-  #   enabled: false
-  #   # Optional: override severity (info, error, warning, critical)
-  #   severity: 0
+# ------------------------------------------------------------------------------
+# Rule Overrides (Optional)
+# ------------------------------------------------------------------------------
+# Allows disabling specific rules or overriding their severity levels.
+# Uncomment and add entries as needed to suppress false positives.
+# rules:
+#   - rule: "Rule Name"
+#     enabled: false
+#     severity: 0

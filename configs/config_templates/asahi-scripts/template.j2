@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Asahi Scripts Post-Installation/Post-Removal Hook Template
+#
+# This script is a Debian maintainer script hook for the `asahi-scripts` package.
+# It handles the installation and configuration of the m1n1 bootloader on Apple Silicon (M1/M2/M3) Macs.
+# It detects the installed m1n1 package variant, verifies the necessary binaries,
+# and executes the update command only during specific package management phases
+# (postinst configure, postrm remove) to avoid redundant operations during upgrades.
+#
+# Schema fields used:
+# - update_m1n1_command: The command used to update the m1n1 bootloader.
+# - m1n1_lib_path: The directory containing m1n1 binary files.
+# - efi_boot_bin_path: The path to the m1n1 boot binary in the EFI partition.
+#
+
+set -e
+
+# Check if the update command is available; if not, exit successfully (no-op).
+# The command used to update the m1n1 bootloader.
+which {{ update_m1n1_command | default('update-m1n1') }} >/dev/null 2>&1 || exit 0
+
+# Check for required bootloader binaries.
+# The directory containing m1n1 binary files.
+# We look for m1n1.bin (Debian/Ubuntu style) or boot.bin (Glanzmans package style).
+# If only boot.bin exists but m1n1.bin is missing, it's likely a non-standard package, so we exit.
+if [ ! -e {{ m1n1_lib_path | default('/usr/lib/m1n1') }}/m1n1.bin ] && [ -e {{ m1n1_lib_path | default('/usr/lib/m1n1') }}/boot.bin ]; then
+    # looks like glanzmanns m1n1 package, not debians.
+    exit 0
+fi
+
+# Parse DEB_MAINT_PARAMS environment variable, if set.
+# This allows the package manager to pass parameters to maintainer scripts.
+set -- $DEB_MAINT_PARAMS
+mode="${1#\'}"
+mode="${mode%\'}"
+
+# Only run on postinst configure and postrm remove, to avoid wasting
+# time by calling update-grub multiple times on upgrade and removal.
+# Also run if we have no DEB_MAINT_PARAMS, in order to work with old
+# kernel packages.
+case $0:$mode in
+    */postinst.d/*|*/postinst.d/*:configure|*/postrm.d/*|*/postrm.d/*:remove)
+        # The path to the m1n1 boot binary in the EFI partition.
+        # If the boot binary exists, execute the update command.
+        if [ -e {{ efi_boot_bin_path | default('/boot/efi/m1n1/boot.bin') }} ]; then
+            exec {{ update_m1n1_command | default('update-m1n1') }}
+        fi
+        ;;
+esac
+
+exit 0

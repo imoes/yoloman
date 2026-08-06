@@ -1,129 +1,25 @@
-# DMA configuration file — see dma.conf(5)
+# Configuration for DMA (Direct Mail Access) queue flushing cron job.
+# DMA is a lightweight Mail Transfer Agent (MTA) for Linux.
+# This template generates a crontab entry that periodically flushes the mail queue.
 
-# Bind address for incoming SMTP connections
-{% if bind_address %}BindAddress {{ bind_address }}
-{% endif %}
+# cron_interval_minutes: The interval in minutes for flushing the DMA mail transfer agent's queue.
+# Default: 5
+{% set cron_interval_minutes = cron_interval_minutes | default(5) %}
 
-# Port to listen on for incoming SMTP (default: 25)
-{% if smtp_port is defined %}SMTPPort {{ smtp_port }}
-{% endif %}
+# cron_user: The user under which the DMA flush command runs.
+# Default: root
+{% set cron_user = cron_user | default('root') %}
 
-# Maximum number of simultaneous SMTP connections
-{% if max_connections is defined %}MaxConnections {{ max_connections }}
-{% endif %}
+# Crontab entry format:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12)
+# |  |  |  |  .---- day of week (0 - 6) (Sunday to Saturday)
+# |  |  |  |  |
+# *  *  *  *  * command to be executed
+#
+# The command checks if the DMA binary exists and is executable, then flushes the queue.
 
-# Timeout (in seconds) for SMTP connections
-{% if connect_timeout is defined %}ConnectTimeout {{ connect_timeout }}
-{% endif %}
-
-# Local networks (space-separated CIDR or hostnames) allowed to relay without authentication
-{% if relay_nets | length > 0 %}RelayNets {{ relay_nets | join(' ') }}
-{% endif %}
-
-# Domain(s) for which this host is the final destination (mail for these domains delivered locally)
-{% if local_domains | length > 0 %}LocalDomains {{ local_domains | join(' ') }}
-{% endif %}
-
-# Enable TLS/SSL for incoming SMTP (requires certificate files below)
-{% if tls_enabled %}TLSEnabled
-{% endif %}
-
-# Path to TLS certificate (PEM format)
-{% if tls_cert %}TLSCertFile {{ tls_cert }}
-{% endif %}
-
-# Path to TLS private key (PEM format)
-{% if tls_key %}TLSKeyFile {{ tls_key }}
-{% endif %}
-
-# TLS ciphers (OpenSSL cipher string) — omit to use defaults
-{% if tls_ciphers %}TLSCiphers {{ tls_ciphers }}
-{% endif %}
-
-# Require STARTTLS on incoming connections
-{% if require_starttls %}RequireSTARTTLS
-{% endif %}
-
-# Use opportunistic TLS for outbound deliveries (if remote supports it)
-{% if opportunistic_tls %} OpportunisticTLS
-{% endif %}
-
-# SMTP authentication method: plain or login (case-sensitive)
-{% if smtp_auth_method %}SMTPAuthMethod {{ smtp_auth_method }}
-{% endif %}
-
-# Path to passwd file for SMTP auth (format: user:password:uid:gid:gecos:dir:shell)
-{% if smtp_auth_file %}SMTPAuthFile {{ smtp_auth_file }}
-{% endif %}
-
-# Maximum message size (in bytes); 0 = unlimited
-{% if max_message_size is defined %}MaxMessageSize {{ max_message_size }}
-{% endif %}
-
-# Default sender address to use for locally-originated mail (if empty, use $USER@hostname)
-{% if default_sender %}DefaultSender {{ default_sender }}
-{% endif %}
-
-# Path to queue directory
-{% if queue_dir %}QueueDir {{ queue_dir }}
-{% endif %}
-
-# Number of delivery worker processes
-{% if delivery_workers is defined %}DeliveryWorkers {{ delivery_workers }}
-{% endif %}
-
-# Retry interval (in seconds) for failed deliveries
-{% if retry_interval is defined %}RetryInterval {{ retry_interval }}
-{% endif %}
-
-# Maximum delivery attempts before bouncing
-{% if max_retries is defined %}MaxRetries {{ max_retries }}
-{% endif %}
-
-# Enable verbose logging (adds timestamps, connection details)
-{% if verbose_logging %}Verbose
-{% endif %}
-
-# Log to syslog (true) or to file (false)
-{% if use_syslog %}Syslog
-{% endif %}
-
-# Path to log file (used only if Syslog is not set)
-{% if log_file %}LogFile {{ log_file }}
-{% endif %}
-
-# Maximum log file size (in bytes); 0 = no rotation
-{% if max_log_size is defined %}MaxLogSize {{ max_log_size }}
-{% endif %}
-
-# How many old log files to retain
-{% if log_rotate_count is defined %}LogRotateCount {{ log_rotate_count }}
-{% endif %}
-
-# Envelope sender header to rewrite (e.g., Return-Path)
-{% if rewrite_sender %}RewriteSender {{ rewrite_sender }}
-{% endif %}
-
-# Alias file path for local delivery (sendmail-style)
-{% if alias_file %}AliasFile {{ alias_file }}
-{% endif %}
-
-# Delivery method: mda (local delivery via MDA) or relay (forward to another MTA)
-{% if delivery_mode %}DeliveryMode {{ delivery_mode }}
-{% endif %}
-
-# For DeliveryMode=relay: target relay host (host:port)
-{% if relay_host %}RelayHost {{ relay_host }}
-{% endif %}
-
-# For DeliveryMode=relay: authentication for relay host
-{% if relay_user %}RelayUser {{ relay_user }}
-{% endif %}
-
-# For DeliveryMode=relay: password for relay user (plaintext — protect file permissions!)
-{% if relay_pass %}RelayPass {{ relay_pass }}
-{% endif %}
-
-# For DeliveryMode=relay: enable TLS for relay connection
-{% if relay_tls %}RelayTLS
-{% endif %}
+# Flush the DMA queue every {{ cron_interval_minutes }} minutes as {{ cron_user }}.
+*/{{ cron_interval_minutes }} * * * * {{ cron_user }} [ -x /usr/sbin/dma ] && /usr/sbin/dma -q

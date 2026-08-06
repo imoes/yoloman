@@ -1,91 +1,184 @@
-# nfcapd - NetFlow capture daemon configuration
-# Run nfcapd with this config file: nfcapd -c /etc/nfdump/nfcapd.conf
+#!/bin/sh
 
-# Listen on these network interfaces (empty = all, or specify e.g. ['eth0', 'eth1'])
-# Use empty list to auto-detect interfaces (not recommended in production)
-{% if interfaces | length > 0 %}Interface {{ interfaces | join(' ') }}
-{% else %}# Interface not specified; use -i flag at runtime
-{% endif %}
+### BEGIN INIT INFO
+# Provides:          netflow capture daemon
+# Required-Start:    $network $remote_fs $syslog
+# Required-Stop:     $network $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Flow-based network traffic analyser
+# Description:       Manage all nfcapd instanaces defined in
+#                    /etc/nfdump/*.conf
+### END INIT INFO
 
-# Listen on this UDP port for NetFlow/IPFIX/sFlow data (default: 2055)
-Port {{ port }}
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+NAME=nfcapd
+DESC='Netflow capture daemon'
+NFCAPD='/usr/bin/nfcapd'
+PIDDIR="/var/run/$NAME/"
 
-# Listen on this TCP port for sFlow over TCP (default: disabled unless specified)
-{% if tcp_port > 0 %}TcpPort {{ tcp_port }}
-{% endif %}
+[ -x "$NFCAPD" ] || exit 0
 
-# Root directory where flow files are stored
-# nfcapd creates subdirectories by date/time: YYYY/MM/DD
-BaseDir {{ base_dir }}
+mkdir -p "$PIDDIR"
 
-# Subdirectory for compressed archives (relative to BaseDir)
-# Leave empty to disable archive rotation/compression
-{% if archive_dir | length > 0 %}ArchiveDir {{ archive_dir }}
-{% endif %}
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
 
-# File retention policy: keep files for N days (default: 7)
-Retention {{ retention_days }}
+# Define LSB functions
+. /lib/lsb/init-functions
 
-# BPF filter to apply to captured packets (optional, e.g., 'udp port 2055')
-{% if bpf_filter | length > 0 %}Filter {{ bpf_filter }}
-{% endif %}
+# Start a nfcapd instance
+#
+# Return
+#   0 if daemon has been started
+#   1 if daemon was already running
+#   2 if daemon could not be started
+do_start () {
+    local INSTANCE="$1"
+    local CONFIG="$2"
 
-# Timeout (in seconds) before flushing buffer (default: 20)
-Timeout {{ flush_timeout }}
+    sh -n "$CONFIG" 2>/dev/null || return 2
 
-# Write interval (in seconds) for periodic file rotation (default: 600)
-# Files are rotated every N seconds
-Rotate {{ rotate_interval }}
+    cache_dir=
+    user=
+    group=
+    options=
 
-# Compress rotated files using gzip (true/false)
-{% if compress | lower == 'true' or compress == True %}Compress yes
-{% else %}Compress no
-{% endif %}
+    . "$CONFIG"
 
-# Use binary format (default: nfv9/ipfix/sflow compatible; do not change)
-# 'standard' = default nfcapd format; 'extended' = includes additional metadata
-{% if format == 'extended' %}Format extended
-{% else %}Format standard
-{% endif %}
+    [ "$options" ] || return 2
 
-# Create PID file (optional, useful for service management)
-{% if pidfile | length > 0 %}PIDFile {{ pidfile }}
-{% endif %}
+    if [ "$cache_dir" ] ; then
+        mkdir -p "$cache_dir"
+        if [ "$user" ] && [ "$group" ] ; then
+            chown "$user:$group" "$cache_dir"
+        elif [ "$user" ] ; then
+            chown "$user" "$cache_dir"
+        fi
+    fi
 
-# Set user/group after binding ports (for security, e.g., 'nobody:nobody')
-{% if user | length > 0 %}User {{ user }}
-{% endif %}
-{% if group | length > 0 %}Group {{ group }}
-{% endif %}
+    local PIDFILE="$PIDDIR$INSTANCE.pid"
+    # Check if process is already running
+    start-stop-daemon --start --quiet \
+        --pidfile "$PIDFILE" --exec "$NFCAPD" --test > /dev/null \
+        || return 1
 
-# Run in background (daemon mode)
-{% if daemonize | lower == 'true' or daemonize == True %}Daemon yes
-{% else %}Daemon no
-{% endif %}
+    # Start process
+    start-stop-daemon --start --quiet \
+        --pidfile "$PIDFILE" \
+        --exec "$NFCAPD" -- \
+        -D -P "$PIDFILE" \
+        $options \
+        || return 2
 
-# Enable extended sFlow support (e.g., for vendor-specific extensions)
-{% if sflow_extended | lower == 'true' or sflow_extended == True %}SFlowExtended yes
-{% else %}SFlowExtended no
-{% endif %}
+    # Wait for 1 sec and check again if process has started successfully
+    sleep 1
+    start-stop-daemon --start --quiet \
+        --pidfile "$PIDFILE" --exec "$NFCAPD" --test > /dev/null \
+        && return 2
 
-# Enable support for NetFlow v9/IPFIX templates (default: yes)
-{% if template_cache | lower == 'true' or template_cache == True %}TemplateCache yes
-{% else %}TemplateCache no
-{% endif %}
+    # All good, return 0
+    return 0
+}
 
-# Memory pool size for packet buffering (in MB); higher = better for high rates
-{% if mempool_size > 0 %}Mempool {{ mempool_size }}
-{% endif %}
+# Stop a nfcapd instance
+#
+# Return
+#   0 if daemon has been stopped
+#   1 if daemon was already stopped
+#   2 if daemon could not be stopped
+#   other if a failure occurred
+do_stop () {
+    local INSTANCE="$1"
 
-# Max number of open files (ulimit -n); auto-adjusted if not set
-{% if max_open_files > 0 %}MaxOpenFiles {{ max_open_files }}
-{% endif %}
+    local PIDFILE="$PIDDIR/$INSTANCE.pid"
+    start-stop-daemon --stop --quiet \
+        --retry=TERM/30/KILL/5 --pidfile "$PIDFILE" --name "$NAME"
+    RETVAL="$?"
+    [ "$RETVAL" = 2 ] && return 2
+    # Many daemons don't delete their pidfiles when they exit.
+    rm -f "$PIDFILE"
+    return "$RETVAL"
+}
 
-# Skip flow records older than N seconds (to avoid reprocessing stale data)
-# Only effective when using live capture (e.g., from -p pipe input)
-{% if skip_stale > 0 %}SkipStale {{ skip_stale }}
-{% endif %}
+EXIT=0
 
-# Additional options passed directly to nfcapd (advanced use)
-{% if extra_opts | length > 0 %}{{ extra_opts }}
-{% endif %}
+do_action () {
+    local CONFIG="$1"
+
+    INSTANCE="$(basename "${CONFIG%%.conf}")"
+
+    case "$ACTION" in
+        start)
+            [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$INSTANCE"
+            do_start "$INSTANCE" "$CONFIG"
+            case "$?" in
+                0|1)    [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+                2)
+                    [ "$VERBOSE" != no ] && log_end_msg 1
+                    EXIT=1
+                    ;;
+            esac
+            ;;
+        stop)
+            [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$INSTANCE"
+            do_stop "$INSTANCE"
+            case "$?" in
+                0|1)    [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+                2)
+                    [ "$VERBOSE" != no ] && log_end_msg 1
+                    EXIT=1
+                    ;;
+            esac
+            ;;
+        status)
+            status_of_proc -p "$PIDDIR/$INSTANCE.pid" "$NFCAPD" "nfcapd $INSTANCE instance" || EXIT=$?
+            ;;
+        restart|force-reload)
+            log_daemon_msg "Restarting $DESC" "$INSTANCE"
+            do_stop "$INSTANCE"
+            case "$?" in
+                0|1)
+                    do_start "$INSTANCE" "$CONFIG"
+                    case "$?" in
+                        0)  log_end_msg 0 ;;
+                        *)
+                            # Old process is still running or
+                            # failed to start
+                            log_end_msg 1 ;;
+                    esac
+                    ;;
+                *)
+                    # Failed to stop
+                    log_end_msg 1
+                    ;;
+                esac
+            ;;
+        *)
+            echo "Usage: /etc/init.d/nfdump {start|stop|status|restart|force-reload} [<instance> ...]" >&2
+            exit 3
+            ;;
+    esac
+}
+
+
+ACTION="$1"
+shift
+
+if [ "$1" ] ; then
+    while [ "$1" ] ; do
+        CONFIG="/etc/nfdump/$1.conf"
+        if [ -f "$CONFIG" ] ; then
+            do_action "$CONFIG"
+        fi
+        shift
+    done
+else
+    for CONFIG in /etc/nfdump/*.conf ; do
+        if [ -f "$CONFIG" ] ; then
+            do_action "$CONFIG"
+        fi
+    done
+fi
+
+exit $EXIT

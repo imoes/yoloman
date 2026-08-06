@@ -7,7 +7,27 @@
   "debug_level": {
     "type": "string",
     "default": "",
-    "description": "Debug level suffix (e.g., ' 2' for more verbose logs); empty to use default level."
+    "description": "Debug level suffix (e.g., ' 2' for more verbose logs); empty to use default level.",
+    "enum": [
+      "packet",
+      "prunes",
+      "routes",
+      "rtdetail",
+      "peers",
+      "cache",
+      "timeout",
+      "interface",
+      "groups",
+      "mtrace",
+      "igmp",
+      "icmp",
+      "rsrr",
+      "pim",
+      "pim_routes",
+      "pim_bsr",
+      "pim_detail",
+      "pim_hello"
+    ]
   },
   "vrid": {
     "type": "number",
@@ -27,22 +47,7 @@
   "boundaries": {
     "type": "list",
     "default": [],
-    "description": "List of boundary filters (inbound ACLs) per interface to restrict multicast sources or groups.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "interface": {
-          "type": "string",
-          "default": "",
-          "description": "Interface name (e.g., eth0, eth1)."
-        },
-        "acl": {
-          "type": "string",
-          "default": "",
-          "description": "Access-list name (e.g., 'mcast_boundary'); empty to remove boundary."
-        }
-      }
-    }
+    "description": "List of boundary filters (inbound ACLs) per interface to restrict multicast sources or groups."
   },
   "rp_address": {
     "type": "string",
@@ -62,27 +67,7 @@
   "static_routes": {
     "type": "list",
     "default": [],
-    "description": "List of static (*,G) multicast routes for manual forwarding control.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "group": {
-          "type": "string",
-          "default": "",
-          "description": "Multicast group address (e.g., 239.1.1.0/24)."
-        },
-        "next_hop": {
-          "type": "string",
-          "default": "",
-          "description": "Next-hop IP address (e.g., 10.0.0.1)."
-        },
-        "interface": {
-          "type": "string",
-          "default": "",
-          "description": "Outgoing interface name (e.g., eth0)."
-        }
-      }
-    }
+    "description": "List of static (*,G) multicast routes for manual forwarding control."
   },
   "interfaces": {
     "type": "list",
@@ -96,81 +81,11 @@
         "igmp_querier": true
       }
     ],
-    "description": "Per-interface PIM/IGMP settings.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Interface name (e.g., eth0, wlan0)."
-        },
-        "mode": {
-          "type": "string",
-          "default": "sm",
-          "description": "PIM mode for the interface: 'sm' (sparse) or 'dm' (dense)."
-        },
-        "hello_interval": {
-          "type": "number",
-          "default": 30,
-          "description": "PIM Hello interval in seconds (1\u201365535)."
-        },
-        "dr_priority": {
-          "type": "number",
-          "default": 1,
-          "description": "Designated Router (DR) priority (higher = more likely to become DR)."
-        },
-        "pim_disabled": {
-          "type": "bool",
-          "default": false,
-          "description": "Disable PIM on this interface."
-        },
-        "igmp_querier": {
-          "type": "bool",
-          "default": false,
-          "description": "Act as IGMP querier on this interface (for local host group discovery)."
-        }
-      }
-    }
+    "description": "Per-interface PIM/IGMP settings."
   },
   "access_lists": {
     "type": "list",
     "default": [],
-    "description": "Access-lists to filter multicast groups (e.g., for ACL-based boundaries).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Access-list name (e.g., 'mcast_acl')."
-        },
-        "pattern": {
-          "type": "string",
-          "default": "",
-          "description": "Multicast group/prefix pattern (e.g., '239.0.0.0/8')."
-        }
-      }
-    }
-  },
-  "boundary_outgoing": {
-    "type": "list",
-    "default": [],
-    "description": "Outbound boundaries for multicast (e.g., to limit tunnel ingress).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "interface": {
-          "type": "string",
-          "default": "",
-          "description": "Outgoing interface name."
-        },
-        "acl": {
-          "type": "string",
-          "default": "",
-          "description": "ACL name to apply; empty to remove."
-        }
-      }
-    }
+    "description": "Access-lists to filter multicast groups and sources."
   }
 }

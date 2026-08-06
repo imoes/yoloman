@@ -1,0 +1,92 @@
+# =============================================================================
+# Comitup Configuration Template
+# =============================================================================
+# This template generates the configuration file for comitup, a tool that
+# automatically manages WiFi connections and creates an Access Point (hotspot)
+# when no known network is available.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ap_name
+# -----------------------------------------------------------------------------
+# Name used for the AP hotspot and ZeroConf hostname; supports placeholders
+# like <nnn> (replaced by a unique number) and <hostname>.
+# Must be an ASCII string with no spaces or special characters for ZeroConf.
+# -----------------------------------------------------------------------------
+ap_name: {{ ap_name | default('comitup-<nnn>') }}
+
+# -----------------------------------------------------------------------------
+# ap_password
+# -----------------------------------------------------------------------------
+# Password for WPA-PSK AP hotspot (8–63 characters).
+# Empty string means the hotspot is open (no password).
+# -----------------------------------------------------------------------------
+ap_password: {{ ap_password | default('') }}
+
+# -----------------------------------------------------------------------------
+# web_service
+# -----------------------------------------------------------------------------
+# Systemd service name to manage (disable when in hotspot mode, enable otherwise).
+# The service should be disabled via systemctl so comitup manages it exclusively.
+# -----------------------------------------------------------------------------
+web_service: {{ web_service | default('') }}
+
+# -----------------------------------------------------------------------------
+# service_name
+# -----------------------------------------------------------------------------
+# mdns service name to advertise (appended with '._tcp').
+# Example: "_comitup._tcp"
+# -----------------------------------------------------------------------------
+service_name: {{ service_name | default('comitup') }}
+
+# -----------------------------------------------------------------------------
+# enable_appliance_mode
+# -----------------------------------------------------------------------------
+# Enable dual-WiFi appliance mode with NAT and hotspot forwarding.
+# When true, comitup maintains the hotspot on one adapter and connects to
+# other APs on a second adapter, forwarding traffic via NAT.
+# -----------------------------------------------------------------------------
+enable_appliance_mode: {{ enable_appliance_mode | default(false) }}
+
+# -----------------------------------------------------------------------------
+# external_callback
+# -----------------------------------------------------------------------------
+# Path to executable script called on state changes.
+# Arguments passed: 'HOTSPOT', 'CONNECTING', or 'CONNECTED'.
+# The script must be executable and run with the permissions of the owning user.
+# -----------------------------------------------------------------------------
+external_callback: {{ external_callback | default('') }}
+
+# -----------------------------------------------------------------------------
+# primary_wifi_device
+# -----------------------------------------------------------------------------
+# Override default primary WiFi interface (used for AP).
+# By default, the first wifi device returned by NetworkManager is used.
+# -----------------------------------------------------------------------------
+primary_wifi_device: {{ primary_wifi_device | default('') }}
+
+# -----------------------------------------------------------------------------
+# verbose
+# -----------------------------------------------------------------------------
+# Verbose logging level; 0 = minimal, higher values increase verbosity.
+# Logs are written to /var/log/comitup.log.
+# -----------------------------------------------------------------------------
+verbose: {{ verbose | default(0) }}
+
+# -----------------------------------------------------------------------------
+# enable_nuke
+# -----------------------------------------------------------------------------
+# Enable hardware nuke feature (short pins 39–40 on Raspberry Pi for 3s to reset config).
+# If true, comitup monitors pins 39 and 40; a 3-second short deletes all
+# defined WiFi connections, flashes the LED 3 times, and restarts comitup.
+# -----------------------------------------------------------------------------
+enable_nuke: {{ enable_nuke | default(0) }}
+
+# -----------------------------------------------------------------------------
+# ipv6_link_local
+# -----------------------------------------------------------------------------
+# Force link-local IPv6 only on upstream connections (0 = disabled, 1 = enabled).
+# This restricts IPv6 on upstream WiFi to link-local addresses, preventing
+# internet routability for that protocol on upstream interfaces.
+# -----------------------------------------------------------------------------
+ipv6_link_local: {{ ipv6_link_local | default(0) }}

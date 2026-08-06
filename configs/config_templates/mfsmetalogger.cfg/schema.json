@@ -31,12 +31,12 @@
   },
   "master_timeout": {
     "type": "number",
-    "default": 60,
+    "default": 10,
     "description": "Timeout (in seconds) for connecting to or receiving data from the master."
   },
   "reconnect_timeout": {
     "type": "number",
-    "default": 10,
+    "default": 5,
     "description": "Delay (in seconds) before attempting to reconnect to the master after disconnection."
   },
   "persistence": {
@@ -47,17 +47,7 @@
   "replicas": {
     "type": "list",
     "default": [],
-    "description": "List of additional metalogger replicas to sync metadata with.",
-    "items": {
-      "host": {
-        "type": "string",
-        "description": "Hostname or IP of the replica metalogger."
-      },
-      "port": {
-        "type": "number",
-        "description": "Port number of the replica metalogger (usually 9420)."
-      }
-    }
+    "description": "List of additional metalogger replicas to sync metadata with."
   },
   "allowed_hosts": {
     "type": "string",
@@ -73,5 +63,44 @@
     "type": "bool",
     "default": false,
     "description": "Enable verbose logging and diagnostics for troubleshooting."
+  },
+  "syslog_min_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum level of messages reported by metalogger; options: ERROR, WARNING, NOTICE, INFO, DEBUG.",
+    "enum": [
+      "ERROR",
+      "WARNING",
+      "NOTICE",
+      "INFO",
+      "DEBUG"
+    ]
+  },
+  "syslog_elevate_to": {
+    "type": "string",
+    "default": "NOTICE",
+    "description": "Minimum syslog level to elevate lower-priority messages to.",
+    "enum": [
+      "ERROR",
+      "WARNING",
+      "NOTICE",
+      "INFO",
+      "DEBUG"
+    ]
+  },
+  "back_logs": {
+    "type": "number",
+    "default": 50,
+    "description": "Number of metadata change log files to keep."
+  },
+  "back_meta_keep_previous": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of previous metadata files to keep."
+  },
+  "meta_download_freq": {
+    "type": "number",
+    "default": 24,
+    "description": "Metadata download frequency in hours (at most back_logs/2)."
   }
 }

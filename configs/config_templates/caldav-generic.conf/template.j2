@@ -1,75 +1,79 @@
-[# Caldav Generic plugin configuration for lomiri-online-accounts]
+# CalDAV Generic Plugin Configuration
+# -------------------------------------
+# This file configures the CalDAV plugin for lomiri-online-accounts.
+# It uses a simple INI-like structure under the [General] section.
+# Most boolean and string options have safe defaults provided via Jinja2 `default` filters.
+
 [General]
-{% if enabled | default(true) %}# Enable the CalDAV plugin
-Enabled=true{% else %}
-Enabled=false{% endif %}
 
-{% if debug | default(false) %}# Enable debug logging
-Debug=true{% else %}
-Debug=false{% endif %}
-
-{% if auth_method %}# Authentication method: 'basic', 'digest', 'oauth2', or 'none'
-AuthMethod={{ auth_method }}{% else %}
-AuthMethod=basic{% endif %}
-
-{% if server_url %}# Base URL of the CalDAV server (e.g., https://caldav.example.com/dav/user@domain/)
-ServerURL={{ server_url }}{% else %}
-# ServerURL is required for operation
+# Enable the CalDAV plugin. If false, the plugin will not load.
+{% if enabled | default(true) %}Enabled=true
+{% else %}Enabled=false
 {% endif %}
 
-{% if username %}# Username for authentication (may be email or principal path)
-Username={{ username }}{% else %}
-# Username may be left empty if OAuth2 is used
+# Enable verbose debug logging. Only recommended for troubleshooting.
+{% if debug | default(false) %}Debug=true
+{% else %}Debug=false
 {% endif %}
 
-{% if display_name %}# Human-readable display name for the account
-DisplayName={{ display_name }}{% else %}
-# Display name defaults to the username if omitted
+# Authentication method to use. Supported: 'basic', 'digest', 'oauth2', 'none'.
+AuthMethod={{ auth_method | default('basic') }}
+
+# Base URL of the CalDAV server (e.g., https://caldav.example.com/dav/user/). Required if not using auto-discovery.
+ServerURL={{ server_url | default('') }}
+
+# User identifier for authentication (often email address). Not used for OAuth2.
+Username={{ username | default('') }}
+
+# Human-readable account name shown in the UI. Falls back to username if omitted.
+DisplayName={{ display_name | default('') }}
+
+# Require encrypted (TLS/SSL) connections to the server.
+{% if use_ssl | default(true) %}UseSSL=true
+{% else %}UseSSL=false
 {% endif %}
 
-{% if use_ssl | default(true) %}# Enforce TLS/SSL for connections
-UseSSL=true{% else %}
-UseSSL=false{% endif %}
-
-{% if verify_ssl | default(true) %}# Verify server certificate
-VerifySSL=true{% else %}
-VerifySSL=false{% endif %}
-
-{% if sync_interval %}# Sync interval in seconds
-SyncInterval={{ sync_interval }}{% else %}
-SyncInterval=1800{% endif %}
-
-{% if timeout %}# Connection timeout in seconds
-Timeout={{ timeout }}{% else %}
-Timeout=30{% endif %}
-
-{% if max_retries %}# Maximum number of retries on network failure
-MaxRetries={{ max_retries }}{% else %}
-MaxRetries=3{% endif %}
-
-{% if caldav_path %}# Optional: Custom CalDAV path (e.g., /dav/user/calendar/)
-CalDAVPath={{ caldav_path }}{% else %}
-# CalDAVPath defaults to server root or auto-discovery
+# Verify server certificate chain and hostname. Disable only for self-signed certs (not recommended).
+{% if verify_ssl | default(true) %}VerifySSL=true
+{% else %}VerifySSL=false
 {% endif %}
 
-{% if supports_vcards | default(true) %}# Indicate if CardDAV (vCards) is supported on same server
-SupportsVCards=true{% else %}
-SupportsVCards=false{% endif %}
+# Interval (in seconds) between automatic sync attempts (minimum: 60).
+SyncInterval={{ sync_interval | default(1800) }}
 
-{% if supports_events | default(true) %}# Indicate if calendar event sync is enabled
-SupportsEvents=true{% else %}
-SupportsEvents=false{% endif %}
+# Connection and request timeout in seconds.
+Timeout={{ timeout | default(30) }}
 
-{% if supports_tasks | default(false) %}# Indicate if task sync is enabled
-SupportsTasks=true{% else %}
-SupportsTasks=false{% endif %}
+# Maximum number of retries for failed sync attempts.
+MaxRetries={{ max_retries | default(3) }}
 
-# List of CalDAV calendars to auto-subscribe to (by path or display name)
-{% if calendars %}# Calendars to sync
-{% for cal in calendars %}# Calendar: {{ cal.name | default('unnamed') }}
-{% if cal.path %}{{ loop.index }}.Path={{ cal.path }}
-{% endif %}{% if cal.name %}{{ loop.index }}.Name={{ cal.name }}
-{% endif %}{% if cal.readonly | default(false) %}{{ loop.index }}.ReadOnly=true
+# Optional override for CalDAV path if server uses a non-standard endpoint.
+CalDAVPath={{ caldav_path | default('') }}
+
+# Set to false if the server does not support CardDAV (vCards) for contacts.
+{% if supports_vcards | default(true) %}SupportsVCards=true
+{% else %}SupportsVCards=false
+{% endif %}
+
+# Set to false to disable calendar event synchronization.
+{% if supports_events | default(true) %}SupportsEvents=true
+{% else %}SupportsEvents=false
+{% endif %}
+
+# Enable task/ToDo synchronization (server must support Tasks extension).
+{% if supports_tasks | default(false) %}SupportsTasks=true
+{% else %}SupportsTasks=false
+{% endif %}
+
+# List of CalDAV calendars to automatically subscribe to during setup.
+{% if calendars | default([]) | length > 0 %}
+{% for cal in calendars %}
+# Calendar entry: {{ loop.index }}
+{% if cal.path | default('') %}{{ loop.index }}.Path={{ cal.path }}
+{% endif %}
+{% if cal.name | default('') %}{{ loop.index }}.Name={{ cal.name }}
+{% endif %}
+{% if cal.readonly | default(false) %}{{ loop.index }}.ReadOnly=true
 {% else %}{{ loop.index }}.ReadOnly=false
 {% endif %}
 {% endfor %}{% endif %}

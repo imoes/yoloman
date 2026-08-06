@@ -1,45 +1,71 @@
-# Enable or disable the Bluetooth Mesh subsystem
-MeshEnabled={{ mesh_enabled | lower }}
+# ==============================================================================
+# Bluetooth Mesh Configuration Template
+#
+# This template generates the configuration file for the Bluetooth Mesh daemon.
+# It is self-documenting: every directive includes its schema description as a comment.
+# All variables use safe defaults to prevent render failures if variables are undefined.
+# ==============================================================================
 
-# Directory where mesh application keys and nodes are stored
-MeshStateDir={{ mesh_state_dir }}
+# Enable or disable the Bluetooth Mesh subsystem.
+# Type: boolean. Default: true.
+MeshEnabled={{ mesh_enabled | default(true) | lower }}
 
-# Directory for storing application and network keys
-MeshKeyDir={{ mesh_key_dir }}
+# Directory where mesh application keys and node states are stored.
+# Type: string. Default: /var/lib/bluetooth/mesh.
+MeshStateDir={{ mesh_state_dir | default('/var/lib/bluetooth/mesh') }}
 
-# Number of mesh nodes the daemon should support concurrently
-MaxMeshNodes={{ max_mesh_nodes }}
+# Directory for storing sensitive application and network keys.
+# Type: string. Default: /etc/bluetooth/mesh-keys.
+MeshKeyDir={{ mesh_key_dir | default('/etc/bluetooth/mesh-keys') }}
 
-# Maximum number of relay messages to buffer
-MaxRelayBuffer={{ max_relay_buffer }}
+# Maximum number of mesh nodes the daemon should support concurrently.
+# Type: integer. Default: 10.
+MaxMeshNodes={{ max_mesh_nodes | default(10) }}
 
-# Number of seconds before a relay message is discarded
-RelayExpiryTime={{ relay_expiry_time }}
+# Maximum number of relay messages to buffer.
+# Type: integer. Default: 64.
+MaxRelayBuffer={{ max_relay_buffer | default(64) }}
 
-# Number of seconds between beacon transmissions
-BeaconInterval={{ beacon_interval }}
+# Number of seconds after which a relay message is discarded.
+# Type: integer. Default: 60.
+RelayExpiryTime={{ relay_expiry_time | default(60) }}
 
-# Enable or disable GATT proxy service
-GattProxyEnabled={{ gatt_proxy_enabled | lower }}
+# Interval in seconds between beacon transmissions.
+# Type: integer. Default: 10.
+BeaconInterval={{ beacon_interval | default(10) }}
 
-# Enable or disable friend node functionality
-FriendEnabled={{ friend_enabled | lower }}
+# Enable or disable GATT proxy service (allows GATT-based provisioning and proxying).
+# Type: boolean. Default: true.
+GattProxyEnabled={{ gatt_proxy_enabled | default(true) | lower }}
 
-# Number of friend node connections to support
-MaxFriendConnections={{ max_friend_connections }}
+# Enable or disable Friend node functionality (enables message caching for Low Power Nodes).
+# Type: boolean. Default: false.
+FriendEnabled={{ friend_enabled | default(false) | lower }}
 
-# Enable or disable low power node support
-LowPowerNodeEnabled={{ low_power_node_enabled | lower }}
+# Maximum number of simultaneous Friend connections to support.
+# Type: integer. Default: 4.
+MaxFriendConnections={{ max_friend_connections | default(4) }}
 
-# Number of Low Power Nodes supported
-MaxLowPowerNodes={{ max_low_power_nodes }}
+# Enable or disable Low Power Node (LPN) support (requires Friend node).
+# Type: boolean. Default: false.
+LowPowerNodeEnabled={{ low_power_node_enabled | default(false) | lower }}
 
-# Number of seconds between poll messages from LPN to Friend
-PollTimeout={{ poll_timeout }}
+# Maximum number of Low Power Nodes to support.
+# Type: integer. Default: 2.
+MaxLowPowerNodes={{ max_low_power_nodes | default(2) }}
 
-# Number of seconds between Friendship establishment retries
-FriendshipRetryTimeout={{ friendship_retry_timeout }}
+# Number of seconds between poll messages sent by an LPN to its Friend.
+# Type: integer. Default: 30.
+PollTimeout={{ poll_timeout | default(30) }}
 
-# List of additional configuration options (key=value pairs) to include in the config
-{% for item in extra_config %}{{ item.key }}={{ item.value }}
+# Number of seconds to wait before retrying a failed Friendship establishment.
+# Type: integer. Default: 5.
+FriendshipRetryTimeout={{ friendship_retry_timeout | default(5) }}
+
+# List of custom key-value configuration overrides to append.
+# Type: list of dicts with 'key' and 'value' strings. Default: [].
+# Note: This uses Jinja2 dict2items because direct iteration over mapping keys
+# requires specific iteration syntax, but the schema defines it as a list of objects.
+# If extra_config is a list of dicts:
+{% for item in extra_config | default([]) %}{{ item.key }}={{ item.value }}
 {% endfor %}

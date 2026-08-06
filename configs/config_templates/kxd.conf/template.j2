@@ -1,42 +1,72 @@
 # Main configuration for kxd — the kernel eXecution Daemon
 # Enables secure, sandboxed execution of user-provided code
+#
+# This configuration is managed by Ansible. Do not edit manually.
 kxd:
   # Listen address and port for the API server
   listen:
-    address: {{ listen_address }}
-    port: {{ listen_port }}
-  
+    # IP address to bind the kxd API server to.
+    # Default: '0.0.0.0' (all interfaces)
+    address: {{ listen_address | default('0.0.0.0') }}
+    # Port to listen on for the kxd API server.
+    # Default: 8080
+    port: {{ listen_port | default(8080) }}
+
   # Paths for persistent storage and temporary working files
   paths:
-    work_dir: {{ paths_work_dir }}
-    state_dir: {{ paths_state_dir }}
-    log_dir: {{ paths_log_dir }}
-  
+    # Directory for temporary job working files (e.g., compiled binaries).
+    # Default: '/var/lib/kxd/work'
+    work_dir: {{ paths_work_dir | default('/var/lib/kxd/work') }}
+    # Directory for persistent state (e.g., job metadata, caches).
+    # Default: '/var/lib/kxd/state'
+    state_dir: {{ paths_state_dir | default('/var/lib/kxd/state') }}
+    # Directory for kxd logs.
+    # Default: '/var/log/kxd'
+    log_dir: {{ paths_log_dir | default('/var/log/kxd') }}
+
   # Resource limits for sandboxed jobs
   limits:
-    max_memory_mb: {{ limits_max_memory_mb }}
-    max_cpu_time_sec: {{ limits_max_cpu_time_sec }}
-    max_open_files: {{ limits_max_open_files }}
-    max_processes: {{ limits_max_processes }}
-  
+    # Maximum memory (in MiB) allowed per sandboxed job.
+    # Default: 256
+    max_memory_mb: {{ limits_max_memory_mb | default(256) }}
+    # CPU time (in seconds) allowed per sandboxed job before termination.
+    # Default: 10
+    max_cpu_time_sec: {{ limits_max_cpu_time_sec | default(10) }}
+    # Maximum number of open file descriptors allowed per sandboxed job.
+    # Default: 32
+    max_open_files: {{ limits_max_open_files | default(32) }}
+    # Maximum number of processes allowed per sandboxed job.
+    # Default: 4
+    max_processes: {{ limits_max_processes | default(4) }}
+
   # Worker pool configuration
   workers:
-    count: {{ workers_count }}
-    gc_interval_sec: {{ workers_gc_interval_sec }}
-  
+    # Number of worker processes to spawn.
+    # Default: 4
+    count: {{ workers_count | default(4) }}
+    # Interval (in seconds) between worker garbage collection cycles.
+    # Default: 300
+    gc_interval_sec: {{ workers_gc_interval_sec | default(300) }}
+
   # Security settings
   security:
-    # Enable/disable network access for sandboxed jobs
-    allow_network: {{ security_allow_network }}
-    # Enable/disable file system sandboxing
-    sandbox_fs: {{ security_sandbox_fs }}
-    # List of allowed base images (container runtimes or chroot roots)
+    # Allow sandboxed jobs to access the network. Disable for stricter isolation.
+    # Default: false
+    allow_network: {{ security_allow_network | default(false) }}
+    # Enable filesystem sandboxing using mount namespaces or chroot.
+    # Default: true
+    sandbox_fs: {{ security_sandbox_fs | default(true) }}
+    # List of allowed base images for sandboxed jobs. Each entry defines a name,
+    # filesystem path, and whether the image is mounted read-only.
+    # Default: [{'name': 'alpine', 'path': '/opt/kxd/images/alpine.tar', 'read_only': True},
+    #           {'name': 'debian-slim', 'path': '/opt/kxd/images/debian.tar', 'read_only': True}]
     allowed_images:
-      {% for image in security_allowed_images %}
+      {% for image in (security_allowed_images | default([{'name': 'alpine', 'path': '/opt/kxd/images/alpine.tar', 'read_only': True}, {'name': 'debian-slim', 'path': '/opt/kxd/images/debian.tar', 'read_only': True}])) %}
       - name: {{ image.name }}
         path: {{ image.path }}
         read_only: {{ image.read_only }}
       {% endfor %}
-  
+
   # Logging verbosity (debug, info, warn, error)
-  log_level: {{ log_level }}
+  # Default: 'info'
+  log_level: {{ log_level | default('info') }}

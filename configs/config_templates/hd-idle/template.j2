@@ -1,5 +1,71 @@
-# hd-idle configuration file
-# Each line defines a disk to manage and its idle timeout (in seconds)
-# Syntax: -a <device> -i <idle_time> [-t] [-u <user>] [-p <pidfile>]
-{% for disk in disks %}-a {{ disk.device }} -i {{ disk.idle_time }}{% if disk.spin_down_test is defined %} -t{% endif %}{% if disk.user is defined %} -u {{ disk.user }}{% endif %}{% if disk.pidfile is defined %} -p {{ disk.pidfile }}{% endif %}
+# defaults file for hd-idle
+
+# start hd-idle automatically?
+# Description: If true, start hd-idle automatically at boot.
+# Default: False
+START_HD_IDLE={{ start_hd_idle | default(false) | lower }}
+
+# hd-idle command line options
+# Description: Command-line options passed to hd-idle. Overrides per-disk settings only if explicitly set per device in 'disks'.
+# Options are:
+#  -a <name>               Set device name of disks for subsequent idle-time
+#                          parameters (-i). This parameter is optional in the
+#                          sense that there's a default entry for all disks
+#                          which are not named otherwise by using this
+#                          parameter. This can also be a symlink
+#                          (e.g. /dev/disk/by-uuid/...)
+#  -i <idle_time>          Idle time in seconds.
+#  -c <command_type>       Api call to stop the device. Possible values are "scsi"
+#                          (default value) and "ata".
+#  -p <power_condition>
+#                          Power condition to send with the issued SCSI START STOP UNIT command. Possible values
+#                          are `0-15` (inclusive). The default value of `0` works fine for disks accessible via the
+#                          SCSI layer (USB, IEEE1394, ...), but it will *NOT* work as intended with real SCSI / SAS disks.
+#                          A stopped SAS disk will not start up automatically on access, but requires a startup command for reactivation.
+#                          Useful values for SAS disks are `2` for idle and `3` for standby.
+#  -s symlink_policy       Set the policy to resolve symlinks for devices.
+#                          If set to "0", symlinks are resolve only on start.
+#                          If set to "1", symlinks are also resolved on runtime
+#                          until success. By default symlinks are only resolve on start.
+#                          If the symlink doesn't resolve to a device, the default
+#                          configuration will be applied.
+#  -l <logfile>            Name of logfile (written only after a disk has spun
+#                          up). Please note that this option might cause the
+#                          disk which holds the logfile to spin up just because
+#                          another disk had some activity. This option should
+#                          not be used on systems with more than one disk
+#                          except for tuning purposes. On single-disk systems,
+#                          this option should not cause any additional spinups.
+#
+# Options not exactly useful here:
+#  -t <disk>               Spin-down the specified disk immediately and exit.
+#  -d                      Debug mode. It will print debugging info to
+#                          stdout/stderr (/var/log/syslog if started as with systemctl)
+#  -h                      Print usage information.
+HD_IDLE_OPTS={{ hd_idle_opts | default('-i 600') }}
+
+{% if disks | default([]) | length > 0 %}
+# Per-disk idle settings
+# Description: List of disks to manage with hd-idle. Each entry specifies device path, idle timeout, and optional parameters.
+{% for disk in disks | default([]) %}
+# Device: {{ disk.device | default('unknown') }}
+# Idle time: {{ disk.idle_time | default('none') }} seconds
+# Command type: {{ disk.command_type | default('scsi') }}
+# Power condition: {{ disk.power_condition | default('0') }}
+# Symlink policy: {{ disk.symlink_policy | default('0') }}
+# Logfile: {{ disk.logfile | default('none') }}
+{% if disk.name is defined and disk.name != none %}
+-a {{ disk.name }}
+{% endif %}
+-i {{ disk.idle_time | default(0) }}
+-c {{ disk.command_type | default('scsi') }}
+-p {{ disk.power_condition | default('0') }}
+-s {{ disk.symlink_policy | default('0') }}
+{% if disk.logfile is defined and disk.logfile != none %}
+-l {{ disk.logfile }}
+{% endif %}
+{% if disk.device is defined and disk.device != none %}
+{{ disk.device }}
+{% endif %}
 {% endfor %}
+{% endif %}

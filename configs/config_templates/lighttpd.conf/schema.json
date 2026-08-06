@@ -1,18 +1,16 @@
 {
   "server": {
     "type": "object",
-    "default": {
-      "document_root": "/srv/www/htdocs",
-      "port": 80,
-      "bind": "0.0.0.0",
-      "pid_file": "/run/lighttpd.pid",
-      "errorlog": "/var/log/lighttpd/error.log",
-      "accesslog": "/var/log/lighttpd/access.log",
-      "max_connections": 1024,
-      "network_backend": "sendfile",
-      "event_handler_key": "linux-sysepoll",
-      "event_handler_value": ""
-    },
+    "default": [
+      {
+        "document_root": "/srv/www/htdocs",
+        "port": 80,
+        "bind": "0.0.0.0",
+        "pid_file": "/run/lighttpd.pid",
+        "errorlog": "/var/log/lighttpd/error.log",
+        "accesslog": "/var/log/lighttpd/access.log"
+      }
+    ],
     "description": "Core server configuration: paths, binding, and limits."
   },
   "modules": {
@@ -24,29 +22,21 @@
       "mod_dirlisting",
       "mod_staticfile"
     ],
-    "items": {
-      "type": "string",
-      "description": "Name of a lighttpd module to load"
-    },
     "description": "List of modules to load at startup."
   },
   "mime_types": {
     "type": "list",
     "default": [
-      ".html\ttext/html",
-      ".txt\ttext/plain",
-      ".css\ttext/css",
-      ".js\tapplication/javascript",
-      ".json\tapplication/json",
-      ".jpg\timage/jpeg",
-      ".png\timage/png",
-      ".gif\timage/gif",
-      ".ico\timage/x-icon"
+      ".html\\ttext/html",
+      ".txt\\ttext/plain",
+      ".css\\ttext/css",
+      ".js\\tapplication/javascript",
+      ".json\\tapplication/json",
+      ".jpg\\timage/jpeg",
+      ".png\\timage/png",
+      ".gif\\timage/gif",
+      ".ico\\timage/x-icon"
     ],
-    "items": {
-      "type": "string",
-      "description": "MIME type mapping in format '.ext\ttype/subtype'"
-    },
     "description": "File extension to MIME type mappings."
   },
   "index_files": {
@@ -69,136 +59,67 @@
   },
   "compress": {
     "type": "object",
-    "default": {
-      "cache_dir": "/var/cache/lighttpd/compress/",
-      "filetypes": [
-        "text/plain",
-        "text/html",
-        "text/css",
-        "application/javascript",
-        "application/json"
-      ]
-    },
+    "default": [
+      {
+        "cache_dir": "/var/cache/lighttpd/compress/",
+        "filetypes": [
+          "text/plain",
+          "text/html",
+          "text/css",
+          "application/javascript",
+          "application/json"
+        ]
+      }
+    ],
     "description": "Compression configuration (Gzip)."
   },
   "ssl": {
     "type": "object",
-    "default": {
-      "enabled": false,
-      "pemfile": "/etc/lighttpd/server.pem",
-      "ca_file": "",
-      "use_sslv2": false,
-      "use_sslv3": false
-    },
+    "default": [
+      {
+        "enabled": false,
+        "pemfile": "/etc/lighttpd/server.pem",
+        "ca_file": ""
+      }
+    ],
     "description": "SSL/TLS settings. Enable only if HTTPS is needed."
   },
   "vhost": {
     "type": "object",
-    "default": {
-      "domain": "example.com",
-      "document_root": "/srv/www/vhosts/example.com",
-      "extra_config": ""
-    },
+    "default": [
+      {
+        "domain": "example.com",
+        "document_root": "/srv/www/vhosts/example.com",
+        "extra_config": ""
+      }
+    ],
     "description": "Virtual host configuration for domain-specific overrides."
   },
   "fastcgi": {
     "type": "object",
-    "default": {
-      "backends": []
-    },
-    "items": {
-      "type": "object",
-      "description": "FastCGI backend definitions.",
-      "items": {
-        "script": {
-          "type": "string",
-          "default": "/.fcgi",
-          "description": "URL path prefix handled by this FastCGI backend."
-        },
-        "host": {
-          "type": "string",
-          "default": "127.0.0.1",
-          "description": "Host address of the FastCGI process."
-        },
-        "port": {
-          "type": "number",
-          "default": 9000,
-          "description": "Port the FastCGI process listens on."
-        },
-        "docroot": {
-          "type": "string",
-          "default": "/",
-          "description": "Document root to pass to the FastCGI app."
-        }
+    "default": [
+      {
+        "backends": []
       }
-    },
+    ],
     "description": "List of FastCGI backends (e.g., for PHP-FPM)."
   },
   "rewrite": {
     "type": "object",
-    "default": {
-      "rules": []
-    },
-    "items": {
-      "type": "object",
-      "items": {
-        "pattern": {
-          "type": "string",
-          "default": "",
-          "description": "Regular expression pattern to match in the full URL."
-        },
-        "match_pattern": {
-          "type": "string",
-          "default": "",
-          "description": "Capturing group pattern to use in the target substitution."
-        },
-        "target": {
-          "type": "string",
-          "default": "",
-          "description": "Redirect target URL (supports backreferences like $1)."
-        }
-      },
-      "description": "URL rewriting rules."
-    },
-    "description": "Redirect/rewrite rules (e.g., HTTP \u2192 HTTPS, vanity URLs)."
-  },
-  "rate_limit": {
-    "type": "object",
-    "default": {
-      "hosts": []
-    },
-    "items": {
-      "type": "object",
-      "items": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Hostname to apply rate limit to."
-        },
-        "rate_limit": {
-          "type": "number",
-          "default": 10,
-          "description": "Maximum connections per second."
-        }
-      },
-      "description": "Per-host rate limiting rules."
-    },
-    "description": "Rate limiting per virtual host."
+    "default": [
+      {
+        "rules": []
+      }
+    ],
+    "description": "Redirect/rewrite rules (e.g., HTTP \\u2192 HTTPS, vanity URLs)."
   },
   "include": {
     "type": "object",
-    "default": {
-      "conf_dir": "/etc/lighttpd/conf.d"
-    },
+    "default": [
+      {
+        "conf_dir": "/etc/lighttpd/conf.d"
+      }
+    ],
     "description": "Directory containing additional configuration fragments."
-  },
-  "debug": {
-    "type": "object",
-    "default": {
-      "log_request_handling": false,
-      "log_response_handling": false,
-      "log_state_handling": false
-    },
-    "description": "Debug-level logging toggles (disable in production)."
   }
 }

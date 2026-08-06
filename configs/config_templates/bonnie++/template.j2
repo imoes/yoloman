@@ -1,0 +1,77 @@
+# bonnie++ configuration file
+#
+# This file defines the parameters for the bonnie++ disk benchmarking tool.
+# Each section corresponds to a command-line flag.
+# Defaults are provided inline to ensure safe rendering even if variables are undefined.
+
+# Directory where bonnie++ performs its IO and file tests.
+# (Required for non-default paths)
+-DIR {{ dir | default('/tmp/bonnie') }}
+
+# Level of concurrency
+# Number of concurrent bonnie++ instances to run (default: 1).
+-C {{ concurrency | default(1) }}
+
+# IO Test Parameters
+# Format: TotalSize[Suffix]:ChunkSize[Suffix]:Seeks:Seekers
+# Size of files for IO performance tests (default: 1024 MiB).
+# Chunk size in bytes for IO tests (must be power of 2 between 256–1048576, default: 8192).
+# Number of random seek operations to perform (default: 8192).
+# Number of concurrent seeker processes (default: 5).
+-S {{ size | default(1024) }}{{ size_suffix | default('') }}:{{ chunk_size | default(8192) }}{{ chunk_suffix | default('') }}:{{ seeks | default(8192) }}:{{ seekers | default(5) }}
+
+# Small File Test Parameters
+# Format: Count[Suffix][:MaxSize][:MinSize][:NumDirs][:FileChunk]
+# Number of small files to create/test, in multiples of 1024. Set to 0 to skip this test (default: 0).
+# Optional: max file size in bytes for small-file test (-1 for hard links, -2 for soft links).
+# Optional: min file size in bytes for small-file test.
+# Optional: number of subdirectories to spread small files across.
+# Optional: chunk size in bytes for small-file read/write operations.
+-N {{ file_count | default(0) }}{{ file_count_suffix | default('') }}{% if max_size | default(0) != 0 %}:{{ max_size | default(0) }}{% endif %}{% if min_size | default(0) != 0 %}:{{ min_size | default(0) }}{% endif %}{% if num_directories | default(0) != 0 %}:{{ num_directories | default(0) }}{% endif %}{% if file_chunk | default(0) != 0 %}:{{ file_chunk | default(0) }}{% endif %}
+
+# Machine Name
+# Display name for this host in the test report (default: 'localhost').
+-M {{ machine_name | default('localhost') }}
+
+# RAM Size
+# System RAM size in MiB, used for sanity checks.
+# Set to 0 to disable manual checks and allow auto-detection.
+-R {{ ram_size | default(0) }}
+
+# Number of Test Runs
+# Number of times to run the full test suite.
+# Set to 0 for continuous runs until manually killed (default: 1).
+-X {{ num_tests | default(1) }}
+
+# User and Group ID for Running Tests
+# Format: UID:GID
+# The user and group ID (by name or numeric) to run tests as.
+# Best practice: never run as root unless absolutely necessary.
+-U {{ test_user | default('nobody') }}:{{ test_group | default('nogroup') }}
+
+# Quiet Mode
+# If true, output only CSV on stdout; stderr remains for text logs.
+{% if quiet_mode | default(False) %}-q{% endif %}
+
+# Character Test Size
+# If non-empty, enables per-character IO tests and sets their size (e.g., '20M').
+# Empty string skips per-char tests.
+{% if char_test_size | default('') != '' %}-f {{ char_test_size | default('') }}{% endif %}
+
+# No Buffering
+# If true, uses fsync() after every write, disabling write buffering.
+{% if no_buffering | default(False) %}-b{% endif %}
+
+# Direct IO
+# If true, uses O_DIRECT for bulk IO tests, bypassing the filesystem cache.
+{% if direct_io | default(False) %}-D{% endif %}
+
+# Random Seed
+# Random number seed for reproducible runs. Same seed yields identical file contents.
+# Set to 0 or leave empty to use system default (random).
+{% if random_seed | default(0) != 0 %}-z {{ random_seed | default(0) }}{% endif %}
+
+# Random Data File
+# Path to a pre-generated random data file (network byte order).
+# Overrides the -z random seed if specified.
+{% if random_file | default('') != '' %}-Z {{ random_file | default('') }}{% endif %}

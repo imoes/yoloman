@@ -1,0 +1,54 @@
+# =============================================================================
+# Buildbot Worker Instance Configuration
+# =============================================================================
+# This file configures one or more Buildbot worker instances.
+# Each instance is identified by an index (instance_id) and controls
+# the worker's identity, execution user, working directory, and launch options.
+#
+# Variables:
+#   instance_id  - Unique numeric/index identifier for this worker instance.
+#   enabled      - '1' to enable the instance, '0' to disable it.
+#   name         - Short human-readable name shown in Buildbot status.
+#   user         - OS user under which the worker process runs.
+#   basedir      - Absolute path to the worker's private working directory.
+#   options      - Additional Buildbot worker command-line options.
+#   prefixcmd    - Command prefix to wrap the worker invocation (e.g., 'nice', 'linux32').
+# =============================================================================
+
+# WORKER_RUNNER: Path to the buildbot-worker executable.
+# Typically provided by the OS package; override only if using a custom install.
+#WORKER_RUNNER=/usr/bin/buildbot-worker
+
+# -----------------------------------------------------------------------------
+# Instance: {{ instance_id | default('1') }}
+# -----------------------------------------------------------------------------
+
+# WORKER_ENABLED[<id>]: Enable or disable this specific worker instance.
+# Values: '1', 'true', 'yes' → enabled; '0', 'false', 'no' → disabled.
+# Default: '0' (disabled).
+WORKER_ENABLED[{{ instance_id | default('1') | string }}]={{ enabled | default('0') }}
+
+# WORKER_NAME[<id>]: Short name for this worker, displayed in the Buildbot UI.
+# Default: 'default'.
+WORKER_NAME[{{ instance_id | default('1') | string }}]="{{ name | default('default') }}"
+
+# WORKER_USER[<id>]: OS user account the worker process will run as.
+# The user must exist on the system and have access to WORKER_BASEDIR.
+# Default: 'buildbot'.
+WORKER_USER[{{ instance_id | default('1') | string }}]="{{ user | default('buildbot') }}"
+
+# WORKER_BASEDIR[<id>]: Absolute path to the worker's private data directory.
+# Buildbot stores slavedir, logs, and state here. Must be owned by WORKER_USER.
+# Default: '/var/lib/buildbot/workers/default'.
+WORKER_BASEDIR[{{ instance_id | default('1') | string }}]="{{ basedir | default('/var/lib/buildbot/workers/default') }}"
+
+# WORKER_OPTIONS[<id>]: Extra command-line arguments passed to the buildbot-worker command.
+# Common options include --poll-interval, --log-files, etc. Leave empty for defaults.
+# Default: '' (empty).
+WORKER_OPTIONS[{{ instance_id | default('1') | string }}]="{{ options | default('') }}"
+
+# WORKER_PREFIXCMD[<id>]: Shell command prefix to execute before the worker binary.
+# Useful for adjusting priority (nice), sandboxing (dchroot), or setting ulimits.
+# Example: 'nice -n 19' or 'linux32'. Leave empty for no prefix.
+# Default: '' (empty).
+WORKER_PREFIXCMD[{{ instance_id | default('1') | string }}]="{{ prefixcmd | default('') }}"

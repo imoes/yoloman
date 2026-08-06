@@ -1,0 +1,92 @@
+# ==============================================================================
+# hashrat Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of the `hashrat` utility.
+# It supports hash generation, encoding, and distributed caching via memcached.
+# See `hashrat(1)` for detailed documentation on each directive.
+# ==============================================================================
+
+# --- Hash Algorithm Selection ---
+# Specifies the cryptographic hash algorithm to use.
+# Valid values: md5, sha1, sha256, sha512, whirl, whirlpool, jh224, jh256, jh384, jh512
+# Default: md5
+HashType {{ hash_type | default('md5') }}
+
+# --- Output Encoding ---
+# Defines the encoding format for the resulting hash output.
+# Valid values: hex, octal, decimal, base32, c32, w32, z32, base64, i64, p64, x64, u64, g64, a85, z85
+# Default: hex
+Encoding {{ encoding | default('hex') }}
+
+# --- Line Ending Configuration ---
+# Controls the line ending appended to stdin input when running in CGI mode.
+# Valid values: none, lf, crlf, cr
+# Default: none
+LineEnding {{ line_ending | default('none') }}
+
+# --- Output Length Truncation ---
+# Truncates the generated hash to a specific number of characters.
+# Set to 0 to disable truncation (output full hash).
+# Default: 0
+OutputLength {{ output_length | default(0) }}
+
+# --- Output Segmentation ---
+# Breaks the output hash into segments of a specific length.
+# Set to 0 to disable segmentation.
+# Default: 0
+SegmentLength {{ segment_length | default(0) }}
+
+# --- Segment Separator Character ---
+# The character used to separate output segments if segmentation is enabled.
+# Default: '' (empty string, no separator)
+SegmentChar {{ segment_char | default('') }}
+
+# --- CGI Mode: Disable User Options ---
+# When enabled (Y), disables user-editable options in the CGI interface.
+# This restricts the user to the configured hash type and encoding only.
+# Valid values: Y, N
+# Default: N (False)
+NoOptions {{ no_options | default(False) | ternary('Y', 'N') }}
+
+# --- CGI Mode: Hide Input Text ---
+# When enabled (Y), hides the input text in the CGI interface as the user types.
+# Useful for hashing sensitive data via the web interface.
+# Valid values: Y, N
+# Default: N (False)
+HideText {{ hide_text | default(False) | ternary('Y', 'N') }}
+
+# --- CGI Mode: Show Input Text ---
+# When enabled (Y), displays the input text in the CGI interface.
+# This overrides the `HideText` setting if both are enabled.
+# Valid values: Y, N
+# Default: N (False)
+ShowText {{ show_text | default(False) | ternary('Y', 'N') }}
+
+# --- Hook Scripts ---
+# List of external scripts to execute upon hash operation events.
+# These scripts are typically used for logging, auditing, or triggering
+# other processes when a hash matches a specific pattern or fails.
+# Each entry specifies the path to the hookscript.
+{% for script in (hook_scripts | default([])) %}
+# Hookscript path: {{ script }}
+Hook {{ script }}
+{% endfor %}
+
+# --- Memcached Servers ---
+# List of memcached server addresses for distributed hash storage and caching.
+# This allows hashrat to share hash state or lookups across multiple instances.
+# Format: address:port (e.g., 127.0.0.1:11211)
+{% for server in (memcached_servers | default([])) %}
+# Memcached server: {{ server }}
+Memcached {{ server }}
+{% endfor %}
+
+# --- Extended Attribute (xattr) Types ---
+# Specifies which extended attribute namespaces to use for storing hash metadata
+# on files. Valid namespaces are 'user' and 'trusted'.
+# 'user' requires the user to have permission to set xattrs.
+# 'trusted' often requires root privileges.
+{% for typ in (xattr_types | default([])) %}
+# Extended attribute type: {{ typ }}
+XAttrType {{ typ }}
+{% endfor %}

@@ -1,6 +1,6 @@
 [DEFAULT]
 # Enable Ironic Neutron Agent service
-enabled = true
+enabled = {{ enabled | default(True) }}
 
 # Logging configuration
 # Log directory and file path
@@ -14,88 +14,56 @@ logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
 
 # Verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 # Controls logging verbosity
-verbose = {{ verbose }}
-debug = {{ debug }}
+verbose = {{ verbose | default(False) }}
+debug = {{ debug | default(False) }}
 
 # RPC backend configuration
-# Message queue transport URL (e.g., 'rabbit://user:pass@host:5672/')
-transport_url = {{ transport_url }}
+# Message queue transport URL for RPC (e.g., RabbitMQ or Qpid)
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
 
 # Ironic API endpoint
 # URL of the Ironic API service
-api_endpoint = {{ api_endpoint }}
+api_endpoint = {{ api_endpoint | default('http://localhost:6385') }}
 
 # Authentication parameters for Ironic API
 # Auth URL, project name, username, password, and domain info
-auth_url = {{ auth_url }}
-project_name = {{ project_name }}
-username = {{ username }}
-password = {{ password }}
-user_domain_name = {{ user_domain_name }}
-project_domain_name = {{ project_domain_name }}
+auth_url = {{ auth_url | default('http://localhost:5000/v3') }}
+project_name = {{ project_name | default('ironic') }}
+username = {{ username | default('ironic') }}
+password = {{ password | default('') }}
+user_domain_name = {{ user_domain_name | default('Default') }}
+project_domain_name = {{ project_domain_name | default('Default') }}
 
 # TLS/SSL configuration
 # Enable or disable SSL verification for Ironic API
-auth_type = {{ auth_type }}
-service_token_roles = {{ service_token_roles | join(', ') }}
-service_token_required = {{ service_token_required }}
+auth_type = {{ auth_type | default('password') }}
 
-# [neutron] section: Neutron-specific settings
 [neutron]
 # URL of the Neutron API endpoint
-url = {{ neutron_url }}
+url = {{ neutron_url | default('http://localhost:9696') }}
 
 # Neutron authentication credentials
-# (optional; if not provided, uses keystone session from [keystone_authtoken])
-auth_url = {{ neutron_auth_url }}
-username = {{ neutron_username }}
-password = {{ neutron_password }}
-project_name = {{ neutron_project_name }}
-user_domain_name = {{ neutron_user_domain_name }}
-project_domain_name = {{ neutron_project_domain_name }}
-auth_type = {{ neutron_auth_type }}
+# Keystone auth URL for Neutron (if different from [DEFAULT])
+auth_url = {{ neutron_auth_url | default('http://localhost:5000/v3') }}
+username = {{ neutron_username | default('neutron') }}
+password = {{ neutron_password | default('') }}
+project_name = {{ neutron_project_name | default('services') }}
+user_domain_name = {{ neutron_user_domain_name | default('Default') }}
+project_domain_name = {{ neutron_project_domain_name | default('Default') }}
+auth_type = {{ neutron_auth_type | default('password') }}
 
 # Timeout (seconds) for Neutron API calls
-request_timeout = {{ neutron_request_timeout }}
+request_timeout = {{ neutron_request_timeout | default(30) }}
 
-# [service_credentials] section: fallback for Neutron auth (deprecated but widely used)
-[service_credentials]
-# Same as [neutron] section above; kept for compatibility
-auth_type = {{ service_credentials_auth_type }}
-auth_url = {{ service_credentials_auth_url }}
-username = {{ service_credentials_username }}
-password = {{ service_credentials_password }}
-project_name = {{ service_credentials_project_name }}
-project_domain_name = {{ service_credentials_project_domain_name }}
-user_domain_name = {{ service_credentials_user_domain_name }}
-
-# [agent] section: Agent-specific behavior
 [agent]
-# Number of worker processes for the agent
-workers = {{ agent_workers }}
-
 # polling interval (seconds) for checking Ironic node status
 # Lower values = more responsive but higher CPU/network load
-polling_interval = {{ agent_polling_interval }}
-
-# Enable or disable DHCP agent integration
-# When true, the agent will manage DHCP for bare metal instances via Neutron
-enable_dhcp = {{ agent_enable_dhcp }}
-
-# Enable or disable L3 agent integration
-# When true, the agent will manage L3 (routing/NAT) for bare metal instances
-enable_l3 = {{ agent_enable_l3 }}
+polling_interval = {{ agent_polling_interval | default(10) }}
 
 # Physical network mapping for bare metal networks
-# Maps network names to physical network names (e.g., 'physnet1:eth0,physnet2:eth1')
-physical_network_mappings = {{ physical_network_mappings | join(', ') }}
+# List of mappings from logical network names to physical network names/interfaces (format: 'net:iface')
+physical_network_mappings = {{ physical_network_mappings | default([]) | join(', ') }}
 
-# [oslo_concurrency] section: Lock path (for distributed locking)
 [oslo_concurrency]
 # Directory for lock files
 lock_path = /var/lock/ironic
-
-# [oslo_policy] section: Policy file location (optional)
-[oslo_policy]
-policy_file = /etc/ironic/policy.json
-policy_default_rule = default

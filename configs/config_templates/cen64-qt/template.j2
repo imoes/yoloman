@@ -1,0 +1,64 @@
+; cen64-qt configuration file
+; Self-documented template: every directive includes its schema description and safe defaults.
+
+[Directories]
+; User configuration directory path
+config_dir = {{ config_dir | default("~/.config/cen64-qt") }}
+
+; Directory containing N64 ROM files
+rom_dir = {{ rom_dir | default("~/roms/n64") }}
+
+; Path to the video rendering plugin
+video_plugin = {{ video_plugin | default("/usr/lib/cen64/video.so") }}
+
+; Path to the audio plugin
+audio_plugin = {{ audio_plugin | default("/usr/lib/cen64/audio.so") }}
+
+; Path to the input handling plugin
+input_plugin = {{ input_plugin | default("/usr/lib/cen64/input.so") }}
+
+; Directory for save states and SRAM files
+save_dir = {{ save_dir | default("~/.local/share/cen64-qt") }}
+
+; Configuration format version
+config_version = {{ config_version | default(2) }}
+
+[Window]
+; Initial window width (pixels)
+window_width = {{ window_width | default(800) }}
+
+; Initial window height (pixels)
+window_height = {{ window_height | default(600) }}
+
+; Start application in fullscreen mode
+fullscreen = {{ fullscreen | default(false) | ternary('true', 'false') }}
+
+; Display aspect ratio mode (0: original, 1: stretch, 2: force 4:3, 3: force 16:9)
+aspect_ratio = {{ aspect_ratio | default(0) }}
+
+[Audio]
+; Audio output device name (empty string for default)
+audio_device = {{ audio_device | default("") }}
+
+; Audio buffer latency in milliseconds
+audio_latency = {{ audio_latency | default(20) }}
+
+; Initial audio volume (0–100)
+audio_volume = {{ audio_volume | default(80) }}
+
+[Input]
+; List of connected input devices (e.g., gamepads, keyboards). Each device specifies type and optional device ID for mapping purposes.
+{% for dev in (input_devices | default([])) %}
+; Input device index: {{ loop.index }}
+; Device type (e.g., gamepad, keyboard, mouse)
+dev_{{ loop.index }}_type = {{ dev.type | default('') }}
+; Device ID for mapping purposes (optional, empty if not specified)
+dev_{{ loop.index }}_id = {{ dev.id | default('') }}
+{% endfor %}
+
+[Plugins]
+; Optional list of custom plugin overrides. Each item defines a plugin type and its path.
+{% for plugin in (plugins | default([])) %}
+; Plugin override for type: {{ plugin.type | default('unknown') }}
+plugin_{{ plugin.type | default('unknown') }} = {{ plugin.path | default('') }}
+{% endfor %}

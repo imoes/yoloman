@@ -1,0 +1,131 @@
+# fdupes configuration file
+# This file drives the fdupes duplicate file finder tool.
+# It lists target directories and sets behavioral flags.
+# Each directory is listed on its own line. Subdirectories are
+# followed based on the 'recurse' setting below.
+
+# List of root directories to search for duplicates.
+# One directory path per line.
+# If empty, fdupes will require directories to be passed on the command line.
+{% for dir in (directories | default([])) %}{{ dir }}
+{% endfor %}
+
+# --- Behavioral Options ---
+# The following boolean and scalar options control how fdupes scans and reports.
+# They correspond to command-line flags (shown in comments).
+
+# Follow subdirectories encountered within each listed directory.
+# Corresponds to the -r / --recurse flag.
+# Default: false
+recurse={{ recurse | default(false) | lower }}
+
+# Follow subdirectories only for directories listed *after* this option.
+# This is a stateful option in the CLI, but in config files it typically
+# enables the behavior globally or is ignored in favor of 'recurse'.
+# Here we map it to a config flag for completeness.
+# Corresponds to the -R / --recurse-colon concept.
+# Default: false
+recurse_colon={{ recurse_colon | default(false) | lower }}
+
+# Follow symlinked directories during the scan.
+# Corresponds to the -s / --symlinks flag.
+# Default: false
+symlinks={{ symlinks | default(false) | lower }}
+
+# Treat files pointing to the same disk area (hard links) as duplicates.
+# Corresponds to the -H / --hardlinks flag.
+# Default: false
+hardlinks={{ hardlinks | default(false) | lower }}
+
+# Consider only files >= SIZE bytes.
+# Corresponds to the -G / --minsize flag.
+# Default: 0
+minsize={{ minsize | default(0) }}
+
+# Consider only files <= SIZE bytes.
+# Corresponds to the -L / --maxsize flag.
+# Default: 0
+maxsize={{ maxsize | default(0) }}
+
+# Exclude zero-length files from the search results.
+# Corresponds to the -n / --noempty flag.
+# Default: false
+noempty={{ noempty | default(false) | lower }}
+
+# Exclude hidden files (files starting with a dot) from the search results.
+# Corresponds to the -A / --nohidden flag.
+# Default: false
+nohidden={{ nohidden | default(false) | lower }}
+
+# Omit the first file in each set of duplicates (usually the "original").
+# This is primarily useful when combined with --delete.
+# Corresponds to the -f / --omitfirst flag.
+# Default: false
+omitfirst={{ omitfirst | default(false) | lower }}
+
+# List each set of duplicates on a single line, separated by spaces.
+# Corresponds to the -1 / --sameline flag.
+# Default: false
+sameline={{ sameline | default(false) | lower }}
+
+# Show the size of duplicate files in the output.
+# Corresponds to the -S / --size flag.
+# Default: false
+size={{ size | default(false) | lower }}
+
+# Show modification time of duplicate files in the output.
+# Corresponds to the -t / --time flag.
+# Default: false
+time={{ time | default(false) | lower }}
+
+# Summarize duplicate file information (count and size) instead of listing files.
+# Corresponds to the -m / --summarize flag.
+# Default: false
+summarize={{ summarize | default(false) | lower }}
+
+# Hide the progress indicator during the scan.
+# Corresponds to the -q / --quiet flag.
+# Default: false
+quiet={{ quiet | default(false) | lower }}
+
+# Prompt user to preserve files; delete the rest.
+# Corresponds to the -d / --delete flag.
+# Default: false
+delete={{ delete | default(false) | lower }}
+
+# Defer byte-for-byte confirmation until just before deletion in interactive mode.
+# Corresponds to the -D / --deferconfirmation flag.
+# Default: false
+deferconfirmation={{ deferconfirmation | default(false) | lower }}
+
+# Use line-based prompt with --delete (interactive mode).
+# Corresponds to the -P / --plain flag.
+# Default: false
+plain={{ plain | default(false) | lower }}
+
+# Delete all but the first file in each set without prompting.
+# Corresponds to the -N / --noprompt flag.
+# Default: false
+noprompt={{ noprompt | default(false) | lower }}
+
+# Delete duplicates as encountered, without grouping them first.
+# Implies --noprompt.
+# Corresponds to the -I / --immediate flag.
+# Default: false
+immediate={{ immediate | default(false) | lower }}
+
+# Don't consider files with different owner/group/permissions as duplicates.
+# Corresponds to the -p / --permissions flag.
+# Default: false
+permissions={{ permissions | default(false) | lower }}
+
+# Order files by time (mtime), ctime (status change), or name.
+# Corresponds to the -o / --order flag.
+# Allowed values: name, time, ctime
+# Default: name
+order={{ order | default('name') }}
+
+# Reverse order while sorting.
+# Corresponds to the -i / --reverse flag.
+# Default: false
+reverse={{ reverse | default(false) | lower }}

@@ -1,113 +1,19 @@
-[general]
-# Enable or disable the router service
-enabled = {{ general.enabled | string | lower }}
+{#
+  debian-edu-router.conf.j2
 
-# Hostname of the router (FQDN)
-hostname = {{ general.hostname }}
+  This template generates the Debian-Edu router configuration.
+  The Debian-Edu router is a component responsible for network routing
+  configuration within the Debian-Edu project. It typically manages
+  DHCP, DNS, and routing tables for educational networks.
 
-# System timezone
- timezone = {{ general.timezone }}
+  This specific file acts as a loader, sourcing additional configuration
+  snippets from a specified directory.
 
-[interfaces]
-# Primary external (WAN) interface
-wan_interface = {{ interfaces.wan_interface }}
+  Variables:
+    - router_conf_dir: The directory containing the router configuration snippets.
+#}
 
-# Primary internal (LAN) interface
-lan_interface = {{ interfaces.lan_interface }}
-
-# Optional secondary LAN interfaces (for VLANs or multi-site)
-{% for iface in interfaces.lan_extra %}lan_extra_{{ loop.index }} = {{ iface }}
-{% endfor %}
-
-[ipam]
-# IPv4 subnet for LAN (CIDR notation)
-lan_subnet = {{ ipam.lan_subnet }}
-
-# DHCPv4 start address
-lan_dhcp_start = {{ ipam.lan_dhcp_start }}
-
-# DHCPv4 end address
-lan_dhcp_end = {{ ipam.lan_dhcp_end }}
-
-# DHCP lease time in seconds
-lan_dhcp_lease_time = {{ ipam.lan_dhcp_lease_time }}
-
-# DNS servers to advertise via DHCP (comma-separated in actual INI, but we'll render space-separated and let INI parser handle it)
-# For safety, we render a list as space-separated; INI readers treat spaces as delimiters for list-like values
-lan_dns_servers = {{ ipam.lan_dns_servers | join(' ') }}
-
-[nat]
-# Enable NAT for outbound traffic
-enabled = {{ nat.enabled | string | lower }}
-
-# Masquerade interface (typically same as WAN)
-masquerade_interface = {{ nat.masquerade_interface }}
-
-# Enable port forwarding (if supported)
-enable_port_forwarding = {{ nat.enable_port_forwarding | string | lower }}
-
-{% for rule in nat.port_forwards %}# Port forward: {{ rule.name }}
-{% if rule.proto == 'tcp' %}forward_tcp_{{ loop.index }} = {{ rule.external_port }}:{{ rule.internal_ip }}:{{ rule.internal_port }}
-{% elif rule.proto == 'udp' %}forward_udp_{{ loop.index }} = {{ rule.external_port }}:{{ rule.internal_ip }}:{{ rule.internal_port }}
-{% else %}forward_{{ rule.proto }}_{{ loop.index }} = {{ rule.external_port }}:{{ rule.internal_ip }}:{{ rule.internal_port }}
-{% endif %}
-{% endfor %}
-
-[firewall]
-# Enable default deny policy for incoming traffic
-default_deny_in = {{ firewall.default_deny_in | string | lower }}
-
-# Allow established/related connections
-allow_established = {{ firewall.allow_established | string | lower }}
-
-# Allow loopback
-allow_loopback = {{ firewall.allow_loopback | string | lower }}
-
-{% for service in firewall.allowed_services %}# Allow incoming {{ service.name }} on {{ service.interfaces | join(',') }}
-allow_service_{{ loop.index }} = {{ service.name }}:{{ service.interfaces | join(',') }}
-{% endfor %}
-
-[ntp]
-# NTP server(s) for system time synchronization
-server = {{ ntp.server }}
-
-# Enable NTP client
-enabled = {{ ntp.enabled | string | lower }}
-
-[logging]
-# Log level: debug, info, warning, error
-level = {{ logging.level }}
-
-# Log target: syslog, file, or both
-# file path will be handled by systemd/journald if 'syslog' is selected
-# Here we just record the option
-log_target = {{ logging.log_target }}
-
-[backup]
-# Enable automatic config backups
-enabled = {{ backup.enabled | string | lower }}
-
-# Local backup directory (must exist and be writable)
-backup_dir = {{ backup.backup_dir }}
-
-# Retain last N backups (integer)
-max_backups = {{ backup.max_backups }}
-
-# Backup interval in hours
-interval_hours = {{ backup.interval_hours }}
-
-[monitoring]
-# Enable built-in health checks
-health_checks = {{ monitoring.health_checks | string | lower }}
-
-# Interval between health checks in seconds
-interval_seconds = {{ monitoring.interval_seconds }}
-
-# Threshold (in seconds) to consider a service down
-service_timeout = {{ monitoring.service_timeout }}
-
-{% for check in monitoring.monitored_services %}# Monitor service: {{ check.name }}
-{% if check.protocol == 'http' %}check_http_{{ loop.index }} = {{ check.name }}:{{ check.host }}:{{ check.port }}:{{ check.path }}:{{ check.expect_status }}
-{% else %}check_{{ check.protocol }}_{{ loop.index }} = {{ check.name }}:{{ check.host }}:{{ check.port }}
-{% endif %}
-{% endfor %}
+# Source all configuration snippets from the router configuration directory.
+# This allows for modular configuration where individual files in the directory
+# can define specific routing rules, interface settings, or other router parameters.
+source <(cat {{ router_conf_dir | default('/etc/debian-edu/router.conf.d') }})

@@ -2,5 +2,11 @@
 # Each line grants principal permissions to push or sync KDC database changes.
 # Format: principal [permissions]
 # Permissions are optional; default is full read/write (for slaves: typically 'r' for read-only sync)
-{% for entry in acl_entries %}{{ entry.principal }}{% if entry.permissions is defined %} {{ entry.permissions }}{% endif %}
+
+# Iterate over the list of ACL entries defined in the schema.
+# Each entry must contain at least 'principal'.
+{% for entry in (acl_entries | default([])) %}
+# Entry: {{ entry.principal }}{% if entry.permissions is defined %}
+#   Permissions: {{ entry.permissions }}{% endif %}
+{{ entry.principal }}{% if entry.permissions is defined %} {{ entry.permissions }}{% endif %}
 {% endfor %}

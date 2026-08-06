@@ -1,69 +1,53 @@
-# Global configuration settings
-# See slapd.conf(5) for details on configuration options.
+# Default location of the slapd.conf file or slapd.d cn=config directory. If
+# empty, use the compiled-in default (/etc/ldap/slapd.d with a fallback to
+# /etc/ldap/slapd.conf).
+SLAPD_CONF=
 
-# Backend type and database type
-{% if backend_type %}# Backend module to load (e.g., hdb, mdb)
-moduleload {{ backend_type }}.la{% endif %}
+# System account to run the slapd server under. If empty the server
+# will run as root.
+SLAPD_USER="{{ slapd_user }}"
 
-# Schema definitions
-include {{ schema_dir }}/core.schema
-{% for schema in additional_schemas %}include {{ schema_dir }}/{{ schema }}.schema
-{% endfor %}
+# System group to run the slapd server under. If empty the server will
+# run in the primary group of its user.
+SLAPD_GROUP="{{ slapd_group }}"
 
-# ACL configuration — controls access to directory entries and attributes
-{% if enable_default_acl %}# Default ACL: allow authenticated users read access, admin binddn full access
-acl access to * by users read by * none{% endif %}
-{% for acl in acls %}{{ acl | replace('
-', '
-') }}
-{% endfor %}
+# Path to the pid file of the slapd server. If not set the init.d script
+# will try to figure it out from $SLAPD_CONF (/etc/ldap/slapd.d by
+# default)
+SLAPD_PIDFILE="{{ pidfile_path }}"
 
-# Global parameters
-pidfile {{ pidfile_path }}
-argsfile {{ argsfile_path }}
+# slapd normally serves ldap only on all TCP-ports 389. slapd can also
+# service requests on TCP-port 636 (ldaps) and requests via unix
+# sockets.
+# Example usage:
+# SLAPD_SERVICES="ldap://127.0.0.1:389/ ldaps:/// ldapi:///
+# Example listener string generation:
+# - ldap://:port/ for each ldap listener
+# - ldaps://:port/ for each ldaps listener (if port is set)
+# - ldapi:/// for each ldapi listener (port is omitted)
+# For this template, we synthesize SLAPD_SERVICES from listeners
+# SLAPD_SERVICES="{{ slapd_services }}"
+# However, per instructions, we must keep the original line *verbatim* if present.
+# Since the shipped default has a fixed SLAPD_SERVICES= line, we replace only the value:
+SLAPD_SERVICES="{{ slapd_services }}"
 
-# Logging configuration
-loglevel {{ loglevel }}
+# If SLAPD_NO_START is set, the init script will not start or restart
+# slapd (but stop will still work).  Uncomment this if you are
+# starting slapd via some other means or if you don't want slapd normally
+# started at boot.
+#SLAPD_NO_START=1
 
-# TLS/SSL configuration
-{% if tls_enabled %}TLSCipherSuite {{ tls_cipher_suite }}
-TLSCertificateFile {{ tls_cert_file }}
-TLSCertificateKeyFile {{ tls_cert_key_file }}
-{% if tls_ca_cert_file %}TLSCACertificateFile {{ tls_ca_cert_file }}{% endif %}
-{% if tls_verify_client is defined %}TLSVerifyClient {{ tls_verify_client }}{% endif %}{% endif %}
+# If SLAPD_SENTINEL_FILE is set to path to a file and that file exists,
+# the init script will not start or restart slapd (but stop will still
+# work).  Use this for temporarily disabling startup of slapd (when doing
+# maintenance, for example, or through a configuration management system)
+# when you don't want to edit a configuration file.
+SLAPD_SENTINEL_FILE={{ slapd_sentinel_file }}
 
-# Security settings
-# Enforce TLS for sensitive operations (e.g., password changes)
-{% if security_require_tls %}security ssf=1{% endif %}
-{% if security_require_ssf is defined %}security ssf={{ security_require_ssf }}{% endif %}
-{% if security_require_authc %}security authc=1{% endif %}
+# For Kerberos authentication (via SASL), slapd by default uses the system
+# keytab file (/etc/krb5.keytab).  To use a different keytab file,
+# uncomment this line and change the path.
+#KRB5_KTNAME=/etc/krb5.keytab
 
-# Listener configuration — network binding
-{% for listener in listeners %}# Listen on host:port for LDAP connections
-{% if listener.scheme == 'ldaps' %}ldaps://{% elif listener.scheme == 'ldapi' %}ldapi://{% else %}ldap{% if listener.host %}://{{ listener.host }}{% endif %}{{ ':' ~ listener.port if listener.port else '' }}{% endif %}
-{% endfor %}
-
-# Database configuration
-# Database type and suffix
-{% for database in databases %}database {{ database.type }}
-{% if database.suffix %}suffix "{{ database.suffix }}"
-{% endif %}{% if database.rootdn %}rootdn "{{ database.rootdn }}"
-{% endif %}{% if database.rootpw %}rootpw {{ database.rootpw }}
-{% endif %}{% if database.directory %}directory {{ database.directory }}
-{% endif %}{% if database.index %}{% for index in database.index %}index {{ index.attr }} {{ index.options | join(' ') }}
-{% endfor %}{% endif %}
-{% if database.overlay %}{% for overlay in database.overlay %}overlay {{ overlay.name }}
-{% if overlay.config %}{% for key, value in overlay.config.items() %}{{ key }} {{ value }}
-{% endfor %}{% endif %}{% endfor %}{% endif %}
-{% endfor %}
-
-# Access control: allow rootdn to bypass ACLs
-rootdn {{ rootdn }}
-# Root password: use {SSHA} hash (never plain text in production)
-{% if rootpw %}rootpw {SSHA}{{ rootpw_hash }}{% endif %}
-
-# Monitoring (slapd monitoring overlay)
-{% if monitoring_enabled %}# Enable monitoring overlay for runtime stats
-moduleload back_monitor.la
-database monitor
-{% endif %}
+# Additional options to pass to slapd
+SLAPD_OPTIONS="{{ slapd_options }}"

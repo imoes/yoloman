@@ -1,0 +1,88 @@
+# FreeIPA EPN (Expiring Password Notification) Configuration Template
+# This template configures the global section for IPA-EPN, which handles
+# sending email notifications to users about expiring passwords.
+#
+# For detailed documentation, see the epn.conf(5) man page.
+# https://github.com/freeipa/freeipa/blob/master/doc/designs/expiring-password-notification.md
+
+[global]
+
+# SMTP server hostname or IP address
+# Default: localhost
+smtp_server = {{ smtp_server | default('localhost') }}
+
+# SMTP server port
+# Default: 25
+smtp_port = {{ smtp_port | default(25) }}
+
+# SMTP response timeout in seconds
+# Default: 60
+smtp_timeout = {{ smtp_timeout | default(60) }}
+
+# SMTP security type: none, starttls, or ssl
+# Default: none
+smtp_security = {{ smtp_security | default('none') }}
+
+# From email address for bounces
+# Default: root@localhost
+smtp_admin = {{ smtp_admin | default('root@localhost') }}
+
+# Delay between emails in milliseconds
+# Default: 0
+smtp_delay = {{ smtp_delay | default(0) }}
+
+# Comma-separated list of days before expiration to notify
+# Default: 28, 14, 7, 3, 1
+notify_ttls = {{ notify_ttls | default('28, 14, 7, 3, 1') }}
+
+# Message character set
+# Default: utf8
+msg_charset = {{ msg_charset | default('utf8') }}
+
+# Message MIME sub-content type
+# Default: plain
+msg_subtype = {{ msg_subtype | default('plain') }}
+
+# --- Optional/Advanced SMTP Authentication Fields ---
+# The following fields are commented out by default as they are optional.
+# Uncomment and configure if your SMTP server requires authentication
+# or TLS client certificates.
+
+# Specifies the id of the user to authenticate with the SMTP server.
+# Default: None (empty value)
+# smtp_user = {{ smtp_user | default('') }}
+
+# Specifies the password for the authorized user.
+# Default: None (empty value)
+# smtp_password = {{ smtp_password | default('') }}
+
+# Specifies the path to a single file in PEM format containing the certificate.
+# https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_cert_chain
+# Default: None (empty value)
+# smtp_client_cert = {{ smtp_client_cert | default('') }}
+
+# Specifies the path to a file containing the private key.
+# Otherwise the private key will be taken from certfile as well.
+# https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_cert_chain
+# Default: None (empty value)
+# smtp_client_key = {{ smtp_client_key | default('') }}
+
+# Specifies the password for decrypting the private key.
+# It will be ignored if the private key is not encrypted.
+# https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_cert_chain
+# Default: None (empty value)
+# smtp_client_key_pass = {{ smtp_client_key_pass | default('') }}
+
+# --- Optional Sender Identity Fields ---
+# These fields override default IPA settings for the 'From' address and name.
+
+# Specifies the From: e-mail address value in the e-mails sent.
+# The default when unset is noreply@ipadefaultemaildomain.
+# mail_from = {{ mail_from | default('') }}
+
+# Specifies the From: name value in the e-mails-sent.
+# The default when unset is IPA-EPN.
+# mail_from_name = {{ mail_from_name | default('') }}
+
+# Set the subject of the message
+# msg_subject = {{ msg_subject | default('') }}

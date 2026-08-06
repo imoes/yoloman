@@ -1,0 +1,110 @@
+{# ============================================================================ #}
+{# cpio configuration template                                                    #}
+{# Self-documenting: every directive is preceded by its schema description.      #}
+{# cpio is a command-line archiving tool, NOT a network service.                   #}
+{# No capabilities (provides/requires) apply.                                    #}
+{# ============================================================================ #}
+
+# Archive format. Valid values: bin, odc, newc, crc, tar, ustar, hpbin, hpodc.
+format: {{ (values | default({})).format | default('newc') }}
+
+# I/O block size in 512-byte units (cpio -B = 5120 bytes = block_size 10).
+block_size: {{ (values | default({})).block_size | default(10) }}
+
+# I/O block size in bytes (overrides block_size if non-zero).
+io_size: {{ (values | default({})).io_size | default(0) }}
+
+# Path to archive file (empty string = stdin/stdout).
+archive_file: {{ (values | default({})).archive_file | default('') }}
+
+# Owner specification in USER[:.]GROUP format (copy-in/pass-through modes).
+owner: {{ (values | default({})).owner | default('') }}
+
+# Operation mode: 'create', 'extract', or 'pass-through'. Required.
+mode: {{ (values | default({})).mode | default('') }}
+
+# List of file paths to archive (copy-out) or extract (copy-in/pass-through).
+files:
+{% for item in ((values | default({})).files | default([])) %}  - {{ item }}
+{% endfor %}
+
+# Enable verbose listing of processed files (-v).
+verbose: {{ ((values | default({})).verbose | default(false)) | lower }}
+
+# Reset file access time after reading (-a/--reset-access-time).
+reset_access_time: {{ ((values | default({})).reset_access_time | default(false)) | lower }}
+
+# Dereference symbolic links (-L/--dereference).
+dereference: {{ ((values | default({})).dereference | default(false)) | lower }}
+
+# Retain modification times (-m/--preserve-modification-time).
+preserve_modification_time: {{ ((values | default({})).preserve_modification_time | default(false)) | lower }}
+
+# Replace all files unconditionally (-u/--unconditional).
+unconditional: {{ ((values | default({})).unconditional | default(false)) | lower }}
+
+# Create leading directories (-d/--make-directories).
+make_directories: {{ ((values | default({})).make_directories | default(false)) | lower }}
+
+# Strip leading path components (--no-absolute-filenames).
+no_absolute_filenames: {{ ((values | default({})).no_absolute_filenames | default(false)) | lower }}
+
+# Link instead of copy (-l/--link) in pass-through mode.
+link: {{ ((values | default({})).link | default(false)) | lower }}
+
+# Write large zero blocks as sparse files (--sparse).
+sparse: {{ ((values | default({})).sparse | default(false)) | lower }}
+
+# Swap bytes of halfwords (-s/--swap-bytes) in copy-in mode.
+swap_bytes: {{ ((values | default({})).swap_bytes | default(false)) | lower }}
+
+# Swap halfwords of words (-S/--swap-halfwords) in copy-in mode.
+swap_halfwords: {{ ((values | default({})).swap_halfwords | default(false)) | lower }}
+
+# Filenames delimited by nulls (-0/--null).
+null_delimited: {{ ((values | default({})).null_delimited | default(false)) | lower }}
+
+# Suppress block count summary (--quiet).
+quiet: {{ ((values | default({})).quiet | default(false)) | lower }}
+
+# Path to file with additional extract patterns (-E/--pattern-file).
+pattern_file: {{ (values | default({})).pattern_file | default('') }}
+
+# Delimiter for pattern_file (empty = newline).
+pattern_file_delimiter: {{ (values | default({})).pattern_file_delimiter | default('') }}
+
+# Only verify CRC in CRC-format archives (--only-verify-crc).
+only_verify_crc: {{ ((values | default({})).only_verify_crc | default(false)) | lower }}
+
+# Append to existing archive (-A/--append).
+append_archive: {{ ((values | default({})).append_archive | default(false)) | lower }}
+
+# Create reproducible archive (--device-independent).
+reproducible: {{ ((values | default({})).reproducible | default(false)) | lower }}
+
+# Store 0 in device number (--ignore-devno).
+ignore_devno: {{ ((values | default({})).ignore_devno | default(false)) | lower }}
+
+# Store 2 in directory nlink (--ignore-dirnlink).
+ignore_dirnlink: {{ ((values | default({})).ignore_dirnlink | default(false)) | lower }}
+
+# Renumber inodes (--renumber-inodes).
+renumber_inodes: {{ ((values | default({})).renumber_inodes | default(false)) | lower }}
+
+# Do not change ownership (--no-preserve-owner).
+no_preserve_owner: {{ ((values | default({})).no_preserve_owner | default(false)) | lower }}
+
+# Show numeric UID/GID in listing (-n/--numeric-uid-gid).
+numeric_uid_gid: {{ ((values | default({})).numeric_uid_gid | default(false)) | lower }}
+
+# Extract only non-matching files (-f/--nonmatching).
+non_matching: {{ ((values | default({})).non_matching | default(false)) | lower }}
+
+# Extract files to stdout (--to-stdout).
+to_stdout: {{ ((values | default({})).to_stdout | default(false)) | lower }}
+
+# Rename files interactively (-r/--rename).
+rename: {{ ((values | default({})).rename | default(false)) | lower }}
+
+# Extract (default) vs. list-only (implies -t).
+extract_only: {{ ((values | default({})).extract_only | default(true)) | lower }}

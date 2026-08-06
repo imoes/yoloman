@@ -1,47 +1,86 @@
-# 1-Wire FTP Server Configuration (owftpd.conf)
-# This file configures the owftpd daemon, which provides FTP access to 1-Wire buses.
-# For full documentation, see `man owftpd` or https://owfs.org
+#!/bin/sh
 
-# Bind to this hostname or IP address (use 0.0.0.0 for all interfaces)
-server = {{ server_host }}
+### BEGIN INIT INFO
+# Provides:          owftpd
+# Required-Start:    $remote_fs $network $syslog $named
+# Required-Stop:     $remote_fs $network $syslog $named
+# Should-Start:      owserver
+# Should-Stop:       owserver
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: 1-wire FTP server
+# Description:       Start and stop an anonymous FTP server for 1-wire control.
+### END INIT INFO
 
-# Listen on this port
-port = {{ port }}
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+CONFFILE=/etc/owfs.conf
+DESC="1-Wire FTP server"
+NAME="owftpd"
+DAEMON=/usr/bin/$NAME
+PIDDIR=/var/run/owfs
+PIDFILE=$PIDDIR/$NAME.pid
 
-# Timeout for idle connections (in seconds)
-timeout = {{ timeout_seconds }}
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
 
-# Enable SSL/TLS for secure connections? (true/false)
-ssl = {{ ssl_enabled | lower }}
+. /lib/lsb/init-functions
 
-# Path to SSL certificate (required if ssl = true)
-ssl_certificate = {{ ssl_cert_path }}
+d_start() {
+    [ -d $PIDDIR ] || {
+    mkdir -m 0775 -p $PIDDIR
+    chown root:root $PIDDIR >/dev/null 2>&1
+    }
+    start-stop-daemon --start --quiet --oknodo --exec $DAEMON -- -c $CONFFILE \
+        --pid-file $PIDFILE
+    # ensure the daemon has been started 
+    sleep 1
+    pidofproc -p $PIDFILE $DAEMON >/dev/null
+}
 
-# Path to SSL private key (required if ssl = true)
-ssl_key = {{ ssl_key_path }}
+d_stop() {
+    start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+    sleep 1
+    if [ -f $PIDFILE ] && ! ps h `cat $PIDFILE` > /dev/null
+    then
+        # Stale PID file (owhttpd was successfilly stoped),
+        #remove it
+        rm -f $PIDFILE
+    fi
+}
 
-# Root directory to expose via FTP (relative to 1-Wire root; often /)
-root = {{ ftp_root_path }}
+d_status() {
+    pidofproc -p $PIDFILE $DAEMON > /dev/null
+}
 
-# Allow anonymous FTP? (true/false)
-anonymous = {{ allow_anonymous | lower }}
+case "$1" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        d_start
+        log_end_msg $?
+        ;;
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        d_stop
+        log_end_msg $?
+        ;;
+    restart|force-reload)
+        log_daemon_msg "Restarting $DESC" "$NAME"
+        d_status && d_stop
+        d_start
+        log_end_msg $?
+        ;;
+    status)
+        d_status
+        if [ $? -eq 0 ];then
+            log_success_msg "$NAME is running"
+        else
+            log_failure_msg "$NAME is not running"
+        fi
+        ;;
+    *)
+        echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
 
-# Enable write access for authenticated users? (true/false)
-allow_write = {{ allow_write | lower }}
-
-# Maximum number of simultaneous connections
-max_connections = {{ max_connections }}
-
-# Comma-separated list of allowed 1-Wire bus devices (e.g., /dev/w1_bus_master1)
-# Use 'auto' to auto-discover
-bus = {{ bus_devices | join(', ') }}
-
-# Optional: log to this file; leave empty or comment out to use syslog
-# log_file = {{ log_file_path | default('', true) }}
-{% if log_file_path %}log_file = {{ log_file_path }}{% endif %}
-
-# Optional: chroot users (recommended for security)
-chroot = {{ chroot_enabled | lower }}
-
-# Optional: allow debug output (true/false)
-debug = {{ debug_enabled | lower }}
+exit 0

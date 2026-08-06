@@ -1,49 +1,122 @@
-{# Location of the repository where backups are stored #}
-repo: {{ repo_path }}
+# Borg Backup Configuration Template
+# This template generates a configuration file for Borg Backup.
+# It supports local and remote repository backups via SSH.
+#
+# IMPORTANT: Borg does not natively read a single monolithic config file like this.
+# This file serves as a structured source for an Ansible role to inject variables
+# into specific environment variables or command-line arguments when invoking `borg`.
+# For example, `repo_path` becomes the target repo in `borg create`, `compression`
+# sets the `--compression` flag, etc.
 
-{# Path to the SSH key used for authenticating to remote repos (if any) #}
-ssh_key: {{ ssh_key_path }}
+# --- Repository Settings ---
 
-{# Compression algorithm to use: 'lz4', 'zlib', 'zstd', or 'none' #}
-compression: {{ compression.algorithm }}
+# Absolute path to the Borg repository where backups are stored.
+# This can be a local path (e.g., /var/lib/borgbackup/repo) or an SSH URL (e.g., user@host:/path/to/repo).
+repo_path: {{ repo_path | default('/var/lib/borgbackup/repo') }}
 
-{# Compression level (applicable only for zlib/zstd; -1 for default, 0–9 for zlib, 0–22 for zstd) #}
-compression_level: {{ compression.level | default(-1) }}
+# --- SSH / Remote Access Settings ---
 
-{# Enable encryption (mode: 'keyfile', 'keyfile-blake2', 'repokey', 'repokey-blake2', or 'authenticated') #}
-encryption: {{ encryption.mode }}
+# Path to SSH private key.
+# Note: Borg typically uses the SSH agent. If a specific key is needed,
+# it is usually passed via the BORG_RSH environment variable (e.g., 'ssh -i /path/to/key').
+# This field is kept for reference or potential use in wrapper scripts.
+ssh_key_path: {{ ssh_key_path | default('') }}
 
-{# Prefix for backup names (e.g., '{hostname}-{now:%Y%m%d-%H%M%S}') #}
-archive_name_prefix: {{ archive_name_prefix }}
+# --- Compression Settings ---
 
-{# Maximum number of archives to keep (per retention policy) #}
-keep_within: {{ retention.keep_within | default('3D') }}
-keep_daily: {{ retention.keep_daily | default(7) }}
-keep_weekly: {{ retention.keep_weekly | default(4) }}
-keep_monthly: {{ retention.keep_monthly | default(6) }}
-keep_yearly: {{ retention.keep_yearly | default(0) }}
+# Compression settings object.
+# Expected structure: { algorithm: 'lz4'|'zstd'|'zlib'|'none', level: int }
+# Defaulting to None if not provided, meaning Borg will use its default compression (usually zstd).
+{% if compression is defined and compression is not none %}
+# Compression algorithm: 'lz4', 'zlib', 'zstd', or 'none'
+compression_algorithm: {{ (compression | default({})).algorithm | default('zstd') }}
 
-{# Exclude patterns (rsync-style) #}
-{% for pattern in exclude_patterns %}
-exclude: {{ pattern }}
+# Compression level: -1 for default, 0–9 for zlib, 0–22 for zstd
+compression_level: {{ (compression | default({})).level | default(-1) }}
+{% else %}
+# Compression settings not explicitly defined; using Borg defaults.
+compression_algorithm: none
+compression_level: -1
+{% endif %}
+
+# --- Encryption Settings ---
+
+# Encryption mode.
+# Valid values: 'none', 'repokey', 'keyfile', 'repokey-blake2', 'keyfile-blake2'.
+# If set to 'none', no encryption is used.
+encryption_mode: {{ (encryption | default({})).mode | default('none') }}
+
+# --- Archive Naming ---
+
+# Template for naming backup archives.
+# Supports placeholders like {hostname}, {now:%Y%m%d-%H%M%S}.
+# Default format includes hostname and timestamp.
+archive_name_prefix: {{ archive_name_prefix | default('{hostname}-{now:%Y%m%d-%H%M%S}') }}
+
+# --- Retention Policy (for `borg prune`) ---
+
+# Retention policy settings object.
+# Used by the `borg prune` command to keep archives according to these rules.
+{% if retention is defined and retention is not none %}
+# Keep archives within this time period (e.g., '3D' for 3 days, '1W' for 1 week)
+keep_within: {{ (retention | default({})).keep_within | default('3D') }}
+
+# Keep this many daily archives
+keep_daily: {{ (retention | default({})).keep_daily | default(7) }}
+
+# Keep this many weekly archives
+keep_weekly: {{ (retention | default({})).keep_weekly | default(4) }}
+
+# Keep this many monthly archives
+keep_monthly: {{ (retention | default({})).keep_monthly | default(6) }}
+
+# Keep this many yearly archives
+keep_yearly: {{ (retention | default({})).keep_yearly | default(0) }}
+{% else %}
+# Retention settings not explicitly defined.
+keep_within: none
+keep_daily: 0
+keep_weekly: 0
+keep_monthly: 0
+keep_yearly: 0
+{% endif %}
+
+# --- Exclusion Patterns ---
+
+# List of glob patterns to exclude from backups.
+# These are rsync-style exclusion patterns.
+exclude_patterns:
+{% for pattern in exclude_patterns | default(['*.tmp', 'cache/*', '/proc/*', '/sys/*', '/dev/*']) %}
+  - {{ pattern }}
 {% endfor %}
 
-{# Paths to back up #}
-{% for path in backup_paths %}
-backup: {{ path }}
+# --- Backup Sources ---
+
+# List of filesystem paths to include in backups.
+backup_paths:
+{% for path in backup_paths | default(['/etc', '/home', '/var/www']) %}
+  - {{ path }}
 {% endfor %}
 
-{# Enable or disable POSIX ACLs support #}
-/acl-support: {{ features.acl_support | default(false) | string | lower }}
+# --- Feature Flags ---
 
-{# Enable or disable extended attributes (xattrs) support #}
-/xattr-support: {{ features.xattr_support | default(false) | string | lower }}
+# Feature flags object.
+# Controls support for file metadata like ACLs and extended attributes.
+{% if features is defined and features is not none %}
+# Enable or disable POSIX ACLs support
+acl_support: {{ (features | default({})).acl_support | default(false) | string | lower }}
 
-{# Enable or disable file status (inode/device) tracking for dedup #}
-/statx: {{ features.statx | default(false) | string | lower }}
+# Enable or disable extended attributes (xattrs) support
+xattr_support: {{ (features | default({})).xattr_support | default(false) | string | lower }}
+{% else %}
+# Feature flags not explicitly defined; using defaults.
+acl_support: false
+xattr_support: false
+{% endif %}
 
-{# Log level: 'debug', 'info', 'warning', 'error', 'critical' #}
-log_level: {{ log_level }}
+# --- Logging ---
 
-{# Enable automatic repository migration (not recommended in production) #}
-repository_migration: {{ repository_migration | default(false) | string | lower }}
+# Verbosity of the log output.
+# Valid levels: 'debug', 'info', 'warning', 'error', 'critical'.
+# Borg is quiet by default (warning level).
+log_level: {{ log_level | default('warning') | lower }}

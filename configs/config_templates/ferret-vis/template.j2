@@ -1,0 +1,27 @@
+; -*-emacs-lisp--;
+;;
+;; Emacs startup file for the Debian GNU/Linux {{ package_name | default('ferret-vis') }} package
+;;
+;; This configuration checks if the Ferret Emacs package is installed in the site-lisp directory.
+;; If it is, it adds the load path and defines an autoload for `ferret-mode`.
+;; If the package files are missing but the package entry exists, it logs a message.
+
+{% set site_lisp = emacs_site_lisp_path | default('/usr/share/emacs/site-lisp') %}
+
+(if (file-exists-p "{{ site_lisp }}/ferret.el")
+    (progn
+     ;; Add the site-lisp directory to the Emacs load path so ferret.el can be found
+     (debian-pkg-add-load-path-item "{{ site_lisp }}")
+     ;; Define an autoload for ferret-mode. This means Emacs will load "ferret.el"
+     ;; only when the user invokes a command associated with ferret-mode.
+     ;; Arguments: 'ferret-mode "ferret" "Major mode for editing Ferret journal files." t
+     (autoload 'ferret-mode "ferret"
+       "Major mode for editing Ferret journal files." t)
+     ;; Append a file name pattern to the auto-mode-alist.
+     ;; Files ending in .jnl will automatically use ferret-mode.
+     (setq auto-mode-alist
+       (append '( ("\\.jnl\\'" . ferret-mode))
+        auto-mode-alist)))
+  ;; This branch executes if ferret.el is NOT found in the site-lisp path.
+  ;; It indicates the package was removed or purged but remnants might exist.
+  (message "{{ package_name | default('ferret-vis') }} removed but not purged, skipping setup"))

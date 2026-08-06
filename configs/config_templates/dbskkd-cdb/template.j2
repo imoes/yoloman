@@ -1,0 +1,58 @@
+# /etc/dbskkd-cdb/config — configuration for dbskkd-cdb dictionary server
+# This file defines environment variables consumed by the dbskkd-cdb service wrapper.
+# Each variable is self-documenting with its schema description and safe default.
+
+# SKKDIC_DIR: Directory containing SKK dictionary CDB files.
+# Defaults to '/var/lib/skk/dic' if not specified.
+SKKDIC_DIR='{{ skkdic_dir | default("/var/lib/skk/dic") }}'
+
+# SKKDIC_MAIN: Main SKK dictionary file (basename, must exist in SKKDIC_DIR).
+# Defaults to 'JISYO.cdb' if not specified.
+SKKDIC_MAIN='{{ skkdic_main | default("JISYO.cdb") }}'
+
+# SKKDIC_EXTRA: Extra SKK dictionary files (basename list).
+# These basenames are appended to SKKDIC_DIR at runtime. Empty list means no extra dictionaries.
+{% if skkdic_extra is defined and skkdic_extra | length > 0 %}SKKDIC_EXTRA='{{ skkdic_extra | default([]) | join(" ") }}'
+{% else %}SKKDIC_EXTRA=''
+{% endif %}
+
+# SKKDIC_LANG: Language code for the dictionaries.
+# Defaults to 'ja_JP.UTF-8' if not specified.
+SKKDIC_LANG='{{ skkdic_lang | default("ja_JP.UTF-8") }}'
+
+# SKKDIC_TIMEOUT: Idle timeout in seconds before closing a client connection.
+# 0 means infinite timeout. Defaults to 300 seconds if not specified.
+SKKDIC_TIMEOUT={{ skkdic_timeout | default(300) }}
+
+# SKKDIC_MAXCONN: Maximum simultaneous connections allowed.
+# 0 means no limit. Defaults to 0 if not specified.
+SKKDIC_MAXCONN={{ skkdic_maxconn | default(0) }}
+
+# SKKDIC_BINDADDR: IP address to bind the listening socket to.
+# Empty string defaults to binding to all interfaces (0.0.0.0).
+# Defaults to '' if not specified.
+SKKDIC_BINDADDR='{{ skkdic_bindaddr | default("") }}'
+
+# SKKDIC_PORT: TCP port number to listen on for SKK dictionary requests.
+# Defaults to 1178 if not specified.
+SKKDIC_PORT={{ skkdic_port | default(1178) }}
+
+# SKKDIC_LOG_LEVEL: Logging verbosity level.
+# 0=quiet, 1=normal, 2=debug. Defaults to 1 if not specified.
+SKKDIC_LOG_LEVEL={{ skkdic_log_level | default(1) }}
+
+# SKKDIC_CHROOT: Chroot directory path for sandboxing the server process.
+# Empty string means do not chroot. Defaults to '' if not specified.
+SKKDIC_CHROOT='{{ skkdic_chroot | default("") }}'
+
+# SKKDIC_USER: Unix user account to drop privileges to after binding the port.
+# Used for running the server with reduced permissions. Defaults to 'nobody' if not specified.
+SKKDIC_USER='{{ skkdic_user | default("nobody") }}'
+
+# SKKDIC_GROUP: Unix group account to drop privileges to after binding the port.
+# Used in conjunction with SKKDIC_USER. Defaults to 'nogroup' if not specified.
+SKKDIC_GROUP='{{ skkdic_group | default("nogroup") }}'
+
+# SKKDIC_TCPWRAPPER: Enable tcp_wrappers access control (true/false).
+# When true, uses libwrap for host-based access control. Defaults to false if not specified.
+SKKDIC_TCPWRAPPER={{ skkdic_tcpwrapper | default(false) }}

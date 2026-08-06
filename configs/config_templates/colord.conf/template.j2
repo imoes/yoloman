@@ -1,42 +1,97 @@
-# colord system configuration
-# Enables/disables automatic color profile installation for new devices
-{% if enable_profiling | default(true) %}#EnableProfiling=true{% else %}#EnableProfiling=false{% endif %}
+# ==============================================================================
+# colord.conf - System-wide configuration for the colord color management service
+# ==============================================================================
+# This configuration file controls the behavior of the colord daemon, which
+# manages color profiles for devices (monitors, printers, scanners, etc.).
+#
+# Syntax: Key=Value pairs.
+# Note: This template writes the *active* configuration directly.
+# The original "commented out" logic has been replaced with clear, active directives.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [Profiling]
+# Controls whether color profiles are automatically installed when new devices
+# are connected. This is the primary automation switch for color management.
+# ------------------------------------------------------------------------------
+
+# enable_profiling: Whether to automatically install color profiles when new devices are connected.
+# Default: True
 EnableProfiling={{ enable_profiling | default(true) | lower }}
 
-# Path where user color profiles are stored (per-user)
+# ------------------------------------------------------------------------------
+# [Profile Storage Directories]
+# Defines where color profiles are stored on disk.
+# ------------------------------------------------------------------------------
+
+# user_profile_dir: Directory where user-specific color profiles are stored.
+# Default: /var/lib/color-manager
 UserProfileDir={{ user_profile_dir | default('/var/lib/color-manager') }}
 
-# Path where system-wide color profiles are stored (read-only)
+# system_profile_dir: Directory containing system-wide, read-only color profiles.
+# Default: /usr/share/color/icc
 SystemProfileDir={{ system_profile_dir | default('/usr/share/color/icc') }}
 
-# Path to the device database (used for device matching and calibration)
+# ------------------------------------------------------------------------------
+# [Device Database]
+# Path to the XML database used for matching hardware devices to installed
+# color profiles. This database is populated and managed by colord.
+# ------------------------------------------------------------------------------
+
+# device_db: Path to the XML database used for matching devices to color profiles.
+# Default: /var/lib/color-manager/devices.xml
 DeviceDB={{ device_db | default('/var/lib/color-manager/devices.xml') }}
 
-# Enable/disables the use of internal hardware calibration support
-{% if enable_hardware_calibration | default(true) %}#EnableHardwareCalibration=true{% else %}#EnableHardwareCalibration=false{% endif %}
+# ------------------------------------------------------------------------------
+# [Calibration & Vendor Profiles]
+# Controls support for hardware calibration tools and external vendor profiles.
+# ------------------------------------------------------------------------------
+
+# enable_hardware_calibration: Whether to enable support for hardware-based display calibration (e.g., via X-Rite devices).
+# Default: True
 EnableHardwareCalibration={{ enable_hardware_calibration | default(true) | lower }}
 
-# Enable/disables support for vendor-specific color profile formats
-{% if enable_vendor_profiles | default(false) %}#EnableVendorProfiles=true{% else %}#EnableVendorProfiles=false{% endif %}
+# enable_vendor_profiles: Whether to allow vendor-provided ICC profiles to be installed from external sources.
+# Default: False
 EnableVendorProfiles={{ enable_vendor_profiles | default(false) | lower }}
 
-# Maximum number of color profiles kept per device (0 = unlimited)
+# ------------------------------------------------------------------------------
+# [Profile Limits & Exclusions]
+# Controls how many profiles are retained and which devices are ignored.
+# ------------------------------------------------------------------------------
+
+# max_profiles_per_device: Maximum number of color profiles retained per device. Set to 0 for unlimited.
+# Default: 10
 MaxProfilesPerDevice={{ max_profiles_per_device | default(10) }}
 
-# Comma-separated list of device types to ignore during profiling
-# Valid types: monitor, projector, scanner, printer, camera, webcam, display, tablet
-IgnoreDevices={{ ignore_devices | default([]) | join(', ') }}
+# ignore_devices: List of device types to skip during automatic color profiling (e.g., 'scanner', 'printer').
+# Valid types: monitor, projector, scanner, printer.
+# Default: []
+IgnoreDevices={{ ignore_devices | default([]) | join(',') }}
 
-# Comma-separated list of device vendor:product IDs to ignore (e.g., "046d:c077,15d9:0a0d")
-IgnoreDeviceIDs={{ ignore_device_ids | default([]) | join(', ') }}
+# ignore_device_ids: List of device vendor:product IDs to ignore (e.g., "046d:c077").
+# Useful to exclude specific models known to cause issues.
+# Default: []
+IgnoreDeviceIDs={{ ignore_device_ids | default([]) | join(',') }}
 
-# Enable/disable logging of debugging messages to syslog
-{% if enable_debug | default(false) %}#EnableDebug=true{% else %}#EnableDebug=false{% endif %}
+# ------------------------------------------------------------------------------
+# [Logging & Debugging]
+# Controls the verbosity of colord's syslog output.
+# ------------------------------------------------------------------------------
+
+# enable_debug: Whether to log debugging messages to syslog (for troubleshooting).
+# Default: False
 EnableDebug={{ enable_debug | default(false) | lower }}
 
-# Enable/disable logging of verbose messages to syslog
-{% if enable_verbose | default(false) %}#EnableVerbose=true{% else %}#EnableVerbose=false{% endif %}
+# enable_verbose: Whether to log verbose informational messages to syslog.
+# Default: False
 EnableVerbose={{ enable_verbose | default(false) | lower }}
 
-# Maximum size of the internal cache (in MB); 0 = unlimited
+# ------------------------------------------------------------------------------
+# [Cache Configuration]
+# Controls the size of colord's internal cache for profile data.
+# ------------------------------------------------------------------------------
+
+# cache_max_size_mb: Maximum size (in MB) of colord’s internal cache. Set to 0 for unlimited.
+# Default: 50
 CacheMaxSizeMB={{ cache_max_size_mb | default(50) }}

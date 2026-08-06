@@ -27,7 +27,11 @@
   "logging_log_destination": {
     "type": "string",
     "default": "syslog",
-    "description": "Where to send log messages. Use 'file' to write to a log file, 'syslog' for system logging, or 'stdout' for console output."
+    "description": "Where to send log messages. Use 'file' to write to a log file, 'syslog' for system logging, or 'stdout' for console output.",
+    "enum": [
+      "syslog",
+      "file"
+    ]
   },
   "logging_log_file": {
     "type": "string",
@@ -41,8 +45,8 @@
   },
   "server_bind_port": {
     "type": "number",
-    "default": 80,
-    "description": "TCP port number on which lbcd accepts client connections."
+    "default": 4330,
+    "description": "UDP port number on which lbcd accepts queries (default 4330)."
   },
   "server_max_connections": {
     "type": "number",
@@ -67,32 +71,7 @@
         "enabled": true
       }
     ],
-    "items": {
-      "type": "object",
-      "description": "A single backend server for load balancing.",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Human-readable name for this backend (e.g., 'web1')."
-        },
-        "host": {
-          "type": "string",
-          "description": "IP address or hostname of the backend server."
-        },
-        "port": {
-          "type": "number",
-          "description": "Port number on which the backend service runs."
-        },
-        "weight": {
-          "type": "number",
-          "description": "Relative capacity (1\u20131000); higher weight = more requests routed here."
-        },
-        "enabled": {
-          "type": "bool",
-          "description": "Whether this backend is active and receives traffic."
-        }
-      }
-    }
+    "description": "A list of backend servers for load balancing. Each backend defines a target host, port, and weight used by the load balancer when querying lbcd instances."
   },
   "healthcheck_enabled": {
     "type": "bool",

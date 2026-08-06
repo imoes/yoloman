@@ -1,0 +1,46 @@
+# clFFT client configuration
+# Device selection: one of gpu, cpu, all
+{{ 'clfft_client.device' | indent(0) }}: {{ device | default('none') }}
+
+# Transform precision: single (default) or double
+{{ 'clfft_client.precision' | indent(0) }}: {{ precision | default('single') }}
+
+# Transform direction: forward (default) or backward
+{{ 'clfft_client.direction' | indent(0) }}: {{ direction | default('forward') }}
+
+# In-place (default) or out-of-place transform
+{{ 'clfft_client.placement' | indent(0) }}: {{ placement | default('inplace') }}
+
+# Whether to dump OpenCL kernels to disk
+{{ 'clfft_client.dump_kernels' | indent(0) }}: {{ dump_kernels | default(false) }}
+
+# Data layout specification
+# inLayout: interleaved (1), planar (2), hermitian_interleaved (3), hermitian_planar (4), real (5)
+# outLayout: same options as inLayout
+{{ 'clfft_client.layout' | indent(0) }}:
+  input:  {{ layout.input | default('interleaved') }}
+  output: {{ layout.output | default('interleaved') }}
+
+# Dimensions and strides
+{{ 'clfft_client.dimensions' | indent(0) }}:
+  size:
+    x: {{ dimensions.size.x | default(1024) }}
+    y: {{ dimensions.size.y | default(1) }}
+    z: {{ dimensions.size.z | default(1) }}
+  input_stride:
+    x: {{ dimensions.input_stride.x | default(1) }}
+    y: {{ dimensions.input_stride.y | default(0) }}
+    z: {{ dimensions.input_stride.z | default(0) }}
+  output_stride:
+    x: {{ dimensions.output_stride.x | default(1) }}
+    y: {{ dimensions.output_stride.y | default(0) }}
+    z: {{ dimensions.output_stride.z | default(0) }}
+  distance:
+    input:  {{ dimensions.distance.input | default(0) }}
+    output: {{ dimensions.distance.output | default(0) }}
+
+# Batch size: number of FFTs to compute in one call
+{{ 'clfft_client.batch_size' | indent(0) }}: {{ batch_size | default(1) }}
+
+# Profiling: number of runs to average timing over (0 = off)
+{{ 'clfft_client.profiling' | indent(0) }}: {{ profiling | default(0) }}

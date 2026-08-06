@@ -1,27 +1,59 @@
-# dsniff configuration file — controls global behavior of dsniff tools
-# Enable/disables logging to syslog (true = syslog, false = stderr)
-log_syslog {{ log_syslog }}
+# ==============================================================================
+# dsniff Configuration Template
+# ==============================================================================
+# This template configures the global behavior of dsniff network auditing tools.
+# dsniff is a collection of tools for network analysis and credential sniffing.
+#
+# Directives:
+# - log_syslog: Controls logging destination. true=sent to syslog, false=written to log_file.
+# - log_file: Path to the local log file when log_syslog is false.
+# - arplog_file: Path to log ARP cache poisoning events (used only when arp_poison=on).
+# - arp_poison: Enables/disables ARP cache poisoning. Accepts 'on' or 'off'.
+# - signatures: Enables/disables signature-based protocol detection (FTP, HTTP, etc.). Accepts 'on' or 'off'.
+# - sniff_protocols: List of protocols to actively sniff for credentials.
+# - ignore_hosts: List of hosts (IP or hostname) to skip during sniffing.
+# - interfaces: List of network interfaces to sniff on. If empty, dsniff sniffs all.
+# ==============================================================================
 
-# Log file path (used only if log_syslog = false)
-log_file {{ log_file }}
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
 
-# Path to write ARP cache poisoning logs (if arplog is enabled)
-arplog_file {{ arplog_file }}
+# If true, logs are sent to syslog; otherwise, written to log_file.
+log_syslog {{ log_syslog | default(true) | ternary('true', 'false') }}
 
-# Enable ARP cache poisoning (set to 'on' or 'off')
-arp_poison {{ arp_poison }}
+# Path to the local log file when log_syslog is false.
+log_file {{ log_file | default('/var/log/dsniff.log') }}
 
-# Enable signature-based detection of FTP, SMTP, etc. sessions (set to 'on' or 'off')
-signatures {{ signatures }}
+# Path to log ARP cache poisoning events (used only when arp_poison=on).
+arplog_file {{ arplog_file | default('/var/log/dsniff-arp.log') }}
 
-# Comma-separated list of protocols to sniff (e.g., 'ssh,ftp,http,imap')
-sniff_protocols {{ sniff_protocols | join(', ') }}
+# ------------------------------------------------------------------------------
+# Active Sniffing Features
+# ------------------------------------------------------------------------------
 
-# Hosts to ignore during sniffing (one per line; comments start with #)
-# Format: hostname or IP address
-{% for host in ignore_hosts %}# {{ host }}
+# Whether ARP cache poisoning is enabled. Accepts 'on' or 'off'.
+arp_poison {{ arp_poison | default('off') }}
+
+# Whether protocol signatures (e.g., for FTP, HTTP) are detected. Accepts 'on' or 'off'.
+signatures {{ signatures | default('on') }}
+
+# List of protocols to actively sniff for credentials.
+# Common values: ssh, ftp, http, imap, pop, smtp, telnet, vnc.
+# Rendered as a comma-separated list.
+sniff_protocols {{ sniff_protocols | default(['ssh', 'ftp', 'http', 'imap', 'pop', 'smtp', 'telnet', 'vnc']) | join(',') }}
+
+# ------------------------------------------------------------------------------
+# Exclusions and Interface Selection
+# ------------------------------------------------------------------------------
+
+# Hosts to ignore during sniffing (one per line; comments start with #).
+# Format: hostname or IP address.
+{% for host in ignore_hosts | default([]) %}
+# {{ host }}
 {% endfor %}
 
-# Interfaces to listen on (one per line; empty line = sniff all interfaces)
-{% for iface in interfaces %}{{ iface }}
+# Interfaces to listen on (one per line; empty line = sniff all interfaces).
+{% for iface in interfaces | default([]) %}
+{{ iface }}
 {% endfor %}

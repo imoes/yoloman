@@ -1,139 +1,30 @@
-[uwsgi]
-; Main application module to serve (Python callable)
-module = {{ module }}
+# Defaults for uWSGI initscript
+# sourced by /etc/init.d/uwsgi
 
-; Python virtual environment path
-virtualenv = {{ virtualenv }}
+# If you don't want uWSGI to be started as a system service,
+# disable it using the command 'update-rc.d uwsgi disable'
 
-; Python home (alias for virtualenv if needed)
-home = {{ home }}
+# At startup VERBOSE value is setted in 'no'. So when user invokes
+# uWSGI init.d script, no output is showed.
+# It could be unexpected behaviour, because it is common practice for
+# init.d script to ignore VERBOSE value.
+# Here VERBOSE is overriden to conform such the practice.
+VERBOSE={{ verbose }}
 
-; User and group under which the process runs
-uid = {{ uid }}
-gid = {{ gid }}
+# Should init.d script print configuration file names while marking progress of
+# it's execution?
+#
+# If 'no', then init.d script prints one-character symbols instead file names.
+#
+# Printing confnames is quite informative, but could mess terminal output or
+# be somewhat dangerous (as filename could contain arbitary characters).
+# ASCII control characters in file names are replaced with '?' in init.d script
+# output, nevertheless you were warned.
+PRINT_CONFNAMES_IN_INITD_SCRIPT_OUTPUT={{ print_confnames }}
 
-; Working directory for the app
-chdir = {{ chdir }}
-
-; Socket or HTTP binding address
-socket = {{ socket }}
-
-; HTTP interface (alternative to socket, e.g., for reverse proxy)
-{% if http %}
-http = {{ http }}
-{% endif %}
-
-; Number of worker processes
-processes = {{ processes }}
-
-; Number of threads per worker (set to 0 to disable threading)
-threads = {{ threads }}
-
-; Master process enabled for graceful reloads and stats
-master = {{ master }}
-
-; Enable lazy-apps to avoid copy-on-write issues with pre-forking
-lazy-apps = {{ lazy_apps }}
-
-; Graceful timeout for workers on reload/restart (seconds)
-reload-mercy = {{ reload_mercy }}
-worker-reload-mercy = {{ worker_reload_mercy }}
-
-; Max requests per worker before graceful respawn
-max-requests = {{ max_requests }}
-
-; Log file path (if not using syslog)
-{% if logto %}
-logto = {{ logto }}
-{% elif logfile %}
-logfile = {{ logfile }}
-{% endif %}
-
-; Enable syslog logging
-{% if logto_syslog %}
-logto-syslog = {{ logto_syslog }}
-{% endif %}
-
-; Log level (0=error, 1=warn, 2=info, 3=debug)
-log-level = {{ log_level }}
-
-; Enable Emperor mode for managing multiple apps
-{% if emperor %}
-emperor = {{ emperor }}
-{% endif %}
-
-; Stats server address (for monitoring)
-{% if stats %}
-stats = {{ stats }}
-{% endif %}
-
-; Vacuum: clean up temp files on shutdown
-vacuum = {{ vacuum }}
-
-; Enable post buffering for large POST requests (bytes)
-{% if post_buffering %}
-post-buffering = {{ post_buffering }}
-{% endif %}
-
-; Enforce virtualhost mode (for name-based virtual hosting)
-virtualhost = {{ virtualhost }}
-
-; Enable thunder-lock (fixes thundering herd on Linux)
-thunder-lock = {{ thunder_lock }}
-
-; Buffer size for internal operations (bytes)
-buffer-size = {{ buffer_size }}
-
-; Python path extra directories (colon-separated)
-{% if py-path %}
-py-path = {{ py-path }}
-{% endif %}
-
-; Custom WSGI callable name (default: application)
-callable = {{ callable }}
-
-; Harakiri: kill workers idle longer than N seconds (0 to disable)
-{% if harakiri %}
-harakiri = {{ harakiri }}
-{% endif %}
-
-; Harakiri verbose logging
-{% if harakiri %}
-harakiri-verbose = {{ harakiri_verbose }}
-{% endif %}
-
-; Enable lazy-config (load config only after fork)
-lazy-config = {{ lazy_config }}
-
-; Graceful shutdown timeout (seconds)
-{% if graceful-timeout %}
-graceful-timeout = {{ graceful-timeout }}
-{% endif %}
-
-; Kill workers that exceed this memory (MB)
-{% if limit-as %}
-limit-as = {{ limit_as }}
-{% endif %}
-
-; Environment variables to export (list of key=value strings)
-{% for env in env_vars %}
-env = {{ env }}
-{% endfor %}
-
-; Plugins to load (comma-separated list or absolute paths)
-{% if plugins %}
-plugins = {{ plugins }}
-{% endif %}
-
-; Plugin-specific settings (e.g., python3 plugin)
-{% if plugin_python3 %}
-plugin-python3 = {{ plugin_python3 }}
-{% endif %}
-
-; Enable lazy-exec (exec only after fork in emperor mode)
-lazy-exec = {{ lazy_exec }}
-
-; Auto-reload when config file changes (dev only)
-{% if reload-on-rss %}
-reload-on-rss = {{ reload_on_rss }}
-{% endif %}
+# init.d script starts instance of uWSGI daemon for each found user-created
+# configuration file.
+#
+# Options from inherited configuration file are passed to each instance by
+# default. They could be overrided (or extended) by user configuration file.
+INHERITED_CONFIG={{ inherited_config }}

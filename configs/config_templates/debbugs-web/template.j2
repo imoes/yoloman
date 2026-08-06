@@ -1,0 +1,77 @@
+$gAccessHtml = <<HTML_END
+<!--
+  This block defines the HTML content for the "Accessing logs" page of debbugs-web.
+  It uses variables from the schema to customize the project name, bug terminology,
+  maintainer contact, and static file paths.
+-->
+<!doctype html public "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+  <!-- Title of the page, combining Project Name and Bug Noun -->
+  <!-- gProject: The project name (e.g., 'Debian'). Default: 'Debian' -->
+  <!-- gBugs: The bug-related noun used in singular form. Default: 'Bug' -->
+  <title>{{ gProject | default('Debian') }} {{ gBugs | default('Bug') }} - Accessing the logs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Link to the maintainer's email address -->
+  <!-- gMaintainerEmail: Email address of the bug tracking system maintainers. Default: 'debian BTS maintainers <debian-bts@lists.debian.org>' -->
+  <link rev="made" href="mailto:{{ gMaintainerEmail | default('debian BTS maintainers <debian-bts@lists.debian.org>') }}">
+
+  <!-- Link to the CSS stylesheet located in the web host directory -->
+  <!-- gWebHostBugDir: Document root or base path where the bug web interface files are installed. Default: '/usr/share/debbugs-web' -->
+  <link rel="stylesheet" href="{{ gWebHostBugDir | default('/usr/share/debbugs-web') }}/css/bugs.css" type="text/css">
+</head>
+<body>
+
+<!--
+  Main Heading
+  gBug: The bug-related noun used in singular form, often repeated in text. Default: 'Bug'
+-->
+<h1><a name="developers">Accessing {{ gBug | default('Bug') }} reports in the tracking system
+logs</a></h1>
+
+<p>Each message received at or sent by the {{ gBug | default('Bug') }} processing system is
+logged and made available in a number of ways.
+
+<!--
+  HTML snippet listing ways to access logs.
+  This variable typically includes links to index pages.
+  gHTMLCopies: HTML snippet listing ways to access logs.
+  Default: '<p>Here are some ways to access the logs:\n<ul>\n  <li><a href="db/ix/full.html">Full list of outstanding and recent $gBug reports.</a>\n  <li><a href="db/ix/packages.html">Packages with $gBug reports.</a>\n  <li><a href="db/ix/maintainers.html">Maintainers of packages with $gBug reports.</a>\n</ul>'
+-->
+{{ gHTMLCopies | default('<p>Here are some ways to access the logs:\n<ul>\n  <li><a href="db/ix/full.html">Full list of outstanding and recent $gBug reports.</a>\n  <li><a href="db/ix/packages.html">Packages with $gBug reports.</a>\n  <li><a href="db/ix/maintainers.html">Maintainers of packages with $gBug reports.</a>\n</ul>') }}
+
+<p>There is a <a href="server-request.html">mailserver</a> which can send
+{{ gBug | default('Bug') }} reports as plain text on request.  To use it send the word
+<code>help</code> as the sole contents of an email to
+<code>request</code> (the <code>Subject</code> of the
+message is ignored), or read the instructions on the World Wide Web or
+in the file <code>bug-log-mailserver.txt</code>.
+
+<hr>
+
+<p>Other pages:
+<ul>
+  <li><a href="./">{{ gBug | default('Bug') }} tracking system main contents page.</a>
+  <li><a href="Reporting.html">Instructions for reporting {{ gBugs | default('Bug') }}.</a>
+  <li><a href="Developer.html">Developers' information regarding the {{ gBug | default('Bug') }} processing system.</a>
+  <li><a href="db/ix/full.html">Full list of outstanding and recent {{ gBug | default('Bug') }} reports.</a>
+  <li><a href="db/ix/packages.html">Packages with {{ gBug | default('Bug') }} reports.</a>
+  <li><a href="db/ix/maintainers.html">Maintainers of packages with {{ gBug | default('Bug') }} reports.</a>
+
+  <!--
+    Extra HTML list items appended to the 'Other pages' list.
+    gHTMLOtherPageList: Extra HTML list items appended to the 'Other pages' list. Empty in the default config.
+    Default: ''
+  -->
+  {{ gHTMLOtherPageList | default('') }}
+</ul>
+
+<!--
+  Trailing HTML snippet appended before the closing tags.
+  gHTMLTail: Trailing HTML snippet appended before the closing tags.
+  Default: '<p>For further information, please refer to the <a href="doc/index.html">documentation</a>.\n'
+-->
+{{ gHTMLTail | default('<p>For further information, please refer to the <a href="doc/index.html">documentation</a>.\n') }}
+
+HTML_END

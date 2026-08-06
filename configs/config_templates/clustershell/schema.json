@@ -1,46 +1,68 @@
 {
-  "default_source": {
+  "fanout": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of parallel workers in clush"
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Connection timeout in seconds for clush"
+  },
+  "command_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Command timeout in seconds for clush; 0 means unlimited"
+  },
+  "color": {
     "type": "string",
-    "default": "local",
-    "description": "Name of the group source used when a group expression carries no @source: prefix"
+    "default": "auto",
+    "description": "Color output mode for clush (auto|yes|no)",
+    "enum": [
+      "auto",
+      "yes",
+      "no"
+    ]
+  },
+  "fd_max": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum number of file descriptors clush may use"
+  },
+  "history_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of commands stored in clush history"
+  },
+  "maxrc": {
+    "type": "string",
+    "default": "no",
+    "description": "Whether to exit with the maximum exit code of all nodes (yes|no)",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "node_count": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to show node count summary (yes|no)",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level for clush (0-2)"
   },
   "confdir_paths": {
     "type": "list",
     "default": [
-      "/etc/clustershell/groups.conf.d",
-      "$CFGDIR/groups.conf.d"
+      "/etc/clustershell/clush.conf.d",
+      "$CFGDIR/clush.conf.d"
     ],
-    "description": "Directories scanned for additional *.conf group-source files; $CFGDIR expands to the package config dir"
-  },
-  "group_sources": {
-    "type": "list",
-    "default": [],
-    "description": "Ordered list of group sources; each source is a named INI section with shell commands that resolve node groups",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Source identifier, used as the prefix in @name:groupname expressions and as the INI section header"
-      },
-      "map_cmd": {
-        "type": "string",
-        "description": "Shell command that prints the node list (nodeset or one node per line) for the group named by $GROUP"
-      },
-      "list_cmd": {
-        "type": "string",
-        "description": "Shell command that prints all group names available in this source, one per line"
-      },
-      "all_cmd": {
-        "type": "string",
-        "description": "Shell command returning every node known to this source; leave empty to omit (enables @source:all expansion)"
-      },
-      "reverse_cmd": {
-        "type": "string",
-        "description": "Shell command returning group names for the node named by $NODE; leave empty to omit (enables reverse lookups)"
-      },
-      "cache_time": {
-        "type": "number",
-        "description": "Seconds to cache shell command output; 0 or empty disables caching"
-      }
-    }
+    "description": "Directories scanned for additional clush.conf files; $CFGDIR expands to the package config dir"
   }
 }

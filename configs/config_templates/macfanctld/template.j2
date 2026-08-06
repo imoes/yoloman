@@ -1,58 +1,99 @@
-# macfanctld configuration file
-# Controls fan speed and temperature thresholds for Apple hardware
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          macfanctld
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Apple MacBook (Pro) fan control daemon
+### END INIT INFO
 
-# Minimum fan speed (0-65535 RPM or 0-100% depending on mode)
-min_fan_speed: {{ min_fan_speed }}
+DESC="Apple MacBook (Pro) fan control daemon"
+NAME=macfanctld
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DAEMON=/usr/sbin/$NAME
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
+DAEMON_ARGS=""
 
-# Maximum fan speed (0-65535 RPM or 0-100% depending on mode)
-max_fan_speed: {{ max_fan_speed }}
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
 
-# Temperature thresholds: temp_<zone> = <temp_threshold> (°C)
-# Each zone corresponds to a sensor (e.g., CPU, GPU, chassis)
-{% for zone, threshold in temp_thresholds.items() %}# Temperature threshold for {{ zone }} zone (°C)
-temp_{{ zone }}: {{ threshold }}
-{% endfor %}
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+. /lib/lsb/init-functions
 
-# Hysteresis: delay before fan speed adjustment after crossing threshold (seconds)
-hysteresis: {{ hysteresis }}
+# Function that starts the daemon/service
+do_start()
+{
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+		|| return 1
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
+		$DAEMON_ARGS \
+		|| return 2
+}
 
-# Polling interval for sensor readings (milliseconds)
-poll_interval: {{ poll_interval }}
+# Function that stops the daemon/service
+do_stop()
+{
+	# Return
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	RETVAL="$?"
+	[ "$RETVAL" = 2 ] && return 2
+	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
+	[ "$?" = 2 ] && return 2
+	return "$RETVAL"
+}
 
-# Fan control mode: 'manual' or 'auto'
-# In 'auto' mode, macfanctld adjusts fan speed based on thresholds
-fan_mode: {{ fan_mode }}
+# Function that sends a SIGHUP to the daemon/service
+do_reload() 
+{
+	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	return 0
+}
 
-# Sensor source: 'smbios' (default), 'ec', or 'acpi'
-# Specifies where temperature data is read from
-sensor_source: {{ sensor_source }}
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  status)
+       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+       ;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
 
-# Enable logging to syslog
-log_to_syslog: {{ log_to_syslog | lower }}
-
-# Log level: 'debug', 'info', 'warn', 'error'
-log_level: {{ log_level }}
-
-# Path to custom sensor mapping file (optional)
-# Used when default SMBIOS/EC sensor mapping is incorrect
-{% if custom_sensor_map_path %}# Use custom sensor mapping file at {{ custom_sensor_map_path }}
-sensor_map: {{ custom_sensor_map_path }}
-{% endif %}
-
-# Fan offset: add/subtract this value to raw fan speed (for calibration)
-fan_offset: {{ fan_offset }}
-
-# Fan multiplier: multiply raw fan speed by this (for calibration)
-fan_multiplier: {{ fan_multiplier }}
-
-# Critical temperature (°C) — fan spins at max speed if exceeded
-critical_temp: {{ critical_temp }}
-
-# Shutdown temperature (°C) — triggers emergency shutdown if exceeded
-shutdown_temp: {{ shutdown_temp }}
-
-# Enable fan sleep mode (reduces fan speed during sleep/suspend)
-fan_sleep_mode: {{ fan_sleep_mode | lower }}
-
-# Ignore sensor failure (do not halt daemon on missing sensors)
-ignore_sensor_failure: {{ ignore_sensor_failure | lower }}
+:

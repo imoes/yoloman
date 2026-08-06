@@ -1,0 +1,29 @@
+# ==============================================================================
+# firetools uiapps configuration
+# ==============================================================================
+# This file defines the list of applications recognized by firetools.
+# Each entry corresponds to one application and defines how it appears in the GUI
+# and optionally how it is launched via Firejail for sandboxing.
+#
+# Format per line:
+#   <executable>; <description>; <icon>; <firejail_cmd>
+#
+# - executable: Path or command name of the executable.
+# - description: User-visible description of the application.
+# - icon: Path or theme icon name for the application.
+# - firejail_cmd: Optional Firejail sandbox command with arguments.
+#                 If empty, the application is launched directly (if possible).
+# ==============================================================================
+
+# applications: List of applications recognized by firetools; each entry defines how an app
+# appears in the GUI and optional sandboxing command.
+# Note: We iterate over `applications` which is a list of dictionaries.
+# We use `default([])` to handle the case where `applications` is not defined in context.
+{% for app in (applications | default([])) %}
+# Entry: Application {{ loop.index }}
+#   executable: {{ app.executable | default('') }}
+#   description: {{ app.description | default('') }}
+#   icon: {{ app.icon | default('') }}
+#   firejail_cmd: {{ app.firejail_cmd | default('') }}
+{{ app.executable | default('') }}; {{ app.description | default('') }}; {{ app.icon | default('') }}{% if app.firejail_cmd | default('') %}; {{ app.firejail_cmd | default('') }}{% endif %}
+{% endfor %}

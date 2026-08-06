@@ -1,0 +1,130 @@
+# genext2fs configuration — ext2 filesystem generator for embedded systems
+# This template generates command-line arguments for the `genext2fs` utility.
+# Each block corresponds to a documented genext2fs(8) option.
+# Variables are sourced from the Ansible 'values' dictionary with safe defaults.
+
+{% set starting_image = (values | default({})).starting_image | default('') %}
+{% if starting_image | length > 0 %}
+# -x <image> : Path to an existing ext2 image to use as the starting point.
+-x '{{ starting_image }}'
+{% endif %}
+
+{% set root_dirs = (values | default({})).root_dirs | default([]) %}
+{% if root_dirs | length > 0 %}
+# -d <src>:<dest> : List of source directories to add to the filesystem root.
+# The optional `dest` specifies the target path within the image (default: '.').
+{% for item in root_dirs %}
+-d '{{ (item | default({})).src | default('') }}:{{ (item | default({})).dest | default('.') }}'
+{% endfor %}
+{% endif %}
+
+{% set devtables = (values | default({})).devtables | default([]) %}
+{% if devtables | length > 0 %}
+# -D <src>:<dest> : List of device table spec files to apply.
+# The optional `dest` specifies the target path within the image for the table entries.
+{% for item in devtables %}
+-D '{{ (item | default({})).src | default('') }}:{{ (item | default({})).dest | default('.') }}'
+{% endfor %}
+{% endif %}
+
+{% set tarballs = (values | default({})).tarballs | default([]) %}
+{% if tarballs | length > 0 %}
+# -a <src>:<dest> : List of tarball archives to extract into the image.
+# The optional `dest` specifies the target path where contents are extracted.
+{% for item in tarballs %}
+-a '{{ (item | default({})).src | default('') }}:{{ (item | default({})).dest | default('.') }}'
+{% endfor %}
+{% endif %}
+
+{% set size_in_blocks = (values | default({})).size_in_blocks | default(0) %}
+{% if size_in_blocks != 0 %}
+# -b <blocks> : Filesystem size in 1024-byte blocks.
+-b {{ size_in_blocks }}
+{% endif %}
+
+{% set block_size = (values | default({})).block_size | default(1024) %}
+{% if block_size != 1024 %}
+# -B <size> : Filesystem block size in bytes (must be power of 2 and multiple of 1024).
+-B {{ block_size }}
+{% endif %}
+
+{% set number_of_inodes = (values | default({})).number_of_inodes | default(0) %}
+{% if number_of_inodes != 0 %}
+# -N <count> : Maximum number of inodes (0 means auto-calculate).
+-N {{ number_of_inodes }}
+{% endif %}
+
+{% set volume_label = (values | default({})).volume_label | default('') %}
+{% if volume_label | length > 0 %}
+# -L <label> : Volume label for the ext2 filesystem (max 16 chars).
+-L '{{ volume_label }}'
+{% endif %}
+
+{% set bytes_per_inode = (values | default({})).bytes_per_inode | default(16384) %}
+{% if bytes_per_inode != 16384 %}
+# -i <ratio> : Ratio of bytes per inode when auto-calculating inode count.
+-i {{ bytes_per_inode }}
+{% endif %}
+
+{% set reserved_percentage = (values | default({})).reserved_percentage | default(5) %}
+{% if reserved_percentage != 5 %}
+# -m <percent> : Percentage of blocks reserved for root (0 prevents 'lost+found').
+-m {{ reserved_percentage }}
+{% endif %}
+
+{% set creator_os = (values | default({})).creator_os | default('LINUX') %}
+{% if creator_os != 'LINUX' %}
+# -o <os> : Value for the creator OS field in the superblock (e.g., LINUX, HURD).
+-o '{{ creator_os }}'
+{% endif %}
+
+{% set block_map_path = (values | default({})).block_map_path | default('') %}
+{% if block_map_path | length > 0 %}
+# -g <path> : Path to write a block map file for this path in the image.
+-g '{{ block_map_path }}'
+{% endif %}
+
+{% set fill_value = (values | default({})).fill_value | default(0) %}
+{% if fill_value != 0 %}
+# -e <value> : Fill value (0-255) for unallocated blocks (0 = zero-fill).
+-e {{ fill_value }}
+{% endif %}
+
+{% set allow_holes = (values | default({})).allow_holes | default(False) %}
+{% if allow_holes %}
+# -z : Enable creation of files with holes (sparse files).
+-z
+{% endif %}
+
+{% set faketime = (values | default({})).faketime | default(False) %}
+{% if faketime %}
+# -f : Use timestamp 0 for inode and filesystem creation (for reproducibility).
+-f
+{% endif %}
+
+{% set squash = (values | default({})).squash | default(False) %}
+{% if squash %}
+# -q : Squash permissions and ownership (equivalent to `-P -U`).
+-q
+{% endif %}
+
+{% set squash_uids = (values | default({})).squash_uids | default(False) %}
+{% if squash_uids %}
+# -U : Squash UIDs/GIDs to root:root for `-d`-added files.
+-U
+{% endif %}
+
+{% set squash_perms = (values | default({})).squash_perms | default(False) %}
+{% if squash_perms %}
+# -P : Squash permissions for `-d`-added files (analogous to umask 077).
+-P
+{% endif %}
+
+{% set verbose = (values | default({})).verbose | default(False) %}
+{% if verbose %}
+# -v : Print resulting filesystem structure to stdout.
+-v
+{% endif %}
+
+# Output image path. Use '-' for stdout.
+{{ (values | default({})).output_image | default('-') }}

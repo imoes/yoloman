@@ -22,8 +22,6 @@ DC_local_domains='{{ dc_local_domains | join(" : ") | replace(" ", " : ") }}'
 # If empty, only authenticated users may relay
 {% if dc_relay_hosts %}DC_relay_hosts='{{ dc_relay_hosts | join(" : ") }}'{% else %}DC_relay_hosts=''{% endif %}
 
-# Hosts that may relay mail *only* if they authenticate (SMTP AUTH)
-# These hosts can send mail to *any* destination, but only after successful auth
 {% if dc_relay_domains %}DC_relay_domains='{{ dc_relay_domains | join(" : ") }}'{% else %}DC_relay_domains=''{% endif %}
 
 # Trusted users who can bypass certain security checks (e.g., root, exim, mail)
@@ -52,11 +50,6 @@ DC_split_config='{{ dc_split_config | lower }}'
 
 # Timeout for SMTP connections (seconds)
 {% if dc_smtptimeout is defined %}DC_smtptimeout='{{ dc_smtptimeout }}'{% endif %}
-
-# Queue lifetime (seconds before bounces are sent for undelivered messages)
-{% if dc_queue_run_interval is defined %}# Queue runner interval (seconds) — not a config-timeout, but runtime{% endif %}
-{% if dc_queue_run_interval is defined %}DC_queue_run_interval='{{ dc_queue_run_interval }}'{% endif %}
-{% if dc_delivery_keep_outgoing is defined %}DC_delivery_keep_outgoing='{{ dc_delivery_keep_outgoing | lower }}'{% endif %}
 
 # --- TLS/SSL configuration ---
 # Enable opportunistic TLS (start TLS if supported by peer)
@@ -117,7 +110,6 @@ dnslookup:
   transport = remote_smtp
   # Retry config is in retry/standard
   same_domain_routing
-  # Use default route for this domain
   route_data = ${lookup dnsdb{mxhost=${domain}:a=0:retry=1}}
   no_more
 
@@ -148,7 +140,7 @@ mail_spool:
 # Typically in retry/standard
 begin retry
 
-*                      *           F,2h,15m; G,16h,1h,1.5; F,4d,6h
+*                       *           F,2h,15m; G,16h,1h,1.5; F,4d,6h
 
 # --- Authenticators ---
 # SASL-based auth (if DC_saslauthd=true)

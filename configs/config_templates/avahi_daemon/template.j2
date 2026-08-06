@@ -1,73 +1,155 @@
-# Configuration file for the Avahi mDNS/DNS-SD Daemon
-[server]
-# Enable or disable mDNS/DNS-SD functionality
-use-ipv4={{ server.use_ipv4 | default(true) | string | lower }}
-use-ipv6={{ server.use_ipv6 | default(true) | string | lower }}
-# Advertise local hostname and services
-publish-hinfo={{ server.publish_hinfo | default(true) | string | lower }}
-publish-workstation={{ server.publish_workstation | default(true) | string | lower }}
-# Publish domain (e.g., .local)
-publish-domain={{ server.publish_domain | default('local') }}
-# Enable publishing of resolved unicast DNS upstream
-publish-resolved={{ server.publish_resolved | default(true) | string | lower }}
-# Publish PTR records for reverse lookups
-publish-addr={{ server.publish_addr | default(true) | string | lower }}
-# Publish canonical names
-publish-cname={{ server.publish_cname | default(true) | string | lower }}
-# TTL for published records (seconds)
-rr-ttl={{ server.rr_ttl | default(7200) }}
+# ============================================================================
+# Avahi mDNS/DNS-SD Daemon Configuration
+# ============================================================================
+# This file configures the Avahi daemon for multicast DNS and DNS Service
+# Discovery (DNS-SD). It handles local hostname resolution, service
+# advertisement, and inter-network mDNS reflection.
+#
+# Structure: The `server` variable is expected to be a list of dictionaries.
+# This template extracts the first element from the list to use as the
+# configuration dictionary. If `server` is empty, an empty dict is used.
+# ============================================================================
 
-[reflector]
-# Enable reflector mode (forward mDNS between network interfaces)
-enable-reflector={{ server.reflector.enabled | default(false) | string | lower }}
-# TTL for forwarded records
-reflector-rr-ttl={{ server.reflector.rr_ttl | default(7200) }}
-# Allow forwarding to/from network namespaces
-reflector-network-namespace={{ server.reflector.network_namespace | default(false) | string | lower }}
+{# Extract the first server config object from the list, defaulting to empty dict #}
+{% set srv = (server | default([]) | first | default({})) %}
 
-[lua]
-# Enable Lua scripting support (disabled by default)
-enable-lua={{ server.lua.enabled | default(false) | string | lower }}
-# Path to Lua script(s) (comma-separated or list in template logic)
-lua-directory={{ server.lua.directory | default('/etc/avahi/services') }}
+# --- Section: [server] ---
+# Top-level server configuration for mDNS/DNS-SD behavior and publishing.
+# Controls basic availability and record publishing behavior.
 
-[watcher]
-# Watch for changes in config and reload automatically
-watch-config={{ server.watch_config | default(true) | string | lower }}
+# Enable or disable mDNS/DNS-SD functionality for IPv4.
+# If true, the daemon will listen for mDNS packets on IPv4 interfaces.
+use-ipv4={{ (srv.use_ipv4 | default(true)) | string | lower }}
 
-[host-info]
-# Host name to advertise (if empty, use system hostname)
-host-name={{ server.host_name | default('') }}
+# Enable or disable mDNS/DNS-SD functionality for IPv6.
+# If true, the daemon will listen for mDNS packets on IPv6 interfaces.
+use-ipv6={{ (srv.use_ipv6 | default(true)) | string | lower }}
 
-[wide-area]
-# Enable Wide Area Discovery (requires mDNS reflection infrastructure)
-enable-wide-area={{ server.wide_area.enabled | default(false) | string | lower }}
+# Advertise local hostname and services as HINFO records (CPU/OS info).
+# WARNING: This can reveal system details to the local network.
+publish-hinfo={{ (srv.publish_hinfo | default(true)) | string | lower }}
 
-[dbus]
-# Allow D-Bus clients to control the daemon
-system-pub-sub={{ server.dbus.system_pub_sub | default(true) | string | lower }}
+# Advertise the local machine as a workstation (provides additional service hints).
+publish-workstation={{ (srv.publish_workstation | default(true)) | string | lower }}
 
-{% if server.rate_limiting.enabled | default(false) %}
-[rate-limiting]
+# Publish the local domain name (e.g., .local) for this host.
+# This allows other machines to resolve `hostname.local`.
+publish-domain={{ srv.publish_domain | default('local') }}
+
+# Publish PTR records for reverse lookups (IP -> Hostname).
+# Enables reverse DNS resolution for the advertised hostname.
+publish-addr={{ (srv.publish_addr | default(true)) | string | lower }}
+
+# Publish Canonical Name (CNAME) records for aliases.
+publish-cname={{ (srv.publish_cname | default(true)) | string | lower }}
+
+# TTL (Time To Live) for published records in seconds.
+# Determines how long clients cache the advertised service/hostname info.
+rr-ttl={{ srv.rr_ttl | default(120) | int }}
+
+# --- Section: [reflector] ---
+# Configuration for mDNS reflection (forwarding packets between interfaces).
+
+# Enable reflector mode.
+# If enabled, Avahi will forward mDNS packets between network interfaces,
+# allowing discovery across different subnets (requires infrastructure support).
+enable-reflector={{ (srv.reflector | default({})).enabled | default(false) | string | lower }}
+
+# TTL for forwarded records in reflector mode.
+reflector-rr-ttl={{ (srv.reflector | default({})).rr_ttl | default(120) | int }}
+
+# --- Section: [lua] ---
+# Lua scripting support for dynamic service publishing.
+
+# Enable Lua scripting support.
+# If true, Avahi will load Lua scripts to allow dynamic service management.
+enable-lua={{ (srv.lua | default({})).enabled | default(false) | string | lower }}
+
+# Directory containing Lua scripts to be loaded by the daemon.
+lua-directory={{ (srv.lua | default({})).directory | default('/etc/avahi/services') }}
+
+# --- Section: [watcher] ---
+# Automatic reloading of configuration on change.
+
+# Watch for changes in the configuration file and reload automatically.
+# This allows live updates without restarting the daemon.
+watch-config={{ (srv.watch_config | default(true)) | string | lower }}
+
+# --- Section: [host-info] ---
+# Host identification settings.
+
+# Host name to advertise.
+# If empty, Avahi uses the system's local hostname (from /etc/hostname or similar).
+host-name={{ srv.host_name | default('') }}
+
+# --- Section: [wide-area] ---
+# Wide Area DNS-SD (WADS) settings for global service discovery.
+
+# Enable Wide Area Discovery.
+# Requires external infrastructure (glue servers) to forward mDNS beyond the local link.
+enable-wide-area={{ (srv.wide_area | default({})).enabled | default(false) | string | lower }}
+
+# --- Section: [dbus] ---
+# D-Bus integration for client control.
+
+# Allow D-Bus clients to control the daemon.
+# Enables other applications to interact with Avahi via D-Bus API.
+system-pub-sub={{ (srv.dbus | default({})).system_pub_sub | default(true) | string | lower }}
+
+# --- Section: [rate-limiting] ---
+# Protection against mDNS flooding/poisoning.
+
+{# Check if rate-limiting is explicitly enabled or has configuration #}
+{% if (srv.rate_limiting | default({})).enabled | default(false) %}
+# Rate limiting is enabled.
 enable-rate-limiting=yes
 {% else %}
-[rate-limiting]
+# Rate limiting is disabled.
 enable-rate-limiting=no
 {% endif %}
-# Number of packets per interval before throttling
-rate-interval-sec={{ server.rate_limiting.interval_sec | default(30) }}
-# Max packets per interval
-rate-max={{ server.rate_limiting.max_packets | default(50) }}
 
-{% for service in server.publish_services %}
-# Publish custom service: {{ service.name }}
-{% if service.type %}publish-service={{ service.name }},{{ service.type }},{{ service.port }}{% if service.txt %},{{ service.txt }}{% endif %}
-{% else %}publish-service={{ service.name }},{{ service.port }}{% endif %}
-{% endfor %}
+# Number of seconds per rate-limiting interval.
+rate-interval-sec={{ (srv.rate_limiting | default({})).interval_sec | default(30) | int }}
 
-{% for domain in server.publish_domains %}
-# Announce domain: {{ domain.name }}
-publish-domain={{ domain.name }}{% if domain.ttl %}:{{ domain.ttl }}{% endif %}
+# Maximum number of packets allowed per interval before throttling.
+rate-max={{ (srv.rate_limiting | default({})).max_packets | default(50) | int }}
+
+# --- Dynamic Service Publishing ---
+# Iterate over the list of services to publish custom mDNS/DNS-SD records.
+# Note: 'publish_services' is a key inside the first server config object.
+
+{% set _publish_services = (srv.publish_services | default([])) %}
+{% if _publish_services is iterable and _publish_services is not mapping %}
+{% for service in _publish_services %}
+# Publish custom service: {{ service.name | default('unknown') }}
+# Format: publish-service=NAME,TYPE,PORT[,TXT]
+# TYPE examples: _http._tcp, _ssh._tcp, _smb._tcp
+{% set _type = service.type | default('') %}
+{% set _port = service.port | default(0) %}
+{% set _txt = service.txt | default('') %}
+{% if _type and _port %}
+publish-service={{ service.name | default('unknown') }},{{ _type }},{{ _port }}{% if _txt %},{{ _txt }}{% endif %}
+{% else %}
+# Skipped incomplete service definition (requires type and port)
+{% endif %}
 {% endfor %}
+{% endif %}
+
+# --- Dynamic Domain Publishing ---
+# Iterate over the list of domains to announce via mDNS.
+
+{% set _publish_domains = (srv.publish_domains | default([])) %}
+{% if _publish_domains is iterable and _publish_domains is not mapping %}
+{% for domain in _publish_domains %}
+# Announce domain: {{ domain.name | default('unknown') }}
+# Format: publish-domain=DOMAIN[:TTL]
+{% set _ttl = domain.ttl | default('') %}
+{% if _ttl %}
+publish-domain={{ domain.name | default('unknown') }}:{{ _ttl }}
+{% else %}
+publish-domain={{ domain.name | default('unknown') }}
+{% endif %}
+{% endfor %}
+{% endif %}
 
 # End of configuration

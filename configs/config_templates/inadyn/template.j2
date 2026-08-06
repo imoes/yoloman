@@ -1,29 +1,33 @@
-# Dynamic DNS client configuration for inadyn
-# Server(s) to update with hostname(s)
-# Format: --server <hostname>:<port> or just --server <hostname> (defaults to port 80/443)
-# For HTTPS support, use :443 explicitly or rely on default (newer inadyn auto-detects HTTPS)
-{% for ddns in ddns_providers %}--username {{ ddns.username }}
---password {{ ddns.password }}
---hostname {{ ddns.hostname }}
---server {{ ddns.server }}{% if ddns.port is defined and ddns.port != '' %}:{{ ddns.port }}{% endif %}
-# Optional: custom user agent string (for problematic providers)
-{% if ddns.user_agent is defined and ddns.user_agent != '' %}--user-agent {{ ddns.user_agent }}{% endif %}
-{% endfor %}
-# Global options
---background
---pidfile {{ pidfile }}
---dyndns_system {{ default_provider }}
-# Logging
---log_file {{ log_file }}
---log_level {{ log_level }}
-# Update frequency (in seconds)
---check_ip_server {{ check_ip_server }}
---check_ip_server_port {{ check_ip_server_port }}
-# Minimum update interval (in seconds); prevents excessive updates
---min_update_interval {{ min_update_interval }}
-# IPv4 only? (set true to skip IPv6 lookups)
-{% if ipv4_only %}--force_ipv4{% endif %}
-# IP detection method (http, https, shell command, etc.)
---ip_interface {{ ip_interface }}
-# Optional: custom IP detection URL (for providers that require specific endpoint)
-{% if custom_ip_url %}--ip_url {{ custom_ip_url }}{% endif %}
+# Inadyn configuration template
+# inadyn is a free dynamic DNS update client.
+# This file controls the runtime behavior and privileges of the inadyn daemon.
+
+# ---------------------------------------------------------------------------
+# Daemon mode
+# Description: Whether inadyn should run in daemon mode. Must be 'yes' or 'no'.
+# Default: no
+# ---------------------------------------------------------------------------
+RUN_DAEMON="{{ run_daemon | default('no') }}"
+
+# ---------------------------------------------------------------------------
+# Dial-on-demand mode
+# Description: Whether inadyn should run on every new ppp connection (dial-on-demand).
+#              Must be 'yes' or 'no'.
+# Note: If RUN_DAEMON is set to "yes", RUN_IPUP must be set to "no".
+# Default: no
+# ---------------------------------------------------------------------------
+RUN_IPUP="{{ run_ipup | default('no') }}"
+
+# ---------------------------------------------------------------------------
+# Runtime user
+# Description: User account under which inadyn runs.
+# Default: debian-inadyn
+# ---------------------------------------------------------------------------
+USER="{{ user | default('debian-inadyn') }}"
+
+# ---------------------------------------------------------------------------
+# Runtime group
+# Description: Group under which inadyn runs.
+# Default: debian-inadyn
+# ---------------------------------------------------------------------------
+GROUP="{{ group | default('debian-inadyn') }}"

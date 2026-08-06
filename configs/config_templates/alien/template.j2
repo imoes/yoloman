@@ -1,0 +1,106 @@
+{# ============================================================================== #}
+{#  Alien package conversion configuration                                        #}
+{#  This template generates a YAML configuration file for the `alien` command.     #}
+{#  `alien` converts between Linux package formats (RPM, DEB, TGZ, SLP, PKG).     #}
+{#  Every field from the schema is present, self-documenting with comments,       #}
+{#  and safely defaulted using Jinja2 `default()` filters to prevent render        #}
+{#  failures when optional variables are omitted.                                 #}
+{# ============================================================================== #}
+
+# Base package format to read from (rpm|deb|tgz|slp|pkg).
+# Alien usually detects this from the filename extension, but this field
+# forces a specific source format interpretation.
+# Default: 'deb'
+base_format: {{ base_format | default('deb') }}
+
+# Target package formats to generate.
+# Valid values: deb, rpm, tgz, slp, pkg.
+# If omitted but `install` is true, defaults to ['deb'].
+# Default: ['deb']
+target_formats:
+{% for fmt in (target_formats | default(['deb'])) %}
+  - {{ fmt }}
+{% endfor %}
+
+# Whether to automatically install each generated package after conversion
+# and remove the input package file.
+# Default: false
+install: {{ install | default(false) | lower }}
+
+# Whether to convert package maintainer scripts (preinst, postinst, prerm, postrm).
+# Note: review scripts manually before using as they may need adjustment for the target format.
+# Default: false
+scripts: {{ scripts | default(false) | lower }}
+
+# Explicit patch file path to use during deb generation, overriding automatic
+# lookup in /var/lib/alien. Has no effect unless generating a deb.
+# Default: ''
+patch_file: {{ patch_file | default('') }}
+
+# Disable all patching when building a deb package.
+# Default: false
+no_patch: {{ no_patch | default(false) | lower }}
+
+# Do not increment the minor version number when converting packages.
+# By default, alien adds 1 to the minor version.
+# Default: false
+keep_version: {{ keep_version | default(false) | lower }}
+
+# Increment the converted package version by this number instead of the default +1.
+# Requires `keep_version` to be false (the default).
+# Default: 0
+bump_version: {{ bump_version | default(0) }}
+
+# Force the architecture string for the generated package (e.g., 'amd64', 'i386', 'all').
+# Default: ''
+target_arch: {{ target_arch | default('') }}
+
+# Package description (only effective when converting from tgz, which lacks descriptions).
+# Default: ''
+description: >-
+  {{ description | default('') }}
+
+# Package version (only effective when converting from tgz, which may lack version info).
+# Default: ''
+version: {{ version | default('') }}
+
+# Sanitize file owners and permissions during deb generation.
+# May break some packages; use with caution. Defaults to off.
+# Default: false
+fixperms: {{ fixperms | default(false) | lower }}
+
+# Enable verbose mode: print commands as they are executed.
+# Default: false
+verbose: {{ verbose | default(false) | lower }}
+
+# Very verbose mode: also print output of each executed command.
+# Default: false
+very_verbose: {{ very_verbose | default(false) | lower }}
+
+# Generate a temporary build directory but do not build the package.
+# Useful for manual modification before building.
+# Default: false
+generate_only: {{ generate_only | default(false) | lower }}
+
+# Generate a single directory without the .orig subdirectory.
+# Useful when disk space is constrained and building a deb.
+# Default: false
+single_directory: {{ single_directory | default(false) | lower }}
+
+# Run lintian (if installed) to test generated deb packages.
+# Currently deb-only.
+# Default: false
+test_package: {{ test_package | default(false) | lower }}
+
+# Email address to embed in generated Debian packages.
+# Overrides environment variable EMAIL.
+# Default: ''
+email: {{ email | default('') }}
+
+# List of input package files to convert. Required.
+# Supported extensions: .rpm, .deb, .tgz, .slp, .pkg.
+# Default: []
+input_files:
+{% for f in (input_files | default([])) %}
+  - {{ f }}
+{% endfor %}

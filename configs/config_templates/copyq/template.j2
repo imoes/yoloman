@@ -1,0 +1,63 @@
+{# ============================================================================= #}
+{# CopyQ Configuration File                                                        #}
+{# This template generates a self-documenting CopyQ settings.ini.                  #}
+{# Read comments carefully to understand the purpose of each directive.            #}
+{# ============================================================================= #}
+
+{# [General] Section: Core application settings #}
+[General]
+
+{# monitoring_enabled: Whether CopyQ monitors the system clipboard for changes. #}
+{% if monitoring_enabled | default(true) %}MonitorClipboard=true{% else %}MonitorClipboard=false{% endif %}
+
+{# max_history_items: Maximum number of items to store in clipboard history. #}
+{# Set to 0 for unlimited history. #}
+MaxHistoryItems={{ max_history_items | default(100) }}
+
+{# separator: String used as a separator when joining or exporting multiple clipboard items. #}
+{# Default is a newline character. #}
+Separator={{ separator | default('\n') }}
+
+{# auto_save_interval: Interval in seconds between automatic saves to disk. #}
+{# Set to 0 to disable automatic saving. #}
+AutoSaveInterval={{ auto_save_interval | default(60) }}
+
+{# theme: Name of the UI theme (e.g., 'light', 'dark') or path to a custom theme file. #}
+Theme={{ theme | default('light') }}
+
+{# language: Language code for the user interface (e.g., 'en', 'de', 'fr'). #}
+Language={{ language | default('en') }}
+
+{# tray_icon_enabled: Whether to show the CopyQ icon in the system tray. #}
+{% if tray_icon_enabled | default(true) %}TrayIcon=true{% else %}TrayIcon=false{% endif %}
+
+{# show_notifications: Whether to display desktop notifications when new clipboard items are added. #}
+{% if show_notifications | default(true) %}ShowNotifications=true{% else %}ShowNotifications=false{% endif %}
+
+{# ignore_applications: Whether to exclude clipboard items originating from specific applications. #}
+{% if ignore_applications | default(false) %}IgnoreApplications=true{% else %}IgnoreApplications=false{% endif %}
+
+{# ignore_applications_list: List of application WM_CLASS strings to ignore. #}
+{# Only active if ignore_applications is true. #}
+{% if ignore_applications | default(false) %}
+IgnoredApplications={{ ignore_applications_list | default([]) | join(',') }}
+{% endif %}
+
+{# ignore_text: Whether to ignore clipboard items that contain specific substrings. #}
+{% if ignore_text | default(false) %}IgnoreText=true{% else %}IgnoreText=false{% endif %}
+
+{# ignore_text_list: List of text substrings that, if found in a clipboard item, cause it to be ignored. #}
+{# Only active if ignore_text is true. #}
+{% if ignore_text | default(false) %}
+IgnoredText={{ ignore_text_list | default([]) | join(',') }}
+{% endif %}
+
+{# Tabs Configuration #}
+{# Defines the tabs available in the CopyQ main window. #}
+{% if tabs | default([{'name': 'Clipboard'}, {'name': 'Notes'}, {'name': 'Code'}]) | length > 0 %}
+[Tabs]
+{% for tab in tabs | default([{'name': 'Clipboard'}, {'name': 'Notes'}, {'name': 'Code'}]) %}
+{# Tab{{ loop.index }}: Name of the {{ loop.index }}th tab in the UI. #}
+Tab{{ loop.index }}={{ tab.name | string }}
+{% endfor %}
+{% endif %}

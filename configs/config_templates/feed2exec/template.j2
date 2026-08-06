@@ -1,0 +1,32 @@
+[DEFAULT]
+# default output plugin for all feeds
+output = {{ output | default('feed2exec.plugins.maildir') }}
+# default mailbox path
+mailbox = {{ mailbox | default('~/Maildir') }}
+# log level: WARNING, VERBOSE, or DEBUG
+loglevel = {{ loglevel | default('WARNING') }}
+
+{% for feed in feeds | default([]) %}
+[{{ feed.name | replace(' ', '_') | replace('-', '_') }}]
+# human-readable feed name
+name = {{ feed.name | tojson }}
+# URL of the feed
+url = {{ feed.url | tojson }}
+# output plugin to use for this feed
+output = {{ feed.output | default(output) | tojson }}
+# arguments passed to output plugin
+args = {{ feed.args | default([]) | tojson }}
+# filter plugin to use for this feed
+filter = {{ feed.filter | default('none') | tojson }}
+# arguments passed to filter plugin
+filter_args = {{ feed.filter_args | default([]) | tojson }}
+# override default mailbox path for this feed
+mailbox = {{ feed.mailbox | default(mailbox) | tojson }}
+# subfolder (relative to mailbox)
+folder = {{ feed.folder | default('INBOX') | tojson }}
+# skip calling output plugins (treat items as processed)
+catchup = {{ feed.catchup | default(false) | lower }}
+# skip fetching and processing feed entirely
+pause = {{ feed.pause | default(false) | lower }}
+
+{% endfor %}

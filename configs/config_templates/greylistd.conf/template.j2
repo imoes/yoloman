@@ -1,61 +1,85 @@
+# ===========================================================================
 # greylistd configuration file
 # Controls greylisting behavior for Postfix MTA
-# Enables/disables the greylisting daemon
+# This template is self-documenting: every directive is preceded by its
+# schema description as a comment, and every variable carries its default
+# value inline to prevent render failures when the role does not supply it.
+# ===========================================================================
+
+# Enable or disable the greylisting daemon.
 enabled: {{ enabled | default(true) | lower }}
 
-# Socket path for communication with Postfix
+# Unix socket path used for communication with Postfix.
+# This socket allows Postfix to query greylistd status or purge entries.
 socket: {{ socket_path | default('/var/run/greylistd/socket') }}
 
-# Directory to store persistent greylist database
+# Directory where greylist state is persisted.
+# If db_type is 'sqlite', the database file lives under this directory.
 db_dir: {{ db_dir | default('/var/lib/greylistd') }}
 
-# Database backend type (e.g., 'sqlite' or 'memory')
+# Database backend type: 'sqlite' for persistent storage, or 'memory' for volatile (non-persistent) operation.
+# Use 'memory' for testing or if persistence is handled externally.
 db_type: {{ db_type | default('sqlite') }}
 
-# Path to SQLite DB file (only if db_type = 'sqlite')
+# Path to SQLite database file (used only if db_type = 'sqlite').
+# This file stores the sender-recipient-IP tuples required for greylisting logic.
 db_file: {{ db_file | default('/var/lib/greylistd/greylist.db') }}
 
-# Greylist entry expiration time in seconds
+# Time (in seconds) after which greylist entries expire (i.e., mail is no longer deferred).
+# Once this time passes, the sender is treated as new again.
 expires: {{ expires | default(172800) }}
 
-# Minimum delay before first retry is allowed (seconds)
+# Minimum delay (in seconds) before a second attempt from a new sender is accepted.
+# Legitimate MTAs typically retry after 5–15 minutes; 300s is a safe baseline.
 retry_delay: {{ retry_delay | default(300) }}
 
-# Maximum retry delay (seconds) after repeated failures
+# Maximum delay (in seconds) before repeated greylisting attempts are relaxed.
+# Prevents indefinite deferral for stubborn or misconfigured MTAs.
 max_retry_delay: {{ max_retry_delay | default(86400) }}
 
-# Delay before re-attempting to deliver greylisted mail (seconds)
+# Initial deferral delay (in seconds) applied to first-time senders.
+# This is the first delay a sender experiences; subsequent delays grow up to max_retry_delay.
 delay: {{ delay | default(60) }}
 
-# Whitelisted networks (CIDR notation) — skip greylisting for these
-{% for net in whitelist_networks %}whitelist: {{ net }}
+# List of CIDR network ranges to exempt from greylisting (e.g., internal mail servers).
+# These networks bypass all greylisting checks for performance and reliability.
+{% for net in whitelist_networks | default([]) %}whitelist: {{ net }}
 {% endfor %}
 
-# DNSBL zones to use for whitelist (if supported)
-{% for zone in dnsbl_whitelist %}dnsbl_whitelist: {{ zone }}
+# DNSBL zones whose hosts are automatically whitelisted (if supported by greylistd version).
+# If a sender's HELO/EHLO domain resolves in any of these zones, it is whitelisted.
+{% for zone in dnsbl_whitelist | default([]) %}dnsbl_whitelist: {{ zone }}
 {% endfor %}
 
-# Logging level: debug, info, notice, warning, error, critical
+# Verbosity of logging: debug, info, notice, warning, error, or critical.
+# 'notice' is recommended for production; 'debug' for troubleshooting.
 log_level: {{ log_level | default('notice') }}
 
-# Log file path (use '-' for stderr)
+# Path to log file (use '-' to log to stderr/stdout).
+# Useful for containerized deployments where logs are captured by the container runtime.
 log_file: {{ log_file | default('-') }}
 
-# Enable rate limiting for source IPs
+# Enable rate limiting per source IP to prevent abuse (e.g., brute-force greylist bypass attempts).
+# When enabled, greylistd tracks connection counts and blocks IPs exceeding rate_limit_max.
 rate_limit: {{ rate_limit | default(false) | lower }}
 
-# Max requests per minute per source IP (only if rate_limit = true)
+# Maximum number of connections per source IP per rate limit window (only when rate_limit = true).
+# If exceeded within rate_limit_window seconds, the IP is temporarily blocked.
 rate_limit_max: {{ rate_limit_max | default(20) }}
 
-# Rate limit window in seconds
+# Time window (in seconds) for rate limiting (only when rate_limit = true).
+# Defines how long the rate_limit_max count applies before resetting.
 rate_limit_window: {{ rate_limit_window | default(60) }}
 
-# Enable logging of greylist actions to syslog
+# Log greylisting events to syslog in addition to configured log file.
+# Enables dual logging for centralized log aggregation systems.
 syslog: {{ syslog | default(true) | lower }}
 
-# Enable experimental features (if any)
+# Enable experimental features (use only if instructed by docs or developers).
+# These features may change or be removed in future versions without notice.
 experimental: {{ experimental | default(false) | lower }}
 
-# Custom headers to add to greylisting rejection messages (optional)
-{% for header in custom_headers %}custom_header: {{ header.key }}: {{ header.value }}
+# Optional custom headers to include in greylisting rejection responses.
+# These headers are sent to the client when mail is deferred, aiding in debugging.
+{% for header in custom_headers | default([]) %}custom_header: {{ header }}
 {% endfor %}

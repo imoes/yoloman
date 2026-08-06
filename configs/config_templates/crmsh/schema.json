@@ -29,6 +29,11 @@
     "default": 60,
     "description": "Timeout in seconds for interactive operations (e.g., resource operations)."
   },
+  "lock_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout in seconds for acquiring locks on cluster resources."
+  },
   "noconfirm": {
     "type": "bool",
     "default": false,
@@ -47,17 +52,7 @@
   "plugins": {
     "type": "list",
     "default": [],
-    "description": "List of crmsh plugins to load at startup. Each plugin may define its own options.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Name of the plugin (e.g., 'ganesha', 'sbd', 'nagios')."
-      },
-      "options": {
-        "type": "object",
-        "description": "Key-value configuration for the plugin (only for plugins that support runtime options)."
-      }
-    }
+    "description": "List of crmsh plugins to load at startup. Each plugin may define its own options."
   },
   "cluster_name": {
     "type": "string",
@@ -69,9 +64,19 @@
     "default": "live",
     "description": "CIB source: 'live' (default, current live config), 'file:/path/to/file.xml' (read-only from file), or 'xml' (raw XML input)."
   },
-  "crm_logfile_level": {
-    "type": "number",
-    "default": 0,
-    "description": "Log level for crmsh's internal logging (0\u20137, where 7 is most verbose). 0 disables extra logging."
+  "crm_daemon_user": {
+    "type": "string",
+    "default": "hacluster",
+    "description": "User account under which the Pacemaker daemon runs."
+  },
+  "ocf_root": {
+    "type": "string",
+    "default": "/usr/lib/ocf",
+    "description": "Root directory for OCF resource agents."
+  },
+  "obscure_pattern": {
+    "type": "string",
+    "default": "passw*",
+    "description": "Pattern(s) to obscure sensitive values (e.g., 'passw*') when displaying configuration (supports regex-like patterns with wildcards)."
   }
 }

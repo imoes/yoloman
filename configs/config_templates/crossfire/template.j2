@@ -1,48 +1,94 @@
-# Server identification
-name: {{ server.name }}
+# ============================================================================
+# Crossfire Server Configuration
+# Self-documenting Jinja2 template enriched with defaults and schema descriptions.
+# ============================================================================
 
-# Network configuration
-bind_address: {{ server.bind_address }}
-port: {{ server.port }}
+# Human-readable name of the server, displayed to players.
+name: {{ (server | default({})).name | default('Crossfire Server') }}
 
-# Logging settings
-log_level: {{ logging.level }}
-log_file: {{ logging.file }}
+# IP address the server will bind to (e.g., '0.0.0.0' for all interfaces).
+bind_address: {{ (server | default({})).bind_address | default('0.0.0.0') }}
 
-# World settings
-max_players: {{ world.max_players }}
-map_directory: {{ world.map_directory }}
+# TCP port the server listens on for incoming client connections.
+port: {{ (server | default({})).port | default(2003) }}
 
-# Game rules
-turn_time: {{ rules.turn_time }}
-combat_enabled: {{ rules.combat_enabled }}
+# ============================================================================
+# Logging Settings
+# ============================================================================
 
+# Verbosity of server logs; recommended levels: debug, info, warn, error.
+log_level: {{ (logging | default({})).level | default('info') }}
+
+# Path to the server log file.
+log_file: {{ (logging | default({})).file | default('/var/log/crossfire/server.log') }}
+
+# ============================================================================
+# World Settings
+# ============================================================================
+
+# Maximum number of concurrent players allowed on the server.
+max_players: {{ (world | default({})).max_players | default(50) }}
+
+# Directory containing map files (.map) used by the server.
+map_directory: {{ (world | default({})).map_directory | default('/var/lib/crossfire/maps') }}
+
+# ============================================================================
+# Game Rules
+# ============================================================================
+
+# Time (in seconds) per player turn during combat or movement resolution.
+turn_time: {{ (rules | default({})).turn_time | default(2) }}
+
+# Enable combat mechanics (damage, death, etc.).
+combat_enabled: {{ (rules | default({})).combat_enabled | default(true) | lower }}
+
+# ============================================================================
 # Pathfinding
-pathfinder_enabled: {{ pathfinder.enabled }}
-pathfinder_verbose: {{ pathfinder.verbose }}
+# ============================================================================
 
+# Use pathfinding algorithms for NPC movement and routing.
+pathfinder_enabled: {{ (pathfinder | default({})).enabled | default(true) | lower }}
+
+# Log detailed pathfinding decisions (useful for debugging).
+pathfinder_verbose: {{ (pathfinder | default({})).verbose | default(false) | lower }}
+
+# ============================================================================
 # Authentication
-auth_enabled: {{ auth.enabled }}
-auth_timeout: {{ auth.timeout }}
+# ============================================================================
 
-# Admin accounts
-{% for admin in admins %}
+# Require players to authenticate with credentials before connecting.
+auth_enabled: {{ (auth | default({})).enabled | default(false) | lower }}
+
+# Time (in seconds) to wait for authentication before disconnecting.
+auth_timeout: {{ (auth | default({})).timeout | default(30) }}
+
+# ============================================================================
+# Admin Accounts
+# ============================================================================
+# List of administrative users with elevated privileges.
+{% for admin in admins | default([]) %}
 admin {{ admin.username }} {{ admin.password_hash }}
 {% endfor %}
 
+# ============================================================================
 # Modules
-{% for module in modules %}
+# ============================================================================
+# List of loadable modules (e.g., quests, events, economy).
+{% for module in modules | default([]) %}
 module {{ module.name }}
-{% if module.options %}
+{% if module.options is defined and module.options is mapping and module.options %}
   options:
-{% for key, value in module.options.items() %}
-    {{ key }}: {{ value }}
+{% for key, value in module.options | dict2items %}
+    {{ key.key }}: {{ value.value }}
 {% endfor %}
 {% endif %}
 {% endfor %}
 
-# Map-specific overrides
-{% for map_override in map_overrides %}
+# ============================================================================
+# Map-specific Overrides
+# ============================================================================
+# Per-map customizations that override global settings.
+{% for map_override in map_overrides | default([]) %}
 map {{ map_override.map_name }}
   max_players {{ map_override.max_players }}
   turn_time {{ map_override.turn_time }}

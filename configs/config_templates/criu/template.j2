@@ -1,0 +1,102 @@
+# CRIU configuration file — see criu(8) and criu(5)
+# This file is parsed in CLI mode before command-line options; use it for persistent defaults.
+# Each line is a CLI option without the leading '--' prefix; arguments follow the option name.
+# Boolean options can be negated using 'no-' prefix (e.g., 'no-tcp-established').
+
+{% if images_dir %}# Directory for checkpoint/restore image files
+-D {{ images_dir }}{% endif %}
+{% if work_dir %}# Working directory for logs, pidfiles, and stats
+-W {{ work_dir }}{% endif %}
+{% if log_file %}# Log output file
+-o {{ log_file }}{% endif %}
+{% if verbosity is defined %}# Log verbosity level: 0–4
+-v{{ verbosity }}{% endif %}
+{% if display_stats %}# Print stats on completion
+--display-stats{% endif %}
+{% if tcp_established %}# Checkpoint established TCP connections
+--tcp-established{% endif %}
+{% if tcp_close %}# Do not checkpoint TCP connections
+--tcp-close{% endif %}
+{% if leave_stopped %}# Leave processes stopped after dump/restore (instead of killed/resumed)
+-s{% endif %}
+{% if leave_running %}# Leave processes running after dump (dangerous)
+-R{% endif %}
+{% if external_mnts %}# Dump external bind mounts
+{% for m in external_mnts %}--external mnt{% if m.mountpoint %}[{{ m.mountpoint }}]{% endif %}{% if m.name %}:{{ m.name }}{% endif %}
+{% endfor %}{% endif %}
+{% if external_devs %}# Dump external block devices
+{% for d in external_devs %}--external dev[{{ d.major }}/{{ d.minor }}]:{{ d.name }}
+{% endfor %}{% endif %}
+{% if external_unix_sockets %}# Dump external UNIX sockets (disconnected ends)
+{% for u in external_unix_sockets %}--external unix[{{ u.id }}]
+{% endfor %}{% endif %}
+{% if external_pids %}# Mark external PID namespaces
+{% for p in external_pids %}--external pid[{{ p.inode }}]:{{ p.name }}
+{% endfor %}{% endif %}
+{% if external_netns %}# Mark external network namespaces
+{% for n in external_netns %}--external net[{{ n.inode }}]:{{ n.name }}
+{% endfor %}{% endif %}
+{% if external_tty %}# Dump external TTYs
+--external tty[{{ external_tty.rdev }}:{{ external_tty.dev }}]
+{% endif %}
+{% if external_file %}# Dump external files
+--external file[{{ external_file.mnt_id }}:{{ external_file.inode }}]
+{% endif %}
+{% if action_script is defined %}# External action script (CRTOOLS_SCRIPT_ACTION will be set)
+--action-script {{ action_script }}{% endif %}
+{% if manage_cgroups %}# Collect cgroups into images
+--manage-cgroups{% endif %}
+{% if cgroup_props is defined %}# Cgroup properties (YAML literal string)
+--cgroup-props "{{ cgroup_props | indent(2, true) }}"
+{% endif %}
+{% if cgroup_props_file %}# File containing cgroup properties
+--cgroup-props-file {{ cgroup_props_file }}{% endif %}
+{% if lazy_pages %}# Lazy pages: dump without writing memory pages
+--lazy-pages{% endif %}
+{% if inherit_fds %}# Inherit file descriptors on restore
+{% for f in inherit_fds %}--inherit-fd fd[{{ f.fd }}]:{{ f.resource }}
+{% endfor %}{% endif %}
+{% if veth_pair is defined %}# VETH device name mapping
+--veth-pair {{ veth_pair.in }}={{ veth_pair.out }}
+{% endif %}
+{% if restore_root %}# Change root filesystem on restore
+-r {{ restore_root }}{% endif %}
+{% if lsm_profile %}# LSM profile (apparmor or selinux)
+--lsm-profile {{ lsm_profile.type }}:{{ lsm_profile.name }}
+{% endif %}
+{% if lsm_mount_context %}# Override LSM mount context
+--lsm-mount-context "{{ lsm_mount_context }}"
+{% endif %}
+{% if skip_in_flight %}# Skip in-flight TCP connections
+--skip-in-flight{% endif %}
+{% if auto_dedup %}# Auto-deduplicate pages (incremental dump)
+--auto-dedup{% endif %}
+{% if force_irmap %}# Force inotify/fsnotify name resolution
+--force-irmap{% endif %}
+{% if link_remap %}# Allow linking unlinked files
+--link-remap{% endif %}
+{% if shell_job %}# Allow dumping shell jobs
+-j{% endif %}
+{% if cpu_cap is defined %}# CPU capabilities to validate
+--cpu-cap {{ cpu_cap | join(',') }}
+{% endif %}
+{% if page_server %}# Page server mode options
+{% if page_server.address %}--address {{ page_server.address }}
+{% endif %}{% if page_server.port is defined %}--port {{ page_server.port }}
+{% endif %}{% if page_server.daemon %}--daemon
+{% endif %}{% endif %}
+{% if tls.enabled %}# TLS for page-server
+{% if tls.ca_cert %}--tls-cacert {{ tls.ca_cert }}
+{% endif %}{% if tls.cert %}--tls-cert {{ tls.cert }}
+{% endif %}{% if tls.key %}--tls-key {{ tls.key }}
+{% endif %}{% endif %}
+{% if file_validation %}# File validation method
+--file-validation {{ file_validation }}
+{% endif %}
+{% if cgroup_root %}# Cgroup root override
+--cgroup-root {{ cgroup_root }}
+{% endif %}
+{% if skip_file_rwx_check %}# Skip file permission checks on restore
+--skip-file-rwx-check
+{% endif %}
+# End of configuration file

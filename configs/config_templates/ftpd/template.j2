@@ -2,11 +2,36 @@
 # Each line defines a service to be provided by inetd
 # Format: service_name socket_type protocol wait user server program server_args
 
-# FTP service (standard FTP on port 21)
+# ftp_enabled: Enable the standard FTP service (port 21) managed by inetd/in.ftpd
+# Default: True
+# Description: Enable the standard FTP service (port 21) managed by inetd/in.ftpd
+{% if ftp_enabled | default(True) %}
+# FTP service (standard FTP on port {{ ftp_port | default(21) }})
 # Enables FTP access for file transfers
-ftp     stream  tcp     nowait  root    /usr/sbin/in.ftpd     in.ftpd -l -a
+# ftp_user: User account under which the FTP server process runs
+# Default: root
+# Description: User account under which the FTP server process runs
+# ftp_server_path: Path to the FTP server executable (inetd-compatible FTP daemon)
+# Default: /usr/sbin/in.ftpd
+# Description: Path to the FTP server executable (inetd-compatible FTP daemon)
+# ftp_server_args: Arguments passed to the FTP server on startup
+# Default: ['-l', '-a']
+# Description: Arguments passed to the FTP server on startup (e.g., '-l' enables syslog logging, '-a' enables anonymous access)
+ftp     stream  tcp     nowait  {{ ftp_user | default('root') }}    {{ ftp_server_path | default('/usr/sbin/in.ftpd') }}     {{ ftp_server_args | default(['-l', '-a']) | join(' ') }}
+{% endif %}
 
-# FTPS (FTP over SSL/TLS) — optional, uncomment if enabled
+# ftps_enabled: Enable FTPS (FTP over TLS) — requires a dedicated FTPS-capable server like gssftpd; inetd does not handle FTP control connection encryption
+# Default: False
+# Description: Enable FTPS (FTP over TLS) — requires a dedicated FTPS-capable server like gssftpd; inetd does not handle FTP control connection encryption
+# Note: inetd itself does not support FTPS natively. This block is illustrative for systems that
+# might configure a separate daemon entry or placeholder. In a real production environment,
+# FTPS is typically handled by a dedicated daemon like vsftpd or gssftpd in standalone mode,
+# not via inetd's stream/tcp handling for the control connection encryption handshake.
+# If you must use inetd for a TLS-capable wrapper, ensure the backend daemon supports it.
+{% if ftps_enabled | default(False) %}
+# FTPS (FTP over SSL/TLS) — enabled
 # Requires vsftpd or similar (inetd does not natively support FTPS)
 # If using a separate FTPS daemon (e.g., gssftpd), configure separately
-# ftps    stream  tcp     nowait  root    /usr/sbin/gssftpd     gssftpd -l
+# Note: The default path and args are illustrative; replace if using a different daemon.
+ftps    stream  tcp     nowait  {{ ftp_user | default('root') }}    {{ ftp_server_path | default('/usr/sbin/in.ftpd') }}     {{ ftp_server_args | default(['-l', '-a']) | join(' ') }}
+{% endif %}

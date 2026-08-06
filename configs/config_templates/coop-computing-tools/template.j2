@@ -1,0 +1,225 @@
+# ==============================================================================
+# Coop Computing Tools (CCTools) Configuration
+# ==============================================================================
+# This file configures the build and installation environment for the
+# Coop Computing Tools suite (htcondor-CE, taskvine, work_queue, etc.).
+#
+# The variables defined here are consumed by the CCTools make system and
+# pkg-config files to ensure consistent compilation flags, library paths,
+# and feature detection across the distributed build components.
+# ==============================================================================
+
+# Base installation path used during build.
+# Used to locate source directories and intermediate build artifacts.
+CCTOOLS_HOME={{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}
+
+# Installation prefix (e.g., /usr, /usr/local).
+# Final binaries and libraries will be installed under this directory.
+CCTOOLS_INSTALL_DIR={{ cctools_install_dir | default('/usr') }}
+
+# Operating System identifier.
+# Set to LINUX for standard Linux builds.
+CCTOOLS_OPSYS=LINUX
+
+# Whether to build native x86_64 Linux binaries only.
+# Disables cross-compilation targets if set to 'no'.
+CCTOOLS_LINUX_NATIVE_X86_64={{ cctools_linux_native_x86_64 | default('no') }}
+
+# Space-separated list of CCTools packages to build/install.
+# Includes core tools like dttools, batch_job, taskvine, work_queue, etc.
+CCTOOLS_PACKAGES= dttools batch_job taskvine grow makeflow work_queue ftp_lite resource_monitor chirp deltadb doc poncho
+
+# C compiler command.
+CCTOOLS_CC={{ cctools_cc | default('gcc') }}
+
+# Base C compiler flags used across builds.
+# Includes optimization, security hardening, and feature detection macros.
+# Note: This string is long; ensure it is passed correctly to the build system.
+CCTOOLS_BASE_CCFLAGS={{ cctools_base_ccflags | default('-g -O2 -Werror=implicit-function-declaration -ffile-prefix-map=/build/reproducible-path/cctools-7.14.5=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection  -I /usr/include/python3.13 -DNDEBUG -Wno-unused-result -D__EXTENSIONS__ -D_LARGEFILE64_SOURCE -D__LARGE64_FILES -Wall -Wextra -Wno-unused-result -fPIC -Wno-unused-parameter -Wno-unknown-pragmas -Wno-deprecated-declarations -Wno-unused-const-variable -DHAS_LIBREADLINE -DHAS_TLS_method -DHAS_OPENSSL -DHAS_OPENSSL_PKEYUTL -DHAS_PPOLL -DHAVE_GMTIME_R -DHAVE_FDATASYNC -DHAS_ISNAN -DHAVE_ISNAN -DSQLITE_HAVE_ISNAN -DHAVE_LOCALTIME_R -DHAS_OPENAT -DHAS_PREAD -DUSE_PREAD -DUSE_PREAD64 -DHAS_PWRITE -DUSE_PWRITE -DUSE_PWRITE64 -DHAS_STATX -DHAVE_STRCHRNUL -DHAS_STRSIGNAL -DHAS_USLEEP -DHAVE_USLEEP -DHAS_UTIME -HAVE_UTIME -DHAS_UTIMENSAT -DHAS_SYS_XATTR_H -DHAS_IFADDRS -DHAS_INTTYPES_H -DHAVE_INTTYPES_H -DHAS_STDINT_H -HAVE_STDINT_H -DHAS_SYS_STATFS_H -DHAS_SYS_STATVFS_H -DHAS_SYS_VFS_H -DBUILD_DATE=\'"2018-12-25"\' -DBUILD_HOST=\'"debian"\' -DBUILD_USER=\'"debian"\' -DCCTOOLS_COMMIT=\'""\' -DCCTOOLS_CONFIGURE_ARGUMENTS=\'"--with-globus-path=/usr --prefix=/usr --with-golang-path=/usr --with-krb5-path=/usr --with-readline-path=/usr --with-mpi-path=/usr --with-fuse-path=/usr --with-zlib-path=/usr --with-python3-path /usr/bin/python3 --with-python2-path no --without-system-parrot --build-date Sat Mar 15 11:12:51 UTC 2025"\' -DCCTOOLS_CPU_AMD64 -DCCTOOLS_CVMFS_BUILD_FLAGS=\'" "\' -DCCTOOLS_OPSYS_LINUX -DCCTOOLS_RELEASE_DATE=\'"Sat Mar 15 11:12:51 UTC 2025"\' -DCCTOOLS_SOURCE=\'"FINAL"\' -DCCTOOLS_SYSTEM_INFORMATION=\'"Debian build of cctools"\' -DCCTOOLS_VERSION=\'"7.14.5 FINAL"\' -DCCTOOLS_VERSION_MAJOR=7 -DCCTOOLS_VERSION_MICRO=5 -DCCTOOLS_VERSION_MINOR=14 -DINSTALL_PATH=\'"/usr"\' -D_GNU_SOURCE -D_REENTRANT  -g3 -O0 -ggdb3') }}
+
+# Internal C compiler flags specific to CCTools component sources.
+# Adds include paths for each package's source directory and required defines.
+CCTOOLS_INTERNAL_CCFLAGS= -DCCTOOLS_WITH_CHIRP -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/dttools/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/batch_job/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/taskvine/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/grow/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/makeflow/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/work_queue/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/ftp_lite/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/resource_monitor/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/chirp/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/deltadb/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/poncho/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/taskvine/src/manager ${CCTOOLS_BASE_CCFLAGS} -std=c99
+
+# Public C compiler flags for consuming applications.
+# Points to the installed include directory and uses base flags.
+CCTOOLS_CCFLAGS=-I${CCTOOLS_INSTALL_DIR}/include/cctools ${CCTOOLS_BASE_CCFLAGS} -std=c99
+
+# C++ compiler command.
+CCTOOLS_CXX={{ cctools_cxx | default('g++') }}
+
+# Base C++ compiler flags (inherited from C base flags).
+CCTOOLS_BASE_CXXFLAGS=${CCTOOLS_BASE_CCFLAGS}
+
+# Internal C++ compiler flags.
+CCTOOLS_INTERNAL_CXXFLAGS= -DCCTOOLS_WITH_CHIRP -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/dttools/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/batch_job/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/taskvine/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/grow/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/makeflow/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/work_queue/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/ftp_lite/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/resource_monitor/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/chirp/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/deltadb/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/poncho/src -I {{ cctools_home | default('/build/reproducible-path/cctools-7.14.5') }}/taskvine/src/manager ${CCTOOLS_BASE_CCFLAGS}
+
+# Public C++ compiler flags.
+CCTOOLS_CXXFLAGS=-I${CCTOOLS_INSTALL_DIR}/include/cctools ${CCTOOLS_BASE_CCFLAGS}
+
+# Linker command.
+CCTOOLS_LD = {{ cctools_ld | default('gcc') }}
+
+# Base linker flags.
+CCTOOLS_BASE_LDFLAGS = {{ cctools_base_ldflags | default('-Wl,-z,relro -Xlinker --as-needed -Xlinker -Bdynamic -Xlinker --as-needed -Wl,--no-warn-search-mismatch -Wl,-z,relro  -g3 -O0 -ggdb3') }}
+
+# Internal linker flags (inherited from base).
+CCTOOLS_INTERNAL_LDFLAGS = $(CCTOOLS_BASE_LDFLAGS)
+
+# External linkage flags for shared libraries/executables.
+# Includes standard libraries and OpenSSL support.
+CCTOOLS_EXTERNAL_LINKAGE = $(CCTOOLS_OPENSSL_LDFLAGS)  -lresolv -lrt -ldl -lz -lstdc++ -lpthread -lz -lc -lm -ljsonparser
+
+# External linkage flags without OpenSSL.
+CCTOOLS_EXTERNAL_LINKAGE_NO_OPENSSL =  -lresolv -lrt -ldl -lz -lstdc++ -lpthread -lz -lc -lm -ljsonparser
+
+# Static linkage flags (empty by default for dynamic builds).
+CCTOOLS_STATIC_LINKAGE =
+
+# Runtime linker flags (library paths).
+CCTOOLS_LDFLAGS = -L$(CCTOOLS_INSTALL_DIR)/lib $(CCTOOLS_BASE_LDFLAGS)
+
+# Static build flag (empty by default).
+CCTOOLS_STATIC=
+
+# Shared library file extension (e.g., so, dylib).
+CCTOOLS_DYNAMIC_SUFFIX={{ cctools_dynamic_suffix | default('so') }}
+
+# Flag to create shared libraries.
+CCTOOLS_DYNAMIC_FLAG=-shared
+
+# Convenience aliases for standard build system variables.
+CC=gcc
+CCFLAGS=$(CCTOOLS_CCFLAGS)
+LD=gcc
+LDFLAGS=$(CCTOOLS_LDFLAGS)
+CXX=g++
+CXXFLAGS=$(CCTOOLS_CXXFLAGS)
+
+# Archiver command.
+CCTOOLS_AR=ar
+
+# Path/Command for the Chirp file transfer protocol tool.
+CCTOOLS_CHIRP=chirp
+
+# Whether readline library is available.
+CCTOOLS_READLINE_AVAILABLE={{ cctools_readline_available | default('yes') }}
+
+# Readline linker flags.
+CCTOOLS_READLINE_LDFLAGS=-lreadline -Xlinker --no-as-needed -lncurses -lhistory -Xlinker --as-needed
+
+# Whether SWIG is available.
+CCTOOLS_SWIG_AVAILABLE={{ cctools_swig_available | default('yes') }}
+
+# Full path to SWIG executable.
+CCTOOLS_SWIG={{ cctools_swig_path | default('/usr/bin/swig') }}
+
+# SWIG binding targets for Python.
+CCTOOLS_SWIG_TASKVINE_BINDINGS=python3
+CCTOOLS_SWIG_WORKQUEUE_BINDINGS=python3
+CCTOOLS_SWIG_CHIRP_BINDINGS=python3
+CCTOOLS_SWIG_RMONITOR_BINDINGS=python3
+
+# Perl availability and configuration (disabled by default in this build).
+CCTOOLS_PERL_AVAILABLE=no
+CCTOOLS_PERL=
+CCTOOLS_PERL_CCFLAGS=
+CCTOOLS_PERL_LDFLAGS=
+CCTOOLS_PERL_VERSION=
+CCTOOLS_PERL_PATH=$(CCTOOLS_INSTALL_DIR)/lib//$(CCTOOLS_PERL_VERSION)
+
+# Python test configuration.
+CCTOOLS_PYTHON_TEST_EXEC=/usr/bin/python3
+CCTOOLS_PYTHON_TEST_DIR=python3
+
+# Python 2 availability (disabled).
+CCTOOLS_PYTHON2_AVAILABLE=no
+CCTOOLS_PYTHON2=
+CCTOOLS_PYTHON2_CCFLAGS=
+CCTOOLS_PYTHON2_LDFLAGS=
+CCTOOLS_PYTHON2_VERSION=
+CCTOOLS_PYTHON2_PATH=$(CCTOOLS_INSTALL_DIR)/lib/python$(CCTOOLS_PYTHON2_VERSION)/site-packages
+
+# Python 3 availability and configuration.
+CCTOOLS_PYTHON3_AVAILABLE=yes
+CCTOOLS_PYTHON3=/usr/bin/python3
+CCTOOLS_PYTHON3_CCFLAGS=-DNDEBUG -I/usr/include/python3.13 -IObjects -IInclude -IPython -I. -I../Include
+CCTOOLS_PYTHON3_LDFLAGS= -Wl,-z,relro -g -fwrapv -O2
+CCTOOLS_PYTHON3_VERSION=3.13
+CCTOOLS_PYTHON3_PATH=$(CCTOOLS_INSTALL_DIR)/lib/python$(CCTOOLS_PYTHON3_VERSION)/site-packages
+
+# Pydoc generation tool.
+CCTOOLS_PYDOC=
+
+# Flake8 error codes to ignore for Python linting.
+CCTOOLS_FLAKE8_IGNORE_ERRORS=C901,E501,W503
+
+# Univa Grid Engine (UGE) specific parameters.
+CCTOOLS_UGE_PARAMETERS=
+
+# Documentation generation targets.
+CCTOOLS_DOCTARGETS=manpages htmlpages mdpages apipages
+
+# M4 autoconf arguments.
+CCTOOLS_M4_ARGS=-DCCTOOLS_VERSION="7.14.5 FINAL" -DCCTOOLS_RELEASE_DATE=""
+
+# Parrot helper build flags (disabled).
+CCTOOLS_BUILD_LIB64PARROT_HELPER=
+CCTOOLS_BUILD_LIB32PARROT_HELPER=
+
+# Version string.
+CCTOOLS_VERSION=7.14.5 FINAL
+CCTOOLS_RELEASEDATE=
+
+# iRODS availability (disabled).
+CCTOOLS_IRODS_AVAILABLE=no
+CCTOOLS_IRODS_LDFLAGS=
+CCTOOLS_IRODS_CCFLAGS=
+
+# MySQL availability (disabled).
+CCTOOLS_MYSQL_AVAILABLE=no
+CCTOOLS_MYSQL_LDFLAGS=
+CCTOOLS_MYSQL_CCFLAGS=
+
+# XRootD availability (disabled).
+CCTOOLS_XROOTD_AVAILABLE=no
+CCTOOLS_XROOTD_LDFLAGS=
+CCTOOLS_XROOTD_CCFLAGS=
+
+# CVMFS availability (disabled).
+CCTOOLS_CVMFS_AVAILABLE=no
+CCTOOLS_CVMFS_LDFLAGS=
+CCTOOLS_CVMFS_CCFLAGS=
+
+# OpenSSL availability and flags.
+CCTOOLS_OPENSSL_AVAILABLE=yes
+CCTOOLS_OPENSSL_LDFLAGS=-L/usr/lib -lssl -lcrypto
+CCTOOLS_OPENSSL_CCFLAGS=-I/usr/include
+
+# OpenSSL static library availability (disabled).
+CCTOOLS_OPENSSL_STATIC_AVAILABLE=no
+CCTOOLS_OPENSSL_STATIC_LDFLAGS=
+CCTOOLS_OPENSSL_STATIC_CCFLAGS=-I/usr/include
+
+# ext2fs availability and flags.
+CCTOOLS_EXT2FS_AVAILABLE=yes
+CCTOOLS_EXT2FS_LDFLAGS=-DHAS_EXT2FS -lext2fs -lcom_err
+CCTOOLS_EXT2FS_CCFLAGS=
+
+# FUSE availability and flags.
+CCTOOLS_FUSE_AVAILABLE=yes
+CCTOOLS_FUSE_LDFLAGS=-lfuse3
+CCTOOLS_FUSE_CCFLAGS=-DHAS_FUSE
+
+# CURL availability (disabled).
+CCTOOLS_CURL_AVAILABLE=no
+CCTOOLS_CURL_LDFLAGS=
+CCTOOLS_CURL_CCFLAGS=
+
+# Globus availability and flags.
+CCTOOLS_GLOBUS_AVAILABLE=yes
+CCTOOLS_GLOBUS_LDFLAGS= -lglobus_gss_assist -lglobus_gssapi_gsi -lglobus_gsi_proxy_core -lglobus_gsi_credential -lglobus_gsi_callback -lglobus_oldgaa -lglobus_gsi_sysconfig -lglobus_gsi_cert_utils -lglobus_openssl -lglobus_openssl_error -lglobus_callout -lglobus_proxy_ssl -lglobus_common -lltdl
+CCTOOLS_GLOBUS_CCFLAGS=-DHAS_GLOBUS_GSS -I/usr/lib/globus/include -I/usr/include/globus
+
+# Test-specific C compiler flags.
+export CCTOOLS_TEST_CCFLAGS=

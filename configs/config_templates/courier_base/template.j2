@@ -1,10 +1,35 @@
-# Route definitions for esmtproutes (Courier MTA)
-# Format: domain:relayhost[:port]
-# Each line defines where mail for a domain should be forwarded
+# ==============================================================================
+# courier_base: Courier Mail Transfer Agent - Route Definitions
+# ==============================================================================
+# This configuration file defines how mail for specific domains is forwarded
+# to external or internal relay hosts. This is primarily used by the `esmtproutes`
+# mechanism in Courier MTA to override standard MX lookups for specific domains.
+#
+# Format:
+#   domain:relayhost[:port]
+#
+# Each line specifies:
+#   - domain: The domain name for which this route applies.
+#   - relayhost: The hostname or IP address of the relay server.
+#   - port (optional): The port number to connect to. If omitted, port 25 is used.
+#   - Comments (prefixed with #) describe the purpose of each route.
+#
+# If no routes are configured, mail is delivered locally or via standard MX lookup.
+
 {% if routes is defined and routes | length > 0 %}
-{% for route in routes %}# Route for {{ route.domain }}
-{{ route.domain }}:{{ route.relay }}{% if route.port is defined and route.port != 25 %}:{{ route.port }}{% endif %}
+# --- Configured Mail Routes ---
+# The following routes define explicit relaying instructions for specific domains.
+
+{% for route in routes %}
+# Route for {{ (route.domain | default('unknown')) }}
+# Forward mail for this domain to the specified relay host.
+# Syntax: domain:relay_host:port
+{{ route.domain }}:{{ route.relay }}{% if route.port is defined and route.port != 25 %}:{{ route.port | int }}{% endif %}
+
 {% endfor %}
 {% else %}
-# No routes configured — local delivery only
+# --- No Routes Configured ---
+# No explicit relay routes are defined.
+# Courier will deliver mail locally or rely on standard DNS MX lookups.
+
 {% endif %}

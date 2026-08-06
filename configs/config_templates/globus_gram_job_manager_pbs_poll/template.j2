@@ -5,32 +5,32 @@
   <JobManager>
     <!-- Type of job manager; 'pbs_poll' enables polling-based PBS integration -->
     <Type>pbs_poll</Type>
-    <!-- Path to the PBS 'qstat' command used to poll job status -->
-    <QstatPath>{{ qstat_path }}</QstatPath>
-    <!-- Path to the PBS 'qdel' command used to terminate jobs -->
-    <QdelPath>{{ qdel_path }}</QdelPath>
-    <!-- Path to the PBS 'qsub' command used to submit jobs -->
-    <QsubPath>{{ qsub_path }}</QsubPath>
-    <!-- Polling interval in seconds between status checks for each job -->
-    <PollInterval>{{ poll_interval }}</PollInterval>
-    <!-- Maximum number of jobs to poll concurrently per GridFTP endpoint -->
-    <MaxConcurrentPolls>{{ max_concurrent_polls }}</MaxConcurrentPolls>
-    <!-- Whether to enable verbose PBS job status parsing for debugging -->
-    <VerboseOutput>{{ verbose_output }}</VerboseOutput>
-    <!-- Whether to preserve job working directory after job completion (on failure/success) -->
-    <PreserveWorkingDir>{{ preserve_working_dir }}</PreserveWorkingDir>
-    <!-- List of environment variables to export in PBS job scripts -->
+    <!-- Full path to the PBS qstat command, used to query job status. -->
+    <QstatPath>{{ qstat_path | default('/usr/bin/qstat') }}</QstatPath>
+    <!-- Full path to the PBS qdel command, used to cancel jobs. -->
+    <QdelPath>{{ qdel_path | default('/usr/bin/qdel') }}</QdelPath>
+    <!-- Full path to the PBS qsub command, used to submit jobs. -->
+    <QsubPath>{{ qsub_path | default('/usr/bin/qsub') }}</QsubPath>
+    <!-- Interval (in seconds) between status polls for each job. -->
+    <PollInterval>{{ poll_interval | default(30) }}</PollInterval>
+    <!-- Maximum number of jobs that can be polled concurrently by the GridFTP server. -->
+    <MaxConcurrentPolls>{{ max_concurrent_polls | default(100) }}</MaxConcurrentPolls>
+    <!-- Enable verbose PBS output parsing for debugging (e.g., extended status fields). -->
+    <VerboseOutput>{{ verbose_output | default(False) | lower }}</VerboseOutput>
+    <!-- Preserve the working directory of a job after it completes (useful for post-mortem debugging). -->
+    <PreserveWorkingDir>{{ preserve_working_dir | default(False) | lower }}</PreserveWorkingDir>
+    <!-- List of environment variables to inject into PBS job scripts. -->
     <EnvVars>
-{% for env in env_vars %}      <!-- {{ env.description | default('Environment variable') }}: {{ env.name }}={{ env.value }} -->
-      <Env name="{{ env.name }}">{{ env.value }}</Env>
+{% for env in env_vars | default([]) %}      <Env name="{{ env.name | default('') }}">{{ env.value | default('') }}</Env>
 {% endfor %}    </EnvVars>
   </JobManager>
-  <!-- PBS queue selection policy: static queue name or dynamic mapping per user/group -->
-{% if queue_mode == 'static' %}  <!-- Use a single fixed PBS queue for all jobs -->
-  <Queue>{{ queue_name }}</Queue>
-{% elif queue_mode == 'dynamic' %}  <!-- Use dynamic queue assignment based on user/group -->
+  <!-- Queue assignment mode: use a single static queue, or dynamic per-user/group mapping. -->
+{% if (queue_mode | default('static')) == 'static' %}
+  <!-- PBS queue to use when queue_mode=static. -->
+  <Queue>{{ queue_name | default('batch') }}</Queue>
+{% elif (queue_mode | default('static')) == 'dynamic' %}
+  <!-- List of queue mappings (only used when queue_mode=dynamic). -->
   <QueueMapping>
-{% for mapping in queue_mappings %}    <!-- Map {{ mapping.user_or_group }} (type: {{ mapping.type }}) to PBS queue '{{ mapping.queue }}' -->
-    <Entry user="{{ mapping.user }}" group="{{ mapping.group }}" type="{{ mapping.type }}">{{ mapping.queue }}</Entry>
+{% for mapping in queue_mappings | default([]) %}    <Entry user="{{ mapping.user | default('') }}" group="{{ mapping.group | default('') }}" type="{{ mapping.type | default('') }}">{{ mapping.queue | default('') }}</Entry>
 {% endfor %}  </QueueMapping>
 {% endif %}</GridFTPConfig>

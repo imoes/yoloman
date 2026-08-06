@@ -1,96 +1,152 @@
-# inetsim main configuration file
-# Controls logging behavior
-log_options {
-  log_timestamp = {{ log_timestamp | string | lower }};
-  log_syslog = {{ log_syslog | string | lower }};
-  logfacility = {{ logfacility }};
-}
+# inetsim configuration file
+# This file configures the inetsim (internet simulation) service, which acts
+# as a honeypot simulator for common internet protocols.
 
-# Enables or disables network services
-service_options {
-  enable_dns = {{ enable_dns | string | lower }};
-  enable_http = {{ enable_http | string | lower }};
-  enable_https = {{ enable_https | string | lower }};
-  enable_smtp = {{ enable_smtp | string | lower }};
-  enable_pop3 = {{ enable_pop3 | string | lower }};
-  enable_imap = {{ enable_imap | string | lower }};
-  enable_ftp = {{ enable_ftp | string | lower }};
-  enable_ssh = {{ enable_ssh | string | lower }};
-  enable_telnets = {{ enable_telnets | string | lower }};
-}
+# -----------------------------------------------------------------------------
+# General Settings
+# -----------------------------------------------------------------------------
 
-# Controls binding of services to specific interface
-service_binding {
-  bind_address = "{{ bind_address }}";
-  bind_port_http = {{ bind_port_http }};
-  bind_port_https = {{ bind_port_https }};
-  bind_port_smtp = {{ bind_port_smtp }};
-  bind_port_dns = {{ bind_port_dns }};
-  bind_port_ftp = {{ bind_port_ftp }};
-  bind_port_ssh = {{ bind_port_ssh }};
-  bind_port_pop3 = {{ bind_port_pop3 }};
-  bind_port_imap = {{ bind_port_imap }};
-  bind_port_telnets = {{ bind_port_telnets }};
-}
+# Syslog facility to use when logging to syslog.
+# Valid facilities: local0-local7, auth, authpriv, cron, daemon, etc.
+# @default local6
+logfacility {{ logfacility | default('local6') }}
 
-# DNS simulation settings
-dns_options {
-  dns_mode = "{{ dns_mode }}";
-  dns_default_ip = "{{ dns_default_ip }}";
-{% for entry in dns_redirects %}  {{ entry.host }} = "{{ entry.ip }}";
+# Whether to prepend log lines with a timestamp.
+# @default true
+log_timestamp {{ log_timestamp | default(true) }}
+
+# Whether to send logs to syslog in addition to the log file.
+# @default false
+log_syslog {{ log_syslog | default(false) }}
+
+# IP address to bind all services to (e.g., 127.0.0.1 for localhost only, 0.0.0.0 for all interfaces).
+# @default 0.0.0.0
+bind_address {{ bind_address | default('0.0.0.0') }}
+
+# -----------------------------------------------------------------------------
+# DNS Service
+# -----------------------------------------------------------------------------
+
+# Enable simulated DNS service.
+# @default true
+enable_dns {{ enable_dns | default(true) }}
+
+# Port to bind the DNS service to (UDP and TCP).
+# @default 53
+bind_port_dns {{ bind_port_dns | default(53) }}
+
+# Mode for DNS resolution: 'ipv4', 'ipv6', 'ipv4_first', 'ipv6_first', 'none' (disables DNS), or 'wildcard'.
+# @default ipv4
+dns_mode {{ dns_mode | default('ipv4') }}
+
+# IP address returned for all DNS queries when dns_mode=none or dns_mode=wildcard.
+# @default 192.168.1.1
+dns_default_ip {{ dns_default_ip | default('192.168.1.1') }}
+
+# Maximum TTL (in seconds) to use in DNS responses.
+# @default 86400
+dns_max_ttl {{ dns_max_ttl | default(86400) }}
+
+# List of hostnames to override DNS resolution with specific IPs.
+# Format per line: hostname ip_address
+# @default empty list (no overrides)
+# Note: dns_redirects is a list of mappings (dicts) in the schema, e.g. [{'hostname': 'foo', 'ip': '1.2.3.4'}]
+{% for redirect in dns_redirects | default([]) %}
+dns_redirects {{ redirect.hostname }} {{ redirect.ip }}
 {% endfor %}
-  dns_max_ttl = {{ dns_max_ttl }};
-}
 
-# HTTP simulation settings
-http_options {
-  http_directory = "{{ http_directory }}";
-  http_port = {{ http_port }};
-  http_default_file = "{{ http_default_file }}";
-  http_error_404 = "{{ http_error_404 }}";
-{% for mime_type in http_mimetypes %}  {{ mime_type.ext }} = "{{ mime_type.mime }}";
-{% endfor %}
-  http_directory_index = "{{ http_directory_index }}";
-}
+# -----------------------------------------------------------------------------
+# HTTP/HTTPS Services
+# -----------------------------------------------------------------------------
 
-# SMTP simulation settings
-smtp_options {
-  smtp_directory = "{{ smtp_directory }}";
-  smtp_port = {{ smtp_port }};
-  smtp_default_file = "{{ smtp_default_file }}";
-{% for sender in smtp_allowed_senders %}  smtp_allowed_sender {{ sender }};
-{% endfor %}
-{% for recipient in smtp_allowed_recipients %}  smtp_allowed_recipient {{ recipient }};
-{% endfor %}
-}
+# Enable simulated HTTP service.
+# @default true
+enable_http {{ enable_http | default(true) }}
 
-# SSH simulation settings
-ssh_options {
-  ssh_port = {{ ssh_port }};
-  ssh_keys_directory = "{{ ssh_keys_directory }}";
-  ssh_user_directory = "{{ ssh_user_directory }}";
-  ssh_allow_password_auth = {{ ssh_allow_password_auth | string | lower }};
-  ssh_allow_pubkey_auth = {{ ssh_allow_pubkey_auth | string | lower }};
-}
+# Port to bind the HTTP service to.
+# @default 80
+bind_port_http {{ bind_port_http | default(80) }}
 
-# FTP simulation settings
-ftp_options {
-  ftp_directory = "{{ ftp_directory }}";
-  ftp_port = {{ ftp_port }};
-  ftp_writable = {{ ftp_writable | string | lower }};
-  ftp_anonymous = {{ ftp_anonymous | string | lower }};
-}
+# Directory containing HTTP content (web pages, assets).
+# @default /var/lib/inetsim/http
+http_directory {{ http_directory | default('/var/lib/inetsim/http') }}
 
-# General network and timing settings
-network_options {
-  tcp_wrappers = "{{ tcp_wrappers }}";
-  tcp_timeout = {{ tcp_timeout }};
-  tcp_syn_timeout = {{ tcp_syn_timeout }};
-  tcp_fin_timeout = {{ tcp_fin_timeout }};
-  tcp_keepalive = {{ tcp_keepalive | string | lower }};
-  tcp_reuse_address = {{ tcp_reuse_address | string | lower }};
-  tcp_nodelay = {{ tcp_nodelay | string | lower }};
-  udp_port = {{ udp_port }};
-}
+# Enable simulated HTTPS service.
+# @default true
+enable_https {{ enable_https | default(true) }}
 
-# End of configuration
+# Port to bind the HTTPS service to.
+# @default 443
+bind_port_https {{ bind_port_https | default(443) }}
+
+# -----------------------------------------------------------------------------
+# FTP Service
+# -----------------------------------------------------------------------------
+
+# Enable simulated FTP service.
+# @default true
+enable_ftp {{ enable_ftp | default(true) }}
+
+# Port to bind the FTP service to.
+# @default 21
+bind_port_ftp {{ bind_port_ftp | default(21) }}
+
+# -----------------------------------------------------------------------------
+# Mail Services
+# -----------------------------------------------------------------------------
+
+# Enable simulated SMTP service.
+# @default true
+enable_smtp {{ enable_smtp | default(true) }}
+
+# Port to bind the SMTP service to.
+# @default 25
+bind_port_smtp {{ bind_port_smtp | default(25) }}
+
+# Enable simulated IMAP service.
+# @default false
+enable_imap {{ enable_imap | default(false) }}
+
+# Port to bind the IMAP service to.
+# @default 143
+bind_port_imap {{ bind_port_imap | default(143) }}
+
+# Enable simulated POP3 service.
+# @default false
+enable_pop3 {{ enable_pop3 | default(false) }}
+
+# Port to bind the POP3 service to.
+# @default 110
+bind_port_pop3 {{ bind_port_pop3 | default(110) }}
+
+# -----------------------------------------------------------------------------
+# Remote Access Services
+# -----------------------------------------------------------------------------
+
+# Enable simulated SSH service (requires valid SSH host keys).
+# @default false
+enable_ssh {{ enable_ssh | default(false) }}
+
+# Port to bind the SSH service to.
+# @default 22
+bind_port_ssh {{ bind_port_ssh | default(22) }}
+
+# Enable simulated Telnet service.
+# @default false
+enable_telnets {{ enable_telnets | default(false) }}
+
+# Port to bind the Telnet service to.
+# @default 23
+bind_port_telnets {{ bind_port_telnets | default(23) }}
+
+# -----------------------------------------------------------------------------
+# Daemon Options
+# -----------------------------------------------------------------------------
+
+# Options to pass to the inetsim daemon.
+# @default empty string
+{% if daemon_args | default('') | trim | length > 0 %}
+DAEMON_ARGS="{{ daemon_args }}"
+{% else %}
+DAEMON_ARGS=""
+{% endif %}

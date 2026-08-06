@@ -1,22 +1,47 @@
-# /etc/issue.net — network login banner (displayed before SSH login)
-# This file is used by SSH daemon (sshd) when Banner option is enabled.
-# To enable: set 'Banner /etc/issue.net' in /etc/ssh/sshd_config
+# ==============================================================================
+# /etc/issue.net — Network Login Banner Configuration
+# ==============================================================================
+# This file is used by the SSH daemon (sshd) when the 'Banner' option is enabled
+# in sshd_config (e.g., Banner /etc/issue.net). It displays a message to users
+# before they authenticate.
+#
+# This template is self-documenting. All variables are pulled from the Ansible
+# inventory/variables with safe defaults derived from the schema.
+# ==============================================================================
 
-{{ header_line }}
+{# --- Header Line --- #}
+{# Description: First line shown in the banner (often includes system name or environment). #}
+{# Default: Welcome to {{ hostname }} #}
+# {{ (header_line | default('Welcome to {{ hostname }}')) }}
 
-{{ welcome_message }}
+{# --- Welcome Message --- #}
+{# Description: Primary welcome or authorization statement. Supports line breaks. #}
+{# Default: This system is for authorized users only.\nAll activities may be monitored and recorded. #}
+# {{ (welcome_message | default('This system is for authorized users only.\nAll activities may be monitored and recorded.')) }}
 
-{% if legal_notice %}
-{{ legal_notice }}
+{# --- Legal Notice (Optional) --- #}
+{# Description: Optional legal disclaimer or terms of use. Leave empty to omit. #}
+{# Default: (empty) #}
+{% if legal_notice | default('', true) %}
+#
+# {{ legal_notice | default('') }}
 {% endif %}
 
-{% if warning_lines %}
-{% for line in warning_lines %}
-{{ line }}
+{# --- Warning Lines (List) --- #}
+{# Description: List of additional warning or usage restriction lines. Each entry appears on its own line. #}
+{# Default: [] #}
+{% if warning_lines | default([]) %}
+#
+# Additional Notices:
+{% for line in warning_lines | default([]) %}
+# {{ line }}
 {% endfor %}
 {% endif %}
 
-{% if footer_line %}
-
-{{ footer_line }}
+{# --- Footer Line --- #}
+{# Description: Final separator or closing line. Leave empty to omit. #}
+{# Default: --- #}
+{% if footer_line | default('---', true) %}
+#
+# {{ footer_line | default('---') }}
 {% endif %}

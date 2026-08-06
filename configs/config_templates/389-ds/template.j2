@@ -1,0 +1,47 @@
+# 389 Directory Server instance configuration
+# This file configures a single 389-ds instance via SystemD and DSCC
+# Instance name must match systemd service name: 389-ds@<instance>.service
+
+[Service]
+# Start command: invoke Directory Server with instance-specific config and data paths
+ExecStart=/usr/sbin/dirsrv -D /etc/dirsrv/slapd-{{ instance_name }} -w /etc/dirsrv/slapd-{{ instance_name }}/pwdfile.txt
+
+# Restart policy for production: restart on failure (e.g., crash, timeout)
+Restart=on-failure
+
+# Restart delay to avoid restart loops
+RestartSec=5
+
+# Resource limits for stability
+LimitNOFILE=65536
+
+# Security hardening: private temp directory, read-only root filesystem support
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+# Ensure user/group context matches instance ownership
+User={{ service_user }}
+Group={{ service_group }}
+
+# Enable systemd journal logging (stdout/stderr captured by journal)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dirsrv-{{ instance_name }}
+
+# Lock down capabilities and access
+AmbientCapabilities=
+NoNewPrivileges=true
+
+# Network isolation (disable network if not needed; set true to enable networking)
+{% if enable_networking %}NetworkNamespace={{ network_namespace | default('') }}{% else %}PrivateNetwork=true{% endif %}
+
+# Ensure runtime directory exists and is owned by service user
+RuntimeDirectory=dirsrv-{{ instance_name }}
+RuntimeDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target
+
+# Optional: additional environment variables for advanced tuning
+{% if environment_vars %}Environment={{ environment_vars | map('join', '=') | join(' ') }}{% endif %}

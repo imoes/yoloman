@@ -1,0 +1,191 @@
+{# ============================================================================= #}
+{# gosop Configuration Template                                                    #}
+{#                                                                                 #}
+{# This template generates a configuration file for gosop (GnuPG Signed Operations). #}
+{# It is structured into sections based on the command type specified in `commands`. #}
+{# Each section is fully commented with its schema description and defaults.          #}
+{# All variables are safely defaulted to prevent render failures.                    #}
+{#                                                                                 #}
+{# Variables:                                                                      #}
+{#   verbose       : Enable verbose logging (not a real gosop flag, used for internal templating) #}
+{#   commands      : List of command configurations to apply; each item must correspond to a supported gosop command and its options #}
+{# ============================================================================= #}
+
+# Global settings for gosop
+[global]
+# Enable verbose logging; default is false
+# Description: Enable verbose logging (not a real gosop flag, used for internal templating)
+verbose = {{ (verbose | default(false)) | string | lower }}
+
+# Default commands and their settings
+# Iterates over the list of commands defined in the schema to generate respective sections.
+{% for cmd in (commands | default([])) %}
+    {# Get the command name, defaulting to 'help' if missing or empty #}
+    {% set cmd_name = (cmd.name | default('help')) | string %}
+
+    {# --- Armor Command Section --- #}
+    {% if cmd_name == 'armor' %}
+[armor]
+# Command: armor
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Label for ASCII armor output
+# Description: For 'armor' command: label for ASCII armor; must be one of: auto, sig, key, cert, message
+# Default: auto
+label = {{ (cmd.label | default('auto')) | string }}
+
+    {# --- Decrypt Command Section --- #}
+    {% elif cmd_name == 'decrypt' %}
+[decrypt]
+# Command: decrypt
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Output file path for session key
+# Description: For 'decrypt' command: output file path for session key
+# Default: '' (empty)
+{% set _sk_out = cmd.session_key_out | default('') %}
+{% if _sk_out %}
+session_key_out = {{ _sk_out | string }}
+{% endif %}
+
+# Session key to use for decryption
+# Description: For 'decrypt' command: session key to use for decryption
+# Default: '' (empty)
+{% set _sk_key = cmd.with_session_key | default('') %}
+{% if _sk_key %}
+with_session_key = {{ _sk_key | string }}
+{% endif %}
+
+# Password for decryption
+# Description: For 'decrypt' and 'encrypt' commands: password for encryption/decryption
+# Default: '' (empty)
+{% set _sk_pwd = cmd.with_password | default('') %}
+{% if _sk_pwd %}
+with_password = {{ _sk_pwd | string }}
+{% endif %}
+
+# Output file path for verification results
+# Description: For 'decrypt' command: output file path for verification results
+# Default: '' (empty)
+{% set _sk_ver = cmd.verify_out | default('') %}
+{% if _sk_ver %}
+verify_out = {{ _sk_ver | string }}
+{% endif %}
+
+# List of certificate files or IDs to use for verification
+# Description: For 'decrypt' command: list of certificate files or IDs to use for verification
+# Default: [] (empty list)
+{% set _sk_certs = cmd.verify_with | default([]) %}
+{% if _sk_certs %}
+verify_with = {{ _sk_certs | join(', ') }}
+{% endif %}
+
+# Earliest date for certificate validity
+# Description: For 'decrypt' command: earliest date for certificate validity (format: - or YYYY-MM-DD)
+# Default: '-'
+verify_not_before = {{ (cmd.verify_not_before | default('-')) | string }}
+
+# Latest date for certificate validity
+# Description: For 'decrypt' command: latest date for certificate validity (format: - or YYYY-MM-DD)
+# Default: 'now'
+verify_not_after = {{ (cmd.verify_not_after | default('now')) | string }}
+
+    {# --- Encrypt Command Section --- #}
+    {% elif cmd_name == 'encrypt' %}
+[encrypt]
+# Command: encrypt
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Output mode for encryption
+# Description: For 'encrypt' command: output mode; must be one of: binary, text
+# Default: binary
+as = {{ (cmd.as_value | default('binary')) | string }}
+
+# Disable ASCII armor output
+# Description: For 'encrypt', 'extract-cert', 'generate-key', 'sign' commands: disable ASCII armor output
+# Default: false
+{% set _en_no_armor = cmd.no_armor | default(false) %}
+{% if _en_no_armor %}
+no_armor = {{ _en_no_armor | string | lower }}
+{% endif %}
+
+# Password for encryption
+# Description: For 'decrypt' and 'encrypt' commands: password for encryption/decryption
+# Default: '' (empty)
+{% set _en_pwd = cmd.with_password | default('') %}
+{% if _en_pwd %}
+with_password = {{ _en_pwd | string }}
+{% endif %}
+
+# Secret key to use for signing
+# Description: For 'encrypt' command: secret key to use for signing
+# Default: '' (empty)
+{% set _en_sign = cmd.sign_with | default('') %}
+{% if _en_sign %}
+sign_with = {{ _en_sign | string }}
+{% endif %}
+
+    {# --- Extract-Cert Command Section --- #}
+    {% elif cmd_name == 'extract-cert' %}
+[extract-cert]
+# Command: extract-cert
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Disable ASCII armor output
+# Description: For 'encrypt', 'extract-cert', 'generate-key', 'sign' commands: disable ASCII armor output
+# Default: false
+{% set _ec_no_armor = cmd.no_armor | default(false) %}
+{% if _ec_no_armor %}
+no_armor = {{ _ec_no_armor | string | lower }}
+{% endif %}
+
+    {# --- Generate-Key Command Section --- #}
+    {% elif cmd_name == 'generate-key' %}
+[generate-key]
+# Command: generate-key
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Disable ASCII armor output
+# Description: For 'encrypt', 'extract-cert', 'generate-key', 'sign' commands: disable ASCII armor output
+# Default: false
+{% set _gk_no_armor = cmd.no_armor | default(false) %}
+{% if _gk_no_armor %}
+no_armor = {{ _gk_no_armor | string | lower }}
+{% endif %}
+
+    {# --- Sign Command Section --- #}
+    {% elif cmd_name == 'sign' %}
+[sign]
+# Command: sign
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Disable ASCII armor output
+# Description: For 'encrypt', 'extract-cert', 'generate-key', 'sign' commands: disable ASCII armor output
+# Default: false
+{% set _sg_no_armor = cmd.no_armor | default(false) %}
+{% if _sg_no_armor %}
+no_armor = {{ _sg_no_armor | string | lower }}
+{% endif %}
+
+    {# --- Verify Command Section --- #}
+    {% elif cmd_name == 'verify' %}
+[verify]
+# Command: verify
+# Description: Command name; must be one of: 'armor', 'dearmor', 'decrypt', 'encrypt', 'extract-cert', 'generate-key', 'sign', 'verify'
+
+# Earliest date for certificate validity
+# Description: For 'verify' command: earliest date for certificate validity (format: - or YYYY-MM-DD)
+# Default: '-'
+not_before = {{ (cmd.not_before | default('-')) | string }}
+
+# Latest date for certificate validity
+# Description: For 'verify' command: latest date for certificate validity (format: - or YYYY-MM-DD)
+# Default: 'now'
+not_after = {{ (cmd.not_after | default('now')) | string }}
+
+    {% else %}
+# Command: {{ cmd_name }}
+# Description: Unknown or default command '{{ cmd_name }}'. No specific configuration section generated.
+
+    {% endif %}
+{% endfor %}

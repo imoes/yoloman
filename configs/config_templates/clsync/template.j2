@@ -1,0 +1,26 @@
+# === non-systemd ===
+
+# Whether clsync is enabled (true/false).
+CLSYNC_ENABLE={{ clsync_enable | default(False) }}
+
+# ionice class for clsync (0=none, 1=realtime, 2=best-effort, 3=idle).
+CLSYNC_IONICE_CLASS={{ clsync_ionice_class | default('3') }}
+
+# Command-line arguments passed to clsync in non-systemd mode.
+CLSYNC_ARGS='{{ clsync_args | default('-M rsyncdirect --output=syslog -L /dev/shm/clsync -x 23 -W /var/www -S /usr/bin/rsync -D /mnt/backup') }}'
+
+# === systemd ===
+
+# Command-line arguments passed to clsync in systemd mode.
+CLSYNC_ARGS_SYSTEMD='{{ clsync_args_systemd | default('-b0 -Ystderr') }}'
+# Example:
+# mkdir -p /etc/clsync
+# cat > /etc/clsync/clsync.conf <<EOF
+# [SomeConfig]
+# mode = simple
+# watch-dir = /tmp
+# sync-handler = echo
+# EOF
+# systemctl enable clsync@SomeConfig
+# systemctl start clsync@SomeConfig
+# systemctl status clsync@SomeConfig

@@ -1,0 +1,426 @@
+{#
+  acme.sh Domain & Global Configuration Template
+  ================================================
+  This template generates command-line arguments for acme.sh certificate issuance/renewal
+  and global environment variable exports. It is designed to be rendered by Ansible.
+
+  Self-Documenting Principles:
+  - Every directive is preceded by a comment explaining its purpose and source field.
+  - All variables use `| default(...)` to ensure safe rendering even if fields are missing.
+  - Nested domain configurations are handled via the `domains` list.
+#}
+
+{# -------------------------------------------------------------------------- #}
+{# Global acme.sh Configuration (Environment Variables)                      #}
+{# -------------------------------------------------------------------------- #}
+
+{% if config_home is defined or config_home is not none %}
+# ACME_CONFIG_HOME: Directory to store acme.sh configuration files.
+# Corresponds to --config-home.
+export ACME_CONFIG_HOME="{{ (config_home | default('~/.acme.sh')) | string }}"
+{% endif %}
+
+{% if cert_home is defined or cert_home is not none %}
+# ACME_CERT_HOME: Directory to store issued certificates.
+# Corresponds to --cert-home.
+export ACME_CERT_HOME="{{ (cert_home | default('~/.acme.sh')) | string }}"
+{% endif %}
+
+{% if accountconf is defined or accountconf is not none %}
+# ACME_ACCOUNTCONF: Path to custom account configuration file.
+# Corresponds to --accountconf.
+export ACME_ACCOUNTCONF="{{ (accountconf | default('')) | string }}"
+{% endif %}
+
+{% if home is defined or home is not none %}
+# ACME_HOME: acme.sh installation home directory.
+# Corresponds to --home.
+export ACME_HOME="{{ (home | default('~/.acme.sh')) | string }}"
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Domain-Specific Configuration                                              #}
+{# -------------------------------------------------------------------------- #}
+{# Iterates over the `domains` list. Each item defines a domain and its renewal parameters. #}
+{% for domain in (domains | default([])) %}
+
+# ==============================================================================
+# Domain Configuration: {{ (domain.name | default('unknown')).string }}
+# ==============================================================================
+
+{# Challenge Method: 'http', 'standalone', or 'dns'. Determines validation strategy. #}
+{% set cm = domain.challenge_method | default('http') %}
+{% if cm == 'http' %}
+  # Validation method: HTTP-01. Requires webroot for directory-based validation.
+  # Corresponds to --webroot.
+  # Note: webroot is required if challenge_method is 'http'.
+  --webroot "{{ (domain.webroot | default('')) }}"
+
+{% elif cm == 'standalone' %}
+  # Validation method: Standalone. acme.sh starts a temporary HTTP server on port 80/443.
+  # Corresponds to --standalone.
+  --standalone
+
+{% elif cm == 'dns' %}
+  # Validation method: DNS-01. Requires DNS API or manual record creation.
+  # Corresponds to --dns or --yes-I-know-dns-manual-mode-enough-go-ahead-please.
+  {% if domain.dns_manual | default(False) %}
+    # DNS Manual Mode: User must manually create TXT records.
+    --yes-I-know-dns-manual-mode-enough-go-ahead-please
+  {% else %}
+    {% if domain.dns_hook | default('') %}
+      # DNS Hook: Automated DNS API integration (e.g., dns_cf, dns_aws).
+      --dns "{{ domain.dns_hook }}"
+    {% endif %}
+  {% endif %}
+{% endif %}
+
+{# ECC Certificate: Use ECDSA (Let's Encrypt/ZeroSSL recommended). #}
+{% if domain.ecc | default(False) %}
+  # ECC Certificate: Generate ECDSA key instead of RSA.
+  --ecc
+{% endif %}
+
+{# Key Length: RSA key size or EC curve. #}
+{% if domain.keylength | default('') %}
+  # Key Length: RSA modulus bits (2048, 3072, 4096, 8192) or EC curve (ec-256, ec-384, ec-521).
+  -k "{{ domain.keylength }}"
+{% endif %}
+
+{# Pre-Hook: Command executed before certificate operations. #}
+{% if domain.pre_hook | default('') %}
+  # Pre-Hook: Command to run before certificate issuance/renewal (e.g., stop nginx).
+  --pre-hook "{{ domain.pre_hook }}"
+{% endif %}
+
+{# Post-Hook: Command executed after certificate operations (success or failure). #}
+{% if domain.post_hook | default('') %}
+  # Post-Hook: Command to run after certificate issuance/renewal (e.g., start nginx).
+  --post-hook "{{ domain.post_hook }}"
+{% endif %}
+
+{# Renew Hook: Command executed ONLY on successful renewal. #}
+{% if domain.renew_hook | default('') %}
+  # Renew Hook: Command to run only on successful renewals.
+  --renew-hook "{{ domain.renew_hook }}"
+{% endif %}
+
+{# Deploy Hook: Hook to deploy the certificate to the target system. #}
+{% if domain.deploy_hook | default('') %}
+  # Deploy Hook: Hook script to copy/install certificates.
+  --deploy-hook "{{ domain.deploy_hook }}"
+{% endif %}
+
+{# ACME Server: URI of the ACME directory. #}
+{% if domain.server | default('') %}
+  # ACME Server: The ACME server URI to use.
+  --server "{{ domain.server }}"
+{% endif %}
+
+{# Account Email: Email for account registration/recovery. #}
+{% if domain.account_email | default('') %}
+  # Account Email: Email address associated with the ACME account.
+  --email "{{ domain.account_email }}"
+{% endif %}
+
+{# Revoke Reason: Reason code for certificate revocation (0-10). #}
+{% if domain.revoke_reason is defined %}
+  # Revocation Reason: Code explaining why the cert is being revoked.
+  --revoke-reason {{ domain.revoke_reason }}
+{% endif %}
+
+{# Notification Level: How often to send notifications (0=off, 1=error, 2=+renewal, 3=+skip). #}
+{% if domain.notify_level is defined %}
+  # Notification Level: Granularity of renewal notifications.
+  --notify-level {{ domain.notify_level }}
+{% endif %}
+
+{# Notification Mode: Bulk (all domains) or per-cert notifications. #}
+{% if domain.notify_mode is defined %}
+  # Notification Mode: 0=bulk, 1=per-cert.
+  --notify-mode {{ domain.notify_mode }}
+{% endif %}
+
+{# Notification Hook: Custom hook for notifications. #}
+{% if domain.notify_hook | default('') %}
+  # Notification Hook: Custom script to send notifications.
+  --notify-hook "{{ domain.notify_hook }}"
+{% endif %}
+
+{# Cert File: Destination path for the leaf certificate. #}
+{% if domain.cert_file | default('') %}
+  # Certificate File: Path to copy the leaf certificate.
+  --cert-file "{{ domain.cert_file }}"
+{% endif %}
+
+{# Key File: Destination path for the private key. #}
+{% if domain.key_file | default('') %}
+  # Key File: Path to copy the private key.
+  --key-file "{{ domain.key_file }}"
+{% endif %}
+
+{# CA File: Destination path for the intermediate CA certificate. #}
+{% if domain.ca_file | default('') %}
+  # CA File: Path to copy the intermediate CA certificate.
+  --ca-file "{{ domain.ca_file }}"
+{% endif %}
+
+{# Fullchain File: Destination path for the full certificate chain. #}
+{% if domain.fullchain_file | default('') %}
+  # Fullchain File: Path to copy the fullchain certificate.
+  --fullchain-file "{{ domain.fullchain_file }}"
+{% endif %}
+
+{# Reload Command: Command to reload the web server after deployment. #}
+{% if domain.reloadcmd | default('') %}
+  # Reload Command: Command executed to reload the target service.
+  --reloadcmd "{{ domain.reloadcmd }}"
+{% endif %}
+
+{# Preferred Chain: Preferred CA issuer CN for chain selection. #}
+{% if domain.preferred_chain | default('') %}
+  # Preferred Chain: Preferred CA certificate chain issuer CN.
+  --preferred-chain "{{ domain.preferred_chain }}"
+{% endif %}
+
+{# Days Before Expiry: Trigger renewal N days before expiry. #}
+{% if domain.days is defined %}
+  # Days Before Expiry: Number of days before expiration to trigger renewal.
+  --days {{ domain.days }}
+{% endif %}
+
+{# Staging Server: Use ACME staging server (test environment). #}
+{% if domain.staging | default(False) %}
+  # Staging Mode: Use the ACME staging server (rate limits are higher).
+  --staging
+{% endif %}
+
+{# Force: Force renewal or override restrictions. #}
+{% if domain.force | default(False) %}
+  # Force: Force certificate renewal.
+  --force
+{% endif %}
+
+{# Debug Level: Verbosity of output (0=none, 1=minimal, 2=default, 3=verbose). #}
+{% if domain.debug is defined %}
+  # Debug Level: Debug verbosity.
+  --debug {{ domain.debug }}
+{% endif %}
+
+{# Log File: Path to the acme.sh log file. #}
+{% if domain.log | default('') %}
+  # Log File: Path to the log file.
+  --log "{{ domain.log }}"
+{% endif %}
+
+{# Log Level: Log severity level (1=error, 2=info). #}
+{% if domain.log_level is defined %}
+  # Log Level: Log severity.
+  --log-level {{ domain.log_level }}
+{% endif %}
+
+{# Syslog: Send logs to syslog (0=disabled, 3=error, 6=info, 7=debug). #}
+{% if domain.syslog is defined %}
+  # Syslog: Syslog level.
+  --syslog {{ domain.syslog }}
+{% endif %}
+
+{# User Agent: Custom User-Agent string for API requests. #}
+{% if domain.useragent | default('') %}
+  # User Agent: Custom User-Agent string.
+  --useragent "{{ domain.useragent }}"
+{% endif %}
+
+{# Account Key: Path to the account private key. #}
+{% if domain.account_key | default('') %}
+  # Account Key: Path to the account private key.
+  --accountkey "{{ domain.account_key }}"
+{% endif %}
+
+{# Account Key Length: Key length for the account key (2048, 3072, 4096). #}
+{% if domain.account_keylength | default('') %}
+  # Account Key Length: Key length for the account key.
+  -ak "{{ domain.account_keylength }}"
+{% endif %}
+
+{# EAB KID: Key Identifier for External Account Binding. #}
+{% if domain.eab_kid | default('') %}
+  # EAB KID: Key Identifier for External Account Binding.
+  --eab-kid "{{ domain.eab_kid }}"
+{% endif %}
+
+{# EAB HMAC Key: HMAC key for External Account Binding. #}
+{% if domain.eab_hmac_key | default('') %}
+  # EAB HMAC Key: HMAC key for External Account Binding.
+  --eab-hmac-key "{{ domain.eab_hmac_key }}"
+{% endif %}
+
+{# HTTP Port: Port for standalone HTTP challenge. #}
+{% if domain.httpport is defined %}
+  # HTTP Port: Port for standalone HTTP challenge.
+  --httpport {{ domain.httpport }}
+{% endif %}
+
+{# TLS Port: Port for standalone TLS challenge. #}
+{% if domain.tlsport is defined %}
+  # TLS Port: Port for standalone TLS challenge.
+  --tlsport {{ domain.tlsport }}
+{% endif %}
+
+{# Local Address: IP address for standalone server to bind. #}
+{% if domain.local_address | default('') %}
+  # Local Address: IP address for standalone server to bind.
+  --local-address "{{ domain.local_address }}"
+{% endif %}
+
+{# Listen IPv4: Force standalone server to listen on IPv4 only. #}
+{% if domain.listen_v4 | default(False) %}
+  # Listen IPv4: Force IPv4 listening.
+  --listen-v4
+{% endif %}
+
+{# Listen IPv6: Force standalone server to listen on IPv6 only. #}
+{% if domain.listen_v6 | default(False) %}
+  # Listen IPv6: Force IPv6 listening.
+  --listen-v6
+{% endif %}
+
+{# No Cron: Skip installing the automatic renewal cron job. #}
+{% if domain.no_cron | default(False) %}
+  # No Cron: Skip automatic renewal cron job installation.
+  --no-cron
+{% endif %}
+
+{# No Profile: Skip installing shell aliases for acme.sh. #}
+{% if domain.no_profile | default(False) %}
+  # No Profile: Skip shell alias installation.
+  --no-profile
+{% endif %}
+
+{# Auto Upgrade: Automatically upgrade acme.sh. #}
+{% if domain.auto_upgrade is defined %}
+  # Auto Upgrade: Enable automatic upgrades.
+  --auto-upgrade {{ domain.auto_upgrade | ternary(1, 0) }}
+{% endif %}
+
+{# Use Wget: Force use of wget instead of curl. #}
+{% if domain.use_wget | default(False) %}
+  # Use Wget: Force usage of wget.
+  --use-wget
+{% endif %}
+
+{# Insecure: Skip TLS verification for API calls. #}
+{% if domain.insecure | default(False) %}
+  # Insecure: Skip TLS verification.
+  --insecure
+{% endif %}
+
+{# CA Bundle: Path to custom CA certificate bundle. #}
+{% if domain.ca_bundle | default('') %}
+  # CA Bundle: Path to custom CA bundle.
+  --ca-bundle "{{ domain.ca_bundle }}"
+{% endif %}
+
+{# CA Path: Directory with CA certificates. #}
+{% if domain.ca_path | default('') %}
+  # CA Path: Directory with CA certificates.
+  --ca-path "{{ domain.ca_path }}"
+{% endif %}
+
+{# OpenSSL Binary: Path to custom openssl binary. #}
+{% if domain.openssl_bin | default('') %}
+  # OpenSSL Binary: Path to custom openssl binary.
+  --openssl-bin "{{ domain.openssl_bin }}"
+{% endif %}
+
+{# Branch: Git branch for --upgrade. #}
+{% if domain.branch | default('') %}
+  # Branch: Git branch to upgrade from.
+  --branch "{{ domain.branch }}"
+{% endif %}
+
+{# Need Revoke Reason: Flag to include revocation reason. #}
+{% if domain.need_revoke_reason | default(False) %}
+  # Need Revoke Reason: Include revocation reason in revoke command.
+  --revoke-reason {{ domain.revoke_reason }}
+{% endif %}
+
+{# Need Password: If true, prompt for password for PKCS12 export. #}
+{% if domain.need_password | default(False) %}
+  # Need Password: Prompt for password during PKCS12 export.
+  --password "{{ domain.password | default('') }}"
+{% endif %}
+
+{# OCSP: Request OCSP Must-Staple extension. #}
+{% if domain.ocsp | default(False) %}
+  # OCSP: Request OCSP Must-Staple extension.
+  --ocsp
+{% endif %}
+
+{# Always Force New Domain Key: Generate new key on every renewal. #}
+{% if domain.always_force_new_domain_key | default(False) %}
+  # Always Force New Domain Key: Generate new key on every renewal.
+  --always-force-new-domain-key
+{% endif %}
+
+{# Output Insecure: Include sensitive data in debug output. #}
+{% if domain.output_insecure | default(False) %}
+  # Output Insecure: Include sensitive data in debug output.
+  --output-insecure
+{% endif %}
+
+{# No Color: Disable colored output. #}
+{% if domain.no_color | default(False) %}
+  # No Color: Disable colored output.
+  --no-color
+{% endif %}
+
+{# Force Color: Force colored output. #}
+{% if domain.force_color | default(False) %}
+  # Force Color: Force colored output.
+  --force-color
+{% endif %}
+
+{# CSR: Input CSR path for signing existing CSR. #}
+{% if domain.csr | default('') %}
+  # CSR: Input CSR path.
+  --csr "{{ domain.csr }}"
+{% endif %}
+
+{# Extended Key Usage: EKU OIDs (e.g., serverAuth,clientAuth). #}
+{% if domain.need_eku | default(False) %}
+  # Extended Key Usage: OIDs for EKU extension.
+  --extended-key-usage "{{ domain.extended_key_usage | default('serverAuth,clientAuth') }}"
+{% endif %}
+
+{# Challenge Alias: Domain alias for DNS alias mode. #}
+{% if domain.challenge_alias | default('') %}
+  # Challenge Alias: Domain alias for DNS challenge.
+  --challenge-alias "{{ domain.challenge_alias }}"
+{% endif %}
+
+{# Domain Alias: Parent domain for DNS alias mode. #}
+{% if domain.domain_alias | default('') %}
+  # Domain Alias: Parent domain for DNS alias.
+  --domain-alias "{{ domain.domain_alias }}"
+{% endif %}
+
+{# DNS Sleep: Seconds to wait for DNS propagation. #}
+{% if domain.dnssleep is defined %}
+  # DNS Sleep: Seconds to wait for DNS propagation.
+  --dnssleep {{ domain.dnssleep }}
+{% endif %}
+
+{# Valid To: NotAfter field (ISO 8601). #}
+{% if domain.valid_to | default('') %}
+  # Valid To: NotAfter field (ISO 8601).
+  --valid-to "{{ domain.valid_to }}"
+{% endif %}
+
+{# Valid From: NotBefore field (ISO 8601). #}
+{% if domain.valid_from | default('') %}
+  # Valid From: NotBefore field (ISO 8601).
+  --valid-from "{{ domain.valid_from }}"
+{% endif %}
+
+{% endfor %}

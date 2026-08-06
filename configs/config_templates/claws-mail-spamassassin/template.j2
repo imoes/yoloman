@@ -1,0 +1,78 @@
+# ============================================================================
+# Claws Mail SpamAssassin Plugin Configuration
+# ============================================================================
+# This file configures the SpamAssassin plugin for Claws Mail.
+# It controls how Claws Mail connects to the SpamAssassin daemon (spamd)
+# and handles spam detection/learning.
+#
+# Schema Source: claws-mail-spamassassin
+# ============================================================================
+
+{# Enable or disable the SpamAssassin plugin entirely.
+   Default: false (plugin not loaded). Set to true to activate. #}
+{% if (spamassassin | default({})).enabled | default(false) %}
+# SpamAssassin plugin is enabled
+plugin = spamassassin.so
+
+# --------------------------------------------------------------------------
+# SpamAssassin Daemon (spamd) Connection Settings
+# --------------------------------------------------------------------------
+
+{# Hostname or IP address of the SpamAssassin daemon (spamd) to connect to.
+   Default: 127.0.0.1 (localhost). Must be reachable from the mail client. #}
+spamd_host = {{ (spamassassin | default({})).spamd_host | default('127.0.0.1') }}
+
+{# TCP port on which spamd listens.
+   Default: 783. Must match the spamd server configuration. #}
+spamd_port = {{ (spamassassin | default({})).spamd_port | default(783) }}
+
+{# Connection timeout to spamd in seconds.
+   Default: 30. Must be >= 1. Controls how long Claws Mail waits for a response. #}
+spamd_timeout = {{ (spamassassin | default({})).spamd_timeout | default(30) }}
+
+# --------------------------------------------------------------------------
+# Local Learning (sa-learn) Settings
+# --------------------------------------------------------------------------
+
+{# If true, use external 'sa-learn' command for training instead of 'spamd'
+   in TCP mode. Requires SpamAssassin >= 3.1.x.
+   Default: false (use remote spamd for training). #}
+{% if (spamassassin | default({})).local_learning | default(false) %}
+local_learning = true
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Spam Folder Handling
+# --------------------------------------------------------------------------
+
+{# Fully qualified folder path where spam messages will be moved.
+   Example: 'INBOX.Spam'. If empty or missing, messages go to the default
+   Trash folder. Default: '' (empty/Trash). #}
+{% if (spamassassin | default({})).spam_folder | default('') %}
+spam_folder = {{ (spamassassin | default({})).spam_folder | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Toolbar Button Customization
+# --------------------------------------------------------------------------
+
+{# If true, allow toolbar button customization for spam/ham marking.
+   Default: true. When false, no toolbar buttons are added regardless of list. #}
+{% if (spamassassin | default({})).toolbar_buttons | default(true) %}
+{# Determine which window types get the spam button.
+   Valid values for items: 'main_window', 'message_window'.
+   Default: [] (empty list). #}
+{% set toolbar_list = (spamassassin | default({})).toolbar_buttons_list | default([]) %}
+
+{% if 'main_window' in toolbar_list %}
+toolbar_main = spam_button
+{% endif %}
+
+{% if 'message_window' in toolbar_list %}
+toolbar_message = spam_button
+{% endif %}
+{% endif %}
+
+{% else %}
+# SpamAssassin plugin is disabled (not loaded)
+{% endif %}

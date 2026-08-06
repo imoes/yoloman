@@ -1,4 +1,4 @@
-[ws]
+[WebService]
 # Bind the Cockpit web service to a specific address (IP or hostname); use `*` to bind to all interfaces
 Address = {{ ws_address }}
 
@@ -6,39 +6,47 @@ Address = {{ ws_address }}
 Port = {{ ws_port }}
 
 # Use HTTPS (TLS) for secure connections (requires valid TLS certificates)
-TLS = {{ ws_tls }}
-
-# Path to TLS certificate file (must be readable by the cockpit-ws process)
 TLSCert = {{ ws_tls_cert }}
-
-# Path to TLS private key file (must be secure and readable by the cockpit-ws process)
 TLSKey = {{ ws_tls_key }}
+
+# Enable TLS (HTTPS) encryption for Cockpit connections. Requires valid certificate and key paths.
+# Note: TLS is implicitly enabled if TLSCert/TLSKey are present; set AllowUnencrypted=true to allow HTTP.
+{% if ws_tls is defined %}
+# TLS enabled (implicit); AllowUnencrypted controls HTTP fallback
+{% endif %}
 
 {% if ws_cors_domains %}
 # Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing); empty or absent disables CORS
-CorsDomains = {{ ws_cors_domains | join(', ') }}
+Origins = {{ ws_cors_domains | join(', ') }}
 {% endif %}
 
-[login]
+# Allow unencrypted HTTP connections; if false, HTTP is redirected to HTTPS
+{% if ws_allow_unencrypted is not none %}
+AllowUnencrypted = {{ ws_allow_unencrypted | lower }}
+{% endif %}
+
+[Login]
 # Disable login banner (set to `false` to remove or hide it)
 Banner = {{ login_banner }}
 
 # Banner text shown on the login page
 BannerText = {{ login_banner_text }}
 
-{% if session_timeout_minutes is not none %}
+[Session]
 # Session timeout in minutes; 0 means no timeout (not recommended for production)
-SessionTimeout = {{ session_timeout_minutes }}
+{% if session_timeout_minutes is not none %}
+IdleTimeout = {{ session_timeout_minutes }}
 {% endif %}
 
-{% if session_idle_timeout_minutes is not none %}
 # Session idle timeout in minutes; 0 means no idle timeout (not recommended)
+{% if session_idle_timeout_minutes is not none %}
 IdleTimeout = {{ session_idle_timeout_minutes }}
 {% endif %}
 
-[session]
 # Maximum number of concurrent sessions per user (0 = no limit)
+{% if session_max_per_user is not none %}
 MaxSessionsPerUser = {{ session_max_per_user }}
+{% endif %}
 
 {% if session_recording_path %}
 # Enable session recording and store logs at this path

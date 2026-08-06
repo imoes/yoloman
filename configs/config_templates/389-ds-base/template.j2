@@ -1,0 +1,60 @@
+# Directory Server (389-ds-base) defaults configuration
+# This file is sourced by systemd/service scripts to pass
+# environment defaults to the slapd process.
+
+# Unique identifier for the Directory Server instance
+# Used to generate paths for certificates, logs, and data.
+# Defaults to 'localhost' if not provided.
+{% set server_id = (server | default({})).id | default('localhost') %}
+
+# Top-level directory for the installation
+# Defaults to '/usr'.
+{% set server_root = (server | default({})).root | default('/usr') %}
+
+# Instance directory name
+# Defaults to 'dirsrv'.
+{% set server_inst = (server | default({})).inst | default('dirsrv') %}
+
+# Hostname or IP address to bind to
+# Defaults to '0.0.0.0' (all interfaces).
+{% set server_host = (server | default({})).host | default('0.0.0.0') %}
+
+# LDAP port number
+# Defaults to 389.
+{% set server_port = (server | default({})).port | default(389) %}
+
+# LDAPS (LDAP over SSL/TLS) port number
+# Defaults to 636.
+{% set server_secure_port = (server | default({})).secure_port | default(636) %}
+
+# Path to the server certificate file (NSS db)
+# Based on the instance id to ensure uniqueness per instance.
+{% set certfile = '/etc/dirsrv/slapd-' ~ server_id ~ '/cert9.db' %}
+
+# Path to the server private key file (NSS db)
+{% set keyfile = '/etc/dirsrv/slapd-' ~ server_id ~ '/key9.db' %}
+
+# Directory containing CA certificates for client verification
+{% set cacertdir = '/etc/dirsrv/slapd-' ~ server_id %}
+
+# Path to access log file (successful operations)
+{% set accesslog = '/var/log/dirsrv/slapd-' ~ server_id ~ '/access' %}
+
+# Path to error log file
+{% set errorlog = '/var/log/dirsrv/slapd-' ~ server_id ~ '/errors' %}
+
+# Path to audit log file (successful operations)
+{% set auditlog = '/var/log/dirsrv/slapd-' ~ server_id ~ '/audit' %}
+
+# Path to audit failure log file
+{% set auditfaillog = '/var/log/dirsrv/slapd-' ~ server_id ~ '/audit-fail' %}
+
+# Logging verbosity level (0-255)
+# Defaults to 0 (no extra logging).
+{% set loglevel = ((server | default({})).logging | default({})).loglevel | default(0) %}
+
+# Bindnow hardening flag
+# When set, the dynamic linker resolves all symbols before the process starts,
+# mitigating certain code-injection attacks.
+# Defaults to '1' (enabled).
+LD_BIND_NOW={{ (server | default({})).bindnow_default | default('1') }}

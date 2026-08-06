@@ -1,0 +1,68 @@
+# fuzzylite(1) configuration file
+# Generated from documented fuzzylite CLI options
+# This file is a self-documenting command-line argument list for the fuzzylite engine.
+# Each section corresponds to a set of related CLI flags.
+
+# =============================================================================
+# Input Source
+# =============================================================================
+
+# inputfile: Path to engine input file (fll|fis|fcl)
+# Specifies the source fuzzy logic file to load.
+{% if inputfile is defined and inputfile | default('fll') %}-i {{ inputfile | default('fll') }}{% endif %}
+
+# input_format: Format of input file: fll, fis, or fcl
+# Explicitly declares the file format. Usually inferred from extension, but
+# can be forced here.
+{% if input_format is defined and input_format | default('fll') %}-if {{ input_format | default('fll') }}{% endif %}
+
+# =============================================================================
+# Output Destination
+# =============================================================================
+
+# outputfile: Path to engine output file
+# The file where the processed engine or results will be saved.
+{% if outputfile is defined and outputfile | default('fll') %}-o {{ outputfile | default('fll') }}{% endif %}
+
+# output_format: Format of output file: fll, fld, cpp, java, fis, fcl
+# Defines the serialization format for the output.
+{% if output_format is defined and output_format | default('fll') %}-of {{ output_format | default('fll') }}{% endif %}
+
+# =============================================================================
+# Built-in Examples
+# =============================================================================
+
+# example: Built-in example selector: 'm' (Mamdani) or 't' (Takagi-Sugeno)
+# If specified, loads a built-in example instead of a file. 'm' for Mamdani
+# controllers, 't' for Takagi-Sugeno. Mutually exclusive with -i.
+{% if example is defined and example | default('m') %}-example {{ example | default('m') }}{% endif %}
+
+# =============================================================================
+# Numeric and Evaluation Options
+# =============================================================================
+
+# decimals: Number of decimal places for floating-point values
+# Controls the precision of numeric outputs.
+{% if decimals is defined and decimals | default(6) %}-decimals {{ decimals | default(6) }}{% endif %}
+
+# maximum_results: Maximum number of evaluation results when exporting .fld without datafile
+# Limits the number of points generated if exporting to .fld without
+# a specific data file.
+{% if maximum_results is defined and maximum_results | default(100) %}-dmaximum {{ maximum_results | default(100) }}{% endif %}
+
+# include_header: Include header row when exporting .fld
+# Boolean flag: true/false. Adds a header row to .fld output files.
+{% if include_header is defined and include_header | default(true) %}-dheader {{ include_header | default(true) | ternary('true', 'false') }}{% endif %}
+
+# include_inputs: Include input values in .fld output
+# Boolean flag: true/false. Adds input columns to the .fld output.
+{% if include_inputs is defined and include_inputs | default(true) %}-dinputs {{ include_inputs | default(true) | ternary('true', 'false') }}{% endif %}
+
+# =============================================================================
+# Data File for Evaluation
+# =============================================================================
+
+# datafile: Path to input data file for .fld evaluation
+# Provides the raw data to evaluate the engine against, used when
+# exporting to .fld format.
+{% if datafile is defined and datafile | default('') %}-d {{ datafile | default('') }}{% endif %}

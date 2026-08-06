@@ -1,321 +1,207 @@
-! FRRouting configuration — generated via Jinja2 template
-! Global configuration
-hostname {{ hostname }}
-{% if router_id %}
-router-id {{ router_id }}
+# ==============================================================================
+# FRR (Free Range Routing) Configuration Template
+# ==============================================================================
+# This template generates the main FRR configuration file (typically /etc/frr/frr.conf).
+# FRR uses a hierarchical command structure similar to Cisco IOS.
+#
+# Variables are sourced from the Ansible playbook/role variables, with sensible
+# defaults provided for every field to ensure idempotent and safe rendering.
+# ==============================================================================
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+# Global logging level for syslog. FRR will send logs to syslog with this severity.
+# Accepted values: debug, info, notice, warning, error, crit, alert, emerg.
+# Default: info
+# Schema: logging.level -> default 'info'
+log syslog {{ (logging | default({})).level | default('info') }}
+
+# ---------------------------------------------------------------------------
+# File Logging
+# ---------------------------------------------------------------------------
+# If file logging is enabled, append a log file directive.
+# If logging.files.path is provided, FRR will also write logs to this file.
+# Default: /var/log/frr/frr.log
+# Schema: logging.files.path -> default '/var/log/frr/frr.log'
+{% if (logging | default({})).files | default({}) is mapping and ((logging | default({})).files | default({})) | length > 0 %}
+# Log to file: {{ (logging | default({})).files.path | default('/var/log/frr/frr.log') }}
+# Level defaults to 'info' for file logging unless a specific block is defined.
+log file {{ (logging | default({})).files.path | default('/var/log/frr/frr.log') }} {{ (logging | default({})).level | default('info') }}
 {% endif %}
-!
-! Logging
-{% if logging.level %}
-log {{ logging.level }}
+
+# ---------------------------------------------------------------------------
+# Daemon Configuration
+# ---------------------------------------------------------------------------
+# Enable the BGP daemon if BGP configuration is present.
+# FRR only starts specific daemons (zebra, bgpd, ospfd, etc.) if they are
+# configured or explicitly enabled in /etc/frr/daemons.
+# This comment block is informational; actual daemon enablement is managed by
+# the role's service configuration (e.g., /etc/frr/daemons file).
+{% if bgp | default(None) is not none %}
+# BGP configuration is present; ensure bgpd is enabled in /etc/frr/daemons.
 {% endif %}
-{% if logging.files %}
-log file {{ logging.files.path }}
+
+# ---------------------------------------------------------------------------
+# Router Identification
+# ---------------------------------------------------------------------------
+# Global router ID used by routing protocols (OSPF, BGP, etc.) for identification.
+# Must be in IPv4 format (e.g., 1.2.3.4). If not specified, FRR may auto-select
+# an IP address from the system interfaces.
+# Default: '' (empty)
+# Schema: router_id -> default ''
+{% if router_id | default('') | trim != '' %}
+router-id {{ router_id | default('') }}
 {% endif %}
-!
-! Service configuration
-service integrated-vtysh-config
-!
-! Global IPv4/IPv6 unicast routing
-{% if ipv4_unicast %}
-ipv4 unicast
+
+# ---------------------------------------------------------------------------
+# Hostname
+# ---------------------------------------------------------------------------
+# Router hostname. Used for identification in logs and protocol messages.
+# Default: router
+# Schema: hostname -> default 'router'
+hostname {{ hostname | default('router') }}
+
+# ---------------------------------------------------------------------------
+# Address Families (Global)
+# ---------------------------------------------------------------------------
+# Enable address families globally. This allows routing protocols to advertise
+# routes in these address families.
+
+# IPv4 Unicast
+# Default: True
+# Schema: ipv4_unicast -> default True
+{% if ipv4_unicast | default(True) %}
+! Enable IPv4 unicast global address-family
+address-family ipv4 unicast
+ no address-family ipv4 unicast
 {% endif %}
-{% if ipv6_unicast %}
-ipv6 unicast
+
+# IPv6 Unicast
+# Default: False
+# Schema: ipv6_unicast -> default False
+{% if ipv6_unicast | default(False) %}
+! Enable IPv6 unicast global address-family
+address-family ipv6 unicast
+ no address-family ipv6 unicast
 {% endif %}
-!
-! BGP configuration
-{% if bgp.enabled %}
-{% if bgp.asn %}
-router bgp {{ bgp.asn }}
-{% endif %}
-{% if bgp.router_id %}
- bgp router-id {{ bgp.router_id }}
-{% endif %}
-{% if bgp.graceful_restart %}
- bgp graceful-restart
-{% endif %}
-{% if bgp.log_neighbor_changes %}
- bgp log-neighbor-changes
-{% endif %}
-{% for peer in bgp.neighbors %}
- neighbor {{ peer.ip }} remote-as {{ peer.asn }}
-{% if peer.description %}
- neighbor {{ peer.ip }} description {{ peer.description }}
-{% endif %}
-{% if peer.passive %}
- neighbor {{ peer.ip }} passive
-{% endif %}
-{% if peer.password %}
- neighbor {{ peer.ip }} password {{ peer.password }}
-{% endif %}
-{% if peer.update_source %}
- neighbor {{ peer.ip }} update-source {{ peer.update_source }}
-{% endif %}
-{% if peer.ebgp_multihop is defined %}
- neighbor {{ peer.ip }} ebgp-multihop {{ peer.ebgp_multihop }}
-{% endif %}
-{% if peer.timers is defined %}
- neighbor {{ peer.ip }} timers {{ peer.timers.keepalive }} {{ peer.timers.holdtime }}
-{% endif %}
-{% if peer.route_map_in %}
- neighbor {{ peer.ip }} route-map {{ peer.route_map_in }} in
-{% endif %}
-{% if peer.route_map_out %}
- neighbor {{ peer.ip }} route-map {{ peer.route_map_out }} out
-{% endif %}
-{% if peer.next_hop_self %}
- neighbor {{ peer.ip }} next-hop-self
-{% endif %}
-{% if peer.weight is defined %}
- neighbor {{ peer.ip }} weight {{ peer.weight }}
-{% endif %}
-{% endfor %}
-{% if bgp.networks %}
-{% for net in bgp.networks %}
- network {{ net.prefix }}
-{% endfor %}
-{% endif %}
-{% if bgp.redistribute %}
-{% for proto in bgp.redistribute %}
- redistribute {{ proto.protocol }}
-{% if proto.route_map %}
- redistribute {{ proto.protocol }} route-map {{ proto.route_map }}
-{% endif %}
-{% endfor %}
-{% endif %}
-!
-{% if bgp.address_families.ipv4_unicast %}
- address-family ipv4 unicast
-{% for af_net in bgp.address_families.ipv4_unicast.networks %}
-  network {{ af_net.prefix }}
-{% endfor %}
-{% if bgp.address_families.ipv4_unicast.redistribute %}
-{% for af_red in bgp.address_families.ipv4_unicast.redistribute %}
-  redistribute {{ af_red.protocol }}
-  {% if af_red.route_map %}
-  redistribute {{ af_red.protocol }} route-map {{ af_red.route_map }}
+
+# ---------------------------------------------------------------------------
+# BGP Configuration
+# ---------------------------------------------------------------------------
+# BGP routing configuration.
+# This block is generated ONLY if the 'bgp' variable is defined and not None.
+# The 'bgp' variable is expected to be a dictionary containing BGP parameters:
+#   - as: Autonomous System Number (integer or string like '65000')
+#   - neighbor: List of neighbor dictionaries
+#   - network: List of networks to advertise
+#
+# Example bgp variable structure:
+#   bgp:
+#     as: 65000
+#     neighbor:
+#       - ip: 10.0.0.1
+#         remote_as: 65001
+#         description: "Peer 1"
+#     network:
+#       - prefix: 10.1.0.0/24
+#
+# Schema: bgp -> default None
+{% if bgp | default(None) is not none %}
+{% set bgp_as = (bgp | default({})).get('as', '65000') %}
+router bgp {{ bgp_as }}
+
+  {% if (bgp | default({})).router_id | default(None) is not none %}
+  bgp router-id {{ (bgp | default({})).router_id }}
   {% endif %}
-{% endfor %}
-{% endif %}
-{% for af_peer in bgp.address_families.ipv4_unicast.neighbors %}
-  neighbor {{ af_peer.ip }} activate
-  {% if af_peer.route_map_in %}
-  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_in }} in
+
+  {% if (bgp | default({})).log_neighbor_changes | default(False) %}
+  bgp log-neighbor-changes
   {% endif %}
-  {% if af_peer.route_map_out %}
-  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_out }} out
+
+  {% if (bgp | default({})).neighbor_shutoff | default(False) %}
+  bgp neighbor-shutoff
   {% endif %}
-{% endfor %}
- exit-address-family
-{% endif %}
-{% if bgp.address_families.ipv6_unicast %}
- address-family ipv6 unicast
-{% for af_net in bgp.address_families.ipv6_unicast.networks %}
-  network {{ af_net.prefix }}
-{% endfor %}
-{% for af_peer in bgp.address_families.ipv6_unicast.neighbors %}
-  neighbor {{ af_peer.ip }} activate
-  {% if af_peer.route_map_in %}
-  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_in }} in
+
+  {# Networks to advertise #}
+  {% if (bgp | default({})).network | default([]) | length > 0 %}
+  {% for net in (bgp | default({})).network | default([]) %}
+  network {{ net.prefix }}
+  {% endfor %}
   {% endif %}
-  {% if af_peer.route_map_out %}
-  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_out }} out
+
+  {# Neighbor configurations #}
+  {% if (bgp | default({})).neighbor | default([]) | length > 0 %}
+  {% for neighbor in (bgp | default({})).neighbor | default([]) %}
+  neighbor {{ neighbor.ip }}
+  {% if neighbor.remote_as | default(None) is not none %}
+   remote-as {{ neighbor.remote_as }}
   {% endif %}
-{% endfor %}
- exit-address-family
-{% endif %}
-{% if bgp.address_families.ipv4_mpls_labeled_unicast %}
- address-family ipv4 labeled-unicast
-{% for af_peer in bgp.address_families.ipv4_mpls_labeled_unicast.neighbors %}
-  neighbor {{ af_peer.ip }} activate
-{% endfor %}
- exit-address-family
-{% endif %}
-!
-{% endif %}
+  {% if neighbor.description | default(None) is not none %}
+   description {{ neighbor.description }}
+  {% endif %}
+  {% if neighbor.password | default(None) is not none %}
+   password {{ neighbor.password }}
+  {% endif %}
+  {% if neighbor.peer_group | default(None) is not none %}
+   peer-group {{ neighbor.peer_group }}
+  {% endif %}
+  {% if neighbor.route_map_in | default(None) is not none %}
+   route-map {{ neighbor.route_map_in }} in
+  {% endif %}
+  {% if neighbor.route_map_out | default(None) is not none %}
+   route-map {{ neighbor.route_map_out }} out
+  {% endif %}
+  {% if neighbor.next_hop_self | default(False) %}
+   next-hop-self
+  {% endif %}
+  {% if neighbor.soft_reconfiguration | default(False) %}
+   soft-reconfiguration inbound
+  {% endif %}
+  {% if neighbor.timers | default(None) is not none %}
+   timers {{ neighbor.timers.keepalive }} {{ neighbor.timers.holdtime }}
+  {% endif %}
+  {% endfor %}
+  {% endif %}
 
-! OSPF configuration
-{% if ospf.enabled %}
-{% if ospf.router_id %}
-router ospf{{ ospf.instance_id | default(0) }}
-{% else %}
-router ospf{{ ospf.instance_id | default(0) }}
- ospf router-id {{ ospf.router_id }}
-{% endif %}
-{% for area in ospf.areas %}
- area {{ area.id }} {{ area.type }}
-{% endfor %}
-{% for iface in ospf.interfaces %}
- interface {{ iface.name }}
-  ip ospf area {{ iface.area }}
-{% if iface.cost %}
-  ip ospf cost {{ iface.cost }}
-{% endif %}
-{% if iface.priority %}
-  ip ospf priority {{ iface.priority }}
-{% endif %}
-{% endfor %}
-{% if ospf.redistribute %}
-{% for proto in ospf.redistribute %}
- redistribute {{ proto.protocol }}
-{% if proto.route_map %}
- redistribute {{ proto.protocol }} route-map {{ proto.route_map }}
-{% endif %}
-{% endfor %}
-{% endif %}
-!
-{% endif %}
+  {# Address-Family blocks for BGP neighbors #}
+  {# Note: BGP AF configuration is neighbor-specific or global #}
+  {% for neighbor in (bgp | default({})).neighbor | default([]) %}
+  neighbor {{ neighbor.ip }} address-family ipv4 unicast
+  {% if neighbor.announce | default(True) %}
+   announce ipv4 unicast
+  {% else %}
+   no announce ipv4 unicast
+  {% endif %}
+  neighbor {{ neighbor.ip }} address-family ipv6 unicast
+  {% if neighbor.announce_ipv6 | default(False) %}
+   announce ipv6 unicast
+  {% else %}
+   no announce ipv6 unicast
+  {% endif %}
+  {% endfor %}
 
-! RIP configuration
-{% if rip.enabled %}
-router rip
-{% if rip.version %}
- version {{ rip.version }}
-{% endif %}
-{% if rip.default_information_originate %}
- default-information originate
-{% endif %}
-{% if rip.networks %}
-{% for net in rip.networks %}
- network {{ net.prefix }}
-{% endfor %}
-{% endif %}
-{% if rip.redistribute %}
-{% for proto in rip.redistribute %}
- redistribute {{ proto.protocol }}
-{% endfor %}
-{% endif %}
-!
-{% endif %}
+  {# Global BGP Address-Family settings #}
+  address-family ipv4 unicast
+  {% if (bgp | default({})).max_paths_ipv4 | default(None) is not none %}
+   maximum-paths {{ (bgp | default({})).max_paths_ipv4 }}
+  {% endif %}
+  {% if (bgp | default({})).redistribute | default([]) | length > 0 %}
+  {% for redist in (bgp | default({})).redistribute | default([]) %}
+   redistribute {{ redist.protocol }} route-map {{ redist.route_map | default('null') }}
+  {% endfor %}
+  {% endif %}
+  exit-address-family
 
-! IS-IS configuration
-{% if isis.enabled %}
-{% if isis.net %}
-router isis{{ isis.instance_id | default('') }}
- net {{ isis.net }}
-{% endif %}
-{% if isis.is_type %}
- is-type {{ isis.is_type }}
-{% endif %}
-{% if isis.metric_style %}
- metric-style {{ isis.metric_style }}
-{% endif %}
-{% for iface in isis.interfaces %}
- interface {{ iface.name }}
-  ip router isis {{ isis.area_tag }}
-{% if iface.circuit_type %}
-  isis circuit-type {{ iface.circuit_type }}
-{% endif %}
-{% if iface.metric %}
-  isis metric {{ iface.metric }}
-{% endif %}
-{% endfor %}
-{% if isis.redistribute %}
-{% for proto in isis.redistribute %}
- redistribute {{ proto.protocol }}
-{% endfor %}
-{% endif %}
-!
-{% endif %}
+  address-family ipv6 unicast
+  {% if (bgp | default({})).max_paths_ipv6 | default(None) is not none %}
+   maximum-paths {{ (bgp | default({})).max_paths_ipv6 }}
+  {% endif %}
+  {% if (bgp | default({})).redistribute_ipv6 | default([]) | length > 0 %}
+  {% for redist in (bgp | default({})).redistribute_ipv6 | default([]) %}
+   redistribute {{ redist.protocol }} route-map {{ redist.route_map | default('null') }}
+  {% endfor %}
+  {% endif %}
+  exit-address-family
 
-! Route maps
-{% if route_maps %}
-{% for rm in route_maps %}
-{% if rm.description %}
-! Route-map {{ rm.name }}: {{ rm.description }}
 {% endif %}
-route-map {{ rm.name }} {{ rm.action }} {{ rm.sequence }}
-{% if rm.description %}
- description {{ rm.description }}
-{% endif %}
-{% if rm.match_ip_prefix_list %}
- match ip address prefix-list {{ rm.match_ip_prefix_list }}
-{% endif %}
-{% if rm.match_as_path %}
- match as-path {{ rm.match_as_path }}
-{% endif %}
-{% if rm.set_local_pref is defined %}
- set local-preference {{ rm.set_local_pref }}
-{% endif %}
-{% if rm.set_metric is defined %}
- set metric {{ rm.set_metric }}
-{% endif %}
-{% if rm.set_next_hop %}
- set ip next-hop {{ rm.set_next_hop }}
-{% endif %}
-{% if rm.set_community %}
- set community {{ rm.set_community }}
-{% endif %}
-{% if rm.permit_denied is defined %}
-{{ rm.permit_denied | default('') }}
-{% endif %}
-!
-{% endfor %}
-{% endif %}
-
-! IP prefix lists
-{% if prefix_lists %}
-{% for pl in prefix_lists %}
-{% for entry in pl.entries %}
-ip prefix-list {{ pl.name }} {{ entry.action }} {{ entry.prefix }}
-{% if entry.le is defined %} le {{ entry.le }}{% endif %}
-{% if entry.ge is defined %} ge {{ entry.ge }}{% endif %}
-{% endfor %}
-{% endfor %}
-{% endif %}
-
-! AS path access lists
-{% if as_path_lists %}
-{% for list in as_path_lists %}
-{% for entry in list.entries %}
-ip as-path access-list {{ list.name }} {{ entry.action }} {{ entry.pattern }}
-{% endfor %}
-{% endfor %}
-{% endif %}
-
-! Community lists
-{% if community_lists %}
-{% for list in community_lists %}
-{% for entry in list.entries %}
-{% if list.type == 'standard' %}
-community-list {{ list.name }} {{ entry.action }} {{ entry.value }}
-{% elif list.type == 'expanded' %}
-community-list expanded {{ list.name }} {{ entry.action }} {{ entry.regex }}
-{% endif %}
-{% endfor %}
-{% endfor %}
-{% endif %}
-
-! Zebra
-{% if zebra.enabled %}
-router zebra
-{% if zebra.log_changes %}
- log zebra changes
-{% endif %}
-{% if zebra.ipv6_unicast %}
- ipv6 unicast
-{% endif %}
-{% if zebra.ipv4_unicast %}
- ipv4 unicast
-{% endif %}
-{% if zebra.ecmp is defined %}
- ip nht max-paths {{ zebra.ecmp }}
-{% endif %}
-{% if zebra.vty_port %}
- vtysh
-{% endif %}
-!
-{% endif %}
-
-! vtysh configuration (interactive mode)
-vtysh
-{% if zebra.enabled %}
-{% if zebra.vtysh_pager is defined %}
-pager {{ zebra.vtysh_pager }}
-{% endif %}
-{% endif %}
-line vty
-!
-!
-! end

@@ -1,30 +1,102 @@
-# iSCSI node session parameters
-session.initial_cmdsn = {{ session_initial_cmdsn }}
-session.cmds_max = {{ session_cmds_max }}
-session.queue_depth = {{ session_queue_depth }}
+# ==============================================================================
+# iSCSI Node Session Configuration Template
+# ==============================================================================
+# This template configures the iscsid daemon's node session parameters.
+# It handles session limits, connection tuning, CHAP authentication,
+# discovery settings, interface binding, logging, timeouts, and startup behavior.
+# ==============================================================================
 
-# iSCSI connection parameters
-connection.max_recv_dlength = {{ connection_max_recv_dlength }}
-connection.first_burst_length = {{ connection_first_burst_length }}
-connection.max_burst_length = {{ connection_max_burst_length }}
+# ------------------------------------------------------------------------------
+# Session Control Parameters
+# ------------------------------------------------------------------------------
 
-# Authentication
-node.session.auth.authmethod = {{ node_session_auth_authmethod }}
-node.session.auth.username = {{ node_session_auth_username | default('') }}
-node.session.auth.password = {{ node_session_auth_password | default('') }}
-node.session.auth.username_in = {{ node_session_auth_username_in | default('') }}
-node.session.auth.password_in = {{ node_session_auth_password_in | default('') }}
+# Initial Command Sequence Number for the session.
+# Used to synchronize the CMD_SN between initiator and target.
+session.initial_cmdsn = {{ session_initial_cmdsn | default(0) }}
 
-# Discovery parameters
-discovery.sendtargets.auth.authmethod = {{ discovery_sendtargets_auth_authmethod }}
-discovery.sendtargets.auth.username = {{ discovery_sendtargets_auth_username | default('') }}
-discovery.sendtargets.auth.password = {{ discovery_sendtargets_auth_password | default('') }}
-discovery.sendtargets.auth.username_in = {{ discovery_sendtargets_auth_username_in | default('') }}
-discovery.sendtargets.auth.password_in = {{ discovery_sendtargets_auth_password_in | default('') }}
+# Maximum number of commands that may be in flight at once per session.
+# This limits the depth of outstanding I/O requests.
+session.cmds_max = {{ session_cmds_max | default(128) }}
 
-# Interface binding (if using multiple NICs)
-{% for iface in interfaces %}
-# Interface: {{ iface.name }}
+# Maximum number of commands that may be queued per LUN.
+# This restricts the queue depth visible to the target for a specific LUN.
+session.queue_depth = {{ session_queue_depth | default(32) }}
+
+# ------------------------------------------------------------------------------
+# Connection Data Transfer Parameters
+# ------------------------------------------------------------------------------
+
+# Maximum data segment length (in bytes) that the initiator can receive
+# in a single iSCSI PDU. Affects read performance and memory usage.
+connection.max_recv_dlength = {{ connection_max_recv_dlength | default(262144) }}
+
+# Maximum data segment length (in bytes) for the first data transfer
+# in an unsolicited PDU sequence. Unsolicited data does not require a Ready-to-Burst.
+connection.first_burst_length = {{ connection_first_burst_length | default(65536) }}
+
+# Maximum data segment length (in bytes) for subsequent data transfers
+# in a sequence. Limits the size of bulk data chunks.
+connection.max_burst_length = {{ connection_max_burst_length | default(262144) }}
+
+# ------------------------------------------------------------------------------
+# Session Authentication (CHAP)
+# ------------------------------------------------------------------------------
+
+# Authentication method used for the session (e.g., 'CHAP', 'None').
+# Determines whether challenge-handshake authentication is performed.
+node.session.auth.authmethod = {{ node_session_auth_authmethod | default('CHAP') }}
+
+# CHAP username for the session (outgoing authentication).
+# Sent to the target to identify the initiator.
+node.session.auth.username = {{ node_session_auth_username | default('') | quote }}
+
+# CHAP password for the session (outgoing authentication).
+# Sent to the target to prove identity.
+node.session.auth.password = {{ node_session_auth_password | default('') | quote }}
+
+# CHAP username expected from target (incoming authentication).
+# If set, the initiator requires the target to authenticate itself.
+node.session.auth.username_in = {{ node_session_auth_username_in | default('') | quote }}
+
+# CHAP password expected from target (incoming authentication).
+# Used to verify the target's identity during incoming auth.
+node.session.auth.password_in = {{ node_session_auth_password_in | default('') | quote }}
+
+# ------------------------------------------------------------------------------
+# Discovery Authentication (SendTargets)
+# ------------------------------------------------------------------------------
+
+# Authentication method for SendTargets discovery (e.g., 'CHAP', 'None').
+# Used when discovering targets via SendTargets mechanism.
+discovery.sendtargets.auth.authmethod = {{ discovery_sendtargets_auth_authmethod | default('CHAP') }}
+
+# CHAP username used during SendTargets discovery (outgoing).
+# Identifies the initiator to the target during discovery.
+discovery.sendtargets.auth.username = {{ discovery_sendtargets_auth_username | default('') | quote }}
+
+# CHAP password used during SendTargets discovery (outgoing).
+# Authenticates the initiator to the target during discovery.
+discovery.sendtargets.auth.password = {{ discovery_sendtargets_auth_password | default('') | quote }}
+
+# CHAP username expected from target during discovery (incoming).
+# If set, the initiator requires the target to authenticate during discovery.
+discovery.sendtargets.auth.username_in = {{ discovery_sendtargets_auth_username_in | default('') | quote }}
+
+# CHAP password expected from target during discovery (incoming).
+# Used to verify the target's identity during discovery authentication.
+discovery.sendtargets.auth.password_in = {{ discovery_sendtargets_auth_password_in | default('') | quote }}
+
+# ------------------------------------------------------------------------------
+# Network Interface Binding
+# ------------------------------------------------------------------------------
+# If interfaces list is provided, bind sessions to specific network interfaces.
+# This is useful for multi-homed initiators or traffic isolation.
+
+{% for iface in interfaces | default([]) %}
+# --- Interface Configuration ---
+# Interface: {{ iface.name | default('') }}
+# Defines the network interface parameters for this specific session path.
+
 node.session.iface.initiatorname = {{ iface.initiatorname | default('') | quote }}
 node.session.iface.ipaddress = {{ iface.ipaddress | default('') | quote }}
 node.session.iface.netdev = {{ iface.netdev | default('') | quote }}
@@ -34,31 +106,99 @@ node.session.iface.data_digest = {{ iface.data_digest | default('') | quote }}
 node.session.iface.max_recv_dlength = {{ iface.max_recv_dlength | default('') | quote }}
 node.session.iface.port = {{ iface.port | default('') | quote }}
 node.session.iface.state = {{ iface.state | default('') | quote }}
+
 {% endfor %}
 
-# Logging level
-node.conn.log_auth = {{ node_conn_log_auth }}
-node.conn.log_iscsi = {{ node_conn_log_iscsi }}
-node.conn.log_nvme = {{ node_conn_log_nvme }}
-node.conn.log_isns = {{ node_conn_log_isns }}
-node.conn.log_tcp = {{ node_conn_log_tcp }}
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
 
-# Session recovery and timeouts
-node.session.timeo.replacement_timeout = {{ node_session_timeo_replacement_timeout }}
-node.session.timeo.err_timeo = {{ node_session_timeo_err_timeo }}
-node.session.timeo.abort_timeout = {{ node_session_timeo_abort_timeout }}
-node.session.timeo.login_timeout = {{ node_session_timeo_login_timeout }}
-node.session.timeo.logout_timeout = {{ node_session_timeo_logout_timeout }}
-node.session.timeo.noop_out_interval = {{ node_session_timeo_noop_out_interval }}
-node.session.timeo.noop_out_timeout = {{ node_session_timeo_noop_out_timeout }}
+# Enable detailed authentication logging.
+# Provides verbose logs for CHAP and other auth mechanisms.
+node.conn.log_auth = {{ node_conn_log_auth | default(False) | ternary('1', '0') }}
 
-# I/O tuning
-node.conn.scan = {{ node_conn_scan }}
-node.session.err_timeo.action = {{ node_session_err_timeo_action }}
-node.session.isns.enabled = {{ node_session_isns_enabled }}
-node.session.isns.port = {{ node_session_isns_port }}
+# Enable iSCSI protocol logging.
+# Logs iSCSI PDUs and session state changes.
+node.conn.log_iscsi = {{ node_conn_log_iscsi | default(False) | ternary('1', '0') }}
+
+# Enable NVMe-over-iSCSI logging (if supported).
+# Logs NVMe command processing over iSCSI.
+node.conn.log_nvme = {{ node_conn_log_nvme | default(False) | ternary('1', '0') }}
+
+# Enable iSNS protocol logging.
+# Logs interaction with iSNS servers.
+node.conn.log_isns = {{ node_conn_log_isns | default(False) | ternary('1', '0') }}
+
+# Enable TCP-layer logging.
+# Logs underlying TCP connection events (retransmits, errors).
+node.conn.log_tcp = {{ node_conn_log_tcp | default(False) | ternary('1', '0') }}
+
+# ------------------------------------------------------------------------------
+# Session Recovery and Timeouts
+# ------------------------------------------------------------------------------
+
+# Time (in seconds) to wait before replacing a failed connection.
+# Used in connection recovery strategies.
+node.session.timeo.replacement_timeout = {{ node_session_timeo_replacement_timeout | default(120) }}
+
+# Time (in seconds) after which a connection error triggers recovery action.
+# Determines how long to wait for error recovery before taking action.
+node.session.timeo.err_timeo = {{ node_session_timeo_err_timeo | default(30) }}
+
+# Time (in seconds) to wait before aborting a stuck command.
+# If a command exceeds this time, it is aborted to prevent hangs.
+node.session.timeo.abort_timeout = {{ node_session_timeo_abort_timeout | default(15) }}
+
+# Time (in seconds) to wait for login completion.
+# Maximum duration for the iSCSI login phase.
+node.session.timeo.login_timeout = {{ node_session_timeo_login_timeout | default(60) }}
+
+# Time (in seconds) to wait for logout completion.
+# Maximum duration for the iSCSI logout phase.
+node.session.timeo.logout_timeout = {{ node_session_timeo_logout_timeout | default(15) }}
+
+# Interval (in seconds) between NOP-Out commands to keep connection alive.
+# Prevents firewalls or idle timeouts from dropping the connection.
+node.session.timeo.noop_out_interval = {{ node_session_timeo_noop_out_interval | default(15) }}
+
+# Time (in seconds) to wait for NOP-Out response before considering connection dead.
+# If no response is received, the connection is marked as failed.
+node.session.timeo.noop_out_timeout = {{ node_session_timeo_noop_out_timeout | default(5) }}
+
+# ------------------------------------------------------------------------------
+# I/O and LUN Management
+# ------------------------------------------------------------------------------
+
+# LUN scan mode: 'manual' (scan only LUNs configured) or 'automatic' (probe all LUNs).
+# Controls how new LUNs are discovered on the target.
+node.conn.scan = {{ node_conn_scan | default('manual') }}
+
+# Action to take on timeout: 'reset', 'abort', 'flush', or 'none'.
+# Defines the recovery behavior when a session times out.
+node.session.err_timeo.action = {{ node_session_err_timeo_action | default('reset') }}
+
+# ------------------------------------------------------------------------------
+# iSNS Configuration
+# ------------------------------------------------------------------------------
+
+# Enable iSNS discovery for targets.
+# If true, the initiator will use iSNS to discover targets.
+node.session.isns.enabled = {{ node_session_isns_enabled | default(False) | ternary('1', '0') }}
+
+# Port number of iSNS server (default 3205).
+node.session.isns.port = {{ node_session_isns_port | default(3205) }}
+
+# Hostname or IP address of iSNS server (if iSNS is enabled).
 node.session.isns.server = {{ node_session_isns_server | default('') | quote }}
 
-# Startup control
-node.startup = {{ node_startup }}
-discovery.sendtargets.auto_node_discovery = {{ discovery_sendtargets_auto_node_discovery }}
+# ------------------------------------------------------------------------------
+# Startup Control
+# ------------------------------------------------------------------------------
+
+# Session startup behavior: 'manual' (start on demand), 'automatic' (start at boot),
+# or 'onboot' (start during kernel boot if supported).
+node.startup = {{ node_startup | default('automatic') }}
+
+# Automatically create node records from discovery responses.
+# If true, targets discovered via SendTargets are automatically added to the node list.
+discovery.sendtargets.auto_node_discovery = {{ discovery_sendtargets_auto_node_discovery | default(False) | ternary('1', '0') }}

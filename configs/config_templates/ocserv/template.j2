@@ -1,132 +1,103 @@
-# Authentication configuration
-authtype = {{ auth.type }}
-{% if auth.type == 'certificate' %}
-# Certificate-based auth
-ca-cert = {{ auth.ca_cert }}
-{% endif %}
-{% if auth.type == 'password' %}
-# Password-based auth (e.g., system users, radius, or local DB)
-password-db = {{ auth.password_db }}
-{% endif %}
-{% if auth.type == 'radius' %}
-# RADIUS auth
-radius-config = {{ auth.radius_config }}
-{% endif %}
-{% if auth.type == 'certificate+password' %}
-# Two-factor: cert + password
-password-db = {{ auth.password_db }}
-{% endif %}
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:		ocserv
+# Required-Start:	$remote_fs $syslog dbus
+# Required-Stop:	$remote_fs $syslog dbus
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	OpenConnect SSL VPN server
+# Description:          secure, small, fast and configurable OpenConnect SSL VPN server
+### END INIT INFO
+set -e
 
-# User session and network settings
-# Maximum concurrent sessions per user
-max-sessions = {{ limits.max_sessions }}
+NAME=ocserv
+DESC="OpenConnect SSL VPN server"
 
-# TLS session timeout (seconds)
-timeout = {{ limits.timeout }}
+DAEMON=/usr/sbin/ocserv
+DAEMON_CONFIG=/etc/${NAME}/{{ daemon_config_filename }}
+DAEMON_PIDFILE=/run/${NAME}.pid
+DAEMON_ARGS="--pid-file $DAEMON_PIDFILE --config $DAEMON_CONFIG"
 
-# Idle timeout (seconds)
-idle-timeout = {{ limits.idle_timeout }}
+test -x $DAEMON || exit 0
 
-# Maximum total sessions
-max-total-sessions = {{ limits.max_total_sessions }}
+umask 022
 
-# IPv4 network assigned to clients (CIDR notation)
-ipv4-network = {{ network.ipv4_network }}
+. /lib/lsb/init-functions
 
-# Netmask for assigned IPv4 addresses (deprecated, prefer prefix length)
-# Use ipv4-netmask only if required by legacy clients
-{% if network.ipv4_netmask %}
-ipv4-netmask = {{ network.ipv4_netmask }}
-{% endif %}
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
 
-# DNS server(s) pushed to clients (comma-separated)
-dns = {{ network.dns | join(', ') }}
+daemon_start()
+{
+    if [ ! -s "$DAEMON_CONFIG" ]; then
+        log_failure_msg "please create ${DAEMON_CONFIG}, not starting..."
+        log_end_msg 1
+        exit 0
+    fi
+    log_daemon_msg "Starting $DESC" "$NAME" || true
+    if start-stop-daemon --start --quiet --oknodo --pidfile $DAEMON_PIDFILE --exec $DAEMON -- $DAEMON_ARGS ; then
+        log_end_msg 0 || true
+    else
+	log_end_msg 1 || true
+    fi
+}
 
-# Split DNS domains (comma-separated)
-split-dns = {{ network.split_dns | join(', ') }}
+case "$1" in
+  start)
+    daemon_start
+    ;;
+  stop)
+    log_daemon_msg "Stopping $DESC" "$NAME" || true
+    if start-stop-daemon --stop --quiet --oknodo --pidfile $DAEMON_PIDFILE; then
+	    log_end_msg 0 || true
+	else
+	    log_end_msg 1 || true
+	fi
+	;;
 
-# Routes pushed to clients (format: network/prefix or gateway,network/prefix)
-{% for route in network.routes %}
-route = {{ route }}
-{% endfor %}
+  reload|force-reload)
+	log_daemon_msg "Reloading $DESC" "$NAME" || true
+	if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile $DAEMON_PIDFILE --exec $DAEMON; then
+	    log_end_msg 0 || true
+	else
+	    log_end_msg 1 || true
+	fi
+	;;
 
-# NAT (masquerade) for outbound traffic
-# Comment out to disable NAT (e.g., for routed mode)
-nat = {{ network.nat_enabled | lower }}
-nat-table = {{ network.nat_table | default('mangle') }}
+  restart)
+	log_daemon_msg "Restarting $DESC" "$NAME" || true
+	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $DAEMON_PIDFILE
+        daemon_start
+	;;
 
-# Tunnel MTU
-mtu = {{ network.mtu }}
+  try-restart)
+	log_daemon_msg "Restarting $DESC" "$NAME" || true
+	RET=0
+	start-stop-daemon --stop --quiet --retry 30 --pidfile $DAEMON_PIDFILE || RET="$?"
+	case $RET in
+	    0)
+		# old daemon stopped
+                daemon_start
+		;;
+	    1)
+		# daemon not running
+		log_progress_msg "(not running)" || true
+		log_end_msg 0 || true
+		;;
+	    *)
+		# failed to stop
+		log_progress_msg "(failed to stop)" || true
+		log_end_msg 1 || true
+		;;
+	esac
+	;;
 
-# Keep-alive interval (seconds)
-keep-alive = {{ network.keep_alive }}
+  status)
+	status_of_proc -p $DAEMON_PIDFILE $DAEMON $NAME && exit 0 || exit $?
+	;;
 
-# DPI (Deep Packet Inspection) protection
-# Enables obfuscation of VPN traffic (RFC 8265-style)
-# Must be enabled if connecting from restrictive networks (e.g., China)
-dpi = {{ dpi.enabled | lower }}
+  *)
+	log_action_msg "Usage: /etc/init.d/$NAME {start|stop|reload|force-reload|restart|try-restart|status}" || true
+	exit 1
+esac
 
-# TLS and security settings
-# Certificate chain for server (PEM format)
-server-cert = {{ tls.server_cert }}
-server-key = {{ tls.server_key }}
-
-# Certificate verification (client cert required)
-{% if tls.client_cert_required %}
-cert-user-oid = {{ tls.cert_user_oid }}
-{% endif %}
-
-# CRL/OCSP revocation (optional)
-{% if tls.crl_file %}
-crl = {{ tls.crl_file }}
-{% endif %}
-
-# Minimum DH group size (e.g., 2048, 3072)
-dh-size = {{ tls.dh_size }}
-
-# SSL ciphers (colon-separated list; empty uses defaults)
-# Strong modern suite recommended: ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:...
-# Note: Order matters — prefer forward secrecy & AEAD
-ciphers = {{ tls.ciphers | join(':') }}
-
-# Protocol & port
-# Listen on IPv4 only (true) or dual-stack (false)
-ipv4-only = {{ network.ipv4_only | lower }}
-
-# Listening port (default 443 for compatibility with HTTPS proxying)
-port = {{ listen.port }}
-
-# UDP port for DTLS (optional; 0 = disabled)
-dtls-port = {{ listen.dtls_port }}
-
-# Protocol (tcp, udp, or both)
-protocol = {{ listen.protocol }}
-
-# Listen address (e.g., 0.0.0.0 or specific IP)
-listen-host = {{ listen.host }}
-
-# Keep the default config line: per-user config directory
-# (Commented out by default; uncomment if per-user config is needed)
-# per-user-config-dir = /etc/ocserv/config
-
-# Logging
-# syslog: 0=none, 1=errors, 2=info, 3=debug
-syslog-class = {{ logging.syslog_class }}
-
-# Log to file (optional)
-{% if logging.log_file %}
-log-file = {{ logging.log_file }}
-{% endif %}
-
-# Session persistence (optional)
-# Enable if using stateful load balancers or HA
-session-timeout = {{ limits.session_timeout }}
-
-# Authentication realm (displayed to clients)
-realm = {{ auth.realm }}
-
-# Keep-alive for TLS handshakes (seconds)
-tls-hello-timeout = {{ tls.hello_timeout }}
-
-# Session ID length (default 32; reduce if clients have issues)
-session-id-length = {{ limits.session_id_length }}
+exit 0

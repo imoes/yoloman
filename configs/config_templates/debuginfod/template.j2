@@ -1,63 +1,74 @@
-# Base directory for storing debuginfo caches
-BASE_CACHE_DIR={{ base_cache_dir }}
+# ==============================================================================
+# Configuration file for debuginfod server
+# This file controls the behavior of the debuginfod service, including caching,
+# listening addresses, database paths, and operational limits.
+# ==============================================================================
 
-# Base directory for temporary files (e.g., during download/upload)
-TMP_DIR={{ tmp_dir }}
+# Base directory for storing debuginfo caches ($DEBUGINFOD_CACHE_PATH).
+# If empty, the application will determine the default location.
+BASE_CACHE_DIR={{ base_cache_dir | default('') }}
 
-# HTTP listen address (IPv4 or IPv6, with optional port)
-LISTEN={{ listen_address }}:{{ listen_port }}
+# File system to be used for temporary files ($TMPDIR).
+TMP_DIR={{ tmp_dir | default('/tmp') }}
 
-# Number of worker threads for processing requests
-WORKER_COUNT={{ worker_count }}
+# HTTP listen port and address.
+# Format: IP:Port. Both IPv4 and IPv6 sockets are opened if possible.
+# listen_address defaults to 0.0.0.0 (all interfaces).
+# listen_port defaults to 8002.
+# Note: We construct the LISTEN directive here using the address and port fields.
+LISTEN={{ (listen_address | default('0.0.0.0')) }}:{{ listen_port | default(8002) }}
 
-# Maximum number of concurrently open connections
-MAX_CONNECTIONS={{ max_connections }}
+# Concurrency limit for the scanning queue threads.
+# The default is related to the number of processors; minimum is 1.
+WORKER_COUNT={{ worker_count | default(1) }}
 
-# Enable compression of debuginfo files (gzip) on the wire
-COMPRESSION={{ compression | string | lower }}
+# Size of the pool of threads serving webapi queries.
+# 0 means automatic. Minimum 2 if explicitly specified.
+MAX_CONNECTIONS={{ max_connections | default(0) }}
 
-# Enable HTTP/2 support (requires TLS or reverse proxy)
-HTTP2={{ http2 | string | lower }}
+# Rescan time for the file and archive directories in seconds.
+CACHE_MAX_AGE={{ cache_max_age | default(300) }}
 
-# Enable HTTPS using the provided certificate and key (if empty, HTTP only)
-HTTPS_CERT={{ https_cert_path }}
-HTTPS_KEY={{ https_key_path }}
+# Groom time for the index database in seconds.
+MAX_CACHE_SIZE={{ max_cache_size | default(86400) }}
 
-# Root path for API endpoints (e.g., /debuginfo/elf/filehash)
-API_ROOT={{ api_root_path }}
+# TCP port number on which debuginfod should listen.
+# Note: LISTEN directive above also includes this port.
+# This field is redundant if LISTEN is used, but kept for schema compliance.
+LISTEN_PORT={{ listen_port | default(8002) }}
 
-# Timeout (seconds) for upstream debuginfo fetch (e.g., from distro repos)
-UPSTREAM_TIMEOUT={{ upstream_timeout }}
+# Path of the sqlite database used to store the index.
+# Default is $HOME/.debuginfod.sqlite.
+DB_PATH={{ db_path | default('$HOME/.debuginfod.sqlite') }}
 
-# Maximum time (seconds) a file can remain in the cache without access
-CACHE_MAX_AGE={{ cache_max_age }}
+# Limit on the runtime of metadata webapi queries in seconds.
+# Set to 0 to disable the limit.
+METADATA_MAXTIME={{ metadata_maxtime | default(5) }}
 
-# Minimum free disk space (in bytes); server refuses uploads below this
-MIN_FREE_SPACE={{ min_free_space }}
+# Cache limit in megabytes for recently extracted files from archives.
+FDCACHE_MBS={{ fdcache_mbs | default(0) }}
 
-# Maximum total cache size (in bytes); old files are evicted as needed
-MAX_CACHE_SIZE={{ max_cache_size }}
+# Number of other files from an archive to prefetch into the cache.
+FDCACHE_PREFETCH={{ fdcache_prefetch | default(0) }}
 
-# Log level: one of 'debug', 'info', 'notice', 'warning', 'error', 'crit', 'alert', 'emerg'
-LOG_LEVEL={{ log_level }}
+# Disk space threshold percentage for emergency flushing of the caches.
+FDCACHE_MINTMP={{ fdcache_mintmp | default(25) }}
 
-# Optional upstream repository sources (comma-separated list of base URLs)
-UPSTREAM_SOURCES={{ upstream_sources | join(', ') }}
+# Limit of X-Forwarded-For hops.
+FORWARDED_TTL_LIMIT={{ forwarded_ttl_limit | default(8) }}
 
-# Enable database indexing for efficient lookups (requires SQLite backend)
-ENABLE_DB={{ enable_db | string | lower }}
+# Run a synchronized SQLITE WAL checkpoint operation after every NUM completed
+# archive or file scans. Set to 0 to disable.
+SCAN_CHECKPOINT={{ scan_checkpoint | default(256) }}
 
-# Path to SQLite database (used only if ENABLE_DB=true)
-DB_PATH={{ db_path }}
+# Verbosity of logging. 0 is default. Increase to add details.
+LOG_LEVEL={{ log_level | default(0) }}
 
-# Optional rate-limiting: max requests per IP per minute
-RATE_LIMIT_PER_MIN={{ rate_limit_per_min }}
+# List of URL prefixes for trusted debuginfod instances ($DEBUGINFOD_URLS).
+# Renders as a space-separated list of URLs.
+# If the list is empty, this directive will output nothing (or an empty string).
+UPSTREAM_SOURCES={{ (upstream_sources | default([])) | join(' ') }}
 
-# Allow cross-origin requests from these origins (comma-separated; '*' for all)
-CORS_ORIGINS={{ cors_origins | join(', ') }}
-
-# Enable metrics endpoint at /metrics (prometheus format)
-METRICS={{ metrics | string | lower }}
-
-# Enable health check endpoint at /healthz
-HEALTHZ={{ healthz | string | lower }}
+# Set the server to passive mode, where it only services webapi requests.
+# Renders as 'true' or 'false'.
+PASSIVE={{ passive | default(False) | string | lower }}

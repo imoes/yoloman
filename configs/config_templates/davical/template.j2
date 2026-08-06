@@ -1,100 +1,94 @@
-<?php
-// Database connection settings
-$dbc['pg']['host'] = '{{ db_host }}';
-$dbc['pg']['port'] = {{ db_port }};
-$dbc['pg']['name'] = '{{ db_name }}';
-$dbc['pg']['user'] = '{{ db_user }}';
-$dbc['pg']['password'] = '{{ db_password }}';
+# DAViCal Apache Virtual Host / Directory Configuration Template
+#
+# This template generates the necessary Apache directives to serve the DAViCal
+# Calendar and Address Book server. It handles the document root, security headers,
+# and URL rewriting for CalDAV/CardDAV endpoints.
 
-// System-wide settings
-$c = array();
+# Document root path for the DAViCal web application.
+Alias /davical {{ davical_htdocs_path | default('/usr/share/davical/htdocs') }}
 
-// Base URL for the CalDAV/CardDAV server (used in redirects & headers)
-$c['site_url'] = '{{ site_url }}';
+# Configuration block for the DAViCal document root directory.
+# This block enforces access permissions and PHP settings for the application files.
+<Directory {{ davical_htdocs_path | default('/usr/share/davical/htdocs') }}>
+  # DirectoryIndex: Specifies the default file to serve when a directory is requested.
+  DirectoryIndex index.php
 
-// Default language (ISO 639-1 code)
-$c['default_lang'] = '{{ default_lang }}';
+  # AllowOverride: Disables .htaccess processing for performance and security.
+  # Directives must be set in the main configuration (here).
+  AllowOverride None
 
-// Enable or disable debug logging
-$c['debug'] = {{ debug | lower }};
+  # Access Control (Apache 2.4+):
+  # Grants access to all clients by default.
+  # For Apache < 2.4, use 'Order allow,deny' and 'Allow from all'.
+  Require all granted
 
-// Maximum number of simultaneous connections allowed
-$c['max_connections'] = {{ max_connections }};
+  # PHP Settings (Optional/Advanced):
+  # The following are commented out as they are typically handled by the PHP module
+  # configuration or the application's internal setup. Uncomment only if necessary.
 
-// Enable HTTPS only for authenticated requests?
-$c['force_https'] = {{ force_https | lower }};
+  # AcceptPathInfo: Allows path info to be passed to the script (e.g., /caldav.php/resource).
+  #AcceptPathInfo On
 
-// Allow HTTP Basic auth (for legacy clients)
-$c['allow_basic_auth'] = {{ allow_basic_auth | lower }};
+  # PHP Include Path: Adds the AWL (Avram Lubin's Library) include directory.
+  #php_value include_path /usr/share/php/awl/inc
 
-// Enable SSL client certificate auth (optional)
-$c['allow_ssl_client_cert_auth'] = {{ allow_ssl_client_cert_auth | lower }};
+  # Legacy PHP Security Settings (PHP 5.x era, mostly obsolete but kept for reference):
+  #php_value magic_quotes_gpc 0
+  #php_value register_globals 0
+  #php_value error_reporting "E_ALL & ~E_NOTICE"
+  #php_value default_charset "utf-8"
 
-// Enable CardDAV support
-$c['enable_carddav'] = {{ enable_carddav | lower }};
+  # open_basedir: Restricts PHP file access to specific directories.
+  # Uncomment to restrict access to the application directories only.
+  #php_admin_value open_basedir /usr/share/awl/inc/:{{ davical_htdocs_path | default('/usr/share/davical/htdocs') }}/:{{ davical_etc_path | default('/etc/davical') }}/
 
-// Enable CalDAV support
-$c['enable_caldav'] = {{ enable_caldav | lower }};
+</Directory>
 
-// Allow new user self-registration via web UI
-$c['allow_new_users'] = {{ allow_new_users | lower }};
+# Apache mod_rewrite Module:
+# Enables URL rewriting for CalDAV/CardDAV well-known URIs and principal paths.
+# This allows clients to discover calendars and address books via standard WebDAV discovery mechanisms.
+<IfModule mod_rewrite.c>
+  # Enable the rewriting engine.
+  RewriteEngine On
 
-// Default user role (e.g., 'user', 'admin')
-$c['default_user_role'] = '{{ default_user_role }}';
+  # WebDAV Discovery:
+  # Redirect /.well-known URLs to the DAViCal CalDAV/CardDAV endpoint.
+  # This allows clients to find the calendar server automatically.
+  # PT (Passthrough) is important if using an alias, as it implies L (Last).
+  RewriteRule ^/\.well-known/(.*)$ /davical/caldav.php/.well-known/$1 [NC,PT]
 
-// List of allowed domains for domain-restricted signup (empty list = allow all)
-{% if allowed_domains %}
-$c['allowed_domains'] = array({{ allowed_domains | map('quote') | join(', ') }});
-{% else %}
-$c['allowed_domains'] = array();
-{% endif %}
+  # Principal Paths:
+  # Redirect user and resource principal requests to the CalDAV script.
+  RewriteRule ^/principals/users/(.*)$ /davical/caldav.php/$1 [NC,PT]
+  RewriteRule ^/principals/resources/(.*)$ /davical/caldav.php/$1 [NC,PT]
 
-// Prefix for user calendars (e.g., 'calendars/' or 'user/{username}/')
-$c['cal_prefix'] = '{{ cal_prefix }}';
+  # Standard User Paths:
+  # Redirect standard calendar and address book UUID paths to the CalDAV script.
+  RewriteRule ^/calendars/__uids__/(.*)$ /davical/caldav.php/$1 [NC,PT]
+  RewriteRule ^/addressbooks/__uids__/(.*)$ /davical/caldav.php/$1 [NC,PT]
 
-// Prefix for address books
-$c['addr_prefix'] = '{{ addr_prefix }}';
+  # Optional: Root Directory Rewrite
+  # If you wish to host DAViCal at the domain root (e.g., http://example.com/)
+  # instead of /davical/, uncomment the following lines.
+  # NOTE: This may interfere with other applications if DAViCal is not the only app.
+  #
+  # RewriteCond %{REQUEST_URI} !^/$
+  # RewriteCond %{REQUEST_URI} !^/davical/$
+  # RewriteCond %{REQUEST_URI} !\.(php|html|css|js|png|gif|jpg|ico)
+  # RewriteRule ^(.*)$ /davical/caldav.php$1  [NC,L]
 
-// Enable caching (APCu recommended for production)
-$c['use_apc'] = {{ use_apc | lower }};
+</IfModule>
 
-// Session timeout in seconds
-$c['session_timeout'] = {{ session_timeout }};
-
-// Timezone for server (must be valid PHP timezone)
-$c['timezone'] = '{{ timezone }}';
-
-// Enable HTML5 push notifications (requires push server setup)
-$c['enable_push'] = {{ enable_push | lower }};
-
-// Push server URL (e.g., 'https://push.example.com/')
-{% if push_server_url %}
-$c['push_server_url'] = '{{ push_server_url }}';
-{% else %}
-$c['push_server_url'] = null;
-{% endif %}
-
-// Enable rate limiting
-$c['rate_limiting'] = {{ enable_rate_limiting | lower }};
-
-// Rate limit: max requests per IP per minute
-$c['rate_limit_max_requests'] = {{ rate_limit_max_requests }};
-
-// List of trusted reverse proxies (for X-Forwarded-For, X-Forwarded-Proto)
-{% if trusted_proxies %}
-$c['trusted_proxies'] = array({{ trusted_proxies | map('quote') | join(', ') }});
-{% else %}
-$c['trusted_proxies'] = array();
-{% endif %}
-
-// Enable two-factor authentication (requires libotp or similar)
-$c['enable_2fa'] = {{ enable_2fa | lower }};
-
-// Enable password policy enforcement
-$c['enable_password_policy'] = {{ enable_password_policy | lower }};
-
-// Minimum password length
-$c['password_min_length'] = {{ password_min_length }};
-
-// Require mixed-case, numbers, symbols (0=none, 1=case, 2=case+num, 3=full)
-$c['password_complexity'] = {{ password_complexity }};
+# Security Headers:
+# Apply Content-Security-Policy (CSP) headers to specific DAViCal PHP scripts.
+# This restricts where content can be loaded from, mitigating XSS and data injection risks.
+<FilesMatch "(admin|help|iSchedule|index|metrics|public|setup|tools|upgrade).php">
+  # CSP Directive:
+  # - default-src 'none': Block all content by default.
+  # - img-src/media-src/script-src/style-src/font-src: Allow self-sourced content.
+  # - 'unsafe-inline': Required for some inline styles/scripts in the UI.
+  # - connect-src: Allow AJAX/WebDAV requests to self and specific payment gateways (if used).
+  # - form-action: Restrict form submissions.
+  # - frame-ancestors: Prevent embedding in iframes (Clickjacking protection).
+  Header set Content-Security-Policy "default-src 'none'; img-src 'self' data:; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' data:; font-src 'self' data:; object-src 'self'; base-uri 'self'; connect-src 'self'; form-action 'self' sis.redsys.es; frame-ancestors 'self'"
+</FilesMatch>

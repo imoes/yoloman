@@ -1,0 +1,95 @@
+{#
+  bogofilter-sqlite System-wide Configuration
+  ==========================================
+  This file configures the SQLite-backed Bogofilter spam filter.
+  It uses GNU long-option syntax (--key=value).
+  See bogofilter(1) for detailed option descriptions.
+#}
+
+{# -------------------------------------------------------------------------- #}
+{# Database Storage Settings                                                  #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Directory where SQLite databases (wordlist.db, etc.) are stored.
+  Default: /var/lib/bogofilter-sqlite
+#}
+--db-dir={{ (db_dir | default('/var/lib/bogofilter-sqlite')) | string }}
+
+{# -------------------------------------------------------------------------- #}
+{# SQLite Tuning Parameters                                                   #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  SQLite cache size in MiB (1 MiB = 1,048,576 bytes).
+  Recommended: one third of the database file size.
+  Default: 8
+#}
+--cache-size={{ (cache_size | default(8)) | int }}
+
+{# -------------------------------------------------------------------------- #}
+{# Classification Probability Parameters                                      #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Minimum deviation from 0.5 required for a token to be used in classification.
+  Default: 0.1
+#}
+--min-dev={{ (min_dev | default(0.1)) | float }}
+
+{#
+  Spam probability assigned to tokens not yet seen (Robinson's x parameter).
+  Default: 0.5
+#}
+--robx={{ (robx | default(0.5)) | float }}
+
+{#
+  Weight (Robinson's s parameter) moving probabilities of rare tokens toward robx.
+  Default: 0.5
+#}
+--robs={{ (robs | default(0.5)) | float }}
+
+{# -------------------------------------------------------------------------- #}
+{# Thresholds                                                                 #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Threshold above (or equal) which messages are classified as spam.
+  Default: 0.99
+#}
+--spam-cutoff={{ (spam_cutoff | default(0.99)) | float }}
+
+{#
+  Threshold below (or equal) which messages are classified as ham.
+  If < spam-cutoff, tristate mode is active.
+  Default: 0.01
+#}
+--ham-cutoff={{ (ham_cutoff | default(0.01)) | float }}
+
+{# -------------------------------------------------------------------------- #}
+{# Effective Size Factors (ESF)                                               #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Effective size factor (ESF) for spam probability calculations.
+  1.0 = disabled (default).
+  Default: 1.0
+#}
+--sp-esf={{ (sp_esf | default(1.0)) | float }}
+
+{#
+  Effective size factor (ESF) for nonspam probability calculations.
+  1.0 = disabled (default).
+  Default: 1.0
+#}
+--ns-esf={{ (ns_esf | default(1.0)) | float }}
+
+{# -------------------------------------------------------------------------- #}
+{# Mail Integration                                                           #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+  Name of the header field to use for classification output (e.g., X-Bogosity).
+  Default: 'X-Bogosity'
+#}
+--spam-header-name={{ (spam_header_name | default('X-Bogosity')) | string }}

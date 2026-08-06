@@ -1,0 +1,67 @@
+{# ============================================================================ #}
+{# Claws-Mail Archiver Plugin Configuration Template                           #}
+{#                                                                              #}
+{# This Jinja2 template generates the configuration file for the claws-mail-    #}
+{# archive plugin. It is self-documenting: every configuration directive is     #}
+{# preceded by a comment explaining its purpose and valid values.               #}
+{#                                                                              #}
+{# Variables used:                                                              #}
+{#   - plugin_path          : Absolute path to the archive.so plugin file       #}
+{#   - archive_format       : Default archive format (e.g., 'tar', 'zip')       #}
+{#   - compression_suffix   : Compression suffix for the archive file           #}
+{#   - archive_subfolder_date : Flag to enable date-based subfolders (YYYY/MM)  #}
+{#   - archive_directory    : Base directory where archived messages are stored #}
+{#   - extra_mime_types     : List of additional MIME types to archive          #}
+{# ============================================================================ #}
+
+{# --------------------------------------------------------------------------- #}
+{# Absolute path to the plugin shared object                                  #}
+{# --------------------------------------------------------------------------- #}
+# Path to the plugin shared object
+# (loaded via 'Load plugin...' dialog in Claws Mail GUI)
+plugin_path = {{ plugin_path | default('/usr/lib/claws-mail/plugins/archive.so') }}
+
+{# --------------------------------------------------------------------------- #}
+{# Default archive format                                                     #}
+{# --------------------------------------------------------------------------- #}
+# Default archive format (cf. libarchive-formats(5))
+# Supported formats include: tar, zip, 7z, gzip, bzip2, xz, lzma, etc.
+# Only one format should be selected as default; others can be overridden via GUI.
+archive_format = {{ archive_format | default('tar') }}
+
+{# --------------------------------------------------------------------------- #}
+{# Compression suffix appended when applicable                                #}
+{# --------------------------------------------------------------------------- #}
+# Compression suffix appended when applicable
+# e.g. 'gz' for gzip, 'bz2' for bzip2, 'xz' for xz
+compression_suffix = {{ compression_suffix | default('gz') }}
+
+{# --------------------------------------------------------------------------- #}
+{# Enable automatic date-based subfolder creation in archive directory        #}
+{# --------------------------------------------------------------------------- #}
+# Enable automatic date-based subfolder creation in archive directory
+# (true/false); controlled via GUI but configures default behavior
+# If true, archives are stored in subfolders like YYYY/MM (e.g., 2023/10).
+archive_subfolder_date = {{ archive_subfolder_date | default(true) }}
+
+{# --------------------------------------------------------------------------- #}
+{# Archive destination directory                                              #}
+{# --------------------------------------------------------------------------- #}
+# Archive destination directory
+# May be overridden per-archive via GUI, but this sets the initial default
+archive_directory = {{ archive_directory | default('~/mail-archive') }}
+
+{# --------------------------------------------------------------------------- #}
+{# List of additional MIME types to archive beyond default                    #}
+{# --------------------------------------------------------------------------- #}
+# List of additional MIME types to archive beyond default (e.g., 'text/html')
+# Each item is a MIME type string (no wildcards allowed)
+# If the list is empty (the default), only standard message types are archived.
+extra_mime_types:
+{%- if extra_mime_types | default([]) | length > 0 %}
+{%- for mime in extra_mime_types | default([]) %}
+  - {{ mime }}
+{%- endfor %}
+{%- else %}
+  # (None configured; using default MIME types)
+{%- endif %}

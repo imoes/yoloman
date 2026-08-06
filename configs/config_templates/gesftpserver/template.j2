@@ -1,84 +1,156 @@
 # /etc/ssh/sshd_config — GESFTP / OpenSSH SFTP-server configuration
+# This template generates a hardened SSH daemon configuration optimized for SFTP-only access.
+# It enforces chroot jails for specific users/groups, disables interactive shells,
+# and restricts forwarding capabilities to minimize the attack surface.
 
-# TCP port the server accepts connections on
-Port {{ ssh_port }}
+# TCP port the server accepts connections on.
+# Default: 22
+Port {{ ssh_port | default(22) }}
 
-{% for addr in listen_addresses %}
-# Bind to a specific local IP address
+# IP addresses to bind to. Leave empty to listen on all interfaces.
+# Default: []
+{% if listen_addresses | default([]) | length > 0 %}
+{% for addr in listen_addresses | default([]) %}
+# Bind to a specific local IP address: {{ addr }}
 ListenAddress {{ addr }}
 {% endfor %}
-# Host private keys for each supported algorithm
-{% for key in host_keys %}
+{% endif %}
+
+# Absolute paths to host private key files, one per algorithm.
+# These are used to identify the server to clients.
+# Default: ['/etc/ssh/ssh_host_rsa_key', '/etc/ssh/ssh_host_ecdsa_key', '/etc/ssh/ssh_host_ed25519_key']
+{% for key in host_keys | default(['/etc/ssh/ssh_host_rsa_key', '/etc/ssh/ssh_host_ecdsa_key', '/etc/ssh/ssh_host_ed25519_key']) %}
 HostKey {{ key }}
 {% endfor %}
-# Syslog facility for SSH daemon messages
-SyslogFacility {{ syslog_facility }}
-# Verbosity of log output
-LogLevel {{ log_level }}
 
-# Seconds an unauthenticated connection is kept open before being dropped
-LoginGraceTime {{ login_grace_time }}
-# Prevent direct root logins
-PermitRootLogin {{ permit_root_login }}
-# Verify ownership and permissions of key files and home directories
-StrictModes {{ strict_modes }}
-# Maximum authentication attempts per connection before disconnect
-MaxAuthTries {{ max_auth_tries }}
-# Maximum concurrent sessions multiplexed on a single connection
-MaxSessions {{ max_sessions }}
+# Syslog facility for SSH daemon messages.
+# Options: AUTH, DAEMON, LOCAL0 through LOCAL7.
+# Default: AUTH
+SyslogFacility {{ syslog_facility | default('AUTH') }}
 
-# Allow public-key authentication
-PubkeyAuthentication {{ pubkey_authentication }}
-# Path(s) to files listing authorised public keys; %h expands to user home
-AuthorizedKeysFile {{ authorized_keys_file }}
+# Log verbosity level.
+# Options: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3.
+# Default: INFO
+LogLevel {{ log_level | default('INFO') }}
 
-# Password-based authentication (disabled for key-only deployments)
-PasswordAuthentication {{ password_authentication }}
-# Reject accounts with empty passwords
-PermitEmptyPasswords {{ permit_empty_passwords }}
-# Keyboard-interactive / PAM challenge-response authentication
-ChallengeResponseAuthentication {{ challenge_response_authentication }}
+# Seconds an unauthenticated connection is kept open before being dropped.
+# Can be specified in seconds or formatted time (e.g. '2m').
+# Default: 30
+LoginGraceTime {{ login_grace_time | default('30') }}
 
-# Enable PAM for account and session management even when password auth is off
-UsePAM {{ use_pam }}
+# Allow root to log in directly.
+# Options: yes, no, prohibit-password, forced-commands-only.
+# Recommended: no for security.
+# Default: no
+PermitRootLogin {{ permit_root_login | default('no') }}
 
-# Disable TCP port forwarding — this is an SFTP-only server
-AllowTcpForwarding {{ allow_tcp_forwarding }}
-# No X11 display forwarding needed for SFTP
-X11Forwarding {{ x11_forwarding }}
-# Suppress /etc/motd on login
-PrintMotd {{ print_motd }}
+# Enforce ownership and permission checks on key files and home directories.
+# Prevents users from using weak permissions on their ~/.ssh directories.
+# Default: yes
+StrictModes {{ strict_modes | default('yes') }}
 
-# Register the SFTP subsystem handler
-Subsystem sftp {{ sftp_subsystem }}
+# Maximum authentication attempts allowed per connection.
+# Helps prevent brute-force attacks.
+# Default: 3
+MaxAuthTries {{ max_auth_tries | default(3) }}
 
-{% for group in sftp_groups %}
-# SFTP-only access rules for Unix group {{ group.name }}
+# Maximum concurrent sessions multiplexed over a single network connection.
+# Default: 10
+MaxSessions {{ max_sessions | default(10) }}
+
+# Allow public-key authentication.
+# This is the recommended method for SFTP servers.
+# Default: yes
+PubkeyAuthentication {{ pubkey_authentication | default('yes') }}
+
+# Location of authorized_keys file(s) for public key authentication.
+# %h expands to user home directory, %u to username.
+# Default: '.ssh/authorized_keys'
+AuthorizedKeysFile {{ authorized_keys_file | default('.ssh/authorized_keys') }}
+
+# Allow password-based authentication.
+# Recommended: no for key-only SFTP deployments.
+# Default: no
+PasswordAuthentication {{ password_authentication | default('no') }}
+
+# Allow accounts with empty passwords to authenticate.
+# Default: no
+PermitEmptyPasswords {{ permit_empty_passwords | default('no') }}
+
+# Allow keyboard-interactive (PAM challenge-response) authentication.
+# Default: no
+ChallengeResponseAuthentication {{ challenge_response_authentication | default('no') }}
+
+# Enable PAM (Pluggable Authentication Modules) for account and session management.
+# Required for features like chroot jails and group-based access control.
+# Default: yes
+UsePAM {{ use_pam | default('yes') }}
+
+# Allow TCP port forwarding (tunneling).
+# Options: yes, no, local, remote.
+# Set to 'no' to enforce a pure SFTP server without tunnel capabilities.
+# Default: no
+AllowTcpForwarding {{ allow_tcp_forwarding | default('no') }}
+
+# Allow X11 display forwarding.
+# Not needed for SFTP services; disabled for security and resource reasons.
+# Default: false
+X11Forwarding {{ x11_forwarding | default(false) }}
+
+# Print /etc/motd (Message of the Day) after a successful interactive login.
+# Default: no
+PrintMotd {{ print_motd | default('no') }}
+
+# Register the SFTP subsystem handler.
+# 'internal-sftp' is built-in, supports chroot, and is recommended.
+# Alternatively, specify an absolute path to a standalone binary.
+# Default: internal-sftp
+Subsystem sftp {{ sftp_subsystem | default('internal-sftp') }}
+
+# --- SFTP Group Chroot Configurations ---
+# Apply SFTP-only restrictions to users belonging to specified Unix groups.
+# Each group creates a 'Match Group' block enforcing chroot, shell restriction, and security hardening.
+{% for group in sftp_groups | default([]) %}
+# Match Group: {{ group.name }}
 Match Group {{ group.name }}
-    # Force SFTP subsystem — no interactive shell
-    ForceCommand internal-sftp{% if group.sftp_log_level %} -l {{ group.sftp_log_level }}{% endif %}
+    # Force SFTP subsystem and disable interactive shell.
+    # Optional logging level can be set via group.sftp_log_level.
+    ForceCommand internal-sftp{% if group.sftp_log_level is defined %} -l {{ group.sftp_log_level }}{% endif %}
 
-    # Chroot jail root — must be owned root:root, mode 0755
-    ChrootDirectory {{ group.chroot_dir }}
-    # Block TCP tunnels within the SFTP session
+    # Chroot jail root directory.
+    # Must be owned by root:root and have mode 0755.
+    ChrootDirectory {{ group.chroot_dir | default('/') }}
+
+    # Block TCP forwarding within the chroot.
     AllowTcpForwarding no
-    # Block X11 forwarding within the SFTP session
+
+    # Block X11 forwarding within the chroot.
     X11Forwarding no
-    # Deny PTY allocation — shell-less enforcement
+
+    # Deny PTY (pseudo-terminal) allocation to prevent shell access.
     PermitTTY no
 {% endfor %}
-{% for user in sftp_users %}
-# SFTP-only access rules for individual user {{ user.name }}
-Match User {{ user.name }}
-    # Force SFTP subsystem — no interactive shell
-    ForceCommand internal-sftp{% if user.sftp_log_level %} -l {{ user.sftp_log_level }}{% endif %}
 
-    # Chroot jail root — must be owned root:root, mode 0755
-    ChrootDirectory {{ user.chroot_dir }}
-    # Block TCP tunnels within the SFTP session
+# --- SFTP User Chroot Configurations ---
+# Apply SFTP-only restrictions to specific individual users.
+# Evaluated after group rules. Each user creates a 'Match User' block.
+{% for user in sftp_users | default([]) %}
+# Match User: {{ user.name }}
+Match User {{ user.name }}
+    # Force SFTP subsystem and disable interactive shell.
+    # Optional logging level can be set via user.sftp_log_level.
+    ForceCommand internal-sftp{% if user.sftp_log_level is defined %} -l {{ user.sftp_log_level }}{% endif %}
+
+    # Chroot jail root directory.
+    # Must be owned by root:root and have mode 0755.
+    ChrootDirectory {{ user.chroot_dir | default('/') }}
+
+    # Block TCP forwarding within the chroot.
     AllowTcpForwarding no
-    # Block X11 forwarding within the SFTP session
+
+    # Block X11 forwarding within the chroot.
     X11Forwarding no
-    # Deny PTY allocation — shell-less enforcement
+
+    # Deny PTY (pseudo-terminal) allocation to prevent shell access.
     PermitTTY no
 {% endfor %}

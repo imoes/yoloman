@@ -1,80 +1,99 @@
-# autodir configuration file
-# Global settings
-basedir: {{ basedir }}
-pidfile: {{ pidfile }}
+# Defaults for autodir initscript sourced by /etc/init.d/autodir
+# installed at /etc/default/autodir by the maintainer scripts
 
-# Logging verbosity (0-5)
-loglevel: {{ loglevel }}
+# Master system-wide autodir switches. The initscript
+# will not run one or both if they are not set to yes.
+# run_autohome: Set to 'yes' to enable autohome service in initscript.
+RUN_AUTOHOME="{{ run_autohome | default('no') }}"
 
-# Backend type: ldap, nis, sql, or local
-backend: {{ backend }}
+# run_autogroup: Set to 'yes' to enable autogroup service in initscript.
+RUN_AUTOGROUP="{{ run_autogroup | default('no') }}"
 
-{% if backend == 'ldap' %}
-# LDAP-specific settings
-ldap_uri: {{ ldap_uri }}
-ldap_base: {{ ldap_base }}
-ldap_binddn: {{ ldap_binddn }}
-ldap_bindpw: {{ ldap_bindpw }}
-ldap_user_filter: {{ ldap_user_filter }}
-ldap_group_filter: {{ ldap_group_filter }}
-ldap_user_basedn: {{ ldap_user_basedn }}
-ldap_group_basedn: {{ ldap_group_basedn }}
-ldap_attr_uid: {{ ldap_attr_uid }}
-ldap_attr_gid: {{ ldap_attr_gid }}
-ldap_attr_homedir: {{ ldap_attr_homedir }}
-{% elif backend == 'nis' %}
-# NIS-specific settings
-nis_domain: {{ nis_domain }}
-nis_server: {{ nis_server }}
-{% elif backend == 'sql' %}
-# SQL-specific settings
-sql_driver: {{ sql_driver }}
-sql_server: {{ sql_server }}
-sql_port: {{ sql_port }}
-sql_database: {{ sql_database }}
-sql_user: {{ sql_user }}
-sql_password: {{ sql_password }}
-sql_user_table: {{ sql_user_table }}
-sql_group_table: {{ sql_group_table }}
-sql_user_query: {{ sql_user_query }}
-sql_group_query: {{ sql_group_query }}
-{% elif backend == 'local' %}
-# Local passwd/group file paths
-passwd_file: {{ passwd_file }}
-shadow_file: {{ shadow_file }}
-group_file: {{ group_file }}
-{% endif %}
+# Where (virtual) home/group directories are supposed to be?
+# Visible to applications
+# autohome_home: Mount point for virtual home directories visible to applications.
+AUTOHOME_HOME={{ autohome_home | default('/home') }}
 
-# Template for directory creation
-# %u = username, %h = homedir, %g = groupname
-mkdir_template: {{ mkdir_template }}
+# autogroup_home: Mount point for virtual group directories visible to applications.
+AUTOGROUP_HOME={{ autogroup_home | default('/group') }}
 
-# Ownership and permissions
-uid_default: {{ uid_default }}
-gid_default: {{ gid_default }}
-mode_dir: {{ mode_dir }}
-mode_file: {{ mode_file }}
+# How long to wait in seconds
+# before it is assumed home directory
+# is inactive and unmounted.
+#
+# Servers like IMAP/POP access home directories every 10min 
+# in most configurations -- client side default mail check duraion.
+# Therefore it is beter to make it 11min in this situation.
+#
+# If your site has different requirements, change according to that.
+# autohome_timeout: Timeout in seconds before autohome mount is considered inactive and unmounted.
+AUTOHOME_TIMEOUT={{ autohome_timeout | default(660) }}
 
-# Optional: extra skeleton files to copy
-{% if skeleton_files | length > 0 %}
-skeleton_dir: {{ skeleton_dir }}
-{% endif %}
+# How long to wait in seconds
+# before it is assumed home directory
+# is inactive and unmounted.
+# autogroup_timeout: Timeout in seconds before autogroup mount is considered inactive and unmounted.
+AUTOGROUP_TIMEOUT={{ autogroup_timeout | default(300) }}
 
-# Pre- and post-creation hooks
-# Format: command to run (shell-safe); use %u for username
-pre_create: {{ pre_create }}
-post_create: {{ post_create }}
+# Authome module paths
+# autohome_module: Path to autohome backend module.
+AUTOHOME_MODULE="{{ autohome_module | default('/usr/lib/autodir/autohome.so') }}"
 
-# Rate limiting
-max_creates_per_sec: {{ max_creates_per_sec }}
-max_creates_per_user_per_min: {{ max_creates_per_user_per_min }}
+# autogroup_module: Path to autogroup backend module.
+AUTOGROUP_MODULE="{{ autogroup_module | default('/usr/lib/autodir/autogroup.so') }}"
 
-# Timeout settings (seconds)
-lookup_timeout: {{ lookup_timeout }}
-create_timeout: {{ create_timeout }}
+# realpath => path where real home directories should reside
+# level    => Default value is ok for almost all sites. See Autodir-HOWTO.
+# skel     => Location of skel files. absolute path is expected
+# noskel   => Don not copy skel files to home directories
+# autohome_realpath: Real filesystem path where home directories are physically stored.
+# autohome_level: Directory depth level for structuring home directories (e.g., 2 = /a/ab/abc).
+# autohome_skel: Path to skeleton files copied into new home directories.
+AUTOHOME_OPTIONS="realpath={{ autohome_realpath | default('/autohome') }},level={{ autohome_level | default(2) }},skel={{ autohome_skel | default('/etc/skel') }}"
 
-# Graceful reload on config change
-reload_on_config_change: {{ reload_on_config_change }}
+# realpath => path where real group directories should reside.
+# level    => Default value is ok for almost all sites. See Autodir-HOWTO.
+# nosetgid => Default is to setgid the group directory created.
+# nopriv   => Default is to create group directory for every kind of group. 
+#	      If your site has user private groups and you dont want 
+#	      group directories created for these, use this option.
+# autogroup_realpath: Real filesystem path where group directories are physically stored.
+# autogroup_level: Directory depth level for structuring group directories.
+AUTOGROUP_OPTIONS="realpath={{ autogroup_realpath | default('/autogroup') }},level={{ autogroup_level | default(2) }}"
 
-# Debug mode: verbose logging, no actual writes (dry-run)
-debug: {{ debug }}
+# If you desire backup feature and you know what this feature is, then uncomment it!
+# Full path to program as well as arguments.
+# %x characters are replaced with appropriate values.
+# Following is just example. Do not use it as is!
+# See Autodir-HOWTO for further info.
+
+# autohome_backup_cmd: Command to run for autohome backup (empty = disabled).
+#AUTOHOME_BACKUP="{{ autohome_backup_cmd | default('') }}"
+
+# autogroup_backup_cmd: Command to run for autogroup backup (empty = disabled).
+#AUTOGROUP_BACKUP="{{ autogroup_backup_cmd | default('') }}"
+
+# How long to wait after a home directory is unmounted 
+# to start backup. Value expected in seconds and can not exceed one day.
+
+# autohome_backwait: Seconds to wait after unmount before triggering autohome backup (max 86400).
+#AUTOHOME_BACKWAIT={{ autohome_backwait | default(600) }}
+
+# autogroup_backwait: Seconds to wait after unmount before triggering autogroup backup (max 86400).
+#AUTOGROUP_BACKWAIT={{ autogroup_backwait | default(600) }}
+
+# Backup priority. 1 to 40 inclusive. Smaller value means higher priority.
+
+# autohome_backpri: Backup priority (1–40) for autohome backups; lower = higher priority.
+#AUTOHOME_BACKPRI={{ autohome_backpri | default(30) }}
+
+# autogroup_backpri: Backup priority (1–40) for autogroup backups; lower = higher priority.
+#AUTOGROUP_BACKPRI={{ autogroup_backpri | default(30) }}
+
+# Max backup program execusions not to exceed at any given time.
+
+# autohome_maxback: Max concurrent backup processes allowed for autohome.
+#AUTOHOME_MAXBACK={{ autohome_maxback | default(150) }}
+
+# autogroup_maxback: Max concurrent backup processes allowed for autogroup.
+#AUTOGROUP_MAXBACK={{ autogroup_maxback | default(150) }}

@@ -1,0 +1,142 @@
+{# ============================================================================ #}
+{# espctag Command-Line Invocation Template                                     #}
+{#                                                                              #}
+{# This template generates the command-line arguments for the `espctag` tool,   #}
+{# which manipulates metadata tags in Super Nintendo (SNES) SPC audio files.    #}
+{#                                                                              #}
+{# Variables used in this template map directly to the `espctag` CLI flags.     #}
+{# All variables MUST have sensible defaults provided via the `default()` filter  #}
+{# to ensure the rendered command is always valid, even if an Ansible variable   #}
+{# is undefined.                                                                #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# Operation Mode                                                             #}
+{# Determines whether we are reading ('get') or modifying ('set') tags.       #}
+{# These modes are mutually exclusive in the CLI.                             #}
+{# -------------------------------------------------------------------------- #}
+{% if op | default('get') == 'set' %}
+--set
+{% elif op | default('get') == 'get' %}
+{# 'get' is the default behavior; no special flag is usually needed,          #}
+{# but we include this branch to make the intent explicit in the generated    #}
+{# command if the user explicitly requests it.                                #}
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Global Options                                                             #}
+{# These flags control the output format and error handling behavior.         #}
+{# -------------------------------------------------------------------------- #}
+
+{# -f, --file: Print the file name before each tag output.                    #}
+{% if file_names | default(false) %}
+-f
+{% endif %}
+
+{# -n, --no-field-names: Suppress field name prefixes (e.g., "S: SongTitle")  #}
+{# in the output, printing only the values.                                   #}
+{% if no_field_names | default(false) %}
+-n
+{% endif %}
+
+{# -t, --print-format: Print the internal tag structure/format details.       #}
+{% if print_format | default(false) %}
+-t
+{% endif %}
+
+{# -r, --rename=FORMAT: Rename files based on the provided FORMAT template.   #}
+{# Supports specifiers like %s (song), %g (game), %n (number), etc.           #}
+{% if rename_format | default('') | length > 0 %}
+--rename={{ rename_format | default('') }}
+{% endif %}
+
+{# -b, --backup-rsn: Create a backup of the .rsn metadata file before         #}
+{# modifying it.                                                              #}
+{% if backup_rsn | default(false) %}
+-b
+{% endif %}
+
+{# -e, --no-error: Continue processing even if errors occur (non-fatal).      #}
+{% if no_error | default(false) %}
+-e
+{% endif %}
+
+{# -v, --verbose: Enable verbose output for debugging.                        #}
+{% if verbose | default(false) %}
+-v
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Field Selection & Modification                                             #}
+{# Controls which tags are selected for 'get' or modified for 'set'.          #}
+{# -------------------------------------------------------------------------- #}
+
+{# -a, --all: Select all available fields.                                    #}
+{# Note: This flag is mutually exclusive with individual field flags in       #}
+{# 'set' mode, but typically used in 'get' mode to retrieve everything.       #}
+{% if all_fields | default(false) %}
+-a
+{% else %}
+{# If --all is NOT selected, we check each individual tag field.              #}
+{# We only emit the flag if the variable is defined AND has a non-empty      #}
+{# string value (for string fields) or is a non-empty list (for channels).   #}
+
+{# -S, --song[=TITLE]: Set or get the Song Title.                            #}
+{% if song is defined and song | default('') | length > 0 %}
+-S{{ song | default('') }}
+{% endif %}
+
+{# -G, --game[=TITLE]: Set or get the Game Title.                            #}
+{% if game is defined and game | default('') | length > 0 %}
+-G{{ game | default('') }}
+{% endif %}
+
+{# -N, --dumper[=NAME]: Set or get the Dumper Name.                          #}
+{% if dumper is defined and dumper | default('') | length > 0 %}
+-N{{ dumper | default('') }}
+{% endif %}
+
+{# -C, --comments[=TEXT]: Set or get Comments.                               #}
+{% if comments is defined and comments | default('') | length > 0 %}
+-C{{ comments | default('') }}
+{% endif %}
+
+{# -D, --date[=MM/DD/YYYY]: Set or get the Dump Date.                        #}
+{% if date is defined and date | default('') | length > 0 %}
+-D{{ date | default('') }}
+{% endif %}
+
+{# -L, --length[=LENGTH]: Set or get Song Length (without fade).             #}
+{% if length is defined and length | default('') | length > 0 %}
+-L{{ length | default('') }}
+{% endif %}
+
+{# -F, --fade[=LENGTH]: Set or get Fadeout Length.                           #}
+{% if fade is defined and fade | default('') | length > 0 %}
+-F{{ fade | default('') }}
+{% endif %}
+
+{# -A, --artist[=NAME]: Set or get the Artist Name.                          #}
+{% if artist is defined and artist | default('') | length > 0 %}
+-A{{ artist | default('') }}
+{% endif %}
+
+{# -M, --channels[=0,1,...]: Set channel states (0=enabled, 1=disabled).     #}
+{% if channels is defined and channels | default([]) | length > 0 %}
+-M{{ channels | default([]) | join(',') }}
+{% endif %}
+
+{# -E, --emulator[=NAME]: Set or get the Emulator used for dumping.          #}
+{% if emulator is defined and emulator | default('') | length > 0 %}
+-E{{ emulator | default('') }}
+{% endif %}
+
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Input Files                                                                #}
+{# List of SPC files to process.                                              #}
+{# -------------------------------------------------------------------------- #}
+{% for file in files | default([]) %}
+{{ file }}
+{% endfor %}

@@ -1,0 +1,41 @@
+# /etc/hatop.conf — HATop configuration file
+#
+# HATop is a real-time statistics viewer for HAProxy. This file controls
+# how HATop connects to the HAProxy stats socket and which proxies/filters
+# to display.
+#
+# Every variable MUST use its default value to allow the template to be
+# rendered safely without explicit extra-vars.
+
+# Path to the HAProxy stats socket; must be accessible and configured with 'level admin' in HAProxy.
+# Default: /var/run/haproxy.sock
+unix_socket={{ unix_socket | default('/var/run/haproxy.sock') }}
+
+# Update interval in seconds (1-30).
+# Default: 3
+update_interval={{ update_interval | default(3) }}
+
+# Initial display mode (1-5).
+# 1=frontend, 2=backend, 3=all, 4=socket, 5=summary
+# Default: 1
+mode={{ mode | default(1) }}
+
+# If true, disables CLI and only queries stats (read-only mode).
+# Default: false
+{% if (read_only | default(false)) %}
+read_only=true
+{% endif %}
+
+# List of stat filters in format '<iid> <type> <sid>'.
+# Each entry corresponds to a -f/--filter option in the HATop CLI.
+# Examples: "1 http 0", "2 tcp 1"
+# Default: [] (empty list)
+{% for filter_entry in (filters | default([])) %}filter={{ filter_entry }}
+{% endfor %}
+
+# List of proxy filters in format '<pxname>'.
+# Each entry corresponds to a -p/--proxy option in the HATop CLI.
+# Example: "my_frontend", "my_backend"
+# Default: [] (empty list)
+{% for proxy_entry in (proxies | default([])) %}proxy={{ proxy_entry }}
+{% endfor %}

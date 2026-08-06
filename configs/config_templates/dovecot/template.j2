@@ -14,7 +14,7 @@ ssl_key = <{{ dovecot.ssl_key_path }}>
 
 # Minimum SSL parameters
 ssl_min_protocol = {{ dovecot.ssl_min_protocol }}
-ssl_prefer_ciphers = {{ dovecot.ssl_prefer_server_ciphers | string | lower }}
+ssl_prefer_server_ciphers = {{ dovecot.ssl_prefer_server_ciphers | string | lower }}
 
 # Logging
 log_path = {{ dovecot.log_path }}
@@ -114,7 +114,6 @@ mail_plugins = {{ dovecot.global_mail_plugins | join(' ') }}
 # Quota plugin config (if enabled)
 {% if dovecot.quota.enable %}
 mail_plugins = {{ dovecot.global_mail_plugins | join(' ') }} quota
-
 plugin {
   quota = {{ dovecot.quota.quota_rule }}
   quota_grace = {{ dovecot.quota.quota_grace }}%
@@ -123,9 +122,6 @@ plugin {
 {% endif %}
 }
 {% endif %}
-
-# DNS lookups for hostnames
-mail_fsync = {{ dovecot.mail_fsync }}
 
 # Post-auth script (e.g., for logging or custom hooks)
 {% if dovecot.post_auth_script %}

@@ -1,152 +1,102 @@
 {
-  "timeout": {
+  "general_interval": {
     "type": "number",
-    "default": 300,
-    "description": "Seconds of inactivity before the first suspension attempt"
+    "default": 30,
+    "description": "Seconds between activity checks"
   },
-  "force_timeout": {
+  "general_idle_time": {
     "type": "number",
-    "default": 600,
-    "description": "Additional seconds of inactivity before forced suspension (must be \u2265 timeout)"
+    "default": 900,
+    "description": "Seconds of inactivity before triggering suspension (replaces 'timeout')"
   },
-  "action": {
+  "general_suspend_cmd": {
     "type": "string",
-    "default": "suspend",
-    "description": "Action to perform when suspension is triggered: 'suspend', 'hibernate', 'hybrid', or 'shutdown'"
+    "default": "/usr/bin/systemctl suspend",
+    "description": "Command to execute for suspending the system"
   },
-  "wakeup_action": {
+  "general_wakeup_cmd": {
     "type": "string",
-    "default": "none",
-    "description": "Action to perform when system is woken up for maintenance: 'none', 'suspend', 'hibernate', or 'hybrid'"
+    "default": "sh -c 'echo 0 > /sys/class/rtc/rtc0/wakealarm && echo {timestamp:.0f} > /sys/class/rtc/rtc0/wakealarm'",
+    "description": "Command to set up scheduled wake-up alarm before suspending"
   },
-  "activity_log": {
+  "general_woke_up_file": {
     "type": "string",
-    "default": "/var/log/autosuspend.log",
-    "description": "Path to file where activity events are recorded"
+    "default": "/var/run/autosuspend-just-woke-up",
+    "description": "Path to file indicating system just woke up (used to suppress immediate resuspension)"
   },
-  "ignore_users": {
-    "type": "list",
-    "default": [],
-    "description": "List of usernames whose activity should not reset the inactivity timer",
-    "items": {
-      "type": "string"
-    }
+  "general_lock_file": {
+    "type": "string",
+    "default": "/var/lock/autosuspend.lock",
+    "description": "Path to lock file to prevent concurrent invocations"
   },
-  "ignore_processes": {
-    "type": "list",
-    "default": [],
-    "description": "List of process names (exact match) whose activity should not reset the timer",
-    "items": {
-      "type": "string"
-    }
-  },
-  "ignore_devices": {
-    "type": "list",
-    "default": [],
-    "description": "List of device paths (e.g., /dev/input/event*) whose activity should not reset the timer",
-    "items": {
-      "type": "string"
-    }
-  },
-  "activity_watch_paths": {
-    "type": "list",
-    "default": [],
-    "description": "List of glob patterns for files or directories whose modification time counts as activity",
-    "items": {
-      "type": "string"
-    }
-  },
-  "suspend_on_battery_only": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to suspend only when running on battery power"
-  },
-  "battery_min_percent": {
+  "general_lock_timeout": {
     "type": "number",
-    "default": 10,
-    "description": "Minimum battery percentage required for suspension on battery (set to 0 to disable)"
+    "default": 30,
+    "description": "Seconds to wait for lock before giving up"
   },
-  "ignore_network_interfaces": {
-    "type": "list",
-    "default": [],
-    "description": "List of network interfaces whose activity (e.g., traffic, link up) should not reset the timer",
-    "items": {
-      "type": "string"
-    }
+  "check_Ping_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the Ping-based activity check"
   },
-  "pre_suspend_command": {
+  "check_Ping_hosts": {
     "type": "string",
-    "default": "",
-    "description": "Command to run before suspension (e.g., sync or save state)"
+    "default": "192.168.0.7",
+    "description": "Space-separated list of hosts to ping for network activity detection"
   },
-  "post_suspend_command": {
+  "check_Smb_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable the SMB-based activity check"
+  },
+  "check_RemoteUsers_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the custom RemoteUsers activity check"
+  },
+  "check_RemoteUsers_name": {
     "type": "string",
-    "default": "",
-    "description": "Command to run after resuming from suspension (e.g., restore state)"
+    "default": ".*",
+    "description": "Regex pattern for usernames to consider in RemoteUsers check"
   },
-  "require_no_x11": {
+  "check_RemoteUsers_terminal": {
+    "type": "string",
+    "default": ".*",
+    "description": "Regex pattern for terminal types to consider in RemoteUsers check"
+  },
+  "check_RemoteUsers_host": {
+    "type": "string",
+    "default": "[0-9].*",
+    "description": "Regex pattern for remote host patterns to consider in RemoteUsers check"
+  },
+  "check_LocalUsers_enabled": {
     "type": "bool",
     "default": true,
-    "description": "Only suspend if no active X11 sessions are detected"
+    "description": "Whether to enable the custom LocalUsers activity check"
   },
-  "require_no_wayland": {
+  "check_LocalUsers_name": {
+    "type": "string",
+    "default": ".*",
+    "description": "Regex pattern for usernames to consider in LocalUsers check"
+  },
+  "check_LocalUsers_terminal": {
+    "type": "string",
+    "default": ".*",
+    "description": "Regex pattern for terminal types to consider in LocalUsers check"
+  },
+  "check_LocalUsers_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Regex pattern for host patterns to consider in LocalUsers check"
+  },
+  "wakeup_Calendar_enabled": {
     "type": "bool",
     "default": true,
-    "description": "Only suspend if no active Wayland sessions are detected"
+    "description": "Whether to enable the calendar-based wake-up check"
   },
-  "require_no_console_sessions": {
-    "type": "bool",
-    "default": true,
-    "description": "Only suspend if no active console sessions (loginctl) exist"
-  },
-  "require_no_ssh_sessions": {
-    "type": "bool",
-    "default": true,
-    "description": "Only suspend if no active SSH sessions exist"
-  },
-  "require_no_vnc_sessions": {
-    "type": "bool",
-    "default": true,
-    "description": "Only suspend if no active VNC sessions are detected"
-  },
-  "require_no_upnp_players": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no active UPnP/DLNA media renderers are detected"
-  },
-  "require_no_printer_jobs": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no pending print jobs exist"
-  },
-  "require_no_media_playback": {
-    "type": "bool",
-    "default": true,
-    "description": "Only suspend if no active media playback (MPRIS) is detected"
-  },
-  "require_no_file_transfers": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no file transfers (rsync, cp, scp, etc.) are in progress"
-  },
-  "require_no_backups": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no active backup processes (rsync, borg, restic, etc.) are running"
-  },
-  "require_no_database_services": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no active database processes (e.g., postgres, mysql, mongodb) are detected"
-  },
-  "require_no_web_services": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no web services (ports 80, 443, etc.) are listening"
-  },
-  "require_no_containers": {
-    "type": "bool",
-    "default": false,
-    "description": "Only suspend if no active containers (Docker, Podman, LXC, etc.) are running"
+  "wakeup_Calendar_url": {
+    "type": "string",
+    "default": "http://example.org/test.ics",
+    "description": "URL of calendar file (e.g., iCal) for scheduled wake-ups"
   }
 }

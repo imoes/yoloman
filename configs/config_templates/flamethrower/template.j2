@@ -1,0 +1,169 @@
+#
+#   "Flamethrower" Configuration File
+#
+#   This configuration file controls the behavior of the Flamethrower daemon
+#   (flamethrowerd), which facilitates multicast-based system installations
+#   using the udpcast tool.
+#
+#   For additional details on many of these settings, see
+#   "man udp-sender".
+#
+
+################################################################################
+#
+# GLOBAL SETTINGS
+#
+################################################################################
+
+# Starts the flamethrower daemon to allow multicast installs.
+# Default: true
+START_FLAMETHROWER_DAEMON = {{ start_flamethrower_daemon | default(true) }}
+
+# Port number where the Flamethrower configuration database can be found on the server.
+# This is a udp-sender portbase entry.
+# Default: 9000
+FLAMETHROWER_DIRECTORY_PORTBASE = {{ flamethrower_directory_portbase | default(9000) }}
+
+# The network interface on the Flamethrower server that is used to send out the data.
+# Default: 'lo'
+INTERFACE = {{ interface | default('lo') }}
+
+# Limits bandwidth used by udpcast. Particularly useful in asynchronous mode,
+# or else the sender may send too fast for the switch and/or receiver to keep up.
+# Bitrate may be expressed in bits per second (--bitrate 5000000), kilobits per
+# second ("--bitrate 5000k") or megabits per second ("--bitrate 5M"). This is the
+# raw bitrate, including packet headers, forward error correction, retransmissions,
+# etc. Actual payload bitrate will be lower.
+# Default: '20M'
+MAX_BITRATE = {{ max_bitrate | default('20M') }}
+
+# Use this option if you *know* all the connections between your clients and server
+# will be running full-duplex network. If you enable this setting, and are not on a
+# full-duplex network, you may experience a significant performance hit.
+# On high-latency WAN links, the full-duplex option can lead to substantial
+# improvements, because it allows udp-sender to send more data while it is still
+# waiting for the previous batch to get acknowledged.
+# Default: false
+FULL_DUPLEX = {{ full_duplex | default(false) }}
+
+# Number of clients that must connect before the casting begins.
+# Superceeded if --max-client-wait times out.
+# Default: 1
+MIN_CLIENTS = {{ min_clients | default(1) }}
+
+# Initiate the cast after SEC seconds, even if the number of clients specified by
+# --min-clients have yet to connect.
+# Default: 10
+MAX_WAIT = {{ max_wait | default(10) }}
+
+# Wait at least SEC seconds before initiating the cast, even if the number of
+# clients specified by --min-clients have already connected.
+# Default: 5
+MIN_WAIT = {{ min_wait | default(5) }}
+
+# Do not open target (disk) in synchronous mode. Useful when dumping to a mounted
+# filesystem, rather than to a raw partition.
+# Default: true
+NOSYNC = {{ nosync | default(true) }}
+
+# Turns ugly debug information on. Use if things aren't working and you can't
+# figure out why -- it may help.
+# Default: false
+DEBUG = {{ debug | default(false) }}
+
+# Directory where flamethrower will keep its directory information (in sourceable
+# shell script format).
+# Default: '/var/lib/flamethrower'
+FLAMETHROWER_DIRECTORY_DIR = {{ flamethrower_directory_dir | default('/var/lib/flamethrower') }}
+
+# Directory where flamethrower will keep its state information.
+# Default: '/var/state/flamethrower'
+FLAMETHROWER_STATE_DIR = {{ flamethrower_state_dir | default('/var/state/flamethrower') }}
+
+# Use Ethernet broadcast, rather than multicast. Useful if you have Ethernet
+# cards which don't support multicast. By default, "udpcast" uses multicast.
+# This allows sending the data only to those receivers that requested it.
+# Default: false
+BROADCAST = {{ broadcast | default(false) }}
+
+# Enables forward error correction. The goal of forward error correction is to
+# transmit redundant data, in order to make up for packets lost in transit.
+# In unidirectional mode, the receivers have no way of requesting
+# retransmission of lost packets, thus the only way to address packet loss is
+# to include redundant information to begin with.
+# This setting should be specified in the form of: STRIPESxREDUNDANCY/STRIPESIZE
+# Default: '8x8/128'
+FEC = {{ fec | default('8x8/128') }}
+
+# Logs some stuff into file. Module specific data goes into "$LOG/$module_name".
+# Default: '/var/log/flamethrower'
+LOG = {{ log | default('/var/log/flamethrower') }}
+
+################################################################################
+#
+# MODULE SPECIFIC SETTINGS
+#
+#   Note:
+#       The following settings are required for each module:
+#
+#           [module-name]
+#           DIR = /path/to/my/modules/directory/
+#
+#   The following per module settings are optional.
+#
+#   Legend:
+#       B - This option is used by both client and server.
+#       C - This option is only used by the client.
+#       S - This option is only used by the client.
+#
+################################################################################
+
+{% set modules = modules | default({}) %}
+{% if modules %}
+# Modules
+# This section defines individual modules for flamethrower.
+# Each module has its own section header [module-name] and specific configuration directives.
+{% for module_name, module_config in modules | dict2items %}
+# --- Module: {{ module_name }} ---
+[{{ module_name }}]
+# Directory for this module's files
+# Default: /var/lib/flamethrower/modules/<module_name>
+DIR = {{ (module_config.get('dir') | default('/var/lib/flamethrower/modules/' + module_name)) }}
+
+{% if module_config.get('portbase') is defined %}
+# Portbase for this module (UDP sender portbase entry)
+PORTBASE = {{ module_config.portbase }}
+{% endif %}
+
+{% if module_config.get('async') is defined %}
+# Asynchronous mode for this module
+ASYNC = {{ module_config.async }}
+{% endif %}
+
+{% if module_config.get('ttl') is defined %}
+# Time-To-Live for multicast packets for this module
+TTL = {{ module_config.ttl }}
+{% endif %}
+
+{% if module_config.get('mcast_all_addr') is defined %}
+# Multicast address for control connection for this module
+MCAST_ALL_ADDR = {{ module_config.mcast_all_addr }}
+{% endif %}
+
+{% if module_config.get('log') is defined %}
+# Log directory for this module
+LOG = {{ module_config.log }}
+{% endif %}
+
+{% if module_config.get('interface') is defined %}
+# Network interface for this module
+INTERFACE = {{ module_config.interface }}
+{% endif %}
+
+{% if module_config.get('nosync') is defined %}
+# No sync mode for target writing in this module
+NOSYNC = {{ module_config.nosync }}
+{% endif %}
+
+{% endfor %}
+{% endif %}

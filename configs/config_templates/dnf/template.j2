@@ -1,0 +1,428 @@
+[main]
+# Root filesystem path for DNF operations.
+# Schema: installroot (string, default='/')
+installroot = {{ installroot | default('/') }}
+
+# Architecture override (e.g., x86_64, aarch64). Leave empty for auto-detection.
+# Schema: arch (string, default='')
+{% if arch | default('') | trim %}
+arch = {{ arch | default('') | trim }}
+{% endif %}
+
+# Base architecture override (e.g., x86_64, i386). Leave empty for auto-detection.
+# Schema: basearch (string, default='')
+{% if basearch | default('') | trim %}
+basearch = {{ basearch | default('') | trim }}
+{% endif %}
+
+# Release version override (e.g., 39, 8.10). Leave empty for auto-detection from RPMDB.
+# Schema: releasever (string, default='')
+{% if releasever | default('') | trim %}
+releasever = {{ releasever | default('') | trim }}
+{% endif %}
+
+# Directory for cache data.
+cachedir = /var/cache/dnf
+
+# Directory for persistent data.
+persistdir = /var/lib/dnf
+
+# Directory for log files.
+logdir = /var/log
+
+# Debug message output level (0–10).
+# Schema: debuglevel (int, default=2)
+debuglevel = {{ debuglevel | default(2) }}
+
+# Error message output level (0–10). Deprecated, overridden by --verbose.
+# Schema: errorlevel (int, default=3)
+errorlevel = {{ errorlevel | default(3) }}
+
+# Log file message level (0–10).
+# Schema: logfilelevel (int, default=9)
+logfilelevel = {{ logfilelevel | default(9) }}
+
+# Keep downloaded packages in cache after transaction.
+# Schema: keepcache (bool, default=False)
+keepcache = {{ keepcache | default(False) | ternary('true', 'false') }}
+
+# Automatically check for newer kernel modules with security updates.
+# Schema: autocheck_running_kernel (bool, default=True)
+autocheck_running_kernel = {{ autocheck_running_kernel | default(True) | ternary('true', 'false') }}
+
+# Install packages linked via weak dependencies (recommends/supplements).
+# Schema: install_weak_deps (bool, default=True)
+install_weak_deps = {{ install_weak_deps | default(True) | ternary('true', 'false') }}
+
+# Remove dependencies that become unused when a package is removed.
+# Schema: clean_requirements_on_remove (bool, default=True)
+clean_requirements_on_remove = {{ clean_requirements_on_remove | default(True) | ternary('true', 'false') }}
+
+# Protect the running kernel from removal.
+# Schema: protect_running_kernel (bool, default=True)
+protect_running_kernel = {{ protect_running_kernel | default(True) | ternary('true', 'false') }}
+
+# Package types (optional/default/mandatory) included in groupinstall.
+# Schema: group_package_types (list, default=['default', 'mandatory'])
+{% set gpt = group_package_types | default(['default', 'mandatory']) %}
+{% if gpt %}
+group_package_types = {{ gpt | join(', ') }}
+{% endif %}
+
+# Packages that should only be installed, never upgraded (e.g., kernels).
+# Schema: installonlypkgs (list, default=['kernel'])
+{% set iop = installonlypkgs | default(['kernel']) %}
+{% if iop %}
+installonlypkgs = {{ iop | join(', ') }}
+{% endif %}
+
+# Maximum number of installonly packages installed concurrently (min 2, 0=unlimited).
+# Schema: installonly_limit (int, default=3)
+installonly_limit = {{ installonly_limit | default(3) }}
+
+# Packages to exclude globally (comma-separated names or globs).
+# Schema: excludepkgs (list, default=[])
+{% set ep = excludepkgs | default([]) %}
+{% if ep %}
+excludepkgs = {{ ep | join(', ') }}
+{% endif %}
+
+# Package names or globs to exclude from weak dependency installation.
+# Schema: exclude_from_weak (list, default=[])
+{% if exclude_from_weak | default([]) | length > 0 %}
+exclude_from_weak = {{ exclude_from_weak | default([]) | join(', ') }}
+{% endif %}
+
+# Autodetect and avoid installing providers of unmet weak dependencies.
+# Schema: exclude_from_weak_autodetect (bool, default=True)
+exclude_from_weak_autodetect = {{ exclude_from_weak_autodetect | default(True) | ternary('true', 'false') }}
+
+# Enable DNF plugins.
+# Schema: plugins (bool, default=True)
+plugins = {{ plugins | default(True) | ternary('true', 'false') }}
+
+# Paths searched for plugin configuration files.
+pluginconfpath = /etc/dnf/plugins
+
+# Paths searched for plugins to load.
+pluginpath = /usr/lib/python*/site-packages/dnf-plugins
+
+# Assume 'yes' for all prompts (non-interactive mode).
+# Schema: assumeyes (bool, default=False)
+assumeyes = {{ assumeyes | default(False) | ternary('true', 'false') }}
+
+# Assume 'no' for all prompts.
+# Schema: assumeno (bool, default=False)
+assumeno = {{ assumeno | default(False) | ternary('true', 'false') }}
+
+# Default to 'yes' when user is prompted for confirmation (not non-interactive).
+# Schema: defaultyes (bool, default=False)
+defaultyes = {{ defaultyes | default(False) | ternary('true', 'false') }}
+
+# Exit immediately if another DNF process holds the lock.
+# Schema: exit_on_lock (bool, default=False)
+exit_on_lock = {{ exit_on_lock | default(False) | ternary('true', 'false') }}
+
+# Attempt to verify GPG keys via DNSSEC.
+# Schema: gpgkey_dns_verification (bool, default=False)
+{% if gpgkey_dns_verification | default(False) %}
+gpgkey_dns_verification = {{ gpgkey_dns_verification | default(False) | ternary('true', 'false') }}
+{% endif %}
+
+# Control colored output: auto, never, always.
+# Schema: color (string, default='auto')
+{% if color | default('auto') | trim %}
+color = {{ color | default('auto') | trim }}
+{% endif %}
+
+# Perform disk space checks before transactions.
+# Schema: diskspacecheck (bool, default=True)
+{% if diskspacecheck | default(True) %}
+diskspacecheck = {{ diskspacecheck | default(True) | ternary('true', 'false') }}
+{% endif %}
+
+# Expire metadata when configuration files change.
+# Schema: check_config_file_age (bool, default=True)
+check_config_file_age = {{ check_config_file_age | default(True) | ternary('true', 'false') }}
+
+# Use zchunk-compressed metadata (if available).
+# Schema: zchunk (bool, default=True)
+zchunk = {{ zchunk | default(True) | ternary('true', 'false') }}
+
+# Use delta RPMs to reduce bandwidth usage.
+# Schema: deltarpm (bool, default=True)
+{% if deltarpm | default(True) %}
+deltarpm = {{ deltarpm | default(True) | ternary('true', 'false') }}
+{% endif %}
+
+# Maximum number of simultaneous downloads (max 20).
+# Schema: max_parallel_downloads (int, default=3)
+max_parallel_downloads = {{ max_parallel_downloads | default(3) }}
+
+# Total download retries (0 = unlimited).
+# Schema: retries (int, default=10)
+retries = {{ retries | default(10) }}
+
+# Connection timeout in seconds.
+# Schema: timeout (int, default=30)
+timeout = {{ timeout | default(30) }}
+
+# Minimum download rate (bytes/sec) before abort; supports suffixes k/M/G.
+# Schema: minrate (string, default='1000')
+minrate = {{ minrate | default('1000') }}
+
+# Download speed limit (bytes/sec or percentage of bandwidth); supports suffixes k/M/G.
+# Schema: throttle (string, default='')
+{% if throttle | default('') | trim %}
+throttle = {{ throttle | default('') | trim }}
+{% endif %}
+
+# Total available bandwidth for throttling; supports suffixes k/M/G.
+# Schema: bandwidth (string, default='')
+{% if bandwidth | default('') | trim %}
+bandwidth = {{ bandwidth | default('') | trim }}
+{% endif %}
+
+# Send countme flag to repositories for lifecycle statistics.
+# Schema: countme (bool, default=False)
+countme = {{ countme | default(False) | ternary('true', 'false') }}
+
+# Proxy URL (e.g., http://proxy.example.com:3128).
+# Schema: proxy (string, default='')
+{% if proxy | default('') | trim %}
+proxy = {{ proxy | default('') | trim }}
+{% endif %}
+
+# Username for proxy authentication.
+# Schema: proxy_username (string, default='')
+{% if proxy_username | default('') | trim %}
+proxy_username = {{ proxy_username | default('') | trim }}
+{% endif %}
+
+# Password for proxy authentication.
+# Schema: proxy_password (string, default='')
+{% if proxy_password | default('') | trim %}
+proxy_password = {{ proxy_password | default('') | trim }}
+{% endif %}
+
+# Proxy authentication method: basic/digest/negotiate/ntlm/digest_ie/ntlm_wb/none/any.
+# Schema: proxy_auth_method (string, default='any')
+{% if proxy_auth_method | default('any') | trim %}
+proxy_auth_method = {{ proxy_auth_method | default('any') | trim }}
+{% endif %}
+
+# IP resolution preference: 4/IPv4 or 6/IPv6.
+# Schema: ip_resolve (string, default='')
+{% if ip_resolve | default('') | trim %}
+ip_resolve = {{ ip_resolve | default('') | trim }}
+{% endif %}
+
+# Apply modular obsoletes during transactions.
+# Schema: module_obsoletes (bool, default=False)
+{% if module_obsoletes | default(False) %}
+module_obsoletes = {{ module_obsoletes | default(False) | ternary('true', 'false') }}
+{% endif %}
+
+# Allow stream switching for modules.
+# Schema: module_stream_switch (bool, default=False)
+{% if module_stream_switch | default(False) %}
+module_stream_switch = {{ module_stream_switch | default(False) | ternary('true', 'false') }}
+{% endif %}
+
+# Override platform ID (e.g., 'fedora:39').
+# Schema: module_platform_id (string, default='')
+{% if module_platform_id | default('') | trim %}
+module_platform_id = {{ module_platform_id | default('') | trim }}
+{% endif %}
+
+# Run group upgrades during system upgrade.
+# Schema: upgrade_group_objects_upgrade (bool, default=True)
+upgrade_group_objects_upgrade = {{ upgrade_group_objects_upgrade | default(True) | ternary('true', 'false') }}
+
+# Directories searched for variable files.
+# Schema: varsdir (list, default=['/etc/dnf/vars'])
+{% set vd = varsdir | default(['/etc/dnf/vars']) %}
+{% if vd %}
+varsdir = {{ vd | join(', ') }}
+{% endif %}
+
+# Directories searched for repository (.repo) files.
+# Schema: reposdir (list, default=['/etc/yum.repos.d'])
+{% set rd = reposdir | default(['/etc/yum.repos.d']) %}
+{% if rd %}
+reposdir = {{ rd | join(', ') }}
+{% endif %}
+
+# List of repositories to configure.
+# Schema: repositories (list of objects)
+{% for repo in repositories | default([]) %}
+[{{ repo.id | default('') }}]
+
+# Unique repository ID (used as section header).
+# Schema: repo.id (string, default='')
+# (Already used in header above)
+
+# Human-readable name for the repository.
+# Schema: repo.name (string, default='')
+name = {{ (repo | default({})).get('name') | default(repo.id) | default('') }}
+
+# Metadata format type (e.g., rpm-md).
+# Schema: repo.type (string, default='')
+{% if (repo | default({})).get('type') | default('') | trim %}
+type = {{ (repo | default({})).get('type') | default('') | trim }}
+{% endif %}
+
+# Include this repository as a package source.
+# Schema: repo.enabled (bool, default=True)
+enabled = {{ (repo | default({})).get('enabled') | default(True) | ternary('true', 'false') }}
+
+# List of URLs to repository metadata.
+# Schema: repo.baseurl (list, default=[])
+{% set rbu = (repo | default({})).get('baseurl') | default([]) %}
+{% if rbu | length > 0 %}
+baseurl = {{ rbu | join(', ') }}
+{% endif %}
+
+# Metalink URL for repository metadata.
+# Schema: repo.metalink (string, default='')
+{% if (repo | default({})).get('metalink') | default('') | trim %}
+metalink = {{ (repo | default({})).get('metalink') | default('') | trim }}
+{% endif %}
+
+# Mirrorlist URL to determine fastest mirrors.
+# Schema: repo.mirrorlist (string, default='')
+{% if (repo | default({})).get('mirrorlist') | default('') | trim %}
+mirrorlist = {{ (repo | default({})).get('mirrorlist') | default('') | trim }}
+{% endif %}
+
+# URLs of GPG keys used to sign packages in this repository.
+# Schema: repo.gpgkey (list, default=[])
+{% set rgk = (repo | default({})).get('gpgkey') | default([]) %}
+{% if rgk | length > 0 %}
+gpgkey = {{ rgk | join(', ') }}
+{% endif %}
+
+# Verify GPG signatures on packages from this repository.
+# Schema: repo.gpgcheck (bool, default=False)
+gpgcheck = {{ (repo | default({})).get('gpgcheck') | default(False) | ternary('true', 'false') }}
+
+# Verify GPG signatures on metadata from this repository.
+# Schema: repo.repo_gpgcheck (bool, default=False)
+{% if (repo | default({})).get('repo_gpgcheck') is defined %}
+repo_gpgcheck = {{ (repo | default({})).get('repo_gpgcheck') | default(False) | ternary('true', 'false') }}
+{% endif %}
+
+# Relative access cost; lower values are preferred when priorities are equal.
+# Schema: repo.cost (int, default=1000)
+{% if (repo | default({})).get('cost') | default(1000) %}
+cost = {{ (repo | default({})).get('cost') | default(1000) }}
+{% endif %}
+
+# Repository priority (lower = higher precedence).
+# Schema: repo.priority (int, default=99)
+{% if (repo | default({})).get('priority') | default(99) %}
+priority = {{ (repo | default({})).get('priority') | default(99) }}
+{% endif %}
+
+# Disable module filtering to include all RPMs from this repo.
+# Schema: repo.module_hotfixes (bool, default=False)
+{% if (repo | default({})).get('module_hotfixes') | default(False) %}
+module_hotfixes = {{ (repo | default({})).get('module_hotfixes') | default(False) | ternary('true', 'false') }}
+{% endif %}
+
+# Packages to exclude from this repository only.
+# Schema: repo.excludepkgs (list, default=[])
+{% if (repo | default({})).get('excludepkgs') | default([]) | length > 0 %}
+excludepkgs = {{ (repo | default({})).get('excludepkgs') | default([]) | join(', ') }}
+{% endif %}
+
+# Packages to include from this repository (inverse of excludepkgs).
+# Schema: repo.includepkgs (list, default=[])
+{% if (repo | default({})).get('includepkgs') | default([]) | length > 0 %}
+includepkgs = {{ (repo | default({})).get('includepkgs') | default([]) | join(', ') }}
+{% endif %}
+
+# Allow package group operations for this repository.
+# Schema: repo.enablegroups (bool, default=True)
+{% if (repo | default({})).get('enablegroups') | default(True) %}
+enablegroups = {{ (repo | default({})).get('enablegroups') | default(True) | ternary('true', 'false') }}
+{% endif %}
+
+# Skip and disable this repo if synchronization fails.
+# Schema: repo.skip_if_unavailable (bool, default=False)
+{% if (repo | default({})).get('skip_if_unavailable') | default(False) %}
+skip_if_unavailable = {{ (repo | default({})).get('skip_if_unavailable') | default(False) | ternary('true', 'false') }}
+{% endif %}
+
+# Verify remote SSL certificates.
+# Schema: repo.sslverify (bool, default=True)
+{% if (repo | default({})).get('sslverify') is defined %}
+sslverify = {{ (repo | default({})).get('sslverify') | default(True) | ternary('true', 'false') }}
+{% endif %}
+
+# Path to CA certificate file for SSL verification.
+# Schema: repo.sslcacert (string, default='')
+{% if (repo | default({})).get('sslcacert') | default('') | trim %}
+sslcacert = {{ (repo | default({})).get('sslcacert') | default('') | trim }}
+{% endif %}
+
+# Path to SSL client certificate file.
+# Schema: repo.sslclientcert (string, default='')
+{% if (repo | default({})).get('sslclientcert') | default('') | trim %}
+sslclientcert = {{ (repo | default({})).get('sslclientcert') | default('') | trim }}
+{% endif %}
+
+# Path to SSL client key file.
+# Schema: repo.sslclientkey (string, default='')
+{% if (repo | default({})).get('sslclientkey') | default('') | trim %}
+sslclientkey = {{ (repo | default({})).get('sslclientkey') | default('') | trim }}
+{% endif %}
+
+# Proxy URL for this repo; set to empty string ('') or '_none_' to inherit none.
+# Schema: repo.proxy (string, default='')
+{% if (repo | default({})).get('proxy') is defined %}
+proxy = {{ (repo | default({})).get('proxy') | default('_none_') }}
+{% endif %}
+
+# Verify proxy SSL certificates.
+# Schema: repo.proxy_sslverify (bool, default=True)
+{% if (repo | default({})).get('proxy_sslverify') is defined %}
+proxy_sslverify = {{ (repo | default({})).get('proxy_sslverify') | default(True) | ternary('true', 'false') }}
+{% endif %}
+
+# Path to CA cert file for proxy SSL verification.
+# Schema: repo.proxy_sslcacert (string, default='')
+{% if (repo | default({})).get('proxy_sslcacert') | default('') | trim %}
+proxy_sslcacert = {{ (repo | default({})).get('proxy_sslcacert') | default('') | trim }}
+{% endif %}
+
+# Path to SSL client certificate for proxy.
+# Schema: repo.proxy_sslclientcert (string, default='')
+{% if (repo | default({})).get('proxy_sslclientcert') | default('') | trim %}
+proxy_sslclientcert = {{ (repo | default({})).get('proxy_sslclientcert') | default('') | trim }}
+{% endif %}
+
+# Path to SSL client key for proxy.
+# Schema: repo.proxy_sslclientkey (string, default='')
+{% if (repo | default({})).get('proxy_sslclientkey') | default('') | trim %}
+proxy_sslclientkey = {{ (repo | default({})).get('proxy_sslclientkey') | default('') | trim }}
+{% endif %}
+
+# HTTP basic auth username for the repository.
+# Schema: repo.username (string, default='')
+{% if (repo | default({})).get('username') | default('') | trim %}
+username = {{ (repo | default({})).get('username') | default('') | trim }}
+{% endif %}
+
+# HTTP basic auth password for the repository.
+# Schema: repo.password (string, default='')
+{% if (repo | default({})).get('password') | default('') | trim %}
+password = {{ (repo | default({})).get('password') | default('') | trim }}
+{% endif %}
+
+# Metadata expiration time in seconds. Use -1 or 'never' for never-expiring metadata.
+# Schema: repo.metadata_expire (int, default=172800)
+{% if (repo | default({})).get('metadata_expire') | default(172800) != 172800 %}
+metadata_expire = {{ (repo | default({})).get('metadata_expire') | default(172800) }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,62 @@
+{#
+  faultstat configuration template.
+  This file configures the `faultstat` utility, which monitors page faults for processes.
+  It supports two operational modes: 'snapshot' (single dump) and 'periodic' (continuous sampling).
+  All boolean options default to false unless explicitly set in the schema.
+#}
+
+{# Operational mode: determines if faultstat runs once or continuously. #}
+MODE={{ (options | default({})).mode | default('snapshot') }}
+
+{# Periodic mode configuration: only relevant when mode is 'periodic'. #}
+{%- if (options | default({})).mode | default('snapshot') == 'periodic' %}
+
+  {# Delay in seconds between each periodic sample. Ignored in snapshot mode. #}
+  DELAY={{ (options | default({})).delay | default(1) }}
+
+  {# Number of periodic samples to take. 0 means run indefinitely until SIGINT. #}
+  COUNT={{ (options | default({})).count | default(0) }}
+
+{%- endif %}
+
+{# Display options: control the output format and verbosity. #}
+
+{# Enable page fault change arrow display (option -a). #}
+{%- if (options | default({})).show_arrow | default(false) %}
+FLAG_a=true
+{%- endif %}
+
+{# Get command info from process 'comm' field instead of full cmdline (option -c). #}
+{%- if (options | default({})).comm_field | default(false) %}
+FLAG_c=true
+{%- endif %}
+
+{# Strip directory basename from command info (option -d). #}
+{%- if (options | default({})).strip_dirname | default(false) %}
+FLAG_d=true
+{%- endif %}
+
+{# Show long (full) command information (option -l). #}
+{%- if (options | default({})).long_cmd | default(false) %}
+FLAG_l=true
+{%- endif %}
+
+{# Comma-separated list of process names or PIDs to monitor (option -p). #}
+{%- if (options | default({})).process_list | default([]) | length > 0 %}
+FLAG_p={{ (options | default({})).process_list | default([]) | join(',') }}
+{%- endif %}
+
+{# Show short command information (option -s). #}
+{%- if (options | default({})).short_cmd | default(false) %}
+FLAG_s=true
+{%- endif %}
+
+{# Top mode showing processes by current page fault changes (option -t). #}
+{%- if (options | default({})).top_mode_change | default(false) %}
+FLAG_t=true
+{%- endif %}
+
+{# Top mode showing processes by total page faults (option -T). #}
+{%- if (options | default({})).top_mode_total | default(false) %}
+FLAG_T=true
+{%- endif %}

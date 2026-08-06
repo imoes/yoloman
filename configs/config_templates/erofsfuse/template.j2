@@ -1,0 +1,37 @@
+# /etc/erofsfuse.conf — EROFS FUSE client configuration
+#
+# This file defines FUSE mount commands for EROFS (Enhanced Read-Only Copy-on-Write) filesystems.
+# Each mount point is configured by iterating over the 'mounts' list from the Ansible variables.
+# For each item in 'mounts', a command line is generated to start erofsfuse.
+#
+# Variables expected from Ansible:
+#   mounts: List of dictionaries. Each dictionary may contain:
+#     - device: (str) The primary EROFS block device or file path.
+#     - mountpoint: (str) The directory where the filesystem is mounted.
+#     - offset: (int) Byte offset for the loop device (optional).
+#     - dbglevel: (int) Debug level for erofsfuse (optional).
+#     - extra_devices: (list) List of additional devices to attach (optional).
+
+{% for mount in mounts | default([]) %}
+# -----------------------------------------------------------------------------
+# Mount configuration entry
+# Device: {{ mount.device | default('unknown') }}
+# Mount Point: {{ mount.mountpoint | default('unknown') }}
+# -----------------------------------------------------------------------------
+
+# Command: /usr/bin/erofsfuse
+# This line constructs the erofsfuse command with optional flags.
+/usr/bin/erofsfuse \
+{% if mount.dbglevel is defined %}
+  --dbglevel={{ mount.dbglevel }} \
+{% endif %}
+{% if mount.offset is defined %}
+  --offset={{ mount.offset }} \
+{% endif %}
+# List of extra devices attached to this mount
+{% for extra_device in (mount.extra_devices | default([])) %}
+  --device={{ extra_device }} \
+{% endfor %}
+# Primary device and target mount point
+{{ mount.device }} {{ mount.mountpoint }}
+{% endfor %}

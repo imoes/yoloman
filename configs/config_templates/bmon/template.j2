@@ -1,0 +1,167 @@
+# ============================================================================
+# bmon Configuration Template
+# ============================================================================
+# Self-documenting configuration for bmon (Bandwidth Monitor).
+# All variables default to the schema defaults if not provided by Ansible.
+# ============================================================================
+
+/*
+ * --------------------------------------------------------------------------
+ * Global Statistics & Refresh Settings
+ * --------------------------------------------------------------------------
+ */
+
+# Interval (in seconds) between reading network statistics
+read_interval = {{ read_interval | default(1.0) }}
+
+# Interval (in seconds) for computing rate-based statistics
+rate_interval = {{ rate_interval | default(1.0) }}
+
+# Variance threshold for statistical smoothing of rate data
+variance = {{ variance | default(0.1) }}
+
+# Variance threshold for statistical smoothing of history data
+history_variance = {{ history_variance | default(0.1) }}
+
+# Sleep interval in microseconds between UI refresh cycles
+sleep_time = {{ sleep_time | default(20000) }}
+
+# Default lifetime (in seconds) for temporary interface entries
+lifetime = {{ lifetime | default(30.0) }}
+
+# Whether to display all interfaces, including those with zero traffic
+show_all = {{ show_all | default(True) }}
+
+# Optional policy file path for custom interface handling
+policy = "{{ policy | default('') }}"
+
+/*
+ * --------------------------------------------------------------------------
+ * Interface-Specific Overrides
+ * --------------------------------------------------------------------------
+ */
+
+# Configuration block for a specific network interface
+element {{ ifname | default('eth0') }} {
+    # Description text for the interface
+    description = "{{ description | default('My description') }}"
+
+    # Maximum RX bandwidth in appropriate units
+    rxmax = {{ rxmax | default(10000) }}
+
+    # Maximum TX bandwidth in appropriate units
+    txmax = {{ txmax | default(10000) }}
+
+    # Maximum bandwidth in bytes per second (for scaling graphs)
+    max = {{ max | default(12500000) }}
+}
+
+/*
+ * --------------------------------------------------------------------------
+ * Default Units Configuration
+ * --------------------------------------------------------------------------
+ * The following definitions are compiled into bmon and used by default.
+ * These define how raw byte/bit counts are converted into human-readable text.
+ */
+
+unit byte {
+    variant default {
+        div = { 1, 1024, 1048576, 1073741824, 1099511627776 }
+        txt = { "B", "KiB", "MiB", "GiB", "TiB" }
+    }
+    variant si {
+        div = { 1, 1000, 1000000, 1000000000, 1000000000000 }
+        txt = { "B", "KB", "MB", "GB", "TB" }
+    }
+    variant bit {
+        div = { 0.125, 125, 125000, 125000000, 125000000000 }
+        txt = { "b", "Kb", "Mb", "Gb", "Tb" }
+    }
+}
+
+unit bit {
+    variant default {
+        div = { 1, 1000, 1000000, 1000000000, 1000000000000 }
+        txt = { "b", "Kb", "Mb", "Gb", "Tb" }
+    }
+    variant si {
+        div = { 1, 1000, 1000000, 1000000000, 1000000000000 }
+        txt = { "b", "Kb", "Mb", "Gb", "Tb" }
+    }
+    variant bit {
+        div = { 1, 1000, 1000000, 1000000000, 1000000000000 }
+        txt = { "b", "Kb", "Mb", "Gb", "Tb" }
+    }
+}
+
+unit number {
+    variant default {
+        div = { 1, 1000, 1000000, 1000000000, 1000000000000 }
+        txt = { "", "K", "M", "G", "T" }
+    }
+}
+
+unit percent {
+    variant default {
+        div = 1.
+        txt = "%"
+    }
+}
+
+/*
+ * --------------------------------------------------------------------------
+ * History Window Configuration
+ * --------------------------------------------------------------------------
+ * Defines the time intervals and buffer sizes for historical data display.
+ */
+
+history second {
+    interval = 1.
+    size     = 60
+}
+
+history minute {
+    interval = 60.
+    size     = 60
+}
+
+history hour {
+    interval = 3600.
+    size     = 60
+}
+
+history day {
+    interval = 86400.
+    size     = 60
+}
+
+/*
+ * --------------------------------------------------------------------------
+ * Layout & Colors Configuration
+ * --------------------------------------------------------------------------
+ * Defines the visual appearance of the bmon UI.
+ */
+
+layout colors {
+    color default {
+        color_pair = {"white", "black"}
+    }
+    color statusbar {
+        color_pair = {"blue", "white", "reverse"}
+    }
+    color header {
+        color_pair = {"yellow", "black"}
+    }
+    color list {
+        color_pair = {"white", "black"}
+    }
+    color selected {
+        color_pair = {"white", "black", "reverse"}
+    }
+    color RX_graph {
+        color_pair = {"green", "black"}
+    }
+    color TX_graph {
+        color_pair = {"red", "black"}
+    }
+}

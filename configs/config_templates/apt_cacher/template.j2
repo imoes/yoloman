@@ -1,50 +1,121 @@
-# Core settings
-bind_address: {{ bind_address }}
-port: {{ port }}
-log_dir: {{ log_dir }}
-cache_dir: {{ cache_dir }}
+# =============================================================================
+# APT-Cacher NG Configuration
+# =============================================================================
+# This file configures the APT-Cacher NG proxy service.
+# It manages caching of Debian/Ubuntu package repositories to reduce bandwidth
+# and improve update speeds across internal networks.
+# =============================================================================
 
-# Logging
-log_level: {{ log_level }}
-log_format: {{ log_format }}
+# ----- Core Network Settings -----
+# bind_address: IP address the APT-Cacher service binds to. Use 0.0.0.0 for all interfaces.
+# If set to 'localhost' or '127.0.0.1', the service is only accessible from the local machine.
+bind_address: {{ bind_address | default('0.0.0.0') }}
 
-# Security & access control
-allow_remote_requests: {% if allow_remote_requests %}1{% else %}0{% endif %}
-allowed_clients: {{ allowed_clients | join(', ') }}
-allowed_hosts: {{ allowed_hosts | join(', ') }}
+# port: TCP port the service listens on. Standard port for APT-Cacher is 3142.
+port: {{ port | default(3142) }}
 
-# Performance
-max_threads: {{ max_threads }}
-min_free_space_mb: {{ min_free_space_mb }}
+# ----- Storage Directories -----
+# log_dir: Directory to store log files. Ensure the service user has write permissions.
+log_dir: {{ log_dir | default('/var/log/apt-cacher') }}
 
-# Expiration & cleanup
-devuan_support: {% if devuan_support %}1{% else %}0{% endif %}
-ignore_expire: {% if ignore_expire %}1{% else %}0{% endif %}
-max_age_days: {{ max_age_days }}
+# cache_dir: Directory where cached package files are stored. This is the main storage area.
+cache_dir: {{ cache_dir | default('/var/cache/apt-cacher') }}
 
-# Mirroring & fallback
-remap_debian: {{ remap_debian }}
-remap_ubuntu: {{ remap_ubuntu }}
-remap_backports: {{ remap_backports }}
-remap_security: {{ remap_security }}
+# ----- Logging Configuration -----
+# log_level: Verbosity of logs (0=error, 1=warn, 2=info, 3=debug).
+# Higher levels produce more verbose output, useful for troubleshooting but consumes more disk space.
+log_level: {{ log_level | default(2) }}
 
-# Compression
-compression: {% if compression %}1{% else %}0{% endif %}
-compression_type: {{ compression_type }}
+# log_format: Log format — typically 'combined' (Apache-like) or 'common'.
+# 'combined' includes more details like referrer and user-agent.
+log_format: {{ log_format | default('combined') }}
 
-# Proxy settings (optional upstream proxy)
-{% if upstream_proxy %}upstream_proxy: {{ upstream_proxy }}
-{% endif %}upstream_proxy_auth: {{ upstream_proxy_auth }}
+# ----- Security & Access Control -----
+# allow_remote_requests: If true, allow clients from any IP (subject to allowed_clients/hosts).
+# If false, only local (127.0.0.1) requests are accepted.
+# Note: This acts as a master switch; even if true, specific IPs may be blocked by allowed_clients.
+allow_remote_requests: {% if allow_remote_requests | default(true) %}1{% else %}0{% endif %}
 
-# Per-arch or per-suite filtering (optional — list-based)
-{% if exclusions %}# Exclusion rules: skip caching for these patterns (glob-style)
+# allowed_clients: List of allowed client IPs/CIDR subnets. Use 'all' to allow anyone (not recommended).
+# This list is evaluated if allow_remote_requests is true.
+# Defaults to localhost addresses if empty.
+allowed_clients: {{ (allowed_clients | default(['127.0.0.1', '::1'])) | join(', ') }}
+
+# allowed_hosts: List of allowed hostnames (DNS patterns). Used in combination with allowed_clients.
+# Allows restricting access based on the reverse DNS resolution of the client IP.
+allowed_hosts: {{ (allowed_hosts | default([])) | join(', ') }}
+
+# ----- Performance Tuning -----
+# max_threads: Maximum number of worker threads for handling concurrent requests.
+# Adjust based on available CPU cores and expected concurrency.
+max_threads: {{ max_threads | default(10) }}
+
+# min_free_space_mb: Minimum free disk space (MB) in the cache directory before the service refuses new downloads.
+# Helps prevent the disk from filling up completely, which could break system updates.
+min_free_space_mb: {{ min_free_space_mb | default(1024) }}
+
+# ----- Expiration & Cleanup -----
+# devuan_support: Enable support for Devuan repositories (disables systemd-specific logic).
+# Set to true if managing Devuan systems.
+devuan_support: {% if devuan_support | default(true) %}1{% else %}0{% endif %}
+
+# ignore_expire: If true, bypass expiration of stale cache entries (keep all files indefinitely).
+# Useful in offline or highly constrained network environments where internet access is intermittent.
+ignore_expire: {% if ignore_expire | default(false) %}1{% else %}0{% endif %}
+
+# max_age_days: Maximum age (in days) for cached files before they’re considered expired (unless ignore_expire is set).
+# Files older than this may be removed during cleanup cycles.
+max_age_days: {{ max_age_days | default(30) }}
+
+# ----- Mirroring & Repository Remapping -----
+# remap_debian: Base URL for remapping the Debian repository. Set to '' to disable remapping.
+# Remapping allows redirecting requests to a specific mirror or internal cache.
+remap_debian: {{ remap_debian | default('http://ftp.debian.org/debian/') }}
+
+# remap_ubuntu: Base URL for remapping the Ubuntu repository.
+remap_ubuntu: {{ remap_ubuntu | default('http://archive.ubuntu.com/ubuntu/') }}
+
+# remap_backports: Base URL for Debian backports. Set to '' to disable.
+remap_backports: {{ remap_backports | default('http://ftp.debian.org/debian-backports/') }}
+
+# remap_security: Base URL for Debian security updates.
+remap_security: {{ remap_security | default('http://security.debian.org/') }}
+
+# ----- Compression -----
+# compression: If true, serve gzip-compressed files when available and requested by the client.
+# Reduces bandwidth usage between the cache and clients.
+compression: {% if compression | default(true) %}1{% else %}0{% endif %}
+
+# compression_type: Compression type — usually 'gzip' or 'none'.
+compression_type: {{ compression_type | default('gzip') }}
+
+# ----- Upstream Proxy Settings -----
+# upstream_proxy: Optional upstream HTTP/HTTPS proxy (e.g., 'http://proxy.example.com:8080').
+# Leave empty if the server connects directly to the internet.
+# If set, the APT-Cacher will route all external requests through this proxy.
+{% if upstream_proxy | default('') %}upstream_proxy: {{ upstream_proxy | default('') }}
+{% endif %}{% if upstream_proxy_auth | default('') %}upstream_proxy_auth: {{ upstream_proxy_auth | default('') }}
+{% endif %}
+
+# ----- Exclusion Rules -----
+# exclusions: List of URL patterns (glob-style) to skip caching for.
+# Example: '*/pool/debug/*' excludes debug symbol packages to save space.
+# These patterns are checked against the requested URL.
+{% if exclusions | default([]) %}
+# Exclusion rules: skip caching for these patterns (glob-style)
 {% for exclusion in exclusions %}exclusion: {{ exclusion.pattern }}{% if exclusion.description %} # {{ exclusion.description }}{% endif %}
-{% endfor %}{% endif %}
+{% endfor %}
+{% endif %}
 
-# Per-repo overrides (optional — list-based)
-{% if repo_overrides %}# Per-repository override settings
-{% for override in repo_overrides %}# {{ override.name }} (enabled: {{ 'yes' if override.enabled else 'no' }})
+# ----- Per-Repository Overrides -----
+# repo_overrides: Custom per-repository configuration blocks for non-standard repos.
+# Allows fine-grained control over specific repositories that don't fit standard remapping.
+{% if repo_overrides | default([]) %}
+# Per-repository override settings
+{% for override in repo_overrides %}
+# {{ override.name }} (enabled: {{ 'yes' if override.enabled else 'no' }})
 {% if override.base_url %}remap_{{ override.name }}: {{ override.base_url }}
 {% endif %}{% if override.suite_map %}suite_map_{{ override.name }}: {{ override.suite_map }}
 {% endif %}{% if override.arch_map %}arch_map_{{ override.name }}: {{ override.arch_map }}
-{% endif %}{% endfor %}{% endif %}
+{% endif %}{% endfor %}
+{% endif %}

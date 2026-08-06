@@ -21,7 +21,7 @@
     "description": "List of network interfaces the DHCP server will listen on."
   },
   "interface_re_detect": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "If true, Kea will re-detect interfaces periodically; usually false in stable environments."
   },
@@ -75,21 +75,18 @@
       }
     ],
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Option name (e.g., domain-name-servers, routers)."
-        },
-        "space": {
-          "type": "string",
-          "default": "dhcp4",
-          "description": "Option space (usually 'dhcp4')."
-        },
-        "data": {
-          "type": "string",
-          "description": "Option data as string (comma-separated for multi-values)."
-        }
+      "name": {
+        "type": "string",
+        "description": "Option name (e.g., domain-name-servers, routers)."
+      },
+      "space": {
+        "type": "string",
+        "default": "dhcp4",
+        "description": "Option space (usually 'dhcp4')."
+      },
+      "data": {
+        "type": "string",
+        "description": "Option data as string (comma-separated for multi-values)."
       }
     },
     "description": "Global DHCP options to include in responses (e.g., DNS servers, domain name)."
@@ -128,98 +125,86 @@
       }
     ],
     "items": {
-      "type": "object",
-      "fields": {
-        "id": {
-          "type": "number",
-          "description": "Unique subnet ID (must be unique across subnets)."
-        },
-        "network": {
-          "type": "string",
-          "description": "IPv4 network address (e.g., '192.168.10.0')."
-        },
-        "prefix": {
-          "type": "number",
-          "description": "CIDR prefix length (e.g., 24)."
-        },
-        "pools": {
-          "type": "list",
-          "items": {
-            "type": "object",
-            "fields": {
-              "start": {
-                "type": "string",
-                "description": "Start of pool range (e.g., '192.168.10.10')."
-              },
-              "end": {
-                "type": "string",
-                "description": "End of pool range (e.g., '192.168.10.200')."
-              }
-            }
+      "id": {
+        "type": "number",
+        "description": "Unique subnet ID (must be unique across subnets)."
+      },
+      "network": {
+        "type": "string",
+        "description": "IPv4 network address (e.g., '192.168.10.0')."
+      },
+      "prefix": {
+        "type": "number",
+        "description": "CIDR prefix length (e.g., 24)."
+      },
+      "pools": {
+        "type": "list",
+        "items": {
+          "start": {
+            "type": "string",
+            "description": "Start of pool range (e.g., '192.168.10.10')."
           },
-          "description": "List of address pools in this subnet."
+          "end": {
+            "type": "string",
+            "description": "End of pool range (e.g., '192.168.10.200')."
+          }
         },
-        "option_data": {
-          "type": "list",
-          "items": {
-            "type": "object",
-            "fields": {
-              "name": {
-                "type": "string"
-              },
-              "space": {
-                "type": "string"
-              },
-              "data": {
-                "type": "string"
-              }
-            }
+        "description": "List of address pools in this subnet."
+      },
+      "option_data": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string"
           },
-          "description": "Per-subnet options (override global options)."
-        },
-        "valid_lifetime": {
-          "type": "number",
-          "description": "Default lease lifetime in seconds (must be \u2265 min and \u2264 max)."
-        },
-        "min_valid_lifetime": {
-          "type": "number",
-          "description": "Minimum allowed lease lifetime (e.g., 1800)."
-        },
-        "max_valid_lifetime": {
-          "type": "number",
-          "description": "Maximum allowed lease lifetime (e.g., 7200)."
-        },
-        "renew_timer": {
-          "type": "number",
-          "default": null,
-          "description": "T1 renewal timer in seconds; defaults to 50% of valid_lifetime if omitted."
-        },
-        "rebind_timer": {
-          "type": "number",
-          "default": null,
-          "description": "T2 rebind timer in seconds; defaults to 80% of valid_lifetime if omitted."
-        },
-        "reservations": {
-          "type": "list",
-          "items": {
-            "type": "object",
-            "fields": {
-              "mac": {
-                "type": "string",
-                "description": "Client MAC address (e.g., 'aa:bb:cc:dd:ee:ff')."
-              },
-              "hostname": {
-                "type": "string",
-                "description": "Reserved hostname."
-              },
-              "ip": {
-                "type": "string",
-                "description": "Reserved IP address."
-              }
-            }
+          "space": {
+            "type": "string"
           },
-          "description": "Static host reservations in this subnet."
-        }
+          "data": {
+            "type": "string"
+          }
+        },
+        "description": "Per-subnet options (override global options)."
+      },
+      "valid_lifetime": {
+        "type": "number",
+        "description": "Default lease lifetime in seconds (must be \u2265 min and \u2264 max)."
+      },
+      "min_valid_lifetime": {
+        "type": "number",
+        "description": "Minimum allowed lease lifetime (e.g., 1800)."
+      },
+      "max_valid_lifetime": {
+        "type": "number",
+        "description": "Maximum allowed lease lifetime (e.g., 7200)."
+      },
+      "renew_timer": {
+        "type": "number",
+        "default": null,
+        "description": "T1 renewal timer in seconds; defaults to 50% of valid_lifetime if omitted."
+      },
+      "rebind_timer": {
+        "type": "number",
+        "default": null,
+        "description": "T2 rebind timer in seconds; defaults to 80% of valid_lifetime if omitted."
+      },
+      "reservations": {
+        "type": "list",
+        "items": {
+          "mac": {
+            "type": "string",
+            "description": "Client MAC address (e.g., 'aa:bb:cc:dd:ee:ff')."
+          },
+          "hostname": {
+            "type": "string",
+            "description": "Reserved hostname."
+          },
+          "ip": {
+            "type": "string",
+            "description": "Reserved IP address."
+          }
+        },
+        "description": "Static host reservations in this subnet."
       }
     },
     "description": "List of IPv4 subnets to serve. Each subnet defines pools, options, and reservations."
@@ -265,7 +250,7 @@
     "description": "File path for log output."
   },
   "log_flush": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "If true, flush log after each write (useful for debugging, may impact performance)."
   },

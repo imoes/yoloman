@@ -1,0 +1,77 @@
+{# ============================================================================== #}
+{# duperemove Configuration Template                                                #}
+{#                                                                                    #}
+{# This template generates a configuration snippet for duperemove, a deduplication    #}
+{# tool for Btrfs and XFS filesystems. It translates Ansible variables into command   #}
+{# line arguments or operational settings.                                              #}
+{#                                                                                    #}
+{# Self-Documenting: Every section is preceded by a comment derived from the schema.  #}
+{# ============================================================================== #}
+
+{# ------------------------------------------------------------------------------ #}
+{# File or directory paths to scan                                                #}
+{# desc: List of file or directory paths to scan (use ['-'] to read from stdin)   #}
+# Files to scan: {{ files | default(['/data']) | join(' ') }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Recursive scanning                                                             #}
+{# desc: Enable recursive directory traversal                                     #}
+# Recursive scanning: {{ recursive | default(true) | ternary('yes', 'no') }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Actual deduplication mode                                                      #}
+{# desc: Enable actual deduplication (requires btrfs/xfs)                         #}
+# Deduplication mode: {{ dedupe | default(false) | ternary('enabled', 'disabled') }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Persistent hash storage                                                        #}
+{# desc: Path to hashfile for persistent storage (empty string = in-memory only)  #}
+# Hashfile: {{ (hashfile | default('')) | string }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Block size for hashing                                                         #}
+{# desc: Block size for hashing (e.g. '64K', '128K', '1M'); must match documented #}
+{#       suffixes                                                                 #}
+# Block size: {{ block_size | default('128K') }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Hash algorithm selection                                                       #}
+{# desc: Hash algorithm: 'murmur3' or 'xxhash'                                    #}
+# Hash algorithm: {{ hash_algo | default('murmur3') }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# I/O thread count                                                               #}
+{# desc: Override I/O thread count (null = auto-detected)                         #}
+# IO threads: {{ io_threads | default(none) }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# CPU thread count                                                               #}
+{# desc: Override CPU thread count (null = auto-detected)                         #}
+# CPU threads: {{ cpu_threads | default(none) }}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Exclusion patterns                                                             #}
+{# desc: List of full paths (or glob patterns) to exclude                         #}
+# Exclusions:
+{% for p in exclusions | default([]) %}
+#   --exclude "{{ p }}"
+{% endfor %}
+{% if exclusions is not defined or exclusions | length == 0 %}
+#   (none)
+{% endif %}
+{# ------------------------------------------------------------------------------ #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Deduplication options                                                          #}
+{# desc: List of dedupe options to enable (omit 'no' prefix); valid: 'partial',   #}
+{#       'same', 'fiemap'                                                         #}
+# Dedupe options: {{ dedupe_options | default(['partial', 'fiemap']) | join(',') }}
+{# ------------------------------------------------------------------------------ #}

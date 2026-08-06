@@ -1,0 +1,72 @@
+{
+  "provides": [
+    {
+      "capability": "reverse_proxy",
+      "backend": "haproxy",
+      "port_field": "http.listen_port",
+      "default_port": 8080,
+      "provisionable": {}
+    }
+  ],
+  "requires": [
+    {
+      "capability": "web_server",
+      "backends": [
+        "nginx",
+        "apache",
+        "caddy",
+        "lighttpd"
+      ],
+      "backend_field": "backends",
+      "fields": {
+        "host": "backends[].host",
+        "port": "backends[].port"
+      }
+    },
+    {
+      "capability": "app_runtime",
+      "backends": [
+        "php-fpm",
+        "uwsgi",
+        "gunicorn",
+        "passenger"
+      ],
+      "backend_field": "backends",
+      "fields": {
+        "socket": "backends[].host",
+        "host": "backends[].host",
+        "port": "backends[].port"
+      }
+    },
+    {
+      "capability": "database",
+      "backends": [
+        "postgresql",
+        "mysql",
+        "mariadb",
+        "mongodb"
+      ],
+      "backend_field": "backends",
+      "fields": {
+        "host": "backends[].host",
+        "port": "backends[].port"
+      }
+    },
+    {
+      "capability": "cache",
+      "backends": [
+        "redis",
+        "memcached",
+        "valkey",
+        "keydb"
+      ],
+      "backend_field": "backends",
+      "fields": {
+        "host": "backends[].host",
+        "port": "backends[].port"
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

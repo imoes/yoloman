@@ -12,22 +12,31 @@
   "task_serializer": {
     "type": "string",
     "default": "json",
-    "description": "Serialization method for outgoing task messages (e.g., 'json', 'pickle'). JSON is safer and interoperable."
+    "description": "Serialization method for outgoing task messages (e.g., 'json', 'pickle'). JSON is safer and interoperable. For security, 'json' is recommended to prevent arbitrary code execution from untrusted brokers.",
+    "enum": [
+      "json",
+      "pickle",
+      "yaml",
+      "msgpack"
+    ]
   },
   "result_serializer": {
     "type": "string",
     "default": "json",
-    "description": "Serialization method for task results (e.g., 'json', 'pickle')."
+    "description": "Serialization method for task results (e.g., 'json', 'pickle'). For security, 'json' is recommended.",
+    "enum": [
+      "json",
+      "pickle",
+      "yaml",
+      "msgpack"
+    ]
   },
   "accept_content": {
     "type": "list",
     "default": [
       "json"
     ],
-    "description": "List of allowed content types for incoming task messages. Prevents unsafe deserialization.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of allowed content types for incoming task messages. Prevents unsafe deserialization. Should only include serializers you trust and use."
   },
   "task_time_limit": {
     "type": "number",
@@ -62,37 +71,12 @@
   "task_routes": {
     "type": "list",
     "default": [],
-    "description": "List of task routing rules. Each rule maps tasks to specific queues/exchanges.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "exchange": {
-          "type": "string",
-          "default": "",
-          "description": "Exchange to route the task to (e.g., 'direct', 'topic')"
-        },
-        "queue": {
-          "type": "string",
-          "default": "",
-          "description": "Queue name to route the task to (e.g., 'high_priority')"
-        },
-        "routing_key": {
-          "type": "string",
-          "default": "",
-          "description": "Routing key used in message routing"
-        }
-      }
-    }
+    "description": "List of task routing rules. Each rule maps tasks to specific queues/exchanges."
   },
   "task_result_expires": {
     "type": "number",
     "default": 86400,
     "description": "Time (seconds) after which task results are deleted from the backend."
-  },
-  "task_rate_limit": {
-    "type": "string",
-    "default": "",
-    "description": "Global rate limit for all tasks (e.g., '100/m' for 100 per minute). Leave empty to disable."
   },
   "timezone": {
     "type": "string",
@@ -107,37 +91,16 @@
   "worker_log_level": {
     "type": "string",
     "default": "INFO",
-    "description": "Minimum log level for worker logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+    "description": "Minimum log level for worker logs (DEBUG, INFO, WARNING, ERROR, CRITICAL).",
+    "enum": [
+      "INFO",
+      "ERROR"
+    ]
   },
   "beat_schedule": {
     "type": "object",
-    "default": {},
-    "description": "Dictionary of periodic (beat) tasks. Keys are task names, values define schedule and arguments.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "task": {
-          "type": "string",
-          "default": "",
-          "description": "Fully qualified task name (e.g., 'myapp.tasks.send_report')"
-        },
-        "schedule": {
-          "type": "number|string|object",
-          "default": 0,
-          "description": "Crontab-like interval: number (seconds), cron dict, or timedelta string (e.g., '10.0', '* * * * *', 'timedelta(seconds=30)')"
-        },
-        "args": {
-          "type": "list",
-          "default": [],
-          "description": "Positional arguments passed to the task"
-        },
-        "kwargs": {
-          "type": "object",
-          "default": {},
-          "description": "Keyword arguments passed to the task"
-        }
-      }
-    }
+    "default": [],
+    "description": "List of periodic (beat) tasks. Each item defines schedule and arguments."
   },
   "task_eager_propagates": {
     "type": "bool",

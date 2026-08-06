@@ -1,0 +1,26 @@
+# POSIX ACL configuration
+# Manages POSIX Access Control Lists (ACLs) for files and directories.
+# Each entry defines permissions for a specific user, group, or special entity.
+#
+# Entry format: <tag_type>:<qualifier>:<permissions>
+# - tag_type: The entity type. Must be one of:
+#     user_obj (file owner), user (named user), group_obj (owning group),
+#     group (named group), mask, other.
+# - qualifier: The identifier for the entity. Required for 'user' and 'group'
+#     types (e.g., username or UID/GID). Must be empty for user_obj, group_obj,
+#     mask, and other.
+# - permissions: A 3-character string representing read (r), write (w), and
+#     execute (x) permissions. Use '-' for no permission. Example: 'rwx', 'r--'.
+#
+# Schema Fields:
+# - acl: List of ACL entry dictionaries.
+# - values_schema: (Internal/Deprecated) Default tag type enforcement. Currently
+#    defaults to 'user' but is largely superseded by explicit tag_type in entries.
+
+{% for entry in acl | default([], true) %}
+    # ACL Entry
+    # tag_type: {{ entry.tag_type | default('user', true) }}
+    # qualifier: {{ entry.qualifier | default('', true) }}
+    # permissions: {{ entry.permissions | default('', true) }}
+    {{ entry.tag_type | default('user', true) }}{% if entry.qualifier is defined and entry.qualifier != '' %}:{{ entry.qualifier }}{% endif %}:{{ entry.permissions | default('', true) }}
+{% endfor %}

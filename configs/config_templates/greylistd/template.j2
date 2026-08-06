@@ -1,68 +1,102 @@
-# Configuration file for greylistd (Greylisting daemon for Exim 4)
-# This file is processed by greylistd at startup.
-# See `man greylistd.conf` for full details.
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          greylist greylistd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start/stop the greylistd(8) daemon.
+# Description:       Start/stop the greylistd(8) daemon.
+### END INIT INFO
+########################################################################
+### FILE:	/etc/init.d/greylist
+########################################################################
 
-# Path to the greylisting database file
-# Stores IP, sender, recipient triplets and their greylisting timestamps
-{% if db_path %}db {{ db_path }}{% else %}db /var/lib/greylistd/greylist.db{% endif %}
+# added due to request of linitian
+. /lib/lsb/init-functions
 
-# Socket path for Exim to communicate with greylistd
-# Must match `greylist_socket` in Exim config (e.g., acl_smtp_prepend)
-{% if socket_path %}socket {{ socket_path }}{% else %}socket /var/spool/exim4/greylist_socket{% endif %}
+# Path to the greylist utility used for reloading and stats.
+client=/usr/bin/greylist
 
-# Time (in seconds) a greylisted entry remains in the database
-# After this period, the entry is expired and may be re-greylisted
-{% if expire_time %}expire {{ expire_time }}{% else %}expire 259200{% endif %}
+# Path to the greylistd daemon binary.
+daemon=/usr/sbin/greylistd
 
-# Minimum delay (seconds) before first retry is accepted
-# Exim will be told to retry after this delay (typically ≥ 300 for RFC-compliance)
-{% if min_delay %}mindelay {{ min_delay }}{% else %}mindelay 300{% endif %}
+# Runtime directory for PID and socket files.
+rundir=/var/run/greylistd
 
-# Maximum delay (seconds) for retry window
-# After this, greylisting is no longer enforced (must be ≥ mindelay)
-{% if max_delay %}maxdelay {{ max_delay }}{% else %}maxdelay 43200{% endif %}
+# Data directory for greylistd persistent data (e.g., whitelist/blacklist DBs).
+datadir=/var/lib/greylistd
 
-# Delay for initial greylisting (seconds) before first retry is allowed
-# Used for first-time senders only; overrides mindelay if lower
-{% if initial_delay %}initial {{ initial_delay }}{% else %}initial 300{% endif %}
+# Path to the PID file created by the daemon.
+pidfile=$rundir/pid
 
-# Whitelist CIDR/network ranges (one per line, supports IPv4 and IPv6)
-# These IPs bypass greylisting entirely
-{% for cidr in whitelist %}whitelist {{ cidr }}{% endfor %}
+# Path to the Unix socket used for communication with the daemon.
+socket=$rundir/socket
 
-# Whitelist sender addresses (exact match or domain with leading dot)
-# These senders bypass greylisting
-{% for sender in whitelist_senders %}whitelist_sender {{ sender }}{% endfor %}
+# User account under which greylistd drops privileges (must have access to Exim’s spool directory).
+user={{ user | default('Debian-exim') }}
 
-# Whitelist recipient addresses (exact match or domain with leading dot)
-# Recipients matching these bypass greylisting
-{% for recipient in whitelist_recipients %}whitelist_recipient {{ recipient }}{% endfor %}
+# Group for privilege drop (typically matches the user).
+group={{ group | default('Debian-exim') }}
 
-# Auto-whitelist IPs that have successfully sent mail multiple times
-# Number of successful deliveries before auto-whitelisting
-{% if auto_whitelist_threshold %}autowhitelist {{ auto_whitelist_threshold }}{% else %}autowhitelist 1{% endif %}
+# See if the daemon is present
+test -x "$daemon" || exit 0
 
-# Enable or disable logging to syslog
-# Set to 0 to disable logging; 1 to enable (default)
-{% if log_syslog is defined %}log {{ 1 if log_syslog else 0 }}{% else %}log 1{% endif %}
+# Make sure /var/run/greylistd exists (/var/run may be a tmpfs)
+test -d "$rundir" || {
+    mkdir -p "$rundir"
+    chown "$user:$group" "$rundir"
+}
 
-# Log level: 0 = errors only, 1 = warnings, 2 = info, 3 = debug
-{% if log_level %}loglevel {{ log_level }}{% else %}loglevel 2{% endif %}
+case "$1" in
+    start)
+	if [ -e "$socket" ]
+	then
+	    echo "$0:"
+	    echo "  Another instance of \`${daemon##*/}' seems to be running."
+	    echo "  If this is not the case, please remove \"$socket\"."
+	    exit 1
+	fi
 
-# User/group to drop privileges to (must match Exim's spool user for socket access)
-{% if user %}user {{ user }}{% else %}user Debian-exim{% endif %}
-{% if group %}group {{ group }}{% else %}group Debian-exim{% endif %}
+	echo -n "Starting greylisting daemon: "
+	start-stop-daemon --start --background \
+			  --chuid "$user" \
+			  --user "$user" \
+			  --pidfile "$pidfile" \
+			  --make-pidfile \
+			  --exec "$daemon" &&
+	    echo "${daemon##*/}."
+	;;
 
-# Enable or disable IPv6 support in database (required for IPv6 networks)
-# Set to 0 to disable; 1 to enable (default)
-{% if ipv6 %}ipv6 {{ 1 if ipv6 else 0 }}{% else %}ipv6 1{% endif %}
 
-# Enable or disable per-recipient greylisting
-# If disabled, greylisting applies only per (IP, sender) — recipient is ignored
-{% if per_recipient is defined %}per_recipient {{ 1 if per_recipient else 0 }}{% else %}per_recipient 1{% endif %}
+    stop)
+	echo -n "Stopping greylisting daemon: "
+	start-stop-daemon --stop --user "$user" --pidfile "$pidfile" &&
+	    rm -f "$pidfile" &&
+	    echo "${daemon##*/}."
+	;;
 
-# Timeout (seconds) for socket communication with Exim
-{% if socket_timeout %}timeout {{ socket_timeout }}{% else %}timeout 5{% endif %}
 
-# Path to PID file
-{% if pidfile %}pidfile {{ pidfile }}{% else %}pidfile /var/run/greylistd.pid{% endif %}
+    reload|force-reload)
+	"$client" reload
+	;;
+
+    status)
+	"$client" stats
+	;;
+
+
+    restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+
+
+    *)
+	echo "Usage: $0 {start|stop|restart|reload|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

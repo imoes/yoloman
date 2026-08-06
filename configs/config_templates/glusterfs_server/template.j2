@@ -1,52 +1,130 @@
 # glusterd.vol — Main GlusterFS cluster daemon configuration
-# Do not edit manually; managed by configuration management
+# Managed by Ansible; do not edit manually.
+# This file configures the glusterd daemon (GlusterFS storage server).
+# See https://docs.gluster.org for detailed documentation.
 
-# Base options
+# ===========================================================================
+# Base Transport & Networking
+# ===========================================================================
+
+# Address family for intra-cluster communication.
+# GlusterFS primarily uses IPv4 (inet) for compatibility.
+# Schema: allowlist_rpc (list[str]) -> controls who can connect.
+# Description: List of IP addresses or hostnames allowed to connect to the
+#              the GlusterD RPC service. Use * for any (not recommended in production).
 option transport.address-family inet
 option transport.socket-read-size 0
 option transport.socket-write-size 0
 
-# Logging configuration
-option log-level INFO
-option log-file /var/log/glusterfs/glusterd.log
+# ===========================================================================
+# Logging Configuration
+# ===========================================================================
 
-# Brick root directory where volume bricks are created
-option working-directory /var/lib/glusterd
+# Verbosity level for glusterd logs.
+# Schema: log_level (str)
+# Description: Logging verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL, or NONE.
+option log-level {{ log_level | default('INFO') }}
 
-# Working directory for GlusterFS lock files and state
-option state-file-location /var/lib/glusterd/glusterd.state
+# Path to the primary log file for glusterd.
+# Schema: log_file (str)
+# Description: Path to the glusterd log file.
+option log-file {{ log_file | default('/var/log/glusterfs/glusterd.log') }}
 
-# RPC port for GlusterD service (default 24007)
-option rpc-auth.auth-glusterfs.allow {% for host in allowlist_rpc %}{{ host }}{% if not loop.last %}, {% endif %}{% endfor %}
+# ===========================================================================
+# Directories & State
+# ===========================================================================
 
-# Volume auto-mount enabled or not (optional, usually disabled in server config)
-option auto-mount no
+# Root directory where volume bricks are stored/created.
+# Schema: working_directory (str)
+# Description: Base working directory for GlusterFS daemon state (must exist and be writable).
+option working-directory {{ working_directory | default('/var/lib/glusterd') }}
 
-# Quorum type and count
-option cluster.quorum-type none
-option cluster.quorum-count 0
+# Path to the state file maintaining cluster topology and runtime state.
+# Typically resides within working_directory.
+option state-file-location {{ working_directory | default('/var/lib/glusterd') }}/glusterd.state
 
-# Transport type for bricks (tcp, rdma, tcp,rdma)
-option transport-type tcp
+# ===========================================================================
+# Access Control (RPC)
+# ===========================================================================
 
-# Cluster node communication timeout and retry settings
-option cluster.quorum-timeout 40
-option cluster.rpc-timeout 30
+# List of peers/nodes allowed to authenticate via GlusterFS RPC.
+# Rendered as a comma-separated list.
+# Schema: allowlist_rpc (list[str])
+# Description: List of IP addresses or hostnames allowed to connect to the
+#              the GlusterD RPC service. Use * for any (not recommended in production).
+option rpc-auth.auth-glusterfs.allow {% for host in allowlist_rpc | default(['*']) %}{{ host }}{% if not loop.last %}, {% endif %}{% endfor %}
 
-# SSL/TLS for intra-cluster communication (off by default)
-option ssl-enabled no
-
-# GID/UID map file (if used)
+# Allowlist for legacy AUTH_UNIX RPC authentication.
+# Usually kept permissive in trusted clusters but restricted in high-security environments.
 option rpc-auth.auth-unix.allow *
+
+# Allowlist for AUTH_NULL RPC authentication.
 option rpc-auth.auth-null.allow *
 
-# Peer management options
+# ===========================================================================
+# Volume & Mount Behavior
+# ===========================================================================
+
+# Enable or disable automatic volume mounting on daemon start.
+# Often disabled in server configs if volumes are mounted manually or by client.
+option auto-mount no
+
+# ===========================================================================
+# Quorum & Consensus
+# ===========================================================================
+
+# Quorum policy for cluster operations to prevent split-brain scenarios.
+# Schema: quorum_type (str)
+# Description: Quorum policy for cluster consensus: 'none', 'majority', or 'all'.
+#              Set to 'majority' for production redundancy.
+option cluster.quorum-type {{ quorum_type | default('none') }}
+
+# Number of nodes that must be available for quorum to be satisfied.
+# 0 implies no strict quorum count check (relies on quorum_type policy).
+option cluster.quorum-count 0
+
+# Timeout in seconds for quorum checks before declaring node unavailable.
+option cluster.quorum-timeout 40
+
+# Timeout for RPC calls to cluster peers.
+option cluster.rpc-timeout 30
+
+# ===========================================================================
+# Transport & Security
+# ===========================================================================
+
+# Transport type for brick communication.
+# Schema: transport_type (str)
+# Description: Transport type(s) for intra-cluster communication: 'tcp', 'rdma', or 'tcp,rdma'.
+option transport-type {{ transport_type | default('tcp') }}
+
+# Enable SSL/TLS encryption for intra-cluster communication.
+# Schema: ssl_enabled (bool)
+# Description: Enable SSL/TLS for internal GlusterFS cluster communication.
+#              Requires certificate setup.
+option ssl-enabled {{ ssl_enabled | default(False) | ternary('on', 'off') }}
+
+# ===========================================================================
+# Peer Management
+# ===========================================================================
+
+# Allow stripping of peers from the cluster configuration.
 option peer-stripping no
 
-# Additional optional settings (uncommented only if explicitly configured)
-{% for key, val in extra_options.items() %}
+# ===========================================================================
+# Custom/Advanced Options
+# ===========================================================================
+
+# Dictionary of additional custom GlusterD options.
+# Schema: extra_options (dict)
+# Description: Dictionary of additional custom GlusterD options (key → value).
+#              Used for advanced tuning not exposed by other fields.
+{% for key, val in extra_options | default({}) | dict2items %}
 option {{ key }} {{ val }}
 {% endfor %}
 
-# Volume definitions are generated separately (e.g., in per-volume .vol files)
+# ===========================================================================
+# Notes
+# ===========================================================================
+# Volume definitions are generated separately (e.g., in per-volume .vol files).
 # This file only configures glusterd itself — volume configs live in /etc/glusterfs/volumes/

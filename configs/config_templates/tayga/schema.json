@@ -12,22 +12,7 @@
   "static_mappings": {
     "type": "list",
     "default": [],
-    "description": "List of static IPv4-to-IPv6 address mappings (e.g., for servers that must have fixed IPv4 addresses in the NAT64 realm).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "v4": {
-          "type": "string",
-          "description": "Static IPv4 address (e.g., 198.51.100.10)",
-          "default": ""
-        },
-        "v6": {
-          "type": "string",
-          "description": "Corresponding IPv6 address in the NAT64 prefix (e.g., 64:ff9b::c633:640a)",
-          "default": ""
-        }
-      }
-    }
+    "description": "List of static IPv4-to-IPv6 address mappings (e.g., for servers that must have fixed IPv4 addresses in the NAT64 realm)."
   },
   "tuntap_dev": {
     "type": "string",
@@ -38,6 +23,11 @@
     "type": "string",
     "default": "192.168.100.1",
     "description": "IPv4 address assigned to the TUNTAP interface. Must be within `pool_v4` subnet when using dynamic NAT64."
+  },
+  "tuntap_addr_v6": {
+    "type": "string",
+    "default": "64:ff9b::192.168.100.1",
+    "description": "IPv6 address assigned to the TUNTAP interface, derived from tuntap_addr in the NAT64 prefix."
   },
   "tuntap_mtu": {
     "type": "number",
@@ -63,5 +53,23 @@
     "type": "string",
     "default": "/run/tayga.pid",
     "description": "Path to the PID file. Used by init systems (systemd, OpenRC) to manage the Tayga service."
+  },
+  "configure_iface": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to configure the TUNTAP interface and set routes during service start. Set to 'no' to disable interface setup (e.g., for manual management).",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "configure_nat44": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to configure NAT44 for the private IPv4 range during service start. Typically needed when using dynamic NAT64.",
+    "enum": [
+      "yes",
+      "no"
+    ]
   }
 }

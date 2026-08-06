@@ -1,275 +1,92 @@
 {
   "ldap": {
     "type": "object",
-    "default": {
-      "url": "ldap://localhost:389",
-      "bind_dn": "cn=admin,dc=example,dc=com",
-      "base_dn": "ou=DNS,dc=example,dc=com",
-      "zone_filter": "(objectClass=dNSZone)",
-      "record_filter": "(objectClass=dNSRecord)"
-    },
-    "description": "LDAP connection and search configuration",
-    "items": {
-      "url": {
-        "type": "string",
-        "default": "ldap://localhost:389",
-        "description": "LDAP server URL (supports ldap:// and ldaps://)"
-      },
-      "bind_dn": {
-        "type": "string",
-        "default": "cn=admin,dc=example,dc=com",
-        "description": "DN to bind to LDAP directory"
-      },
-      "bind_password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for bind DN (store securely \u2014 e.g., environment variable or file)"
-      },
-      "base_dn": {
-        "type": "string",
-        "default": "ou=DNS,dc=example,dc=com",
-        "description": "Base DN for searching DNS zones and records"
-      },
-      "zone_filter": {
-        "type": "string",
-        "default": "(objectClass=dNSZone)",
-        "description": "LDAP filter to match zone entries"
-      },
-      "record_filter": {
-        "type": "string",
-        "default": "(objectClass=dNSRecord)",
-        "description": "LDAP filter to match record entries"
-      }
-    }
+    "default": null,
+    "description": "LDAP connection and search configuration (schema parameters not configurable at runtime; kept verbatim in template; see description for reference only.)"
   },
-  "refresh": {
-    "type": "object",
-    "default": {
-      "interval": 300
-    },
-    "description": "Zone refresh behavior",
-    "items": {
-      "interval": {
-        "type": "number",
-        "default": 300,
-        "description": "Seconds between LDAP refresh cycles (minimum 60 recommended)"
-      }
-    }
+  "ldap.url": {
+    "type": "string",
+    "default": "ldap://localhost:389",
+    "description": "LDAP server URL (supports ldap:// and ldaps://)"
   },
-  "backend": {
-    "type": "object",
-    "default": {
-      "type": "nsd",
-      "nsd": {
-        "config_file": "/etc/nsd/nsd.conf",
-        "control_sock": "/var/run/nsd/nsd-control.sock"
-      },
-      "powerdns": {
-        "url": "http://localhost:8081",
-        "api_key": "",
-        "ttl": 86400
-      },
-      "bind": {
-        "servers": [],
-        "zone_dir": "/etc/bind/zones"
-      }
-    },
-    "description": "DNS backend configuration",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "nsd",
-        "description": "Target DNS server: 'nsd', 'powerdns', or 'bind'"
-      },
-      "nsd": {
-        "type": "object",
-        "description": "NSD backend options",
-        "items": {
-          "config_file": {
-            "type": "string",
-            "default": "/etc/nsd/nsd.conf",
-            "description": "Path to NSD configuration file"
-          },
-          "control_sock": {
-            "type": "string",
-            "default": "/var/run/nsd/nsd-control.sock",
-            "description": "NSD control socket path"
-          }
-        }
-      },
-      "powerdns": {
-        "type": "object",
-        "description": "PowerDNS API backend options",
-        "items": {
-          "url": {
-            "type": "string",
-            "default": "http://localhost:8081",
-            "description": "PowerDNS API base URL"
-          },
-          "api_key": {
-            "type": "string",
-            "default": "",
-            "description": "PowerDNS API key (required)"
-          },
-          "ttl": {
-            "type": "number",
-            "default": 86400,
-            "description": "Default TTL applied to records"
-          }
-        }
-      },
-      "bind": {
-        "type": "object",
-        "description": "BIND (ISC) backend options",
-        "items": {
-          "servers": {
-            "type": "list",
-            "default": [],
-            "description": "List of BIND servers to notify and transfer to",
-            "items": {
-              "host": {
-                "type": "string",
-                "default": "localhost",
-                "description": "BIND server hostname or IP"
-              },
-              "port": {
-                "type": "number",
-                "default": 53,
-                "description": "BIND server port"
-              },
-              "tsig_key_name": {
-                "type": "string",
-                "default": "",
-                "description": "TSIG key name for secure AXFR"
-              },
-              "tsig_algorithm": {
-                "type": "string",
-                "default": "hmac-sha256",
-                "description": "TSIG algorithm (e.g., hmac-sha256)"
-              },
-              "tsig_secret": {
-                "type": "string",
-                "default": "",
-                "description": "TSIG secret key (base64-encoded)"
-              }
-            }
-          },
-          "zone_dir": {
-            "type": "string",
-            "default": "/etc/bind/zones",
-            "description": "Directory where zone files are written"
-          }
-        }
-      }
-    }
+  "ldap.bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN to bind to LDAP directory"
   },
-  "defaults": {
-    "type": "object",
-    "default": {
-      "ttl": 86400,
-      "soa": {
-        "primary": "ns1.example.com",
-        "email": "admin.example.com",
-        "refresh": 10800,
-        "retry": 3600,
-        "expire": 604800,
-        "minimum": 86400
-      }
-    },
-    "description": "Default DNS record and SOA parameters",
-    "items": {
-      "ttl": {
-        "type": "number",
-        "default": 86400,
-        "description": "Default TTL (in seconds) for records without explicit TTL in LDAP"
-      },
-      "soa": {
-        "type": "object",
-        "description": "SOA record defaults",
-        "items": {
-          "primary": {
-            "type": "string",
-            "default": "ns1.example.com",
-            "description": "Primary name server in SOA"
-          },
-          "email": {
-            "type": "string",
-            "default": "admin.example.com",
-            "description": "Responsible authority email (dots instead of @)"
-          },
-          "refresh": {
-            "type": "number",
-            "default": 10800,
-            "description": "SOA refresh interval (seconds)"
-          },
-          "retry": {
-            "type": "number",
-            "default": 3600,
-            "description": "SOA retry interval (seconds)"
-          },
-          "expire": {
-            "type": "number",
-            "default": 604800,
-            "description": "SOA expiration time (seconds)"
-          },
-          "minimum": {
-            "type": "number",
-            "default": 86400,
-            "description": "SOA negative caching TTL (seconds)"
-          }
-        }
-      }
-    }
+  "ldap.bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for bind DN (store securely \u2014 e.g., environment variable or file)"
   },
-  "zone_naming": {
-    "type": "object",
-    "default": {
-      "format": "in-addr.arpa",
-      "separator": ".",
-      "reverse_zone_suffix": ".in-addr.arpa"
-    },
-    "description": "Zone naming and reverse DNS formatting rules",
-    "items": {
-      "format": {
-        "type": "string",
-        "default": "in-addr.arpa",
-        "description": "Template for reverse zone naming (e.g., 'in-addr.arpa' or 'ip6.arpa')"
-      },
-      "separator": {
-        "type": "string",
-        "default": ".",
-        "description": "Separator used in zone names (usually '.')"
-      },
-      "reverse_zone_suffix": {
-        "type": "string",
-        "default": ".in-addr.arpa",
-        "description": "Suffix appended to reverse IPv4 zones"
-      }
-    }
+  "ldap.base_dn": {
+    "type": "string",
+    "default": "ou=DNS,dc=example,dc=com",
+    "description": "Base DN for searching DNS zones and records"
   },
-  "log": {
-    "type": "object",
-    "default": {
-      "level": "INFO",
-      "file": "/var/log/ldap2dns/ldap2dns.log"
-    },
-    "description": "Logging configuration",
-    "items": {
-      "level": {
-        "type": "string",
-        "default": "INFO",
-        "description": "Minimum log level (DEBUG, INFO, WARNING, ERROR)"
-      },
-      "file": {
-        "type": "string",
-        "default": "/var/log/ldap2dns/ldap2dns.log",
-        "description": "Path to log file"
-      }
-    }
+  "ldap.zone_filter": {
+    "type": "string",
+    "default": "(objectClass=dNSZone)",
+    "description": "LDAP filter to match zone entries"
   },
-  "dry_run": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, do not apply changes to the DNS backend \u2014 only log what would happen"
+  "ldap.record_filter": {
+    "type": "string",
+    "default": "(objectClass=dNSRecord)",
+    "description": "LDAP filter to match record entries"
+  },
+  "refresh.interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between LDAP refresh cycles (minimum 60 recommended)"
+  },
+  "backend.type": {
+    "type": "string",
+    "default": "nsd",
+    "description": "Target DNS backend: 'nsd', 'powerdns', or 'bind'"
+  },
+  "backend.nsd.config_file": {
+    "type": "string",
+    "default": "/etc/nsd/nsd.conf",
+    "description": "Path to NSD configuration file"
+  },
+  "backend.nsd.control_sock": {
+    "type": "string",
+    "default": "/var/run/nsd/nsd-control.sock",
+    "description": "NSD control socket path"
+  },
+  "backend.powerdns.url": {
+    "type": "string",
+    "default": "http://localhost:8081",
+    "description": "PowerDNS API base URL"
+  },
+  "backend.powerdns.api_key": {
+    "type": "string",
+    "default": "",
+    "description": "PowerDNS API key (required)"
+  },
+  "backend.powerdns.ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default TTL applied to records"
+  },
+  "backend.bind.servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of BIND servers to notify and transfer to"
+  },
+  "backend.bind.servers[].host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "BIND server hostname or IP"
+  },
+  "backend.bind.servers[].port": {
+    "type": "number",
+    "default": 53,
+    "description": "BIND server port"
+  },
+  "backend.bind.zone_dir": {
+    "type": "string",
+    "default": "/etc/bind/zones",
+    "description": "BIND zone directory path"
   }
 }

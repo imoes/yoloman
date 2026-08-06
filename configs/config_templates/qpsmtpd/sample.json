@@ -1,28 +1,15 @@
 {
-  "config.log_to_file": true,
+  "config.log_to_file": false,
   "config.log_file": "/var/log/qpsmtpd/qpsmtpd.log",
   "config.listeners": [
     {
-      "address": "127.0.0.1",
-      "port": 25
-    },
-    {
       "address": "0.0.0.0",
-      "port": 587
+      "port": 25
     }
   ],
-  "config.max_connections_per_ip": 30,
-  "config.timeout": 600,
-  "config.auth_backends": [
-    {
-      "type": "pam",
-      "config_file": "/etc/pam.d/smtp"
-    },
-    {
-      "type": "sql",
-      "config_file": "host=localhost dbname=qpsmtpd user=qpsmtpd password=secret"
-    }
-  ],
+  "config.max_connections_per_ip": 20,
+  "config.timeout": 300,
+  "config.auth_backends": [],
   "config.plugins": [
     {
       "name": "auth/daemon",
@@ -30,6 +17,18 @@
     },
     {
       "name": "tls",
+      "enabled": true
+    },
+    {
+      "name": "pre_qp",
+      "enabled": true
+    },
+    {
+      "name": "check_basicheaders",
+      "enabled": true
+    },
+    {
+      "name": "check_earlytalker",
       "enabled": true
     },
     {
@@ -46,7 +45,7 @@
     },
     {
       "name": "greylisting",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "spamassassin",
@@ -62,7 +61,7 @@
     },
     {
       "name": "rate",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "antivirus",
@@ -74,44 +73,7 @@
     "port": 783,
     "timeout": 30
   },
-  "config.rbl": {
-    "enabled": false,
-    "server": "zen.spamhaus.org"
-  },
-  "config.tls": {
-    "enabled": true,
-    "cert_file": "/etc/ssl/certs/qpsmtpd.crt",
-    "key_file": "/etc/ssl/private/qpsmtpd.key",
-    "ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
-  },
-  "config.vpopmail": {
-    "enabled": false,
-    "vpopmail_dir": "/home/vpopmail"
-  },
-  "config.greylisting": {
-    "enabled": true,
-    "delay": 300,
-    "whitelist_time": 86400
-  },
-  "config.rate_limit": {
-    "enabled": true,
-    "seconds": 60,
-    "max_per_second": 10
-  },
-  "config.whitelist": [
-    {
-      "ip": "127.0.0.1",
-      "reason": "Localhost"
-    },
-    {
-      "ip": "::1",
-      "reason": "Localhost IPv6"
-    },
-    {
-      "ip": "10.0.0.0/8",
-      "reason": "Internal network"
-    }
-  ],
-  "config.reject_action": "bounce",
-  "config.queue": "qmail-queue"
+  "service.port": 25,
+  "service.runas": "qpsmtpd",
+  "service.enabled": "false"
 }

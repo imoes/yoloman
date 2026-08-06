@@ -1,0 +1,62 @@
+{# ceni(1p) CLI interface configuration #}
+{# /etc/network/interfaces — managed by Ceni (Curses /etc/network/interfaces) #}
+{# Generated with Ceni: https://manpages.debian.org/trixie/ceni/Ceni.1p.en.html #}
+{% if file is defined %}
+# Alternative interfaces file: {{ file | default('/etc/network/interfaces') }}
+{% endif %}
+{% if iface is defined %}
+# Interface being configured: {{ iface | default('') }}
+{% endif %}
+# Note: Ceni is a curses UI for editing /etc/network/interfaces manually.
+# This file is not auto-generated; edits should be done via 'ceni' or manually.
+# To simulate ifup/ifdown actions, run 'ceni --no-act'.
+{% if no_act is defined %}
+# Simulate mode (ifup/ifdown -n): changes not applied
+{% endif %}
+# Debug mode: Enable debug mode; logs to /tmp/ceni.log
+{% if debug is defined %}
+# Debug: {{ debug | default(False) | ternary('enabled', 'disabled') }}
+{% endif %}
+
+# Default loopback interface
+auto lo
+iface lo inet loopback
+
+{% for item in interfaces | default([]) %}
+{# Interface: List of network interface definitions (one per interface block in /etc/network/interfaces). Each interface must specify 'name'. Other fields #}
+# {{ item.name | default('unnamed') }} — {{ item.description | default('unspecified') }}
+{% if item.auto is defined %}
+# Auto: {{ item.auto | default(False) }}
+{% if item.auto | default(False) %}auto {{ item.name | default('unnamed') }}
+{% endif %}
+{% endif %}
+{% if item.method is defined %}
+# Method: {{ item.method | default('') }}
+{% if item.method | default('') %}iface {{ item.name | default('unnamed') }} inet {{ item.method | default('') }}
+{% if item.address is defined %}    address {{ item.address | default('') }}
+{% endif %}
+{% if item.netmask is defined %}    netmask {{ item.netmask | default('') }}
+{% endif %}
+{% if item.gateway is defined %}    gateway {{ item.gateway | default('') }}
+{% endif %}
+{% if item.dns_nameservers is defined %}    dns-nameservers {{ item.dns_nameservers | default([]) | join(' ') }}
+{% endif %}
+{% if item.dns_search is defined %}    dns-search {{ item.dns_search | default([]) | join(' ') }}
+{% endif %}
+{% if item.vlan_id is defined %}    vlan-id {{ item.vlan_id | default('') }}
+{% endif %}
+{% if item.mtu is defined %}    mtu {{ item.mtu | default('') }}
+{% endif %}
+{% if item.hwaddress is defined %}    hwaddress {{ item.hwaddress | default('') }}
+{% endif %}
+{% if item.post_up is defined %}
+{% for cmd in item.post_up | default([]) %}    post-up {{ cmd }}
+{% endfor %}
+{% endif %}
+{% if item.post_down is defined %}
+{% for cmd in item.post_down | default([]) %}    post-down {{ cmd }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}

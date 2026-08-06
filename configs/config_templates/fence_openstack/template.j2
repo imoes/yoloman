@@ -1,50 +1,80 @@
 # OpenStack Nova Fence Agent configuration
-# Authentication and connection parameters for OpenStack Nova fencing
+# Manages fencing for Nova compute nodes via the OpenStack API.
+# This file is managed by Ansible. Do not edit manually.
+
 [openstack]
-# OpenStack cloud identity API version
-auth_version = {{ auth_version }}
+# OpenStack Identity API version (typically '2' or '3'). Use '3' for modern deployments.
+# Defaults to '3'.
+auth_version = {{ auth_version | default('3') }}
 
-# OpenStack region name
-region_name = {{ region_name }}
+# OpenStack region containing the Nova compute resources to fence.
+# Defaults to 'RegionOne'.
+region_name = {{ region_name | default('RegionOne') }}
 
-# Identity endpoint URL (keystone)
-auth_url = {{ auth_url }}
+# Keystone identity endpoint URL. Must include the path and version.
+# Defaults to 'https://identity.example.com:5000/v3'.
+auth_url = {{ auth_url | default('https://identity.example.com:5000/v3') }}
 
-# Project/tenant name for authentication
-project_name = {{ project_name }}
+# Project (tenant) name for the service account used to perform fencing.
+# Defaults to 'services'.
+project_name = {{ project_name | default('services') }}
 
-# Project/tenant ID (optional; use if known and stable)
-{% if project_id %}project_id = {{ project_id }}{% endif %}
+# Optional project (tenant) ID. Use if you want to avoid name lookup (e.g., for multi-region or name collisions).
+# If empty, the project_name is used for lookup.
+{% if (project_id | default('')) %}
+project_id = {{ project_id | default('') }}
+{% endif %}
 
-# Username for service account
-username = {{ username }}
+# Service account username with Nova 'admin' role on target project.
+# Defaults to 'nova-fencer'.
+username = {{ username | default('nova-fencer') }}
 
-# Password for service account
-password = {{ password }}
+# Password for the service account. Should be stored securely (e.g., via vault or file permissions).
+# Defaults to empty string.
+password = {{ password | default('') }}
 
-# Domain name (for Keystone v3+) — leave blank if using v2.0
-{% if domain_name %}domain_name = {{ domain_name }}{% endif %}
+# Domain name for user/project (required for Keystone v3+). Leave empty if using v2.0.
+# Defaults to 'Default'.
+{% if (domain_name | default('Default')) %}
+domain_name = {{ domain_name | default('Default') }}
+{% endif %}
 
-# Optional: Use trust-scoped auth if domain scoped
-{% if trust_id %}trust_id = {{ trust_id }}{% endif %}
+# Optional trust ID for delegation (used in advanced trust-scoped scenarios).
+# If empty, no trust ID is configured.
+{% if (trust_id | default('')) %}
+trust_id = {{ trust_id | default('') }}
+{% endif %}
 
-# Use insecure HTTPS (skip certificate validation)
-insecure = {{ insecure }}
+# Skip SSL certificate verification. Only enable in lab/test environments.
+# Defaults to false.
+insecure = {{ insecure | default(false) }}
 
-# CA certificate bundle path (if not using system CA)
-{% if ca_file %}ca_file = {{ ca_file }}{% endif %}
+# Path to CA certificate bundle file for TLS verification. Omit if using system CA store.
+# If empty, the system CA store is used.
+{% if (ca_file | default('')) %}
+ca_file = {{ ca_file | default('') }}
+{% endif %}
 
-# List of server IDs to fence (populated by cluster manager at runtime, but documented here)
-# servers = {{ servers | join(', ') }}
+# List of Nova server (VM) UUIDs to fence. Typically populated automatically by the cluster manager
+# when fencing is invoked. Provided here only for documentation/static configuration purposes.
+# This list is usually dynamic; if explicitly needed here, it would look like:
+# servers = <uuid1>,<uuid2>
+# However, standard fence agents often determine servers from the cluster resource agent context.
 
-# Optional: Custom API endpoint for Nova (if using non-default service endpoint)
-{% if nova_endpoint %}nova_endpoint = {{ nova_endpoint }}{% endif %}
+# Override Nova service endpoint (e.g., 'https://nova.region.example.com:8774/v2.1').
+# Defaults to catalog lookup. If empty, the catalog is used.
+{% if (nova_endpoint | default('')) %}
+nova_endpoint = {{ nova_endpoint | default('') }}
+{% endif %}
 
-# Timeout (seconds) for each API call
-retry_timeout = {{ retry_timeout }}
+# Total timeout (in seconds) for a fencing operation (sum of retries).
+# Defaults to 60.
+retry_timeout = {{ retry_timeout | default(60) }}
 
-# Number of retries before failing
-retry_count = {{ retry_count }}
+# Maximum number of retry attempts per fencing action.
+# Defaults to 6.
+retry_count = {{ retry_count | default(6) }}
 
-# Wait time (seconds) between retries
-retry_max_delay = {{ retry_max_delay }}
+# Maximum delay (in seconds) between retries. Delay increases exponentially up to this value.
+# Defaults to 30.
+retry_max_delay = {{ retry_max_delay | default(30) }}

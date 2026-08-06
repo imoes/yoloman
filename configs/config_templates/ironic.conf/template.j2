@@ -1,187 +1,217 @@
 [DEFAULT]
-# Enable debug logging
-#debug = {{ debug }}
+# Enable verbose debug logging for troubleshooting.
+debug = {{ debug | default(False) | lower }}
 
-# The IP address to bind the API server
-#api_host = {{ api_host }}
+# IP address the Ironic API server binds to.
+api_host = {{ api_host | default('0.0.0.0') }}
 
-# The port the API server listens on
-#api_port = {{ api_port }}
+# Port the Ironic API server listens on.
+api_port = {{ api_port | default(6385) }}
 
-# The maximum number of workers (processes) for the API service
-#workers = {{ api_workers }}
+# Number of worker processes for the Ironic API service.
+api_workers = {{ api_workers | default(1) }}
 
-# Authentication strategy: 'keystone' or 'noauth'
-#auth_strategy = {{ auth_strategy }}
+# Authentication strategy: 'keystone' for integration with OpenStack Identity, or 'noauth' for development/testing.
+auth_strategy = {{ auth_strategy | default('keystone') }}
 
-# Enable TLS for the API endpoint
-#enable_ssl_api = {{ enable_ssl_api }}
+# Enable TLS/HTTPS for the Ironic API endpoint.
+enable_ssl_api = {{ enable_ssl_api | default(False) | lower }}
 
-# Path to SSL certificate file (required if enable_ssl_api = true)
-#ssl_cert_file = {{ ssl_cert_file }}
+# Path to the TLS certificate file (required if TLS is enabled).
+ssl_cert_file = {{ ssl_cert_file | default('/etc/ironic/ssl/server.crt') }}
 
-# Path to SSL private key file (required if enable_ssl_api = true)
-#ssl_key_file = {{ ssl_key_file }}
+# Path to the TLS private key file (required if TLS is enabled).
+ssl_key_file = {{ ssl_key_file | default('/etc/ironic/ssl/server.key') }}
 
-# Path to CA certificate bundle for verifying client certificates (optional)
-#ssl_ca_file = {{ ssl_ca_file }}
+# Path to the CA certificate bundle for client verification (optional).
+ssl_ca_file = {{ ssl_ca_file | default('/etc/ironic/ssl/ca.crt') }}
 
-# Default conductor group for bare metal nodes
-#default_conductor_group = {{ default_conductor_group }}
+# Default conductor group for bare metal nodes without a specific assignment.
+default_conductor_group = {{ default_conductor_group | default('default') }}
 
-# Default deployment power driver
-#default_power_interface = {{ default_power_interface }}
+# Default power management interface (e.g., ipmitool, redfish).
+default_power_interface = {{ default_power_interface | default('ipmitool') }}
 
-# Default management interface
-#default_management_interface = {{ default_management_interface }}
+# Default management interface (typically matches power interface).
+default_management_interface = {{ default_management_interface | default('ipmitool') }}
 
-# Default boot interface
-#default_boot_interface = {{ default_boot_interface }}
+# Default boot interface for node provisioning.
+default_boot_interface = {{ default_boot_interface | default('pxe') }}
 
 [keystone]
-# Keystone endpoint type: 'public', 'admin', or 'internal'
-#endpoint_type = {{ keystone_endpoint_type }}
+# Keystone endpoint type used by Ironic: 'public', 'internal', or 'admin'.
+endpoint_type = {{ keystone_endpoint_type | default('internal') }}
 
-# Authentication URL for Keystone
-#auth_url = {{ keystone_auth_url }}
+# Keystone authentication URL.
+auth_url = {{ keystone_auth_url | default('http://keystone:5000/v3') }}
 
-# Service project name for Ironic
-#project_name = {{ keystone_project_name }}
+# Project (tenant) name for Ironic's service user in Keystone.
+project_name = {{ keystone_project_name | default('service') }}
 
-# Service user name for Keystone auth
-#username = {{ keystone_username }}
+# Service username in Keystone.
+username = {{ keystone_username | default('ironic') }}
 
-# Password for service user
-#password = {{ keystone_password }}
+# Password for Ironic's Keystone service user. *Do not expose in plaintext.*
+password = {{ keystone_password | default('IRONIC_PASSWORD') }}
 
-# Service domain name
-#user_domain_name = {{ keystone_user_domain_name }}
+# User domain name in Keystone.
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
 
-# Project domain name
-#project_domain_name = {{ keystone_project_domain_name }}
+# Project domain name in Keystone.
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
 
-# Insecure TLS (skip certificate verification)
-#insecure = {{ keystone_insecure }}
+# Disable TLS certificate verification for Keystone communication (not recommended in production).
+insecure = {{ keystone_insecure | default(False) | lower }}
 
 [database]
-# Connection string for the database
-#connection = {{ db_connection }}
+# Database connection string. Supports SQLite for development: 'sqlite:////var/lib/ironic/ironic.sqlite'.
+connection = {{ db_connection | default('mysql+pymysql://ironic:IRONIC_DB_PWD@db/ironic?charset=utf8') }}
 
-# Maximum number of database connections in pool
-#max_pool_size = {{ db_max_pool_size }}
+# Maximum number of database connections in the pool.
+max_pool_size = {{ db_max_pool_size | default(10) }}
 
-# Maximum overflow connections beyond pool
-#max_overflow = {{ db_max_overflow }}
+# Maximum number of additional connections beyond the pool.
+max_overflow = {{ db_max_overflow | default(20) }}
 
-# Connection pool timeout (seconds)
-#pool_timeout = {{ db_pool_timeout }}
+# Timeout (seconds) for acquiring a database connection.
+pool_timeout = {{ db_pool_timeout | default(30) }}
 
 [publish_errors]
-# Enable publishing error events to the notification bus
-#enabled = {{ publish_errors_enabled }}
+# Enable publishing of Ironic errors as notifications on the message bus.
+enabled = {{ publish_errors_enabled | default(True) | lower }}
 
 [conductor]
-# Maximum number of tasks a conductor can handle concurrently
-#task_processing_timeout = {{ conductor_task_processing_timeout }}
+# Maximum time (seconds) a task can remain unprocessed before being requeued.
+task_processing_timeout = {{ conductor_task_processing_timeout | default(3600) }}
 
-# Heartbeat timeout (seconds) before a conductor is considered offline
-#heartbeat_timeout = {{ conductor_heartbeat_timeout }}
+# Seconds after last heartbeat before a conductor is considered offline.
+heartbeat_timeout = {{ conductor_heartbeat_timeout | default(60) }}
 
 [agent]
-# Enable agent-based deployments
-#enabled = {{ agent_enabled }}
+# Enable agent-based deployment (requires Ironic Inspector).
+enabled = {{ agent_enabled | default(True) | lower }}
 
-# Agent API URL (used for direct communication with agents)
-#agent_api_url = {{ agent_api_url }}
+# Base URL for the Ironic Inspector API.
+agent_api_url = {{ agent_api_url | default('http://ironic-inspector:5050') }}
 
-# Maximum time to wait for agent commands (seconds)
-#agent_connect_timeout = {{ agent_connect_timeout }}
+# Timeout (seconds) when connecting to the agent on a node.
+agent_connect_timeout = {{ agent_connect_timeout | default(5) }}
 
-# Maximum time to wait for agent operations (seconds)
-#agent_call_timeout = {{ agent_call_timeout }}
+# Maximum time (seconds) to wait for agent operations to complete.
+agent_call_timeout = {{ agent_call_timeout | default(300) }}
 
-# Download image chunk size in bytes
-#image_download_chunk_size = {{ image_download_chunk_size }}
+# Chunk size (bytes) for downloading images via agent.
+image_download_chunk_size = {{ image_download_chunk_size | default(131072) }}
 
 [ipxe]
-# Enable iPXE boot support
-#enabled = {{ ipxe_enabled }}
+# Enable iPXE boot instead of legacy PXE (for advanced boot control).
+enabled = {{ ipxe_enabled | default(False) | lower }}
 
-# Base URL for iPXE scripts (e.g., http://{{ ipxe_server_ip }}:{{ ipxe_server_port }})
-#iPXE_menu_timeout = {{ ipxe_menu_timeout }}
+# Timeout (seconds) before iPXE boots the default menu entry.
+iPXE_menu_timeout = {{ ipxe_menu_timeout | default(5) }}
 
 [pxe]
-# TFTP server IP (must match DNSMASQ or similar TFTP server)
-#tftp_server = {{ tftp_server_ip }}
+# IP address of the TFTP server (must be reachable by bare metal nodes).
+tftp_server = {{ tftp_server_ip | default('192.168.1.1') }}
 
-# TFTP root directory
-#tftp_root = {{ tftp_root_dir }}
+# Root directory for TFTP files (e.g., PXE boot images).
+tftp_root = {{ tftp_root_dir | default('/tftpboot') }}
 
-# Path to BIOS PXE loader
-#pxe_bootfile_name = {{ pxe_bootfile_name }}
+# Name of the BIOS PXE boot file (for legacy BIOS nodes).
+pxe_bootfile_name = {{ pxe_bootfile_name | default('pxelinux.0') }}
 
-# Path to UEFI PXE loader (ARM64/UEFI)
-#pxe_uefi_bootfile_name = {{ pxe_uefi_bootfile_name }}
+# Name of the UEFI PXE boot file (for UEFI-capable nodes).
+pxe_uefi_bootfile_name = {{ pxe_uefi_bootfile_name | default('grubaa64.efi') }}
 
-# DHCP provider: 'dnsmasq' or 'neutron'
-#dhcp_provider = {{ dhcp_provider }}
+# DHCP provider: 'dnsmasq' (built-in) or 'neutron' (integration required).
+dhcp_provider = {{ dhcp_provider | default('dnsmasq') }}
 
-# Enable DNS service via dnsmasq
-#dns_lookup = {{ dns_lookup_enabled }}
+# Enable DNS resolution for nodes via dnsmasq.
+dns_lookup = {{ dns_lookup_enabled | default(False) | lower }}
 
 [neutron]
-# Neutron auth URL
-#auth_url = {{ neutron_auth_url }}
+# Neutron API endpoint URL.
+auth_url = {{ neutron_auth_url | default('http://neutron:9696') }}
 
-# Neutron project name
-#project_name = {{ neutron_project_name }}
+# Project name for Ironic in Neutron (for port management).
+project_name = {{ neutron_project_name | default('service') }}
 
-# Neutron service user name
-#username = {{ neutron_username }}
+# Service username for Neutron.
+username = {{ neutron_username | default('neutron') }}
 
-# Neutron service user password
-#password = {{ neutron_password }}
+# Password for Ironic's Neutron service user.
+password = {{ neutron_password | default('NEUTRON_PASSWORD') }}
 
-# Neutron service domain name
-#user_domain_name = {{ neutron_user_domain_name }}
+# Neutron user domain name.
+user_domain_name = {{ neutron_user_domain_name | default('Default') }}
 
-# Neutron project domain name
-#project_domain_name = {{ neutron_project_domain_name }}
+# Neutron project domain name.
+project_domain_name = {{ neutron_project_domain_name | default('Default') }}
 
-# Insecure TLS (skip certificate verification)
-#insecure = {{ neutron_insecure }}
+# Disable TLS verification for Neutron API.
+insecure = {{ neutron_insecure | default(False) | lower }}
 
 [inspector]
-# Enable Ironic Inspector integration
-#enabled = {{ inspector_enabled }}
+# Enable hardware inspection via Ironic Inspector.
+enabled = {{ inspector_enabled | default(False) | lower }}
 
-# Inspector API URL (e.g., http://inspector.example.com:5050)
-#url = {{ inspector_url }}
+# URL of the Ironic Inspector API.
+url = {{ inspector_url | default('http://ironic-inspector:5050') }}
 
-# Inspector authentication strategy
-#auth_type = {{ inspector_auth_type }}
+# Authentication type for Inspector API: 'keystone' or 'noauth'.
+auth_type = {{ inspector_auth_type | default('keystone') }}
 
-{% for node_type, drivers in node_drivers.items() %}
-[node_type:{{ node_type }}]
-# Power interface for {{ node_type }} nodes
-#default_power_interface = {{ drivers.power }}
+{% set _drivers = node_drivers | default([]) %}
+{% if _drivers is mapping %}
+  {% for node_type, drivers in _drivers | dict2items %}
+[node:{{ node_type.key }}]
+# Power interface for {{ node_type.key }} nodes
+default_power_interface = {{ drivers.value.get('power', drivers.value.get('default_power_interface')) | default('') }}
 
 # Management interface
-#default_management_interface = {{ drivers.management }}
+default_management_interface = {{ drivers.value.get('management', drivers.value.get('default_management_interface')) | default('') }}
 
 # Boot interface
-#default_boot_interface = {{ drivers.boot }}
+default_boot_interface = {{ drivers.value.get('boot', drivers.value.get('default_boot_interface')) | default('') }}
 
 # IPMI interface (if applicable)
-#default_ipmi_interface = {{ drivers.ipmi }}
+default_ipmi_interface = {{ drivers.value.get('ipmi', drivers.value.get('default_ipmi_interface')) | default('') }}
 
 # RAID interface
-#default_raid_interface = {{ drivers.raid }}
+default_raid_interface = {{ drivers.value.get('raid', drivers.value.get('default_raid_interface')) | default('') }}
 
 # BIOS interface
-#default_bios_interface = {{ drivers.bios }}
+default_bios_interface = {{ drivers.value.get('bios', drivers.value.get('default_bios_interface')) | default('') }}
 
 # Vendor interface
-#default_vendor_interface = {{ drivers.vendor }}
+default_vendor_interface = {{ drivers.value.get('vendor', drivers.value.get('default_vendor_interface')) | default('') }}
 
 {% endfor %}
+{% elif _drivers is iterable and (_drivers | length) > 0 %}
+  {% for entry in _drivers %}
+{% if entry is mapping and 'node_type' in entry and 'drivers' in entry %}
+[node:{{ entry.node_type }}]
+# Power interface for {{ entry.node_type }} nodes
+default_power_interface = {{ entry.drivers.get('power', entry.drivers.get('default_power_interface')) | default('') }}
+
+# Management interface
+default_management_interface = {{ entry.drivers.get('management', entry.drivers.get('default_management_interface')) | default('') }}
+
+# Boot interface
+default_boot_interface = {{ entry.drivers.get('boot', entry.drivers.get('default_boot_interface')) | default('') }}
+
+# IPMI interface (if applicable)
+default_ipmi_interface = {{ entry.drivers.get('ipmi', entry.drivers.get('default_ipmi_interface')) | default('') }}
+
+# RAID interface
+default_raid_interface = {{ entry.drivers.get('raid', entry.drivers.get('default_raid_interface')) | default('') }}
+
+# BIOS interface
+default_bios_interface = {{ entry.drivers.get('bios', entry.drivers.get('default_bios_interface')) | default('') }}
+
+# Vendor interface
+default_vendor_interface = {{ entry.drivers.get('vendor', entry.drivers.get('default_vendor_interface')) | default('') }}
+
+{% endif %}
+{% endfor %}
+{% endif %}

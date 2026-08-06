@@ -1,118 +1,172 @@
-# Default sender address (used when no -f or -r is specified)
-# Set the email address that appears as the sender for outgoing mail
-# {{ default_sender }}
+# =============================================================================
+# DMA Configuration Template
+# Self-documenting configuration for the DMA (Deliver Mail Agent) daemon.
+# =============================================================================
 
-# SMTP relay host for outbound mail (if empty, direct delivery is attempted)
-# Hostname or IP of the external SMTP server to relay mail through
-# {{ relay_host | default('') }}
+# ------------------------------------------------------------------------------
+# General Sender Settings
+# ------------------------------------------------------------------------------
 
-# SMTP relay port (used only if relay_host is set)
-# Port number for the SMTP relay server
-# {{ relay_port | default(587) }}
+# Email address used as the default sender when none is specified.
+# If empty, the system user or relay configuration determines the sender.
+default_sender = {{ default_sender | default('') }}
 
-# Enable authentication to the relay host (true/false)
-# Whether to authenticate to the relay server using the credentials below
-# {{ relay_auth | default(false) }}
+# ------------------------------------------------------------------------------
+# SMTP Relay Configuration
+# ------------------------------------------------------------------------------
 
-# Username for relay authentication (only if relay_auth is true)
-# SMTP relay login username
-# {{ relay_user | default('') }}
+# Hostname or IP of the SMTP relay server.
+# Leave empty for direct delivery to the recipient's MX records.
+relay_host = {{ relay_host | default('') }}
 
-# Password for relay authentication (only if relay_auth is true)
-# SMTP relay login password (store securely!)
-# {{ relay_pass | default('') }}
+# Port number of the SMTP relay server.
+# Used only if relay_host is set.
+relay_port = {{ relay_port | default(587) }}
 
-# Local network allowed to submit mail via SMTP (space-separated CIDRs or hostnames)
-# Networks or hosts permitted to connect to DMA's SMTP listener without restriction
-# {{ allowed_networks | default('127.0.0.0/8') }}
+# Enable authentication to the relay host.
+# Set to true to require login credentials for the relay server.
+relay_auth = {{ relay_auth | default(false) }}
 
-# Local addresses considered local (space-separated hostnames or IPs)
-# Hostnames/IPs that are treated as local destinations (no relay for them)
-# {{ local_hosts | default('localhost') }}
+# Username for relay authentication.
+# Only used if relay_auth is true.
+relay_user = {{ relay_user | default('') }}
 
-# Maximum number of simultaneous SMTP connections per destination host
-# Concurrency limit to avoid overwhelming remote hosts
-# {{ max_connections_per_host | default(5) }}
+# Password for relay authentication.
+# Only used if relay_auth is true. Store securely.
+relay_pass = {{ relay_pass | default('') }}
 
-# Maximum queue size (in bytes) per message (0 = unlimited)
-# Upper bound on message size; larger messages are rejected or truncated
-# {{ max_message_size | default(0) }}
+# ------------------------------------------------------------------------------
+# Network Access Control
+# ------------------------------------------------------------------------------
 
-# Timeout for SMTP transactions (seconds)
-# Connection, data, and response timeouts during SMTP operations
-# {{ smtp_timeout | default(30) }}
+# Networks (CIDR or hostnames) allowed to submit mail without restriction.
+# These sources are trusted and not subject to additional authentication.
+{% set networks = allowed_networks | default(['127.0.0.0/8']) %}
+allowed_networks = {{ networks | join(' ') }}
 
-# Enable TLS for outbound connections (true/false)
-# Use STARTTLS when connecting to relay host or direct SMTP
-# {{ use_tls | default(true) }}
+# Hosts treated as local.
+# Mail destined for these hosts is delivered locally, not relayed.
+{% set locals = local_hosts | default(['localhost']) %}
+local_hosts = {{ locals | join(' ') }}
 
-# Path to CA certificate bundle for TLS verification
-# Required if use_tls is true and custom CA trust is needed
-# {{ tls_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
+# ------------------------------------------------------------------------------
+# Connection and Resource Limits
+# ------------------------------------------------------------------------------
 
-# Enable DNS lookups for MX records (true/false)
-# Disable only in air-gapped environments with manual routing
-# {{ dns_lookup | default(true) }}
+# Maximum concurrent SMTP connections per remote host.
+# Prevents a single client from overwhelming the server.
+max_connections_per_host = {{ max_connections_per_host | default(5) }}
 
-# Retry interval (seconds) for deferred deliveries
-# How often DMA attempts redelivery of queued messages
-# {{ retry_interval | default(300) }}
+# Maximum message size in bytes.
+# 0 means unlimited. Messages larger than this are rejected.
+max_message_size = {{ max_message_size | default(0) }}
 
-# Maximum retries before permanent failure
-# After this many failed attempts, the message is bounced
-# {{ max_retries | default(5) }}
+# SMTP transaction timeout in seconds.
+# Controls connection, data, and response timeouts.
+smtp_timeout = {{ smtp_timeout | default(30) }}
 
-# Log level: debug, info, notice, warn, err, crit, alert, emerg
-# Verbosity of DMA logging
-# {{ log_level | default('info') }}
+# ------------------------------------------------------------------------------
+# TLS and Security Settings
+# ------------------------------------------------------------------------------
 
-# Path to log file (use '-' for stdout)
-# Where DMA writes its logs; use '-' for standard output
-# {{ log_file | default('-') }}
+# Enable STARTTLS for outbound SMTP connections.
+# If true, DMA attempts to upgrade connections to TLS.
+use_tls = {{ use_tls | default(true) }}
 
-# Path to queue directory
-# DMA stores undelivered messages here
-# {{ queue_dir | default('/var/spool/dma') }}
+# Path to CA certificate bundle for TLS verification.
+# Required if use_tls is true and custom CA trust is needed.
+tls_ca_file = {{ tls_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
 
-# Path to PID file
-# File to store DMA daemon process ID
-# {{ pid_file | default('/run/dma/dma.pid') }}
+# ------------------------------------------------------------------------------
+# DNS and Delivery Logic
+# ------------------------------------------------------------------------------
 
-# Listen address(es) for SMTP input (space-separated IP:port)
-# Local addresses/ports where DMA accepts incoming SMTP connections
-# {{ listen | default('127.0.0.1:25') }}
+# Enable DNS MX lookups to determine delivery targets.
+# Disable only in air-gapped environments with manual routing.
+dns_lookup = {{ dns_lookup | default(true) }}
 
-# Enable submission port (587) listener (true/false)
-# If true, adds a :587 listener for authenticated mail submission
-# {{ enable_submission | default(false) }}
+# Seconds between delivery retries for deferred messages.
+# Controls how often DMA attempts redelivery.
+retry_interval = {{ retry_interval | default(300) }}
 
-# Submission authentication backend (none, passwd, pam, ldap)
-# Method to authenticate users submitting mail via port 587
-# {{ submission_auth | default('none') }}
+# Maximum number of delivery attempts before bouncing the message.
+# After this many failures, the message is returned as undeliverable.
+max_retries = {{ max_retries | default(5) }}
 
-# LDAP server URI for submission auth (only if submission_auth=ldap)
-# e.g. ldap://ldap.example.com/ou=People,dc=example,dc=com?uid?sub?(objectClass=posixAccount)
-# {{ ldap_uri | default('') }}
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
 
-# LDAP bind DN (only if submission_auth=ldap and anonymous bind not used)
-# Bind DN for authenticating to the LDAP server
-# {{ ldap_bind_dn | default('') }}
+# Logging verbosity level.
+# Options: debug, info, notice, warn, err, crit, alert, emerg.
+log_level = {{ log_level | default('info') }}
 
-# LDAP bind password (only if submission_auth=ldap)
-# Password for LDAP bind DN
-# {{ ldap_bind_pass | default('') }}
+# Path to log file.
+# Use '-' for stdout.
+log_file = {{ log_file | default('-') }}
 
-# List of custom aliases: {{ item.key }} -> {{ item.value | join(', ') }}
-# User-defined email aliases in the form 'localpart: target1, target2'
-{% for alias in aliases %}# {{ alias.key }}: {{ alias.value | join(', ') }}
+# ------------------------------------------------------------------------------
+# Daemon and Queue Settings
+# ------------------------------------------------------------------------------
+
+# Directory used for the message queue.
+# DMA stores undelivered messages here.
+queue_dir = {{ queue_dir | default('/var/spool/dma') }}
+
+# File to store the DMA daemon process ID.
+pid_file = {{ pid_file | default('/run/dma/dma.pid') }}
+
+# ------------------------------------------------------------------------------
+# Listener Configuration
+# ------------------------------------------------------------------------------
+
+# Addresses/ports to listen on for incoming SMTP.
+# Format: IP:Port. Multiple entries separated by spaces.
+{% set listen_addrs = listen | default(['127.0.0.1:25']) %}
+listen = {{ listen_addrs | join(' ') }}
+
+# Enable the submission port (587) listener.
+# If true, adds a listener on port 587 for authenticated mail submission.
+enable_submission = {{ enable_submission | default(false) }}
+
+# Authentication method for the submission port (587).
+# Options: none, passwd, pam, ldap.
+submission_auth = {{ submission_auth | default('none') }}
+
+# LDAP server URI for submission auth.
+# Only used if submission_auth=ldap.
+# Example: ldap://ldap.example.com/ou=People,dc=example,dc=com?uid?sub?(objectClass=posixAccount)
+ldap_uri = {{ ldap_uri | default('') }}
+
+# Bind DN for LDAP submission auth.
+# Only used if submission_auth=ldap and anonymous bind is not used.
+ldap_bind_dn = {{ ldap_bind_dn | default('') }}
+
+# Password for LDAP bind DN.
+# Only used if submission_auth=ldap.
+ldap_bind_pass = {{ ldap_bind_pass | default('') }}
+
+# ------------------------------------------------------------------------------
+# Alias and Map Rules
+# ------------------------------------------------------------------------------
+
+# Custom email aliases.
+# Format: localpart: target1, target2
+# If no aliases are defined, this section is empty.
+{% for alias in aliases | default([]) %}
+{{ alias.key }}: {{ alias.value | join(', ') }}
 {% endfor %}
 
-# List of sender maps (masquerade rules): {{ item.from }} -> {{ item.to }}
-# Rewrite sender addresses matching 'from' to 'to'
-{% for map in sender_maps %}# {{ map.from }} -> {{ map.to }}
+# Sender rewrite rules (masquerade).
+# Format: from_address -> to_address
+# If no sender maps are defined, this section is empty.
+{% for map in sender_maps | default([]) %}
+{{ map.from }} -> {{ map.to }}
 {% endfor %}
 
-# List of recipient maps: {{ item.from }} -> {{ item.to }}
-# Rewrite recipient addresses matching 'from' to 'to'
-{% for map in recipient_maps %}# {{ map.from }} -> {{ map.to }}
+# Recipient rewrite rules.
+# Format: from_address -> to_address
+# If no recipient maps are defined, this section is empty.
+{% for map in recipient_maps | default([]) %}
+{{ map.from }} -> {{ map.to }}
 {% endfor %}

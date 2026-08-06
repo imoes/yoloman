@@ -1,0 +1,59 @@
+# cputool configuration file
+#
+# This configuration file defines CPU and load management jobs for cputool.
+# Each job targets a specific process (by PID or process group) or command execution,
+# applying limits to CPU usage and system load.
+#
+# Schema:
+# - jobs: List of job definitions.
+#   Each job object must specify either `pid` (Process ID) or `command` (list of command args).
+#   `pid_pgrp` can be used instead of `pid` to target a process group.
+#   `cpu_limit` sets the CPU usage limit.
+#   `load_limit` sets the system load average limit.
+
+{# Iterate over the list of job definitions. Defaults to empty list if 'jobs' is undefined. #}
+{% for job in jobs | default([]) %}
+
+{# Determine if this job targets a specific process or a command #}
+{% if job.pid is defined %}
+# Manage CPU and load for PID {{ job.pid | default(omit) }}
+{% elif job.pid_pgrp is defined %}
+# Manage CPU and load for Process Group {{ job.pid_pgrp | default(omit) }}
+{% elif job.command is defined %}
+# Run command under CPU/load management: {{ job.command | join(' ') | default('') }}
+{% else %}
+# Warning: Job definition missing pid, pid_pgrp, or command. Skipping.
+{% endif %}
+
+{# Start the job command flags #}
+{# Note: The output format resembles cputool command-line arguments or a compact config format #}
+
+{# Targeting by Process ID #}
+{% if job.pid is defined %}
+-p {{ job.pid | default(omit) }}
+{% endif %}
+
+{# Targeting by Process Group #}
+{% if job.pid_pgrp is defined %}
+-P {{ job.pid_pgrp | default(omit) }}
+{% endif %}
+
+{# Targeting by Command #}
+{% if job.command is defined %}
+--
+{% for arg in job.command | default([]) %}
+{{ arg | default('') }}
+{% endfor %}
+{% endif %}
+
+{# CPU Usage Limit #}
+{% if job.cpu_limit is defined %}
+-c {{ job.cpu_limit | default(omit) }}
+{% endif %}
+
+{# System Load Average Limit #}
+{% if job.load_limit is defined %}
+-l {{ job.load_limit | default(omit) }}
+{% endif %}
+
+{% endfor %}

@@ -1,0 +1,40 @@
+#
+# FreeIPMI BMC Watchdog Configuration Template
+#
+# This file configures the bmc-watchdog daemon from the freeipmi-bmc-watchdog package.
+# The daemon monitors the Baseboard Management Controller (BMC) hardware watchdog
+# to ensure system availability in case the OS becomes unresponsive.
+#
+# It generates a command-line options string used by the systemd service or init script.
+#
+
+# Timer use: Selects which hardware timer flag to set in the BMC.
+# Values: 1=BIOS FRB2, 2=BIOS POST, 3=OS_LOAD, 4=SMS OS, 5=OEM
+# Default is 4 (SMS OS).
+OPTIONS="-d -u {{ timer_use | default(4) }}"
+
+# Pre-timeout interrupt: Specifies the interrupt mechanism triggered just before
+# the watchdog timer expires.
+# Values: 0=None, 1=SMI, 2=NMI, 3=Message Interrupt
+# Default is 0 (None).
+OPTIONS="${OPTIONS} -p {{ pre_timeout_interrupt | default(0) }}"
+
+# Timeout action: Defines what the BMC does when the watchdog timer expires
+# without being reset.
+# Values: 0=No action, 1=Hard Reset, 2=Power Down, 3=Power Cycle
+# Default is 1 (Hard Reset).
+OPTIONS="${OPTIONS} -a {{ timeout_action | default(1) }}"
+
+# Clear flags: Ensure specific BIOS timer use flags are cleared to avoid
+# conflicts or unintended state preservation across reboots.
+OPTIONS="${OPTIONS} -F -P -L -S -O"
+
+# Initial countdown: The initial value for the watchdog timer in seconds.
+# The daemon will attempt to reset this timer every `reset_period` seconds.
+# Default is 900 seconds.
+OPTIONS="${OPTIONS} -i {{ initial_countdown | default(900) }}"
+
+# Reset period: The interval in seconds between watchdog timer resets.
+# This must be shorter than the `initial_countdown`.
+# Default is 60 seconds.
+OPTIONS="${OPTIONS} -e {{ reset_period | default(60) }}"

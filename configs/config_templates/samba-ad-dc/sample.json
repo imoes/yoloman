@@ -1,7 +1,7 @@
 {
-  "workgroup": "CORP",
-  "realm": "CORP.EXAMPLE.COM",
-  "netbios_name": "DC01",
+  "workgroup": "EXAMPLE",
+  "realm": "EXAMPLE.COM",
+  "netbios_name": "DC1",
   "server_services": [
     "smb",
     "kdc",
@@ -10,67 +10,34 @@
     "rpcproxy",
     "dnsupdate"
   ],
-  "log_level": "3",
+  "log_level": "2",
   "log_file": "/var/log/samba/log.%m",
-  "max_log_size": 10000,
-  "dns_forwarder": "1.1.1.1",
+  "max_log_size": 5000,
+  "dns_forwarder": "8.8.8.8",
   "dcerpc_endpoint_servers": [
     "remote",
     "samr",
-    "lsarpc"
+    "lsarpc",
+    "epmapper",
+    "dpss"
   ],
   "dns_backend": "SAMBA_INTERNAL",
-  "min_password_length": 14,
+  "min_password_length": 12,
   "password_complexity": "Strong",
   "password_history": 24,
-  "logon_script": "logon.cmd",
+  "logon_script": "logon.bat",
   "logon_path": "\\\\%N\\profiles\\%U",
-  "logon_drive": "Z:",
-  "max_connections": 200,
+  "logon_drive": "H:",
+  "max_connections": 100,
   "socket_options": [
     "TCP_NODELAY",
-    "SO_RCVBUF=262144",
-    "SO_SNDBUF=262144"
+    "SO_RCVBUF=131072",
+    "SO_SNDBUF=131072"
   ],
   "read_raw": true,
   "write_raw": true,
-  "aio_max_threads": 16,
+  "aio_max_threads": 10,
   "server_signing": "required",
   "client_signing": "required",
-  "server_min_protocol": "SMB3_00",
-  "client_min_protocol": "SMB3_00",
-  "ntlm_auth": false,
-  "netlogon_path": "/var/lib/samba/sysvol/corp.example.com/scripts",
-  "sysvol_path": "/var/lib/samba/sysvol",
-  "shares": [
-    {
-      "name": "data",
-      "comment": "Shared department data",
-      "path": "/srv/samba/data",
-      "read_only": false,
-      "browsable": true,
-      "guest_ok": false,
-      "write_list": [
-        "CORP\\Domain Users"
-      ],
-      "valid_users": [
-        "CORP\\Domain Admins",
-        "CORP\\IT-Team"
-      ],
-      "force_user": "root",
-      "create_mask": "0660",
-      "directory_mask": "0770"
-    },
-    {
-      "name": "home",
-      "comment": "User home directories",
-      "path": "/home",
-      "read_only": false,
-      "browsable": false,
-      "guest_ok": false,
-      "force_user": "DOMAIN\\%U",
-      "create_mask": "0600",
-      "directory_mask": "0700"
-    }
-  ]
+  "SAMBAOPTIONS": ""
 }

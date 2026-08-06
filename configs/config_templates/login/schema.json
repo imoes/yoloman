@@ -1,80 +1,37 @@
 {
+  "delay_fail_microseconds": {
+    "type": "number",
+    "default": 3000000,
+    "description": "Microseconds to delay on auth failure"
+  },
+  "issue_file_path": {
+    "type": "string",
+    "default": "/etc/issue",
+    "description": "Path to issue file to display before login prompt (uncommented line if used)"
+  },
+  "motd_dynamic_path": {
+    "type": "string",
+    "default": "/run/motd.dynamic",
+    "description": "Path to dynamic MOTD file"
+  },
+  "locale_env_file": {
+    "type": "string",
+    "default": "/etc/default/locale",
+    "description": "Path to locale environment file"
+  },
   "faillock": {
     "type": "object",
-    "default": {
-      "enable": false,
-      "deny": 5,
-      "unlock_time": 900
-    },
-    "description": "Enable PAM faillock-based account lockout after failed login attempts. Configure thresholds and unlock delay.",
-    "items": {
-      "enable": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable faillock module (PAM faillock.so)"
-      },
-      "deny": {
-        "type": "number",
-        "default": 5,
-        "description": "Number of failed attempts before lockout"
-      },
-      "unlock_time": {
-        "type": "number",
-        "default": 900,
-        "description": "Seconds before automatic unlock (0 = manual unlock only)"
-      }
-    }
+    "default": null,
+    "description": "Enable PAM faillock-based account lockout after failed login attempts. Configure thresholds and unlock delay. (If null, faillock is not configured.)"
   },
   "tally2": {
     "type": "object",
-    "default": {
-      "enable": false,
-      "deny": 5,
-      "unlock_time": 900
-    },
-    "description": "Enable legacy pam_tally2-based lockout (for older systems). Prefer faillock if available.",
-    "items": {
-      "enable": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable pam_tally2 module (legacy)"
-      },
-      "deny": {
-        "type": "number",
-        "default": 5,
-        "description": "Failed attempts threshold"
-      },
-      "unlock_time": {
-        "type": "number",
-        "default": 900,
-        "description": "Seconds before automatic unlock"
-      }
-    }
+    "default": null,
+    "description": "Enable legacy pam_tally2-based lockout (for older systems). Prefer faillock if available. (If null, tally2 is not configured.)"
   },
   "audit_rules": {
     "type": "list",
     "default": [],
-    "description": "List of audit/access control rules for login (e.g., restrict login to specific users).",
-    "items": {
-      "type": "object",
-      "description": "Define an audit rule for login access control.",
-      "items": {
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description of the rule"
-        },
-        "condition": {
-          "type": "bool",
-          "default": false,
-          "description": "If true, use [success=done default=bad] branching instead of unconditional 'required'"
-        },
-        "users": {
-          "type": "list",
-          "default": [],
-          "description": "List of usernames *not* allowed to login (i.e., deny these users)"
-        }
-      }
-    }
+    "description": "List of audit/access control rules for login (e.g., restrict login to specific users)."
   }
 }

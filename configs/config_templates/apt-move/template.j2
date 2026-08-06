@@ -1,0 +1,63 @@
+#  Configuration file for the apt-move script.
+#  This template is self-documenting: every variable is sourced from the Ansible
+#  role schema with safe defaults, and every directive is preceded by its
+#  original schema description.
+#
+#  See the apt-move(8) manpage for details on each setting.
+
+# Configuration for apt-move script --------------------------------------
+
+# The sites in /etc/apt/sources.list that you wish to mirror.
+# Default: /all/
+APTSITES="{{ (aptsites | default('/all/')) | string }}"
+
+# The absolute path to your debian directory (top of your local mirror).
+# This MUST appear as the first entry of your sources.list if you use
+# sync or mirror.
+# Default: /mirrors/debian
+LOCALDIR="{{ localdir | default('/mirrors/debian') | string }}"
+
+# The default distribution (see the apt-move(8) manpage for details)
+# Default: stable
+DIST="{{ dist | default('stable') | string }}"
+
+# The package types you want to mirror.
+# Possible values are: binary, source, and both (use only one).
+# Default: binary
+PKGTYPE="{{ pkgtype | default('binary') | string }}"
+
+# The full (absolute) path to your local cache of package files. The default
+# will work for the apt-get packages, unless you've reconfigured apt.
+# Default: /var/cache/apt/archives
+FILECACHE="{{ filecache | default('/var/cache/apt/archives') | string }}"
+
+# The full (absolute) path to your local cache of Packages files.  The
+# default will work for the apt-get Packages, unless you've reconfigured apt.
+# Default: /var/lib/apt/lists
+LISTSTATE="{{ liststate | default('/var/lib/apt/lists') | string }}"
+
+# Do you want apt-move to delete obsolete files from your mirror? (yes/no)
+# Default: no
+DELETE="{{ delete | default('no') | string }}"
+
+# Maximum percentage of files to delete during a normal run.
+# Default: 20
+MAXDELETE="{{ maxdelete | default(20) | string }}"
+
+# Set this to yes if you wish to keep the originals for move/movefile.
+# Default: no
+COPYONLY="{{ copyonly | default('no') | string }}"
+
+# Set this to 'none gzip' to get uncompressed Packages/Sources files.
+# Default: gzip
+PKGCOMP="{{ pkgcomp | default('gzip') | string }}"
+
+# Set this to yes to make apt-move generate Contents files.
+# Default: no
+CONTENTS="{{ contents | default('no') | string }}"
+
+# Set this to key name to be used for signing Release files.
+# Default: (empty)
+GPGKEY="{{ gpgkey | default('') | string }}"
+
+# End Configuration ------------------------------------------------------

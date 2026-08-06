@@ -1,95 +1,26 @@
-# Database file paths
-DatabaseDir: {{ database_dir }}
+#!/bin/sh
 
-# HTML content storage
-DocumentDir: {{ document_dir }}
+if ! `which lockfile-create >/dev/null 2>&1` || [ ! -x /usr/bin/rundig ]; then
+	exit 0
+fi
 
-# Log file path
-LogFile: {{ log_file }}
+if ! lockfile-create {{ lockfile_path }}; then
+    # Another htdig indexing cronjob is already running
+    exit 0
+fi
 
-# Temporary directory for index building
-WorkDir: {{ work_dir }}
+lockfile-touch {{ lockfile_path }} &
+# Save the PID of the lockfile-touch process
+BADGER="$!"
 
-# HTTP timeout in seconds
-ConnectionTimeout: {{ connection_timeout }}
+if [ -r {{ default_config_file }} ]; then
+	if [ -f /usr/bin/rundig ]; then
+		RUN=$(awk '/^run_rundig/ {print $3}' {{ default_config_file }})
+		if [ "$RUN" = "true" ]; then
+			/usr/bin/rundig -a -s
+		fi
+	fi
+fi
 
-# Maximum number of URLs to follow per site
-MaxHops: {{ max_hops }}
-
-# Maximum number of documents to index
-MaxDocuments: {{ max_documents }}
-
-# Maximum size (in bytes) of a document to index
-MaxDocSize: {{ max_doc_size }}
-
-# Minimum word length to index
-MinWordLength: {{ min_word_length }}
-
-# Maximum word length to index
-MaxWordLength: {{ max_word_length }}
-
-# Enable case-insensitive search
-CaseInsensitive: {{ case_insensitive | string | lower }}
-
-# Enable stemming
-Stemming: {{ stemming | string | lower }}
-
-# Enable fuzzy matching
-Fuzzy: {{ fuzzy | string | lower }}
-
-# Enable synonym expansion
-Synonyms: {{ synonyms | string | lower }}
-
-# Enable stemming language
-StemLanguage: {{ stem_language }}
-
-# HTTP user agent string
-UserAgent: {{ user_agent }}
-
-# Default search results page URL
-ResultTemplate: {{ result_template }}
-
-# Default search results template file
-ResultTemplateFile: {{ result_template_file }}
-
-# Number of results per page
-ResultsPerPage: {{ results_per_page }}
-
-# Default search sort order
-DefaultSortBy: {{ default_sort_by }}
-
-# Allowed URL patterns (regex, one per line)
-{% for pattern in allowed_urls %}# Allowed URL pattern {{ loop.index }}
-AllowURLs: {{ pattern }}
-{% endfor %}
-
-# Disallowed URL patterns (regex, one per line)
-{% for pattern in disallowed_urls %}# Disallowed URL pattern {{ loop.index }}
-DisallowURLs: {{ pattern }}
-{% endfor %}
-
-# Excluded file extensions (one per line)
-{% for ext in excluded_extensions %}# Exclude file extension {{ ext }}
-ExcludeExtensions: {{ ext }}
-{% endfor %}
-
-# Search engine server bind host:port
-Server: {{ server_host }}:{{ server_port }}
-
-# Enable debug mode
-Debug: {{ debug | string | lower }}
-
-# Enable verbose logging
-Verbose: {{ verbose | string | lower }}
-
-# Maximum number of concurrent fetchers
-Fetchers: {{ fetchers }}
-
-# Maximum fetch delay (in seconds) between requests to same host
-FetchDelay: {{ fetch_delay }}
-
-# Retry failed fetches up to N times
-RetryCount: {{ retry_count }}
-
-# Use robots.txt and meta robots tags
-UseRobots: {{ use_robots | string | lower }}
+kill "${BADGER}" >/dev/null 2>&1
+lockfile-remove {{ lockfile_path }}

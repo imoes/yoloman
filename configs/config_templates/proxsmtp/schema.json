@@ -1,4 +1,9 @@
 {
+  "global_run_dir": {
+    "type": "string",
+    "default": "/run/proxsmtp",
+    "description": "Directory where runtime files (e.g., PID files) are stored."
+  },
   "global_pid_file": {
     "type": "string",
     "default": "/run/proxsmtp/proxsmtpd.pid",
@@ -12,15 +17,7 @@
   "global_log_level": {
     "type": "string",
     "default": "info",
-    "description": "Logging verbosity: debug, info, notice, warning, error, critical.",
-    "allowed_values": [
-      "debug",
-      "info",
-      "notice",
-      "warning",
-      "error",
-      "critical"
-    ]
+    "description": "Logging verbosity: debug, info, notice, warning, error, critical."
   },
   "global_max_connections": {
     "type": "number",
@@ -60,155 +57,11 @@
   "backend_servers": {
     "type": "list",
     "default": [],
-    "description": "List of backend SMTP servers to which proxsmtp will relay messages.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique identifier for the backend server."
-      },
-      "address": {
-        "type": "string",
-        "description": "IP address or hostname of the backend server."
-      },
-      "port": {
-        "type": "number",
-        "default": 25,
-        "description": "Port on the backend server (usually 25, 587, or 465)."
-      },
-      "tls": {
-        "type": "bool",
-        "default": false,
-        "description": "Use TLS when connecting to this backend (STARTTLS or implicit)."
-      },
-      "timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Connection and operation timeout in seconds."
-      }
-    }
+    "description": "List of backend SMTP servers to which proxsmtp will relay messages."
   },
   "acl_rules": {
     "type": "list",
     "default": [],
-    "description": "Access control rules to filter or modify messages based on sender/recipient/etc.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique rule name."
-      },
-      "match_sender": {
-        "type": "list",
-        "default": [],
-        "description": "List of sender patterns (domains or email addresses) to match."
-      },
-      "match_recipient": {
-        "type": "list",
-        "default": [],
-        "description": "Optional list of recipient patterns to match."
-      },
-      "match_header": {
-        "type": "list",
-        "default": [],
-        "description": "Optional list of header patterns (e.g., 'Subject:.*SPAM' or 'X-Spam: yes')."
-      },
-      "action": {
-        "type": "string",
-        "default": "relay",
-        "description": "Action to take: 'relay', 'rewrite', 'reject', or 'discard'.",
-        "allowed_values": [
-          "relay",
-          "rewrite",
-          "reject",
-          "discard"
-        ]
-      },
-      "rewrite_to": {
-        "type": "string",
-        "default": "",
-        "description": "Target address to rewrite matched recipients to (used only if action=rewrite)."
-      },
-      "reject_message": {
-        "type": "string",
-        "default": "",
-        "description": "SMTP rejection message to return to client (used only if action=reject)."
-      }
-    }
-  },
-  "relay_domains": {
-    "type": "list",
-    "default": [],
-    "description": "List of domains or subnets for which the proxy will accept and relay mail.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Descriptive name for the relay entry."
-      },
-      "domain": {
-        "type": "string",
-        "default": "",
-        "description": "Domain name (e.g., 'example.com') allowed for relay. Use only if not using network."
-      },
-      "network": {
-        "type": "string",
-        "default": "",
-        "description": "CIDR subnet (e.g., '192.168.1.0/24') allowed for relay. Use only if not using domain."
-      },
-      "auth_required": {
-        "type": "bool",
-        "default": true,
-        "description": "Require authentication (SASL) before relaying mail from this domain/network."
-      }
-    }
-  },
-  "auth_backend": {
-    "type": "object",
-    "default": null,
-    "description": "Optional authentication backend for SASL. If omitted, only IP-based relay is supported.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Backend name (for logging/debugging)."
-      },
-      "type": {
-        "type": "string",
-        "default": "ldap",
-        "description": "Backend type: 'ldap' or 'sql'.",
-        "allowed_values": [
-          "ldap",
-          "sql"
-        ]
-      },
-      "uri": {
-        "type": "string",
-        "default": "ldap://ldap.example.com",
-        "description": "LDAP server URI (required for ldap type)."
-      },
-      "base_dn": {
-        "type": "string",
-        "default": "dc=example,dc=com",
-        "description": "Base DN for user searches (required for ldap type)."
-      },
-      "bind_dn": {
-        "type": "string",
-        "default": "cn=proxy,dc=example,dc=com",
-        "description": "Bind DN for querying the LDAP server (required for ldap type)."
-      },
-      "bind_password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for bind DN (required for ldap type).",
-        "sensitive": true
-      },
-      "connection_string": {
-        "type": "string",
-        "default": "sqlite:///etc/proxsmtp/auth.db",
-        "description": "Database connection string (e.g., 'sqlite://...', 'mysql://...') (required for sql type)."
-      },
-      "user_query": {
-        "type": "string",
-        "default": "SELECT password FROM users WHERE email = ?",
-        "description": "SQL query to retrieve password for a given email address (required for sql type)."
-      }
-    }
+    "description": "Access control rules to filter or modify messages based on sender/recipient/etc."
   }
 }

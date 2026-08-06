@@ -1,178 +1,214 @@
-# Global settings for Heartbeat
-heartbeat.global:
-  # Period between sending heartbeats (events) to Logstash or Elasticsearch
-  # Heartbeat sends a status event every `period` to monitor service health
-  period: {{ heartbeat_period }}
+# ============================================================================
+# Beats Heartbeat Configuration Template
+# ============================================================================
+# This template generates the `heartbeat.yml` configuration file for the
+# Elastic Beats Heartbeat component. It monitors service health by sending
+# status events (ICMP, TCP, HTTP, DNS, SSH) to Elasticsearch.
+#
+# Self-documentation principle: every directive is preceded by a comment
+# explaining its purpose, sourced from the schema definition.
+# ============================================================================
 
-  # Configuration for processors applied to all events
-  # Processors enrich or filter events before shipping
-{% for proc in processors %}
-{% if proc.type == 'add_fields' %}
+# ===========================================================================
+# Global Settings
+# ===========================================================================
+heartbeat.global:
+  # Seconds between sending heartbeat events (min: 5)
+  period: {{ heartbeat_period | default(30) }}
+
+  # List of processors to apply to events (e.g., enrich, filter)
+  # Processors are applied to all events before shipping to the output.
   processors:
+{% for proc in processors | default([]) %}
+{% if proc.type == 'add_fields' %}
+    # Processor: add_fields
+    # Adds static fields to events. Useful for tagging environment or service tier.
     - add_fields:
-        # Add static fields to events (e.g., environment, service tier)
         target: ''
         fields:
-{% for key, val in proc.fields.items() %}
-          {{ key }}: {{ val | quote }}
+{% for item in (proc.fields | default({})) | dict2items %}
+          {{ item.key }}: {{ item.value | quote }}
 {% endfor %}
 {% elif proc.type == 'drop_fields' %}
+    # Processor: drop_fields
+    # Removes specified fields from events to reduce noise.
     - drop_fields:
-        # Remove specified fields from events
-        fields: {{ proc.fields | join(', ') }}
+        fields: {{ proc.fields | default([]) | join(', ') }}
 {% elif proc.type == 'dissect' %}
+    # Processor: dissect
+    # Parses structured data from the message field using a specified pattern.
     - dissect:
-        # Parse structured data from message field using pattern
-        tokenizer: {{ proc.tokenizer | quote }}
+        tokenizer: {{ proc.tokenizer | default('') | quote }}
         field: message
-        target_prefix: {{ proc.target_prefix | quote }}
+        target_prefix: {{ proc.target_prefix | default('') | quote }}
 {% endif %}
 {% endfor %}
 
-# Configuration for the Heartbeat monitor instances
-# Each monitor defines how to check a specific service endpoint
-{% for monitor in monitors %}
-monitor:
+# ===========================================================================
+# Monitor Instances
+# ===========================================================================
+# Each monitor defines how to check a specific service endpoint.
+# Supported types: icmp, tcp, http, dns, ssh.
+{% for monitor in monitors | default([]) %}
   # Unique name for this monitor (used in UI and alerts)
   name: {{ monitor.name | quote }}
+
   # Type of check: icmp, tcp, http, dns, or ssh
-  type: {{ monitor.type }}
+  type: {{ monitor.type | default('http') }}
+
   # Frequency of checks in seconds (must be >= 5s)
-  interval: {{ monitor.interval }}s
+  interval: {{ monitor.interval | default(30) }}s
+
   # Enable or disable this monitor (true/false)
-  enabled: {{ monitor.enabled }}
+  enabled: {{ monitor.enabled | default(true) | lower }}
+
 {% if monitor.type == 'icmp' %}
   # Host to ping (IPv4 or IPv6 address or hostname)
   host: {{ monitor.host | quote }}
   # Number of ICMP packets to send per check
-  packet_size: {{ monitor.packet_size }}
+  packet_size: {{ monitor.packet_size | default(56) }}
+
 {% elif monitor.type == 'tcp' %}
   # Hostname and port to probe (e.g., example.com:443)
-  hosts: [{{ monitor.hosts | join(', ') | quote }}]
+  hosts: [{{ monitor.hosts | default([]) | join(', ') | quote }}]
   # TCP check settings (optional timeouts)
   # Timeout after which the connection attempt is aborted
-  timeout: {{ monitor.timeout }}s
+  timeout: {{ monitor.timeout | default(5) }}s
+
 {% elif monitor.type == 'http' %}
   # HTTP endpoint(s) to probe
-  urls: [{{ monitor.urls | join(', ') | quote }}]
+  urls: [{{ monitor.urls | default([]) | join(', ') | quote }}]
   # HTTP method for the request
-  method: {{ monitor.method }}
+  method: {{ monitor.method | default('GET') }}
   # Optional headers to include
-{% for key, val in monitor.headers.items() %}
   headers:
-    {{ key }}: {{ val | quote }}
+{% for item in (monitor.headers | default({})) | dict2items %}
+    {{ item.key }}: {{ item.value | quote }}
 {% endfor %}
   # Timeout for HTTP request
-  timeout: {{ monitor.timeout }}s
+  timeout: {{ monitor.timeout | default(5) }}s
+
 {% elif monitor.type == 'dns' %}
   # DNS server to query
-  nameservers: [{{ monitor.nameservers | join(', ') | quote }}]
+  nameservers: [{{ monitor.nameservers | default([]) | join(', ') | quote }}]
   # Domain to resolve
   query_name: {{ monitor.query_name | quote }}
   # DNS record type (A, AAAA, MX, etc.)
-  query_type: {{ monitor.query_type }}
+  query_type: {{ monitor.query_type | default('A') }}
   # Timeout for DNS lookup
-  timeout: {{ monitor.timeout }}s
+  timeout: {{ monitor.timeout | default(5) }}s
+
 {% elif monitor.type == 'ssh' %}
   # SSH host and port to connect to
-  hosts: [{{ monitor.hosts | join(', ') | quote }}]
+  hosts: [{{ monitor.hosts | default([]) | join(', ') | quote }}]
   # SSH port (default 22)
-  port: {{ monitor.port }}
+  port: {{ monitor.port | default(22) }}
   # Timeout for SSH connection
-  timeout: {{ monitor.timeout }}s
+  timeout: {{ monitor.timeout | default(5) }}s
+
 {% endif %}
 
-  # Optional: What to verify in the response
-{% if monitor.checks %}
-  # Additional verification steps
-{% if monitor.checks.response %}
-  # Verify HTTP response contains specific content
+  # ===========================================================================
+  # Optional Checks and Verifications
+  # ===========================================================================
+{% if monitor.checks is defined and monitor.checks %}
+  # Additional verification steps for the monitor response
+{% if monitor.checks.response is defined and monitor.checks.response %}
   response:
     # Text to search for (case-insensitive by default)
-    contains: {{ monitor.checks.response.contains | join(', ') | quote }}
+    contains: {{ monitor.checks.response.contains | default([]) | join(', ') | quote }}
 {% endif %}
-{% if monitor.checks.status %}
-  # Verify HTTP status code matches expected value(s)
+{% if monitor.checks.status is defined and monitor.checks.status %}
   status:
     # HTTP status code(s) to consider healthy
-    codes: [{{ monitor.checks.status.codes | join(', ') | quote }}]
+    codes: {{ monitor.checks.status.codes | default([]) | join(', ') }}
 {% endif %}
 {% endif %}
 
-  # Optional: TLS/SSL settings for HTTPS or SSH
-{% if monitor.tls.enabled %}
-  # TLS configuration for secure checks (HTTP or SSH)
+  # ===========================================================================
+  # Optional TLS/SSL Settings
+  # ===========================================================================
+{% if monitor.tls is defined and monitor.tls and (monitor.tls.enabled | default(false)) %}
   tls:
     # Skip certificate verification (for self-signed certs — NOT recommended in production)
     # Use only in test environments
-    verification_mode: {{ monitor.tls.verification_mode | quote }}
-{% if monitor.tls.certificate_authorities %}
+    verification_mode: {{ monitor.tls.verification_mode | default('none') | quote }}
+{% if monitor.tls.certificate_authorities is defined and monitor.tls.certificate_authorities %}
     # Path to custom CA certificates
-    certificate_authorities: [{{ monitor.tls.certificate_authorities | join(', ') | quote }}]
+    certificate_authorities: {{ monitor.tls.certificate_authorities | default([]) | join(', ') | quote }}
 {% endif %}
 {% endif %}
 
   # Optional: Set tags for this monitor (e.g., for filtering in UI)
-  tags: [{{ monitor.tags | join(', ') | quote }}]
+  tags: {{ monitor.tags | default([]) | join(', ') }}
 
-  # Optional: Configure alerting conditions
-{% if monitor.alert %}
+  # ===========================================================================
+  # Optional Alerting Configuration
+  # ===========================================================================
+{% if monitor.alert is defined and monitor.alert %}
   alert:
     # Alert if monitor fails `times` consecutive times
     when:
-      fails:
-        - {{ monitor.alert.when.fails }}
+      fails: {{ monitor.alert.when.fails | default(3) }}
 {% endif %}
+
 {% endfor %}
 
-# Configuration for sending events to Elasticsearch
-# (Heartbeat can also send to Logstash or file — this config assumes Elasticsearch)
+# ===========================================================================
+# Output Configuration: Elasticsearch
+# ===========================================================================
+# Heartbeat sends status events to Elasticsearch by default.
 output.elasticsearch:
-  # List of Elasticsearch hosts to connect to
-  hosts: [{{ elasticsearch_hosts | join(', ') | quote }}]
-  # Elasticsearch index template to use
+  # List of Elasticsearch host URLs
+  hosts: {{ elasticsearch_hosts | default(['http://localhost:9200']) | join(', ') | quote }}
+
+  # Elasticsearch index template to use for storing heartbeat data
   index: heartbeat-%{+yyyy.MM.dd}
+
   # Optional: Authentication (if security is enabled)
-{% if elasticsearch_username %}
-  username: {{ elasticsearch_username | quote }}
+{% if elasticsearch_username | default('') | trim %}
+  username: {{ elasticsearch_username | default('') | quote }}
 {% endif %}
-{% if elasticsearch_password %}
-  password: {{ elasticsearch_password | quote }}
+{% if elasticsearch_password | default('') | trim %}
+  password: {{ elasticsearch_password | default('') | quote }}
 {% endif %}
-  # Optional: SSL/TLS
-{% if elasticsearch_ssl.enabled %}
+
+  # Optional: SSL/TLS settings for Elasticsearch connection
+{% if elasticsearch_ssl is defined and elasticsearch_ssl and (elasticsearch_ssl.enabled | default(false)) %}
   ssl:
     # CA certificate for verifying Elasticsearch identity
-    certificate_authorities: [{{ elasticsearch_ssl.certificate_authorities | join(', ') | quote }}]
+    certificate_authorities: {{ elasticsearch_ssl.certificate_authorities | default([]) | join(', ') | quote }}
     # Skip hostname verification (not recommended in production)
-    # Use only in test environments
-    verification_mode: {{ elasticsearch_ssl.verification_mode | quote }}
+    verification_mode: {{ elasticsearch_ssl.verification_mode | default('certificate') | quote }}
 {% endif %}
 
-# Logging configuration
-# Controls verbosity and destination of heartbeat logs
+# ===========================================================================
+# Logging Configuration
+# ===========================================================================
+# Controls verbosity and destination of Heartbeat logs.
 logging:
   # Level: debug, info, warning, error, critical
-  level: {{ logging_level }}
+  level: {{ logging_level | default('info') | lower }}
+
   # Where to write logs: default is stderr; can also be files
-  to_files: {{ logging_to_files }}
-  # Path to log files
+  to_files: {{ logging_to_files | default(false) | lower }}
+
+  # Path to log files (only used if to_files is true)
   files:
-    path: {{ logging_file_path | quote }}
+    path: {{ logging_file_path | default('/var/log/heartbeat') | quote }}
     name: heartbeat
-    # Rotate logs after this many days
-    rotateeverybytes: {{ logging_rotate_bytes }}
-    # Keep this many log files
-    keepfiles: {{ logging_keep_files }}
+    # Rotate logs after this many bytes (10 MB default)
+    rotateeverybytes: {{ logging_rotate_bytes | default(10485760) }}
+    # Keep this many log files after rotation
+    keepfiles: {{ logging_keep_files | default(7) }}
 
-# Metric collection (optional, for internal metrics)
-# Enables internal metrics to be sent to Elasticsearch
+# ===========================================================================
+# Metric Collection Configuration
+# ===========================================================================
+# Enables internal metrics to be sent to Elasticsearch.
 metrics:
-  enabled: {{ metrics_enabled }}
-  period: {{ metrics_period }}s
-  # Metrics are sent to the same output as heartbeat events
-  # Optionally override output with `outputs.metrics`
-
-# Setup command (not in config file itself, but used by heartbeat setup)
-# This section would be populated during `heartbeat setup`, so we omit it from config template
-# See `setup` in Heartbeat docs for Kibana dashboards, etc.
+  # Enable internal metrics collection
+  enabled: {{ metrics_enabled | default(false) | lower }}
+  # Interval (seconds) between sending internal metrics
+  period: {{ metrics_period | default(60) }}s
+  # Metrics are sent to the same output as heartbeat events (Elasticsearch)

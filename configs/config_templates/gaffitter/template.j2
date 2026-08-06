@@ -1,0 +1,180 @@
+{# ============================================================================= #}
+{# gaffitter configuration - Genetic Algorithm File Subset Extractor              #}
+{# Self-documenting template generated for Ansible role reuse.                   #}
+{# Every option below includes its schema description as a comment.              #}
+{# Variables use the 'default()' filter with schema-provided defaults to         #}
+{# ensure safety even when variables are undefined.                              #}
+{# ============================================================================= #}
+
+{# --- Main Selection Options --- #}
+
+{# Target size (mandatory), e.g., '700m', '4.7g'. Unit suffixes: k, m, g, t. #}
+-t {{ target | default('') }}
+
+{# Maximum number of bins (volumes). Use 'unlimited' or a positive integer. #}
+--bins {{ bins | default('unlimited') }}
+
+{# Use powers of 1000 (not 1024) for target, min, max, and output sizes. #}
+{% if si | default(False) | bool %}
+--si
+{% endif %}
+
+{# Minimum file size. Use unit suffixes: k, m, g, t. #}
+{% if min_size | default('') | trim %}
+--min {{ min_size | default('') }}
+{% endif %}
+
+{# Maximum file size. Use unit suffixes: k, m, g, t. #}
+{% if max_size | default('') | trim %}
+--max {{ max_size | default('') }}
+{% endif %}
+
+{# Smallest amount of bytes a file can occupy (must be ≥1). #}
+-B {{ block_size | default(1) }}
+
+{# Print the size of each file. #}
+{% if show_size | default(False) | bool %}
+--show-size
+{% endif %}
+
+{# Also print sizes in bytes. #}
+{% if show_bytes | default(False) | bool %}
+--show-bytes
+{% endif %}
+
+{# Don't print selected files. #}
+{% if hide_items | default(False) | bool %}
+--hide-items
+{% endif %}
+
+{# Hide summary line containing sum, difference, and number of selected files. #}
+{% if hide_summary | default(False) | bool %}
+--hide-summary
+{% endif %}
+
+{# Sort the output by size, not by name. #}
+{% if sort_by_size | default(False) | bool %}
+--sort-by-size
+{% endif %}
+
+{# Use case-insensitive sorting. #}
+{% if no_case | default(False) | bool %}
+--no-case
+{% endif %}
+
+{# Sort the output in reverse order. #}
+{% if sort_reverse | default(False) | bool %}
+--sort-reverse
+{% endif %}
+
+{# Enclose file names with this character. #}
+{% if enclose_with | default('') | trim %}
+--enclose-with {{ enclose_with | default('') }}
+{% endif %}
+
+{# Delimit file names (lines) with this character. Use '\n' for newline, '\0' for NUL. #}
+{% if delimit_with | default('\\n') | trim %}
+--delimit-with {{ delimit_with | default('\\n') }}
+{% endif %}
+
+{# Assume NULL (\0) as the delimiter of input files via stdin. #}
+{% if null_data | default(False) | bool %}
+--null-data
+{% endif %}
+
+{# Same as --delimit-with '\0'. #}
+{% if null_output | default(False) | bool %}
+--null
+{% endif %}
+
+{# Same as --bins-separator '\0'. #}
+{% if null_bins | default(False) | bool %}
+--null-bins
+{% endif %}
+
+{# Separate bins (vols) with this character. Use '\n' for newline, '\0' for NUL. #}
+{% if bins_separator | default('\\n') | trim %}
+--bins-separator {{ bins_separator | default('\\n') }}
+{% endif %}
+
+{# Verbose output. #}
+{% if verbose | default(False) | bool %}
+--verbose
+{% endif %}
+
+{# --- Genetic Algorithm Options --- #}
+
+{# GA initialization seed (>=0). 0 means random. #}
+--ga-seed {{ ga_seed | default(1) }}
+
+{# Use random GA seed (same as --ga-seed 0). #}
+{% if ga_random_seed | default(False) | bool %}
+--ga-random-seed
+{% endif %}
+
+{# Maximum number of generations (must be >0). 0 means auto. #}
+--ga-num-generations {{ ga_num_generations | default(0) }}
+
+{# Number of individuals (must be > tournament_size). 0 means auto. #}
+--ga-pop-size {{ ga_pop_size | default(0) }}
+
+{# Crossover probability (0.0 <= value <= 1.0). #}
+--ga-cross-prob {{ ga_cross_prob | default(0.95) }}
+
+{# Mutation probability per gene (0.0 <= value <= 1.0). 0.0 means auto. #}
+--ga-mutation-prob {{ ga_mutation_prob | default(0.0) }}
+
+{# Selection pressure (tournament size). 2 <= value < pop_size. #}
+--ga-sel-pressure {{ ga_sel_pressure | default(2) }}
+
+{# Stop if theoretical minimum number of bins is reached. If non-zero, assumes this number. #}
+--ga-theoretical {{ ga_theoretical | default(0) }}
+
+{# --- Alternative Search Methods --- #}
+
+{# Use Best First search (approximate, non-optimal but fast). #}
+{% if approximate | default(False) | bool %}
+--approximate
+{% endif %}
+
+{# Just split the input when target size is reached (preserves original order). #}
+{% if split | default(False) | bool %}
+--split
+{% endif %}
+
+{# --- Direct Input Mode Options --- #}
+
+{# Switch to direct input mode: read "size identifier" pairs instead of file names. #}
+{% if direct_input | default(False) | bool %}
+--direct-input
+{% endif %}
+
+{# Assume input sizes as bytes. #}
+{% if di_bytes | default(False) | bool %}
+--di-bytes
+{% endif %}
+
+{# Assume input sizes as kibi bytes (KiB). KB if --di-si. #}
+{% if di_kb | default(False) | bool %}
+--di-kb
+{% endif %}
+
+{# Assume input sizes as mebi bytes (MiB). MB if --di-si. #}
+{% if di_mb | default(False) | bool %}
+--di-mb
+{% endif %}
+
+{# Assume input sizes as gibi bytes (GiB). GB if --di-si. #}
+{% if di_gb | default(False) | bool %}
+--di-gb
+{% endif %}
+
+{# Assume input sizes as tebi bytes (TiB). TB if --di-si. #}
+{% if di_tb | default(False) | bool %}
+--di-tb
+{% endif %}
+
+{# Use powers of 1000 (not 1024) for input sizes. #}
+{% if di_si | default(False) | bool %}
+--di-si
+{% endif %}

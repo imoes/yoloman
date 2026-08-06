@@ -2,50 +2,62 @@
 // DokuWiki Configuration File
 // This file is auto-generated. Do not edit directly.
 
-// Site identifier (used for cache keys and cookies)
-$conf['title'] = '{{ site_title }}';
+// Site title (shown in browser tabs and page headers)
+$conf['title'] = '{{ site_title | default("My DokuWiki") }}';
 
-// Base URL (must include trailing slash)
-$conf['baseurl'] = '{{ base_url }}';
+// Full base URL where this DokuWiki instance is accessible (must include trailing slash)
+$conf['baseurl'] = '{{ base_url | default("http://example.com/dokuwiki/") }}';
 
-// Path to the data directory (must be writable)
-$conf['datadir'] = '{{ data_dir }}';
+// Absolute path to the data directory (must be writable by the web server)
+$conf['datadir'] = '{{ data_dir | default("/var/lib/dokuwiki/data") }}';
 
-// Path to the config directory (optional, defaults to 'conf')
-{% if config_dir %}$conf['configdir'] = '{{ config_dir }}';{% endif %}
+// Optional absolute path to the config directory (if different from the default 'conf' subdirectory of data_dir)
+{% if (config_dir | default("")) | trim != "" %}$conf['configdir'] = '{{ config_dir | default("") }}';
+{% endif %}
 
-// Default namespace (used when no namespace is specified)
-$conf['startnamespace'] = '{{ start_namespace }}';
+// Default namespace used when no namespace is specified (e.g., 'start' means the page 'start' in the 'start' namespace)
+$conf['startnamespace'] = '{{ start_namespace | default("start") }}';
 
-// ACL enforcement (true = enabled, false = disabled)
-$conf['useacl'] = {{ use_acl | lower }};
+// Enable Access Control List (ACL) permissions system to restrict read/edit/upload/delete/admin actions per user/group
+$conf['useacl'] = {{ use_acl | default(True) | lower }};
 
-// Default permission level (0=read, 10=edit, 20=upload, 40=delete, 100=admin)
-{% if default_user_level is defined %}$conf['defaultuserlevel'] = {{ default_user_level }};{% endif %}
+// Default permission level for unauthenticated users (0=read only, 10=edit, 20=upload, 40=delete, 100=admin)
+$conf['defaultuserlevel'] = {{ default_user_level | default(0) }};
 
-// Enable syntax highlighting (requiresgeshi plugin or built-in support)
-$conf['syntaxmode'] = '{{ syntax_mode }}';
+// Default syntax highlighting engine ('dokuwiki' for built-in, or 'geshi' if geshi plugin is enabled)
+$conf['syntaxmode'] = '{{ syntax_mode | default("dokuwiki") }}';
 
-// Number of recent changes to show
-{% if recent_changes_count is defined %}$conf['recent'] = {{ recent_changes_count }};{% endif %}
+// Number of recent changes to display on the recent changes page and feed
+$conf['recent'] = {{ recent_changes_count | default(20) }};
 
-// Number of lines per page in admin UI
-{% if admin_items_per_page is defined %}$conf['itemsperpage'] = {{ admin_items_per_page }};{% endif %}
+// Number of items (users, ACL entries, etc.) to show per page in the admin interface
+$conf['itemsperpage'] = {{ admin_items_per_page | default(50) }};
 
-// Enable/disallow user registration
-{% if allow_register is defined %}$conf['registernotify'] = {{ allow_register | lower }};{% endif %}
+// Allow public self-registration. When true, new users can register via the web UI (subject to email validation if configured)
+$conf['registernotify'] = {{ allow_register | default(False) | lower }};
 
-// Enable/disable email notifications on change
-{% if notify_enabled is defined %}$conf['notify'] = {{ notify_enabled | lower }};{% endif %}
+// Enable email notifications for page changes (requires working SMTP setup)
+$conf['notify'] = {{ notify_enabled | default(False) | lower }};
 
-// SMTP settings (if email notifications are enabled)
-{% if smtp_enabled %}$conf['smtp_host'] = '{{ smtp_host }}';{% endif %}
-{% if smtp_enabled %}$conf['smtp_port'] = {{ smtp_port }};{% endif %}
-{% if smtp_enabled and smtp_user %}$conf['smtp_user'] = '{{ smtp_user }}';{% endif %}
-{% if smtp_enabled and smtp_pass %}$conf['smtp_pass'] = '{{ smtp_pass }}';{% endif %}
+// Enable custom SMTP for outgoing emails (notifications, registration emails)
+// SMTP server hostname (e.g., 'smtp.example.com')
+{% if smtp_enabled | default(False) %}$conf['smtp_host'] = '{{ smtp_host | default("localhost") }}';
 
-// Timezone
-{% if timezone %}$conf['date'] = '{{ timezone }}';{% else %}$conf['date'] = date_default_timezone_get();{% endif %}
+// SMTP server port (common: 587 for TLS, 465 for SSL, 25 for unencrypted)
+$conf['smtp_port'] = {{ smtp_port | default(587) }};
 
-// Allowed file extensions for upload
-$conf['media_extensions'] = ['{{ media_extensions | join(
+// SMTP authentication username (leave empty if not required)
+{% if smtp_user | default("") | trim != "" %}$conf['smtp_user'] = '{{ smtp_user | default("") }}';
+{% endif %}
+
+// SMTP authentication password (store securely; never commit to version control)
+{% if smtp_pass | default("") | trim != "" %}$conf['smtp_pass'] = '{{ smtp_pass | default("") }}';
+{% endif %}
+{% endif %}
+
+// PHP-compatible timezone identifier (e.g., 'America/New_York', 'Europe/Berlin', 'UTC')
+{% if timezone | default("UTC") | trim != "" %}$conf['date'] = '{{ timezone | default("UTC") }}';
+{% endif %}
+
+// List of allowed file extensions for media uploads. Case-insensitive.
+$conf['media_extensions'] = ['{{ media_extensions | default(["jpg", "jpeg", "png", "gif", "pdf", "doc", "xls", "mp4"]) | join("', '") }}'];

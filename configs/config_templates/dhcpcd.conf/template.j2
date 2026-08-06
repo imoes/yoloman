@@ -1,65 +1,167 @@
-# Enable IPv4 DHCP
-{{ 'noipv4' if not values.ipv4_enabled else '' }}
+# dhcpcd.conf - DHCP Client Daemon Configuration
+#
+# This file configures the dhcpcd (DHCP Client Daemon). It controls how the
+# system acquires network configuration via DHCP, including IP addresses, DNS,
+# NTP, and static overrides per interface.
+#
+# Variables are drawn from the role's inventory/defaults. All references use
+# safe defaults to prevent render failures if a variable is undefined.
 
-# Enable IPv6 DHCP (SLAAC, Router Advertisement, and DHCPv6)
-{{ 'noipv6' if not values.ipv6_enabled else '' }}
+# ---------------------------------------------------------------------------
+# IPv4 and IPv6 DHCP Enabling
+# ---------------------------------------------------------------------------
 
-# Hostname to send to DHCP server (if empty, system hostname is used)
-{{ 'hostname ' + values.hostname if values.hostname else '' }}
+# ipv4_enabled: default=True
+# desc='Whether to enable IPv4 DHCP. Disable only if using IPv6 only or static IPv4.'
+{% if not (ipv4_enabled | default(true)) %}
+# Disable IPv4 DHCP as requested
+noipv4
+{% endif %}
 
-# Domain name to request from DHCP server
-{{ 'domain ' + values.domain if values.domain else '' }}
+# ipv6_enabled: default=True
+# desc='Whether to enable IPv6 address autoconfiguration (SLAAC) and DHCPv6.'
+{% if not (ipv6_enabled | default(true)) %}
+# Disable IPv6 DHCP/SLAAC as requested
+noipv6
+{% endif %}
 
-# DNS servers to append (in addition to those from DHCP)
-{% for server in values.dns_servers %}# Append DNS server: {{ server }}
+# ---------------------------------------------------------------------------
+# Global DHCP Request Options
+# ---------------------------------------------------------------------------
+
+# hostname: default=''
+# desc='Hostname to advertise to the DHCP server. If empty, the system hostname is used.'
+{% if (hostname | default('')) %}
+# Advertise a specific hostname to the DHCP server
+hostname {{ hostname | default('') }}
+{% endif %}
+
+# domain: default=''
+# desc="Domain name to request from the DHCP server (e.g., 'example.com')."
+{% if (domain | default('')) %}
+# Request a specific domain name from the DHCP server
+domain {{ domain | default('') }}
+{% endif %}
+
+# dns_servers: default=[]
+# desc='Additional DNS server IP addresses to append (beyond those provided by DHCP).'
+{% for server in (dns_servers | default([])) %}
+# Append DNS server: {{ server }}
 dns {{ server }}
 {% endfor %}
 
-# Static IP configuration (if enabled per interface)
-{% for iface in values.static_interfaces %}# Static configuration for {{ iface.interface }}
-interface {{ iface.interface }}
-  {{ 'static ip_address=' + iface.ip_address + '/' + (iface.prefix_len | string) if iface.ip_address else '' }}
-  {{ 'static routers=' + iface.routers | join(',') if iface.routers else '' }}
-  {{ 'static domain_name_servers=' + iface.dns | join(',') if iface.dns else '' }}
-{% endfor %}
+# rootpath: default=''
+# desc="Root path for PXE boot (e.g., '/tftpboot/pxeboot')."
+{% if (rootpath | default('')) %}
+# Configure root path for PXE boot clients
+rootpath {{ rootpath | default('') }}
+{% endif %}
 
-# Custom options (key-value pairs passed directly to dhcpcd)
-{% for opt, val in values.custom_options.items() %}# Custom option: {{ opt }}
-{{ opt }} {{ val }}
-{% endfor %}
-
-# Root path for PXE boot (e.g., for diskless clients)
-{{ 'rootpath ' + values.rootpath if values.rootpath else '' }}
-
-# NTP servers to configure (e.g., for time sync)
-{% for server in values.ntp_servers %}# NTP server: {{ server }}
+# ntp_servers: default=[]
+# desc='List of NTP server addresses to configure for time synchronization.'
+{% for server in (ntp_servers | default([])) %}
+# Configure NTP server for time synchronization
 tpserver {{ server }}
 {% endfor %}
 
-# NIS domain to request
-{{ 'nisdomain ' + values.nis_domain if values.nis_domain else '' }}
+# nis_domain: default=''
+# desc='NIS (YP) domain name to request from the DHCP server.'
+{% if (nis_domain | default('')) %}
+# Request NIS (YP) domain name
+nisdomain {{ nis_domain | default('') }}
+{% endif %}
 
-# NIS servers to request
-{% for server in values.nis_servers %}# NIS server: {{ server }}
+# nis_servers: default=[]
+# desc='List of NIS server addresses to request from the DHCP server.'
+{% for server in (nis_servers | default([])) %}
+# Request NIS server address
 nisservers {{ server }}
 {% endfor %}
 
-# NIS+ domain and servers
-{{ 'nisplusdomain ' + values.nisplus_domain if values.nisplus_domain else '' }}
-{% for server in values.nisplus_servers %}# NIS+ server: {{ server }}
+# nisplus_domain: default=''
+# desc='NIS+ domain name to request from the DHCP server.'
+{% if (nisplus_domain | default('')) %}
+# Request NIS+ domain name
+nisplusdomain {{ nisplus_domain | default('') }}
+{% endif %}
+
+# nisplus_servers: default=[]
+# desc='List of NIS+ server addresses to request.'
+{% for server in (nisplus_servers | default([])) %}
+# Request NIS+ server address
 nisplus_servers {{ server }}
 {% endfor %}
 
-# NIS+ map (e.g., netgroup map)
-{{ 'nisplusmap ' + values.nisplus_map if values.nisplus_map else '' }}
+# nisplus_map: default=''
+# desc="NIS+ map name (e.g., 'netgroup') to request."
+{% if (nisplus_map | default('')) %}
+# Request NIS+ map name
+nisplusmap {{ nisplus_map | default('') }}
+{% endif %}
 
-# Request custom DHCP options (e.g., option 121 for classless static routes)
-{% for code, value in values.request_options.items() %}# Request option {{ code }}: {{ value }}
-request {{ code }}
+# retry_count: default=5
+# desc='Number of times to retry DHCP acquisition before giving up.'
+# Configure DHCP retry count
+retry {{ retry_count | default(5) }}
+
+# ---------------------------------------------------------------------------
+# Custom Global Options
+# ---------------------------------------------------------------------------
+
+# custom_options: default={}
+# desc="Arbitrary key-value options passed directly to dhcpcd (e.g., 'blacklist', 'permit', 'nohook')."
+{% for opt, val in (custom_options | default({}) | dict2items) %}
+# Custom global option: {{ opt }}={{ val }}
+{{ opt.key }} {{ val.value }}
 {% endfor %}
 
-# Retry behavior on failure
-retry {{ values.retry_count }}
+# ---------------------------------------------------------------------------
+# Requested DHCP Option Codes
+# ---------------------------------------------------------------------------
 
-# Lease time preferences
-{{ 'nohook ' + hook if hook not in values.hooks_to_skip else '' }}
+# request_options: default={}
+# desc="Custom DHCP options to request (by numeric option code, e.g., '121' for classless static routes)."
+{% for code, value in (request_options | default({}) | dict2items) %}
+# Request DHCP option code {{ code.key }}
+request {{ code.key }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Hook Script Overrides
+# ---------------------------------------------------------------------------
+
+# hooks_to_skip: default=[]
+# desc="List of dhcpcd hook scripts to skip (e.g., ['hostname', 'ntp'])."
+# NOTE: The original template logic was flawed. This section now correctly
+# applies 'nohook' ONLY for hooks listed in hooks_to_skip.
+{% for hook in (hooks_to_skip | default([])) %}
+# Skip dhcpcd hook: {{ hook }}
+nohook {{ hook }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Per-Interface Static Configuration
+# ---------------------------------------------------------------------------
+
+# static_interfaces: default=[]
+# desc='List of interfaces with static IP configuration instead of DHCP.'
+{% for iface in (static_interfaces | default([])) %}
+
+# Static IP configuration for interface: {{ iface.interface | default('unknown') }}
+interface {{ iface.interface | default('unknown') }}
+
+  # Static IP address and prefix length (CIDR notation)
+  {% if iface.ip_address | default('') %}
+static ip_address={{ iface.ip_address }}/{{ (iface.prefix_len | default(24)) | string }}
+  {% endif %}
+
+  # Default gateways/routers
+  {% if iface.routers | default([]) | length > 0 %}
+static routers={{ iface.routers | default([]) | join(',') }}
+  {% endif %}
+
+  # Static DNS servers for this interface
+  {% if iface.dns | default([]) | length > 0 %}
+static domain_name_servers={{ iface.dns | default([]) | join(',') }}
+  {% endif %}
+{% endfor %}

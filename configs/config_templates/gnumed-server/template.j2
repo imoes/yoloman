@@ -1,0 +1,59 @@
+#!/bin/sh
+# GNUmed Server Backup Script Configuration
+#
+# This script performs automated backups for the GNUmed medical practice management system.
+# It executes three distinct phases:
+# 1. Plain data dump (optional, currently commented out).
+# 2. Full database backup (schema + data).
+# 3. Compression and cryptographic signing of the backup archive.
+#
+# Each phase is controlled by a variable pointing to the specific utility script.
+# Ensure these scripts are executable and present on the target system.
+
+# ==============================================================================
+# Phase 1: Plain Data Backup (Optional)
+#
+# Path to the GNUmed database data backup script.
+# This script typically exports raw table data without DDL (table structures,
+# constraints, indexes). It is useful for quick data recovery but not for
+# full system restoration.
+#
+# Current status: Commented out. Enable by uncommenting the if-block below.
+# ==============================================================================
+DATA='{{ data_path | default("/usr/sbin/gm-backup_data") }}'
+
+# This script only saves plain data without table structure etc.
+# Normally you want to store the whole database
+# DATA={{ data_path | default("/usr/sbin/gm-backup_data") }}
+
+# Uncomment the block below to enable plain data backups:
+# if [ -x "$DATA" ] ; then
+#     "$DATA"
+# fi
+
+# ==============================================================================
+# Phase 2: Full Database Backup
+#
+# Path to the GNUmed database backup script.
+# This script performs a comprehensive backup including both data and schema
+# (table structures, functions, triggers). This is the primary backup mechanism
+# required for restoring the GNUmed application state.
+# ==============================================================================
+DATABASE='{{ database_path | default("/usr/sbin/gm-backup") }}'
+
+if [ -x "$DATABASE" ] ; then
+    "$DATABASE"
+fi
+
+# ==============================================================================
+# Phase 3: Backup Archival and Signing
+#
+# Path to the GNUmed backup compression and signing script.
+# This script takes the output from the previous phases, compresses them (e.g.,
+# via gzip) and applies a GPG signature to ensure integrity and authenticity.
+# ==============================================================================
+ZIPSIGN='{{ zipsign_path | default("/usr/sbin/gm-zip+sign_backups") }}'
+
+if [ -x "$ZIPSIGN" ] ; then
+    "$ZIPSIGN"
+fi

@@ -1,58 +1,68 @@
-# fprobe configuration file
-# Set the IP address or hostname of the NetFlow collector
-collector_host: {{ collector_host }}
+#! /bin/sh
+#
+#
+#			Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#			Modified for Debian 
+#			by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+#	
+#			Modified for fprobe
+#			by Radu Spineanu <radu@timisoara.roedu.net>
+#
 
-# Set the UDP port on the collector to receive NetFlow data
-collector_port: {{ collector_port }}
+### BEGIN INIT INFO
+# Provides:          fprobe
+# Required-Start:    $local_fs $remote_fs $syslog $network $time
+# Required-Stop:     $local_fs $remote_fs $syslog $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: NetFlow Collector
+### END INIT INFO
 
-# Interface to capture traffic from (e.g., eth0)
-interface: {{ interface }}
 
-# Timeout (in seconds) before a flow is considered inactive and exported
-inactive_timeout: {{ inactive_timeout }}
+# Include fprobe defaults if available
+if [ -f /etc/default/fprobe ] ; then
+	. /etc/default/fprobe
+fi
 
-# Timeout (in seconds) before an active flow is exported
-active_timeout: {{ active_timeout }}
 
-# Buffer size (in bytes) for packet capture
-buffer_size: {{ buffer_size }}
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/fprobe
+NAME=fprobe
+DESC=fprobe
+DAEMON_OPTS="-i${{ interface }} $OTHER_ARGS $FLOW_COLLECTOR"
+test -x $DAEMON || exit 0
 
-# NetFlow version to use (5 or 9)
-netflow_version: {{ netflow_version }}
+. /lib/lsb/init-functions
 
-# Enable IPFIX extension (for NetFlow v9 only)
-# Set to 'true' to enable IPFIX support
-ipfix: {{ ipfix | lower }}
+set -e
 
-# Optional: Enable sampling (1 out of every N packets)
-# Set to 0 or omit to disable sampling
-sample_rate: {{ sample_rate }}
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
+		--exec $DAEMON -- $DAEMON_OPTS
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
+		--oknodo --exec $DAEMON
+	echo "$NAME."
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --stop --quiet --pidfile \
+		/var/run/$NAME.pid --exec $DAEMON
+	sleep 1
+	start-stop-daemon --start --quiet --pidfile \
+		/var/run/$NAME.pid --exec $DAEMON -- $DAEMON_OPTS
+	echo "$NAME."
+	;;
+  *)
+	N=/etc/init.d/$NAME
+    echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
 
-# Optional: Set the source IP for NetFlow packets (for multi-homed hosts)
-source_ip: {{ source_ip }}
-
-# Optional: Set the system uptime offset (seconds since system boot)
-# Useful when collector expects stable flow start times
-uptime_offset: {{ uptime_offset }}
-
-# Optional: Add additional collector(s) — one per line
-# Each entry: host:port
-{% for collector in additional_collectors %}collector: {{ collector.host }}:{{ collector.port }}
-{% endfor %}
-
-# Optional: Set the domain ID (for NetFlow v9) — used to distinguish flows across multiple exporters
-domain_id: {{ domain_id }}
-
-# Optional: Enable UDP checksum offloading
-# Set to 'true' to skip UDP checksum calculation (may reduce CPU load)
-udp_checksum_offload: {{ udp_checksum_offload | lower }}
-
-# Optional: Enable VLAN ID in NetFlow records (if supported by collector)
-include_vlan: {{ include_vlan | lower }}
-
-# Optional: Set the flow record format (ipfix or legacy)
-# Use 'ipfix' for RFC 7011 compliance (NetFlow v9 compatible)
-record_format: {{ record_format }}
-
-# Optional: Set log level: debug, info, warn, error
-log_level: {{ log_level }}
+exit 0

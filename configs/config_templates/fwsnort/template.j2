@@ -1,0 +1,214 @@
+# ===========================================================================
+# FWSNORT Configuration Template
+#
+# This file configures fwsnort, a tool that converts Snort rules into
+# iptables rules using iptables-extensions (like --string, --hex-string).
+# It defines network zones, port lists, update sources, and firewall
+# chain insertion points.
+# ===========================================================================
+
+### -----------------------------------------------------------------------
+### Network Definitions
+### -----------------------------------------------------------------------
+
+# HOME_NET: The internal network definition; traffic from/to this is treated as HOME_NET.
+# This variable is central to Snort-style rule evaluation.
+HOME_NET                {{ home_net | default('any') }};
+
+# EXTERNAL_NET: External network definition; typically set to 'any' or specific CIDR ranges.
+# Traffic not matching HOME_NET is assumed to be EXTERNAL_NET.
+EXTERNAL_NET            {{ external_net | default('any') }};
+
+### -----------------------------------------------------------------------
+### Server Role Definitions (Variable Resolution)
+### -----------------------------------------------------------------------
+
+# Fwsnort treats all traffic directed to / originating from the local
+# machine as going to / coming from the HOME_NET in Snort rule parlance.
+# If there is only one interface on the local system, then there will be
+# no rules processed via the FWSNORT_FORWARD chain because no traffic
+# would make it into the iptables FORWARD chain.
+
+# List of servers. Fwsnort supports the same variable resolution as Snort.
+# These variables are often used in Snort rules (e.g., $HTTP_SERVERS).
+HTTP_SERVERS            $HOME_NET;
+SMTP_SERVERS            $HOME_NET;
+DNS_SERVERS             $HOME_NET;
+SQL_SERVERS             $HOME_NET;
+TELNET_SERVERS          $HOME_NET;
+
+# AOL AIM server nets
+AIM_SERVERS             [64.12.24.0/24, 64.12.25.0/24, 64.12.26.14/24, 64.12.28.0/24, 64.12.29.0/24, 64.12.161.0/24, 64.12.163.0/24, 205.188.5.0/24, 205.188.9.0/24];
+
+### -----------------------------------------------------------------------
+### Port Configurations
+### -----------------------------------------------------------------------
+
+# Configurable port numbers
+# These ports are used by Snort rules to match traffic against specific services.
+
+# SSH_PORTS: Port number(s) for SSH traffic.
+SSH_PORTS               {{ ssh_ports | default(22) }};
+
+# HTTP_PORTS: Port number(s) for HTTP traffic.
+HTTP_PORTS              {{ http_ports | default(80) }};
+
+# SHELLCODE_PORTS: Ports considered suspicious for shellcode execution.
+# The default excludes HTTP, as it is common and often noisy.
+SHELLCODE_PORTS         !80;
+
+# ORACLE_PORTS: Port number(s) for Oracle database traffic.
+ORACLE_PORTS            {{ oracle_ports | default(1521) }};
+
+### -----------------------------------------------------------------------
+# Rule Updates
+### -----------------------------------------------------------------------
+
+# UPDATE_RULES_URL: URL to fetch updated Snort rules from.
+# This variable can be given multiple times on separate lines in order
+# to specify multiple update URL's.
+# Default points to Emerging Threats Open rules for Snort 2.9.0.
+UPDATE_RULES_URL        {{ update_rules_url | default('http://rules.emergingthreats.net/open/snort-2.9.0/emerging-all.rules') }};
+
+### -----------------------------------------------------------------------
+# Packet Length Emulation
+### -----------------------------------------------------------------------
+
+# define average packet lengths and maximum frame length. This is
+# used for iptables length match emulation of the Snort dsize option.
+
+# AVG_IP_HEADER_LEN: Average IP header length (in bytes) for dsize emulation.
+# IP options are not usually used, so 20 is standard.
+AVG_IP_HEADER_LEN       {{ avg_ip_header_len | default(20) }};   ### IP options are not usually used.
+
+# AVG_TCP_HEADER_LEN: Average TCP header length (in bytes) for dsize emulation.
+# Include 10 bytes for options.
+AVG_TCP_HEADER_LEN      {{ avg_tcp_header_len | default(30) }};   ### Include 10 bytes for options
+
+# MAX_FRAME_LEN: Maximum frame length (MTU) for iptables length match.
+# Typically 1500 for Ethernet.
+MAX_FRAME_LEN           {{ max_frame_len | default(1500) }};
+
+### -----------------------------------------------------------------------
+# String Matching Limits
+### -----------------------------------------------------------------------
+
+# define the max length of the content (null terminated string) that
+# can be passed to either the --hex-string or --string iptables matches.
+# Note that as of fwsnort-1.5, the max string length supported by the
+# local iptables instance is automatically determined, so this variable
+# is not really needed, and just allows a max value to be set
+# independently of what iptables supports.
+
+# MAX_STRING_LEN: Maximum string length for iptables --string/--hex-string matches.
+MAX_STRING_LEN          {{ max_string_len | default(1024) }};
+
+### -----------------------------------------------------------------------
+# Whitelist / Blacklist
+### -----------------------------------------------------------------------
+
+# Use the WHITELIST variable to define a list of hosts/networks
+# that should be completely ignored by fwsnort. For example, if you
+# want to whitelist the IP 192.168.10.1 and the network 10.1.1.0/24,
+# you would use (note that you can also specify multiple WHITELIST
+# variables, one per line). Note that by default the update IP's for
+# Emerging Threats ruleset downloads are whitelisted:
+## Name:   rules.emergingthreats.net
+## Address: 96.43.137.99
+## Name:   rules.emergingthreats.net
+## Address: 204.12.217.19
+
+# WHITELIST: Comma-separated list of IPs/networks to ignore (whitelist).
+WHITELIST               {{ whitelist | default('96.43.137.99, 204.12.217.19') }};
+
+### -----------------------------------------------------------------------
+# Blacklist Action
+### -----------------------------------------------------------------------
+
+# Use the BLACKLIST variable to define a list of hosts/networks
+# that for which fwsnort should DROP or REJECT all traffic. For
+# example, to DROP all traffic from the 192.168.10.0/24 network, you
+# can use:
+#     BLACKLIST            192.168.10.0/24    DROP;
+# To have fwsnort REJECT all traffic from 192.168.10.0/24, you would
+# use:
+#     BLACKLIST            192.168.10.0/24    REJECT;
+
+# BLACKLIST_ACTION: Blacklist behavior: 'NONE', 'DROP', or 'REJECT'.
+# If set to NONE, no global blackhole rules are installed.
+BLACKLIST               {{ blacklist_action | default('NONE') }};
+
+### -----------------------------------------------------------------------
+# Firewall Chain Jump Positions
+### -----------------------------------------------------------------------
+
+# define the jump position in the built-in chains to jump to the
+# fwsnort chains. This determines where in the INPUT/OUTPUT/FORWARD
+# chain the custom FWSNORT_* chains are inserted.
+
+# FWSNORT_INPUT_JUMP: Jump position in INPUT chain to insert FWSNORT_INPUT chain.
+FWSNORT_INPUT_JUMP      {{ fwsnort_input_jump | default(1) }};
+
+# FWSNORT_OUTPUT_JUMP: Jump position in OUTPUT chain to insert FWSNORT_OUTPUT chain.
+FWSNORT_OUTPUT_JUMP     {{ fwsnort_output_jump | default(1) }};
+
+# FWSNORT_FORWARD_JUMP: Jump position in FORWARD chain to insert FWSNORT_FORWARD chain.
+FWSNORT_FORWARD_JUMP    {{ fwsnort_forward_jump | default(1) }};
+
+### -----------------------------------------------------------------------
+# iptables Chain Names
+### -----------------------------------------------------------------------
+
+# iptables chains (these do not normally need to be changed).
+# These define the names of the custom chains fwsnort will create.
+
+FWSNORT_INPUT           FWSNORT_INPUT;
+FWSNORT_INPUT_ESTAB     FWSNORT_INPUT_ESTAB;
+FWSNORT_OUTPUT          FWSNORT_OUTPUT;
+FWSNORT_OUTPUT_ESTAB    FWSNORT_OUTPUT_ESTAB;
+FWSNORT_FORWARD         FWSNORT_FORWARD;
+FWSNORT_FORWARD_ESTAB   FWSNORT_FORWARD_ESTAB;
+
+### -----------------------------------------------------------------------
+# Filesystem Paths
+### -----------------------------------------------------------------------
+
+# fwsnort filesystem paths
+# INSTALL_ROOT: Base installation path prefix.
+INSTALL_ROOT            {{ install_root | default('/') }};
+
+CONF_DIR                $INSTALL_ROOT/etc/fwsnort;
+RULES_DIR               $CONF_DIR/snort_rules;
+LOG_DIR                 $INSTALL_ROOT/var/log/fwsnort;
+LIBS_DIR                $INSTALL_ROOT/usr/lib/fwsnort;  ### for perl modules
+STATE_DIR               $INSTALL_ROOT/var/lib/fwsnort;
+QUEUE_RULES_DIR         $STATE_DIR/snort_rules_queue;
+ARCHIVE_DIR             $STATE_DIR/archive;
+
+CONF_FILE               $CONF_DIR/fwsnort.conf;
+LOG_FILE                $LOG_DIR/fwsnort.log;
+FWSNORT_SCRIPT          $STATE_DIR/fwsnort_iptcmds.sh;  ### slow version
+FWSNORT_SAVE_EXEC_FILE  $STATE_DIR/fwsnort.sh;    ### main fwsnort.sh script
+FWSNORT_SAVE_FILE       $STATE_DIR/fwsnort.save;  ### main fwsnort.save file
+IPT_BACKUP_SAVE_FILE    $STATE_DIR/iptables.save; ### iptables policy backup
+
+### -----------------------------------------------------------------------
+# System Binaries
+### -----------------------------------------------------------------------
+
+# system binaries
+shCmd                   /bin/sh;
+catCmd                  /bin/cat;
+grepCmd                 /bin/grep;
+echoCmd                 /bin/echo;
+tarCmd                  /bin/tar;
+wgetCmd                 /usr/bin/wget;
+unameCmd                /usr/bin/uname;
+ifconfigCmd             /sbin/ifconfig;
+ipCmd                   /sbin/ip;
+iptablesCmd             /sbin/iptables;
+iptables-saveCmd        /sbin/iptables-save;
+iptables-restoreCmd     /sbin/iptables-restore;
+ip6tablesCmd            /sbin/ip6tables;
+ip6tables-saveCmd       /sbin/ip6tables-save;
+ip6tables-restoreCmd    /sbin/ip6tables-restore;

@@ -44,46 +44,43 @@
     "default": [],
     "description": "List of task definitions (each task has its own configuration block).",
     "items": {
-      "type": "object",
-      "properties": {
-        "task_name": {
-          "type": "string",
-          "description": "Name of the task (used as section key in config)."
+      "task_name": {
+        "type": "string",
+        "description": "Name of the task (used as section key in config)."
+      },
+      "environment": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value pairs of environment variables for the task."
+      },
+      "script": {
+        "type": "string",
+        "default": "echo 'Task placeholder'",
+        "description": "The shell script to execute for the task."
+      },
+      "batch_system": {
+        "type": "string",
+        "enum": [
+          "local",
+          "slurm",
+          "pbs",
+          "oge"
+        ],
+        "default": "local",
+        "description": "Batch system used to submit this task (if not local)."
+      },
+      "submit_command": {
+        "type": "string",
+        "default": null,
+        "description": "Custom command to submit the task to a batch system (e.g., 'sbatch'). Optional."
+      },
+      "retry": {
+        "type": "list",
+        "items": {
+          "type": "number"
         },
-        "environment": {
-          "type": "object",
-          "default": {},
-          "description": "Key-value pairs of environment variables for the task."
-        },
-        "script": {
-          "type": "string",
-          "default": "echo 'Task placeholder'",
-          "description": "The shell script to execute for the task."
-        },
-        "batch_system": {
-          "type": "string",
-          "enum": [
-            "local",
-            "slurm",
-            "pbs",
-            "oge"
-          ],
-          "default": "local",
-          "description": "Batch system used to submit this task (if not local)."
-        },
-        "submit_command": {
-          "type": "string",
-          "default": null,
-          "description": "Custom command to submit the task to a batch system (e.g., 'sbatch'). Optional."
-        },
-        "retry": {
-          "type": "list",
-          "items": {
-            "type": "number"
-          },
-          "default": [],
-          "description": "Delays (in seconds) between task retry attempts."
-        }
+        "default": [],
+        "description": "Delays (in seconds) between task retry attempts."
       }
     }
   }

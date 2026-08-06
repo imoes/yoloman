@@ -1,0 +1,31 @@
+# =============================================================================
+# check-dfsg-status wrapper script
+# =============================================================================
+# Description:
+#   This script ensures the check-dfsg-status binary is available and executable
+#   before attempting to run it quietly. It is commonly used in cron jobs or
+#   service hooks to monitor Debian/Ubuntu DFSG-compliance status.
+# =============================================================================
+
+# Ensure the script itself exits on errors
+set -e
+
+# Path to the check-dfsg-status binary
+# Default: /usr/bin/check-dfsg-status
+# If the binary is not found or not executable, exit cleanly (status 0) to avoid
+# triggering alerts for non-critical missing tools.
+{% if check_dfsg_status_binary_path is defined and check_dfsg_status_binary_path %}
+BINARY_PATH="{{ check_dfsg_status_binary_path }}"
+{% else %}
+BINARY_PATH="/usr/bin/check-dfsg-status"
+{% endif %}
+
+# Check if the binary exists and is executable
+# If not, exit successfully (no status to check)
+if [ ! -x "${BINARY_PATH}" ]; then
+    exit 0
+fi
+
+# Run the check quietly
+# This typically returns non-zero if DFSG violations are detected
+exec "${BINARY_PATH}" --quiet

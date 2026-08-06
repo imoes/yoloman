@@ -31,11 +31,6 @@
     "default": 30,
     "description": "Timeout (seconds) for connecting to the LMTP server."
   },
-  "lmtp_linenSize_limit": {
-    "type": "number",
-    "default": 2048,
-    "description": "Maximum line size (in bytes) accepted by the LMTP server."
-  },
   "mail_location": {
     "type": "string",
     "default": "maildir:~/Maildir",
@@ -97,7 +92,19 @@
   "passdb_driver": {
     "type": "string",
     "default": "pam",
-    "description": "Passdb backend (e.g., 'pam', 'shadow', 'sql', 'ldap'). Only used when lmtp_auth_required = true."
+    "description": "Passdb backend (e.g., 'pam', 'shadow', 'sql', 'ldap'). Only used when lmtp_auth_required = true.",
+    "enum": [
+      "pam",
+      "sql",
+      "ldap",
+      "passwd",
+      "passwd-file",
+      "static",
+      "prefetch",
+      "cassandra",
+      "lua",
+      "oauth2"
+    ]
   },
   "passdb_args": {
     "type": "string",
@@ -107,7 +114,17 @@
   "userdb_driver": {
     "type": "string",
     "default": "static",
-    "description": "Userdb backend (e.g., 'static', 'sql', 'ldap', 'passwd'). Static is often enough with mail_location using ~ expansion."
+    "description": "Userdb backend (e.g., 'static', 'sql', 'ldap', 'passwd'). Static is often enough with mail_location using ~ expansion.",
+    "enum": [
+      "static",
+      "sql",
+      "ldap",
+      "passwd",
+      "passwd-file",
+      "prefetch",
+      "cassandra",
+      "lua"
+    ]
   },
   "userdb_args": {
     "type": "string",
@@ -127,7 +144,11 @@
   "ssl": {
     "type": "string",
     "default": "no",
-    "description": "SSL/TLS behavior for LMTP connections. 'required' forbids non-TLS."
+    "description": "SSL/TLS behavior for LMTP connections. 'required' forbids non-TLS.",
+    "enum": [
+      "no",
+      "required"
+    ]
   },
   "ssl_cert_path": {
     "type": "string",
@@ -143,11 +164,6 @@
     "type": "string",
     "default": "postmaster@localhost",
     "description": "Postmaster email address used in error responses and logging."
-  },
-  "hostname": {
-    "type": "string",
-    "default": "{{ ansible_hostname | default('localhost') }}",
-    "description": "Canonical hostname of the mail server (used in SMTP/LMTP banners)."
   },
   "lda_mailbox_autocreate": {
     "type": "bool",

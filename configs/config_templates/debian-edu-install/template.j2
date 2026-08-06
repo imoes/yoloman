@@ -1,0 +1,70 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          xdebian-edu-firstboot
+# Required-Start:    $remote_fs $all
+# Required-Stop:
+# Should-Start:      $x-display-manager xdm kdm gdm wdm slim lightdm
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# X-Interactive:     true
+# Short-Description: Check the Debian Edu installation after first boot
+# Description:       Run the self test and report any errors found.
+#                    Install this as /etc/rc2.d/99xdebian-edu-firstboot
+### END INIT INFO
+#
+# Author: Petter Reinholdtsen
+# Date:   2006-09-22
+#
+
+# only run if package is installed (debian policy 9.3.2)
+test -f {{ version_file }} || exit 0
+
+. /lib/lsb/init-functions
+
+firstboot_file={{ firstboot_marker_file }}
+
+set -e
+
+do_start() {
+    logger -t debian-edu-install "Executing xdebian-edu-firstboot"
+
+    # The parts updating LTSP and readahead was moved to
+    # debian-edu-config, this hook made it possible.
+    if [ -x {{ run_at_firstboot_tool }} ] ; then
+	log_begin_msg "Running debian-edu-config run-at-firstboot"
+	{{ run_at_firstboot_tool }}
+	log_end_msg 0 || true
+    fi
+
+    # Create firstboot file to prevent it from being run again
+    touch "$firstboot_file"
+
+    # only run the testsuite and report errors if requested via kernel
+    # command line param 'testinstall'.
+    if [ -f {{ config_file }} ] ; then . {{ config_file }} ; fi
+    if [ true = "$TESTINSTALL" ]; then
+	log_begin_msg "Collecting testsuite results"
+	{{ testsuite_runner }}
+	log_end_msg $? || true
+    else
+	log_begin_msg "Not collecting testsuite results"
+	log_end_msg 0 || true
+    fi
+}
+
+case "$1" in
+    start)
+        if [ ! -f "$firstboot_file" ]; then
+            do_start
+        fi
+        ;;
+    stop|force-reload|restart)
+        ;;
+    *)
+        echo "Usage: /etc/init.d/xdebian-edu-firstboot {start|stop|restart|force-reload}"
+        disable_exception
+        exit 1
+        ;;
+esac
+
+exit 0

@@ -1,0 +1,670 @@
+# ============================================================================
+# duplicity - Command-line encrypted backup tool configuration
+# ============================================================================
+# This template generates command-line arguments for duplicity.
+# It is self-documenting: every directive is preceded by its schema description.
+# Variables use their schema defaults to ensure safe rendering even when undefined.
+# ============================================================================
+
+# Action(s) to perform (backup, full, incremental, restore, verify, cleanup, etc.)
+{% for action in (actions | default([])) %}
+{{ action }}
+{% endfor %}
+
+# Source directory to back up (required for backup/restore)
+{% if (source_dir | default('')) != '' %}
+{{ source_dir | default('') }}
+{% endif %}
+
+# Target URL (storage backend + path, e.g., file:///path or s3://bucket)
+{% if (target_url | default('')) != '' %}
+{{ target_url | default('') }}
+{% endif %}
+
+# Include patterns (shell globs, one per line)
+{% for pattern in (include_list | default([])) %}
+--include {{ pattern }}
+{% endfor %}
+
+# Exclude patterns (shell globs, one per line)
+{% for pattern in (exclude_list | default([])) %}
+--exclude {{ pattern }}
+{% endfor %}
+
+# Include file list path
+{% if (filelist_include | default('')) != '' %}
+--include-filelist {{ filelist_include | default('') }}
+{% endif %}
+
+# Exclude file list path
+{% if (filelist_exclude | default('')) != '' %}
+--exclude-filelist {{ filelist_exclude | default('') }}
+{% endif %}
+
+# Explicit list of files to back up (one per line in file)
+{% if (files_from | default('')) != '' %}
+--files-from {{ files_from | default('') }}
+{% endif %}
+
+# Use null separators for file lists
+{% if (null_separator | default(False)) %}
+--null-separator
+{% endif %}
+
+# Public GPG key ID to encrypt to (optional: overrides symmetric encryption)
+{% if (encryption_key | default('')) != '' %}
+--encrypt-key {{ encryption_key | default('') }}
+{% endif %}
+
+# GPG key ID to sign with
+{% if (sign_key | default('')) != '' %}
+--sign-key {{ sign_key | default('') }}
+{% endif %}
+
+# Override GPG binary path
+{% if (gpg_binary | default('gpg')) != '' %}
+--gpg-binary {{ gpg_binary | default('gpg') }}
+{% endif %}
+
+# Extra GPG command-line options (quoted, space-separated)
+{% if (gpg_options | default('')) != '' %}
+--gpg-options='{{ gpg_options | default('') }}'
+{% endif %}
+
+# Custom archive directory (metadata persistence)
+{% if (archive_dir | default('')) != '' %}
+--archive-dir {{ archive_dir | default('') }}
+{% endif %}
+
+# Symbolic backup name (for distinguishing multiple backups)
+{% if (name | default('')) != '' %}
+--name {{ name | default('') }}
+{% endif %}
+
+# Temp directory for staging files
+{% if (tempdir | default('')) != '' %}
+--tempdir {{ tempdir | default('') }}
+{% endif %}
+
+# Concurrent backend tasks (improves throughput; requires extra temp space)
+{% if (concurrency | default(1)) > 0 %}
+--concurrency {{ concurrency | default(1) }}
+{% endif %}
+
+# Volume size in MB
+{% if (volsize | default(200)) > 0 %}
+--volsize {{ volsize | default(200) }}
+{% endif %}
+
+# Force full backup if last full is older than this interval
+{% if (full_if_older_than | default('')) != '' %}
+--full-if-older-than {{ full_if_older_than | default('') }}
+{% endif %}
+
+# Exclude files older than this interval
+{% if (exclude_older_than | default('')) != '' %}
+--exclude-older-than {{ exclude_older_than | default('') }}
+{% endif %}
+
+# Disable GZip compression
+{% if (no_compression | default(False)) %}
+--no-compression
+{% endif %}
+
+# Disable GPG encryption (no encryption)
+{% if (no_encryption | default(False)) %}
+--no-encryption
+{% endif %}
+
+# Disable remote manifest validation (backup only; no private key needed)
+{% if (no_check_remote | default(False)) %}
+--no-check-remote
+{% endif %}
+
+# Time specification for restore/list/verify actions (e.g. 3D, now, ISO8601, or YYYY-MM-DD)
+{% if (time | default('')) != '' %}
+--time {{ time | default('') }}
+{% endif %}
+
+# Restore specific path only (relative path in archive)
+{% if (path_to_restore | default('')) != '' %}
+--path-to-restore {{ path_to_restore | default('') }}
+{% endif %}
+
+# Enable data comparison in verify action (compares restored vs live)
+{% if (compare_data | default(False)) %}
+--compare-data
+{% endif %}
+
+# Use extended shell globbing (default, explicit)
+{% if (filter_globbing | default(True)) %}
+--filter-globbing
+{% endif %}
+
+# Use literal (exact string) matching for patterns
+{% if (filter_literal | default(False)) %}
+--filter-literal
+{% endif %}
+
+# Use Python-style regular expressions for patterns
+{% if (filter_regexp | default(False)) %}
+--filter-regexp
+{% endif %}
+
+# Case-sensitive pattern matching
+{% if (filter_strictcase | default(False)) %}
+--filter-strictcase
+{% endif %}
+
+# Case-insensitive pattern matching
+{% if (filter_ignorecase | default(False)) %}
+--filter-ignorecase
+{% endif %}
+
+# Resolve symlinks during backup
+{% if (copy_links | default(False)) %}
+--copy-links
+{% endif %}
+
+# Exclude device files
+{% if (exclude_device_files | default(False)) %}
+--exclude-device-files
+{% endif %}
+
+# Exclude files on different filesystems
+{% if (exclude_other_filesystems | default(False)) %}
+--exclude-other-filesystems
+{% endif %}
+
+# Exclude directories containing this file
+{% if (exclude_if_present | default('')) != '' %}
+--exclude-if-present {{ exclude_if_present | default('') }}
+{% endif %}
+
+# Global filename prefix (e.g. for lifecycle rules or multi-backend affinity)
+{% if (file_prefix | default('')) != '' %}
+--file-prefix {{ file_prefix | default('') }}
+{% endif %}
+
+# Prefix for manifest files
+{% if (file_prefix_manifest | default('')) != '' %}
+--file-prefix-manifest {{ file_prefix_manifest | default('') }}
+{% endif %}
+
+# Prefix for archive (difftar) files
+{% if (file_prefix_archive | default('')) != '' %}
+--file-prefix-archive {{ file_prefix_archive | default('') }}
+{% endif %}
+
+# Prefix for signature (sigtar) files
+{% if (file_prefix_signature | default('')) != '' %}
+--file-prefix-signature {{ file_prefix_signature | default('') }}
+{% endif %}
+
+# Number of Par2 recovery volumes
+{% if (par2_volumes | default(1)) > 0 %}
+--par2-volumes {{ par2_volumes | default(1) }}
+{% endif %}
+
+# Par2 redundancy percentage
+{% if (par2_redundancy | default(10)) > 0 %}
+--par2-redundancy {{ par2_redundancy | default(10) }}
+{% endif %}
+
+# Extra par2 options (quoted, space-separated)
+{% if (par2_options | default('')) != '' %}
+--par2-options='{{ par2_options | default('') }}'
+{% endif %}
+
+# Skip backup if no files changed
+{% if (skip_if_no_change | default(False)) %}
+--skip-if-no-change
+{% endif %}
+
+# Use FTP passive mode
+{% if (ftp_passive | default(False)) %}
+--ftp-passive
+{% endif %}
+
+# Use FTP active (PORT) mode
+{% if (ftp_regular | default(False)) %}
+--ftp-regular
+{% endif %}
+
+# Force SCP instead of SFTP for SSH backends
+{% if (use_scp | default(False)) %}
+--use-scp
+{% endif %}
+
+# Extra SSH options (quoted, space-separated; e.g., '-oIdentityFile=/path')
+{% if (ssh_options | default('')) != '' %}
+--ssh-options='{{ ssh_options | default('') }}'
+{% endif %}
+
+# Override 'scp' command for pexpect SSH backend
+{% if (scp_command | default('')) != '' %}
+--scp-command {{ scp_command | default('') }}
+{% endif %}
+
+# Override 'sftp' command for pexpect SSH backend
+{% if (sftp_command | default('')) != '' %}
+--sftp-command {{ sftp_command | default('') }}
+{% endif %}
+
+# Log verbosity (error|warning|notice|info|debug, or e|w|n|i|d, or numeric 0-9)
+{% if (verbosity | default('notice')) != '' %}
+--verbosity {{ verbosity | default('notice') }}
+{% endif %}
+
+# Suppress end-of-run statistics
+{% if (no_print_statistics | default(False)) %}
+--no-print-statistics
+{% endif %}
+
+# Output backup statistics in JSON to stdout + separate file
+{% if (jsonstat | default(False)) %}
+--jsonstat
+{% endif %}
+
+# Write structured logs to file descriptor number
+{% if (log_fd | default(0)) > 0 %}
+--log-fd {{ log_fd | default(0) }}
+{% endif %}
+
+# Write structured logs to file
+{% if (log_file | default('')) != '' %}
+--log-file {{ log_file | default('') }}
+{% endif %}
+
+# Prefix log lines with timestamp and level
+{% if (log_timestamp | default(False)) %}
+--log-timestamp
+{% endif %}
+
+# Preserve current ownership on restore (ignore archived uid/gid)
+{% if (no_restore_ownership | default(False)) %}
+--no-restore-ownership
+{% endif %}
+
+# Use numeric uid/gid on restore instead of names
+{% if (numeric_owner | default(False)) %}
+--numeric-owner
+{% endif %}
+
+# Use gpg-agent for passphrase entry
+{% if (use_agent | default(False)) %}
+--use-agent
+{% endif %}
+
+# Seconds to wait before retrying backend operations
+{% if (backend_retry_delay | default(10)) >= 0 %}
+--backend-retry-delay {{ backend_retry_delay | default(10) }}
+{% endif %}
+
+# Number of retries on transient errors
+{% if (num_retries | default(3)) >= 0 %}
+--num-retries {{ num_retries | default(3) }}
+{% endif %}
+
+# Socket timeout in seconds
+{% if (timeout | default(30)) > 0 %}
+--timeout {{ timeout | default(30) }}
+{% endif %}
+
+# Allow same archive/backend used for different sources
+{% if (allow_source_mismatch | default(False)) %}
+--allow-source-mismatch
+{% endif %}
+
+# Proceed even if data loss is possible (e.g. cleanup/ro/ra/ri)
+{% if (force | default(False)) %}
+--force
+{% endif %}
+
+# Only simulate actions (dry run)
+{% if (dry_run | default(False)) %}
+--dry-run
+{% endif %}
+
+# Maximum block size in bytes for librsync (must be multiple of 512)
+{% if (max_blocksize | default(0)) >= 0 %}
+--max-blocksize {{ max_blocksize | default(0) }}
+{% endif %}
+
+# S3-compatible endpoint URL (e.g., GCS interoperability, minIO, etc.)
+{% if (s3_endpoint_url | default('')) != '' %}
+--s3-endpoint-url {{ s3_endpoint_url | default('') }}
+{% endif %}
+
+# S3 region name (required for non-default buckets)
+{% if (s3_region_name | default('')) != '' %}
+--s3-region-name {{ s3_region_name | default('') }}
+{% endif %}
+
+# S3 multipart chunk size in MB
+{% if (s3_multipart_chunk_size | default(20)) > 0 %}
+--s3-multipart-chunk-size {{ s3_multipart_chunk_size | default(20) }}
+{% endif %}
+
+# Max concurrent S3 multipart uploads
+{% if (s3_multipart_max_procs | default(4)) > 0 %}
+--s3-multipart-max-procs {{ s3_multipart_max_procs | default(4) }}
+{% endif %}
+
+# Store volumes in S3 Glacier Flexible Retrieval
+{% if (s3_use_glacier | default(False)) %}
+--s3-use-glacier
+{% endif %}
+
+# Store volumes in S3 Glacier Instant Retrieval
+{% if (s3_use_glacier_ir | default(False)) %}
+--s3-use-glacier-ir
+{% endif %}
+
+# Store volumes in S3 Glacier Deep Archive
+{% if (s3_use_deep_archive | default(False)) %}
+--s3-use-deep-archive
+{% endif %}
+
+# Store volumes in S3 Standard-Infrequent Access
+{% if (s3_use_ia | default(False)) %}
+--s3-use-ia
+{% endif %}
+
+# Store volumes in S3 One Zone-Infrequent Access
+{% if (s3_use_onezone_ia | default(False)) %}
+--s3-use-onezone-ia
+{% endif %}
+
+# Store volumes in S3 Reduced Redundancy Storage
+{% if (s3_use_rrs | default(False)) %}
+--s3-use-rrs
+{% endif %}
+
+# Enable S3 server-side encryption (KMS)
+{% if (s3_use_server_side_kms_encryption | default(False)) %}
+--s3-use-server-side-kms-encryption
+{% endif %}
+
+# KMS key ID for S3 SSE
+{% if (s3_kms_key_id | default('')) != '' %}
+--s3-kms-key-id {{ s3_kms_key_id | default('') }}
+{% endif %}
+
+# S3 KMS grant (for server-side encryption)
+{% if (s3_kms_grant | default('')) != '' %}
+--s3-kms-grant {{ s3_kms_grant | default('') }}
+{% endif %}
+
+# Disable SSL to S3 (not recommended)
+{% if (s3_unencrypted_connection | default(False)) %}
+--s3-unencrypted-connection
+{% endif %}
+
+# Azure blob tier (Hot|Cool|Archive)
+{% if (azure_blob_tier | default('Hot')) != '' %}
+--azure-blob-tier {{ azure_blob_tier | default('Hot') }}
+{% endif %}
+
+# Azure max block size in bytes
+{% if (azure_max_block_size | default(4194304)) > 0 %}
+--azure-max-block-size {{ azure_max_block_size | default(4194304) }}
+{% endif %}
+
+# Azure max single-put size in bytes
+{% if (azure_max_single_put_size | default(67108864)) > 0 %}
+--azure-max-single-put-size {{ azure_max_single_put_size | default(67108864) }}
+{% endif %}
+
+# Max concurrent Azure blob transfers (>64MB)
+{% if (azure_max_connections | default(2)) > 0 %}
+--azure-max-connections {{ azure_max_connections | default(2) }}
+{% endif %}
+
+# Hide (not delete) files in B2
+{% if (b2_hide_files | default(False)) %}
+--b2-hide-files
+{% endif %}
+
+# Force cloudfiles backend (pyrax|cloudfiles)
+{% if (cf_backend | default('pyrax')) != '' %}
+--cf-backend {{ cf_backend | default('pyrax') }}
+{% endif %}
+
+# Rsync backend options (quoted)
+{% if (rsync_options | default('')) != '' %}
+--rsync-options='{{ rsync_options | default('') }}'
+{% endif %}
+
+# OpenStack Swift storage policy
+{% if (swift_storage_policy | default('')) != '' %}
+--swift-storage-policy {{ swift_storage_policy | default('') }}
+{% endif %}
+
+# Metadata sync mode for restore (partial|full)
+{% if (metadata_sync_mode | default('partial')) != '' %}
+--metadata-sync-mode {{ metadata_sync_mode | default('partial') }}
+{% endif %}
+
+# Time separator in filenames (e.g., '_' for recovery actions)
+{% if (time_separator | default(':')) != '' %}
+--time-separator {{ time_separator | default(':') }}
+{% endif %}
+
+# Show upload progress and ETA
+{% if (progress | default(False)) %}
+--progress
+{% endif %}
+
+# Progress update interval in seconds (requires --progress)
+{% if (progress_rate | default(3)) > 0 %}
+--progress-rate {{ progress_rate | default(3) }}
+{% endif %}
+
+# Hide key ID in encrypted file
+{% if (hidden_encrypt_key | default('')) != '' %}
+--hidden-encrypt-key {{ hidden_encrypt_key | default('') }}
+{% endif %}
+
+# Secret keyring path for --encrypt-key (backup-time only)
+{% if (encrypt_secret_keyring | default('')) != '' %}
+--encrypt-secret-keyring {{ encrypt_secret_keyring | default('') }}
+{% endif %}
+
+# Rename path in restored backup
+{% for item in (rename | default([])) %}
+--rename {{ item.original }} {{ item.new }}
+{% endfor %}
+{% if (rename_items | default([])) %}
+# Alternate rename items list
+{% for item in (rename_items | default([])) %}
+--rename {{ item.original }} {{ item.new }}
+{% endfor %}
+{% endif %}
+
+# Skip in-memory collection of changed files (saves memory for large trees)
+{% if (no_files_changed | default(False)) %}
+--no-files-changed
+{% endif %}
+
+# Blocksize in KB for copying (default 128)
+{% if (copy_blocksize | default(128)) > 0 %}
+--copy-blocksize {{ copy_blocksize | default(128) }}
+{% endif %}
+
+# Try to ignore certain errors (emergency restore only)
+{% if (ignore_errors | default(False)) %}
+--ignore-errors
+{% endif %}
+
+# Configuration directory (overrides ~/.config/duplicity)
+{% if (config_dir | default('')) != '' %}
+--config-dir {{ config_dir | default('') }}
+{% endif %}
+
+# Google Drive folder ID for My Drive or Shared Drive
+{% if (gdrive_folder_id | default('')) != '' %}
+--gdrive-folder-id {{ gdrive_folder_id | default('') }}
+{% endif %}
+
+# Fakeroot directory for idrived backend
+{% if (idr_fakeroot | default('')) != '' %}
+--idr-fakeroot {{ idr_fakeroot | default('') }}
+{% endif %}
+
+# Use GIO backend for URLs
+{% if (gio | default(False)) %}
+--gio
+{% endif %}
+
+# WebDAV headers (CSV: key,value,key2,value2)
+{% if (webdav_headers | default('')) != '' %}
+--webdav-headers {{ webdav_headers | default('') }}
+{% endif %}
+
+# CA cert file for WebDAV/FTP SSL verification
+{% if (ssl_cacert_file | default('')) != '' %}
+--ssl-cacert-file {{ ssl_cacert_file | default('') }}
+{% endif %}
+
+# CA cert directory for SSL verification
+{% if (ssl_cacert_path | default('')) != '' %}
+--ssl-cacert-path {{ ssl_cacert_path | default('') }}
+{% endif %}
+
+# Disable SSL certificate verification
+{% if (ssl_no_check_certificate | default(False)) %}
+--ssl-no-check-certificate
+{% endif %}
+
+# Prompt for SSH password (if not provided in URL or env var)
+{% if (ssh_askpass | default(False)) %}
+--ssh-askpass
+{% endif %}
+
+# Full IMAP email address for from field
+{% if (imap_full_address | default('')) != '' %}
+--imap-full-address {{ imap_full_address | default('') }}
+{% endif %}
+
+# IMAP mailbox name (default INBOX)
+{% if (imap_mailbox | default('INBOX')) != '' %}
+--imap-mailbox {{ imap_mailbox | default('INBOX') }}
+{% endif %}
+
+# MediaFire: delete (not move to trash) on removal
+{% if (mf_purge | default(False)) %}
+--mf-purge
+{% endif %}
+
+# Swift backend segment size in MB
+{% if (mp_segment_size | default(100)) > 0 %}
+--mp-segment-size {{ mp_segment_size | default(100) }}
+{% endif %}
+
+# Rclone options as environment variables (prefix RCLONE_)
+{% for item in (rclone_options | default([])) %}
+# RCLONE_{{ item | upper }} is set externally
+{% endfor %}
+
+# Environment variable documentation: Azure connection string
+# AZURE_CONNECTION_STRING={{ (azure_connection_string | default('')) }}
+
+# Environment variable documentation: CloudFiles username
+# CLOUDFILES_USERNAME={{ (cloudfiles_username | default('')) }}
+
+# Environment variable documentation: CloudFiles API key
+# CLOUDFILES_APIKEY={{ (cloudfiles_apikey | default('')) }}
+
+# Environment variable documentation: CloudFiles auth URL
+# CLOUDFILES_AUTHURL={{ (cloudfiles_authurl | default('')) }}
+
+# Environment variable documentation: Swift username
+# SWIFT_USERNAME={{ (swift_username | default('')) }}
+
+# Environment variable documentation: Swift password
+# SWIFT_PASSWORD={{ (swift_password | default('')) }}
+
+# Environment variable documentation: Swift auth URL
+# SWIFT_AUTHURL={{ (swift_authurl | default('')) }}
+
+# Environment variable documentation: Swift tenant name
+# SWIFT_TENANTNAME={{ (swift_tenantname | default('')) }}
+
+# Environment variable documentation: Swift tenant ID
+# SWIFT_TENANTID={{ (swift_tenantid | default('')) }}
+
+# Environment variable documentation: Swift project name
+# SWIFT_PROJECT_NAME={{ (swift_projectname | default('')) }}
+
+# Environment variable documentation: Swift project ID
+# SWIFT_PROJECT_ID={{ (swift_projectid | default('')) }}
+
+# Environment variable documentation: Swift user ID
+# SWIFT_USERID={{ (swift_userid | default('')) }}
+
+# Environment variable documentation: Swift region name
+# SWIFT_REGIONNAME={{ (swift_regionname | default('')) }}
+
+# Environment variable documentation: PCA username
+# PCA_USERNAME={{ (pca_username | default('')) }}
+
+# Environment variable documentation: PCA password
+# PCA_PASSWORD={{ (pca_password | default('')) }}
+
+# Environment variable documentation: PCA auth URL
+# PCA_AUTHURL={{ (pca_authurl | default('')) }}
+
+# Environment variable documentation: PCA user ID
+# PCA_USERID={{ (pca_userid | default('')) }}
+
+# Environment variable documentation: PCA tenant ID
+# PCA_TENANTID={{ (pca_tenantid | default('')) }}
+
+# Environment variable documentation: PCA region name
+# PCA_REGIONNAME={{ (pca_regionname | default('')) }}
+
+# Environment variable documentation: PCA tenant name
+# PCA_TENANTNAME={{ (pca_tenantname | default('')) }}
+
+# Environment variable documentation: Dropbox access token
+# DPBX_ACCESS_TOKEN={{ (dpbx_access_token | default('')) }}
+
+# Environment variable documentation: Box config path
+# BOX_CONFIG_PATH={{ (box_config_path | default('')) }}
+
+# Environment variable documentation: OneDrive client ID
+# DUPLICITY_ONEDRIVE_CLIENT_ID={{ (onedrive_client_id | default('')) }}
+
+# Environment variable documentation: OneDrive root
+# DUPLICITY_ONEDRIVE_ROOT={{ (onedrive_root | default('')) }}
+
+# Environment variable documentation: OneDrive token path
+# DUPLICITY_ONEDRIVE_TOKEN={{ (onedrive_token_path | default('')) }}
+
+# xorriso binary path
+# XORRISO_PATH={{ (xorriso_path | default('')) }}
+
+# xorriso write speed (min|max)
+# XORRISO_WRITE_SPEED={{ (xorriso_write_speed | default('max')) }}
+
+# xorriso required volume ID
+# XORRISO_ASSERT_VOLID={{ (xorriso_assert_volid | default('')) }}
+
+# xorriso extra args
+# XORRISO_ARGS={{ (xorriso_args | default('')) }}
+
+# Passphrase(s) — set via environment variables (referenced)
+{% for item in (passphrases | default([])) %}
+# {{ item.name }}={{ item.value }}
+{% endfor %}
+{% for item in (passphrases_items | default([])) %}
+# {{ item.name }}={{ item.value }}
+{% endfor %}
+
+# Use gpg-agent for passphrases
+{% if (use_agent | default(False)) %}
+--use-agent
+{% endif %}
+
+# End of configuration

@@ -1,0 +1,35 @@
+# etm configuration file: ~/.etm/etmtk.cfg
+#
+# This file configures the etm (event/task manager) tool.
+# It controls logging verbosity, data storage location,
+# report formatting, and default item options.
+
+# logging_level: Logging level: 1=debug, 2=info, 3=warn (default), 4=error, 5=critical
+# Determines how much detail etm logs. Lower numbers are more verbose.
+# Valid values: 1, 2, 3, 4, 5
+logging_level = {{ logging_level | default(3) }}
+
+# data_directory: Path to the directory containing etm data files (etm.cfg and *.etm files)
+# This is where etm stores its persistent state and task definitions.
+root_directory = {{ data_directory | default('~/.etm') }}
+
+# report_specifications: Ordered list of report format specifications (for 'm' command),
+# each with a number and format string. Entry 1 is used by default for 'm 1'.
+# Defines how tasks/events are formatted when printed to stdout.
+# Expected structure: [{"number": int, "format": "string"}, ...]
+{% if report_specifications | default([]) | length > 0 %}
+{% for spec in report_specifications %}
+{% if spec.number is defined and spec.format is defined %}{{ spec.number }} = {{ spec.format }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# default_options: Key-value pairs defining default options for new items
+# (e.g., for '=' entries in data files). These act as defaults when creating new tasks.
+# Expected structure: [{"key": "string", "value": "string"}, ...]
+{% if default_options | default([]) | length > 0 %}
+{% for opt in default_options %}
+{% if opt.key is defined and opt.value is defined %}{{ opt.key }} = {{ opt.value }}
+{% endif %}
+{% endfor %}
+{% endif %}

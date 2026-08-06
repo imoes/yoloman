@@ -1,146 +1,123 @@
-# apt.conf — configuration file for APT (APT.CONF(5))
+# ==============================================================================
+# APT Configuration for AppStream DEP-11 Metadata Downloads
+# ==============================================================================
+# This file configures APT to download and maintain DEP-11 metadata (DEP-11 is a
+# specification for desktop application metadata). It defines how to fetch
+# Components-*.yml files and associated icon tarballs for various display densities.
 #
-# This file holds system-wide settings for APT tools.
-# Each directive has the form <group>::<option> "<value>";
-# Options may also be grouped inside curly braces.
+# Variables:
+#   appstream_native_architecture (default: 'amd64')
+#       The native CPU architecture used in DEP-11 metadata paths (e.g., 'amd64', 'arm64').
+#   appstream_component (default: 'main')
+#       The repository component name (e.g., 'main', 'contrib', 'non-free').
+#   appstream_release (default: 'bookworm')
+#       The Debian/Ubuntu release codename (e.g., 'bookworm', 'bullseye').
+# ==============================================================================
 
-# APT::Architecture: sets the system architecture used when downloading and parsing packages.
-APT::Architecture "{{ architecture }}";
+Acquire::IndexTargets {
+    # -------------------------------------------------------------------------
+    # Primary DEP-11 Components metadata
+    # -------------------------------------------------------------------------
+    deb::DEP-11  {
+        # Path to the YAML metadata file: $(COMPONENT)/dep11/Components-$(NATIVE_ARCHITECTURE).yml
+        MetaKey "$(COMPONENT)/dep11/Components-{{ appstream_native_architecture | default('amd64') }}.yml";
+        ShortDescription "Components-{{ appstream_native_architecture | default('amd64') }}";
+        # Human-readable description: $(RELEASE)/$(COMPONENT) $(NATIVE_ARCHITECTURE) Components
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} {{ appstream_native_architecture | default('amd64') }} Components";
 
-# APT::Architectures: list of all supported architectures; native + foreign (e.g. via dpkg --print-foreign-architectures).
-APT::Architectures {
-  {% for arch in architectures %}
-  "{{ arch }}";
-  {% endfor %}
+        # Keep the compressed version of this metadata index
+        KeepCompressed "true";
+        # Compression format to use for the metadata index
+        KeepCompressedAs "gz";
+    };
+
+    # -------------------------------------------------------------------------
+    # Small icons (48x48) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-small  {
+        # Path to the small icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-48x48.tar";
+        ShortDescription "icons-48x48";
+        # Description for the small icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (48x48)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default (typically false for small icons)
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # Normal-sized icons (64x64) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons  {
+        # Path to the normal icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-64x64.tar";
+        ShortDescription "icons-64x64";
+        # Description for the normal icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (64x64)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # HiDPI icons (64x64@2) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-hidpi  {
+        # Path to the HiDPI icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-64x64@2.tar";
+        ShortDescription "icons-64x64@2";
+        # Description for the HiDPI icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (64x64@2)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # Large icons (128x128) for GUI components (fallback on HiDPI displays)
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-large  {
+        # Path to the large icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-128x128.tar";
+        ShortDescription "icons-128x128";
+        # Description for the large icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (128x128)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # Extra-large HiDPI icons (128x128@2) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-large-hidpi  {
+        # Path to the extra-large HiDPI icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-128x128@2.tar";
+        ShortDescription "icons-128x128@2";
+        # Description for the extra-large HiDPI icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (128x128@2)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
 };
 
-# APT::Default-Release: default release packages are installed from when several are available.
-APT::Default-Release "{{ default_release }}";
-
-# APT::Snapshot: snapshot name for repositories with Snapshot: yes in sources.list.
-APT::Snapshot "{{ snapshot }}";
-
-# APT::Ignore-Hold: when enabled, APT ignores packages on hold during dependency resolution.
-APT::Ignore-Hold "{{ ignore_hold }}";
-
-# APT::Clean-Installed: controls whether installed packages are excluded from apt-get clean.
-APT::Clean-Installed "{{ clean_installed }}";
-
-# APT::Immediate-Configure: when enabled, essential/important packages are configured immediately after unpacking.
-APT::Immediate-Configure "{{ immediate_configure }}";
-
-# APT::Force-LoopBreak: allows temporary removal of essential packages to break conflict loops (NOT recommended).
-APT::Force-LoopBreak "{{ force_loop_break }}";
-
-# APT::Cache-Start: size of the initially reserved in-memory cache (in bytes).
-APT::Cache-Start "{{ cache_start }}";
-
-# APT::Cache-Grow: step size for growing the cache automatically (in bytes) if Cache-Start is too small.
-APT::Cache-Grow "{{ cache_grow }}";
-
-# APT::Cache-Limit: maximum cache size (in bytes); 0 = no limit.
-APT::Cache-Limit "{{ cache_limit }}";
-
-# APT::Build-Essential: list of packages treated as essential build dependencies.
-APT::Build-Essential {
-  {% for pkg in build_essential %}
-  "{{ pkg }}";
-  {% endfor %}
+# -------------------------------------------------------------------------
+# Post-update hook: Refresh AppStream cache after APT update
+# -------------------------------------------------------------------------
+# This command runs automatically after 'apt update'. It checks if the
+# AppStream cache directory is writable and if appstreamcli is available,
+# then refreshes the OS source cache. Errors are suppressed with '|| true'.
+APT::Update::Post-Invoke-Success {
+    "if /usr/bin/test -w /var/cache/swcatalog -a -e /usr/bin/appstreamcli; then appstreamcli refresh --source=os > /dev/null || true; fi";
 };
-
-# APT::NeverAutoRemove: regular expressions for packages that are never removed by apt autoremove.
-APT::NeverAutoRemove {
-  {% for regex in never_auto_remove %}
-  "{{ regex }}";
-  {% endfor %}
-};
-
-# APT::Protect-Kernels: whether kernel packages are protected from automatic removal.
-APT::Protect-Kernels "{{ protect_kernels }}";
-
-# APT::VersionedKernelPackages: regular expressions identifying versioned kernel packages.
-APT::VersionedKernelPackages {
-  {% for regex in versioned_kernel_packages %}
-  "{{ regex }}";
-  {% endfor %}
-};
-
-# APT::NeverAutoRemove::KernelCount: number of kernels kept on autoremove (at least 2).
-APT::NeverAutoRemove::KernelCount "{{ kernel_count }}";
-
-# DPkg::Pre-Install-Pkgs: list of scripts run by dpkg before installing packages.
-DPkg::Pre-Install-Pkgs {
-  {% for script in pre_install_pkgs %}
-  "{{ script }}";
-  {% endfor %}
-};
-
-# DPkg::Pre-Install-Recommends: (optional) scripts run before configuring recommended packages.
-# DPkg::Pre-Install-Recommends {
-#   {% for script in pre_install_recommends %}
-#   "{{ script }}";
-#   {% endfor %}
-# };
-
-# DPkg::Options::: sets options for dpkg invocations (e.g. --force-...).
-{% for opt in dpkg_options %}
-# DPkg::Options:: "{{ opt }}";
-{% endfor %}
-
-# APT::Acquire::Retries: number of retries on network errors (unless overridden by the method).
-APT::Acquire::Retries "{{ acquire_retries }}";
-
-# APT::Acquire::Timeout: default time limit (in seconds) for a single download.
-APT::Acquire::Timeout "{{ acquire_timeout }}";
-
-# APT::Acquire::MaxTime: maximum total time (in seconds) for all download attempts.
-APT::Acquire::MaxTime "{{ acquire_max_time }}";
-
-# APT::Acquire::Languages: list of preferred languages for translations (e.g. "none" for none).
-APT::Acquire::Languages {
-  {% for lang in acquire_languages %}
-  "{{ lang }}";
-  {% endfor %}
-};
-
-# APT::Acquire::Check-Valid-Until: security check on the expiry date in Release files (true/false).
-APT::Acquire::Check-Valid-Until "{{ acquire_check_valid_until }}";
-
-# APT::Acquire::Check-Date: checks the system clock for security checks; true = trust the clock.
-APT::Acquire::Check-Date "{{ acquire_check_date }}";
-
-# APT::Acquire::Max-FutureTime: max time (in seconds) a Release file may be dated before its creation date.
-APT::Acquire::Max-FutureTime "{{ acquire_max_future_time }}";
-
-# APT::Acquire::Max-ValidTime: max validity period (in seconds) after a Release file is created.
-APT::Acquire::Max-ValidTime "{{ acquire_max_valid_time }}";
-
-# APT::Acquire::Min-ValidTime: min time (in seconds) after creation before a Release file is considered valid.
-APT::Acquire::Min-ValidTime "{{ acquire_min_valid_time }}";
-
-# APT::Periodic::Update-Package-Lists: interval (in days) for automatically updating package lists.
-APT::Periodic::Update-Package-Lists "{{ periodic_update_pkg_lists }}";
-
-# APT::Periodic::Download-Upgradeable-Packages: interval (in days) for automatically downloading upgradeable packages.
-APT::Periodic::Download-Upgradeable-Packages "{{ periodic_download_upgradeable }}";
-
-# APT::Periodic::AutocleanInterval: interval (in days) for automatically running apt-get autoclean.
-APT::Periodic::AutocleanInterval "{{ periodic_autoclean }}";
-
-# APT::Periodic::Verbose: log level for periodic actions (0=quiet, 1=normal, 2=debug).
-APT::Periodic::Verbose "{{ periodic_verbose }}";
-
-# APT::Get::Assume-Yes: when true, apt-get proceeds without interaction (equivalent to -y).
-APT::Get::Assume-Yes "{{ apt_get_assume_yes }}";
-
-# APT::Get::Fix-Broken: when true, apt-get tries to repair broken dependencies (equivalent to -f).
-APT::Get::Fix-Broken "{{ apt_get_fix_broken }}";
-
-# APT::Get::Show-Upgraded: shows upgraded packages before installation.
-APT::Get::Show-Upgraded "{{ apt_get_show_upgraded }}";
-
-# APT::Get::AllowRemove: allows removing essential packages when necessary (use with caution).
-APT::Get::AllowRemove "{{ apt_get_allow_remove }}";
-
-# APT::Get::AllowDowngrade: allows downgrading packages (use with caution).
-APT::Get::AllowDowngrade "{{ apt_get_allow_downgrade }}";

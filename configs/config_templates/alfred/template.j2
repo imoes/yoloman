@@ -1,74 +1,120 @@
-# Main daemon operating mode
-mode: {{ mode }}
+# =============================================================================
+# Alfred Configuration Template
+# =============================================================================
+# This file configures the Alfred daemon. It is self-documenting: every
+# directive is preceded by a comment describing its purpose and valid values.
+# All variables are safely defaulted using the schema defaults.
+# =============================================================================
 
-# Network binding
-bind_host: {{ bind_host }}
-bind_port: {{ bind_port }}
+# Main daemon operating mode — typically 'daemon' or 'standalone'.
+# Valid modes depend on the Alfred binary version.
+mode: {{ mode | default('daemon') }}
 
-# Logging configuration
-log_level: {{ log_level }}
-log_file: {{ log_file }}
+# Network binding: IP address to bind the service to.
+# Use '0.0.0.0' to bind to all interfaces, or a specific LAN/loopback IP.
+bind_host: {{ bind_host | default('127.0.0.1') }}
 
-# Worker pool tuning
-worker_count: {{ worker_count }}
-max_connections: {{ max_connections }}
+# Network binding: Port number to listen on for client connections.
+bind_port: {{ bind_port | default(8080) }}
 
-# Optional TLS settings
-{% if use_tls %}
+# Logging configuration: Verbosity level.
+# Allowed values: 'debug', 'info', 'warn', 'error'.
+log_level: {{ log_level | default('info') }}
+
+# Logging configuration: Path to the main log file.
+# Ensure the directory exists and is writable by the service user.
+log_file: {{ log_file | default('/var/log/alfred/alfred.log') }}
+
+# Worker pool tuning: Number of concurrent worker threads to spawn.
+# Adjust based on CPU cores and expected concurrency.
+worker_count: {{ worker_count | default(4) }}
+
+# Worker pool tuning: Maximum number of simultaneous connections allowed.
+max_connections: {{ max_connections | default(1024) }}
+
+# --- Optional TLS Settings ---
+# Enable TLS encryption for inbound connections.
+# If enabled, the certificate and key files must exist and be readable.
+{% if use_tls | default(false) %}
 tls_enabled: yes
-tls_cert_file: {{ tls_cert_file }}
-tls_key_file: {{ tls_key_file }}
+# Path to the TLS certificate file (public key).
+tls_cert_file: {{ tls_cert_file | default('/etc/alfred/tls.crt') }}
+# Path to the TLS private key file.
+tls_key_file: {{ tls_key_file | default('/etc/alfred/tls.key') }}
 {% else %}
 tls_enabled: no
 {% endif %}
 
-# Remote Fact Exchange (RFE) endpoints
-{% for endpoint in endpoints %}# RFE endpoint {{ endpoint.name }}
+# --- Remote Fact Exchange (RFE) Endpoints ---
+# List of remote endpoints to call for fact collection.
+# Each entry defines a URL, HTTP method, and optional authentication.
+# If the list is empty, no RFE calls are made.
+{% if endpoints | default([]) | length > 0 %}
+{% for endpoint in endpoints %}
+# RFE endpoint: {{ endpoint.name | default('unnamed') }}
+# URL: {{ endpoint.url | default('') }}
+# Method: {{ endpoint.method | default('GET') }}
+# Timeout (seconds): {{ endpoint.timeout | default(30) }}
+# Retry count: {{ endpoint.retry_count | default(3) }}
+# Backoff (ms): {{ endpoint.backoff_ms | default(1000) }}
 endpoint:
-  name: {{ endpoint.name }}
-  url: {{ endpoint.url }}
-  method: {{ endpoint.method }}
-  timeout: {{ endpoint.timeout }}
-  retry_count: {{ endpoint.retry_count }}
-  backoff_ms: {{ endpoint.backoff_ms }}
-{% if endpoint.headers %}
+  name: {{ endpoint.name | default('unnamed') }}
+  url: {{ endpoint.url | default('') }}
+  method: {{ endpoint.method | default('GET') }}
+  timeout: {{ endpoint.timeout | default(30) }}
+  retry_count: {{ endpoint.retry_count | default(3) }}
+  backoff_ms: {{ endpoint.backoff_ms | default(1000) }}
+{% if endpoint.headers | default({}) | length > 0 %}
   headers:
-{% for header_name, header_value in endpoint.headers.items() %}
-    {{ header_name }}: {{ header_value }}
+{% for header_item in endpoint.headers | default({}) | dict2items %}
+    {{ header_item.key }}: {{ header_item.value }}
 {% endfor %}
 {% endif %}
-{% if endpoint.auth %}
+{% if endpoint.auth | default({}) | length > 0 %}
   auth:
-    type: {{ endpoint.auth.type }}
-{% if endpoint.auth.type == 'basic' %}
-    username: {{ endpoint.auth.username }}
-    password: {{ endpoint.auth.password }}
-{% elif endpoint.auth.type == 'bearer' %}
-    token: {{ endpoint.auth.token }}
+    type: {{ (endpoint.auth | default({})).type | default('none') }}
+{% if (endpoint.auth | default({})).type | default('none') == 'basic' %}
+    username: {{ (endpoint.auth | default({})).username | default('') }}
+    password: {{ (endpoint.auth | default({})).password | default('') }}
+{% elif (endpoint.auth | default({})).type | default('none') == 'bearer' %}
+    token: {{ (endpoint.auth | default({})).token | default('') }}
 {% endif %}
 {% endif %}
 {% endfor %}
+{% else %}
+# No RFE endpoints configured.
+{% endif %}
 
-# Fact caching
-{% if cache_enabled %}
+# --- Fact Caching Configuration ---
+# Enable caching of fetched facts to reduce external load.
+{% if cache_enabled | default(true) %}
 cache:
   enabled: yes
-  type: {{ cache_type }}
-{% if cache_type == 'file' %}
-  path: {{ cache_file_path }}
-{% elif cache_type == 'redis' %}
-  host: {{ cache_redis_host }}
-  port: {{ cache_redis_port }}
-  db: {{ cache_redis_db }}
+  # Cache backend type: 'file' or 'redis'.
+  type: {{ cache_type | default('file') }}
+{% if cache_type | default('file') == 'file' %}
+  # Path to the local SQLite/BerkeleyDB cache file.
+  path: {{ cache_file_path | default('/var/lib/alfred/cache.db') }}
+{% elif cache_type | default('file') == 'redis' %}
+  # Redis server hostname for cache backend.
+  host: {{ cache_redis_host | default('localhost') }}
+  # Redis server port for cache backend.
+  port: {{ cache_redis_port | default(6379) }}
+  # Redis database number to use.
+  db: {{ cache_redis_db | default(0) }}
 {% endif %}
-  ttl_seconds: {{ cache_ttl_seconds }}
+  # Time-to-live for cached entries, in seconds.
+  ttl_seconds: {{ cache_ttl_seconds | default(300) }}
 {% else %}
 cache:
   enabled: no
 {% endif %}
 
-# Health check endpoint
+# --- Health Check Endpoint ---
+# Built-in HTTP endpoint for monitoring service liveness.
 health_check:
-  enabled: {{ health_check_enabled }}
-  path: {{ health_check_path }}
-  interval_seconds: {{ health_check_interval_seconds }}
+  enabled: {{ health_check_enabled | default(true) }}
+  # URL path for the health check endpoint (e.g., /health).
+  path: {{ health_check_path | default('/health') }}
+  # Interval (in seconds) between internal health checks.
+  interval_seconds: {{ health_check_interval_seconds | default(30) }}

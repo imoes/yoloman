@@ -1,47 +1,93 @@
-# /etc/insserv.conf — insserv configuration for LSB init script dependency resolution
-# Override default dependencies and control boot order via directives
+# Configuration file for insserv: the LSB Init Script dependency resolver.
+#
+# This template is auto-generated. Do not edit manually unless necessary.
+# All variables are populated with safe defaults derived from the schema.
 
-# Path to the init.d directory containing LSB-compliant init scripts
-{% if init_d_path %}# init.d path (override): {{ init_d_path }}
-{% endif %}
+# === Global Settings ===
 
-# Default runlevel (used when runlevel is ambiguous)
-# insserv uses this only during dry-run or manual invocation; normally derived from /etc/initscript
-{% if default_runlevel %}# default runlevel: {{ default_runlevel }}
-{% endif %}
+# Path to the directory containing LSB-compliant init scripts.
+# Default: /etc/init.d
+init_d_path={{ init_d_path | default('/etc/init.d') }}
 
-# Enable verbose output for debugging dependency resolution
-{% if debug %}# verbose mode enabled
-VERBOSE=yes
-{% else %}VERBOSE=no
-{% endif %}
+# Default runlevel used when LSB headers are ambiguous or missing runlevel info.
+# Default: 2
+default_runlevel={{ default_runlevel | default('2') }}
 
-# Extra directories to scan for LSB headers (beyond /etc/init.d)
-{% for extra_dir in extra_init_dirs %}# additional directory: {{ extra_dir }}
+# Enable verbose output for debugging dependency resolution.
+# If true, insserv will print detailed information about dependency graph traversal.
+# Default: false
+debug={{ debug | default(False) | lower }}
+
+# Path to insserv’s runtime dependency database (cache).
+# This file stores the resolved dependency graph to speed up subsequent boots.
+# Default: /lib/insserv/runlevel.db
+database_path={{ database_path | default('/lib/insserv/runlevel.db') }}
+
+# Maximum recursion depth during dependency resolution.
+# Prevents stack overflow on circular references or deeply nested dependencies.
+# Default: 100
+max_depth={{ max_depth | default(100) }}
+
+# If true, skip scripts that lack required LSB header tags (e.g., `Default-Start`).
+# If false, insserv will fail if a script is missing mandatory LSB tags.
+# Default: false
+ignore_missing_tags={{ ignore_missing_tags | default(False) | lower }}
+
+# === Additional Directories ===
+
+# Additional directories (beyond /etc/init.d) to scan for LSB header information.
+# These directories are appended to the search path for init scripts.
+# Example: ['/etc/init.d-custom']
+# Default: []
+{% for extra_dir in extra_init_dirs | default([]) %}
+extra_init_dir{{ loop.index }}={{ extra_dir }}
 {% endfor %}
-{% if extra_init_dirs %}# extra directories:
-{% for extra_dir in extra_init_dirs %}{{ extra_dir }}
+
+# === Dependency Overrides ===
+
+# Custom dependency rule overrides for specific init scripts.
+# Use sparingly—override only when LSB headers are incorrect or need manual tuning.
+# Format: <script_name> <dependency_list>
+# Example: sshd -network +sshd
+{% for override in dependency_overrides | default([]) %}
+override{{ loop.index }}={{ override }}
 {% endfor %}
-{% endif %}
 
-# Override default dependency behavior per script
-# Format: <script> <dependency> <action>
-# actions: +add, -remove, *replace (see insserv(8))
-{% for override in dependency_overrides %}# {{ override.script }}: {{ override.dependency }} -> {{ override.action }}
-{% endfor %}
-{% if dependency_overrides %}# dependency overrides:
-{% for override in dependency_overrides %}{{ override.script }} {{ override.dependency }} {{ override.action }}
-{% endfor %}
-{% endif %}
+# === Runlevel Dependencies ===
 
-# Controls whether to ignore missing LSB tags (e.g., `# Default-Start:`)
-{% if ignore_missing_tags %}# ignore missing LSB tags
-{% endif %}
+#
+# All local filesystems are mounted (done during boot phase)
+#
+$local_fs	+mountall +mountall-bootclean +mountoverflowtmp +umountfs
 
-# Path to the insserv database cache (default: /lib/insserv/runlevel.db)
-{% if database_path %}# database path (override): {{ database_path }}
-{% endif %}
+#
+# Low level networking (ethernet card)
+#
+$network	+networking +ifupdown
 
-# Maximum depth for dependency recursion (prevents infinite loops)
-{% if max_depth %}# max recursion depth: {{ max_depth }}
-{% endif %}
+#
+# Named is operational
+#
+$named		+named +dnsmasq +lwresd +bind9 +unbound +pdns-recursor $network
+
+#
+# All remote filesystems are mounted (note in some cases /usr may
+# be remote. Most applications that care will probably require
+# both $local_fs and $remote_fs)
+#
+$remote_fs	$local_fs +mountnfs +mountnfs-bootclean +umountnfs +sendsigs
+
+#
+# System logger is operational
+#
+$syslog		+rsyslog +sysklogd +syslog-ng +dsyslog +inetutils-syslogd
+
+#
+# The system time has been set correctly
+#
+$time		+hwclock
+
+#
+# Services which need to be interactive
+#
+<interactive>	glibc udev console-screen keymap keyboard-setup console-setup cryptdisks cryptdisks-early checkfs-loop

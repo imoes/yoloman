@@ -1,0 +1,118 @@
+{# ==============================================================================
+   # crash(8) - Configuration template for crash kernel debugger
+   #
+   # This template generates the user configuration file for the 'crash' utility,
+   # a kernel debugger. The generated directives control startup behavior,
+   # command-line editing, output formatting, and architecture-specific tuning.
+   #
+   # Variables used:
+   #   crash_edit_mode       : Readline editing mode ('vi' or 'emacs')
+   #   crash_radix           : Default numeric output radix (10 or 16)
+   #   crash_console_device  : Device file for debug console messages
+   #   crash_log_at_init     : Display kernel log buffer on startup (bool)
+   #   crash_history_size    : Max commands in history (0 = default)
+   #   crash_silent_start    : Suppress banner/version info (bool)
+   #   crash_pager           : Output paging command ('less', 'more', or 'off')
+   #   crash_smp_count       : Explicit CPU count (0 = auto-detect)
+   #   crash_arch            : Target architecture (e.g., x86_64, arm64)
+   #   crash_machdep_opts    : List of machine-dependent option maps (key/value)
+   #   crash_extensions_dir  : Directory for extension modules
+   # ============================================================================== #}
+
+# crash utility configuration
+# Commands in this file are executed in order during initialization.
+
+# Readline command-line editing mode: 'vi' or 'emacs'
+# Sets the keybinding style for command input.
+set {{ crash_edit_mode | default('vi') }}
+
+# Default numeric output radix: 10 or 16
+# Controls whether addresses/numbers are displayed in decimal or hexadecimal.
+set radix {{ crash_radix | default(10) }}
+
+# Device file to use for debug console messages
+# Example: /dev/ttyS0 for serial console, /dev/crash for default.
+# Only emitted if a non-empty value is provided.
+{% if crash_console_device | default('') %}
+set console {{ crash_console_device | default('/dev/crash') }}
+{% endif %}
+
+# If true, display kernel log buffer on startup
+# Deprecated for kernels >= v5.10.
+{% if crash_log_at_init | default(False) %}
+log
+{% endif %}
+
+# Maximum number of commands to retain in history
+# 0 uses the utility's internal default.
+{% if crash_history_size | default(0) %}
+history {{ crash_history_size | default(0) }}
+{% endif %}
+
+# Suppress banner/version info on startup
+# Useful for scripts or quiet operation.
+{% if crash_silent_start | default(False) %}
+silent
+{% endif %}
+
+# Output paging command: 'less', 'more', or 'off' to disable paging
+# Controls how large outputs are presented to the user.
+{% set pager = crash_pager | default('less') %}
+{% if pager == 'more' %}
+pager more
+{% elif pager == 'less' %}
+pager less
+{% elif pager == 'off' %}
+scroll off
+{% endif %}
+
+# Explicit number of CPUs in SMP system
+# 0 means auto-detect based on the crash dump.
+# Only emitted if explicitly set to a positive integer.
+{% if crash_smp_count | default(0) > 0 %}
+smp {{ crash_smp_count | default(0) }}
+{% endif %}
+
+# Target architecture
+# Required for interpreting machine-dependent settings.
+# Example: x86_64, arm64, ppc64, ia64, arm, x86.
+{% set arch = crash_arch | default('x86_64') %}
+
+# Machine-dependent option/value pairs for architecture-specific tuning
+# Each entry in this list must have 'key' and 'value' fields.
+# Supported keys vary by architecture (see crash documentation).
+{% if crash_machdep_opts is defined and crash_machdep_opts | length > 0 %}
+{% for opt in crash_machdep_opts %}
+{% if opt.key == 'phys_base' and arch in ['x86_64', 'arm', 'arm64'] %}
+machdep phys_base=0x{{ opt.value | lower }}
+{% elif opt.key == 'irq_eframe_link' and arch == 'x86_64' %}
+machdep irq_eframe_link=0x{{ opt.value | lower }}
+{% elif opt.key == 'irq_stack_gap' and arch == 'x86_64' %}
+machdep irq_stack_gap=0x{{ opt.value | lower }}
+{% elif opt.key == 'max_physmem_bits' and arch in ['x86_64', 'arm64'] %}
+machdep max_physmem_bits={{ opt.value }}
+{% elif opt.key == 'kernel_image_size' and arch == 'x86_64' %}
+machdep kernel_image_size=0x{{ opt.value | lower }}
+{% elif opt.key == 'vm' and arch in ['x86_64', 'ppc64', 'ia64'] %}
+machdep vm={{ opt.value }}
+{% elif opt.key == 'page_offset' and arch in ['x86', 'x86_64'] %}
+machdep page_offset=0x{{ opt.value | lower }}
+{% elif opt.key == 'phys_start' and arch == 'ia64' %}
+machdep phys_start=0x{{ opt.value | lower }}
+{% elif opt.key == 'init_stack_size' and arch == 'ia64' %}
+machdep init_stack_size={{ opt.value }}
+{% elif opt.key == 'phys_offset' and arch == 'arm64' %}
+machdep phys_offset=0x{{ opt.value | lower }}
+{% elif opt.key == 'kimage_voffset' and arch == 'arm64' %}
+machdep kimage_voffset=0x{{ opt.value | lower }}
+{% elif opt.key == 'vabits_actual' and arch == 'arm64' %}
+machdep vabits_actual={{ opt.value }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Directory to search for extension modules
+# Overrides the default compiled-in path.
+{% if crash_extensions_dir | default('') %}
+extensions -d {{ crash_extensions_dir | default('/usr/lib64/crash/extensions') }}
+{% endif %}

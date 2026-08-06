@@ -1,0 +1,43 @@
+; deb-gview configuration
+; Manages the behavior of the DEB package viewer tool.
+; This file controls terminal selection, command execution, and file-type preview rules.
+
+; Terminal application used for viewers that require a terminal.
+; Default: xterm
+terminal={{ terminal | default('xterm') }}
+
+; Command to pass to the terminal application to load an external command within the terminal.
+; Most terminal emulators support '-e' for this capability.
+; Default: -e
+execute_command={{ execute_command | default('-e') }}
+
+; List of preview configuration groups defining how to handle file types inside .deb packages.
+; Each group specifies a pattern to match, a viewer command, and execution options.
+{% for group in preview_groups | default([], true) %}
+; Preview group: {{ group.group_name | default('unnamed') }}
+; This group defines how files matching the pattern are handled by the viewer.
+[{{ group.group_name | default('preview_group') }}]
+
+; Preview rule: pattern to match file location inside .deb package.
+; This pattern determines which files trigger this preview configuration.
+pattern={{ group.pattern | default('') }}
+
+; Viewer program to invoke (must be in $PATH).
+; The executable name used to open the file.
+viewer={{ group.viewer | default('') }}
+
+; Whether to launch the viewer inside a terminal.
+; Accepts 'true' or 'false'.
+; Default: false
+use_terminal={{ group.use_terminal | default(false) | lower }}
+
+; Whether the viewer requires binary file access.
+; Accepts 'true' or 'false'.
+; Default: false
+binary_file={{ group.binary_file | default(false) | lower }}
+
+; Optional file suffix for temporary extraction (leave empty to omit).
+; If specified, the extracted file will be renamed with this suffix.
+file_suffix={{ group.file_suffix | default('', true) }}
+
+{% endfor %}
