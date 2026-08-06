@@ -145,6 +145,27 @@ async def create_plan(
     return await PlanOut.build(session, plan)
 
 
+class PlanPatchIn(BaseModel):
+    """Metadata-only edit of a policy/plan — rename or re-describe it. It deliberately does NOT touch the
+    plan's versions/entries (that is what create_plan_version / the designer do), so editing an unlinked
+    policy's label can never silently drop its content."""
+    display_name: str | None = None
+    description: str | None = None
+
+
+@router.patch("/api/v1/orchestration/plans/{plan_id}", response_model=PlanOut)
+async def update_plan(
+    plan_id: UUID, body: PlanPatchIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> PlanOut:
+    plan = await _get_plan_or_404(session, plan_id)
+    if body.display_name is not None:
+        plan.display_name = body.display_name
+    if body.description is not None:
+        plan.description = body.description
+    await session.commit()
+    return await PlanOut.build(session, plan)
+
+
 @router.post("/api/v1/orchestration/plans/{plan_id}/versions", response_model=PlanOut)
 async def create_plan_version(
     plan_id: UUID, body: PlanVersionIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)

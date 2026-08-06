@@ -35,6 +35,11 @@ export class OrchestrationService {
     return this.http.post<OrchestrationPlan>(`${this.base}/plans/${planId}/versions`, body);
   }
 
+  /** Metadata-only edit (rename / re-describe) — leaves the plan's versions/entries untouched. */
+  updatePlan(id: string, body: { display_name?: string; description?: string }) {
+    return this.http.patch<OrchestrationPlan>(`${this.base}/plans/${id}`, body);
+  }
+
   deletePlan(id: string) {
     return this.http.delete<void>(`${this.base}/plans/${id}`);
   }

@@ -309,7 +309,7 @@ interface PaletteItem {
     <!-- Palette context menu: right-click any policy in the palette (incl. unlinked plans) to edit or
          delete it, without first dragging it onto an OU. -->
     <ng-template #paletteMenu><div class="bm-menu" cdkMenu>
-      @if (paletteCtx()?.kind === 'config_policy') {
+      @if (paletteCtx()?.kind === 'config_policy' || paletteCtx()?.kind === 'plan') {
         <button class="bm-menu-item" cdkMenuItem (click)="palettePolicyEdit(paletteCtx()!)">Edit…</button>
       }
       <button class="bm-menu-item bm-danger" cdkMenuItem (click)="palettePolicyDelete(paletteCtx()!)">Delete</button>
@@ -1175,11 +1175,25 @@ export class OuPolicyComponent implements OnInit {
     del?.subscribe({ next: done, error: fail });
   }
 
-  /** Edit a palette policy (right-click). Config policies reopen the gpedit editor at their scope; other
-   * kinds are edited from their placed object in the tree. */
-  palettePolicyEdit(p: PaletteItem): void {
+  /** Edit a palette policy (right-click). Config policies reopen the gpedit editor at their scope; an
+   * orchestration plan (incl. an UNLINKED one) can be renamed here — its entries stay authored in the
+   * plan/role designer, but its label is editable in place. */
+  async palettePolicyEdit(p: PaletteItem): Promise<void> {
     if (p.kind === 'config_policy' && p.ownerOuId) {
       this.openGpedit({ kind: 'ou', id: p.ownerOuId, label: p.ownerPath ?? '' });
+      return;
+    }
+    if (p.kind === 'plan') {
+      const name = await this.appDialog.prompt({
+        title: 'Rename policy',
+        message: 'A policy’s entries (roles/thresholds/checks) are authored in the plan designer; here you can rename it.',
+        input: { label: 'Display name', value: p.label },
+      });
+      if (name == null || !name.trim() || name.trim() === p.label) return;
+      this.orchestration.updatePlan(p.id, { display_name: name.trim() }).subscribe({
+        next: () => this.reload(),
+        error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'rename failed', 'error'),
+      });
     }
   }
 }
