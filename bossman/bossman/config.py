@@ -234,6 +234,14 @@ class Settings(BaseSettings):
     # and edited in Admin Settings (SystemSettings.helm_http_proxy / helm_no_proxy,
     # cached in services/helm_app). See api/system_settings.py.
 
+    # HTTP(S) proxy baked into a PXE-provisioned target so it can reach package mirrors + the internet
+    # from its destination segment. Written into /etc/environment and every package manager's config
+    # (apt/dnf/yum/zypper) during the restore's target phase. Empty = no proxy written. no_proxy keeps
+    # local/corp traffic direct (comma-separated). https falls back to http when unset.
+    target_http_proxy: str = ""
+    target_https_proxy: str = ""
+    target_no_proxy: str = "localhost,127.0.0.1,::1"
+
     # JWT signing secret for the human-operator dashboard login.
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"

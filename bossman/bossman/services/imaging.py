@@ -1036,6 +1036,7 @@ def restore_vars(
     hostname: str,
     network: dict | None = None,
     pv_partition: int | None = None,
+    proxy: dict | None = None,
 ) -> dict:
     """The playbook-driven counterpart to restore_steps: resolve the layout + plan into the vars the two
     Ansible restore playbooks loop over (configs/wizard_playbooks/restore-{pe,target}-phase.yml), plus the
@@ -1129,6 +1130,8 @@ def restore_vars(
             "efi_directory": "/boot/efi",
             "target_hostname": hostname,
             "network": net_var,
+            # HTTP(S) proxy written into the restored root (env + apt/dnf/yum/zypper). Empty dict = none.
+            "proxy": proxy or {},
         },
     }
 

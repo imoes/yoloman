@@ -397,6 +397,14 @@ A few behaviours are worth calling out — each is load-bearing:
 - **DHCP/PXE is job-gated.** The PXE/DHCP server only serves while a provisioning job is pending — there
   is no manual on/off switch. The Settings pane just manages the shared netboot secret.
 
+- **Proxy is baked into the target.** When `target_http_proxy` (+ optional `target_https_proxy`,
+  `target_no_proxy`) is set, the restore's target phase writes the proxy into the restored root so the host
+  reaches package mirrors and the internet from its destination segment: `/etc/environment`
+  (`http(s)_proxy` + `no_proxy`, upper- and lower-case) and every package manager — apt
+  (`/etc/apt/apt.conf.d/95bossman-proxy`), dnf/yum (`proxy=` in their `[main]`), and zypper
+  (`/etc/sysconfig/proxy` incl. `NO_PROXY`). `no_proxy` keeps local/corp traffic direct. Empty = nothing
+  written.
+
 - **Roles are desired state.** The wizard registers the target as a **planned** host (a real agent with an
   id, read-only, no address yet) and then uses the exact **Role bindings** workflow from the Management tab
   against it: each role is an `OrchestrationPlan` of type `role`, bound to the host as an

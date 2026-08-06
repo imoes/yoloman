@@ -15,6 +15,7 @@
     efi_directory: /boot/efi
     target_hostname: ""       # the new FQDN
     network: {}               # {method, address?, gateway?, dns?, name?}  method=dhcp|static
+    proxy: {}                 # {http, https, no_proxy} — HTTP(S) proxy baked into the restored root; {} = none
   tasks:
     - name: Install the bootloader for the image's firmware
       yoloman.bootloader:
@@ -39,3 +40,78 @@
         gateway: "{{ network.gateway | default('') }}"
         dns: "{{ network.dns | default([]) }}"
       when: network.method is defined
+
+    # ── Proxy: bake the HTTP(S) proxy into the restored root so the target reaches package mirrors + the
+    # internet from its destination segment. Written to /etc/environment (all tools) and every package
+    # manager (apt/dnf/yum/zypper). no_proxy keeps local/corp traffic direct. All guarded on a proxy being
+    # configured; the manager-specific files are inert on a distro that lacks that manager. ────────────────
+    - name: Proxy — /etc/environment (http/https/no_proxy for every tool)
+      ansible.builtin.blockinfile:
+        path: /etc/environment
+        create: true
+        marker: "# {mark} BOSSMAN PROXY"
+        block: |
+          http_proxy={{ proxy.http }}
+          https_proxy={{ proxy.https | default(proxy.http) }}
+          HTTP_PROXY={{ proxy.http }}
+          HTTPS_PROXY={{ proxy.https | default(proxy.http) }}
+          no_proxy={{ proxy.no_proxy | default('') }}
+          NO_PROXY={{ proxy.no_proxy | default('') }}
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — ensure apt.conf.d exists
+      ansible.builtin.file:
+        path: /etc/apt/apt.conf.d
+        state: directory
+        mode: "0755"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — apt (Acquire proxies; no_proxy honoured via /etc/environment)
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/95bossman-proxy
+        mode: "0644"
+        content: |
+          Acquire::http::Proxy "{{ proxy.http }}";
+          Acquire::https::Proxy "{{ proxy.https | default(proxy.http) }}";
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — ensure /etc/dnf exists
+      ansible.builtin.file:
+        path: /etc/dnf
+        state: directory
+        mode: "0755"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — dnf ([main] proxy; no_proxy via /etc/environment)
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/dnf.conf
+        create: true
+        regexp: "^proxy="
+        line: "proxy={{ proxy.http }}"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — yum ([main] proxy; no_proxy via /etc/environment)
+      ansible.builtin.lineinfile:
+        path: /etc/yum.conf
+        create: true
+        regexp: "^proxy="
+        line: "proxy={{ proxy.http }}"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — ensure /etc/sysconfig exists (SUSE/zypper)
+      ansible.builtin.file:
+        path: /etc/sysconfig
+        state: directory
+        mode: "0755"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — zypper (/etc/sysconfig/proxy incl. NO_PROXY)
+      ansible.builtin.copy:
+        dest: /etc/sysconfig/proxy
+        mode: "0644"
+        content: |
+          PROXY_ENABLED="yes"
+          HTTP_PROXY="{{ proxy.http }}"
+          HTTPS_PROXY="{{ proxy.https | default(proxy.http) }}"
+          NO_PROXY="{{ proxy.no_proxy | default('') }}"
+      when: proxy.http | default('') != ''

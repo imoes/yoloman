@@ -973,8 +973,19 @@ async def netboot_checkin(
         # loop over, and load the playbooks as canonical runbook docs. The PE runs them with run-runbook
         # (phase 1 in the PE, phase 2 chroot'd into /mnt/target). Network is a task in phase 2
         # (yoloman.network_interface, via target_vars.network); the agent enrol stays as chroot shell steps.
+        # Proxy baked into the restored target (env + apt/dnf/yum/zypper) so it reaches package mirrors +
+        # the internet from its destination segment. Only sent when a proxy is configured; https falls
+        # back to http. no_proxy keeps local/corp traffic direct.
+        proxy = None
+        if settings.target_http_proxy or settings.target_https_proxy:
+            proxy = {
+                "http": settings.target_http_proxy or settings.target_https_proxy,
+                "https": settings.target_https_proxy or settings.target_http_proxy,
+                "no_proxy": settings.target_no_proxy or "",
+            }
         rvars = imaging.restore_vars(
             layout, plan, image_url=_image_url(settings, img), hostname=job.target_hostname, network=net,
+            proxy=proxy,
         )
         pe_runbook = _restore_runbook(settings, "restore-pe-phase")
         target_runbook = _restore_runbook(settings, "restore-target-phase")
