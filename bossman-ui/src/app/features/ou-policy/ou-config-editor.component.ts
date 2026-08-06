@@ -54,29 +54,29 @@ export interface EditorScope {
       <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}; a host's own config overrides them. Pick from every known config file (the codec registry) — the host doesn't need the file yet.</p>
       <input class="bm-oce-search" type="search" placeholder="Search settings…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
       <div class="bm-oce-panes">
-        <!-- Miller column 1: categories -->
-        <div class="bm-oce-col">
+        <!-- Left: gpedit-style tree — each category expands to its config files
+             (like the Local Group Policy Editor's Administrative Templates tree). -->
+        <div class="bm-oce-tree">
           @for (grp of groups(); track grp.cat.key) {
-            <div class="bm-oce-cat" [class.bm-oce-sel]="activeCat() === grp.cat.key" (click)="selectCat(grp.cat.key)">
-              <mat-icon class="bm-oce-cat-ic">{{ grp.cat.icon }}</mat-icon>{{ grp.cat.label }}
+            <div class="bm-oce-tcat" (click)="toggleCat(grp.cat.key)">
+              <mat-icon class="bm-oce-tw">{{ isCatOpen(grp.cat.key) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              <mat-icon class="bm-oce-cat-ic">{{ grp.cat.icon }}</mat-icon>
+              <span class="bm-oce-tlabel">{{ grp.cat.label }}</span>
               <span class="bm-oce-count">{{ grp.files.length }}</span>
             </div>
+            @if (isCatOpen(grp.cat.key)) {
+              @for (f of grp.files; track f.path) {
+                <div class="bm-oce-tfile" [class.bm-oce-sel]="selected() === f.path" (click)="select(f.path)" [title]="f.path">
+                  <span class="bm-oce-tlabel">{{ baseName(f.path) }}</span>
+                  @if (policyFor(f.path)) { <span class="bm-oce-dot" title="policy at this scope">●</span> }
+                </div>
+              }
+            }
           } @empty {
             <p class="bm-oce-empty">{{ loaded() ? 'Nothing matches.' : 'Loading…' }}</p>
           }
         </div>
-        <!-- Miller column 2: files in the active category -->
-        <div class="bm-oce-col">
-          @for (f of filesInActiveCat(); track f.path) {
-            <div class="bm-oce-file" [class.bm-oce-sel]="selected() === f.path" (click)="select(f.path)" [title]="f.path">
-              {{ baseName(f.path) }}
-              @if (policyFor(f.path)) { <span class="bm-oce-dot" title="policy at this scope">●</span> }
-            </div>
-          } @empty {
-            <p class="bm-oce-empty">{{ activeCat() ? 'No files.' : 'Pick a category.' }}</p>
-          }
-        </div>
-        <!-- Miller column 3: the file's settings -->
+        <!-- Right: the selected file's settings list (Setting / State / value) -->
         <div class="bm-oce-main">
           @if (selected(); as sel) {
             <div class="bm-oce-file-hd">
@@ -147,18 +147,21 @@ export interface EditorScope {
       .bm-oce { margin-top: 18px; }
       .bm-oce-h { margin: 0 0 4px; }
       .bm-oce-src { font-size: 12px; opacity: 0.65; margin: 0 0 10px; }
-      /* Wrap so the settings table drops below the two Miller columns in a
-         narrow panel (the OU detail panel) instead of overflowing to the right;
-         stays side-by-side when there's room (like the host gpedit). */
+      /* Wrap so the settings list drops below the tree in a narrow panel (the
+         OU detail panel) instead of overflowing to the right; stays side-by-side
+         when there's room (like the Windows Local Group Policy Editor). */
       .bm-oce-panes { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
-      .bm-oce-col { flex: 0 0 190px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
       .bm-oce-search { display: block; width: 100%; max-width: 420px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
-      .bm-oce-cat { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
-      .bm-oce-cat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
-      .bm-oce-cat .bm-oce-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
-      .bm-oce-cat-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; }
-      .bm-oce-file { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; display: flex; align-items: center; gap: 6px; }
-      .bm-oce-file:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      /* gpedit tree: category nodes expand to their config-file leaves. */
+      .bm-oce-tree { flex: 0 0 250px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 4px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
+      .bm-oce-tcat { padding: 6px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
+      .bm-oce-tcat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-oce-tw { font-size: 18px; width: 18px; height: 18px; opacity: 0.7; flex: 0 0 18px; }
+      .bm-oce-tcat .bm-oce-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
+      .bm-oce-cat-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; flex: 0 0 16px; }
+      .bm-oce-tfile { padding: 5px 8px 5px 36px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
+      .bm-oce-tfile:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-oce-tlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .bm-oce-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
       .bm-oce-dot { color: var(--mat-sys-primary); font-size: 10px; }
       .bm-oce-main { flex: 1 1 360px; min-width: 0; overflow-x: auto; }
@@ -201,7 +204,9 @@ export class OuConfigEditorComponent implements OnChanges {
   private catalog = signal<{ path: string; format: string }[]>([]);
   private policies = signal<ScopePolicy[]>([]);
   search = signal('');
-  activeCat = signal<string | null>(null);
+  // Which tree categories are expanded (gpedit tree). A live search force-opens
+  // every matching category so results are visible without manual expansion.
+  catOpen = signal<Set<string>>(new Set());
   selected = signal<string | null>(null);
   editKey = signal<string | null>(null);
   mode = signal<'notconf' | 'configured' | 'removed'>('configured');
@@ -276,21 +281,16 @@ export class OuConfigEditorComponent implements OnChanges {
     return Object.keys(this.specsForFile(path));
   }
 
-  /** Miller-column navigation: category → its files → the file's settings.
-   * The active category defaults to the first available and follows the
-   * search (if the active one filters out, fall back to the first). */
-  selectCat(key: string): void {
-    this.activeCat.set(key);
-    this.selected.set(null);
-    this.editKey.set(null);
+  /** Tree navigation: a category node expands to reveal its config files.
+   * A live search force-opens every category so filtered files are visible. */
+  isCatOpen(key: string): boolean {
+    return this.search().trim() !== '' || this.catOpen().has(key);
   }
 
-  filesInActiveCat(): { path: string }[] {
-    const gs = this.groups();
-    if (!gs.length) return [];
-    let active = gs.find((g) => g.cat.key === this.activeCat());
-    if (!active) { active = gs[0]; }
-    return active.files;
+  toggleCat(key: string): void {
+    const next = new Set(this.catOpen());
+    if (next.has(key)) next.delete(key); else next.add(key);
+    this.catOpen.set(next);
   }
 
   select(path: string): void {
