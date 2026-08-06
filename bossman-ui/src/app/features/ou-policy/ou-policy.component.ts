@@ -176,7 +176,7 @@ interface PaletteItem {
           <div class="bm-palette-head">
             <span>Policies — drag onto an OU to link</span>
             <button mat-stroked-button class="bm-palette-new" (click)="newPolicyUnlinked()" title="Author config settings for the selected OU/group (gpedit)">
-              <mat-icon>add</mat-icon> New Policy
+              <mat-icon>add</mat-icon> New config policy
             </button>
             <button mat-button class="bm-palette-new" (click)="newCompositePolicy()" title="Create a role / threshold / notification policy object">
               <mat-icon>tune</mat-icon> Role/threshold…
@@ -232,7 +232,7 @@ interface PaletteItem {
                    for this scope), or link a policy from the palette. -->
               <p class="bm-hint bm-hint-cfg">
                 <mat-icon>policy</mat-icon>
-                Config for this OU is set through policies. Right-click → <strong>Config setting…</strong> to author one, or drag a policy from the palette to link it here.
+                Config for this OU is set through policies. With this OU selected, use the palette → <strong>New config policy</strong> to author one, or drag an existing policy from the palette to link it here.
               </p>
             } @else {
               <h2>{{ sel.obj!.label }}</h2>
@@ -255,27 +255,19 @@ interface PaletteItem {
       </div>
     </div>
 
-    <!-- OU context menu -->
+    <!-- OU context menu — pure link model (GPMC): policies are AUTHORED in the
+         palette ("New config policy" / "Role-threshold…") and LINKED here. The
+         OU menu only structures the tree and links/binds policies + checks. -->
     <ng-template #ouMenu>
       <div class="bm-menu" cdkMenu>
         <button class="bm-menu-item" cdkMenuItem (click)="createOu(ctx()!.ou!.id)">New OU…</button>
-        <div class="bm-menu-sep"></div>
-        <!-- The multi-entry editor (several thresholds/checks/roles/routes in
-             one policy) — the primary GPO-style "create a policy" action. -->
-        <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="newOrchestrationPlan(ctx()!.ou!)">
-          New Policy… (multiple entries)
-        </button>
-        <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (OU / Host / Group)…</button>
-        <div class="bm-menu-sep"></div>
-        <div class="bm-menu-label">Quick add (single entry)</div>
-        <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">Threshold…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="newConfigSetting(ctx()!.ou!)">Config setting…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="newNotification(ctx()!.ou!)">Notification…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
         <div class="bm-menu-sep"></div>
+        <!-- Link an existing policy (authored in the palette) to this OU. -->
+        <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (link an existing one)…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToOu(ctx()!.ou!)">Assign Check…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="editOuVars(ctx()!.ou!)">Variables…</button>
         <div class="bm-menu-sep"></div>
+        <button class="bm-menu-item" cdkMenuItem (click)="editOuVars(ctx()!.ou!)">Variables…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
           {{ ctx()?.ou?.block_inheritance ? '✓ ' : '' }}Block Inheritance
         </button>
