@@ -829,18 +829,13 @@ export class OuPolicyComponent implements OnInit {
    * value; we build the {key: value} document (null = removed) and POST it,
    * which persists the policy and converges every reachable member host. */
   newConfigSetting(ou: OUNode): void {
-    this.openConfigSettingDialog('OU ' + ou.path, (values, format, path) =>
-      this.ouService.createConfigPolicy({ scope_ou_id: ou.id, path, format, values }),
-      () => this.afterObjectChange(ou.id),
-    );
+    // The OU right-click "Config setting…" now opens the full gpedit editor (Miller-column browser + typed
+    // fields), the same as the palette "New Policy" — not the old single-key dialog.
+    this.openGpedit({ kind: 'ou', id: ou.id, label: ou.path });
   }
 
   newGroupConfigSetting(row: TreeRow): void {
-    const groupId = row.obj!.id;
-    this.openConfigSettingDialog('group ' + row.obj!.label, (values, format, path) =>
-      this.ouService.createConfigPolicy({ host_group_id: groupId, path, format, values }),
-      () => this.reload(),
-    );
+    this.openGpedit({ kind: 'group', id: row.obj!.id, label: row.obj!.label });
   }
 
   private openConfigSettingDialog(
@@ -973,6 +968,14 @@ export class OuPolicyComponent implements OnInit {
       this.appDialog.notify('Select an OU (or host group) first — a policy is authored at a scope and applies to every host under it.', 'info');
       return;
     }
+    this.openGpedit(scope);
+  }
+
+  /** Open the full gpedit editor (Miller-column: category → config file → settings) at a scope. The single
+   * entry point every "author/edit config settings" affordance now uses — the OU/group right-click "Config
+   * setting…", the palette "New Policy", and Edit… on a placed config policy — so they all get the same
+   * Miller-column editor instead of the old single-key dialog. */
+  private openGpedit(scope: PolicyGpeditDialogData['scope']): void {
     this.dialog.open<PolicyGpeditDialogComponent, PolicyGpeditDialogData>(
       PolicyGpeditDialogComponent, { data: { scope }, width: 'min(1100px, 94vw)', maxWidth: '94vw' },
     ).afterClosed().subscribe(() => this.reload());
@@ -1069,6 +1072,10 @@ export class OuPolicyComponent implements OnInit {
           });
         });
       });
+    } else if (obj.kind === 'config_policy') {
+      // Editing a placed config policy reopens the full gpedit editor at its OU scope — the editor lists
+      // the scope's policies so the operator can change, add or remove settings (Edit… was a no-op before).
+      this.openGpedit({ kind: 'ou', id: ou.id, label: ou.path });
     }
   }
 

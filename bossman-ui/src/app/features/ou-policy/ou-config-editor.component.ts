@@ -79,7 +79,15 @@ export interface EditorScope {
         <!-- Miller column 3: the file's settings -->
         <div class="bm-oce-main">
           @if (selected(); as sel) {
-            <h4 class="bm-oce-file-h">{{ sel }}</h4>
+            <div class="bm-oce-file-hd">
+              <h4 class="bm-oce-file-h">{{ sel }}</h4>
+              @if (policyFor(sel)) {
+                <button mat-stroked-button class="bm-oce-del" (click)="deletePolicy(sel)" [disabled]="busy()"
+                        title="Delete the whole policy for this file at this scope">
+                  <mat-icon>delete_outline</mat-icon> Remove policy
+                </button>
+              }
+            </div>
             <table class="bm-oce-settings">
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
@@ -389,6 +397,30 @@ export class OuConfigEditorComponent implements OnChanges {
         done();
       },
       error: fail,
+    });
+  }
+
+  /** Delete the WHOLE policy for a file at this scope (not just one key). Confirmed, since it removes every
+   * setting the policy carries; member hosts reconverge to their own values on the next pass. */
+  async deletePolicy(path: string): Promise<void> {
+    const policy = this.policyFor(path);
+    if (!policy) return;
+    const ok = await this.appDialog.confirm({
+      title: 'Remove policy',
+      message: `Remove the entire policy for ${path} at this ${this.scopeWord}? Every setting it defines is dropped and member hosts reconverge to their own values.`,
+      confirmText: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.ouService.deleteConfigPolicy(policy.id).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.editKey.set(null);
+        this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => this.policies.set(ps));
+      },
+      error: (e: { error?: { detail?: string } }) => { this.error.set(e?.error?.detail ?? 'delete failed'); this.busy.set(false); },
     });
   }
 
