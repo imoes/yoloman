@@ -1546,6 +1546,12 @@ class ConfigPolicy(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # A named Policy (ConfigPolicySet) can group several entries (one per config
+    # file). set_id links this row (an ENTRY) to its container; null = a bare
+    # entry not part of a named policy (legacy / directly-scoped). The compiler is
+    # unchanged — it still reads ConfigPolicy by (scope, path); the set is an
+    # authoring/naming layer that keeps its entries' scope in sync when linked.
+    set_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("config_policy_sets.id", ondelete="CASCADE"))
     scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
     host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
     site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id", ondelete="CASCADE"))
@@ -1564,6 +1570,32 @@ class ConfigPolicy(Base):
         Index("idx_config_policies_ou", "scope_ou_id"),
         Index("idx_config_policies_group", "host_group_id"),
         Index("idx_config_policies_site", "site_id"),
+        Index("idx_config_policies_set", "set_id"),
+    )
+
+
+class ConfigPolicySet(Base):
+    """A NAMED config policy (GPMC "GPO"): a container that groups several config
+    entries (ConfigPolicy rows, one per file) under one name and links to ONE
+    scope as a unit. Authored in the policy library (scope null = unlinked), then
+    linked to an OU / host-group / Site, which propagates the scope to its entries
+    so the existing per-(scope,path) compiler keeps working unchanged."""
+
+    __tablename__ = "config_policy_sets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    # Where the whole set is linked (all its entries inherit this). Null = unlinked.
+    scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="SET NULL"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="SET NULL"))
+    site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_config_policy_sets_tenant_name"),
     )
 
 

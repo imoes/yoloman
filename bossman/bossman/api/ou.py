@@ -31,6 +31,7 @@ from bossman.db.models import (
     CheckRule,
     CheckRuleOuLink,
     ConfigPolicy,
+    ConfigPolicySet,
     HostGroup,
     Site,
     NotificationRule,
@@ -522,6 +523,9 @@ class ConfigPolicyIn(BaseModel):
     scope_ou_id: UUID | None = None
     host_group_id: UUID | None = None
     site_id: UUID | None = None
+    # Add this entry to a named Policy (ConfigPolicySet). The entry then inherits
+    # the set's scope (so linking the set links every entry at once).
+    set_id: UUID | None = None
     path: str
     type: str = "config"
     format: str | None = "keyvalue"
@@ -543,6 +547,15 @@ async def create_config_policy(
     (Block K4, authored from the Policy console). No agent context needed — you
     can define a policy for an OU that has no reachable host yet; it applies
     when hosts appear/re-sync."""
+    # An entry added to a named Policy (set) inherits the SET's scope, so linking
+    # the set links every entry at once. Resolve the set first and override scope.
+    policy_set = None
+    if body.set_id is not None:
+        policy_set = await session.get(ConfigPolicySet, body.set_id)
+        if policy_set is None:
+            raise HTTPException(status_code=422, detail=f"no such policy set {body.set_id}")
+        body.scope_ou_id, body.host_group_id, body.site_id = (
+            policy_set.scope_ou_id, policy_set.host_group_id, policy_set.site_id)
     # Unlinked authoring (GPMC "create a GPO, link it later"): with NO scope the
     # policy is created inert — it applies to nothing until it is linked (dragged
     # onto an OU/Site, which rescopes it). This is what "New config policy" does
@@ -560,11 +573,15 @@ async def create_config_policy(
         scope_kind, scope_id = None, None
 
     if not body.dry_run:
-        if scope_kind is None:
+        if body.set_id is not None:
+            # An entry is unique by (set, path) — an unlinked set has null scope,
+            # so scope+path wouldn't disambiguate two sets' /etc/motd entries.
+            q = select(ConfigPolicy).where(ConfigPolicy.set_id == body.set_id, ConfigPolicy.path == body.path)
+        elif scope_kind is None:
             # Match an existing unlinked policy for this path (all scope cols null).
             q = select(ConfigPolicy).where(
                 ConfigPolicy.scope_ou_id.is_(None), ConfigPolicy.host_group_id.is_(None),
-                ConfigPolicy.site_id.is_(None), ConfigPolicy.path == body.path)
+                ConfigPolicy.site_id.is_(None), ConfigPolicy.set_id.is_(None), ConfigPolicy.path == body.path)
         else:
             scope_col = {"ou": ConfigPolicy.scope_ou_id, "group": ConfigPolicy.host_group_id, "site": ConfigPolicy.site_id}[scope_kind]
             q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == body.path)
@@ -574,7 +591,7 @@ async def create_config_policy(
             # import order (some modules coerce the module attribute) — str()
             # first so UUID() accepts it either way.
             pol = ConfigPolicy(
-                tenant_id=UUID(str(DEFAULT_TENANT_ID)), path=body.path,
+                tenant_id=UUID(str(DEFAULT_TENANT_ID)), path=body.path, set_id=body.set_id,
                 scope_ou_id=scope_id if scope_kind == "ou" else None,
                 host_group_id=scope_id if scope_kind == "group" else None,
                 site_id=scope_id if scope_kind == "site" else None,
@@ -664,9 +681,11 @@ async def list_config_policies(
     via "New config policy" and not yet linked); no filter returns all."""
     stmt = select(ConfigPolicy)
     if unlinked:
+        # Bare unlinked entries only — those belonging to a named Policy (set_id)
+        # are shown under their policy in the library, not as loose palette items.
         stmt = stmt.where(
             ConfigPolicy.scope_ou_id.is_(None), ConfigPolicy.host_group_id.is_(None),
-            ConfigPolicy.site_id.is_(None))
+            ConfigPolicy.site_id.is_(None), ConfigPolicy.set_id.is_(None))
     if scope_ou_id is not None:
         stmt = stmt.where(ConfigPolicy.scope_ou_id == scope_ou_id)
     if host_group_id is not None:
@@ -684,6 +703,153 @@ async def list_config_policies(
         }
         for cp in (await session.scalars(stmt)).all()
     ]
+
+
+# ---------------------------------------------------------------------------
+# Named policies (ConfigPolicySet): a container with a name + multiple entries
+
+
+class PolicySetIn(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class PolicySetPatchIn(BaseModel):
+    """Rename and/or (un)link the whole set. Setting a scope links it there and
+    propagates to every entry; `unlink=true` detaches it (entries go inert)."""
+
+    name: str | None = None
+    description: str | None = None
+    scope_ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+    site_id: UUID | None = None
+    unlink: bool = False
+
+
+async def _policy_set_scope_label(session: AsyncSession, s: ConfigPolicySet) -> str:
+    if s.scope_ou_id:
+        ou = await session.get(OUNode, s.scope_ou_id)
+        return f"OU {ou.path}" if ou else "OU"
+    if s.site_id:
+        site = await session.get(Site, s.site_id)
+        return f"Site {site.name}" if site else "Site"
+    if s.host_group_id:
+        g = await session.get(HostGroup, s.host_group_id)
+        return f"Group {g.name}" if g else "Group"
+    return "(unlinked)"
+
+
+async def _policy_set_out(session: AsyncSession, s: ConfigPolicySet, *, with_entries: bool) -> dict:
+    entries = (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.set_id == s.id).order_by(ConfigPolicy.path))).all()
+    out = {
+        "id": str(s.id), "name": s.name, "description": s.description,
+        "scope_ou_id": str(s.scope_ou_id) if s.scope_ou_id else None,
+        "host_group_id": str(s.host_group_id) if s.host_group_id else None,
+        "site_id": str(s.site_id) if s.site_id else None,
+        "scope_label": await _policy_set_scope_label(session, s),
+        "entry_count": len(entries),
+    }
+    if with_entries:
+        out["entries"] = [
+            {"id": str(e.id), "path": e.path, "type": e.type, "format": e.config_format,
+             "separator": e.separator, "values": e.values or {}, "template": e.template}
+            for e in entries
+        ]
+        # Flat "all values at a glance" list for the far-right column of the Miller
+        # browser: every key=value across every entry, tagged with its file.
+        out["values_flat"] = [
+            {"path": e.path, "key": k, "value": v}
+            for e in entries if e.type != "template_render"
+            for k, v in (e.values or {}).items()
+        ]
+    return out
+
+
+@router.get("/api/v1/policy-sets")
+async def list_policy_sets(
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> list[dict]:
+    """The named-policy library (Miller column 1): every policy with its entry
+    count + where (if anywhere) it is linked."""
+    rows = (await session.scalars(select(ConfigPolicySet).order_by(ConfigPolicySet.name))).all()
+    return [await _policy_set_out(session, s, with_entries=False) for s in rows]
+
+
+@router.get("/api/v1/policy-sets/{set_id}")
+async def get_policy_set(
+    set_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """One policy with its entries + the flat 'all values' list (Miller columns
+    2 and 3)."""
+    s = await session.get(ConfigPolicySet, set_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="no such policy")
+    return await _policy_set_out(session, s, with_entries=True)
+
+
+@router.post("/api/v1/policy-sets", status_code=201)
+async def create_policy_set(
+    body: PolicySetIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """Create an empty named policy (unlinked). Entries are added via
+    POST /config-policies with this set's id."""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="name is required")
+    s = ConfigPolicySet(tenant_id=UUID(str(DEFAULT_TENANT_ID)), name=name, description=body.description)
+    session.add(s)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=f"a policy named {name!r} already exists")
+    return await _policy_set_out(session, s, with_entries=True)
+
+
+@router.patch("/api/v1/policy-sets/{set_id}")
+async def patch_policy_set(
+    set_id: UUID, body: PolicySetPatchIn,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """Rename / describe / (un)link a policy. Linking sets the scope on the set
+    AND propagates it to every entry, so the per-(scope,path) compiler applies the
+    whole policy at that scope; unlink detaches all entries (they go inert)."""
+    s = await session.get(ConfigPolicySet, set_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="no such policy")
+    if body.name is not None:
+        s.name = body.name.strip()
+    if body.description is not None:
+        s.description = body.description
+    scope_touched = body.unlink or any(v is not None for v in (body.scope_ou_id, body.host_group_id, body.site_id))
+    if scope_touched:
+        chosen = [(k, v) for k, v in (("ou", body.scope_ou_id), ("group", body.host_group_id), ("site", body.site_id)) if v is not None]
+        if not body.unlink and len(chosen) != 1:
+            raise HTTPException(status_code=422, detail="link exactly one of scope_ou_id / host_group_id / site_id (or unlink)")
+        s.scope_ou_id = body.scope_ou_id if not body.unlink else None
+        s.host_group_id = body.host_group_id if not body.unlink else None
+        s.site_id = body.site_id if not body.unlink else None
+        # Propagate to entries so the compiler applies them at the new scope.
+        for e in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.set_id == s.id))).all():
+            e.scope_ou_id, e.host_group_id, e.site_id = s.scope_ou_id, s.host_group_id, s.site_id
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="rename/link conflicts with an existing policy or entry at that scope")
+    return await _policy_set_out(session, s, with_entries=True)
+
+
+@router.delete("/api/v1/policy-sets/{set_id}", status_code=204)
+async def delete_policy_set(
+    set_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> None:
+    """Delete a policy and all its entries (cascade)."""
+    s = await session.get(ConfigPolicySet, set_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="no such policy")
+    await session.delete(s)
+    await session.commit()
 
 
 class ConfigPolicyUnsetIn(BaseModel):
