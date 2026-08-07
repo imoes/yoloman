@@ -215,9 +215,19 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                     <!-- VLAN tag is a Proxmox-only per-NIC option (untagged if left blank). On vCenter the
                          chosen portgroup carries the VLAN, so there is no separate VLAN field. -->
                     @if (placement()?.kind === 'proxmox') {
-                      <label class="pw-fld"><span>VLAN <span class="pw-opt">(optional — untagged if empty)</span></span><input type="number" min="1" max="4094" [(ngModel)]="vlan" /></label>
+                      <label class="pw-fld"><span>Bootstrap VLAN <span class="pw-opt">(imaging — untagged if empty)</span></span><input type="number" min="1" max="4094" [(ngModel)]="vlan" /></label>
+                      <label class="pw-fld"><span>Production VLAN <span class="pw-opt">(optional — move here after imaging)</span></span><input type="number" min="1" max="4094" [(ngModel)]="productionVlan" /></label>
                     }
                   </div>
+                  @if (placement()?.kind === 'vcenter') {
+                    <label class="pw-fld">
+                      <span>Production portgroup <span class="pw-opt">(optional — move the NIC here after imaging)</span></span>
+                      <select [ngModel]="productionBridge()" (ngModelChange)="productionBridge.set($event)">
+                        <option [ngValue]="null">— none (stay on the imaging portgroup) —</option>
+                        @for (b of currentNode()?.bridges ?? []; track b.name) { <option [ngValue]="b.name">{{ b.name }}{{ b.comment ? ' — ' + b.comment : '' }}</option> }
+                      </select>
+                    </label>
+                  }
                   <label class="pw-pick">
                     <mat-checkbox [checked]="uefi()" (change)="uefi.set(!uefi())" /> UEFI (OVMF) — adds an EFI disk + virtio-rng for PXE
                   </label>
@@ -405,6 +415,11 @@ export class ProvisionWizardComponent implements OnInit {
   memoryMb = 2048;
   diskGib = 32;
   vlan: number | null = null;
+  // Bootstrap→production VLAN handoff (Block PXE-VLAN): image on `vlan` (bootstrap), then move the NIC to
+  // production after imaging. Proxmox: productionVlan is a tag on the SAME bridge (a trunk carries both).
+  // vCenter: productionBridge is a different portgroup (its VLAN lives on the portgroup). Empty = no handoff.
+  productionVlan: number | null = null;
+  productionBridge = signal<string | null>(null);
   uefi = signal(false);
 
   // Roles & features — the SAME package catalog and the SAME Miller-column browser as Management → Roles &
@@ -760,16 +775,33 @@ export class ProvisionWizardComponent implements OnInit {
     // is what the PXE check-in identifies the machine by, so it MUST be the one armed on the restore job.
     // Roles are NOT sent here: they were bound as desired state against this host in the Roles step
     // (OrchestrationPlanLinks), and converge after first boot.
-    const proceed = (mac: string) => {
+    const proceed = (mac: string, vm?: { vmid: number }) => {
+      // Bootstrap→production VLAN handoff: only armed for a VM target with a production segment chosen.
+      // Proxmox moves to `productionVlan` on the SAME bridge; vCenter moves to the `productionBridge`
+      // portgroup. Bare metal / no production segment → these stay null and the install is single-segment.
+      const isProxmox = this.placement()?.kind === 'proxmox';
+      const prodBridge = isProxmox ? (this.productionVlan ? this.bridge() : null) : this.productionBridge();
+      const prodVlan = isProxmox ? this.productionVlan : null;
+      const handoff = this.useVm() && vm != null && !!prodBridge;
       this.svc.patch(imageId, { grow_mode, grow_policy }).subscribe({
         // Re-upsert the planned host with the final MAC. Idempotent by hostname, so it updates the record
         // registered in the Roles step; the role bindings (keyed by the stable agent id) are preserved.
         next: () => this.svc.createPlannedHost({ hostname, mac, network }).subscribe({
           next: () => {
             push({ label: `Host ${hostname} registered`, ok: true });
-            this.svc.arm({ image_id: imageId, target_mac: mac, target_hostname: hostname }).subscribe({
+            this.svc.arm({
+              image_id: imageId, target_mac: mac, target_hostname: hostname,
+              ...(handoff ? {
+                vm_host_id: this.vmHostId(), vm_node: this.node(), vm_id: String(vm!.vmid),
+                production_vlan: prodVlan, production_bridge: prodBridge,
+              } : {}),
+            }).subscribe({
               next: () => {
                 push({ label: 'Restore job armed', ok: true });
+                if (handoff) {
+                  const seg = isProxmox ? `VLAN ${prodVlan} on ${prodBridge}` : prodBridge;
+                  push({ label: `Production VLAN handoff armed — NIC moves to ${seg} after imaging`, ok: true });
+                }
                 push({ label: 'Roles bound as desired state — converge after first boot', ok: true });
                 this.deploying.set(false);
               },
@@ -789,7 +821,7 @@ export class ProvisionWizardComponent implements OnInit {
         // VLAN tag is Proxmox-only; on vCenter the portgroup carries the VLAN, so never send one.
         uefi: this.uefi(), vlan: this.placement()?.kind === 'proxmox' ? (this.vlan || null) : null,
       }).subscribe({
-        next: (vm) => { push({ label: `VM created (vmid ${vm.vmid}, ${vm.mac})`, ok: true }); proceed(vm.mac); },
+        next: (vm) => { push({ label: `VM created (vmid ${vm.vmid}, ${vm.mac})`, ok: true }); proceed(vm.mac, vm); },
         error: (e) => this.fail(push, 'VM creation failed', e),
       });
     } else {

@@ -139,8 +139,20 @@ export class ImagesService {
       `${this.base}/provisioning/hosts`, body);
   }
 
-  /** Arm the install: links the planned host (by hostname) to the template + the machine's MAC. */
-  arm(body: { image_id: string; target_mac: string; target_hostname: string; target_disk?: string }) {
+  /** Arm the install: links the planned host (by hostname) to the template + the machine's MAC.
+   * Optional bootstrap→production VLAN handoff: when vm_host_id + vm_id + production_bridge are set the
+   * backend moves the VM's NIC to the production segment after imaging and power-cycles it. */
+  arm(body: {
+    image_id: string;
+    target_mac: string;
+    target_hostname: string;
+    target_disk?: string;
+    vm_host_id?: string | null;
+    vm_node?: string | null;
+    vm_id?: string | null;
+    production_vlan?: number | null;
+    production_bridge?: string | null;
+  }) {
     return this.http.post<RestoreJob>(`${this.base}/restore-jobs`, body);
   }
 
