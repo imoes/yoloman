@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.etag import check_if_match, compute_version
 from bossman.api.auth import get_current_identity
-from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service, Site
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service, Site
 from bossman.db.session import get_session
 from bossman.services.auth import user_can_manage_agent
 from bossman.services.reconciler import enqueue_policy_event
@@ -31,8 +31,10 @@ from bossman.services.monitoring import (
     acknowledge_service,
     compute_availability,
     create_downtime,
+    explain_effective_rules,
     fleet_hosts,
     fleet_summary,
+    load_rule_ou_links,
     query_agent_services,
     query_problems,
     service_state_history,
@@ -189,6 +191,139 @@ async def list_agent_services(
     if views is None:
         raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
     return [ServiceOut.from_view(v) for v in views]
+
+
+class EffectiveRuleCandidateOut(BaseModel):
+    """One candidate rule in the effective-parameters view, with its winner
+    flag + reason (Block E). scope_label is human-readable (OU path, site name,
+    group name, host name, or 'Global')."""
+
+    rule_id: UUID
+    scope_type: str
+    scope_label: str
+    level: int
+    enforced: bool
+    comparison: str | None
+    warn_threshold: float | None
+    crit_threshold: float | None
+    is_winner: bool
+    reason: str
+
+
+class EffectiveThresholdOut(BaseModel):
+    metric: str
+    display_name: str
+    label_value: str | None
+    service_name: str
+    candidates: list[EffectiveRuleCandidateOut]
+
+
+@router.get("/api/v1/agents/{agent_id}/effective-thresholds", response_model=list[EffectiveThresholdOut])
+async def get_effective_thresholds(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[EffectiveThresholdOut]:
+    """Checkmk's 'effective parameters' page, our way (Block E): for this host,
+    every metric that has at least one applicable threshold rule, showing which
+    rule WINS and why — plus the losing candidates and the reason each lost.
+    OUR precedence is the reverse of Checkmk's: the closest-to-host rule wins
+    (host > site > OU-deep > group > global) unless a higher one is enforced."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
+
+    from bossman.services.compiler import resolve_ou_ancestry, resolve_site_ids
+
+    host_ou_ancestry = await resolve_ou_ancestry(session, agent.ou_id)
+    rule_ou_links = await load_rule_ou_links(session)
+    host_site_ids = await resolve_site_ids(session, agent)
+
+    rules = list((await session.scalars(select(CheckRule).where(CheckRule.enabled == True))).all())  # noqa: E712
+    if not rules:
+        return []
+
+    # Human labels: OU path from the ancestry (an OU-scoped rule only matched if
+    # its OU is on this host's path), site name from the Sites the host is in.
+    ou_path = {ou.id: ou.path for ou in host_ou_ancestry}
+    site_name = {
+        s.id: s.name
+        for s in (await session.scalars(select(Site).where(Site.id.in_(host_site_ids)))).all()
+    } if host_site_ids else {}
+
+    def _scope_label(r: CheckRule) -> str:
+        if r.scope_type == "global":
+            return "Global (whole fleet)"
+        if r.scope_type == "host":
+            return f"Host {r.scope_value}"
+        if r.scope_type == "group":
+            return f"Group {r.scope_value}"
+        if r.scope_type == "site":
+            return f"Site {site_name.get(r.scope_site_id, r.scope_site_id)}"
+        if r.scope_type == "ou":
+            # The deepest OU of this rule that lies on the host's path (matches
+            # the level the resolver used); fall back to the primary scope_ou_id.
+            ous = set()
+            if r.id is not None:
+                ous |= set(rule_ou_links.get(r.id, ()))
+            if r.scope_ou_id is not None:
+                ous.add(r.scope_ou_id)
+            on_path = [o for o in ous if o in ou_path]
+            best = max(on_path, key=lambda o: ou_path[o].count("/")) if on_path else None
+            return f"OU {ou_path[best]}" if best else "OU"
+        return r.scope_type
+
+    # Group rules by (metric, label_value): the poller fans a metric out per
+    # label (e.g. disk mount), so a per-label explanation matches what runs.
+    from collections import defaultdict
+
+    labels_by_metric: dict[str, set] = defaultdict(set)
+    for r in rules:
+        labels_by_metric[r.metric].add(r.label_value)
+
+    out: list[EffectiveThresholdOut] = []
+    for metric in sorted(labels_by_metric):
+        label_values = labels_by_metric[metric]
+        # If any rule is label-agnostic (None), evaluate the None series too so a
+        # metric with no pinned label still shows its winner.
+        candidates_labels = set(label_values)
+        candidates_labels.add(None)
+        display, _unit, _desc = _METRIC_DISPLAY.get(
+            metric, (metric.replace("_", " ").replace("pct", "%").strip().capitalize(), "", "")
+        )
+        for label_value in sorted(candidates_labels, key=lambda x: (x is not None, x or "")):
+            expl = explain_effective_rules(
+                rules, agent.name, agent.groups, metric, label_value,
+                host_ou_ancestry=host_ou_ancestry, rule_ou_links=rule_ou_links, host_site_ids=host_site_ids,
+            )
+            if not expl:
+                continue
+            winner = next((e for e in expl if e.is_winner), None)
+            service_name = winner.rule.service_name if winner else (expl[0].rule.service_name)
+            out.append(
+                EffectiveThresholdOut(
+                    metric=metric,
+                    display_name=display,
+                    label_value=label_value,
+                    service_name=service_name,
+                    candidates=[
+                        EffectiveRuleCandidateOut(
+                            rule_id=e.rule.id,
+                            scope_type=e.rule.scope_type,
+                            scope_label=_scope_label(e.rule),
+                            level=e.level,
+                            enforced=bool(e.rule.enforced),
+                            comparison=e.rule.comparison,
+                            warn_threshold=e.rule.warn_threshold,
+                            crit_threshold=e.rule.crit_threshold,
+                            is_winner=e.is_winner,
+                            reason=e.reason,
+                        )
+                        for e in expl
+                    ],
+                )
+            )
+    return out
 
 
 class ServiceHistoryPointOut(BaseModel):

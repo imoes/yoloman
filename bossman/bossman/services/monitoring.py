@@ -149,6 +149,135 @@ def resolve_effective_rule(
     return gpo.resolve_winner(candidates, blocked_level)
 
 
+@dataclass
+class RuleExplanation:
+    """One candidate rule in the 'Effective parameters' view (Block E): the
+    rule, the precedence level it competes at on this host, whether it won, and
+    a human reason. Ranked most-authoritative first."""
+
+    rule: CheckRule
+    level: int
+    is_winner: bool
+    reason: str
+
+
+def explain_effective_rules(
+    rules: list[CheckRule],
+    host_name: str,
+    host_groups: list[str],
+    metric: str,
+    label_value: str | None = None,
+    host_ou_ancestry: list | None = None,
+    rule_ou_links: dict | None = None,
+    host_site_ids: set | None = None,
+) -> list[RuleExplanation]:
+    """The 'why' behind resolve_effective_rule (Block E, Checkmk's effective-
+    parameters page): return EVERY rule that applies to `metric`/`label_value`
+    on this host, ranked exactly as the resolver ranks them, with the winner
+    flagged and a one-line reason. Empty if no rule applies.
+
+    This mirrors resolve_effective_rule's matching + level + precedence so the
+    explanation is precisely what the poller acts on — never a second opinion.
+    OUR precedence is the OPPOSITE of Checkmk's top-first: the closest-to-host
+    (deepest level) rule wins, unless a higher-level rule is `enforced` or an OU
+    on the path blocks inheritance (docs/policy-page-rework.md)."""
+    ancestry = host_ou_ancestry or []
+    ancestry_depth = {ou.id: i for i, ou in enumerate(ancestry)}
+    links = rule_ou_links or {}
+    site_ids = host_site_ids or set()
+    blocked_level: int | None = None
+    for ou in ancestry:
+        if getattr(ou, "block_inheritance", False):
+            blocked_level = gpo.LEVEL_OU_BASE + ancestry_depth[ou.id]
+
+    def _rule_ous(rule: CheckRule) -> set:
+        ous = set(links.get(rule.id, ())) if rule.id is not None else set()
+        if rule.scope_ou_id is not None:
+            ous.add(rule.scope_ou_id)
+        return ous
+
+    def _scope_matches(rule: CheckRule) -> bool:
+        if rule.scope_type == "global":
+            return True
+        if rule.scope_type == "group":
+            prefix = rule.scope_value + "/"
+            return any(g == rule.scope_value or g.startswith(prefix) for g in host_groups)
+        if rule.scope_type == "host":
+            return rule.scope_value == host_name
+        if rule.scope_type == "ou":
+            return any(o in ancestry_depth for o in _rule_ous(rule))
+        if rule.scope_type == "site":
+            return rule.scope_site_id in site_ids
+        return False
+
+    def _label_matches(rule: CheckRule) -> bool:
+        return rule.label_value is None or rule.label_value == label_value
+
+    def _level(rule: CheckRule) -> int:
+        if rule.scope_type == "host":
+            return gpo.LEVEL_HOST
+        if rule.scope_type == "ou":
+            depths = [ancestry_depth[o] for o in _rule_ous(rule) if o in ancestry_depth]
+            return gpo.LEVEL_OU_BASE + max(depths)
+        if rule.scope_type == "site":
+            return gpo.LEVEL_SITE
+        if rule.scope_type == "group":
+            return gpo.LEVEL_GROUP
+        return gpo.LEVEL_GLOBAL
+
+    matching = [r for r in rules if r.enabled and r.metric == metric and _scope_matches(r) and _label_matches(r)]
+    if not matching:
+        return []
+
+    # Label specificity dominates (Block H6): rules pinned to this exact label
+    # exclude the label-agnostic ones. Rules dropped here get a reason so the
+    # view still lists them (why they don't compete), rather than hiding them.
+    excluded_by_label: list[CheckRule] = []
+    if label_value is not None:
+        specific = [r for r in matching if r.label_value == label_value]
+        if specific:
+            excluded_by_label = [r for r in matching if r.label_value is None]
+            pool = specific
+        else:
+            pool = [r for r in matching if r.label_value is None]
+    else:
+        pool = matching
+
+    winner = resolve_effective_rule(
+        list(rules), host_name, host_groups, metric, label_value,
+        host_ou_ancestry=host_ou_ancestry, rule_ou_links=rule_ou_links, host_site_ids=host_site_ids,
+    )
+    winner_id = winner.id if winner is not None else None
+    winner_level = _level(winner) if winner is not None else None
+    any_enforced = winner is not None and bool(winner.enforced)
+
+    out: list[RuleExplanation] = []
+    for r in pool:
+        lvl = _level(r)
+        is_winner = winner_id is not None and r.id == winner_id
+        if is_winner:
+            reason = "enforced — cannot be overridden" if r.enforced else "closest to host wins"
+        elif blocked_level is not None and not r.enforced and lvl < blocked_level:
+            reason = "blocked by OU inheritance"
+        elif any_enforced and not r.enforced:
+            reason = "overridden by an enforced rule"
+        elif winner_level is not None and lvl < winner_level:
+            reason = "overridden by a more specific scope"
+        elif winner_level is not None and lvl > winner_level:
+            # Only reachable when an enforced higher-level rule beat this deeper one.
+            reason = "loses to an enforced rule above"
+        else:
+            reason = "overridden (same level, older/lower priority)"
+        out.append(RuleExplanation(rule=r, level=lvl, is_winner=is_winner, reason=reason))
+
+    for r in excluded_by_label:
+        out.append(RuleExplanation(rule=r, level=_level(r), is_winner=False, reason=f"does not apply — pinned to a different label"))
+
+    # Most-authoritative first: winner, then by descending level (closest first).
+    out.sort(key=lambda e: (not e.is_winner, -e.level))
+    return out
+
+
 async def load_rule_ou_links(session: AsyncSession) -> dict:
     """rule_id → set of additional OU ids from check_rule_ou_links, loaded once
     per resolution pass and passed to resolve_effective_rule so one threshold

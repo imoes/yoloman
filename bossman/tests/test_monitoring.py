@@ -16,6 +16,7 @@ from bossman.services.monitoring import (
     compute_state,
     evaluate_host,
     expire_acknowledgements,
+    explain_effective_rules,
     hysteresis_blocks_recovery,
     query_agent_services,
     query_problems,
@@ -51,6 +52,40 @@ def test_resolve_effective_rule_host_overrides_group_and_global():
     result = resolve_effective_rule([global_rule, group_rule, host_rule], "web01", ["webservers"], "cpu_pct")
 
     assert result is host_rule
+
+
+def test_explain_effective_rules_ranks_and_labels_the_winner():
+    # Block E: the same three rules, but the explanation ranks all candidates
+    # winner-first and gives each a reason. Our precedence = closest-to-host wins.
+    now = datetime.now(timezone.utc)
+    global_rule = _rule("global", created_at=now - timedelta(hours=2))
+    group_rule = _rule("group", "webservers", created_at=now - timedelta(hours=1))
+    host_rule = _rule("host", "web01", created_at=now)
+
+    expl = explain_effective_rules(
+        [global_rule, group_rule, host_rule], "web01", ["webservers"], "cpu_pct"
+    )
+
+    assert [e.rule for e in expl] == [host_rule, group_rule, global_rule]  # winner first, then by level
+    assert expl[0].is_winner and expl[0].reason == "closest to host wins"
+    assert not expl[1].is_winner and "more specific" in expl[1].reason
+    assert not expl[2].is_winner
+
+
+def test_explain_effective_rules_enforced_higher_level_wins():
+    # An enforced global rule pierces a closer (host) rule — and the reason on
+    # the loser reflects that, not "more specific scope".
+    now = datetime.now(timezone.utc)
+    global_rule = _rule("global", created_at=now - timedelta(hours=2))
+    global_rule.enforced = True
+    host_rule = _rule("host", "web01", created_at=now)
+
+    expl = explain_effective_rules([global_rule, host_rule], "web01", [], "cpu_pct")
+
+    winner = next(e for e in expl if e.is_winner)
+    loser = next(e for e in expl if not e.is_winner)
+    assert winner.rule is global_rule and "enforced" in winner.reason
+    assert loser.rule is host_rule and "enforced" in loser.reason
 
 
 def _ou(ou_id, block_inheritance=False):
