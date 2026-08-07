@@ -387,6 +387,17 @@ A few behaviours are worth calling out — each is load-bearing:
   first; the VLAN is set at the **hypervisor** level (Proxmox per-NIC `tag=`, vCenter via the portgroup),
   never in the guest. The MAC the hypervisor assigns is what the restore job is armed against.
 
+- **Bootstrap → production VLAN handoff.** A target can be imaged on a **bootstrap VLAN** (where the
+  DHCP/TFTP/PXE server and the PE live) and then moved to a different **production VLAN** for its running
+  life. In the wizard's Virtualization step set both: *Bootstrap VLAN* (imaging) and *Production VLAN*
+  (Proxmox tag on the same trunk bridge) / *Production portgroup* (vCenter). The restore job remembers the
+  VM (`vm_host_id`/`vm_node`/`vm_id`) and the production segment; when imaging reports done, Bossman moves
+  the NIC bootstrap→production on the hypervisor and **power-cycles** the VM (a stop+start, since a running
+  Proxmox VM only applies a `net0` change across a full stop+start — a guest reboot would leave it on the
+  bootstrap VLAN) so the restored OS boots straight onto production. The handoff is opt-in and best-effort:
+  imaging already succeeded, so a retag failure is recorded in the job log for the operator, not treated as
+  a failed install. Bossman must be able to reach the agent on the production VLAN for the role-push step.
+
 - **Boot order — disk first, PXE fallback.** VMs are created with `boot: order=scsi0;net0` (Proxmox) /
   `boot_devices=[DISK, ETHERNET]` (vCenter). On the **first** boot the disk is empty, so the firmware
   falls through to the NIC and PXE-boots into the restore; once the image is written, the **same** order
