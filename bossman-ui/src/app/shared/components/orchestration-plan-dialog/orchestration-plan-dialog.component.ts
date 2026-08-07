@@ -31,72 +31,44 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
 @Component({
   selector: 'app-orchestration-plan-dialog',
   standalone: true,
-  imports: [
-    ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatAutocompleteModule, MatButtonModule, MatIconModule,
-  ],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>{{ editing ? 'Edit policy' : 'New policy' }}</h2>
     <mat-dialog-content [formGroup]="form">
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Policy name</mat-label>
-        <input matInput formControlName="display_name" placeholder="e.g. Docker Host baseline" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Technical name (optional — auto from policy name)</mat-label>
-        <input matInput formControlName="name" placeholder="e.g. docker_host" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Description</mat-label>
-        <input matInput formControlName="description" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Type</mat-label>
-        <mat-select formControlName="plan_type">
-          @for (t of planTypes; track t.value) {
-            <mat-option [value]="t.value">{{ t.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+      <div class="bm-field">
+        <label>Policy name</label>
+        <input class="bm-in" formControlName="display_name" placeholder="e.g. Docker Host baseline" />
+      </div>
+      <div class="bm-field">
+        <label>Technical name (optional — auto from policy name)</label>
+        <input class="bm-in" formControlName="name" placeholder="e.g. docker_host" />
+      </div>
+      <div class="bm-field">
+        <label>Description</label>
+        <input class="bm-in" formControlName="description" />
+      </div>
+      <div class="bm-field">
+        <label>Type</label>
+        <select class="bm-in" formControlName="plan_type">
+          @for (t of planTypes; track t.value) { <option [value]="t.value">{{ t.label }}</option> }
+        </select>
+      </div>
 
-      <!-- Thresholds: multiple metric warn/crit entries, metric has live search -->
+      <!-- Thresholds: metric (datalist search) + comparison + warn/crit -->
       <div class="bm-section" formArrayName="thresholds">
         <div class="bm-section-head">
           <span>Thresholds</span>
-          <button mat-stroked-button type="button" (click)="addThreshold()">
-            <mat-icon>add</mat-icon> Add threshold
-          </button>
+          <button mat-stroked-button type="button" (click)="addThreshold()"><mat-icon>add</mat-icon> Add threshold</button>
         </div>
         @for (row of thresholds.controls; track row; let i = $index) {
           <div class="bm-row" [formGroupName]="i">
-            <mat-form-field appearance="outline" class="bm-grow">
-              <mat-label>Metric</mat-label>
-              <input matInput formControlName="metric" [matAutocomplete]="mAuto" placeholder="search e.g. CPU, memory, disk…" />
-              <mat-autocomplete #mAuto="matAutocomplete">
-                @for (m of filterMetrics(val(row, 'metric')); track m.metric) {
-                  <mat-option [value]="m.metric">
-                    {{ m.display_name }}<span class="bm-key"> · {{ m.metric }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</span>
-                  </mat-option>
-                }
-              </mat-autocomplete>
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="bm-cmp">
-              <mat-label>Cmp</mat-label>
-              <mat-select formControlName="comparison">
-                @for (c of comparisons; track c) { <mat-option [value]="c">{{ c }}</mat-option> }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="bm-num">
-              <mat-label>Warn</mat-label>
-              <input matInput type="number" formControlName="warn" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="bm-num">
-              <mat-label>Crit</mat-label>
-              <input matInput type="number" formControlName="crit" />
-            </mat-form-field>
-            <button mat-icon-button type="button" (click)="thresholds.removeAt(i)" title="Remove">
-              <mat-icon>delete</mat-icon>
-            </button>
+            <input class="bm-in bm-grow" formControlName="metric" list="bm-plan-metrics" placeholder="metric e.g. cpu_pct" />
+            <select class="bm-in bm-cmp" formControlName="comparison">
+              @for (c of comparisons; track c) { <option [value]="c">{{ c }}</option> }
+            </select>
+            <input class="bm-in bm-num" type="number" formControlName="warn" placeholder="warn" />
+            <input class="bm-in bm-num" type="number" formControlName="crit" placeholder="crit" />
+            <button mat-icon-button type="button" (click)="thresholds.removeAt(i)" title="Remove"><mat-icon>delete</mat-icon></button>
           </div>
         }
       </div>
@@ -109,13 +81,7 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
         </div>
         @for (ctrl of checks.controls; track ctrl; let i = $index) {
           <div class="bm-row">
-            <mat-form-field appearance="outline" class="bm-grow">
-              <mat-label>Check name</mat-label>
-              <input matInput [formControlName]="i" [matAutocomplete]="cAuto" placeholder="search e.g. docker_daemon" />
-              <mat-autocomplete #cAuto="matAutocomplete">
-                @for (s of filterStrings(checkSuggestions(), ctrl.value); track s) { <mat-option [value]="s">{{ s }}</mat-option> }
-              </mat-autocomplete>
-            </mat-form-field>
+            <input class="bm-in bm-grow" [formControlName]="i" list="bm-plan-checks" placeholder="search e.g. docker_daemon" />
             <button mat-icon-button type="button" (click)="checks.removeAt(i)" title="Remove"><mat-icon>delete</mat-icon></button>
           </div>
         }
@@ -129,13 +95,7 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
         </div>
         @for (ctrl of roles.controls; track ctrl; let i = $index) {
           <div class="bm-row">
-            <mat-form-field appearance="outline" class="bm-grow">
-              <mat-label>Role / plan name</mat-label>
-              <input matInput [formControlName]="i" [matAutocomplete]="rAuto" placeholder="search e.g. docker_host" />
-              <mat-autocomplete #rAuto="matAutocomplete">
-                @for (s of filterStrings(roleSuggestions(), ctrl.value); track s) { <mat-option [value]="s">{{ s }}</mat-option> }
-              </mat-autocomplete>
-            </mat-form-field>
+            <input class="bm-in bm-grow" [formControlName]="i" list="bm-plan-roles" placeholder="search e.g. docker_host" />
             <button mat-icon-button type="button" (click)="roles.removeAt(i)" title="Remove"><mat-icon>delete</mat-icon></button>
           </div>
         }
@@ -149,17 +109,16 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
         </div>
         @for (ctrl of notifications.controls; track ctrl; let i = $index) {
           <div class="bm-row">
-            <mat-form-field appearance="outline" class="bm-grow">
-              <mat-label>Route</mat-label>
-              <input matInput [formControlName]="i" [matAutocomplete]="nAuto" placeholder="search e.g. email:ops@example.com" />
-              <mat-autocomplete #nAuto="matAutocomplete">
-                @for (s of filterStrings(routeSuggestions(), ctrl.value); track s) { <mat-option [value]="s">{{ s }}</mat-option> }
-              </mat-autocomplete>
-            </mat-form-field>
+            <input class="bm-in bm-grow" [formControlName]="i" list="bm-plan-routes" placeholder="search e.g. email:ops@example.com" />
             <button mat-icon-button type="button" (click)="notifications.removeAt(i)" title="Remove"><mat-icon>delete</mat-icon></button>
           </div>
         }
       </div>
+
+      <datalist id="bm-plan-metrics">@for (m of filterMetrics(''); track m.metric) { <option [value]="m.metric">{{ m.display_name }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</option> }</datalist>
+      <datalist id="bm-plan-checks">@for (s of checkSuggestions(); track s) { <option [value]="s"></option> }</datalist>
+      <datalist id="bm-plan-roles">@for (s of roleSuggestions(); track s) { <option [value]="s"></option> }</datalist>
+      <datalist id="bm-plan-routes">@for (s of routeSuggestions(); track s) { <option [value]="s"></option> }</datalist>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -175,9 +134,11 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
         font-size: 13px; font-weight: 600; opacity: 0.85; margin: 8px 0 4px;
       }
       .bm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      /* Row inputs size by flex, not the global .bm-in width:100%. */
+      .bm-row .bm-in { width: auto; }
       .bm-grow { flex: 1 1 180px; min-width: 0; }
-      .bm-cmp { width: 84px; }
-      .bm-num { width: 90px; }
+      .bm-cmp { flex: 0 0 84px; }
+      .bm-num { flex: 0 0 90px; }
       .bm-key { opacity: 0.55; font-size: 12px; }
       /* Fill the dialog width without forcing horizontal scroll. */
       mat-dialog-content { width: 100%; box-sizing: border-box; overflow-x: hidden; }
