@@ -162,11 +162,27 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   **managed config** (per-key winning source), and a full **inventory** tail (OS/kernel, hardware,
   network, and the installed-package list). It's what the AI reads for analysis and what the
   gpresult-style report on each host renders.
-- **Policy & Orchestration (GPO-style)** — an **OU tree** (LDAP-style, ltree-backed), first-class
-  **host groups**, and **orchestration plans/roles** you bind to an OU / group / host. Per-host
-  desired state is compiled with real GPO precedence (`global < group < OU(root→host) < host`),
-  `enforced` links, and block-inheritance — resolved server-side, previewed before it's pushed.
-  Fleet-wide check thresholds ship as an auto-created **Default Policy** rather than nameless globals.
+- **Policy & Orchestration (GPO-style)** — an **OU tree** (LDAP-style, ltree-backed) with, as a
+  second root branch beside it, **Sites** (subnet-scoped, AD "Sites-and-Services"-style: a host is a
+  member of a Site when its primary IP falls in one of the Site's CIDRs). Plus first-class **host
+  groups** and **orchestration plans/roles**. Per-host desired state is compiled with real GPO
+  precedence — `global < group < OU(root→host) < Site < host`, closest-to-host wins — with `enforced`
+  links and block-inheritance, resolved server-side and previewed before it's pushed. Fleet-wide check
+  thresholds ship as an auto-created **Default Policy** rather than nameless globals.
+  - **Named policies (a GPO is a container).** A policy has a **name** and holds **several entries**
+    (one per config file); you author it once in the **policy library** — a Miller-column browser
+    (**policies → entries → every set value at a glance on the right**) — and **link it to an OU / Site
+    / group**, which applies all its entries there at once. Policies can be authored **unlinked** and
+    linked later (drag onto a scope). Config values are edited in the gpedit editor (categories → file
+    → typed settings), never as raw text.
+  - **The right pane is a policy report (RSoP), not an editor.** Select an OU or Site and it shows
+    **what actually applies here** — config policies, thresholds, plans, notifications, **and the
+    Variables** — each tagged with its **origin** (`here` vs an ancestor OU vs `Global`). OU/group
+    **Variables** also appear as their own object in the tree. An **"Effective thresholds"** tab on
+    each host shows, per metric, **which rule wins and why** (closest-to-host).
+  - **Draft mode.** Linking/binding/assigning/threshold/delete gestures are **staged**, not applied
+    immediately: a bottom-right bar shows the pending changes with **Apply** (activate them, converge
+    hosts) and **Revert** (discard) — nothing is written until you Apply.
 - **Management console (MMC-style)** — each host's Management tab is a console: a snap-in tree
   grouped by category, the selected panel in the middle, an Actions pane on the right. Snap-ins:
   *Server* — Roles & Features, Services, **Scheduled jobs** (crontab CRUD + systemd timers),
@@ -226,25 +242,34 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   the whole module catalog.
 - **Users & Access** — human users (admin/operator), machine API tokens, and per-host/group
   **access grants** (admin manages everything; operator/token only what a grant covers).
-- **AI chat console** — Claude CLI, ChatGPT Codex, or a self-hosted model, agentic (the model calls
-  fleet tools), rendering Markdown + PlantUML/diagrams and a generative dashboard.
+- **AI chat console** — Claude CLI, ChatGPT Codex, a self-hosted OpenAI-compatible model, or
+  **OpenRouter** (any hosted model, incl. small/cheap ones — verified end-to-end with a 7B model
+  driving the fleet), agentic (the model calls fleet tools), rendering Markdown + PlantUML/diagrams
+  and a generative dashboard. The console's tool set includes `bossman_guide` (the operator skill),
+  `search_help`, host/fleet inspection, problems, runbooks and the check catalog, so even a small
+  model can inspect and plan; mutations stay on the audited MCP/REST paths.
 - **The translator** — pulls Ansible collections and Checkmk checks through an LLM
   (`llamacpp03/qwen79b`) into the agent's Starlark runtime, validated by the same `starlark-check`
   gate the agent uses.
-- **A lifecycle-complete MCP surface** — the whole of Bossman is driveable over MCP, so a model
-  (via the AI console's self-hosted `qwen79b`, or any MCP client) can run the entire loop:
-  **discover** (`list_hosts`, `host_status`, `list_roles`, `get_doc_audit`), **research**
-  (`web_search`, `fetch_url` — backed by the internal SearXNG), **read** the building blocks
-  (`get_role`, `list/get_config_template`, `list/search/get_runbook`), **install & configure**
-  (`run_runbook` with a role's typed parameters), and **verify** (dry-run + `get_host_desired_state`).
-  Writes keep the AI-proposes-human-confirms posture: `run_runbook` and orchestration links preview
-  in `check_mode` and only mutate for real once the global YOLO-MAN switch is on.
+- **A lifecycle-complete MCP surface, described as a DevOps skill** — the whole of Bossman is
+  driveable over MCP, and it's **self-teaching** so even a small model can run it: the MCP server's
+  `instructions` (and a `bossman_guide` tool) are a complete operator skill that maps each task to the
+  exact tool, and `search_help` searches the product docs. A model can run the entire loop:
+  **discover** (`list_hosts`, `host_status`, `diagnose_host`, `list_problems`, `list_roles`,
+  `get_doc_audit`), **research** (`web_search`, `fetch_url` — backed by the internal SearXNG),
+  **find & read the building blocks** (`get_role`; `list_config_templates(query)` / `get_config_template`;
+  `list_checks(query)` / `get_check`; `list/search/get_runbook`) — checks and templates now carry
+  **descriptions** so they're findable by what they do — **install & configure** (`run_runbook`,
+  `set_host_config`), **policy** (`get_ou_tree`, `propose_orchestration_plan_link`, `set_threshold`),
+  and **verify** (dry-run + `get_host_desired_state`, `blast_radius`). Writes keep the
+  AI-proposes-human-confirms posture: they preview in `check_mode` / stay `pending_approval` and only
+  mutate for real once the global YOLO-MAN switch is on.
 - **A new role or module is no problem** — because that MCP surface is *full-managed*, adding one is
   a first-class operation, not a code change. A **new module** is translated into the agent's Starlark
   runtime through the LLM and admitted by the same `starlark-check` gate — `submit_module` lands it in
   the library and it's immediately an executable tool fleet-wide. A **new role** needs only that its
-  package be known: the `config_pipeline_generate` MCP tool runs all three generation steps for it in
-  one call — **codec** (classify the config file + mine its per-directive ADMX value catalog),
+  package be known: the `qualify_package` MCP tool runs the whole generation pipeline for it in one
+  call (the *same* pipeline the host batch uses, grounded on man pages + the shipped `.deb`) — **codec** (classify the config file + mine its per-directive ADMX value catalog),
   **template** (whole-file template + typed schema), and **enum enrichment** (doc-grounded dropdowns) —
   then rebuilds the catalog so the package shows up as an installable role in the wizard, dropdowns and
   all. No bespoke per-role agent code: a role is a package name + a Jinja2 template + a schema, and the
