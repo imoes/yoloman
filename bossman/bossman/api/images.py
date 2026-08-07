@@ -677,6 +677,16 @@ class RestoreJobIn(BaseModel):
     target_hostname: str
     # An explicit disk choice; otherwise the largest non-removable one the target reports.
     target_disk: str | None = None
+    # Bootstrap→production VLAN handoff (Block PXE-VLAN): the VM was created on a bootstrap VLAN (where
+    # DHCP/TFTP/PE run); set these to move its NIC to the production VLAN after imaging and power-cycle it.
+    # vm_host_id + vm_id (+ vm_node on Proxmox) identify the VM to retag; production_bridge is the
+    # bridge/portgroup and production_vlan the Proxmox tag (unused on vCenter — the portgroup carries it).
+    # Typically populated from the create-vm response ({vmid, mac}). All optional → single-segment stays.
+    vm_host_id: UUID | None = None
+    vm_node: str | None = None
+    vm_id: str | None = None
+    production_vlan: int | None = None
+    production_bridge: str | None = None
 
 
 class RestoreJobOut(BaseModel):
@@ -763,9 +773,21 @@ async def create_restore_job(
     # exists for this hostname, so its config is in place before the install and check-in only has to
     # enrol-link it. The netboot check-in enrols by the same hostname, flipping 'planned' → 'enrolled'.
     planned = await session.scalar(select(Agent).where(Agent.name == hostname))
+    # A production VLAN handoff needs to know which VM to retag and which segment to move it to — reject a
+    # half-specified request early rather than silently skipping the retag at done-time (which would strand
+    # the host on the bootstrap VLAN). production_bridge is the trigger: the bridge (Proxmox) or portgroup
+    # (vCenter) the NIC moves to; production_vlan is the Proxmox tag (None = native/untagged on that bridge).
+    handoff = body.production_bridge is not None or body.production_vlan is not None
+    if handoff and not (body.vm_host_id and body.vm_id and body.production_bridge):
+        raise HTTPException(
+            status_code=422,
+            detail="a production VLAN handoff requires vm_host_id, vm_id and production_bridge",
+        )
     job = RestoreJob(
         image_id=img.id, target_mac=mac, target_hostname=hostname, target_disk=body.target_disk,
         agent_id=planned.id if planned is not None else None,
+        vm_host_id=body.vm_host_id, vm_node=body.vm_node, vm_id=body.vm_id,
+        production_vlan=body.production_vlan, production_bridge=body.production_bridge,
     )
     session.add(job)
     await session.commit()
@@ -1078,8 +1100,41 @@ async def netboot_progress(
     elif body.done:
         job.status = "done"
         job.finished_at = datetime.now(timezone.utc)
+        # Bootstrap→production VLAN handoff (Block PXE-VLAN): imaging finished on the bootstrap segment;
+        # move the VM's NIC to the production VLAN and power-cycle it so the restored OS boots on
+        # production. Best-effort — imaging itself succeeded, so a retag failure is logged (and left for the
+        # operator to redo) rather than flipping the job to 'failed'.
+        note = await _perform_vlan_handoff(session, job)
+        if note:
+            job.log = (job.log + note)[-64_000:]
     await session.commit()
     return RestoreJobOut.from_model(job)
+
+
+async def _perform_vlan_handoff(session: AsyncSession, job: RestoreJob) -> str:
+    """If this job carries production-VLAN fields, move its VM's NIC bootstrap→production on the hypervisor.
+    Returns a log line to append (empty if there was nothing to do). Never raises — a failure here must not
+    undo a successful install; it is surfaced in the job log for the operator."""
+    if not (job.vm_host_id and job.vm_id and job.production_bridge):
+        return ""
+    row = await session.get(VmHost, job.vm_host_id)
+    if row is None:
+        return "\n[vlan-handoff] SKIPPED: the VM host record is gone; retag the NIC to production by hand.\n"
+    try:
+        password = _vault().decrypt(row.secret)
+        if row.kind == "proxmox":
+            client = hypervisor.ProxmoxClient(row.host, row.username, password, verify_tls=row.verify_tls)
+            await client.move_nic_to_vlan(
+                job.vm_node or "", int(job.vm_id), mac=job.target_mac,
+                bridge=job.production_bridge, vlan=job.production_vlan)
+        else:
+            client = hypervisor.VCenterClient(row.host, row.username, password, verify_tls=row.verify_tls)
+            await client.move_nic_to_vlan(job.vm_id, portgroup=job.production_bridge)
+        seg = f"VLAN {job.production_vlan} on {job.production_bridge}" if job.production_vlan else job.production_bridge
+        return f"\n[vlan-handoff] moved NIC to production ({seg}) and power-cycled the VM.\n"
+    except (hypervisor.HypervisorError, ValueError) as exc:
+        log.warning("VLAN handoff for job %s failed: %s", job.id, exc)
+        return f"\n[vlan-handoff] FAILED: {exc}. The host is still on the bootstrap VLAN — retag it by hand.\n"
 
 
 # ---------------------------------------------------------------------------

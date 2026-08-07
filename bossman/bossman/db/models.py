@@ -1775,6 +1775,20 @@ class RestoreJob(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL")
     )
+    # Bootstrap→production VLAN handoff (Block PXE-VLAN): the VM is imaged on a bootstrap VLAN (where
+    # DHCP/TFTP/PE run) and must live on a different production VLAN afterwards. When these are set, the
+    # `done` handler moves the VM's NIC bootstrap→production on the hypervisor (never in the guest — VLAN
+    # is host-level) and power-cycles it so the restored OS boots on production. All-nullable = opt-in:
+    # a job without them behaves exactly as before (single-segment provisioning).
+    vm_host_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vm_hosts.id", ondelete="SET NULL")
+    )
+    vm_node: Mapped[str | None] = mapped_column(String)   # Proxmox node the VM lives on (ignored on vCenter)
+    vm_id: Mapped[str | None] = mapped_column(String)     # hypervisor VM id (Proxmox vmid / vCenter vm id)
+    # Production segment: Proxmox = a VLAN tag on `production_bridge`; vCenter = the `production_bridge`
+    # portgroup name itself (its VLAN lives on the portgroup, so production_vlan is unused there).
+    production_vlan: Mapped[int | None] = mapped_column(Integer)
+    production_bridge: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
     finished_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)

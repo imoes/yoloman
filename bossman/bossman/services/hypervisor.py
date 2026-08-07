@@ -40,6 +40,16 @@ def gen_mac() -> str:
     return "52:54:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
+def _proxmox_net0(mac: str, bridge: str, vlan: int | None) -> str:
+    """The Proxmox `net0` string: a virtio NIC with OUR mac on `bridge`, optionally VLAN-tagged. Shared by
+    VM create and the bootstrap→production NIC retag so both build the tag the same way (a tag applied one
+    way at create and another at retag would silently strand a host on the wrong VLAN)."""
+    net = f"virtio={mac},bridge={bridge}"
+    if vlan:
+        net += f",tag={vlan}"
+    return net
+
+
 def _proxmox_vm_config(
     *, name: str, cores: int, memory_mb: int, disk_gib: int, storage: str, bridge: str,
     mac: str, vlan: int | None, uefi: bool,
@@ -58,9 +68,7 @@ def _proxmox_vm_config(
     - `rng0` (virtio-rng from /dev/urandom): the guest gets entropy early, so OVMF and the freshly restored
       system do not stall waiting for the entropy pool.
     """
-    net = f"virtio={mac},bridge={bridge}"
-    if vlan:
-        net += f",tag={vlan}"
+    net = _proxmox_net0(mac, bridge, vlan)
     cfg: dict[str, Any] = {
         "name": name,
         "cores": cores,
@@ -238,6 +246,31 @@ class ProxmoxClient:
         log.info("Proxmox created + started VM %d (%s) on %s", vmid, name, node)
         return {"vmid": vmid, "mac": mac}
 
+    async def move_nic_to_vlan(
+        self, node: str, vmid: int, *, mac: str, bridge: str, vlan: int | None,
+    ) -> None:
+        """Move an existing VM's NIC to a different VLAN (the bootstrap→production handoff, Block PXE-VLAN).
+
+        A running Proxmox VM only picks up a `net0` change after a full STOP+START — a mere guest reboot
+        (the PE's `reboot -f`) leaves the change 'pending' and the host would come up still on the bootstrap
+        VLAN. So this stops the VM, rewrites `net0` with the production tag (same mac + bridge preserved), and
+        starts it again; the disk-first boot order then boots the restored OS on the production segment. Pass
+        `vlan=None` to move the NIC to the untagged/native VLAN of `bridge`."""
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            try:
+                stop_upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/stop", {})
+                await self._wait_task(client, node, stop_upid, what=f"stop VM {vmid}")
+                await self._post(client, f"/nodes/{node}/qemu/{vmid}/config",
+                                 {"net0": _proxmox_net0(mac, bridge, vlan)})
+                start_upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/start", {})
+                await self._wait_task(client, node, start_upid, what=f"start VM {vmid}")
+            except HypervisorError:
+                log.warning("Proxmox move_nic_to_vlan vmid=%s vlan=%s failed", vmid, vlan, exc_info=True)
+                raise
+            except (httpx.HTTPError, KeyError, ValueError) as exc:
+                raise HypervisorError(f"Proxmox NIC retag on {node}/{vmid} failed: {exc}") from exc
+        log.info("Proxmox moved VM %s NIC to VLAN %s on %s (stop+retag+start)", vmid, vlan, node)
+
 
 # ---------------------------------------------------------------------------
 # VMware vCenter
@@ -405,6 +438,45 @@ class VCenterClient:
             except (httpx.HTTPError, KeyError, ValueError) as exc:
                 raise HypervisorError(f"vCenter VM create failed: {exc}") from exc
         return {"vmid": vmid, "mac": mac}
+
+    async def _patch(self, client: httpx.AsyncClient, path: str, payload: dict) -> Any:
+        await self._login(client)
+        r = await client.patch(f"{self.base}{path}", headers={"vmware-api-session-id": self._session},
+                               json=payload)
+        r.raise_for_status()
+        return self._unwrap(r)
+
+    async def move_nic_to_vlan(self, vmid: str, *, portgroup: str) -> None:
+        """Move an existing VM's NIC to the production portgroup (the bootstrap→production handoff, Block
+        PXE-VLAN). On vCenter the VLAN lives on the PORTGROUP, so 'changing VLAN' means re-backing the NIC
+        onto a different portgroup (`portgroup` is its NAME, as offered by placement()). The VM is powered
+        off first — a NIC backing change is only reliably accepted on a stopped VM — the backing is switched,
+        then it is powered back on so the disk-first boot order boots the restored OS on production."""
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            try:
+                networks = await self._get(client, "/vcenter/network") or []
+                net = _first(networks, lambda n: n.get("name") == portgroup)
+                if not net:
+                    raise HypervisorError(f"vCenter production portgroup {portgroup!r} not found")
+                net_type = ("DISTRIBUTED_PORTGROUP" if net.get("type") == "DISTRIBUTED_PORTGROUP"
+                            else "STANDARD_PORTGROUP")
+                nics = await self._get(client, f"/vcenter/vm/{vmid}/hardware/ethernet") or []
+                if not nics:
+                    raise HypervisorError(f"vCenter VM {vmid} has no NIC to retag")
+                nic_id = nics[0].get("nic") if isinstance(nics[0], dict) else nics[0]
+                # NIC backing edits need the VM powered off; ignore a "already powered off" fault.
+                try:
+                    await self._post(client, f"/vcenter/vm/{vmid}/power?action=stop", {})
+                except httpx.HTTPError:
+                    pass
+                await self._patch(client, f"/vcenter/vm/{vmid}/hardware/ethernet/{nic_id}",
+                                  {"backing": {"type": net_type, "network": net.get("network")}})
+                await self._post(client, f"/vcenter/vm/{vmid}/power?action=start", {})
+            except HypervisorError:
+                raise
+            except (httpx.HTTPError, KeyError, ValueError) as exc:
+                raise HypervisorError(f"vCenter NIC retag on {vmid} failed: {exc}") from exc
+        log.info("vCenter moved VM %s NIC to portgroup %s", vmid, portgroup)
 
 
 def _first(items: list, pred) -> Any:

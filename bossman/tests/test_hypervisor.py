@@ -184,6 +184,38 @@ async def test_create_vm_posts_config_and_starts(monkeypatch):
     assert posted["config"]["net0"] == "virtio=52:54:00:de:ad:be,bridge=vmbr0"
 
 
+async def test_move_nic_to_vlan_stops_retags_and_starts(monkeypatch):
+    """Bootstrap→production VLAN handoff: a running VM only picks up a net0 change after a full stop+start
+    (a guest reboot leaves it pending), so move_nic_to_vlan must STOP, POST the new net0 with the production
+    tag (same mac + bridge), then START — in that order."""
+    events: list[str] = []
+    posted: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/access/ticket"):
+            return httpx.Response(200, json=_TICKET)
+        if "/tasks/" in path and path.endswith("/status"):
+            return httpx.Response(200, json={"data": {"status": "stopped", "exitstatus": "OK"}})
+        if path.endswith("/qemu/131/status/stop"):
+            events.append("stop")
+            return httpx.Response(200, json={"data": "UPID:stop:pve1"})
+        if path.endswith("/qemu/131/config"):
+            events.append("config")
+            posted["net0"] = dict(httpx.QueryParams(request.content.decode())).get("net0")
+            return httpx.Response(200, json={"data": None})
+        if path.endswith("/qemu/131/status/start"):
+            events.append("start")
+            return httpx.Response(200, json={"data": "UPID:start:pve1"})
+        return httpx.Response(404, json={"data": None})
+
+    _client_with(handler, monkeypatch)
+    await ProxmoxClient("pve", "root@pam", "pw").move_nic_to_vlan(
+        "pve1", 131, mac="52:54:00:de:ad:be", bridge="vmbr0", vlan=200)
+    assert events == ["stop", "config", "start"]                     # order matters (stop before retag)
+    assert posted["net0"] == "virtio=52:54:00:de:ad:be,bridge=vmbr0,tag=200"
+
+
 async def test_create_vm_rejects_a_duplicate_name(monkeypatch):
     """A VM whose name already exists on the cluster is refused up front with a clear error — not created as
     a confusing second VM, and not silently swallowed."""
