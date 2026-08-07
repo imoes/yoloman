@@ -75,11 +75,19 @@ services:
       - "162:1162/udp"
     volumes:
       - ./bossman/plans:/app/plans:ro
-      - ./configs/config_templates:/app/config-templates:ro
-      - ./configs/config_codecs.json:/app/config_codecs.json:ro
-      - ./configs/config_directives.json:/app/config_directives.json:ro
-      - ./configs/package_catalog.json:/app/package_catalog.json:ro
+      # RW so Bossman itself can create a package's config files (codec /
+      # directives / template / enum) via the on-demand qualify endpoint — the
+      # same artifacts the host batch writes; both target these repo configs.
+      - ./configs/config_templates:/app/config-templates
+      - ./configs/config_codecs.json:/app/config_codecs.json
+      - ./configs/config_directives.json:/app/config_directives.json
+      - ./configs/package_catalog.json:/app/package_catalog.json
       - ./configs/package_doc_audit.json:/app/package_doc_audit.json:ro
+      # The whole configs/ tree, RW — the on-demand qualify endpoint runs the
+      # qualify scripts in-container with AGENTIC_CONFIGS_DIR=/app/configs, so they
+      # write templates/codecs/directives/catalog + their .state files straight
+      # into the repo configs (same files the app serves from the mounts above).
+      - ./configs:/app/configs
       # Generated Ansible playbooks that seed the installation-wizard runbooks
       # (scripts/wizards_to_playbooks.py output; wizard_seed reads them here).
       - ./configs/wizard_playbooks:/app/wizard_playbooks:ro

@@ -1208,6 +1208,23 @@ def build_mcp_server(
         return sorted(d.name for d in tdir.iterdir() if d.is_dir() and (d / "template.j2").is_file())
 
     @mcp.tool()
+    async def qualify_package(name: str) -> dict[str, Any]:
+        """Create ALL config artifacts for a package — codec classification,
+        per-directive value catalog, the Jinja2 template + values schema, and enum
+        enrichment — then categorize it into the package catalog (einsortiert).
+
+        Runs the SAME qualify pipeline the host batch uses (scripts/qualify_packages.py
+        + build_package_catalog.py), against the RW-mounted configs and Bossman's
+        CONFIGURED AI endpoint. Use this to onboard a new package/service so it shows
+        up in the wizard, Roles & Features and the gpedit config editor. Returns
+        whether the template was created, the assigned category, the codec, and a
+        log tail. Takes a couple of minutes."""
+        from bossman.api.package_qualify import run_qualify
+
+        res = await run_qualify(name)
+        return res.model_dump()
+
+    @mcp.tool()
     async def get_config_template(name: str) -> dict[str, Any]:
         """Read a config template: its Jinja2 body, values schema (each var ->
         type/default/description; list-of-object vars carry an `items` shape),

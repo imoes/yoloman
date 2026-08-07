@@ -32,6 +32,13 @@ COPY alembic ./alembic
 COPY alembic.ini ./
 COPY scripts ./scripts
 
+# The gonja render-check binary (enum-enrich gate for the on-demand qualify
+# endpoint) is INSTALLED into the image — not mounted — so a qualify run in the
+# container needs no `go`. RENDER_CHECK_BIN makes enrich_gates use it directly.
+COPY bin/render-check /usr/local/bin/render-check
+RUN chmod +x /usr/local/bin/render-check
+ENV RENDER_CHECK_BIN=/usr/local/bin/render-check
+
 # Bossman's own mTLS client keypair (services/keys.py) and the plans
 # directory both need a writable/readable location — /etc/bossman isn't
 # writable by a non-root container user, so both default paths are

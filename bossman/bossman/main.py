@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
+from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -325,6 +325,7 @@ def create_app() -> FastAPI:
     app.include_router(systems_api.router, tags=["systems"])
     app.include_router(resources_api.router, tags=["resources"])
     app.include_router(package_catalog.router, tags=["package-catalog"])
+    app.include_router(package_qualify.router, tags=["package-qualify"])
     app.include_router(package_wizard.router, tags=["package-wizard"])
     app.include_router(capabilities_api.router, tags=["capabilities"])
     app.include_router(config_directives.router, tags=["config-directives"])
