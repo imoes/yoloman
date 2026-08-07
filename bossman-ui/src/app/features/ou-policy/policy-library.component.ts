@@ -1,8 +1,10 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { OuService, PolicySet, PolicySetDetail } from '../../core/services/ou.service';
+import { SiteService } from '../../core/services/site.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gpedit-dialog.component';
 
@@ -18,7 +20,7 @@ import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gp
 @Component({
   selector: 'app-policy-library',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>Policy library</h2>
     <mat-dialog-content>
@@ -80,6 +82,12 @@ import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gp
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       @if (selected(); as d) {
+        <label class="pl-link">Linked to:
+          <select [ngModel]="scopeValue(d)" (ngModelChange)="onLink(d, $event)">
+            <option value="">(unlinked)</option>
+            @for (o of scopeOptions(); track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+          </select>
+        </label>
         <button mat-button (click)="renamePolicy(d)">Rename…</button>
         <button mat-button class="pl-danger" (click)="deletePolicy(d)">Delete policy</button>
       }
@@ -114,19 +122,51 @@ import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gp
       .pl-dim { opacity: 0.6; font-size: 13px; padding: 10px; }
       .pl-spacer { flex: 1; }
       .pl-danger { color: var(--bm-red); }
+      .pl-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.85; margin-right: 8px; }
+      .pl-link select { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 12px; }
     `,
   ],
 })
 export class PolicyLibraryComponent implements OnInit {
   private ouService = inject(OuService);
+  private site = inject(SiteService);
   private dialog = inject(MatDialog);
   private appDialog = inject(DialogService);
 
   sets = signal<PolicySet[]>([]);
   selected = signal<PolicySetDetail | null>(null);
   selectedPath = signal<string | null>(null);
+  // Link targets: OUs + Sites, as "ou:<id>" / "site:<id>" values.
+  scopeOptions = signal<{ value: string; label: string }[]>([]);
 
-  ngOnInit(): void { this.reload(); }
+  ngOnInit(): void {
+    this.reload();
+    this.ouService.list().subscribe((ous) => {
+      this.site.list().subscribe((sites) => {
+        this.scopeOptions.set([
+          ...ous.map((o) => ({ value: `ou:${o.id}`, label: `OU ${o.path}` })),
+          ...sites.map((s) => ({ value: `site:${s.id}`, label: `Site ${s.name}` })),
+        ]);
+      });
+    });
+  }
+
+  scopeValue(d: PolicySetDetail): string {
+    return d.scope_ou_id ? `ou:${d.scope_ou_id}` : d.site_id ? `site:${d.site_id}` : d.host_group_id ? `group:${d.host_group_id}` : '';
+  }
+
+  /** Link the whole policy to the chosen scope (propagates to its entries), or unlink. */
+  onLink(d: PolicySetDetail, value: string): void {
+    const body = value === ''
+      ? { unlink: true }
+      : value.startsWith('ou:') ? { scope_ou_id: value.slice(3) }
+      : value.startsWith('site:') ? { site_id: value.slice(5) }
+      : { host_group_id: value.slice(6) };
+    this.ouService.patchPolicySet(d.id, body).subscribe({
+      next: () => this.reload(d.id),
+      error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'link failed', 'error'),
+    });
+  }
 
   private reload(keepId?: string): void {
     this.ouService.listPolicySets().subscribe((s) => {
