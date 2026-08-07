@@ -4290,6 +4290,45 @@
       ]
     }
   },
+  "/etc/budgie-session": {
+    "--autostart": {
+      "description": "Directory to be searched for autostart .desktop files.",
+      "type": "string"
+    },
+    "--builtin": {
+      "description": "Use the legacy non-systemd method of managing the user session.",
+      "type": "bool"
+    },
+    "--debug": {
+      "description": "Enable debugging code.",
+      "type": "bool"
+    },
+    "--failsafe": {
+      "description": "Run in fail-safe mode. User-specified applications will not be started.",
+      "type": "bool"
+    },
+    "--session": {
+      "default": "budgie",
+      "description": "Use the applications defined in SESSION.session.",
+      "type": "string"
+    },
+    "--whale": {
+      "description": "Show the fail whale in a dialog for debugging it.",
+      "type": "bool"
+    },
+    "GNOME_SESSION_AUTOSTART_DIR": {
+      "description": "Specifies a list of directories to be searched for autostart files. Overrides --autostart and default directories.",
+      "type": "string"
+    },
+    "Name": {
+      "description": "Name of the session. This can be localized.",
+      "type": "string"
+    },
+    "RequiredComponents": {
+      "description": "List of component identifiers (desktop files) that are required by the session.",
+      "type": "list"
+    }
+  },
   "/etc/buildd/buildd.conf": {
     "admin_mail": {
       "default": "root",
@@ -4554,6 +4593,17 @@
         "bits",
         "packets",
         "errors"
+      ]
+    }
+  },
+  "/etc/byobu/backend": {
+    "BYOBU_BACKEND": {
+      "default": "tmux",
+      "description": "Selects the text-based window manager backend used by Byobu.",
+      "type": "enum",
+      "values": [
+        "screen",
+        "tmux"
       ]
     }
   },
@@ -5857,44 +5907,97 @@
     }
   },
   "/etc/certmonger/certmonger.conf": {
-    "ca_cert_dir": {
-      "default": "/var/lib/certmonger/cas",
-      "description": "Directory where trusted CA certificates and trust anchors are cached for validation.",
+    "challenge_password_otp": {
+      "default": "no",
+      "description": "Whether to treat the SCEP challenge password as a one-time password.",
+      "type": "bool"
+    },
+    "digest": {
+      "default": "sha256",
+      "description": "Digest algorithm used when signing CSRs and self-signed certificates.",
+      "type": "enum",
+      "values": [
+        "sha1",
+        "sha256",
+        "sha384",
+        "sha512"
+      ]
+    },
+    "enroll_ttls": {
+      "default": "2419200, 604800, 259200, 172800, 86400, 43200, 21600, 7200, 3600",
+      "description": "List of times in seconds before a certificate's expiration to attempt automatic renewal.",
+      "type": "list"
+    },
+    "key_type": {
+      "default": "RSA",
+      "description": "Type of key pair generated, used in CSRs, and used for self-signing certificates.",
+      "type": "enum",
+      "values": [
+        "RSA",
+        "EC"
+      ]
+    },
+    "max_key_lifetime": {
+      "description": "Time period after key generation before certmonger attempts to generate a replacement key pair (format: y/M/w/d/h/m/s).",
       "type": "string"
     },
-    "debug": {
-      "default": "false",
-      "description": "Enable verbose debugging output to syslog for troubleshooting.",
-      "type": "bool"
+    "max_key_use_count": {
+      "description": "Maximum number of certificates obtained with the current key pair before generating a new one.",
+      "type": "int"
     },
-    "enable_autorenew": {
-      "default": "true",
-      "description": "Enable automatic renewal of tracked certificates when approaching expiry.",
-      "type": "bool"
-    },
-    "enable_tracking_daemon": {
-      "default": "true",
-      "description": "Whether to start the internal certmonger tracking daemon to monitor certificate lifecycles.",
-      "type": "bool"
-    },
-    "intermediate_cert_dir": {
-      "default": "/var/lib/certmonger/intermediates",
-      "description": "Directory used to store intermediate CA certificates for building full certificate chains.",
+    "notification_destination": {
+      "default": "daemon.notice",
+      "description": "Destination for notifications, which can be a syslog priority/facility, email address, or command.",
       "type": "string"
     },
-    "max_tracking_cas": {
-      "default": "0",
-      "description": "Maximum number of CAs certmonger will track. Set to 0 for unlimited.",
+    "notification_method": {
+      "default": "syslog",
+      "description": "Method used to notify the system administrator of impending certificate expiration.",
+      "type": "enum",
+      "values": [
+        "syslog",
+        "mail",
+        "command"
+      ]
+    },
+    "notify_ttls": {
+      "default": "2419200, 604800, 259200, 172800, 86400, 43200, 21600, 7200, 3600",
+      "description": "List of times in seconds before a certificate's expiration to warn that it will soon expire.",
+      "type": "list"
+    },
+    "nss_ca_trust": {
+      "default": "CT,C,C",
+      "description": "Trust attributes applied to CA certificates saved to NSS databases.",
+      "type": "string"
+    },
+    "nss_other_trust": {
+      "default": ",,",
+      "description": "Trust attributes applied to non-CA certificates saved to NSS databases.",
+      "type": "string"
+    },
+    "populate_unique_id": {
+      "default": "no",
+      "description": "Whether to populate subjectUniqueID and issuerUniqueID fields on self-signed certificates.",
+      "type": "bool"
+    },
+    "rsa_key_size": {
+      "description": "Size in bits of the RSA key generated if not specified in a certificate request.",
+      "max": 2048,
+      "min": 1024,
       "type": "int"
     },
-    "renewal_window": {
-      "default": "30",
-      "description": "Number of days before certificate expiry to trigger automatic renewal.",
-      "type": "int"
+    "symmetric_cipher": {
+      "default": "aes128",
+      "description": "Symmetric cipher used to encrypt private keys stored in OpenSSL PEM format.",
+      "type": "enum",
+      "values": [
+        "aes128",
+        "aes256"
+      ]
     },
-    "state_dir": {
-      "default": "/var/lib/certmonger",
-      "description": "Directory where certmonger stores certificate request state, certificates, and keys (if not elsewhere specified).",
+    "validity_period": {
+      "default": "1y",
+      "description": "Validity period given to the locally-signed CA's certificate (format: y/M/w/d/h/m/s).",
       "type": "string"
     }
   },

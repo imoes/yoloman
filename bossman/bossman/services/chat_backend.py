@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 CLAUDE_CLI = "claude_cli"
 CODEX = "codex"
 HERMES_WEB = "hermes_web"
-BACKENDS = (CLAUDE_CLI, CODEX, HERMES_WEB)
+OPENROUTER = "openrouter"
+BACKENDS = (CLAUDE_CLI, CODEX, HERMES_WEB, OPENROUTER)
 
 
 class ChatBackendError(Exception):
@@ -312,6 +313,9 @@ def chat_backend_for(settings: Settings, name: str | None = None):
     backend = (name or settings.chat_backend or CLAUDE_CLI).strip()
     if backend == HERMES_WEB:
         return HermesWebBackend(settings.hermes_web_base_url, settings.hermes_web_model, settings.hermes_web_token)
+    if backend == OPENROUTER:
+        # OpenRouter is OpenAI-compatible → the same client, different base/model/token.
+        return HermesWebBackend(settings.openrouter_base_url, settings.openrouter_model, settings.openrouter_token)
     if backend == CODEX:
         return CodexBackend(settings.codex_base_url, settings.codex_model)
     if backend == CLAUDE_CLI:

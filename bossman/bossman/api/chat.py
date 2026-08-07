@@ -33,6 +33,7 @@ from bossman.services.chat_backend import (
     CLAUDE_CLI,
     CODEX,
     HERMES_WEB,
+    OPENROUTER,
     ChatBackendError,
     ClaudeCliBackend,
     CodexBackend,
@@ -73,6 +74,14 @@ async def _build_backend(
             hermes_base_url or settings.hermes_web_base_url,
             model or hermes_model or settings.hermes_web_model,
             settings.hermes_web_token,
+        )
+    if backend_name == OPENROUTER:
+        # OpenAI-compatible; token stays server-side (env, never in prefs). The
+        # per-user base_url/model prefs (shared with hermes) override the defaults.
+        return HermesWebBackend(
+            hermes_base_url or settings.openrouter_base_url,
+            model or hermes_model or settings.openrouter_model,
+            settings.openrouter_token,
         )
     home = chat_home.home_for(settings.chat_home_root, username)
     if backend_name == CLAUDE_CLI:

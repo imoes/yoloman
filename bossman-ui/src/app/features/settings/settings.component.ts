@@ -161,17 +161,22 @@ import { EnrollInfo } from '../../core/models/enroll.model';
                 />
               </mat-form-field>
             </div>
-            @if (p.default_backend === 'hermes_web') {
+            @if (p.default_backend === 'hermes_web' || p.default_backend === 'openrouter') {
               <div class="bm-llm-row">
                 <mat-form-field appearance="outline" class="bm-llm-wide">
                   <mat-label>Endpoint (base URL)</mat-label>
-                  <input matInput [(ngModel)]="p.hermes_base_url" placeholder="https://…/v1" />
+                  <input matInput [(ngModel)]="p.hermes_base_url"
+                         [placeholder]="p.default_backend === 'openrouter' ? 'https://openrouter.ai/api' : 'https://…/v1'" />
                 </mat-form-field>
                 <mat-form-field appearance="outline">
                   <mat-label>Endpoint model</mat-label>
-                  <input matInput [(ngModel)]="p.hermes_model" placeholder="qwen3next-79b" />
+                  <input matInput [(ngModel)]="p.hermes_model"
+                         [placeholder]="p.default_backend === 'openrouter' ? 'nousresearch/hermes-3-llama-3.1-70b' : 'qwen3next-79b'" />
                 </mat-form-field>
               </div>
+              @if (p.default_backend === 'openrouter') {
+                <p class="bm-llm-hint">OpenRouter API key is server-side (BOSSMAN_OPENROUTER_TOKEN); base URL + model are per-user here. Leave base URL empty to use the default.</p>
+              }
             }
             <div class="bm-llm-actions">
               <button mat-raised-button color="primary" (click)="saveLlm()" [disabled]="llmBusy()">Save</button>
@@ -503,6 +508,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   private readonly backendLabels: Record<ChatBackendName, string> = {
     hermes_web: 'OpenAI-compatible (hermes)',
+    openrouter: 'OpenRouter',
     claude_cli: 'Claude CLI',
     codex: 'ChatGPT Codex',
   };

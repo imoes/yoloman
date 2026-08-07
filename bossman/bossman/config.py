@@ -304,9 +304,21 @@ class Settings(BaseSettings):
     # so it works out of the box; per-user overrides (endpoint + model) live in
     # the DB (chat_preferences), configured from the Settings → AI Assistant
     # card — not in the environment.
-    chat_backend: str = "hermes_web"  # claude_cli | codex | hermes_web
+    chat_backend: str = "hermes_web"  # claude_cli | codex | hermes_web | openrouter
     hermes_web_base_url: str = "https://llm.example.internal/laguna"
     hermes_web_model: str = "laguna"
+    # OpenRouter: OpenAI-compatible aggregator (function-calling identical), so it
+    # reuses the hermes/OpenAI client. base_url is the /api root — the client
+    # appends /v1/chat/completions. Token via env (never committed); model is any
+    # OpenRouter model id (e.g. a small/cheap one to prove small models can drive
+    # Bossman over MCP). Lets even tiny models run the fleet.
+    openrouter_base_url: str = "https://openrouter.ai/api"
+    # A SMALL, open, tool-capable model by default — verified to call Bossman's
+    # MCP tools over OpenRouter (proves even tiny models can run the fleet). Any
+    # OpenRouter model id whose providers support tool-use works; note some models
+    # (e.g. nousresearch/hermes-3) have NO tool-use endpoint and 404 on tools.
+    openrouter_model: str = "qwen/qwen-2.5-7b-instruct"
+    openrouter_token: str = ""
     # SearXNG metasearch (co-located with the LLM host) — backs the package-doc
     # verification batch and the web_search MCP tool.
     searxng_base_url: str = "http://llm.example.internal:8080"

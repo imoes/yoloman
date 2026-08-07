@@ -1,6 +1,6 @@
 // Block K — AI chat console models.
 
-export type ChatBackendName = 'claude_cli' | 'codex' | 'hermes_web';
+export type ChatBackendName = 'claude_cli' | 'codex' | 'hermes_web' | 'openrouter';
 
 export interface ChatBackendsResponse {
   backends: ChatBackendName[];
