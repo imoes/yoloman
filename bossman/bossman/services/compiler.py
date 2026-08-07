@@ -588,6 +588,7 @@ async def preview_plan_link(
     ou_id: UUID | None = None,
     agent_id: UUID | None = None,
     host_group_id: UUID | None = None,
+    site_id: UUID | None = None,
     parameters: dict | None = None,
 ) -> dict | None:
     """Block L2's safe "propose" primitive: computes what a NOT-YET-CREATED
@@ -609,14 +610,14 @@ async def preview_plan_link(
         return None
 
     affected = await affected_agent_ids(
-        session, target_type, ou_id=ou_id, agent_id=agent_id, host_group_id=host_group_id, tenant_id=tenant_id
+        session, target_type, ou_id=ou_id, agent_id=agent_id, host_group_id=host_group_id, site_id=site_id, tenant_id=tenant_id
     )
 
     # A synthetic, never-added-to-session candidate link — resolve_orchestration_assignments
     # only reads its plain attributes, so a bare unpersisted instance is enough.
     candidate = OrchestrationPlanLink(
         tenant_id=tenant_id, plan_id=plan_id, plan_version=plan_version, target_type=target_type,
-        ou_id=ou_id, agent_id=agent_id, host_group_id=host_group_id, parameters=parameters or {},
+        ou_id=ou_id, agent_id=agent_id, host_group_id=host_group_id, site_id=site_id, parameters=parameters or {},
         priority=100, link_order=100, status="active",
     )
 

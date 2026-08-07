@@ -32,6 +32,7 @@ from bossman.db.models import (
     CheckRuleOuLink,
     ConfigPolicy,
     HostGroup,
+    Site,
     NotificationRule,
     OrchestrationPlan,
     OrchestrationPlanLink,
@@ -323,9 +324,18 @@ async def list_ou_objects(
     return out
 
 
+def _resolve_policy_scope(ou_id: UUID | None, group_id: UUID | None, site_id: UUID | None) -> tuple[str, UUID]:
+    """Config policies are scoped to exactly one of OU / host-group / Site.
+    Returns (kind, id) or raises 422 when zero or more than one is set."""
+    chosen = [(k, v) for k, v in (("ou", ou_id), ("group", group_id), ("site", site_id)) if v is not None]
+    if len(chosen) != 1:
+        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id / site_id")
+    return chosen[0]
+
+
 class ConfigPolicyIn(BaseModel):
-    """Author a config-value policy at OU or group scope (gpedit's 'add a
-    setting to a policy'). Exactly one of scope_ou_id / host_group_id is set.
+    """Author a config-value policy at OU, group or Site scope (gpedit's 'add a
+    setting to a policy'). Exactly one of scope_ou_id / host_group_id / site_id.
     `values` is the desired key→value document for the file; a null value on a
     key enforces its absence. Persisting the policy is the authoring act; on a
     real (non-dry_run) save we also converge every reachable member host so it
@@ -333,6 +343,7 @@ class ConfigPolicyIn(BaseModel):
 
     scope_ou_id: UUID | None = None
     host_group_id: UUID | None = None
+    site_id: UUID | None = None
     path: str
     type: str = "config"
     format: str | None = "keyvalue"
@@ -354,19 +365,17 @@ async def create_config_policy(
     (Block K4, authored from the Policy console). No agent context needed — you
     can define a policy for an OU that has no reachable host yet; it applies
     when hosts appear/re-sync."""
-    is_ou = body.scope_ou_id is not None
-    if is_ou == (body.host_group_id is not None):
-        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id")
-    if is_ou and await session.get(OUNode, body.scope_ou_id) is None:
-        raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
-    if not is_ou and await session.get(HostGroup, body.host_group_id) is None:
-        raise HTTPException(status_code=422, detail=f"no such host group {body.host_group_id}")
+    scope_kind, scope_id = _resolve_policy_scope(body.scope_ou_id, body.host_group_id, body.site_id)
+    if scope_kind == "ou" and await session.get(OUNode, scope_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such OU {scope_id}")
+    if scope_kind == "group" and await session.get(HostGroup, scope_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such host group {scope_id}")
+    if scope_kind == "site" and await session.get(Site, scope_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such site {scope_id}")
 
     if not body.dry_run:
-        if is_ou:
-            q = select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.scope_ou_id, ConfigPolicy.path == body.path)
-        else:
-            q = select(ConfigPolicy).where(ConfigPolicy.host_group_id == body.host_group_id, ConfigPolicy.path == body.path)
+        scope_col = {"ou": ConfigPolicy.scope_ou_id, "group": ConfigPolicy.host_group_id, "site": ConfigPolicy.site_id}[scope_kind]
+        q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == body.path)
         pol = await session.scalar(q)
         if pol is None:
             # DEFAULT_TENANT_ID may be a str or already a UUID depending on
@@ -374,8 +383,9 @@ async def create_config_policy(
             # first so UUID() accepts it either way.
             pol = ConfigPolicy(
                 tenant_id=UUID(str(DEFAULT_TENANT_ID)), path=body.path,
-                scope_ou_id=body.scope_ou_id if is_ou else None,
-                host_group_id=None if is_ou else body.host_group_id,
+                scope_ou_id=scope_id if scope_kind == "ou" else None,
+                host_group_id=scope_id if scope_kind == "group" else None,
+                site_id=scope_id if scope_kind == "site" else None,
             )
             session.add(pol)
         pol.type = body.type
@@ -393,10 +403,13 @@ async def create_config_policy(
         "type": body.type, "path": body.path, "format": body.format,
         "separator": body.separator, "values": body.values, "template": body.template,
     }
-    if is_ou:
-        member_ids = await affected_agent_ids(session, "ou", ou_id=body.scope_ou_id)
-    else:
-        member_ids = await affected_agent_ids(session, "group", host_group_id=body.host_group_id)
+    member_ids = await affected_agent_ids(
+        session, scope_kind,
+        ou_id=scope_id if scope_kind == "ou" else None,
+        host_group_id=scope_id if scope_kind == "group" else None,
+        site_id=scope_id if scope_kind == "site" else None,
+        tenant_id=UUID(str(DEFAULT_TENANT_ID)),
+    )
     applied, skipped = [], []
     for mid in member_ids:
         m = await session.get(Agent, mid)
@@ -417,9 +430,10 @@ async def create_config_policy(
         except AgentClientError:
             skipped.append(m.name)
     return {
-        "scope": "ou" if is_ou else "group",
-        "scope_ou_id": str(body.scope_ou_id) if is_ou else None,
-        "host_group_id": None if is_ou else str(body.host_group_id),
+        "scope": scope_kind,
+        "scope_ou_id": str(scope_id) if scope_kind == "ou" else None,
+        "host_group_id": str(scope_id) if scope_kind == "group" else None,
+        "site_id": str(scope_id) if scope_kind == "site" else None,
         "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run,
     }
 
@@ -446,22 +460,26 @@ async def list_ou_members(
 async def list_config_policies(
     scope_ou_id: UUID | None = None,
     host_group_id: UUID | None = None,
+    site_id: UUID | None = None,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[dict]:
     """Config policies WITH their values documents, for the Policy-console
-    gpedit editor (the OU objects list only carries a label). Filter by OU or
-    group scope; no filter returns all."""
+    gpedit editor (the OU objects list only carries a label). Filter by OU,
+    group or Site scope; no filter returns all."""
     stmt = select(ConfigPolicy)
     if scope_ou_id is not None:
         stmt = stmt.where(ConfigPolicy.scope_ou_id == scope_ou_id)
     if host_group_id is not None:
         stmt = stmt.where(ConfigPolicy.host_group_id == host_group_id)
+    if site_id is not None:
+        stmt = stmt.where(ConfigPolicy.site_id == site_id)
     return [
         {
             "id": str(cp.id),
             "scope_ou_id": str(cp.scope_ou_id) if cp.scope_ou_id else None,
             "host_group_id": str(cp.host_group_id) if cp.host_group_id else None,
+            "site_id": str(cp.site_id) if cp.site_id else None,
             "path": cp.path, "type": cp.type, "format": cp.config_format,
             "separator": cp.separator, "values": cp.values or {}, "template": cp.template,
         }
@@ -472,6 +490,7 @@ async def list_config_policies(
 class ConfigPolicyUnsetIn(BaseModel):
     scope_ou_id: UUID | None = None
     host_group_id: UUID | None = None
+    site_id: UUID | None = None
     path: str
     key: str
 
@@ -486,13 +505,9 @@ async def unset_config_policy_key(
     editor's counterpart of /agents/{id}/config-desired/unset): stop managing
     ONE key in a scope policy. Member hosts keep their live value; removing
     the last key deletes the policy row."""
-    is_ou = body.scope_ou_id is not None
-    if is_ou == (body.host_group_id is not None):
-        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id")
-    if is_ou:
-        q = select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.scope_ou_id, ConfigPolicy.path == body.path)
-    else:
-        q = select(ConfigPolicy).where(ConfigPolicy.host_group_id == body.host_group_id, ConfigPolicy.path == body.path)
+    scope_kind, scope_id = _resolve_policy_scope(body.scope_ou_id, body.host_group_id, body.site_id)
+    scope_col = {"ou": ConfigPolicy.scope_ou_id, "group": ConfigPolicy.host_group_id, "site": ConfigPolicy.site_id}[scope_kind]
+    q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == body.path)
     row = await session.scalar(q)
     if row is None:
         raise HTTPException(status_code=404, detail=f"no config policy for {body.path} at that scope")
@@ -511,6 +526,7 @@ async def unset_config_policy_key(
 class ConfigPolicyScopeIn(BaseModel):
     scope_ou_id: UUID | None = None
     host_group_id: UUID | None = None
+    site_id: UUID | None = None
 
 
 @router.patch("/api/v1/config-policies/{policy_id}")
@@ -524,18 +540,18 @@ async def rescope_config_policy(
     placed policy onto another OU' gesture). Exactly one of scope_ou_id /
     host_group_id. Doesn't re-converge here — member hosts pick it up on their
     next sync (deleting/adding a scope link mirrors unlinking a GPO)."""
-    is_ou = body.scope_ou_id is not None
-    if is_ou == (body.host_group_id is not None):
-        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id")
+    scope_kind, scope_id = _resolve_policy_scope(body.scope_ou_id, body.host_group_id, body.site_id)
     cp = await session.get(ConfigPolicy, policy_id)
     if cp is None:
         raise HTTPException(status_code=404, detail=f"no such config policy {policy_id}")
-    cp.scope_ou_id = body.scope_ou_id if is_ou else None
-    cp.host_group_id = None if is_ou else body.host_group_id
+    cp.scope_ou_id = scope_id if scope_kind == "ou" else None
+    cp.host_group_id = scope_id if scope_kind == "group" else None
+    cp.site_id = scope_id if scope_kind == "site" else None
     cp.updated_at = datetime.now(timezone.utc)
     await session.commit()
     return {"id": str(cp.id), "scope_ou_id": str(cp.scope_ou_id) if cp.scope_ou_id else None,
-            "host_group_id": str(cp.host_group_id) if cp.host_group_id else None}
+            "host_group_id": str(cp.host_group_id) if cp.host_group_id else None,
+            "site_id": str(cp.site_id) if cp.site_id else None}
 
 
 @router.delete("/api/v1/config-policies/{policy_id}", status_code=204)

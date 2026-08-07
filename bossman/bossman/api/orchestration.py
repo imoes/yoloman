@@ -27,7 +27,7 @@ router = APIRouter()
 
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 _PLAN_TYPES = ("role", "cluster", "deployment", "remediation", "maintenance", "bootstrap")
-_TARGET_TYPES = ("ou", "host", "group", "label_selector", "global")
+_TARGET_TYPES = ("ou", "host", "group", "site", "label_selector", "global")
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +204,7 @@ class PlanLinkIn(BaseModel):
     ou_id: UUID | None = None
     agent_id: UUID | None = None
     host_group_id: UUID | None = None
+    site_id: UUID | None = None
     parameters: dict = {}
     priority: int = 100
     link_order: int = 100
@@ -223,7 +224,7 @@ class PlanLinkOut(PlanLinkIn):
     def from_model(cls, link: OrchestrationPlanLink) -> "PlanLinkOut":
         return cls(
             id=link.id, plan_id=link.plan_id, plan_version=link.plan_version, target_type=link.target_type,
-            ou_id=link.ou_id, agent_id=link.agent_id, host_group_id=link.host_group_id, parameters=link.parameters,
+            ou_id=link.ou_id, agent_id=link.agent_id, host_group_id=link.host_group_id, site_id=link.site_id, parameters=link.parameters,
             priority=link.priority, link_order=link.link_order, enforced=link.enforced, enabled=link.enabled,
             auto_apply=link.auto_apply, require_approval=link.require_approval, status=link.status,
             created_at=link.created_at,
@@ -233,7 +234,7 @@ class PlanLinkOut(PlanLinkIn):
 def _validate_link_target(body: PlanLinkIn) -> None:
     if body.target_type not in _TARGET_TYPES:
         raise HTTPException(status_code=422, detail=f"target_type must be one of {_TARGET_TYPES}")
-    required = {"ou": body.ou_id, "host": body.agent_id, "group": body.host_group_id}
+    required = {"ou": body.ou_id, "host": body.agent_id, "group": body.host_group_id, "site": body.site_id}
     if body.target_type in required and required[body.target_type] is None:
         raise HTTPException(status_code=422, detail=f"target_type={body.target_type!r} requires the matching id field")
 
@@ -241,7 +242,7 @@ def _validate_link_target(body: PlanLinkIn) -> None:
 async def _affected(session: AsyncSession, link: OrchestrationPlanLink) -> list[UUID]:
     return await affected_agent_ids(
         session, link.target_type, ou_id=link.ou_id, agent_id=link.agent_id,
-        host_group_id=link.host_group_id, tenant_id=link.tenant_id,
+        host_group_id=link.host_group_id, site_id=link.site_id, tenant_id=link.tenant_id,
     )
 
 
@@ -277,6 +278,7 @@ class PlanLinkPreviewIn(BaseModel):
     ou_id: UUID | None = None
     agent_id: UUID | None = None
     host_group_id: UUID | None = None
+    site_id: UUID | None = None
     parameters: dict = {}
 
 
@@ -291,7 +293,7 @@ async def preview_plan_link_endpoint(
     await _get_plan_or_404(session, plan_id)
     result = await preview_plan_link(
         session, DEFAULT_TENANT_ID, plan_id, body.target_type, plan_version=body.plan_version,
-        ou_id=body.ou_id, agent_id=body.agent_id, host_group_id=body.host_group_id, parameters=body.parameters,
+        ou_id=body.ou_id, agent_id=body.agent_id, host_group_id=body.host_group_id, site_id=body.site_id, parameters=body.parameters,
     )
     if result is None:
         raise HTTPException(status_code=404, detail=f"no such orchestration plan {plan_id}")
