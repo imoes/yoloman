@@ -1,9 +1,6 @@
 import { Component, Inject, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { CheckCatalogEntry, CheckOption } from '../../../core/models/check.model';
 import { CheckService } from '../../../core/services/check.service';
@@ -17,44 +14,62 @@ export interface CheckAssignResult {
   parameters: Record<string, unknown>;
 }
 
-/** Pick a library check and fill its parameters, to assign it to an OU or
- * group (GPO-style, Block G9-P3). Same param-form-from-options idea as the
- * host Checks tab; the caller supplies the scope. */
+/** Pick a library check and fill its parameters, to assign it to an OU/group/
+ * site (GPO-style, Block G9-P3). Miller-style browser: a searchable list where
+ * each check shows its name with its description in smaller text underneath
+ * (design philosophy), and the selected check's parameters render as compact
+ * fields on the right. */
 @Component({
   selector: 'app-check-assign-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>Assign a check to {{ data.scopeLabel }}</h2>
     <mat-dialog-content>
-      <mat-form-field appearance="outline" class="bm-full">
-        <mat-label>Check</mat-label>
-        <mat-select [(ngModel)]="pick" (ngModelChange)="onPick($event)">
-          @for (c of catalog(); track c.name) {
-            <mat-option [value]="c.name">{{ c.name }}{{ c.short_description ? ' — ' + c.short_description : '' }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      @if (pick()) {
-        @for (o of options(); track o.key) {
-          <mat-form-field appearance="outline" class="bm-full">
-            <mat-label>{{ o.key }}{{ o.spec.required ? ' *' : '' }}</mat-label>
-            <input matInput [ngModel]="draft()[o.key]" (ngModelChange)="setDraft(o.key, $event)"
-                   [placeholder]="o.spec.description || o.spec.type || ''" />
-          </mat-form-field>
-        }
-        @if (!options().length) {
-          <p class="bm-dim">This check has no parameters — assign it as-is.</p>
-        }
-      }
+      <input class="bm-in bm-search" type="search" placeholder="Search checks…"
+             [ngModel]="search()" (ngModelChange)="search.set($event)" />
+      <div class="bm-browser">
+        <div class="bm-list">
+          @for (c of filtered(); track c.name) {
+            <div class="bm-item" [class.sel]="pick() === c.name" (click)="onPick(c.name)" [title]="c.name">
+              <div class="bm-item-name">{{ c.name }}</div>
+              @if (c.short_description) { <div class="bm-item-desc">{{ c.short_description }}</div> }
+            </div>
+          } @empty { <p class="bm-dim">No checks match.</p> }
+        </div>
+        <div class="bm-params">
+          @if (pick(); as p) {
+            <div class="bm-params-head">{{ p }}</div>
+            @for (o of options(); track o.key) {
+              <div class="bm-field">
+                <label>{{ o.key }}{{ o.spec.required ? ' *' : '' }}</label>
+                <input class="bm-in" [ngModel]="draft()[o.key]" (ngModelChange)="setDraft(o.key, $event)"
+                       [placeholder]="o.spec.type || ''" />
+                @if (o.spec.description) { <p class="bm-field-hint">{{ o.spec.description }}</p> }
+              </div>
+            } @empty { <p class="bm-dim">This check has no parameters — assign it as-is.</p> }
+          } @else { <p class="bm-dim">Pick a check on the left.</p> }
+        </div>
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
       <button mat-raised-button color="primary" [disabled]="!pick()" (click)="save()">Assign</button>
     </mat-dialog-actions>
   `,
-  styles: [`.bm-full { width: 100%; } .bm-dim { opacity: 0.7; }`],
+  styles: [`
+    .bm-search { max-width: 100%; margin-bottom: 10px; }
+    .bm-browser { display: flex; gap: 12px; min-width: 560px; }
+    .bm-list { flex: 0 0 260px; max-height: 380px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
+    .bm-item { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; }
+    .bm-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-item.sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+    .bm-item-name { font-size: 13px; font-family: ui-monospace, monospace; }
+    .bm-item-desc { font-size: 11.5px; opacity: 0.6; line-height: 1.35; margin-top: 1px; }
+    .bm-params { flex: 1 1 300px; min-width: 0; max-height: 380px; overflow-y: auto; }
+    .bm-params-head { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom: 6px; }
+    .bm-dim { opacity: 0.7; font-size: 13px; padding: 6px 2px; }
+  `],
 })
 export class CheckAssignDialogComponent implements OnInit {
   dialogRef = inject(MatDialogRef<CheckAssignDialogComponent, CheckAssignResult>);
@@ -62,6 +77,14 @@ export class CheckAssignDialogComponent implements OnInit {
   catalog = signal<CheckCatalogEntry[]>([]);
   pick = signal<string>('');
   draft = signal<Record<string, string>>({});
+  search = signal<string>('');
+
+  filtered = computed<CheckCatalogEntry[]>(() => {
+    const q = this.search().trim().toLowerCase();
+    const all = this.catalog();
+    if (!q) return all;
+    return all.filter((c) => c.name.toLowerCase().includes(q) || (c.short_description || '').toLowerCase().includes(q));
+  });
 
   options = computed<{ key: string; spec: CheckOption }[]>(() => {
     const c = this.catalog().find((x) => x.name === this.pick());

@@ -1,10 +1,6 @@
 import { Component, Inject, OnInit, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { OrchestrationPlan, PlanLinkTargetType } from '../../../core/models/orchestration.model';
 import { OrchestrationService } from '../../../core/services/orchestration.service';
@@ -36,57 +32,46 @@ export interface OuLinkPlanResult {
 @Component({
   selector: 'app-ou-link-plan-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>Bind policy within {{ data.ouPath }}</h2>
     <mat-dialog-content [formGroup]="form">
       @if (plans().length) {
-        <mat-form-field appearance="outline" class="bm-full-width">
-          <mat-label>Plan</mat-label>
-          <mat-select formControlName="plan_id">
-            @for (p of plans(); track p.id) {
-              <mat-option [value]="p.id">{{ p.display_name }} ({{ p.plan_type }})</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <div class="bm-field">
+          <label>Plan</label>
+          <select class="bm-in" formControlName="plan_id">
+            @for (p of plans(); track p.id) { <option [value]="p.id">{{ p.display_name }} ({{ p.plan_type }})</option> }
+          </select>
+        </div>
 
-        <mat-form-field appearance="outline" class="bm-full-width">
-          <mat-label>Bind to</mat-label>
-          <mat-select formControlName="target_type">
-            <mat-option value="ou">This OU ({{ data.ouPath }})</mat-option>
-            @if (data.hosts?.length) {
-              <mat-option value="host">A specific host</mat-option>
-            }
-            @if (data.groups?.length) {
-              <mat-option value="group">A host group</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <div class="bm-field">
+          <label>Bind to</label>
+          <select class="bm-in" formControlName="target_type">
+            <option value="ou">This OU ({{ data.ouPath }})</option>
+            @if (data.hosts?.length) { <option value="host">A specific host</option> }
+            @if (data.groups?.length) { <option value="group">A host group</option> }
+          </select>
+        </div>
 
         @if (form.controls.target_type.value === 'host') {
-          <mat-form-field appearance="outline" class="bm-full-width">
-            <mat-label>Host</mat-label>
-            <mat-select formControlName="agent_id">
-              @for (h of data.hosts ?? []; track h.id) {
-                <mat-option [value]="h.id">{{ h.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <div class="bm-field">
+            <label>Host</label>
+            <select class="bm-in" formControlName="agent_id">
+              @for (h of data.hosts ?? []; track h.id) { <option [value]="h.id">{{ h.name }}</option> }
+            </select>
+          </div>
         }
         @if (form.controls.target_type.value === 'group') {
-          <mat-form-field appearance="outline" class="bm-full-width">
-            <mat-label>Host group</mat-label>
-            <mat-select formControlName="host_group_id">
-              @for (g of data.groups ?? []; track g.id) {
-                <mat-option [value]="g.id">{{ g.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <div class="bm-field">
+            <label>Host group</label>
+            <select class="bm-in" formControlName="host_group_id">
+              @for (g of data.groups ?? []; track g.id) { <option [value]="g.id">{{ g.name }}</option> }
+            </select>
+          </div>
         }
 
-        <mat-slide-toggle formControlName="enforced">Enforced</mat-slide-toggle>
-        <br /><br />
-        <mat-slide-toggle formControlName="auto_apply">Activate immediately (skip approval)</mat-slide-toggle>
+        <label class="bm-check"><input type="checkbox" formControlName="enforced" /> Enforced</label>
+        <label class="bm-check"><input type="checkbox" formControlName="auto_apply" /> Activate immediately (skip approval)</label>
       } @else {
         <p class="bm-empty">No orchestration plans yet — create one first via “New Policy”.</p>
       }
@@ -96,7 +81,7 @@ export interface OuLinkPlanResult {
       <button mat-raised-button color="primary" [disabled]="!canSave()" (click)="save()">Bind</button>
     </mat-dialog-actions>
   `,
-  styles: [`.bm-full-width { width: 100%; } .bm-empty { opacity: 0.75; }`],
+  styles: [`.bm-empty { opacity: 0.75; }`],
 })
 export class OuLinkPlanDialogComponent implements OnInit {
   dialogRef = inject(MatDialogRef<OuLinkPlanDialogComponent, OuLinkPlanResult>);
