@@ -44,6 +44,8 @@ import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployme
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
+import { ParamFormComponent } from '../../shared/param-form/param-form.component';
+import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
@@ -141,6 +143,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostInventoryComponent,
     StandaloneOverviewComponent,
     ResourceNodeComponent,
+    ParamFormComponent,
     HostChecksComponent,
     HostConsoleComponent,
     TopologyComponent,
@@ -711,16 +714,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       } @else {
                       @if (tplEditPath() === r.path) {
                         <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
-                        @for (f of tplFields(); track f.key; let i = $index) {
-                          <div class="bm-tpl-field">
-                            <label>{{ f.key }} <span class="bm-dim">{{ f.desc }}</span></label>
-                            @if (f.json) {
-                              <textarea class="bm-cfg-edit" rows="5" [value]="f.value" (input)="setTplField(i, $any($event.target).value)"></textarea>
-                            } @else {
-                              <input class="bm-kvin" [value]="f.value" (input)="setTplField(i, $any($event.target).value)" />
-                            }
-                          </div>
-                        }
+                        <app-param-form [params]="tplSchema()" [initial]="tplInitial()" [agentId]="agent.id"
+                                        (valuesChange)="tplParamValues.set($event)" />
                         @if (tplError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
                         @if (tplRendered(); as rendered) {
                           <p class="bm-dim">Rendered file (would be written):</p>
@@ -3421,7 +3416,12 @@ export class HostDetailComponent implements OnInit {
 
   tplEditPath = signal<string | null>(null);
   tplName = signal('');
-  tplFields = signal<{ key: string; type: string; value: string; json: boolean; desc?: string }[]>([]);
+  // The shared ParamForm renders the template's fields (one editor across the
+  // app — replaced the bespoke tplFields form). It parses per type + emits the
+  // full typed value map via (valuesChange); we just hold that.
+  tplSchema = signal<ParamSchema>({});
+  tplInitial = signal<Record<string, unknown>>({});
+  tplParamValues = signal<Record<string, unknown>>({});
   private tplTemplate = '';
   tplRendered = signal<string | null>(null);
   tplBusy = signal(false);
@@ -3434,14 +3434,9 @@ export class HostDetailComponent implements OnInit {
     this.tplTemplate = tpl.template;
     this.tplRendered.set(null);
     this.tplError.set(null);
-    const fields = Object.entries(tpl.schema || {}).map(([key, def]) => {
-      const type = (def?.type as string) || 'string';
-      const json = type === 'list' || type === 'object';
-      const sample = (tpl.sample || {})[key] ?? def?.default;
-      const value = sample === undefined ? '' : json ? JSON.stringify(sample, null, 2) : String(sample);
-      return { key, type, value, json, desc: def?.description };
-    });
-    this.tplFields.set(fields);
+    this.tplSchema.set((tpl.schema || {}) as ParamSchema);
+    this.tplInitial.set((tpl.sample || {}) as Record<string, unknown>);
+    this.tplParamValues.set({});
   }
 
   cancelTemplateEdit(): void {
@@ -3450,22 +3445,10 @@ export class HostDetailComponent implements OnInit {
     this.tplError.set(null);
   }
 
-  setTplField(i: number, value: string): void {
-    this.tplFields.update((fs) => fs.map((f, j) => (j === i ? { ...f, value } : f)));
-  }
-
-  /** Build the template values map, parsing each field by its schema type
-   * (numbers, bools, and list/object JSON). Throws on invalid JSON. */
+  /** ParamForm already parsed each field by its schema type and emitted the full
+   * value map — just return it (no manual JSON parsing / no throw). */
   private tplValues(): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const f of this.tplFields()) {
-      if (f.value === '' && !f.json) continue;
-      if (f.json) out[f.key] = JSON.parse(f.value);
-      else if (f.type === 'number') out[f.key] = Number(f.value);
-      else if (f.type === 'bool') out[f.key] = f.value === 'true';
-      else out[f.key] = f.value;
-    }
-    return out;
+    return this.tplParamValues();
   }
 
   private tplResource(path: string): ConfigResource {
