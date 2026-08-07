@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Observable, switchMap } from 'rxjs';
 import { CdkMenu, CdkMenuItem, CdkContextMenuTrigger } from '@angular/cdk/menu';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -297,6 +298,19 @@ interface PaletteItem {
       </div>
     </div>
 
+    <!-- Draft-mode Apply/Revert bar: appears bottom-right while changes are staged. -->
+    @if (staged().length) {
+      <div class="bm-staged-bar">
+        <mat-icon class="bm-staged-ic">edit_note</mat-icon>
+        <span class="bm-staged-count">{{ staged().length }} pending change{{ staged().length === 1 ? '' : 's' }}</span>
+        <span class="bm-staged-last" [title]="stagedTitle()">{{ staged()[staged().length - 1].label }}</span>
+        <button mat-stroked-button (click)="revertStaged()" [disabled]="applying()">Revert</button>
+        <button mat-flat-button color="primary" (click)="applyStaged()" [disabled]="applying()">
+          <mat-icon>publish</mat-icon> {{ applying() ? 'Applying…' : 'Apply' }}
+        </button>
+      </div>
+    }
+
     <!-- Sites root-branch menu: create a subnet-scoped Site. -->
     <ng-template #sitesMenu>
       <div class="bm-menu" cdkMenu>
@@ -403,6 +417,18 @@ interface PaletteItem {
          apart from the OU roots without leaving the tree. */
       .bm-sites-root { border-top: 1px solid var(--bm-hairline); margin-top: 4px; }
       .bm-tree-count { margin-left: auto; font-size: 11px; opacity: 0.55; padding-left: 8px; }
+      /* Draft-mode Apply/Revert bar — floats bottom-right above the chat dock. */
+      .bm-staged-bar {
+        position: fixed; right: 24px; bottom: 72px; z-index: 40;
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px; border-radius: 10px;
+        background: var(--mat-sys-surface-container-high, #1e1e1e);
+        border: 1px solid var(--mat-sys-primary);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+      }
+      .bm-staged-ic { color: var(--mat-sys-tertiary); }
+      .bm-staged-count { font-weight: 600; font-size: 13px; }
+      .bm-staged-last { font-size: 12px; opacity: 0.7; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .bm-palette-item {
         display: flex; align-items: center; gap: 6px; padding: 5px 12px;
         cursor: grab; white-space: nowrap; user-select: none;
@@ -598,6 +624,56 @@ export class OuPolicyComponent implements OnInit {
     this.ouService.listConfigPolicies({ unlinked: true }).subscribe((ps) => this.unlinkedPolicies.set(ps));
   }
 
+  // --- Draft mode: staged policy activations (bottom-right Apply/Revert bar) ---
+  // Activation gestures (link/bind a policy, assign a check, add a threshold,
+  // remove an object) are BUFFERED here instead of running immediately. Apply
+  // executes them in order (activating the policies → converging hosts); Revert
+  // discards the buffer. Nothing is persisted until Apply, so Revert is clean.
+  staged = signal<{ id: number; label: string; run: () => Observable<unknown> }[]>([]);
+  applying = signal(false);
+  private stageSeq = 0;
+
+  private stage(label: string, run: () => Observable<unknown>): void {
+    this.staged.update((s) => [...s, { id: ++this.stageSeq, label, run }]);
+  }
+
+  stagedTitle(): string {
+    return this.staged().map((o) => '• ' + o.label).join('\n');
+  }
+
+  /** Apply: run every staged op in order, then reload once. Stops on first error. */
+  applyStaged(): void {
+    const ops = this.staged();
+    if (!ops.length || this.applying()) return;
+    this.applying.set(true);
+    const runNext = (i: number): void => {
+      if (i >= ops.length) {
+        this.applying.set(false);
+        this.staged.set([]);
+        this.reload();
+        this.appDialog.notify(`${ops.length} change${ops.length === 1 ? '' : 's'} applied.`, 'info');
+        return;
+      }
+      ops[i].run().subscribe({
+        next: () => runNext(i + 1),
+        error: (e: { error?: { detail?: string } }) => {
+          this.applying.set(false);
+          this.staged.update((s) => s.slice(i)); // keep the failed one + the rest to retry
+          this.appDialog.notify(e?.error?.detail ?? `failed at: ${ops[i].label}`, 'error');
+          this.reload();
+        },
+      });
+    };
+    runNext(0);
+  }
+
+  /** Revert: discard all staged (unapplied) changes — nothing was persisted. */
+  revertStaged(): void {
+    const n = this.staged().length;
+    this.staged.set([]);
+    if (n) this.appDialog.notify(`${n} pending change${n === 1 ? '' : 's'} discarded.`, 'info');
+  }
+
   private reload(): void {
     this.reloadSites();
     this.reloadUnlinkedPolicies();
@@ -678,12 +754,8 @@ export class OuPolicyComponent implements OnInit {
     );
     ref.afterClosed().subscribe((res) => {
       if (!res) return;
-      this.checkService
-        .createAssignment({ check_name: res.check_name, scope_type: 'ou', ou_id: ou.id, parameters: res.parameters })
-        .subscribe({
-          next: () => { this.select({ kind: 'ou', ou, depth: 0 }); },
-          error: (e) => this.appDialog.notify(e?.error?.detail ?? 'assign failed', 'error'),
-        });
+      this.stage(`Assign check "${res.check_name}" → OU ${ou.path}`,
+        () => this.checkService.createAssignment({ check_name: res.check_name, scope_type: 'ou', ou_id: ou.id, parameters: res.parameters }));
     });
   }
 
@@ -694,9 +766,8 @@ export class OuPolicyComponent implements OnInit {
     );
     ref.afterClosed().subscribe((res) => {
       if (!res) return;
-      this.checkService
-        .createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters })
-        .subscribe({ error: (e) => this.appDialog.notify(e?.error?.detail ?? 'assign failed', 'error') });
+      this.stage(`Assign check "${res.check_name}" → group ${row.obj!.label}`,
+        () => this.checkService.createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters }));
     });
   }
 
@@ -842,44 +913,37 @@ export class OuPolicyComponent implements OnInit {
    * whole tree reloads so the object moves to its new OU (and the palette's
    * owner label updates). */
   private relinkPolicy(item: PaletteItem, ouId: string): void {
-    const done = () => {
-      this.expanded.update((e) => new Set(e).add(ouId));
-      this.reload();
-    };
-    const fail = (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'link failed', 'error');
+    // Draft mode: buffer the link as a staged op; it runs on Apply. Each case
+    // returns the Observable that performs the link (multi-OU add, re-scope, or
+    // create-then-drop for an orchestration link — there's no link-move endpoint).
+    const ouPath = this.ous().find((o) => o.id === ouId)?.path ?? 'OU';
+    let op: (() => Observable<unknown>) | null = null;
     switch (item.kind) {
       case 'check_rule':
-        // Multi-OU: ADD a link to this OU (one policy → many OUs) rather than
-        // moving its single scope, so the same policy can govern several OUs.
-        this.monitoring.addOuLink(item.id, ouId).subscribe({ next: done, error: fail });
+        op = () => this.monitoring.addOuLink(item.id, ouId);
         break;
       case 'notification':
-        this.notification.patchRule(item.id, { ou_id: ouId }).subscribe({ next: done, error: fail });
+        op = () => this.notification.patchRule(item.id, { ou_id: ouId });
         break;
       case 'host_group':
-        this.hostGroup.patchOu(item.id, ouId).subscribe({ next: done, error: fail });
+        op = () => this.hostGroup.patchOu(item.id, ouId);
         break;
       case 'site':
-        this.site.patchOu(item.id, ouId).subscribe({ next: done, error: fail });
+        op = () => this.site.patchOu(item.id, ouId);
         break;
       case 'orchestration_link':
-        // Re-scope a link by relinking its plan to the new OU, then dropping
-        // the old link (delete+create — there's no link-move endpoint).
         if (!item.planId) return;
-        this.orchestration.createLink(item.planId, { target_type: 'ou', ou_id: ouId, require_approval: true }).subscribe({
-          next: () => this.orchestration.deleteLinkById(item.id).subscribe({ next: done, error: done }),
-          error: fail,
-        });
+        op = () => this.orchestration.createLink(item.planId!, { target_type: 'ou', ou_id: ouId, require_approval: true })
+          .pipe(switchMap(() => this.orchestration.deleteLinkById(item.id)));
         break;
       case 'plan':
-        this.orchestration
-          .createLink(item.planId!, { target_type: 'ou', ou_id: ouId, require_approval: true })
-          .subscribe({ next: done, error: fail });
+        op = () => this.orchestration.createLink(item.planId!, { target_type: 'ou', ou_id: ouId, require_approval: true });
         break;
       case 'config_policy':
-        this.ouService.rescopeConfigPolicy(item.id, { scope_ou_id: ouId }).subscribe({ next: done, error: fail });
+        op = () => this.ouService.rescopeConfigPolicy(item.id, { scope_ou_id: ouId });
         break;
     }
+    if (op) this.stage(`Link "${item.label}" → ${ouPath}`, op);
   }
 
   onRootDragOver(event: DragEvent): void {
@@ -940,7 +1004,7 @@ export class OuPolicyComponent implements OnInit {
     });
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
-      this.monitoring.createCheckRule(input).subscribe(() => this.afterObjectChange(ou.id));
+      this.stage(`Add threshold "${input.service_name}" → OU ${ou.path}`, () => this.monitoring.createCheckRule(input));
     });
   }
 
@@ -952,10 +1016,7 @@ export class OuPolicyComponent implements OnInit {
     });
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
-      this.monitoring.createCheckRule(input).subscribe({
-        next: () => { this.appDialog.notify('Threshold added to site.', 'info'); if (row.ownerOuId) this.afterObjectChange(row.ownerOuId); },
-        error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'failed', 'error'),
-      });
+      this.stage(`Add threshold "${input.service_name}" → site ${row.obj!.label}`, () => this.monitoring.createCheckRule(input));
     });
   }
 
@@ -1209,8 +1270,8 @@ export class OuPolicyComponent implements OnInit {
         );
         ref.afterClosed().subscribe((res) => {
           if (!res) return;
-          this.orchestration
-            .createLink(res.plan_id, {
+          this.stage(`Bind policy → ${res.target_type === 'ou' ? ou.path : res.target_type}`,
+            () => this.orchestration.createLink(res.plan_id, {
               target_type: res.target_type,
               ou_id: res.ou_id,
               agent_id: res.agent_id,
@@ -1218,17 +1279,7 @@ export class OuPolicyComponent implements OnInit {
               enforced: res.enforced,
               auto_apply: res.auto_apply,
               require_approval: !res.auto_apply,
-            })
-            .subscribe({
-              next: () => {
-                // An OU-scoped link shows up as an object under the OU; host/
-                // group-scoped links don't live under an OU node, so just
-                // reload the palette to reflect the plan's now-linked state.
-                if (res.target_type === 'ou') this.afterObjectChange(ou.id);
-                else this.reload();
-              },
-              error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'bind failed', 'error'),
-            });
+            }));
         });
       });
     });
@@ -1328,16 +1379,17 @@ export class OuPolicyComponent implements OnInit {
 
   deleteObject(row: TreeRow): void {
     const obj = row.obj!;
-    const done = () => this.reloadObjects(row.ownerOuId!);
-    if (obj.kind === 'check_rule') this.monitoring.deleteCheckRule(obj.id).subscribe(done);
-    else if (obj.kind === 'notification') this.notification.deleteRule(obj.id).subscribe(done);
-    else if (obj.kind === 'host_group') this.hostGroup.delete(obj.id).subscribe(done);
-    // Sites are top-level (no ownerOuId) — reload the Sites node, not an OU's objects.
-    else if (obj.kind === 'site') this.site.delete(obj.id).subscribe(() => { this.reloadSites(); if (this.isSiteSelected(obj.id)) this.selected.set(null); });
-    else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
-    else if (obj.kind === 'config_policy') this.ouService.deleteConfigPolicy(obj.id).subscribe(done);
+    // Draft mode: buffer the delete; it runs on Apply (Revert un-stages it).
+    let op: (() => Observable<unknown>) | null = null;
+    if (obj.kind === 'check_rule') op = () => this.monitoring.deleteCheckRule(obj.id);
+    else if (obj.kind === 'notification') op = () => this.notification.deleteRule(obj.id);
+    else if (obj.kind === 'host_group') op = () => this.hostGroup.delete(obj.id);
+    else if (obj.kind === 'site') op = () => this.site.delete(obj.id);
+    else if (obj.kind === 'orchestration_link') op = () => this.orchestration.deleteLinkById(obj.id);
+    else if (obj.kind === 'config_policy') op = () => this.ouService.deleteConfigPolicy(obj.id);
     // Deleting the Variables object clears the OU's variables (empty → object gone).
-    else if (obj.kind === 'variables' && row.ownerOuId) this.ouService.setOuVars(row.ownerOuId, {}).subscribe(done);
+    else if (obj.kind === 'variables' && row.ownerOuId) op = () => this.ouService.setOuVars(row.ownerOuId!, {});
+    if (op) this.stage(`Delete "${obj.label}"`, op);
   }
 
   /** Delete any policy straight from the palette (right-click) — including UNLINKED plans, which had no
