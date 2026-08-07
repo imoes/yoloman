@@ -30,7 +30,7 @@ interface SettingRow {
  * the catalog host is resolved from its member agent ids (an OU resolves it
  * from its subtree members endpoint). */
 export interface EditorScope {
-  kind: 'ou' | 'group';
+  kind: 'ou' | 'group' | 'site';
   id: string;
   label: string;
   memberAgentIds?: string[];
@@ -192,9 +192,17 @@ export class OuConfigEditorComponent implements OnChanges {
   private hostGroupService = inject(HostGroupService);
   private appDialog = inject(DialogService);
 
-  get scopeWord(): string { return this.scope.kind === 'group' ? 'group' : 'OU'; }
-  private listArg() { return this.scope.kind === 'ou' ? { ouId: this.scope.id } : { groupId: this.scope.id }; }
-  private scopeArg() { return this.scope.kind === 'ou' ? { scope_ou_id: this.scope.id } : { host_group_id: this.scope.id }; }
+  get scopeWord(): string { return this.scope.kind === 'group' ? 'group' : this.scope.kind === 'site' ? 'site' : 'OU'; }
+  private listArg() {
+    return this.scope.kind === 'ou' ? { ouId: this.scope.id }
+      : this.scope.kind === 'site' ? { siteId: this.scope.id }
+      : { groupId: this.scope.id };
+  }
+  private scopeArg() {
+    return this.scope.kind === 'ou' ? { scope_ou_id: this.scope.id }
+      : this.scope.kind === 'site' ? { site_id: this.scope.id }
+      : { host_group_id: this.scope.id };
+  }
 
   loaded = signal(false);
   // ADMX per-directive value catalog (parity with the host gpedit) — loaded once.

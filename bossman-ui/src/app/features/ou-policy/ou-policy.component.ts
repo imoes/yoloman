@@ -14,6 +14,7 @@ import { OrchestrationPlan, OrchestrationPlanInput } from '../../core/models/orc
 import { SystemSettings } from '../../core/models/system-settings.model';
 import { AgentService } from '../../core/services/agent.service';
 import { HostGroupService } from '../../core/services/host-group.service';
+import { SiteService } from '../../core/services/site.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
@@ -65,7 +66,7 @@ interface TreeRow {
  * of every type, plus unlinked orchestration plans. Dragging one onto an OU
  * links/re-scopes it there (Block L3e). */
 interface PaletteItem {
-  kind: 'check_rule' | 'notification' | 'host_group' | 'orchestration_link' | 'plan' | 'config_policy';
+  kind: 'check_rule' | 'notification' | 'host_group' | 'site' | 'orchestration_link' | 'plan' | 'config_policy';
   id: string;
   label: string;
   ownerOuId: string | null; // where it currently lives; null = unlinked plan
@@ -247,6 +248,13 @@ interface PaletteItem {
               @if (sel.obj!.kind === 'host_group') {
                 <app-ou-config-editor [scope]="{ kind: 'group', id: sel.obj!.id, label: sel.obj!.label }" />
               }
+              @if (sel.obj!.kind === 'site') {
+                <p class="bm-hint bm-hint-cfg">
+                  <mat-icon>lan</mat-icon>
+                  A Site scopes policy by SUBNET: every host whose primary IP is in one of its subnets gets these settings. Right-click → <strong>Subnets…</strong> to edit the CIDRs.
+                </p>
+                <app-ou-config-editor [scope]="{ kind: 'site', id: sel.obj!.id, label: sel.obj!.label }" />
+              }
             }
           } @else {
             <p class="bm-empty">Select a node to see its scope.</p>
@@ -262,6 +270,7 @@ interface PaletteItem {
       <div class="bm-menu" cdkMenu>
         <button class="bm-menu-item" cdkMenuItem (click)="createOu(ctx()!.ou!.id)">New OU…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newSite(ctx()!.ou!)">Site (subnets)…</button>
         <div class="bm-menu-sep"></div>
         <!-- Link an existing policy (authored in the palette) to this OU. -->
         <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (link an existing one)…</button>
@@ -298,6 +307,11 @@ interface PaletteItem {
           <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToGroup(ctx()!)">Assign Check…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="newGroupConfigSetting(ctx()!)">Config setting…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="editGroupVars(ctx()!)">Variables…</button>
+          <div class="bm-menu-sep"></div>
+        }
+        @if (ctx()?.obj?.kind === 'site') {
+          <button class="bm-menu-item" cdkMenuItem (click)="manageSubnets(ctx()!)">Subnets…</button>
+          <button class="bm-menu-item" cdkMenuItem (click)="newSiteConfigSetting(ctx()!)">Config setting…</button>
           <div class="bm-menu-sep"></div>
         }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
@@ -406,6 +420,7 @@ export class OuPolicyComponent implements OnInit {
   private monitoring = inject(MonitoringService);
   private notification = inject(NotificationService);
   private hostGroup = inject(HostGroupService);
+  private site = inject(SiteService);
   private orchestration = inject(OrchestrationService);
   private agentService = inject(AgentService);
   private systemSettings = inject(SystemSettingsService);
@@ -557,7 +572,7 @@ export class OuPolicyComponent implements OnInit {
   }
 
   objIcon(kind: OUObject['kind']): string {
-    return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', orchestration_link: 'widgets', config_policy: 'dataset' }[kind];
+    return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', site: 'lan', orchestration_link: 'widgets', config_policy: 'dataset' }[kind];
   }
 
   select(row: TreeRow): void {
@@ -660,7 +675,7 @@ export class OuPolicyComponent implements OnInit {
 
   paletteIcon(kind: PaletteItem['kind']): string {
     return {
-      check_rule: 'speed', notification: 'notifications', host_group: 'dns',
+      check_rule: 'speed', notification: 'notifications', host_group: 'dns', site: 'lan',
       orchestration_link: 'widgets', plan: 'widgets', config_policy: 'dataset',
     }[kind];
   }
@@ -753,6 +768,9 @@ export class OuPolicyComponent implements OnInit {
         break;
       case 'host_group':
         this.hostGroup.patchOu(item.id, ouId).subscribe({ next: done, error: fail });
+        break;
+      case 'site':
+        this.site.patchOu(item.id, ouId).subscribe({ next: done, error: fail });
         break;
       case 'orchestration_link':
         // Re-scope a link by relinking its plan to the new OU, then dropping
@@ -927,6 +945,48 @@ export class OuPolicyComponent implements OnInit {
       if (!input) return;
       this.hostGroup.create({ ...input, ou_id: ou.id }).subscribe(() => this.afterObjectChange(ou.id));
     });
+  }
+
+  /** Create a Site (subnet-scoped policy target): name it, then its CIDRs. */
+  async newSite(ou: OUNode): Promise<void> {
+    const name = await this.appDialog.prompt({
+      title: 'New Site',
+      message: 'A Site scopes policy by SUBNET — every host whose primary IP is in one of its subnets gets the site policies.',
+      input: { label: 'Site name', value: '' },
+    });
+    if (name == null || !name.trim()) return;
+    const cidrs = await this.appDialog.prompt({
+      title: 'Subnets',
+      message: 'Subnets in CIDR notation, comma-separated (e.g. 192.0.2.0/24, 10.0.0.0/8).',
+      input: { label: 'Subnets', value: '' },
+    });
+    const subnets = (cidrs || '').split(',').map((s) => s.trim()).filter(Boolean);
+    this.site.create({ name: name.trim(), ou_id: ou.id, subnets }).subscribe({
+      next: () => this.afterObjectChange(ou.id),
+      error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'create failed', 'error'),
+    });
+  }
+
+  /** Edit a Site's subnets (the "Subnets…" affordance). */
+  manageSubnets(row: TreeRow): void {
+    this.site.list().subscribe(async (sites) => {
+      const s = sites.find((x) => x.id === row.obj!.id);
+      const cidrs = await this.appDialog.prompt({
+        title: 'Subnets — ' + row.obj!.label,
+        message: 'Subnets in CIDR notation, comma-separated. A host belongs to this site when its primary IP is inside one.',
+        input: { label: 'Subnets', value: (s?.subnets || []).join(', ') },
+      });
+      if (cidrs == null) return;
+      const subnets = cidrs.split(',').map((x) => x.trim()).filter(Boolean);
+      this.site.replaceSubnets(row.obj!.id, subnets).subscribe({
+        next: () => { if (row.ownerOuId) this.afterObjectChange(row.ownerOuId); },
+        error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'save failed', 'error'),
+      });
+    });
+  }
+
+  newSiteConfigSetting(row: TreeRow): void {
+    this.openGpedit({ kind: 'site', id: row.obj!.id, label: row.obj!.label });
   }
 
   // --- orchestration (restored management: create a plan, link it to an OU) ---
@@ -1149,6 +1209,7 @@ export class OuPolicyComponent implements OnInit {
     if (obj.kind === 'check_rule') this.monitoring.deleteCheckRule(obj.id).subscribe(done);
     else if (obj.kind === 'notification') this.notification.deleteRule(obj.id).subscribe(done);
     else if (obj.kind === 'host_group') this.hostGroup.delete(obj.id).subscribe(done);
+    else if (obj.kind === 'site') this.site.delete(obj.id).subscribe(done);
     else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
     else if (obj.kind === 'config_policy') this.ouService.deleteConfigPolicy(obj.id).subscribe(done);
   }
@@ -1169,6 +1230,7 @@ export class OuPolicyComponent implements OnInit {
       : p.kind === 'check_rule' ? this.monitoring.deleteCheckRule(p.id)
       : p.kind === 'notification' ? this.notification.deleteRule(p.id)
       : p.kind === 'host_group' ? this.hostGroup.delete(p.id)
+      : p.kind === 'site' ? this.site.delete(p.id)
       : p.kind === 'orchestration_link' ? this.orchestration.deleteLinkById(p.id)
       : p.kind === 'config_policy' ? this.ouService.deleteConfigPolicy(p.id)
       : null;

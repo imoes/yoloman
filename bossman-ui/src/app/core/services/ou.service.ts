@@ -37,20 +37,22 @@ export class OuService {
 
   /** Config policies WITH their values documents at one scope (the objects
    * list only carries a label) — feeds the Policy-console gpedit editor. */
-  listConfigPolicies(scope: { ouId?: string; groupId?: string }) {
-    const q = scope.ouId ? `scope_ou_id=${scope.ouId}` : `host_group_id=${scope.groupId}`;
+  listConfigPolicies(scope: { ouId?: string; groupId?: string; siteId?: string }) {
+    const q = scope.ouId ? `scope_ou_id=${scope.ouId}`
+      : scope.siteId ? `site_id=${scope.siteId}`
+      : `host_group_id=${scope.groupId}`;
     return this.http.get<
-      { id: string; scope_ou_id: string | null; host_group_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null }[]
+      { id: string; scope_ou_id: string | null; host_group_id: string | null; site_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null }[]
     >(`${environment.apiUrl}/config-policies?${q}`);
   }
 
-  /** GPO "Not configured" at OU/group scope: stop managing one key. */
-  unsetConfigPolicyKey(body: { scope_ou_id?: string; host_group_id?: string; path: string; key: string }) {
+  /** GPO "Not configured" at OU/group/site scope: stop managing one key. */
+  unsetConfigPolicyKey(body: { scope_ou_id?: string; host_group_id?: string; site_id?: string; path: string; key: string }) {
     return this.http.post<{ unset: boolean }>(`${environment.apiUrl}/config-policies/unset`, body);
   }
 
-  /** Move a placed config policy to another OU/group scope. */
-  rescopeConfigPolicy(id: string, body: { scope_ou_id?: string; host_group_id?: string }) {
+  /** Move a placed config policy to another OU/group/site scope. */
+  rescopeConfigPolicy(id: string, body: { scope_ou_id?: string; host_group_id?: string; site_id?: string }) {
     return this.http.patch<{ id: string }>(`${environment.apiUrl}/config-policies/${id}`, body);
   }
 
@@ -61,6 +63,7 @@ export class OuService {
   createConfigPolicy(body: {
     scope_ou_id?: string;
     host_group_id?: string;
+    site_id?: string;
     path: string;
     format: string;
     values: Record<string, unknown>;

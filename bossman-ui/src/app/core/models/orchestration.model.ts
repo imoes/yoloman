@@ -49,7 +49,7 @@ export interface OrchestrationPlanInput {
   version?: OrchestrationPlanVersionInput;
 }
 
-export type PlanLinkTargetType = 'ou' | 'host' | 'group' | 'label_selector' | 'global';
+export type PlanLinkTargetType = 'ou' | 'host' | 'group' | 'site' | 'label_selector' | 'global';
 export type PlanLinkStatus = 'pending_approval' | 'active' | 'rejected';
 
 /** Matches bossman/api/orchestration.py's PlanLinkOut — the L2 approval
@@ -63,6 +63,7 @@ export interface OrchestrationPlanLink {
   ou_id: string | null;
   agent_id: string | null;
   host_group_id: string | null;
+  site_id: string | null;
   parameters: Record<string, unknown>;
   priority: number;
   link_order: number;
@@ -85,6 +86,7 @@ export interface OrchestrationPlanLinkInput {
   ou_id?: string | null;
   agent_id?: string | null;
   host_group_id?: string | null;
+  site_id?: string | null;
   parameters?: Record<string, unknown>;
   priority?: number;
   link_order?: number;
