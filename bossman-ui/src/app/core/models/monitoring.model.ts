@@ -110,6 +110,31 @@ export interface MetricCatalogEntry {
   description?: string;
 }
 
+/** One candidate rule in the effective-parameters view (Block E) — matches
+ * bossman/api/monitoring.py's EffectiveRuleCandidateOut. */
+export interface EffectiveRuleCandidate {
+  rule_id: string;
+  scope_type: string;
+  scope_label: string;
+  level: number;
+  enforced: boolean;
+  comparison: string | null;
+  warn_threshold: number | null;
+  crit_threshold: number | null;
+  is_winner: boolean;
+  reason: string;
+}
+
+/** Per metric+label, the rule that WINS on a host and the losers + why —
+ * matches bossman/api/monitoring.py's EffectiveThresholdOut. */
+export interface EffectiveThreshold {
+  metric: string;
+  display_name: string;
+  label_value: string | null;
+  service_name: string;
+  candidates: EffectiveRuleCandidate[];
+}
+
 /** Matches bossman/api/monitoring.py's FleetSummaryOut. */
 export interface FleetSummary {
   hosts_total: number;

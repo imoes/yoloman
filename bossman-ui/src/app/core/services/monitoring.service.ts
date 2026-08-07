@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Availability, CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { Availability, CheckRule, CheckRuleInput, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -51,6 +51,11 @@ export class MonitoringService {
     const net = this.http.get<ServiceState[]>(`${this.base}/agents/${agentId}/services`)
       .pipe(tap((s) => this.servicesCache.set(agentId, s)));
     return this.cacheFirst(this.servicesCache.get(agentId), net);
+  }
+
+  /** Block E: which threshold rule wins on a host per metric/label, and why. */
+  effectiveThresholds(agentId: string) {
+    return this.http.get<EffectiveThreshold[]>(`${this.base}/agents/${agentId}/effective-thresholds`);
   }
 
   serviceHistory(agentId: string, serviceName: string, limit = 200) {

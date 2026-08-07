@@ -47,6 +47,7 @@ import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
+import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
@@ -158,6 +159,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     LatencyHeatmapComponent,
     ProcessHistoryChartComponent,
     DesiredStateReportComponent,
+    EffectiveThresholdsComponent,
     FormsModule,
   ],
   template: `
@@ -892,6 +894,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               } @else {
                 <p class="bm-empty">Open this tab to read the host's configuration.</p>
               }
+              </ng-template></mat-tab>
+              <mat-tab label="Effective thresholds"><ng-template matTabContent>
+                <app-effective-thresholds [agentId]="agent.id" />
               </ng-template></mat-tab>
               <mat-tab label="Desired state"><ng-template matTabContent>
                 <div class="bm-ds-head">
