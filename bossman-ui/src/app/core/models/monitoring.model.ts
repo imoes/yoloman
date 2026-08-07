@@ -69,7 +69,7 @@ export interface Downtime {
 }
 
 export type CheckRuleComparison = 'gt' | 'lt' | 'ge' | 'le' | 'eq' | 'ne';
-export type CheckRuleScope = 'global' | 'group' | 'host' | 'ou';
+export type CheckRuleScope = 'global' | 'group' | 'host' | 'ou' | 'site';
 
 /** Matches bossman/api/monitoring.py's CheckRuleOut. */
 export interface CheckRule {
@@ -83,6 +83,9 @@ export interface CheckRule {
   scope_value: string | null;
   /** Block L3a: OU-scoped rule + GPO precedence. */
   scope_ou_id: string | null;
+  /** Site (subnet) scope — set iff scope_type='site' (precedence OU<Site<host).
+   * Optional so existing host/OU CheckRuleInput literals need not set it. */
+  scope_site_id?: string | null;
   enforced: boolean;
   link_order: number;
   /** Optional label pin (a disk mount) — see CheckRule.label_value (H6). */

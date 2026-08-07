@@ -2,11 +2,6 @@ import { Component, Inject, OnInit, computed, inject, signal } from '@angular/co
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { CheckRule, CheckRuleComparison, CheckRuleInput, MetricCatalogEntry } from '../../../core/models/monitoring.model';
 import { MonitoringService } from '../../../core/services/monitoring.service';
@@ -16,6 +11,9 @@ export interface ThresholdDialogData {
   /** OU scope (Block L3c) — set for an OU-scoped threshold. */
   ouId?: string;
   ouPath?: string;
+  /** Site (subnet) scope — set for a Site-scoped threshold. */
+  siteId?: string;
+  siteLabel?: string;
   /** Host scope (Block N/P4) — set to create a threshold for one specific
    * host; with `serviceName`/`metric`/`labelValue` it targets one service on
    * that host (the "warn threshold for a service on a host" case). */
@@ -43,50 +41,41 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
 @Component({
   selector: 'app-threshold-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatAutocompleteModule, MatSlideToggleModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>
-      {{ data.rule ? 'Edit' : 'New' }} threshold {{ data.hostName ? 'on host ' + data.hostName : 'in ' + data.ouPath }}
+      {{ data.rule ? 'Edit' : 'New' }} threshold {{ scopeLabel() }}
     </h2>
     <mat-dialog-content [formGroup]="form">
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Metric</mat-label>
-        <input matInput formControlName="metric" [matAutocomplete]="auto" placeholder="search e.g. CPU, memory, disk…" />
-        <mat-autocomplete #auto="matAutocomplete" (optionSelected)="onMetricPicked($event.option.value)">
+      <div class="bm-field">
+        <label>Metric</label>
+        <input class="bm-in" formControlName="metric" list="bm-thr-metrics"
+               placeholder="search e.g. CPU, memory, disk…" (change)="onMetricPicked(form.controls.metric.value)" />
+        <datalist id="bm-thr-metrics">
           @for (m of filteredMetrics(); track m.metric) {
-            <mat-option [value]="m.metric">
-              {{ m.display_name }}<span class="bm-metric-key"> · {{ m.metric }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</span>
-            </mat-option>
+            <option [value]="m.metric">{{ m.display_name }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</option>
           }
-        </mat-autocomplete>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Service name</mat-label>
-        <input matInput formControlName="service_name" placeholder="e.g. CPU load" />
-      </mat-form-field>
+        </datalist>
+      </div>
+      <div class="bm-field">
+        <label>Service name</label>
+        <input class="bm-in" formControlName="service_name" placeholder="e.g. CPU load" />
+      </div>
       @if (stateful()) {
         <p class="bm-state-note">This is a state check — it alerts on its own when the service isn't in its expected state. There's nothing to compare, so no thresholds apply here.</p>
       } @else {
-        <mat-form-field appearance="outline" class="bm-full-width">
-          <mat-label>Comparison</mat-label>
-          <mat-select formControlName="comparison">
-            @for (c of comparisons; track c.value) {
-              <mat-option [value]="c.value">{{ c.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <div class="bm-field">
+          <label>Comparison</label>
+          <select class="bm-in" formControlName="comparison">
+            @for (c of comparisons; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+          </select>
+        </div>
         <div class="bm-row">
-          <mat-form-field appearance="outline">
-            <mat-label>Warning</mat-label>
-            <input matInput type="number" formControlName="warn_threshold" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Critical</mat-label>
-            <input matInput type="number" formControlName="crit_threshold" />
-          </mat-form-field>
+          <div class="bm-field"><label>Warning</label><input class="bm-in" type="number" formControlName="warn_threshold" /></div>
+          <div class="bm-field"><label>Critical</label><input class="bm-in" type="number" formControlName="crit_threshold" /></div>
         </div>
       }
-      <mat-slide-toggle formControlName="enforced">Enforced (can't be overridden by child OUs)</mat-slide-toggle>
+      <label class="bm-check"><input type="checkbox" formControlName="enforced" /> Enforced (can't be overridden by more specific scopes)</label>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -95,10 +84,14 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
   `,
   styles: [
     `
-      .bm-full-width { width: 100%; }
+      /* Compact fields — the same smaller input style used across the policy
+         editors (gpedit), not Material's large outline form fields. */
+      .bm-field { margin: 8px 0; }
+      .bm-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; opacity: 0.8; }
+      .bm-in { width: 100%; padding: 6px 9px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
       .bm-row { display: flex; gap: 12px; }
-      .bm-row mat-form-field { flex: 1; }
-      .bm-metric-key { opacity: 0.55; font-size: 12px; }
+      .bm-row .bm-field { flex: 1; }
+      .bm-check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 10px; }
       .bm-state-note { opacity: 0.7; font-size: 13px; line-height: 1.5; margin: 0 0 14px; }
     `,
   ],
@@ -154,6 +147,12 @@ export class ThresholdDialogComponent implements OnInit {
     this.monitoring.metricCatalog().subscribe((c) => this.catalog.set(c));
   }
 
+  scopeLabel(): string {
+    if (this.data.hostName) return 'on host ' + this.data.hostName;
+    if (this.data.siteId) return 'in site ' + (this.data.siteLabel ?? '');
+    return 'in ' + (this.data.ouPath ?? '');
+  }
+
   onMetricPicked(metric: string): void {
     // Prefill a sensible service name from the metric's display name if empty.
     if (!this.form.controls.service_name.value) {
@@ -167,6 +166,7 @@ export class ThresholdDialogComponent implements OnInit {
     // Host scope (Block P4) vs OU scope. A host-scoped rule beats the OU
     // default for that host via GPO precedence; a labelValue narrows it to
     // one service (e.g. a single disk mount).
+    const siteScope = !!this.data.siteId;
     const hostScope = !!this.data.hostName;
     // A state check carries no numeric thresholds — the check's own state logic
     // alerts; persist null warn/crit so no meaningless comparison is stored.
@@ -177,9 +177,10 @@ export class ThresholdDialogComponent implements OnInit {
       comparison: v.comparison,
       warn_threshold: st ? null : v.warn_threshold,
       crit_threshold: st ? null : v.crit_threshold,
-      scope_type: hostScope ? 'host' : 'ou',
+      scope_type: siteScope ? 'site' : hostScope ? 'host' : 'ou',
       scope_value: hostScope ? this.data.hostName! : null,
-      scope_ou_id: hostScope ? null : (this.data.ouId ?? null),
+      scope_ou_id: siteScope || hostScope ? null : (this.data.ouId ?? null),
+      scope_site_id: siteScope ? this.data.siteId! : null,
       enforced: v.enforced,
       link_order: this.data.rule?.link_order ?? 100,
       label_value: this.data.labelValue ?? this.data.rule?.label_value ?? null,

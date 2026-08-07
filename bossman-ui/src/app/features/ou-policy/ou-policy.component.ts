@@ -313,6 +313,7 @@ interface PaletteItem {
         @if (ctx()?.obj?.kind === 'site') {
           <button class="bm-menu-item" cdkMenuItem (click)="manageSubnets(ctx()!)">Subnets…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="newSiteConfigSetting(ctx()!)">Config setting…</button>
+          <button class="bm-menu-item" cdkMenuItem (click)="newSiteThreshold(ctx()!)">Threshold…</button>
           <div class="bm-menu-sep"></div>
         }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
@@ -852,6 +853,21 @@ export class OuPolicyComponent implements OnInit {
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
       this.monitoring.createCheckRule(input).subscribe(() => this.afterObjectChange(ou.id));
+    });
+  }
+
+  /** A Site-scoped threshold (subnet) — applies to every host whose primary IP
+   * is in the site's subnets, precedence OU < Site < host. */
+  newSiteThreshold(row: TreeRow): void {
+    const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
+      width: '460px', data: { siteId: row.obj!.id, siteLabel: row.obj!.label },
+    });
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      this.monitoring.createCheckRule(input).subscribe({
+        next: () => { this.appDialog.notify('Threshold added to site.', 'info'); if (row.ownerOuId) this.afterObjectChange(row.ownerOuId); },
+        error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'failed', 'error'),
+      });
     });
   }
 
