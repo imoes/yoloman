@@ -1,0 +1,153 @@
+- generic [ref=e3]:
+  - navigation "Main navigation" [ref=e4]:
+    - generic [ref=e5]:
+      - img "Bossman" [ref=e6]
+      - generic [ref=e7]: Bossman
+      - generic [ref=e8]: Fleet Commander
+    - link "fleet Fleet Overview" [ref=e9] [cursor=pointer]:
+      - /url: /fleet
+      - img "fleet" [ref=e12]
+      - generic [ref=e18]: Fleet Overview
+    - link "fleet NOC view" [ref=e19] [cursor=pointer]:
+      - /url: /noc
+      - img "fleet" [ref=e22]
+      - generic [ref=e28]: NOC view
+    - link "hosts Hosts" [ref=e29] [cursor=pointer]:
+      - /url: /hosts
+      - img "hosts" [ref=e32]
+      - generic [ref=e37]: Hosts
+    - link "problems Problems" [ref=e38] [cursor=pointer]:
+      - /url: /problems
+      - img "problems" [ref=e41]
+      - generic [ref=e45]: Problems
+    - link "fleet Business services" [ref=e46] [cursor=pointer]:
+      - /url: /business-services
+      - img "fleet" [ref=e49]
+      - generic [ref=e55]: Business services
+    - link "fleet Capacity" [ref=e56] [cursor=pointer]:
+      - /url: /capacity
+      - img "fleet" [ref=e59]
+      - generic [ref=e65]: Capacity
+    - link "topology Topology" [ref=e66] [cursor=pointer]:
+      - /url: /topology
+      - img "topology" [ref=e69]
+      - generic [ref=e75]: Topology
+    - link "security Security" [ref=e76] [cursor=pointer]:
+      - /url: /security
+      - img "security" [ref=e79]
+      - generic [ref=e83]: Security
+    - link "host-placement Host placement" [ref=e84] [cursor=pointer]:
+      - /url: /host-placement
+      - img "host-placement" [ref=e87]
+      - generic [ref=e93]: Host placement
+    - link "roles Roles" [ref=e94] [cursor=pointer]:
+      - /url: /plan-library
+      - img "roles" [ref=e97]
+      - generic [ref=e101]: Roles
+    - link "workflow Workflow designer" [ref=e102] [cursor=pointer]:
+      - /url: /runbooks
+      - img "workflow" [ref=e105]
+      - generic [ref=e111]: Workflow designer
+    - link "fleet Scheduler" [ref=e112] [cursor=pointer]:
+      - /url: /scheduler
+      - img "fleet" [ref=e115]
+      - generic [ref=e121]: Scheduler
+    - link "fleet Rollouts" [ref=e122] [cursor=pointer]:
+      - /url: /rollouts
+      - img "fleet" [ref=e125]
+      - generic [ref=e131]: Rollouts
+    - link "deploy Deploy" [ref=e132] [cursor=pointer]:
+      - /url: /deploy
+      - img "deploy" [ref=e135]
+      - generic [ref=e140]: Deploy
+    - link "runs Runs" [ref=e141] [cursor=pointer]:
+      - /url: /runs
+      - img "runs" [ref=e144]
+      - generic [ref=e149]: Runs
+    - link "help Help" [ref=e150] [cursor=pointer]:
+      - /url: /help
+      - img "help" [ref=e153]
+      - generic [ref=e158]: Help
+    - button "setup Setup chevron-down" [ref=e159] [cursor=pointer]:
+      - img "setup" [ref=e162]
+      - generic [ref=e168]: Setup
+      - img "chevron-down" [ref=e171]
+    - generic [ref=e174]:
+      - generic [ref=e175]: admin
+      - button "Log out" [ref=e176] [cursor=pointer]:
+        - img "logout" [ref=e179]
+  - generic [ref=e183]:
+    - generic [ref=e205]:
+      - generic [ref=e206]:
+        - heading "host1.example.internal" [level=1] [ref=e207]
+        - generic [ref=e208]: enrolled
+      - generic [ref=e210]:
+        - tablist [ref=e213]:
+          - generic [ref=e214]:
+            - tab "Overview" [ref=e215] [cursor=pointer]
+            - tab "Services" [ref=e218] [cursor=pointer]
+            - tab "Inventory" [ref=e221] [cursor=pointer]
+            - tab "Configuration" [ref=e224] [cursor=pointer]
+            - tab "Checks" [ref=e227] [cursor=pointer]
+            - tab "Console" [ref=e230] [cursor=pointer]
+            - tab "Relationships" [ref=e233] [cursor=pointer]
+            - tab "eBPF" [ref=e236] [cursor=pointer]
+            - tab "Processes" [ref=e239] [cursor=pointer]
+            - tab "Runs" [ref=e242] [cursor=pointer]
+            - tab "Management" [active] [selected] [ref=e245] [cursor=pointer]
+        - generic [ref=e248]:
+          - tabpanel [ref=e249]
+          - tabpanel [ref=e250]
+          - tabpanel [ref=e251]
+          - tabpanel [ref=e252]
+          - tabpanel [ref=e253]
+          - tabpanel [ref=e254]
+          - tabpanel [ref=e255]
+          - tabpanel [ref=e256]
+          - tabpanel [ref=e257]
+          - tabpanel [ref=e258]
+          - tabpanel "Management" [ref=e259]:
+            - generic [ref=e263]:
+              - complementary [ref=e264]:
+                - generic [ref=e265]: Server
+                - button "Roles & Features" [ref=e266] [cursor=pointer]:
+                  - img [ref=e267]: widgets
+                - button "Services" [ref=e269] [cursor=pointer]:
+                  - img [ref=e270]: settings_applications
+                - button "Updates" [ref=e272] [cursor=pointer]:
+                  - img [ref=e273]: system_update_alt
+                - button "Logs" [ref=e275] [cursor=pointer]:
+                  - img [ref=e276]: article
+                - button "Accounts" [ref=e278] [cursor=pointer]:
+                  - img [ref=e279]: group
+                - generic [ref=e281]: Monitoring
+                - button "Service checks" [ref=e282] [cursor=pointer]:
+                  - img [ref=e283]: network_check
+                - generic [ref=e285]: Network
+                - button "Network" [ref=e286] [cursor=pointer]:
+                  - img [ref=e287]: lan
+                - generic [ref=e289]: Storage
+                - button "Storage" [ref=e290] [cursor=pointer]:
+                  - img [ref=e291]: storage
+                - generic [ref=e293]: Identity
+                - button "FreeIPA" [ref=e294] [cursor=pointer]:
+                  - img [ref=e295]: badge
+                - generic [ref=e297]: Virtualization
+                - button "Virtualization" [ref=e298] [cursor=pointer]:
+                  - img [ref=e299]: dns
+              - generic [ref=e302]:
+                - generic [ref=e303]: Storage
+                - button "Refresh" [ref=e304] [cursor=pointer]:
+                  - img [ref=e305]: refresh
+                  - text: Refresh
+    - generic [ref=e188]:
+      - button "Expand" [ref=e189] [cursor=pointer]:
+        - img [ref=e190]: expand_less
+      - img [ref=e193]: smart_toy
+      - generic [ref=e194]: Assistant
+      - combobox [ref=e195]:
+        - option "hermes-web" [selected]
+      - button "New chat" [ref=e196] [cursor=pointer]:
+        - img [ref=e197]: add_comment
+      - button "Maximize" [ref=e200] [cursor=pointer]:
+        - img [ref=e201]: fullscreen

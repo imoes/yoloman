@@ -15,6 +15,7 @@ import { SystemSettings } from '../../core/models/system-settings.model';
 import { AgentService } from '../../core/services/agent.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { SiteService } from '../../core/services/site.service';
+import { Site } from '../../core/models/site.model';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
@@ -171,6 +172,30 @@ interface PaletteItem {
           }
         </div>
 
+        <!-- Sites: a TOP-LEVEL container (AD Sites-and-Services), a sibling of
+             the OU tree — not placed under an OU. A Site scopes policy by SUBNET;
+             right-click for Subnets / Config setting / Threshold. -->
+        <div class="bm-sites">
+          <div class="bm-sites-head">
+            <span><mat-icon class="bm-sites-ic">lan</mat-icon> Sites</span>
+            <button mat-stroked-button class="bm-palette-new" (click)="newTopLevelSite()">
+              <mat-icon>add</mat-icon> New Site
+            </button>
+          </div>
+          @for (s of sites(); track s.id) {
+            <div class="bm-node bm-obj" [class.bm-selected]="isSiteSelected(s.id)"
+                 (click)="selectSite(s)"
+                 [cdkContextMenuTriggerFor]="objMenu" (contextmenu)="ctx.set(siteRow(s))">
+              <span class="bm-twisty">·</span>
+              <mat-icon class="bm-obj-icon">lan</mat-icon>
+              <span class="bm-label">{{ s.name }}</span>
+              <span class="bm-sites-sub">{{ s.subnets.length }} subnet{{ s.subnets.length === 1 ? '' : 's' }}</span>
+            </div>
+          } @empty {
+            <p class="bm-empty bm-sites-empty">No sites yet — add one to scope policy by subnet.</p>
+          }
+        </div>
+
         <!-- Policies palette: every orchestration plan, draggable onto an OU
              to link it there (Windows-GPMC "link a GPO" gesture). -->
         <div class="bm-palette">
@@ -270,7 +295,6 @@ interface PaletteItem {
       <div class="bm-menu" cdkMenu>
         <button class="bm-menu-item" cdkMenuItem (click)="createOu(ctx()!.ou!.id)">New OU…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="newSite(ctx()!.ou!)">Site (subnets)…</button>
         <div class="bm-menu-sep"></div>
         <!-- Link an existing policy (authored in the palette) to this OU. -->
         <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (link an existing one)…</button>
@@ -353,6 +377,17 @@ interface PaletteItem {
         display: flex; align-items: center; justify-content: space-between; gap: 8px;
       }
       .bm-palette-new { transform: scale(0.85); transform-origin: right center; }
+      /* Sites: a top-level container under Root (AD Sites-and-Services), a peer
+         of the OU tree — NOT nested under any OU. Subnet-scoped policy targets. */
+      .bm-sites { border-top: 1px solid var(--bm-hairline); margin-top: 6px; padding-top: 6px; }
+      .bm-sites-head {
+        font-size: 12px; opacity: 0.85; padding: 4px 12px 6px; text-transform: uppercase; letter-spacing: 0.04em;
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      }
+      .bm-sites-head span { display: inline-flex; align-items: center; gap: 6px; }
+      .bm-sites-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; }
+      .bm-sites-sub { margin-left: auto; font-size: 11px; opacity: 0.55; }
+      .bm-sites-empty { padding: 2px 12px 4px; }
       .bm-palette-item {
         display: flex; align-items: center; gap: 6px; padding: 5px 12px;
         cursor: grab; white-space: nowrap; user-select: none;
@@ -437,6 +472,9 @@ export class OuPolicyComponent implements OnInit {
   expanded = signal<Set<string>>(new Set());
   objectsByOu = signal<Map<string, OUObject[]>>(new Map());
   selected = signal<TreeRow | null>(null);
+  // Sites are a top-level container (AD Sites-and-Services), NOT placed under an
+  // OU — loaded flat and rendered in their own section below the OU tree.
+  sites = signal<Site[]>([]);
   ctx = signal<TreeRow | null>(null);
   paletteCtx = signal<PaletteItem | null>(null);
   yoloMode = signal<SystemSettings | null>(null);
@@ -522,7 +560,12 @@ export class OuPolicyComponent implements OnInit {
     this.systemSettings.getYoloMode().subscribe((s) => this.yoloMode.set(s));
   }
 
+  private reloadSites(): void {
+    this.site.list().subscribe((s) => this.sites.set(s));
+  }
+
   private reload(): void {
+    this.reloadSites();
     this.ouService.list().subscribe((ous) => {
       this.ous.set(ous);
       // Load every OU's objects up front so existing policies are visible on
@@ -964,8 +1007,26 @@ export class OuPolicyComponent implements OnInit {
     });
   }
 
-  /** Create a Site (subnet-scoped policy target): name it, then its CIDRs. */
-  async newSite(ou: OUNode): Promise<void> {
+  // --- Sites (top-level container, AD Sites-and-Services) ---
+
+  /** A TreeRow wrapper so a top-level site reuses the object detail pane + the
+   * objMenu 'site' block. ownerOuId is undefined — sites live outside the OU tree. */
+  siteRow(s: Site): TreeRow {
+    return { kind: 'object', depth: 0, obj: { kind: 'site', id: s.id, label: s.name, enforced: false, enabled: true } };
+  }
+
+  isSiteSelected(id: string): boolean {
+    const sel = this.selected();
+    return !!sel && sel.kind === 'object' && sel.obj?.kind === 'site' && sel.obj.id === id;
+  }
+
+  selectSite(s: Site): void {
+    this.selected.set(this.siteRow(s));
+    this.ouChecks.set([]);
+  }
+
+  /** Create a Site (subnet-scoped, top-level): name it, then its CIDRs. */
+  async newTopLevelSite(): Promise<void> {
     const name = await this.appDialog.prompt({
       title: 'New Site',
       message: 'A Site scopes policy by SUBNET — every host whose primary IP is in one of its subnets gets the site policies.',
@@ -978,8 +1039,8 @@ export class OuPolicyComponent implements OnInit {
       input: { label: 'Subnets', value: '' },
     });
     const subnets = (cidrs || '').split(',').map((s) => s.trim()).filter(Boolean);
-    this.site.create({ name: name.trim(), ou_id: ou.id, subnets }).subscribe({
-      next: () => this.afterObjectChange(ou.id),
+    this.site.create({ name: name.trim(), subnets }).subscribe({
+      next: () => this.reloadSites(),
       error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'create failed', 'error'),
     });
   }
@@ -996,7 +1057,7 @@ export class OuPolicyComponent implements OnInit {
       if (cidrs == null) return;
       const subnets = cidrs.split(',').map((x) => x.trim()).filter(Boolean);
       this.site.replaceSubnets(row.obj!.id, subnets).subscribe({
-        next: () => { if (row.ownerOuId) this.afterObjectChange(row.ownerOuId); },
+        next: () => this.reloadSites(),
         error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'save failed', 'error'),
       });
     });
@@ -1226,7 +1287,8 @@ export class OuPolicyComponent implements OnInit {
     if (obj.kind === 'check_rule') this.monitoring.deleteCheckRule(obj.id).subscribe(done);
     else if (obj.kind === 'notification') this.notification.deleteRule(obj.id).subscribe(done);
     else if (obj.kind === 'host_group') this.hostGroup.delete(obj.id).subscribe(done);
-    else if (obj.kind === 'site') this.site.delete(obj.id).subscribe(done);
+    // Sites are top-level (no ownerOuId) — reload the Sites node, not an OU's objects.
+    else if (obj.kind === 'site') this.site.delete(obj.id).subscribe(() => { this.reloadSites(); if (this.isSiteSelected(obj.id)) this.selected.set(null); });
     else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
     else if (obj.kind === 'config_policy') this.ouService.deleteConfigPolicy(obj.id).subscribe(done);
   }

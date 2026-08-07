@@ -1,0 +1,87 @@
+- generic [ref=f34e3]:
+  - navigation "Main navigation" [ref=f34e4]:
+    - generic [ref=f34e5]:
+      - generic [ref=f34e6]: Bossman
+      - generic [ref=f34e7]: Fleet Commander
+    - link "Fleet Overview" [ref=f34e8] [cursor=pointer]:
+      - /url: /fleet
+      - img [ref=f34e9]: dashboard
+      - generic [ref=f34e10]: Fleet Overview
+    - link "Problems" [ref=f34e11] [cursor=pointer]:
+      - /url: /problems
+      - img [ref=f34e12]: report_problem
+      - generic [ref=f34e13]: Problems
+    - link "Notifications" [ref=f34e14] [cursor=pointer]:
+      - /url: /notifications
+      - img [ref=f34e15]: notifications
+      - generic [ref=f34e16]: Notifications
+    - link "Hosts" [ref=f34e17] [cursor=pointer]:
+      - /url: /hosts
+      - img [ref=f34e18]: dns
+      - generic [ref=f34e19]: Hosts
+    - link "Topology" [ref=f34e20] [cursor=pointer]:
+      - /url: /topology
+      - img [ref=f34e21]: account_tree
+      - generic [ref=f34e22]: Topology
+    - link "OU / Policy" [ref=f34e23] [cursor=pointer]:
+      - /url: /ou
+      - img [ref=f34e24]: domain
+      - generic [ref=f34e25]: OU / Policy
+    - link "Host placement" [ref=f34e26] [cursor=pointer]:
+      - /url: /host-placement
+      - img [ref=f34e27]: lan
+      - generic [ref=f34e28]: Host placement
+    - link "Modules" [ref=f34e29] [cursor=pointer]:
+      - /url: /modules
+      - img [ref=f34e30]: extension
+      - generic [ref=f34e31]: Modules
+    - link "Plans" [ref=f34e32] [cursor=pointer]:
+      - /url: /plans
+      - img [ref=f34e33]: checklist
+      - generic [ref=f34e34]: Plans
+    - link "Runs" [ref=f34e35] [cursor=pointer]:
+      - /url: /runs
+      - img [ref=f34e36]: history
+      - generic [ref=f34e37]: Runs
+    - link "Settings" [ref=f34e38] [cursor=pointer]:
+      - /url: /settings
+      - img [ref=f34e39]: settings
+      - generic [ref=f34e40]: Settings
+    - generic [ref=f34e41]:
+      - generic [ref=f34e42]: admin
+      - button "Log out" [ref=f34e43] [cursor=pointer]:
+        - img [ref=f34e44]: logout
+  - generic [ref=f34e49]:
+    - generic [ref=f34e50]:
+      - heading "OU / Policy" [level=1] [ref=f34e51]
+      - generic [ref=f34e53]:
+        - switch "YOLO-MAN OFF" [ref=f34e54] [cursor=pointer]:
+          - generic [ref=f34e60]:
+            - img [ref=f34e61]
+            - img [ref=f34e63]
+        - generic [ref=f34e65] [cursor=pointer]: YOLO-MAN OFF
+      - button "New root OU" [ref=f34e66]:
+        - img [ref=f34e67]: create_new_folder
+        - generic [ref=f34e68]: New root OU
+    - generic [ref=f34e71]:
+      - generic [ref=f34e72]:
+        - generic [ref=f34e73]:
+          - generic [ref=f34e74]:
+            - generic [ref=f34e75]: ▾
+            - img [ref=f34e76]: folder
+            - generic [ref=f34e77]: Munich
+          - generic [ref=f34e78]:
+            - generic [ref=f34e79]: ▾
+            - img [ref=f34e80]: folder
+            - generic [ref=f34e81]: mue-0
+          - generic [ref=f34e82] [cursor=pointer]:
+            - generic [ref=f34e83]: ·
+            - img [ref=f34e84]: speed
+            - generic [ref=f34e85]: Cpu count (cpu_count gt 1.0/2.0)
+        - generic [ref=f34e86]:
+          - generic [ref=f34e87]: Policies — drag onto an OU to link
+          - generic [ref=f34e88]:
+            - img [ref=f34e89]: speed
+            - generic [ref=f34e90]: Cpu count (cpu_count gt 1.0/2.0)
+            - generic [ref=f34e91]: /Munich/mue-0
+      - paragraph [ref=f34e93]: Select a node to see its scope.

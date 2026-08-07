@@ -305,9 +305,9 @@ async def list_ou_objects(
     for g in (await session.scalars(select(HostGroup).where(HostGroup.ou_id == ou_id, HostGroup.deleted_at.is_(None)))).all():
         out.append(OUObject(kind="host_group", id=g.id, label=g.name))
 
-    for s in (await session.scalars(select(Site).where(Site.ou_id == ou_id, Site.deleted_at.is_(None)))).all():
-        n = len(s.subnets or [])
-        out.append(OUObject(kind="site", id=s.id, label=f"{s.name} ({n} subnet{'s' if n != 1 else ''})"))
+    # NOTE: Sites are NOT listed here. Like AD Sites-and-Services, a Site is a
+    # TOP-LEVEL container directly under Root (subnet-scoped), not nested under an
+    # OU — the UI renders them as their own node, served by /api/v1/policy-sites.
 
     # Block K4: OU-scoped config policies (one desired config file → every host
     # under the OU). Label: the path + how many keys (or "template").

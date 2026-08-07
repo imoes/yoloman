@@ -47,6 +47,13 @@ A server/system is not just config. Cloning must be explicit about all three:
 Being honest about these axes is the point: "reproduce" without this split
 silently promises a full clone and delivers a skeleton.
 
+**Clone target tier — DECISION (user, 2026-07-25): cross-tier → container/k8s
+is the default.** A native prod app is cloned as a Docker/k8s sandbox: cheap,
+instantly disposable, and the ephemeral tiers already exist (docker-test +
+minikube). It tests config + health, not 1:1 native OS details — an acceptable
+trade for a rehearsal. Same-tier isolated-host clones can come later as a
+per-member override if 1:1 originality is ever required.
+
 ## The `System` object (the thing above the host)
 
 ```

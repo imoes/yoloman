@@ -8,7 +8,13 @@
 # deploy-artifacts/agentic-mcpd ./cmd/agentic-mcpd`) and copied in, because
 # this build environment can't reach proxy.golang.org to `go mod download`.
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
+# apt-get must reach the Debian mirror through the corporate proxy; without
+# these ARGs the compose build-args aren't visible to this RUN and apt gets a
+# proxy error page instead of a signed InRelease ("invalid signature").
+ARG http_proxy
+ARG https_proxy
+ARG no_proxy
 # snmp = snmpwalk/snmpget (SNMP checks); openssh-client = SSH checks;
 # openssl = self-signed TLS cert at first boot; curl = health/debug.
 RUN apt-get update && apt-get install -y --no-install-recommends \

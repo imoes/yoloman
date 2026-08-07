@@ -1,0 +1,148 @@
+- generic [ref=f255e3]:
+  - navigation "Main navigation" [ref=f255e4]:
+    - generic [ref=f255e5]:
+      - img "Bossman" [ref=f255e6]
+      - generic [ref=f255e7]: Bossman
+      - generic [ref=f255e8]: Fleet Commander
+    - link "fleet Fleet Overview" [ref=f255e9] [cursor=pointer]:
+      - /url: /fleet
+      - img "fleet" [ref=f255e12]
+      - generic [ref=f255e18]: Fleet Overview
+    - link "fleet NOC view" [ref=f255e19] [cursor=pointer]:
+      - /url: /noc
+      - img "fleet" [ref=f255e22]
+      - generic [ref=f255e28]: NOC view
+    - link "hosts Hosts" [ref=f255e29] [cursor=pointer]:
+      - /url: /hosts
+      - img "hosts" [ref=f255e32]
+      - generic [ref=f255e37]: Hosts
+    - link "problems Problems" [ref=f255e38] [cursor=pointer]:
+      - /url: /problems
+      - img "problems" [ref=f255e41]
+      - generic [ref=f255e45]: Problems
+    - link "fleet Business services" [ref=f255e46] [cursor=pointer]:
+      - /url: /business-services
+      - img "fleet" [ref=f255e49]
+      - generic [ref=f255e55]: Business services
+    - link "fleet Capacity" [ref=f255e56] [cursor=pointer]:
+      - /url: /capacity
+      - img "fleet" [ref=f255e59]
+      - generic [ref=f255e65]: Capacity
+    - link "topology Topology" [ref=f255e66] [cursor=pointer]:
+      - /url: /topology
+      - img "topology" [ref=f255e69]
+      - generic [ref=f255e75]: Topology
+    - link "security Security" [ref=f255e76] [cursor=pointer]:
+      - /url: /security
+      - img "security" [ref=f255e79]
+      - generic [ref=f255e83]: Security
+    - link "host-placement Host placement" [ref=f255e84] [cursor=pointer]:
+      - /url: /host-placement
+      - img "host-placement" [ref=f255e87]
+      - generic [ref=f255e93]: Host placement
+    - link "roles Roles" [ref=f255e94] [cursor=pointer]:
+      - /url: /plan-library
+      - img "roles" [ref=f255e97]
+      - generic [ref=f255e101]: Roles
+    - link "workflow Workflow designer" [ref=f255e102] [cursor=pointer]:
+      - /url: /runbooks
+      - img "workflow" [ref=f255e105]
+      - generic [ref=f255e111]: Workflow designer
+    - link "fleet Scheduler" [ref=f255e112] [cursor=pointer]:
+      - /url: /scheduler
+      - img "fleet" [ref=f255e115]
+      - generic [ref=f255e121]: Scheduler
+    - link "fleet Rollouts" [ref=f255e122] [cursor=pointer]:
+      - /url: /rollouts
+      - img "fleet" [ref=f255e125]
+      - generic [ref=f255e131]: Rollouts
+    - link "deploy Deploy" [ref=f255e132] [cursor=pointer]:
+      - /url: /deploy
+      - img "deploy" [ref=f255e135]
+      - generic [ref=f255e140]: Deploy
+    - link "runs Runs" [ref=f255e141] [cursor=pointer]:
+      - /url: /runs
+      - img "runs" [ref=f255e144]
+      - generic [ref=f255e149]: Runs
+    - link "help Help" [ref=f255e150] [cursor=pointer]:
+      - /url: /help
+      - img "help" [ref=f255e153]
+      - generic [ref=f255e158]: Help
+    - button "setup Setup chevron-down" [ref=f255e159] [cursor=pointer]:
+      - img "setup" [ref=f255e162]
+      - generic [ref=f255e168]: Setup
+      - img "chevron-down" [ref=f255e171]
+    - generic [ref=f255e174]:
+      - generic [ref=f255e175]: admin
+      - button "Log out" [ref=f255e176] [cursor=pointer]:
+        - img "logout" [ref=f255e179]
+  - generic [ref=f255e183]:
+    - generic [ref=f255e205]:
+      - generic [ref=f255e206]:
+        - heading "host1.example.internal" [level=1] [ref=f255e207]
+        - generic [ref=f255e209]: enrolled
+      - generic [ref=f255e210]:
+        - tablist [ref=f255e213]:
+          - generic [ref=f255e214]:
+            - tab "Overview" [selected] [ref=f255e215] [cursor=pointer]:
+              - generic [ref=f255e217]: Overview
+            - tab "Services" [ref=f255e218] [cursor=pointer]:
+              - generic [ref=f255e220]: Services
+            - tab "Inventory" [ref=f255e221] [cursor=pointer]:
+              - generic [ref=f255e223]: Inventory
+            - tab "Configuration" [ref=f255e224] [cursor=pointer]:
+              - generic [ref=f255e226]: Configuration
+            - tab "Checks" [ref=f255e227] [cursor=pointer]:
+              - generic [ref=f255e229]: Checks
+            - tab "Console" [ref=f255e230] [cursor=pointer]:
+              - generic [ref=f255e232]: Console
+            - tab "Relationships" [ref=f255e233] [cursor=pointer]:
+              - generic [ref=f255e235]: Relationships
+            - tab "eBPF" [ref=f255e236] [cursor=pointer]:
+              - generic [ref=f255e238]: eBPF
+            - tab "Processes" [ref=f255e239] [cursor=pointer]:
+              - generic [ref=f255e241]: Processes
+            - tab "Runs" [ref=f255e242] [cursor=pointer]:
+              - generic [ref=f255e244]: Runs
+            - tab "Management" [ref=f255e245] [cursor=pointer]:
+              - generic [ref=f255e247]: Management
+        - generic [ref=f255e248]:
+          - tabpanel "Overview" [ref=f255e249]:
+            - generic [ref=f255e252]:
+              - generic [ref=f255e253]:
+                - generic [ref=f255e254]: CPU load
+                - generic [ref=f255e255]: "0.10"
+              - generic [ref=f255e256]:
+                - generic [ref=f255e257]: Memory
+                - generic "45.38%" [ref=f255e259]:
+                  - generic [ref=f255e262]: 45.4%
+              - generic [ref=f255e263]:
+                - generic [ref=f255e264]: Disk (max)
+                - generic "38.21%" [ref=f255e266]:
+                  - generic [ref=f255e269]: 38.2%
+              - generic [ref=f255e270]:
+                - generic [ref=f255e271]: Services
+                - generic [ref=f255e272]:
+                  - generic [ref=f255e273]: 1 CRIT
+                  - generic [ref=f255e274]: 17 OK
+          - tabpanel [ref=f255e275]
+          - tabpanel [ref=f255e276]
+          - tabpanel [ref=f255e277]
+          - tabpanel [ref=f255e278]
+          - tabpanel [ref=f255e279]
+          - tabpanel [ref=f255e280]
+          - tabpanel [ref=f255e281]
+          - tabpanel [ref=f255e282]
+          - tabpanel [ref=f255e283]
+          - tabpanel [ref=f255e284]
+    - generic [ref=f255e188]:
+      - button "Expand" [ref=f255e189] [cursor=pointer]:
+        - img [ref=f255e190]: expand_less
+      - img [ref=f255e193]: smart_toy
+      - generic [ref=f255e194]: Assistant
+      - combobox [ref=f255e195]:
+        - option "hermes-web" [selected]
+      - button "New chat" [ref=f255e196] [cursor=pointer]:
+        - img [ref=f255e197]: add_comment
+      - button "Maximize" [ref=f255e200] [cursor=pointer]:
+        - img [ref=f255e201]: fullscreen
