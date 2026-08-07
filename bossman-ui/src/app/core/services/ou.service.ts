@@ -3,6 +3,21 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { OUNode, OUNodeInput, OUObject } from '../models/ou.model';
 
+/** RSoP report for a scope — matches bossman/api/ou.py PolicyReportOut. */
+export interface PolicyReportRow {
+  kind: 'config' | 'threshold' | 'plan' | 'notification';
+  label: string;
+  detail: string;
+  origin: string;
+  enforced: boolean;
+}
+export interface PolicyReport {
+  scope_type: string;
+  scope_label: string;
+  variables: { key: string; value: string; origin: string }[];
+  rows: PolicyReportRow[];
+}
+
 /** REST client for the OU tree (Block L1) — mirrors MonitoringService's shape. */
 @Injectable({ providedIn: 'root' })
 export class OuService {
@@ -11,6 +26,13 @@ export class OuService {
 
   list() {
     return this.http.get<OUNode[]>(this.base);
+  }
+
+  /** Resultant Set of Policy for a scope — what applies here (own + inherited)
+   * plus variables and where each rule comes from. Backs the right-hand report. */
+  policyReport(scopeType: 'ou' | 'site' | 'group', scopeId: string) {
+    return this.http.get<PolicyReport>(
+      `${environment.apiUrl}/policy-report?scope_type=${scopeType}&scope_id=${scopeId}`);
   }
 
   create(body: OUNodeInput) {

@@ -41,6 +41,7 @@ import {
 import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { ConfigPolicyDialogComponent, ConfigPolicyDialogData, ConfigPolicyResult } from '../../shared/components/config-policy-dialog/config-policy-dialog.component';
 import { OuConfigEditorComponent } from './ou-config-editor.component';
+import { PolicyReportComponent } from './policy-report.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
 import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gpedit-dialog.component';
 import {
@@ -87,7 +88,7 @@ interface PaletteItem {
 @Component({
   selector: 'app-ou-policy',
   standalone: true,
-  imports: [CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, MatSlideToggleModule, OuConfigEditorComponent],
+  imports: [CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, MatSlideToggleModule, OuConfigEditorComponent, PolicyReportComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header">
@@ -170,29 +171,40 @@ interface PaletteItem {
           } @else {
             <p class="bm-empty">No OUs yet — right-click here or use “New root OU”.</p>
           }
-        </div>
 
-        <!-- Sites: a TOP-LEVEL container (AD Sites-and-Services), a sibling of
-             the OU tree — not placed under an OU. A Site scopes policy by SUBNET;
-             right-click for Subnets / Config setting / Threshold. -->
-        <div class="bm-sites">
-          <div class="bm-sites-head">
-            <span><mat-icon class="bm-sites-ic">lan</mat-icon> Sites</span>
-            <button mat-stroked-button class="bm-palette-new" (click)="newTopLevelSite()">
-              <mat-icon>add</mat-icon> New Site
-            </button>
+          <!-- Second root branch: Sites (AD Sites-and-Services) — a PEER of the
+               OU root(s) in the SAME tree, not a separate list. A Site scopes
+               policy by SUBNET; right-click the branch for "New Site". -->
+          <div
+            class="bm-node bm-ou bm-sites-root"
+            [style.paddingLeft.px]="8"
+            [cdkContextMenuTriggerFor]="sitesMenu"
+            (contextmenu)="$event.preventDefault()"
+            (click)="sitesExpanded.set(!sitesExpanded())"
+          >
+            <span class="bm-twisty">{{ sites().length ? (sitesExpanded() ? '▾' : '▸') : '·' }}</span>
+            <mat-icon class="bm-ou-icon">lan</mat-icon>
+            <span class="bm-label">Sites</span>
+            <span class="bm-tree-count">{{ sites().length }}</span>
           </div>
-          @for (s of sites(); track s.id) {
-            <div class="bm-node bm-obj" [class.bm-selected]="isSiteSelected(s.id)"
-                 (click)="selectSite(s)"
-                 [cdkContextMenuTriggerFor]="objMenu" (contextmenu)="ctx.set(siteRow(s))">
-              <span class="bm-twisty">·</span>
-              <mat-icon class="bm-obj-icon">lan</mat-icon>
-              <span class="bm-label">{{ s.name }}</span>
-              <span class="bm-sites-sub">{{ s.subnets.length }} subnet{{ s.subnets.length === 1 ? '' : 's' }}</span>
-            </div>
-          } @empty {
-            <p class="bm-empty bm-sites-empty">No sites yet — add one to scope policy by subnet.</p>
+          @if (sitesExpanded()) {
+            @for (s of sites(); track s.id) {
+              <div
+                class="bm-node bm-obj"
+                [class.bm-selected]="isSiteSelected(s.id)"
+                [style.paddingLeft.px]="8 + 18"
+                (click)="selectSite(s)"
+                [cdkContextMenuTriggerFor]="objMenu"
+                (contextmenu)="ctx.set(siteRow(s))"
+              >
+                <span class="bm-twisty">·</span>
+                <mat-icon class="bm-obj-icon">lan</mat-icon>
+                <span class="bm-label">{{ s.name }}</span>
+                <span class="bm-tree-count">{{ s.subnets.length }} subnet{{ s.subnets.length === 1 ? '' : 's' }}</span>
+              </div>
+            } @empty {
+              <p class="bm-empty" [style.paddingLeft.px]="26">No sites yet — right-click “Sites” to add one.</p>
+            }
           }
         </div>
 
@@ -239,7 +251,7 @@ interface PaletteItem {
                 <tr><th>Objects</th><td>{{ (objectsByOu().get(sel.ou!.id) || []).length }}</td></tr>
               </table>
               @if (ouChecks().length) {
-                <h3 class="bm-checks-h">Checks (GPO — inherited by hosts in this OU)</h3>
+                <h3 class="bm-checks-h">Assigned checks (via check assignments)</h3>
                 <table class="bm-kv">
                   @for (c of ouChecks(); track c.id) {
                     <tr>
@@ -252,14 +264,11 @@ interface PaletteItem {
                   }
                 </table>
               }
-              <p class="bm-hint">Right-click to add OUs/objects, assign a check, toggle Block Inheritance, or delete. A host's own check config overrides these.</p>
-              <!-- Config is NOT edited inline on the OU. Author it as a policy —
-                   right-click the OU → "Config setting…" (opens the gpedit dialog
-                   for this scope), or link a policy from the palette. -->
-              <p class="bm-hint bm-hint-cfg">
-                <mat-icon>policy</mat-icon>
-                Config for this OU is set through policies. With this OU selected, use the palette → <strong>New config policy</strong> to author one, or drag an existing policy from the palette to link it here.
-              </p>
+              <!-- The right pane is a POLICY REPORT (RSoP), not an inline editor:
+                   it shows what applies here (own + inherited) + variables. Author
+                   via the palette / right-click; link by dragging onto the scope. -->
+              <app-policy-report scopeType="ou" [scopeId]="sel.ou!.id" />
+              <p class="bm-hint">Right-click to add OUs, link a policy, assign a check, set variables, or toggle Block Inheritance.</p>
             } @else {
               <h2>{{ sel.obj!.label }}</h2>
               <table class="bm-kv">
@@ -276,9 +285,9 @@ interface PaletteItem {
               @if (sel.obj!.kind === 'site') {
                 <p class="bm-hint bm-hint-cfg">
                   <mat-icon>lan</mat-icon>
-                  A Site scopes policy by SUBNET: every host whose primary IP is in one of its subnets gets these settings. Right-click → <strong>Subnets…</strong> to edit the CIDRs.
+                  <span>A Site scopes policy by SUBNET: every host whose primary IP is in one of its subnets gets these settings. Right-click → <strong>Subnets…</strong> to edit the CIDRs, <strong>Config setting…</strong> / <strong>Threshold…</strong> to add policy.</span>
                 </p>
-                <app-ou-config-editor [scope]="{ kind: 'site', id: sel.obj!.id, label: sel.obj!.label }" />
+                <app-policy-report scopeType="site" [scopeId]="sel.obj!.id" />
               }
             }
           } @else {
@@ -287,6 +296,13 @@ interface PaletteItem {
         </div>
       </div>
     </div>
+
+    <!-- Sites root-branch menu: create a subnet-scoped Site. -->
+    <ng-template #sitesMenu>
+      <div class="bm-menu" cdkMenu>
+        <button class="bm-menu-item" cdkMenuItem (click)="newTopLevelSite()">New Site…</button>
+      </div>
+    </ng-template>
 
     <!-- OU context menu — pure link model (GPMC): policies are AUTHORED in the
          palette ("New config policy" / "Role-threshold…") and LINKED here. The
@@ -378,17 +394,11 @@ interface PaletteItem {
         display: flex; align-items: center; justify-content: space-between; gap: 8px;
       }
       .bm-palette-new { transform: scale(0.85); transform-origin: right center; }
-      /* Sites: a top-level container under Root (AD Sites-and-Services), a peer
-         of the OU tree — NOT nested under any OU. Subnet-scoped policy targets. */
-      .bm-sites { border-top: 1px solid var(--bm-hairline); margin-top: 6px; padding-top: 6px; }
-      .bm-sites-head {
-        font-size: 12px; opacity: 0.85; padding: 4px 12px 6px; text-transform: uppercase; letter-spacing: 0.04em;
-        display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      }
-      .bm-sites-head span { display: inline-flex; align-items: center; gap: 6px; }
-      .bm-sites-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; }
-      .bm-sites-sub { margin-left: auto; font-size: 11px; opacity: 0.55; }
-      .bm-sites-empty { padding: 2px 12px 4px; }
+      /* Sites root branch: a second top-level container in the SAME tree, a peer
+         of the OU root(s) (AD Sites-and-Services). A hairline above it sets it
+         apart from the OU roots without leaving the tree. */
+      .bm-sites-root { border-top: 1px solid var(--bm-hairline); margin-top: 4px; }
+      .bm-tree-count { margin-left: auto; font-size: 11px; opacity: 0.55; padding-left: 8px; }
       .bm-palette-item {
         display: flex; align-items: center; gap: 6px; padding: 5px 12px;
         cursor: grab; white-space: nowrap; user-select: none;
@@ -428,7 +438,8 @@ interface PaletteItem {
       .bm-badge-off { background: color-mix(in srgb, var(--mat-sys-on-surface) 14%, transparent); }
       .bm-empty { opacity: 0.7; padding: 12px 16px; }
       .bm-hint { opacity: 0.6; font-size: 12.5px; margin-top: 16px; }
-      .bm-hint-cfg { display: flex; align-items: center; gap: 8px; opacity: 0.85; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--mat-sys-outline-variant); border-radius: 8px; }
+      .bm-hint-cfg { display: flex; align-items: flex-start; gap: 8px; opacity: 0.85; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--mat-sys-outline-variant); border-radius: 8px; line-height: 1.5; }
+      .bm-hint-cfg span { flex: 1; }
       .bm-hint-cfg mat-icon { flex: 0 0 auto; opacity: 0.8; }
       .bm-checks-h { font-size: 12px; opacity: 0.75; margin: 16px 0 4px; }
       .bm-link { background: none; border: none; color: var(--bm-green); cursor: pointer; font: inherit; margin-left: 8px; padding: 0; }
@@ -560,6 +571,9 @@ export class OuPolicyComponent implements OnInit {
     this.reload();
     this.systemSettings.getYoloMode().subscribe((s) => this.yoloMode.set(s));
   }
+
+  // Sites render as a second root branch in the tree (AD Sites-and-Services); expanded by default.
+  sitesExpanded = signal(true);
 
   private reloadSites(): void {
     this.site.list().subscribe((s) => this.sites.set(s));

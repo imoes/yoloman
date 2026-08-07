@@ -37,6 +37,7 @@ from bossman.db.models import (
     OrchestrationPlan,
     OrchestrationPlanLink,
     OUNode,
+    ScopeVars,
 )
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
@@ -326,6 +327,170 @@ async def list_ou_objects(
             )
         )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Policy report (RSoP): what actually applies at an OU / Site / group
+
+
+class PolicyReportRow(BaseModel):
+    kind: str          # 'config' | 'threshold' | 'plan' | 'notification'
+    label: str
+    detail: str        # human summary (path+keys / metric comparison / plan type)
+    origin: str        # 'here' | 'OU /Foo' | 'Global (whole fleet)'
+    enforced: bool = False
+
+
+class PolicyVarRow(BaseModel):
+    key: str
+    value: str
+    origin: str
+
+
+class PolicyReportOut(BaseModel):
+    scope_type: str
+    scope_label: str
+    variables: list[PolicyVarRow]
+    rows: list[PolicyReportRow]
+
+
+@router.get("/api/v1/policy-report", response_model=PolicyReportOut)
+async def policy_report(
+    scope_type: str,
+    scope_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> PolicyReportOut:
+    """Resultant Set of Policy for one scope — what actually applies to hosts here
+    and WHERE each rule comes from. Unlike the objects endpoint (own-scope only),
+    this INHERITS: an OU shows its own policies plus everything from its ancestor
+    OUs and the global tier; a Site shows its own plus global; a group its own plus
+    global. Origin is labelled so you can see 'here' vs inherited. Ordering follows
+    OUR precedence (weakest first, closest-to-host last) so the bottom rows win.
+
+    This backs the right-hand 'policy report' on the OU/Policy page (replacing the
+    inline editor there) and finally surfaces OU/group Variables, which were set
+    but never shown."""
+    rows: list[PolicyReportRow] = []
+    variables: list[PolicyVarRow] = []
+
+    if scope_type == "ou":
+        ou = await session.get(OUNode, scope_id)
+        if ou is None:
+            raise HTTPException(status_code=404, detail=f"no such OU {scope_id}")
+        scope_label = f"OU {ou.path}"
+        ancestry = await resolve_ou_ancestry(session, scope_id)  # root→this
+        ancestry_ids = [o.id for o in ancestry]
+        origin_of = {o.id: ("here" if o.id == scope_id else f"OU {o.path}") for o in ancestry}
+
+        # Config policies: own + every ancestor OU (closest-to-host wins at compile).
+        for cp in (await session.scalars(
+            select(ConfigPolicy).where(ConfigPolicy.scope_ou_id.in_(ancestry_ids))
+        )).all():
+            detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
+            rows.append(PolicyReportRow(kind="config", label=cp.path, detail=detail,
+                                        origin=origin_of.get(cp.scope_ou_id, "OU")))
+        # Threshold rules: global tier + own/ancestor OUs (direct scope or via links).
+        link_ou = {rid: oid for oid, rid in (
+            await session.execute(
+                select(CheckRuleOuLink.ou_id, CheckRuleOuLink.rule_id)
+                .where(CheckRuleOuLink.ou_id.in_(ancestry_ids))
+            )).all()}
+        for r in (await session.scalars(select(CheckRule).where(CheckRule.enabled == True))).all():  # noqa: E712
+            origin: str | None = None
+            if r.scope_type == "global":
+                origin = "Global (whole fleet)"
+            elif r.scope_type == "ou" and r.scope_ou_id in origin_of:
+                origin = origin_of[r.scope_ou_id]
+            elif r.scope_type == "ou" and r.id in link_ou:
+                origin = origin_of.get(link_ou[r.id], "OU")
+            if origin is None:
+                continue
+            rows.append(PolicyReportRow(
+                kind="threshold", label=r.service_name,
+                detail=f"{r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold}",
+                origin=origin, enforced=r.enforced))
+        # Orchestration plans linked to own/ancestor OUs.
+        for link in (await session.scalars(
+            select(OrchestrationPlanLink).where(OrchestrationPlanLink.ou_id.in_(ancestry_ids))
+        )).all():
+            plan = await session.get(OrchestrationPlan, link.plan_id)
+            rows.append(PolicyReportRow(
+                kind="plan", label=plan.display_name if plan else str(link.plan_id),
+                detail=(plan.plan_type if plan else "plan") + f" [{link.status}]",
+                origin=origin_of.get(link.ou_id, "OU"), enforced=link.enforced))
+        # Notifications on own/ancestor OUs.
+        for n in (await session.scalars(
+            select(NotificationRule).where(NotificationRule.ou_id.in_(ancestry_ids))
+        )).all():
+            rows.append(PolicyReportRow(kind="notification", label=n.name, detail=n.channel,
+                                        origin=origin_of.get(n.ou_id, "OU"), enforced=n.enforced))
+        # Variables: own + inherited (own wins at runtime; show all with origin).
+        for sv in (await session.scalars(
+            select(ScopeVars).where(ScopeVars.ou_id.in_(ancestry_ids))
+        )).all():
+            for k, v in (sv.vars or {}).items():
+                variables.append(PolicyVarRow(key=k, value=str(v), origin=origin_of.get(sv.ou_id, "OU")))
+
+    elif scope_type == "site":
+        site = await session.get(Site, scope_id)
+        if site is None:
+            raise HTTPException(status_code=404, detail=f"no such site {scope_id}")
+        scope_label = f"Site {site.name}"
+        for cp in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.site_id == scope_id))).all():
+            detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
+            rows.append(PolicyReportRow(kind="config", label=cp.path, detail=detail, origin="here"))
+        for r in (await session.scalars(
+            select(CheckRule).where(CheckRule.enabled == True)  # noqa: E712
+        )).all():
+            if r.scope_type == "global":
+                origin = "Global (whole fleet)"
+            elif r.scope_type == "site" and r.scope_site_id == scope_id:
+                origin = "here"
+            else:
+                continue
+            rows.append(PolicyReportRow(
+                kind="threshold", label=r.service_name,
+                detail=f"{r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold}",
+                origin=origin, enforced=r.enforced))
+        for link in (await session.scalars(
+            select(OrchestrationPlanLink).where(OrchestrationPlanLink.site_id == scope_id)
+        )).all():
+            plan = await session.get(OrchestrationPlan, link.plan_id)
+            rows.append(PolicyReportRow(
+                kind="plan", label=plan.display_name if plan else str(link.plan_id),
+                detail=(plan.plan_type if plan else "plan") + f" [{link.status}]",
+                origin="here", enforced=link.enforced))
+        # Sites carry no variables (scope_vars is ou/group/host only).
+
+    elif scope_type == "group":
+        grp = await session.get(HostGroup, scope_id)
+        if grp is None:
+            raise HTTPException(status_code=404, detail=f"no such host group {scope_id}")
+        scope_label = f"Group {grp.name}"
+        for cp in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.host_group_id == scope_id))).all():
+            detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
+            rows.append(PolicyReportRow(kind="config", label=cp.path, detail=detail, origin="here"))
+        for r in (await session.scalars(
+            select(CheckRule).where(CheckRule.enabled == True)  # noqa: E712
+        )).all():
+            if r.scope_type == "global":
+                origin = "Global (whole fleet)"
+            elif r.scope_type == "group" and r.scope_value == grp.name:
+                origin = "here"
+            else:
+                continue
+            rows.append(PolicyReportRow(
+                kind="threshold", label=r.service_name,
+                detail=f"{r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold}",
+                origin=origin, enforced=r.enforced))
+        for sv in (await session.scalars(select(ScopeVars).where(ScopeVars.host_group_id == scope_id))).all():
+            for k, v in (sv.vars or {}).items():
+                variables.append(PolicyVarRow(key=k, value=str(v), origin="here"))
+    else:
+        raise HTTPException(status_code=422, detail="scope_type must be ou, site or group")
+
+    return PolicyReportOut(scope_type=scope_type, scope_label=scope_label, variables=variables, rows=rows)
 
 
 def _resolve_policy_scope(ou_id: UUID | None, group_id: UUID | None, site_id: UUID | None) -> tuple[str, UUID]:
