@@ -1,5 +1,5 @@
 import { Component, Inject, OnInit, computed, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,48 +34,59 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
   { value: 'ne', label: '!= not equal' },
 ];
 
-/** Create/edit an OU-scoped threshold (check rule) with a LIVE metric search
- * (Block L3c) — the Metric field autocompletes from the fleet's real metric
- * catalog (bossman/api/monitoring.py metric-catalog), showing human-readable
- * names, so you don't have to guess raw keys like "cpu_pct". */
+/** Create/edit an OU/Site/host-scoped threshold (check rule), Block L3c. The
+ * metric is chosen from a MILLER-STYLE browser (design philosophy, R6): a
+ * searchable list on the left where each metric shows its human-readable name
+ * with a one-line description in smaller text underneath (from the fleet's real
+ * metric catalog, bossman/api/monitoring.py) — so you don't guess raw keys like
+ * "cpu_pct" — and the threshold config (comparison, warn/crit, enforced) renders
+ * as compact fields on the right, mirroring the check-assign dialog. */
 @Component({
   selector: 'app-threshold-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
+  imports: [FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>
       {{ data.rule ? 'Edit' : 'New' }} threshold {{ scopeLabel() }}
     </h2>
     <mat-dialog-content [formGroup]="form">
-      <div class="bm-field">
-        <label>Metric</label>
-        <input class="bm-in" formControlName="metric" list="bm-thr-metrics"
-               placeholder="search e.g. CPU, memory, disk…" (change)="onMetricPicked(form.controls.metric.value)" />
-        <datalist id="bm-thr-metrics">
+      <input class="bm-in bm-search" type="search" placeholder="Search metrics — CPU, memory, disk…"
+             [ngModel]="search()" [ngModelOptions]="{ standalone: true }" (ngModelChange)="search.set($event)" />
+      <div class="bm-browser">
+        <div class="bm-list">
           @for (m of filteredMetrics(); track m.metric) {
-            <option [value]="m.metric">{{ m.display_name }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</option>
-          }
-        </datalist>
-      </div>
-      <div class="bm-field">
-        <label>Service name</label>
-        <input class="bm-in" formControlName="service_name" placeholder="e.g. CPU load" />
-      </div>
-      @if (stateful()) {
-        <p class="bm-state-note">This is a state check — it alerts on its own when the service isn't in its expected state. There's nothing to compare, so no thresholds apply here.</p>
-      } @else {
-        <div class="bm-field">
-          <label>Comparison</label>
-          <select class="bm-in" formControlName="comparison">
-            @for (c of comparisons; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
-          </select>
+            <div class="bm-item" [class.sel]="form.controls.metric.value === m.metric"
+                 (click)="pick(m)" [title]="m.metric">
+              <div class="bm-item-name">{{ m.display_name }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</div>
+              @if (m.description) { <div class="bm-item-desc">{{ m.description }}</div> }
+            </div>
+          } @empty { <p class="bm-dim">No metrics match.</p> }
         </div>
-        <div class="bm-row">
-          <div class="bm-field"><label>Warning</label><input class="bm-in" type="number" formControlName="warn_threshold" /></div>
-          <div class="bm-field"><label>Critical</label><input class="bm-in" type="number" formControlName="crit_threshold" /></div>
+        <div class="bm-params">
+          @if (form.controls.metric.value) {
+            <div class="bm-params-head">{{ form.controls.metric.value }}</div>
+            <div class="bm-field">
+              <label>Service name</label>
+              <input class="bm-in" formControlName="service_name" placeholder="e.g. CPU load" />
+            </div>
+            @if (stateful()) {
+              <p class="bm-state-note">This is a state check — it alerts on its own when the service isn't in its expected state. There's nothing to compare, so no thresholds apply here.</p>
+            } @else {
+              <div class="bm-field">
+                <label>Comparison</label>
+                <select class="bm-in" formControlName="comparison">
+                  @for (c of comparisons; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+                </select>
+              </div>
+              <div class="bm-row">
+                <div class="bm-field"><label>Warning</label><input class="bm-in" type="number" formControlName="warn_threshold" /></div>
+                <div class="bm-field"><label>Critical</label><input class="bm-in" type="number" formControlName="crit_threshold" /></div>
+              </div>
+            }
+            <label class="bm-check"><input type="checkbox" formControlName="enforced" /> Enforced (can't be overridden by more specific scopes)</label>
+          } @else { <p class="bm-dim">Pick a metric on the left.</p> }
         </div>
-      }
-      <label class="bm-check"><input type="checkbox" formControlName="enforced" /> Enforced (can't be overridden by more specific scopes)</label>
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -86,6 +97,17 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
     `
       /* Compact fields — the same smaller input style used across the policy
          editors (gpedit), not Material's large outline form fields. */
+      .bm-search { max-width: 100%; margin-bottom: 10px; }
+      .bm-browser { display: flex; gap: 12px; min-width: 560px; }
+      .bm-list { flex: 0 0 240px; max-height: 360px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
+      .bm-item { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; }
+      .bm-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-item.sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+      .bm-item-name { font-size: 13px; }
+      .bm-item-desc { font-size: 11.5px; opacity: 0.6; line-height: 1.35; margin-top: 1px; }
+      .bm-params { flex: 1 1 300px; min-width: 0; max-height: 360px; overflow-y: auto; }
+      .bm-params-head { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom: 6px; }
+      .bm-dim { opacity: 0.7; font-size: 13px; padding: 6px 2px; }
       .bm-field { margin: 8px 0; }
       .bm-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; opacity: 0.8; }
       .bm-in { width: 100%; padding: 6px 9px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
@@ -111,16 +133,23 @@ export class ThresholdDialogComponent implements OnInit {
     enforced: new FormControl(false, { nonNullable: true }),
   });
 
-  // Live filter over the catalog as the user types in the Metric field.
+  // Miller-list search term (free text over name + raw key + description).
+  search = signal('');
+  // The selected metric + service name drive the stateful check (no thresholds).
   private metricTerm = toSignal(this.form.controls.metric.valueChanges, { initialValue: '' });
   private serviceTerm = toSignal(this.form.controls.service_name.valueChanges, { initialValue: '' });
   // A state/boolean check (service running, port open) has no threshold to set.
   stateful = computed(() => isStatefulMetric(this.metricTerm(), this.serviceTerm()));
   filteredMetrics = computed(() => {
-    const term = (this.metricTerm() || '').toLowerCase();
+    const term = this.search().toLowerCase().trim();
     const all = this.catalog();
-    if (!term) return all.slice(0, 50);
-    return all.filter((m) => m.metric.toLowerCase().includes(term) || m.display_name.toLowerCase().includes(term)).slice(0, 50);
+    if (!term) return all;
+    return all.filter(
+      (m) =>
+        m.metric.toLowerCase().includes(term) ||
+        m.display_name.toLowerCase().includes(term) ||
+        (m.description || '').toLowerCase().includes(term),
+    );
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: ThresholdDialogData) {
@@ -153,12 +182,11 @@ export class ThresholdDialogComponent implements OnInit {
     return 'in ' + (this.data.ouPath ?? '');
   }
 
-  onMetricPicked(metric: string): void {
-    // Prefill a sensible service name from the metric's display name if empty.
-    if (!this.form.controls.service_name.value) {
-      const entry = this.catalog().find((m) => m.metric === metric);
-      if (entry) this.form.controls.service_name.setValue(entry.display_name);
-    }
+  /** Select a metric from the Miller list — sets the form control and prefills a
+   * sensible service name from its display name (if the field is still empty). */
+  pick(m: MetricCatalogEntry): void {
+    this.form.controls.metric.setValue(m.metric);
+    if (!this.form.controls.service_name.value) this.form.controls.service_name.setValue(m.display_name);
   }
 
   save(): void {

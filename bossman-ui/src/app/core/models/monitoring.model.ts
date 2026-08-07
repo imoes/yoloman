@@ -105,6 +105,9 @@ export interface MetricCatalogEntry {
   metric: string;
   display_name: string;
   unit: string;
+  /** One-line description shown in smaller text under the name in the
+   * threshold dialog's Miller list (falls back to "Raw metric: <key>"). */
+  description?: string;
 }
 
 /** Matches bossman/api/monitoring.py's FleetSummaryOut. */

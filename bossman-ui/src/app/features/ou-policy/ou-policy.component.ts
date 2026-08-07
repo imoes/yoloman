@@ -298,6 +298,7 @@ interface PaletteItem {
         <div class="bm-menu-sep"></div>
         <!-- Link an existing policy (authored in the palette) to this OU. -->
         <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (link an existing one)…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newConfigSetting(ctx()!.ou!)">Config setting (gpedit)…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToOu(ctx()!.ou!)">Assign Check…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">Threshold…</button>
         <div class="bm-menu-sep"></div>
@@ -639,7 +640,7 @@ export class OuPolicyComponent implements OnInit {
    * a host's own config overrides it). */
   assignCheckToOu(ou: OUNode): void {
     const ref = this.dialog.open<CheckAssignDialogComponent, CheckAssignDialogData, CheckAssignResult>(
-      CheckAssignDialogComponent, { width: '460px', data: { scopeLabel: 'OU ' + ou.path } },
+      CheckAssignDialogComponent, { width: '660px', data: { scopeLabel: 'OU ' + ou.path } },
     );
     ref.afterClosed().subscribe((res) => {
       if (!res) return;
@@ -655,7 +656,7 @@ export class OuPolicyComponent implements OnInit {
   assignCheckToGroup(row: TreeRow): void {
     const groupId = row.obj!.id;
     const ref = this.dialog.open<CheckAssignDialogComponent, CheckAssignDialogData, CheckAssignResult>(
-      CheckAssignDialogComponent, { width: '460px', data: { scopeLabel: 'group ' + row.obj!.label } },
+      CheckAssignDialogComponent, { width: '660px', data: { scopeLabel: 'group ' + row.obj!.label } },
     );
     ref.afterClosed().subscribe((res) => {
       if (!res) return;
@@ -891,7 +892,7 @@ export class OuPolicyComponent implements OnInit {
 
   newThreshold(ou: OUNode): void {
     const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
-      width: '460px', data: { ouId: ou.id, ouPath: ou.path },
+      width: '660px', data: { ouId: ou.id, ouPath: ou.path },
     });
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
@@ -903,7 +904,7 @@ export class OuPolicyComponent implements OnInit {
    * is in the site's subnets, precedence OU < Site < host. */
   newSiteThreshold(row: TreeRow): void {
     const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
-      width: '460px', data: { siteId: row.obj!.id, siteLabel: row.obj!.label },
+      width: '660px', data: { siteId: row.obj!.id, siteLabel: row.obj!.label },
     });
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
@@ -1200,7 +1201,7 @@ export class OuPolicyComponent implements OnInit {
         const rule = rules.find((r) => r.id === obj.id);
         if (!rule) return;
         const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
-          width: '460px', data: { ouId: ou.id, ouPath: ou.path, rule },
+          width: '660px', data: { ouId: ou.id, ouPath: ou.path, rule },
         });
         ref.afterClosed().subscribe((input) => {
           if (!input) return;

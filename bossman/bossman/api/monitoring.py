@@ -43,24 +43,26 @@ from bossman.services.monitoring import (
 router = APIRouter()
 
 
-# Human-readable names + units for the metrics the built-in agent collectors
-# emit (Block L3c: the threshold dialog's live metric search). Anything not
-# listed falls back to a titleized metric key. Kept here (not the DB) because
-# it's presentation, not data — the *available* metrics come from the DB.
-_METRIC_DISPLAY: dict[str, tuple[str, str]] = {
-    "cpu_pct": ("CPU usage", "%"),
-    "load1": ("Load average (1 min)", ""),
-    "load5": ("Load average (5 min)", ""),
-    "load15": ("Load average (15 min)", ""),
-    "mem_used_pct": ("Memory used", "%"),
-    "mem_pct": ("Memory used", "%"),
-    "swap_used_pct": ("Swap used", "%"),
-    "disk_used_pct": ("Disk used", "%"),
-    "disk_io_util_pct": ("Disk I/O utilization", "%"),
-    "net_rx_bytes": ("Network received", "bytes/s"),
-    "net_tx_bytes": ("Network sent", "bytes/s"),
-    "uptime_seconds": ("Uptime", "s"),
-    "process_count": ("Process count", ""),
+# Human-readable names, units + a one-line description for the metrics the
+# built-in agent collectors emit (Block L3c: the threshold dialog's Miller-list
+# metric search — the description renders in smaller text under the name).
+# Anything not listed falls back to a titleized metric key. Kept here (not the
+# DB) because it's presentation, not data — the *available* metrics come from
+# the DB. Tuple: (display_name, unit, description).
+_METRIC_DISPLAY: dict[str, tuple[str, str, str]] = {
+    "cpu_pct": ("CPU usage", "%", "Percentage of CPU time in use across all cores."),
+    "load1": ("Load average (1 min)", "", "Run-queue length averaged over the last minute."),
+    "load5": ("Load average (5 min)", "", "Run-queue length averaged over the last 5 minutes."),
+    "load15": ("Load average (15 min)", "", "Run-queue length averaged over the last 15 minutes."),
+    "mem_used_pct": ("Memory used", "%", "Percentage of physical RAM in use."),
+    "mem_pct": ("Memory used", "%", "Percentage of physical RAM in use."),
+    "swap_used_pct": ("Swap used", "%", "Percentage of swap space in use."),
+    "disk_used_pct": ("Disk used", "%", "Percentage of a filesystem's capacity in use."),
+    "disk_io_util_pct": ("Disk I/O utilization", "%", "Fraction of time the disk was busy servicing I/O."),
+    "net_rx_bytes": ("Network received", "bytes/s", "Inbound network throughput."),
+    "net_tx_bytes": ("Network sent", "bytes/s", "Outbound network throughput."),
+    "uptime_seconds": ("Uptime", "s", "Seconds since the host last booted."),
+    "process_count": ("Process count", "", "Number of running processes."),
 }
 
 
@@ -68,6 +70,7 @@ class MetricCatalogEntry(BaseModel):
     metric: str
     display_name: str
     unit: str
+    description: str = ""
 
 
 @router.get("/api/v1/metric-catalog", response_model=list[MetricCatalogEntry])
@@ -90,10 +93,13 @@ async def metric_catalog(
         if m.startswith("check_") and m.endswith("_state"):
             continue
         if m in _METRIC_DISPLAY:
-            display, unit = _METRIC_DISPLAY[m]
+            display, unit, description = _METRIC_DISPLAY[m]
         else:
-            display, unit = m.replace("_", " ").replace("pct", "%").strip().capitalize(), ""
-        out.append(MetricCatalogEntry(metric=m, display_name=display, unit=unit))
+            display = m.replace("_", " ").replace("pct", "%").strip().capitalize()
+            # No curated description — fall back to the raw metric key so the
+            # Miller list still shows a secondary line (never a blank one).
+            unit, description = "", f"Raw metric: {m}"
+        out.append(MetricCatalogEntry(metric=m, display_name=display, unit=unit, description=description))
     return out
 
 
