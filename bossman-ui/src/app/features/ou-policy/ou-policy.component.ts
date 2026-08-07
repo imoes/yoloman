@@ -275,6 +275,7 @@ interface PaletteItem {
         <!-- Link an existing policy (authored in the palette) to this OU. -->
         <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (link an existing one)…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToOu(ctx()!.ou!)">Assign Check…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">Threshold…</button>
         <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="editOuVars(ctx()!.ou!)">Variables…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
