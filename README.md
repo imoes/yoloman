@@ -311,6 +311,101 @@ assigning.
 
 ---
 
+## Using Bossman — a task guide (for humans and the AI)
+
+> This section is written for **both readers**: a person operating the UI and the
+> **AI assistant**, which reads these docs live via `search_help` (the console + the
+> `search_help` MCP tool). Each subsection is self-contained and names the exact
+> tool + UI location, so a search for "how do I …" returns something actionable.
+> The same task→tool map is the MCP server's `instructions` and the `bossman_guide`
+> tool. **Golden rule:** read first (`list_hosts` → `host_status`/`diagnose_host`),
+> and every change previews as a dry-run / stays human-gated before it's applied.
+
+### Inspect a host or the fleet (list_hosts, host_status, diagnose_host)
+Start with `list_hosts` (name, mode, enrollment, online, OU/tags). For one host:
+`host_status(host)` (facts + latest metrics + last run) and `diagnose_host(host)`
+(cross-signal snapshot). Fleet health: `fleet_health`, `list_problems`. Logs/procs:
+`get_host_logs`, `get_host_processes`. The whole host as one document:
+`get_server_document(host)`; ask it a question with `explain_server(host, question)`.
+In the UI this is the host's **Overview / Services / Configuration** tabs.
+
+### Configure ONE host (set_host_config)
+Set a single config file on one machine: `set_host_config(host, path, values,
+dry_run=True)` — it merges into the file via the file's codec (foreign keys kept),
+previews the diff, and only writes when `dry_run=False`. Managed files are then
+**auto-enforced every poll** (drift is reverted and recorded as a roll-backable
+generation). UI: the host's **Configuration → Settings** (gpedit) tab.
+
+### Configure MANY hosts with a policy (named policies, link to a scope)
+A policy is a **named container** of config-file entries you author once and **link
+to a scope** so it applies to every host under it. UI: the **OU / Policy** page →
+**Policy library** (Miller columns: policies → entries → values) → create/author,
+then set **Linked to:** an OU / Site / group. Precedence when several apply:
+`global < group < OU(root→deep) < Site < host` — **closest-to-host wins** (an
+`enforced` link or Block-Inheritance can override). A monitoring limit is a
+**threshold** (`set_threshold`); a role/package rollout is an **orchestration plan
+link** (`propose_orchestration_plan_link`, which stays *pending approval*). Selecting
+an OU/Site shows a **policy report (RSoP)**: everything that applies here + Variables,
+each tagged with its origin.
+
+### Scopes: OUs, Sites, host groups, Variables
+**OUs** are an LDAP-style tree (drag to reparent). **Sites** are subnet-scoped and
+live as a second root branch — a host joins a Site when its primary IP is in one of
+the Site's CIDRs. **Host groups** are explicit membership. **Variables** set on an
+OU/group are inherited down (overridable closer to the host) and show both as a
+tree object and in the report.
+
+### Monitor a host, set a threshold, and see which rule wins (effective thresholds)
+See state with `list_problems` and `host_services(host)`. Author a rule with
+`set_threshold(host_or_scope, metric, comparison, warn, crit)`. Manage noise with
+`acknowledge_problem` and `schedule_downtime`. To see **which rule wins** for a host
+and why, open its **Configuration → Effective thresholds** tab (closest-to-host).
+
+### Find and read a check (list_checks, get_check)
+`list_checks(query)` returns each check's name, short description, one-paragraph
+summary, category and datasource (agent | snmp | ssh) — filter by what it does
+(e.g. "cpu", "postgres"). `get_check(name)` returns the full description, its
+parameters and the Starlark source. Assign one per host via auto-discovery
+(`discover_host_checks` → provide any required credentials → `assign_host_check`).
+
+### Create or run a runbook / playbook (list_runbooks, run_runbook)
+Find one: `list_runbooks` / `search_runbooks(query)` / `get_runbook(name)` — each
+carries a typed parameter schema. Run it: `run_runbook(runbook, host, variables,
+apply=False)` — dry-run first; `apply=True` only takes effect when the global
+YOLO-MAN switch is on. Build one visually in the **Workflow designer** (a wizard is
+just a runbook: one `- runbook: install-<pkg>` role call with your vars). A runbook
+can call a **role** as a task (Ansible `import_role`-style).
+
+### Add a new package or role (qualify_package)
+`qualify_package(name)` runs the whole generation pipeline for a package in one call
+— **codec** (classify the config file), **directives** (per-directive value catalog),
+**template** (whole-file Jinja2 + typed schema) and **enum enrichment** (doc-grounded
+dropdowns) — grounded on the man page + the shipped `.deb`, then categorises it into
+the catalog so it appears as an installable role in the **Roles & Features** wizard.
+No bespoke agent code: a role = a package name + a template + a schema.
+
+### Provision a host over PXE (bootstrap VLAN and production VLAN)
+See **Provisioning hosts over PXE** below: create a VM (or arm a bare-metal MAC),
+image it, enrol the agent, push the offline-chosen roles. A target can be imaged on a
+**bootstrap VLAN** and moved to a **production VLAN** at handoff (hypervisor NIC
+retag) — set both in the provision wizard's Virtualization step.
+
+### Driving Bossman with an AI (MCP)
+Every capability above is an MCP tool; the server's `instructions` (and the
+`bossman_guide` tool) teach a model which tool to use for which task, so even a small
+model can operate the fleet. Point any MCP client — or the built-in **AI console**
+(Claude CLI / Codex / a self-hosted model / **OpenRouter**) — at it. When unsure,
+call `search_help(query)` (these docs) or `bossman_guide()` first.
+
+### Safety model
+Reads are free. Writes are **dry-run by default** and preview a diff; on the OU/Policy
+page, activation gestures are **staged** behind an **Apply / Revert** bar (nothing is
+written until Apply). Orchestration links start **pending approval**; real apply of
+runbooks/links is gated by the global **YOLO-MAN** switch. Use `blast_radius(host,
+resources)` for a what-if before a risky change.
+
+---
+
 ## Working with runbooks and roles
 
 ### A runbook
