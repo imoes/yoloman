@@ -6102,6 +6102,22 @@
       "type": "string"
     }
   },
+  "/etc/check-manifest": {
+    "ignore": {
+      "default": "PKG-INFO, *.egg-info, *.egg-info/*, setup.cfg, .hgtags, .hgsigs, .hgignore, .gitignore, .bzrignore, .gitattributes, .travis.yml, Jenkinsfile, *.mo",
+      "description": "A list of newline separated filename patterns that will be ignored by check-manifest.",
+      "type": "list"
+    },
+    "ignore-bad-ideas": {
+      "description": "A list of newline separated filename patterns that will be ignored by check-manifest's generated files check.",
+      "type": "list"
+    },
+    "ignore-default-rules": {
+      "default": "false",
+      "description": "If set to true, your ignore patterns will replace the default ignore list instead of adding to it.",
+      "type": "bool"
+    }
+  },
   "/etc/checkinstallrc": {
     "ACCEPT_DEFAULT": {
       "default": "0",
@@ -6792,6 +6808,15 @@
       "type": "int"
     }
   },
+  "/etc/click/databases/10_core.conf": {
+    "root": {
+      "default": "/var/lib/clickpkg",
+      "description": "Specifies the root directory path for the Click database.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    }
+  },
   "/etc/cloud/cloud.cfg": {
     "cloud_config_modules": {
       "type": "list"
@@ -6988,88 +7013,19 @@
     }
   },
   "/etc/cloudflare-ddns/config.ini": {
-    "action_timeout": {
-      "default": "30",
-      "description": "Seconds before action buttons disappear (0 = never expire)",
-      "type": "int"
-    },
-    "actions_enabled": {
-      "default": "true",
-      "description": "Allow interactive actions (buttons) on notifications",
-      "type": "bool"
-    },
-    "animation_duration": {
-      "default": "200",
-      "description": "Duration (in milliseconds) for fade-in/out animations",
-      "type": "int"
-    },
-    "autostart": {
-      "default": "true",
-      "description": "Whether to automatically start fnott at user login",
-      "type": "bool"
-    },
-    "config_dir": {
-      "default": "/var/lib/fnott",
-      "description": "Base directory for fnott runtime files (e.g., state, pid, icons cache)",
+    "api_token": {
+      "default": "none",
+      "description": "Cloudflare API token required for authentication (Zone.DNS edit permission).",
+      "max": 0,
+      "min": 0,
       "type": "string"
     },
-    "default_urgency": {
-      "default": "normal",
-      "description": "Default urgency level for new notifications: low, normal, critical",
+    "record_name": {
+      "default": "none",
+      "description": "The DNS record name to dynamically update.",
+      "max": 0,
+      "min": 0,
       "type": "string"
-    },
-    "font": {
-      "default": "sans 10",
-      "description": "Font name and size for notification text (e.g., 'DejaVu Sans 9')",
-      "type": "string"
-    },
-    "group_by_app": {
-      "default": "false",
-      "description": "Group notifications from the same app into a single stack",
-      "type": "bool"
-    },
-    "hposition": {
-      "default": "center",
-      "description": "Horizontal position when `position` is not center: left, center, right",
-      "type": "string"
-    },
-    "icon_theme": {
-      "description": "Name of the icon theme to use (e.g., 'Adwaita'); leave empty to use system default",
-      "type": "string"
-    },
-    "log_file": {
-      "description": "Path to write logs to (e.g., '/var/log/fnott.log'); leave empty to log only to stderr",
-      "type": "string"
-    },
-    "log_level": {
-      "default": "2",
-      "description": "Verbosity of logging: 0=error, 1=warn, 2=info, 3=debug",
-      "type": "int"
-    },
-    "margin": {
-      "default": "16",
-      "description": "Pixels of space between notifications and the screen edge",
-      "type": "int"
-    },
-    "max_notifications": {
-      "default": "5",
-      "description": "Maximum number of notifications visible on screen at once",
-      "type": "int"
-    },
-    "notification_timeout": {
-      "default": "10",
-      "description": "Default duration (in seconds) before a notification expires",
-      "type": "int"
-    },
-    "position": {
-      "default": "bottom",
-      "description": "Vertical position of notifications: top, center, bottom",
-      "type": "string"
-    },
-    "scale": {
-      "default": "1.0",
-      "description": "Scaling factor for notification size (e.g., 0.9 = 90% size)",
-      "type": "int"
     }
   },
   "/etc/cloudflare-ddns/config.json": {
@@ -7676,31 +7632,165 @@
     }
   },
   "/etc/cntlm.conf": {
-    "domain": {
-      "description": "Your Windows domain name (required for NTLM authentication).",
+    "Allow": {
+      "default": "mask=32",
+      "description": "ACL allow rule for source IP with optional CIDR mask.",
+      "max": 32,
+      "min": 0,
       "type": "string"
     },
-    "gateway": {
-      "default": "false",
-      "description": "Enable gateway mode, allowing Cntlm to listen on all network interfaces instead of just loopback.",
+    "Auth": {
+      "default": "NTLMv2",
+      "description": "Selects the NTLM authentication hash algorithm.",
+      "max": 0,
+      "min": 0,
+      "type": "enum",
+      "values": [
+        "NTLMv2",
+        "NTLM2SR",
+        "NT",
+        "NTLM",
+        "LM"
+      ]
+    },
+    "Deny": {
+      "default": "mask=32",
+      "description": "ACL deny rule for source IP with optional CIDR mask.",
+      "max": 32,
+      "min": 0,
+      "type": "string"
+    },
+    "Domain": {
+      "default": "null",
+      "description": "Proxy account domain or workgroup name.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "Flags": {
+      "default": "built-in values",
+      "description": "NTLM authentication flags for manual override of proxy auth behavior.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "Gateway": {
+      "default": "no",
+      "description": "Enables gateway mode to listen on all network interfaces instead of just loopback.",
+      "max": 0,
+      "min": 0,
       "type": "bool"
     },
-    "listen_addr": {
-      "default": "127.0.0.1",
-      "description": "Local IP address to bind the Cntlm proxy listener (commonly 127.0.0.1 or 0.0.0.0).",
+    "Header": {
+      "default": "null",
+      "description": "Header substitution for client requests.",
+      "max": 0,
+      "min": 0,
       "type": "string"
     },
-    "listen_port": {
-      "default": "3128",
-      "description": "Local port for Cntlm to accept connections (e.g., 3128).",
+    "ISAScannerAgent": {
+      "default": "null",
+      "description": "User-Agent wildcard pattern to force the ISA scanner plugin regardless of download size.",
+      "max": 0,
+      "min": 0,
+      "type": "list"
+    },
+    "ISAScannerSize": {
+      "default": "infinity (if no Agent specified)",
+      "description": "Maximum download size in KB for the ISA scanner plugin to handle transparently.",
+      "max": 0,
+      "min": 0,
       "type": "int"
     },
-    "password": {
-      "description": "Your domain password. For security, consider using a hash (e.g., 'PassNTLMv2') instead of plain text.",
+    "Listen": {
+      "default": "127.0.0.1:3128",
+      "description": "Local IP address and port for the cntlm proxy service.",
+      "max": 0,
+      "min": 0,
       "type": "string"
     },
-    "username": {
-      "description": "Your domain username for authenticating with the upstream proxy.",
+    "NTLMToBasic": {
+      "default": "no",
+      "description": "Enables or disables NTLM-to-basic authentication translation for multi-user setups.",
+      "max": 0,
+      "min": 0,
+      "type": "bool"
+    },
+    "NoProxy": {
+      "default": "null",
+      "description": "Comma-separated host name patterns to bypass parent proxy for direct connections.",
+      "max": 0,
+      "min": 0,
+      "type": "list"
+    },
+    "PassLM": {
+      "default": "null",
+      "description": "LM hash of the proxy account password.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "PassNT": {
+      "default": "null",
+      "description": "NT hash of the proxy account password.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "PassNTLMv2": {
+      "default": "null",
+      "description": "NTLMv2 hash of the proxy account password.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "Password": {
+      "default": "null",
+      "description": "Proxy account password in plaintext (automatically hashed at startup).",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "Proxy": {
+      "default": "null",
+      "description": "Parent proxy host and port to forward requests to.",
+      "max": 0,
+      "min": 0,
+      "type": "list"
+    },
+    "SOCKS5Proxy": {
+      "default": "null",
+      "description": "Enables SOCKS5 proxy on the specified local address/port.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "SOCKS5User": {
+      "default": "null",
+      "description": "SOCKS5 proxy authentication credentials in username:password format.",
+      "max": 0,
+      "min": 0,
+      "type": "list"
+    },
+    "Tunnel": {
+      "default": "null",
+      "description": "TCP/IP tunnel definition mapping a local port to a remote host and port.",
+      "max": 0,
+      "min": 0,
+      "type": "list"
+    },
+    "Username": {
+      "default": "null",
+      "description": "Proxy account username.",
+      "max": 0,
+      "min": 0,
+      "type": "string"
+    },
+    "Workstation": {
+      "default": "system hostname or cntlm",
+      "description": "NetBIOS workstation name sent to parent proxies.",
+      "max": 0,
+      "min": 0,
       "type": "string"
     }
   },
@@ -55933,32 +56023,14 @@
     }
   },
   "chrony.conf": {
-    "access": {
-      "description": "Set default access policy for clients",
-      "type": "enum",
-      "values": [
-        "allow",
-        "deny"
-      ]
-    },
     "acquisitionport": {
-      "description": "Specify source port for outgoing NTP client requests",
-      "min": 0,
-      "type": "int"
-    },
-    "allow": {
-      "description": "Allow clients from specified network/mask to access server",
-      "type": "string"
-    },
-    "asymmetry": {
-      "description": "Set network jitter asymmetry correction",
-      "max": 0,
-      "min": 0,
+      "default": ",0",
+      "description": "Specifies the UDP source port for client requests. 0 uses a random port.",
       "type": "int"
     },
     "authselectmode": {
       "default": "mix",
-      "description": "Set policy for authentication in source selection",
+      "description": "Determines the default selection policy for authenticated and unauthenticated sources.",
       "type": "enum",
       "values": [
         "require",
@@ -55967,728 +56039,129 @@
         "ignore"
       ]
     },
-    "auto_offline": {
-      "description": "Automatically mark server as offline when unreachable",
-      "type": "bool"
-    },
-    "bind": {
-      "description": "Specify local IP address for binding server sockets",
-      "type": "string"
-    },
     "bindacqaddress": {
-      "description": "Specify local IP address for binding NTP client sockets",
+      "description": "Specifies the local IP address for client sockets.",
       "type": "string"
     },
     "bindacqdevice": {
-      "description": "Specify network interface for binding NTP client sockets",
+      "description": "Binds client sockets to a network interface.",
       "type": "string"
-    },
-    "bindcmdaddress": {
-      "description": "Specify local IP address for binding command interface",
-      "type": "string"
-    },
-    "bindcmddevice": {
-      "description": "Specify network interface for binding command interface",
-      "type": "string"
-    },
-    "binddevice": {
-      "description": "Specify network interface for binding server sockets",
-      "type": "string"
-    },
-    "broadcast": {
-      "description": "Send broadcast NTP packets to specified address",
-      "type": "string"
-    },
-    "broadcastinterval": {
-      "description": "Set interval between broadcast packets (seconds)",
-      "min": 1,
-      "type": "int"
-    },
-    "burst": {
-      "description": "Enable burst mode when measurements fail",
-      "type": "bool"
-    },
-    "certset": {
-      "description": "Set certificate set ID for NTS verification",
-      "max": 4294967295,
-      "min": 0,
-      "type": "int"
-    },
-    "channel": {
-      "description": "Set channel index for PPS mode",
-      "type": "int"
-    },
-    "clear": {
-      "description": "Use falling edge for PPS events",
-      "type": "bool"
-    },
-    "clientloglimit": {
-      "description": "Set limit on size of client log",
-      "min": 0,
-      "type": "int"
     },
     "clockprecision": {
-      "description": "Specify system clock precision (seconds)",
-      "type": "int"
-    },
-    "cmdallow": {
-      "description": "Allow specified host to access command interface",
-      "type": "string"
-    },
-    "cmddeny": {
-      "description": "Deny specified host from accessing command interface",
-      "type": "string"
-    },
-    "cmdkey": {
-      "description": "Set key ID for command interface authentication",
-      "max": 4294967295,
-      "min": 1,
-      "type": "int"
-    },
-    "cmdport": {
-      "description": "Set port for chronyd command interface (0 = disabled)",
-      "max": 65535,
-      "min": 0,
+      "description": "Specifies the precision of the system clock in seconds.",
       "type": "int"
     },
     "combinelimit": {
-      "description": "Limit sources included in combining algorithm",
+      "default": ",3",
+      "description": "Limits sources included in the combining algorithm by synchronization distance. 0 disables combining.",
       "min": 0,
-      "type": "int"
-    },
-    "copy": {
-      "description": "Allow client to assume server's reference ID and stratum",
-      "type": "bool"
-    },
-    "datafile": {
-      "description": "Specify file for client access statistics",
-      "type": "string"
-    },
-    "delay": {
-      "description": "Set NTP delay for refclock",
-      "type": "int"
-    },
-    "deny": {
-      "description": "Deny clients from specified network/mask from accessing server",
-      "type": "string"
-    },
-    "disable": {
-      "description": "Disable specific features",
-      "type": "enum",
-      "values": [
-        "cmdmon",
-        "stats",
-        "statsdata"
-      ]
-    },
-    "dpoll": {
-      "description": "Set driver polling interval",
-      "max": 24,
-      "min": -7,
-      "type": "int"
-    },
-    "driftfile": {
-      "description": "Specify file for storing clock frequency drift",
-      "type": "string"
-    },
-    "driftfileprecision": {
-      "description": "Precision of the driftfile (seconds)",
       "type": "int"
     },
     "dscp": {
-      "description": "Set DSCP value in transmitted NTP packets",
+      "default": ",0",
+      "description": "Sets the DSCP value for transmitted NTP packets.",
       "max": 63,
-      "min": 0,
       "type": "int"
     },
     "dumpdir": {
-      "description": "Specify directory for measurement history dump files",
+      "description": "Directory to save measurement history across restarts.",
       "type": "string"
-    },
-    "enable": {
-      "description": "Enable specific features",
-      "type": "enum",
-      "values": [
-        "cmdmon",
-        "stats",
-        "statsdata"
-      ]
-    },
-    "extfield": {
-      "description": "Enable NTPv4 extension field",
-      "type": "string"
-    },
-    "extpps": {
-      "description": "Enable external PPS mode for PHC",
-      "type": "bool"
-    },
-    "filter": {
-      "description": "Set median filter length for NTP measurements",
-      "type": "int"
-    },
-    "hwtimestamp": {
-      "description": "Specify network interface for hardware timestamping",
-      "type": "string"
-    },
-    "hwtsystable": {
-      "description": "Set maximum allowed variation in hardware timestamp (microseconds)",
-      "type": "int"
-    },
-    "iburst": {
-      "description": "Enable burst mode for initial synchronization",
-      "type": "bool"
     },
     "initstepslew": {
-      "description": "Enable rapid clock stepping/slewing at boot time (deprecated)",
-      "type": "string"
-    },
-    "kernelstats": {
-      "description": "Enable recording of kernel statistics",
-      "type": "bool"
-    },
-    "key": {
-      "description": "Set key ID for NTP message authentication",
-      "max": 4294967295,
-      "min": 1,
-      "type": "int"
-    },
-    "keyfile": {
-      "description": "Specify file containing NTP keys",
-      "type": "string"
-    },
-    "leapsecmode": {
-      "default": "slew",
-      "description": "Set leap second handling mode",
-      "type": "enum",
-      "values": [
-        "slew",
-        "step"
-      ]
-    },
-    "leapsectz": {
-      "description": "Specify timezone for leap second handling",
-      "type": "string"
-    },
-    "local": {
-      "description": "Mark refclock as local standard",
-      "type": "bool"
-    },
-    "localoffset": {
-      "description": "Set offset for local mode (seconds)",
-      "type": "int"
-    },
-    "localstratum": {
-      "description": "Set stratum for local mode",
-      "max": 15,
-      "min": 0,
-      "type": "int"
-    },
-    "lock": {
-      "description": "Lock PPS refclock to another refclock",
-      "type": "string"
-    },
-    "log": {
-      "description": "Specify types of data to log",
-      "type": "enum",
-      "values": [
-        "tracking",
-        "rtcsync",
-        "clockstats",
-        "rawstats",
-        "stats",
-        "measures",
-        "measurements",
-        "peerstats",
-        "cmdstats",
-        "statsdata",
-        "timings",
-        "loopstats",
-        "phcstats",
-        "protostats",
-        "rawdata",
-        "datapath"
-      ]
-    },
-    "logchange": {
-      "description": "Set time threshold for logging clock changes",
-      "min": 0,
-      "type": "int"
-    },
-    "logdir": {
-      "description": "Specify directory for log files",
-      "type": "string"
-    },
-    "makestep": {
-      "description": "Allow clock stepping during initial synchronization",
+      "description": "Corrects system clock by stepping or slewing at boot based on a threshold and list of servers. (Deprecated)",
       "type": "string"
     },
     "manual": {
-      "description": "Enable manual clock setting via chronyc settime command",
+      "default": "false",
+      "description": "Enables runtime support for the settime command in chronyc.",
       "type": "bool"
     },
-    "maxclock": {
-      "description": "Set maximum clock error (seconds) before logging warning",
-      "max": 1000,
-      "min": 1,
-      "type": "int"
-    },
-    "maxdelay": {
-      "description": "Set maximum acceptable round-trip delay (seconds)",
-      "max": 1000,
-      "min": 0,
-      "type": "int"
-    },
-    "maxdelaydevratio": {
-      "description": "Set ratio for rejecting measurements based on delay deviation",
-      "type": "int"
-    },
-    "maxdelayquant": {
-      "description": "Set quantile threshold for maximum delay",
-      "type": "int"
-    },
-    "maxdelayratio": {
-      "description": "Set ratio for rejecting measurements based on round-trip delay",
-      "type": "int"
-    },
-    "maxdispersion": {
-      "description": "Set maximum dispersion for refclock samples",
-      "type": "int"
-    },
     "maxdistance": {
-      "description": "Set maximum root distance for source acceptance (seconds)",
-      "min": 0,
-      "type": "int"
-    },
-    "maxdrift": {
-      "description": "Set maximum frequency drift (Hz)",
+      "default": ",3",
+      "description": "Maximum acceptable root distance for source synchronization.",
       "type": "int"
     },
     "maxjitter": {
-      "description": "Set maximum allowed jitter for source selection (seconds)",
-      "min": 0,
-      "type": "int"
-    },
-    "maxlockage": {
-      "description": "Set maximum age of PPS samples (pulses)",
-      "min": 0,
-      "type": "int"
-    },
-    "maxpoll": {
-      "description": "Set maximum polling interval for servers/peers (power of 2 seconds)",
-      "max": 24,
-      "min": -7,
+      "default": ",1",
+      "description": "Maximum allowed jitter for sources before rejection by the source selection algorithm.",
       "type": "int"
     },
     "maxsamples": {
-      "description": "Set default maximum number of samples to keep per source",
+      "default": ",0",
+      "description": "Default maximum number of samples to keep per source. 0 disables the limit.",
       "max": 64,
-      "min": 1,
-      "type": "int"
-    },
-    "maxslewrate": {
-      "description": "Set maximum clock slew rate (Hz)",
-      "type": "int"
-    },
-    "maxsources": {
-      "description": "Set desired number of sources from pool",
-      "max": 16,
-      "min": 1,
-      "type": "int"
-    },
-    "mindelay": {
-      "description": "Set fixed minimum round-trip delay",
-      "type": "int"
-    },
-    "minpoll": {
-      "description": "Set minimum polling interval for servers/peers (power of 2 seconds)",
-      "max": 24,
-      "min": -7,
+      "min": 4,
       "type": "int"
     },
     "minsamples": {
-      "description": "Set default minimum number of samples to keep per source",
+      "default": ",6",
+      "description": "Default minimum number of samples to keep per source.",
       "max": 64,
       "min": 4,
       "type": "int"
     },
     "minsources": {
-      "description": "Set minimum number of selectable sources before updating clock",
-      "min": 1,
+      "default": ",1",
+      "description": "Minimum number of selectable sources required before updating the local clock.",
       "type": "int"
-    },
-    "minstratum": {
-      "description": "Set minimum stratum for source",
-      "min": 0,
-      "type": "int"
-    },
-    "multicastclient": {
-      "description": "Join multicast group for receiving NTP packets",
-      "type": "string"
     },
     "nocerttimecheck": {
-      "description": "Disable certificate time checks for specified number of clock updates",
-      "min": 0,
+      "default": ",0",
+      "description": "Disables certificate activation/expiration time checks for N clock updates.",
       "type": "int"
     },
-    "nocrossts": {
-      "description": "Disable cross timestamping for PHC",
-      "type": "bool"
-    },
-    "noselect": {
-      "description": "Never select this source",
-      "type": "bool"
-    },
     "nosystemcert": {
-      "description": "Disable system's default trusted CAs",
-      "type": "bool"
-    },
-    "nts": {
-      "description": "Enable NTS authentication",
+      "default": "false",
+      "description": "Disables the system's default trusted CAs.",
       "type": "bool"
     },
     "ntsdumpdir": {
-      "description": "Specify directory for saving NTS cookies",
+      "default": "null",
+      "description": "Directory to save NTS cookies. Not saved by default.",
       "type": "string"
     },
-    "ntsport": {
-      "description": "Set NTS-KE server port",
-      "max": 65535,
-      "min": 1,
-      "type": "int"
-    },
     "ntsrefresh": {
-      "description": "Maximum interval for NTS-KE key refresh (seconds)",
-      "min": 1,
+      "default": ",2419200",
+      "description": "Maximum interval between NTS-KE handshakes in seconds.",
+      "max": 2147483647,
       "type": "int"
     },
     "ntstrustedcerts": {
-      "description": "Specify file/directory with trusted certificates for NTS",
-      "type": "string"
-    },
-    "offline": {
-      "description": "Mark server as initially offline",
-      "type": "bool"
-    },
-    "offset": {
-      "description": "Set correction offset for measured offsets",
-      "type": "int"
+      "description": "Specifies files or directories containing trusted certificates for NTS.",
+      "type": "list"
     },
     "peer": {
-      "description": "Specify an NTP peer for symmetric association",
+      "description": "Specifies a symmetric NTP peer association.",
       "type": "string"
-    },
-    "perm": {
-      "description": "Set permissions for SHM segment",
-      "type": "string"
-    },
-    "pin": {
-      "description": "Set pin index for PPS timestamping",
-      "type": "int"
-    },
-    "poll": {
-      "description": "Set polling interval for refclocks",
-      "max": 24,
-      "min": -7,
-      "type": "int"
-    },
-    "polltarget": {
-      "description": "Target number of samples for regression algorithm",
-      "max": 60,
-      "min": 6,
-      "type": "int"
     },
     "pool": {
-      "description": "Specify a pool of NTP servers to use as time sources",
+      "description": "Specifies a pool of NTP servers as a time source.",
       "type": "string"
-    },
-    "port": {
-      "description": "Set NTP server port",
-      "max": 65535,
-      "min": 1,
-      "type": "int"
-    },
-    "pps": {
-      "description": "Treat refclock as PPS refclock",
-      "type": "bool"
-    },
-    "precision": {
-      "description": "Set precision for refclock",
-      "type": "int"
-    },
-    "prefer": {
-      "description": "Prefer this source over others without prefer option",
-      "type": "bool"
-    },
-    "presend": {
-      "description": "Set polling interval for presending NTP packets",
-      "min": 0,
-      "type": "int"
-    },
-    "rate": {
-      "description": "Set PPS pulse rate (Hz)",
-      "min": 1,
-      "type": "int"
     },
     "refclock": {
-      "description": "Specify a hardware reference clock",
-      "type": "string"
-    },
-    "refid": {
-      "description": "Set reference ID for refclock",
+      "description": "Specifies a hardware reference clock as a time source.",
       "type": "string"
     },
     "refresh": {
-      "description": "Interval for refreshing IP addresses of NTP sources (seconds)",
+      "default": ",1209600",
+      "description": "Interval in seconds between refreshing IP addresses of NTP sources. 0 disables periodic refresh.",
+      "max": 2147483647,
       "min": 0,
       "type": "int"
-    },
-    "require": {
-      "description": "Require at least one source with this option to be selectable",
-      "type": "bool"
     },
     "reselectdist": {
-      "description": "Set additional distance to avoid frequent reselection",
-      "min": 0,
+      "default": ",0.0001",
+      "description": "Fixed distance added to non-selected sources to avoid frequent reselection.",
       "type": "int"
-    },
-    "rtcautotrim": {
-      "description": "Set interval for RTC auto-trim (seconds)",
-      "min": 0,
-      "type": "int"
-    },
-    "rtconutc": {
-      "description": "Report RTC time as UTC",
-      "type": "bool"
-    },
-    "rtcsync": {
-      "description": "Enable periodic synchronization of system clock to RTC",
-      "type": "bool"
-    },
-    "scmdsecurity": {
-      "default": "local",
-      "description": "Set security level for chronyd command interface",
-      "type": "enum",
-      "values": [
-        "none",
-        "local",
-        "cmdkey"
-      ]
     },
     "server": {
-      "description": "Specify an NTP server to use as a time source",
+      "description": "Specifies an NTP server as a time source.",
       "type": "string"
-    },
-    "slewmaxdelta": {
-      "description": "Set maximum delta for slew (seconds)",
-      "type": "int"
-    },
-    "slewmaxfreq": {
-      "description": "Set maximum frequency for slew (Hz)",
-      "type": "int"
-    },
-    "statsdir": {
-      "description": "Specify directory for statistics files",
-      "type": "string"
-    },
-    "statstimes": {
-      "description": "Set number of hours between statistics file rotations",
-      "min": 0,
-      "type": "int"
-    },
-    "stepback": {
-      "description": "Allow clock stepping backward",
-      "type": "bool"
-    },
-    "stepbackdecay": {
-      "description": "Set decay factor for stepback",
-      "type": "int"
-    },
-    "stepbackdecay tenthterm": {
-      "description": "Set decay tenth term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayamplitude": {
-      "description": "Set decay amplitude for stepback",
-      "type": "int"
-    },
-    "stepbackdecaycoefficient": {
-      "description": "Set decay coefficient for stepback",
-      "type": "int"
-    },
-    "stepbackdecayconstant": {
-      "description": "Set decay constant for stepback",
-      "type": "int"
-    },
-    "stepbackdecayconstantterm": {
-      "description": "Set decay constant term for stepback",
-      "type": "int"
-    },
-    "stepbackdecaycubicterm": {
-      "description": "Set decay cubic term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayduration": {
-      "description": "Set decay duration for stepback",
-      "type": "int"
-    },
-    "stepbackdecayeighthterm": {
-      "description": "Set decay eighth term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayfactor": {
-      "description": "Set decay factor for stepback",
-      "type": "int"
-    },
-    "stepbackdecayfrequency": {
-      "description": "Set decay frequency for stepback",
-      "type": "int"
-    },
-    "stepbackdecaygain": {
-      "description": "Set decay gain for stepback",
-      "type": "int"
-    },
-    "stepbackdecayintercept": {
-      "description": "Set decay intercept for stepback",
-      "type": "int"
-    },
-    "stepbackdecayinterval": {
-      "description": "Set decay interval for stepback",
-      "type": "int"
-    },
-    "stepbackdecaylimit": {
-      "description": "Set decay limit for stepback",
-      "type": "int"
-    },
-    "stepbackdecaylinearterm": {
-      "description": "Set decay linear term for stepback",
-      "type": "int"
-    },
-    "stepbackdecaymax": {
-      "description": "Set maximum decay value for stepback",
-      "type": "int"
-    },
-    "stepbackdecaymin": {
-      "description": "Set minimum decay value for stepback",
-      "type": "int"
-    },
-    "stepbackdecayoffset": {
-      "description": "Set decay offset for stepback",
-      "type": "int"
-    },
-    "stepbackdecayparameter": {
-      "description": "Set decay parameter for stepback",
-      "type": "int"
-    },
-    "stepbackdecayperiod": {
-      "description": "Set decay period for stepback",
-      "type": "int"
-    },
-    "stepbackdecayphase": {
-      "description": "Set decay phase for stepback",
-      "type": "int"
-    },
-    "stepbackdecayquadraticterm": {
-      "description": "Set decay quadratic term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayquarticterm": {
-      "description": "Set decay quartic term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayquinticterm": {
-      "description": "Set decay quintic term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayrate": {
-      "description": "Set decay rate for stepback",
-      "type": "int"
-    },
-    "stepbackdecays ninthterm": {
-      "description": "Set decay ninth term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayseventhterm": {
-      "description": "Set decay seventh term for stepback",
-      "type": "int"
-    },
-    "stepbackdecaysixthterm": {
-      "description": "Set decay sixth term for stepback",
-      "type": "int"
-    },
-    "stepbackdecayslope": {
-      "description": "Set decay slope for stepback",
-      "type": "int"
-    },
-    "stepbackdecaystep": {
-      "description": "Set decay step for stepback",
-      "type": "int"
-    },
-    "stepbackdecaythreshold": {
-      "description": "Set decay threshold for stepback",
-      "type": "int"
-    },
-    "stepbackdecaytime": {
-      "description": "Set decay time for stepback",
-      "type": "int"
-    },
-    "stepbackdecayvariable": {
-      "description": "Set decay variable for stepback",
-      "type": "int"
-    },
-    "stepbackjump": {
-      "description": "Set maximum backward jump for stepback",
-      "type": "int"
-    },
-    "stepbackmax": {
-      "description": "Set maximum stepback value",
-      "type": "int"
-    },
-    "stepbackthreshold": {
-      "description": "Set threshold for stepback",
-      "type": "int"
-    },
-    "stepthreshold": {
-      "description": "Set threshold for clock stepping (seconds)",
-      "type": "int"
-    },
-    "stratum": {
-      "description": "Set NTP stratum for refclock",
-      "min": 0,
-      "type": "int"
     },
     "stratumweight": {
-      "description": "Set distance weight per stratum",
+      "default": ",0.001",
+      "description": "Distance added per stratum during source selection.",
       "type": "int"
-    },
-    "tai": {
-      "description": "Indicate refclock keeps time in TAI",
-      "type": "bool"
-    },
-    "tempcomp": {
-      "description": "Specify temperature compensation file",
-      "type": "string"
-    },
-    "trackingstats": {
-      "description": "Enable recording of tracking statistics",
-      "type": "bool"
-    },
-    "trust": {
-      "description": "Assume time from this source is always true",
-      "type": "bool"
-    },
-    "version": {
-      "description": "Set NTP version for packets to server",
-      "max": 4,
-      "min": 3,
-      "type": "int"
-    },
-    "width": {
-      "description": "Set PPS pulse width (seconds)",
-      "type": "int"
-    },
-    "xleave": {
-      "description": "Enable NTP interleaved mode",
-      "type": "bool"
     }
   },
   "client.conf": {

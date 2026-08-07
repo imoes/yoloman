@@ -145,6 +145,64 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "bossman_guide",
+            "description": (
+                "START HERE when unsure how to operate Bossman. Returns the operator skill: the mental "
+                "model (read-first; writes are dry-run + human-gated) and, per DevOps task, which action "
+                "to take — inspect a host/fleet, configure ONE host vs MANY via a policy, monitoring & "
+                "thresholds, playbooks/runbooks, provisioning. Read it before planning a multi-step change."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "host_status",
+            "description": "Quick descriptor of ONE host: mode, enrollment state, online, address, tags/groups and OU. Use for a fast 'what/where is this host' before deeper triage (analyze_host) or changes.",
+            "parameters": {
+                "type": "object",
+                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_problems",
+            "description": "List active fleet problems — non-OK services in a hard state, most recent first (the 'unhandled problems' triage view). Each: host, service, state, value, thresholds, acknowledged, in_downtime. Call this to see what needs attention across the fleet.",
+            "parameters": {
+                "type": "object",
+                "properties": {"state": {"type": "string", "description": "Optional filter: WARN | CRIT | UNKNOWN."}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_runbooks",
+            "description": "List stored runbooks (multi-step procedures / playbooks), optionally by folder (e.g. 'wizards' for install-<pkg>). Each carries its typed parameters. Use to find a procedure to run; running one is a gated write done via the MCP/REST path.",
+            "parameters": {
+                "type": "object",
+                "properties": {"folder": {"type": "string", "description": "Optional folder filter, e.g. 'wizards'."}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_checks",
+            "description": "Find monitoring checks by what they do: name, short_description, one-paragraph summary, category and datasource (agent|snmp|ssh). Pass `query` to filter (e.g. 'cpu','disk','postgres'). Use to discover which check to assign to a host (then discover_host_checks / assign_host_check).",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "Optional substring filter over name/description."}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "read_host_log",
             "description": (
                 "Tail one /var/log file on a host to drill into a log analyze_host flagged. "
@@ -217,6 +275,54 @@ async def execute_tool(
         return {"total": total, "enrolled": enrolled, "online": online, "offline": total - online}
     if name == "capability_match":
         return await _capability_match(session, args, settings)
+    if name == "bossman_guide":
+        from bossman.services.ops_guide import BOSSMAN_GUIDE
+
+        return {"guide": BOSSMAN_GUIDE}
+    if name == "host_status":
+        agent = await _resolve_agent(session, args.get("host") or "")
+        if agent is None:
+            return {"error": f"no such host {args.get('host')!r}"}
+        return {
+            "name": agent.name, "mode": agent.mode, "enrollment_state": agent.enrollment_state,
+            "online": _online(agent, now), "address": agent.address,
+            "groups": list(agent.groups or []), "ou_id": str(agent.ou_id) if agent.ou_id else None,
+            "last_seen": agent.last_seen_at.isoformat() if agent.last_seen_at else None,
+        }
+    if name == "list_problems":
+        from bossman.services.monitoring import query_problems
+
+        views = await query_problems(session, state=(args.get("state") or None))
+        return {"problems": [
+            {"host": v.agent_name, "service": v.service.name, "state": v.service.state,
+             "value": v.service.value, "warn": v.warn_threshold, "crit": v.crit_threshold,
+             "acknowledged": v.service.acknowledged, "in_downtime": v.in_downtime}
+            for v in views
+        ]}
+    if name == "list_runbooks":
+        from bossman.db.models import Runbook
+
+        q = select(Runbook)
+        folder = args.get("folder")
+        if folder:
+            q = q.where(Runbook.folder == folder)
+        rows = (await session.scalars(q.order_by(Runbook.name))).all()
+        return {"runbooks": [
+            {"name": r.name, "kind": r.kind, "folder": r.folder or "",
+             "steps": len((r.doc or {}).get("steps", [])), "parameters": (r.doc or {}).get("parameters", {})}
+            for r in rows
+        ]}
+    if name == "list_checks":
+        from bossman.services import checks_library
+
+        root = getattr(settings, "checks_dir", None) if settings else None
+        if not root:
+            return {"error": "check catalog is not available in this chat context"}
+        rows = checks_library.list_checks(root)
+        query = (args.get("query") or "").strip().lower()
+        if query:
+            rows = [r for r in rows if query in (r.get("name", "") + " " + r.get("short_description", "") + " " + r.get("summary", "")).lower()]
+        return {"checks": rows}
     return {"error": f"unknown tool {name!r}"}
 
 
