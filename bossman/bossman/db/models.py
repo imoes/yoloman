@@ -835,6 +835,30 @@ class HostGroupMember(Base):
     __table_args__ = (UniqueConstraint("host_group_id", "agent_id", name="uq_host_group_members_group_agent"),)
 
 
+class Site(Base):
+    """A network Site (AD Sites-and-Services) — a policy scope defined by one or
+    more SUBNETS (CIDRs), not by explicit membership. A host belongs to a Site
+    when its primary IP falls inside one of the site's subnets. Like HostGroup it
+    lives inside an OU (ou_id) for tree placement, but scoping is by subnet. GPO
+    precedence sits between OU and host group: global < OU < Site < group < host."""
+
+    __tablename__ = "sites"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    # The site's subnets in CIDR notation (e.g. ["192.0.2.0/24", "10.0.0.0/8"]).
+    # A host matches the site when its primary IP is in any of these.
+    subnets: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_sites_tenant_name"),)
+
+
 class OrchestrationPlan(Base):
     """A named, reusable orchestration plan (Block L1) — a role like
     docker_host, a cluster like postgres_cluster, a deployment, etc. The
@@ -915,6 +939,7 @@ class OrchestrationPlanLink(Base):
     ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
     host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id", ondelete="CASCADE"))
     conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
@@ -936,7 +961,7 @@ class OrchestrationPlanLink(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "target_type IN ('ou', 'host', 'group', 'label_selector', 'global')",
+            "target_type IN ('ou', 'host', 'group', 'site', 'label_selector', 'global')",
             name="ck_orchestration_plan_links_target_type",
         ),
         CheckConstraint(
@@ -1519,6 +1544,7 @@ class ConfigPolicy(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
     host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id", ondelete="CASCADE"))
     path: Mapped[str] = mapped_column(String, nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False, default="config")
     config_format: Mapped[str | None] = mapped_column(String)
@@ -1530,8 +1556,10 @@ class ConfigPolicy(Base):
     __table_args__ = (
         UniqueConstraint("scope_ou_id", "path", name="uq_config_policies_ou_path"),
         UniqueConstraint("host_group_id", "path", name="uq_config_policies_group_path"),
+        UniqueConstraint("site_id", "path", name="uq_config_policies_site_path"),
         Index("idx_config_policies_ou", "scope_ou_id"),
         Index("idx_config_policies_group", "host_group_id"),
+        Index("idx_config_policies_site", "site_id"),
     )
 
 
