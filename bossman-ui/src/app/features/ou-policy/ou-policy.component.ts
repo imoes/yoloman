@@ -357,6 +357,10 @@ interface PaletteItem {
           <button class="bm-menu-item" cdkMenuItem (click)="newSiteThreshold(ctx()!)">Threshold…</button>
           <div class="bm-menu-sep"></div>
         }
+        @if (ctx()?.obj?.kind === 'variables') {
+          <button class="bm-menu-item" cdkMenuItem (click)="editVariablesObject(ctx()!)">Edit variables…</button>
+          <div class="bm-menu-sep"></div>
+        }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
       </div>
     </ng-template>
@@ -509,6 +513,8 @@ export class OuPolicyComponent implements OnInit {
     const linkedPlanIds = new Set<string>();
     for (const [ouId, objs] of this.objectsByOu()) {
       for (const o of objs) {
+        // Variables are an OU-local object, not a draggable/linkable policy.
+        if (o.kind === 'variables') continue;
         if (o.kind === 'orchestration_link' && o.plan_id) linkedPlanIds.add(o.plan_id);
         items.push({
           kind: o.kind,
@@ -646,7 +652,7 @@ export class OuPolicyComponent implements OnInit {
   }
 
   objIcon(kind: OUObject['kind']): string {
-    return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', site: 'lan', orchestration_link: 'widgets', config_policy: 'dataset' }[kind];
+    return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', site: 'lan', orchestration_link: 'widgets', config_policy: 'dataset', variables: 'data_object' }[kind];
   }
 
   select(row: TreeRow): void {
@@ -699,13 +705,21 @@ export class OuPolicyComponent implements OnInit {
   editOuVars(ou: OUNode): void {
     this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
       ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'ou', scopeId: ou.id, scopeLabel: 'OU ' + ou.path } },
-    );
+    // Reload so the Variables tree object (and the report) reflect the change —
+    // without this a just-set variable never showed up.
+    ).afterClosed().subscribe(() => this.afterObjectChange(ou.id));
   }
 
   editGroupVars(row: TreeRow): void {
     this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
       ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'group', scopeId: row.obj!.id, scopeLabel: 'group ' + row.obj!.label } },
-    );
+    ).afterClosed().subscribe(() => { if (row.ownerOuId) this.reloadObjects(row.ownerOuId); });
+  }
+
+  /** Edit the OU's variables from its tree "Variables" object (resolves the OU). */
+  editVariablesObject(row: TreeRow): void {
+    const ou = this.ous().find((o) => o.id === row.ownerOuId);
+    if (ou) this.editOuVars(ou);
   }
 
   removeAssignment(a: CheckAssignment, ouId: string): void {
@@ -767,6 +781,8 @@ export class OuPolicyComponent implements OnInit {
    * presenting the object as a PaletteItem carrying its current owner OU. */
   onPlacedObjDragStart(row: TreeRow, event: DragEvent): void {
     const o = row.obj!;
+    // Variables are an OU-local object, not a linkable policy — not draggable.
+    if (o.kind === 'variables') { event.preventDefault(); return; }
     this.dragPolicy.set({
       kind: o.kind, id: o.id, label: o.label,
       ownerOuId: row.ownerOuId ?? null, ownerPath: null, planId: o.plan_id ?? undefined,
@@ -1320,6 +1336,8 @@ export class OuPolicyComponent implements OnInit {
     else if (obj.kind === 'site') this.site.delete(obj.id).subscribe(() => { this.reloadSites(); if (this.isSiteSelected(obj.id)) this.selected.set(null); });
     else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
     else if (obj.kind === 'config_policy') this.ouService.deleteConfigPolicy(obj.id).subscribe(done);
+    // Deleting the Variables object clears the OU's variables (empty → object gone).
+    else if (obj.kind === 'variables' && row.ownerOuId) this.ouService.setOuVars(row.ownerOuId, {}).subscribe(done);
   }
 
   /** Delete any policy straight from the palette (right-click) — including UNLINKED plans, which had no

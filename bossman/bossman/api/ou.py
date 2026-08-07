@@ -306,6 +306,15 @@ async def list_ou_objects(
     for g in (await session.scalars(select(HostGroup).where(HostGroup.ou_id == ou_id, HostGroup.deleted_at.is_(None)))).all():
         out.append(OUObject(kind="host_group", id=g.id, label=g.name))
 
+    # Variables set on this OU appear as their own tree object (like a GPO's
+    # "Preferences" node) so they're visible/editable in the tree, not only in
+    # the report. id = the ScopeVars row; label shows how many keys.
+    sv = await session.scalar(
+        select(ScopeVars).where(ScopeVars.ou_id == ou_id, ScopeVars.scope_type == "ou")
+    )
+    if sv and sv.vars:
+        out.append(OUObject(kind="variables", id=sv.id, label=f"Variables ({len(sv.vars)})"))
+
     # NOTE: Sites are NOT listed here. Like AD Sites-and-Services, a Site is a
     # TOP-LEVEL container directly under Root (subnet-scoped), not nested under an
     # OU — the UI renders them as their own node, served by /api/v1/policy-sites.

@@ -74,6 +74,12 @@ export class OuService {
     return this.http.post<{ unset: boolean }>(`${environment.apiUrl}/config-policies/unset`, body);
   }
 
+  /** Set (or clear, with {}) the variables on an OU — used by the tree's
+   * Variables object; clearing removes the object. */
+  setOuVars(ouId: string, vars: Record<string, unknown>) {
+    return this.http.put<unknown>(`${environment.apiUrl}/scope-vars`, { scope_type: 'ou', ou_id: ouId, vars });
+  }
+
   /** Move a placed config policy to another OU/group/site scope. */
   rescopeConfigPolicy(id: string, body: { scope_ou_id?: string; host_group_id?: string; site_id?: string }) {
     return this.http.patch<{ id: string }>(`${environment.apiUrl}/config-policies/${id}`, body);
