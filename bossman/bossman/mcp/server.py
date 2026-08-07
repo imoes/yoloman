@@ -91,6 +91,68 @@ def _service_view_dict(view: ServiceView) -> dict[str, Any]:
     }
 
 
+# A complete "how to operate a fleet with Bossman" skill, surfaced two ways: as
+# the MCP server `instructions` (every client sees it on connect) AND as the
+# bossman_guide() tool (models that ignore instructions can fetch it). It names
+# the exact tool to call for each DevOps task so even a small model can drive
+# Bossman end-to-end. Keep it tool-name-accurate — it is the contract.
+BOSSMAN_GUIDE = """\
+# Operating a server fleet with Bossman (MCP skill)
+
+Bossman is an **agentic ops OS**: a fleet of Linux hosts (each runs an agent),
+managed as one live document. You (the model) run day-2 operations through these
+tools. **Golden rules:**
+- **Read first.** Almost every task starts with `list_hosts`, then `host_status` /
+  `diagnose_host` / `get_server_document` for one host.
+- **Writes are dry-run by default and gated.** Mutating tools (`set_host_config`,
+  `run_runbook`, `resource_apply`, `propose_orchestration_plan_link`, …) default to
+  `dry_run=True` / propose-only. Preview, show the diff to the human, then apply.
+  Never flip an approval/auto-apply flag yourself.
+- **Unsure how something works? call `search_help(query)` FIRST** and answer from the
+  docs, don't guess. `bossman_guide()` returns this overview.
+
+## Pick the right tool by task
+
+**Inspect a host / the fleet**
+- `list_hosts` — every managed host (name, address, tags, OU). Start here.
+- `host_status(host)` / `diagnose_host(host)` — facts, latest metrics, recent run, cross-signal snapshot.
+- `fleet_health` / `list_problems` / `host_services(host)` — monitoring state; `get_host_logs`, `get_host_processes`.
+- `get_server_document(host)` / `explain_server(host, question)` — the whole host as a document / NL Q&A grounded in live state.
+
+**Configure ONE host** (a file on a single machine)
+- `set_host_config(host, path, values, dry_run=True)` — converge a config file (codec-merged). Preview with dry_run, then apply.
+- `get_host_desired_state(host)` — what is currently desired for the host.
+
+**Configure MANY hosts = POLICY** (GPO model: author once, link to a scope)
+- Scopes form a tree: `get_ou_tree` (OUs), `list_host_groups`, plus subnet **Sites**. Precedence: global < group < OU(deep) < Site < host (closest-to-host wins).
+- A **named policy** groups several config-file entries; link it to an OU/Site to apply to every host under it. Thresholds: `set_threshold(...)`. Orchestration/role policies: `list_orchestration_plans`, `preview_orchestration_plan_link`, then `propose_orchestration_plan_link(...)` — the ONE gated write (starts pending human approval).
+- **When to use which:** one host, one file → `set_host_config`. Same setting for a whole group/OU/subnet → a policy linked to that scope. A monitoring limit → `set_threshold`. A role/package rollout → an orchestration plan link.
+
+**Monitoring & checks**
+- `list_problems` / `host_services(host)` to see state; `set_threshold` to author a rule; `acknowledge_problem` / `schedule_downtime` to manage noise.
+- **Find/read checks by what they do:** `list_checks(query)` (name + description + summary + datasource) → `get_check(name)` (full description + params + source). Checks are read-only Starlark modules; author one with `submit_check`.
+
+**Playbooks / runbooks** (multi-step procedures)
+- Find one: `list_runbooks` / `search_runbooks(query)` / `get_runbook(name)`.
+- Run it: `run_runbook(runbook, host, variables, apply=False)` — dry-run first; `apply=True` is gated by the global YOLO-MAN switch.
+- Reusable "plans" (roles/config bundles): `search_plans`, `run_plan(plan, host, dry_run=True)`, `get_plan_run(id)`.
+
+**Provision & onboard software**
+- `list_roles` / `get_role(name)` — installable server roles (nginx, postgres, …).
+- `qualify_package(name)` — create ALL config artifacts (codec, directives, template, enum) for a new package so it appears in the wizard/roles/config editor.
+- `list_config_templates(query)` / `get_config_template(name)` — find a config template by what it configures (name + settings count + description), then read its full schema (every setting: type/default/allowed values/description) + Jinja2.
+
+**Author agent modules** (host tasks) — `module_contract()` returns the full authoring rules; `validate_module` then `submit_module`.
+
+**Rehearse before prod** — `system_propose`/`system_create` capture a host as a System; `system_clone`→`system_rehearse` in a sandbox; `system_promote` (rehearsal-gated) to prod.
+
+**Generic resource lifecycle** (kinds: docker | helm | config | role) — `resource_observe` → `resource_plan` → `resource_apply(dry_run=True)` → `resource_rollback` / `resource_generations`.
+
+## Safety
+Show diffs from dry-run/preview before applying. Use `blast_radius(host, resources)` for what-if. For fleet-wide changes prefer a policy link (`propose_orchestration_plan_link`, human-approved) over touching hosts one by one.
+"""
+
+
 def build_mcp_server(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
@@ -104,7 +166,10 @@ def build_mcp_server(
     # request (caught by an actual MCP client run against a live server,
     # not by any in-process test, which never asked FastMCP for its own
     # ASGI app).
-    mcp = FastMCP(name="bossman", instructions=catalog_cache.catalog_markdown, streamable_http_path="/")
+    # Instructions every MCP client sees on connect: the DevOps skill (how to
+    # drive Bossman, which tool for which task) THEN the known-plans catalog.
+    _instructions = BOSSMAN_GUIDE + "\n\n---\n\n## Known plans (catalog)\n\n" + (catalog_cache.catalog_markdown or "")
+    mcp = FastMCP(name="bossman", instructions=_instructions, streamable_http_path="/")
 
     @mcp.tool()
     async def web_search(query: str, limit: int = 6) -> list[dict[str, str]]:
@@ -116,6 +181,30 @@ def build_mcp_server(
 
         results = await SearxngClient(settings.searxng_base_url).search(query, limit=limit)
         return [r.to_dict() for r in results]
+
+    @mcp.tool()
+    async def bossman_guide() -> str:
+        """START HERE. Returns the Bossman operator skill: how to run day-2 fleet
+        operations through these tools — the mental model (agentic ops OS; read
+        first; writes are dry-run + human-gated) and, per DevOps task, EXACTLY which
+        tool to call: inspect a host/fleet, configure ONE host (set_host_config) vs
+        MANY via a POLICY linked to an OU/Site/group, monitoring & thresholds,
+        playbooks/runbooks, provisioning & packages (qualify_package), module/check
+        authoring, rehearsal, and the generic resource lifecycle. Same text as the
+        server `instructions`. Call this (or search_help) whenever unsure."""
+        return BOSSMAN_GUIDE
+
+    @mcp.tool()
+    async def search_help(query: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Search Bossman's own documentation (README + docs/) — the source of
+        truth for how the product works. Returns ranked sections {source, heading,
+        text}. Use this WHENEVER you're unsure how to do something in Bossman
+        (before guessing): e.g. "how do policies work", "config precedence",
+        "create a runbook", "PXE provisioning". Complements bossman_guide (the
+        task→tool map) with the full prose docs."""
+        from bossman.services import help as help_svc
+
+        return help_svc.search_help(settings.help_root, query, limit=limit)
 
     @mcp.tool()
     async def fetch_url(url: str, max_chars: int = 12000) -> str:
@@ -226,7 +315,11 @@ def build_mcp_server(
 
     @mcp.tool()
     async def host_status(host: str) -> dict[str, Any]:
-        """Facts, latest metric snapshot, and latest plan run for one host (by name)."""
+        """A quick health snapshot of ONE host (by name): its facts (OS, kernel,
+        IPs), the latest metric sample (cpu/mem/disk/load), and its most recent
+        plan run. The fast "how is this box doing?" read — start here before
+        set_host_config / run_runbook. For deeper triage use diagnose_host,
+        host_services (monitoring), get_host_logs, or get_server_document."""
         async with session_factory() as session:
             agent = await session.scalar(select(Agent).where(Agent.name == host))
             if agent is None:
@@ -547,7 +640,11 @@ def build_mcp_server(
 
     @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
-        """List every available plan: name, description, params."""
+        """List every available PLAN — a named, reusable procedure (install/
+        configure a role, apply a config bundle) with its description and the
+        params it accepts. Plans are the building blocks you execute with
+        run_plan(plan, host). Use search_plans(query) to find one by intent;
+        run_plan to execute (dry-run first)."""
         return catalog_cache.list_json
 
     @mcp.tool()
@@ -1010,6 +1107,32 @@ def build_mcp_server(
         return sorted(p.stem[len("checkmk.") :] for p in Path(settings.module_sources_dir).glob("checkmk.*.json"))
 
     @mcp.tool()
+    async def list_checks(query: str = "") -> list[dict[str, Any]]:
+        """FIND monitoring checks by what they DO. Returns the check catalog with
+        each check's name, short_description, a one-paragraph summary, category and
+        datasource (agent | snmp | ssh). Pass `query` to filter by substring over
+        name/description/summary (e.g. "cpu", "disk", "postgres", "docker"). Use
+        this to discover which check to assign to a host/scope; then get_check(name)
+        for the full description + Starlark source. To assign one, author a threshold
+        with set_threshold or assign via a policy."""
+        rows = checks_library.list_checks(settings.checks_dir)
+        q = query.strip().lower()
+        if q:
+            rows = [r for r in rows if q in (r.get("name", "") + " " + r.get("short_description", "") + " " + r.get("summary", "")).lower()]
+        return rows
+
+    @mcp.tool()
+    async def get_check(name: str) -> dict[str, Any]:
+        """READ one check in full: its metadata (short_description, the long
+        markdown `description` explaining what it measures + its parameters/options)
+        and the Starlark source. Use after list_checks to understand exactly what a
+        check does and how to parametrize it before assigning it."""
+        try:
+            return checks_library.load_check(settings.checks_dir, name)
+        except module_library.ModuleLibraryError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
     async def submit_check(name: str, metadata: str, star_code: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """Store one translated/custom CHECK in the flat check library
         (<checks_dir>/<name>.{star,nt}). Like submit_module but for a
@@ -1198,14 +1321,38 @@ def build_mcp_server(
         return result
 
     @mcp.tool()
-    async def list_config_templates() -> list[str]:
-        """List the names of all available config templates (each is a Jinja2
-        template + values schema under config_templates/). Read one with
-        get_config_template."""
+    async def list_config_templates(query: str = "") -> list[dict[str, Any]]:
+        """FIND config templates by what they configure. Each template (a Jinja2
+        body + a values schema, per config file) becomes an entry with its name,
+        the number of settings, and a short description synthesized from the
+        schema's field descriptions — so you can pick the right one without opening
+        each. Pass `query` to filter by substring over name/description (e.g.
+        "nginx", "ntp", "ssh"). Then get_config_template(name) for the full schema
+        (every setting: type, default, allowed values, description) + the Jinja2."""
         tdir = Path(settings.config_templates_dir)
         if not tdir.is_dir():
             return []
-        return sorted(d.name for d in tdir.iterdir() if d.is_dir() and (d / "template.j2").is_file())
+        out: list[dict[str, Any]] = []
+        for d in sorted(p for p in tdir.iterdir() if p.is_dir() and (p / "template.j2").is_file()):
+            fields = 0
+            descs: list[str] = []
+            try:
+                schema = json.loads((d / "schema.json").read_text())
+                if isinstance(schema, dict):
+                    for spec in schema.values():
+                        if isinstance(spec, dict) and "type" in spec:
+                            fields += 1
+                            de = spec.get("description")
+                            if de and len(descs) < 4:
+                                descs.append(str(de))
+            except (OSError, ValueError):
+                pass
+            desc = "; ".join(descs) or f"Config template for {d.name}"
+            out.append({"name": d.name, "settings": fields, "description": desc[:300]})
+        q = query.strip().lower()
+        if q:
+            out = [t for t in out if q in (t["name"] + " " + t["description"]).lower()]
+        return out
 
     @mcp.tool()
     async def qualify_package(name: str) -> dict[str, Any]:
