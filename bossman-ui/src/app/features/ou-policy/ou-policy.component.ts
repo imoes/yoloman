@@ -526,6 +526,12 @@ export class OuPolicyComponent implements OnInit {
         items.push({ kind: 'plan', id: p.id, label: p.display_name || p.name, ownerOuId: null, ownerPath: null, planId: p.id });
       }
     }
+    // Unlinked config policies (authored via "New config policy" with no scope):
+    // draggable onto an OU/Site to link them there.
+    for (const cp of this.unlinkedPolicies()) {
+      const detail = cp.type === 'template_render' ? 'template' : `${Object.keys(cp.values || {}).length} keys`;
+      items.push({ kind: 'config_policy', id: cp.id, label: `${cp.path} (${detail})`, ownerOuId: null, ownerPath: null });
+    }
     items.sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label));
     return items;
   });
@@ -574,13 +580,21 @@ export class OuPolicyComponent implements OnInit {
 
   // Sites render as a second root branch in the tree (AD Sites-and-Services); expanded by default.
   sitesExpanded = signal(true);
+  // Config policies authored but not yet linked to any scope (GPMC unlinked GPOs);
+  // shown in the palette as "(unlinked)" and draggable onto an OU/Site to link.
+  unlinkedPolicies = signal<{ id: string; path: string; type: string; values: Record<string, unknown> }[]>([]);
 
   private reloadSites(): void {
     this.site.list().subscribe((s) => this.sites.set(s));
   }
 
+  private reloadUnlinkedPolicies(): void {
+    this.ouService.listConfigPolicies({ unlinked: true }).subscribe((ps) => this.unlinkedPolicies.set(ps));
+  }
+
   private reload(): void {
     this.reloadSites();
+    this.reloadUnlinkedPolicies();
     this.ouService.list().subscribe((ous) => {
       this.ous.set(ous);
       // Load every OU's objects up front so existing policies are visible on
@@ -1126,13 +1140,13 @@ export class OuPolicyComponent implements OnInit {
    * via OrchestrationPlanDialog — newCompositePolicy.) */
   newPolicyUnlinked(): void {
     const sel = this.selected();
-    let scope: PolicyGpeditDialogData['scope'] | null = null;
+    // A selected OU/group pre-scopes the new policy; otherwise author it UNLINKED
+    // (GPMC "create a GPO, link it later") — it lands in the palette as (unlinked)
+    // and applies to nothing until dragged onto an OU/Site. No forced selection.
+    let scope: PolicyGpeditDialogData['scope'];
     if (sel?.kind === 'ou' && sel.ou) scope = { kind: 'ou', id: sel.ou.id, label: sel.ou.path };
     else if (sel?.kind !== 'ou' && sel?.obj?.kind === 'host_group') scope = { kind: 'group', id: sel.obj.id, label: sel.obj.label };
-    if (!scope) {
-      this.appDialog.notify('Select an OU (or host group) first — a policy is authored at a scope and applies to every host under it.', 'info');
-      return;
-    }
+    else scope = { kind: 'unlinked', label: 'unlinked policy' };
     this.openGpedit(scope);
   }
 

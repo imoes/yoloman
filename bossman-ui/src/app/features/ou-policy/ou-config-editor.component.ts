@@ -30,8 +30,10 @@ interface SettingRow {
  * the catalog host is resolved from its member agent ids (an OU resolves it
  * from its subtree members endpoint). */
 export interface EditorScope {
-  kind: 'ou' | 'group' | 'site';
-  id: string;
+  // 'unlinked' authors a scope-less policy (GPMC "create a GPO, link it later");
+  // it carries no id and applies to nothing until dragged onto an OU/Site.
+  kind: 'ou' | 'group' | 'site' | 'unlinked';
+  id?: string;
   label: string;
   memberAgentIds?: string[];
 }
@@ -192,15 +194,20 @@ export class OuConfigEditorComponent implements OnChanges {
   private hostGroupService = inject(HostGroupService);
   private appDialog = inject(DialogService);
 
-  get scopeWord(): string { return this.scope.kind === 'group' ? 'group' : this.scope.kind === 'site' ? 'site' : 'OU'; }
+  get scopeWord(): string {
+    return this.scope.kind === 'group' ? 'group' : this.scope.kind === 'site' ? 'site'
+      : this.scope.kind === 'unlinked' ? 'unlinked policy' : 'OU';
+  }
   private listArg() {
     return this.scope.kind === 'ou' ? { ouId: this.scope.id }
       : this.scope.kind === 'site' ? { siteId: this.scope.id }
+      : this.scope.kind === 'unlinked' ? { unlinked: true }
       : { groupId: this.scope.id };
   }
   private scopeArg() {
     return this.scope.kind === 'ou' ? { scope_ou_id: this.scope.id }
       : this.scope.kind === 'site' ? { site_id: this.scope.id }
+      : this.scope.kind === 'unlinked' ? {}
       : { host_group_id: this.scope.id };
   }
 

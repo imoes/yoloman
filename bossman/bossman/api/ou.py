@@ -534,17 +534,31 @@ async def create_config_policy(
     (Block K4, authored from the Policy console). No agent context needed — you
     can define a policy for an OU that has no reachable host yet; it applies
     when hosts appear/re-sync."""
-    scope_kind, scope_id = _resolve_policy_scope(body.scope_ou_id, body.host_group_id, body.site_id)
-    if scope_kind == "ou" and await session.get(OUNode, scope_id) is None:
-        raise HTTPException(status_code=422, detail=f"no such OU {scope_id}")
-    if scope_kind == "group" and await session.get(HostGroup, scope_id) is None:
-        raise HTTPException(status_code=422, detail=f"no such host group {scope_id}")
-    if scope_kind == "site" and await session.get(Site, scope_id) is None:
-        raise HTTPException(status_code=422, detail=f"no such site {scope_id}")
+    # Unlinked authoring (GPMC "create a GPO, link it later"): with NO scope the
+    # policy is created inert — it applies to nothing until it is linked (dragged
+    # onto an OU/Site, which rescopes it). This is what "New config policy" does
+    # when no scope is selected, so authoring never demands a target up front.
+    have_scope = any(v is not None for v in (body.scope_ou_id, body.host_group_id, body.site_id))
+    if have_scope:
+        scope_kind, scope_id = _resolve_policy_scope(body.scope_ou_id, body.host_group_id, body.site_id)
+        if scope_kind == "ou" and await session.get(OUNode, scope_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such OU {scope_id}")
+        if scope_kind == "group" and await session.get(HostGroup, scope_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such host group {scope_id}")
+        if scope_kind == "site" and await session.get(Site, scope_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such site {scope_id}")
+    else:
+        scope_kind, scope_id = None, None
 
     if not body.dry_run:
-        scope_col = {"ou": ConfigPolicy.scope_ou_id, "group": ConfigPolicy.host_group_id, "site": ConfigPolicy.site_id}[scope_kind]
-        q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == body.path)
+        if scope_kind is None:
+            # Match an existing unlinked policy for this path (all scope cols null).
+            q = select(ConfigPolicy).where(
+                ConfigPolicy.scope_ou_id.is_(None), ConfigPolicy.host_group_id.is_(None),
+                ConfigPolicy.site_id.is_(None), ConfigPolicy.path == body.path)
+        else:
+            scope_col = {"ou": ConfigPolicy.scope_ou_id, "group": ConfigPolicy.host_group_id, "site": ConfigPolicy.site_id}[scope_kind]
+            q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == body.path)
         pol = await session.scalar(q)
         if pol is None:
             # DEFAULT_TENANT_ID may be a str or already a UUID depending on
@@ -572,7 +586,8 @@ async def create_config_policy(
         "type": body.type, "path": body.path, "format": body.format,
         "separator": body.separator, "values": body.values, "template": body.template,
     }
-    member_ids = await affected_agent_ids(
+    # An unlinked policy has no members to converge — it is inert until linked.
+    member_ids = [] if scope_kind is None else await affected_agent_ids(
         session, scope_kind,
         ou_id=scope_id if scope_kind == "ou" else None,
         host_group_id=scope_id if scope_kind == "group" else None,
@@ -630,13 +645,19 @@ async def list_config_policies(
     scope_ou_id: UUID | None = None,
     host_group_id: UUID | None = None,
     site_id: UUID | None = None,
+    unlinked: bool = False,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[dict]:
     """Config policies WITH their values documents, for the Policy-console
     gpedit editor (the OU objects list only carries a label). Filter by OU,
-    group or Site scope; no filter returns all."""
+    group or Site scope; `unlinked=true` returns the scope-less policies (created
+    via "New config policy" and not yet linked); no filter returns all."""
     stmt = select(ConfigPolicy)
+    if unlinked:
+        stmt = stmt.where(
+            ConfigPolicy.scope_ou_id.is_(None), ConfigPolicy.host_group_id.is_(None),
+            ConfigPolicy.site_id.is_(None))
     if scope_ou_id is not None:
         stmt = stmt.where(ConfigPolicy.scope_ou_id == scope_ou_id)
     if host_group_id is not None:

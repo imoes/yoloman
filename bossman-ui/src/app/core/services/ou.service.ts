@@ -59,9 +59,10 @@ export class OuService {
 
   /** Config policies WITH their values documents at one scope (the objects
    * list only carries a label) — feeds the Policy-console gpedit editor. */
-  listConfigPolicies(scope: { ouId?: string; groupId?: string; siteId?: string }) {
+  listConfigPolicies(scope: { ouId?: string; groupId?: string; siteId?: string; unlinked?: boolean }) {
     const q = scope.ouId ? `scope_ou_id=${scope.ouId}`
       : scope.siteId ? `site_id=${scope.siteId}`
+      : scope.unlinked ? `unlinked=true`
       : `host_group_id=${scope.groupId}`;
     return this.http.get<
       { id: string; scope_ou_id: string | null; host_group_id: string | null; site_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null }[]
