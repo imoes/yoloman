@@ -1448,6 +1448,9 @@ class CheckRule(Base):
     # pierces block_inheritance); `link_order` breaks ties within one level
     # (lowest wins). See services/compiler._resolve_gpo_winner.
     scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    # Site (subnet) scope — mirrors ConfigPolicy.site_id; precedence LEVEL_SITE
+    # (global < group < OU < Site < host). Set iff scope_type == 'site'.
+    scope_site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id", ondelete="CASCADE"))
     enforced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     link_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     # Checkmk's six condition fields — host_name / host_folder / host_tags /
@@ -1466,11 +1469,12 @@ class CheckRule(Base):
             "comparison IN ('gt', 'lt', 'ge', 'le', 'eq', 'ne')", name="ck_check_rules_comparison"
         ),
         CheckConstraint("condition_logic IN ('AND', 'OR')", name="ck_check_rules_condition_logic"),
-        CheckConstraint("scope_type IN ('global', 'group', 'host', 'ou')", name="ck_check_rules_scope_type"),
+        CheckConstraint("scope_type IN ('global', 'group', 'host', 'ou', 'site')", name="ck_check_rules_scope_type"),
         CheckConstraint(
-            "(scope_type = 'global' AND scope_value IS NULL AND scope_ou_id IS NULL) OR "
-            "(scope_type IN ('group', 'host') AND scope_value IS NOT NULL AND scope_ou_id IS NULL) OR "
-            "(scope_type = 'ou' AND scope_ou_id IS NOT NULL AND scope_value IS NULL)",
+            "(scope_type = 'global' AND scope_value IS NULL AND scope_ou_id IS NULL AND scope_site_id IS NULL) OR "
+            "(scope_type IN ('group', 'host') AND scope_value IS NOT NULL AND scope_ou_id IS NULL AND scope_site_id IS NULL) OR "
+            "(scope_type = 'ou' AND scope_ou_id IS NOT NULL AND scope_value IS NULL AND scope_site_id IS NULL) OR "
+            "(scope_type = 'site' AND scope_site_id IS NOT NULL AND scope_value IS NULL AND scope_ou_id IS NULL)",
             name="ck_check_rules_scope_value_matches_type",
         ),
     )

@@ -47,6 +47,7 @@ def resolve_effective_rule(
     label_value: str | None = None,
     host_ou_ancestry: list | None = None,
     rule_ou_links: dict | None = None,
+    host_site_ids: set | None = None,
 ) -> CheckRule | None:
     """Picks the single rule that governs `metric` (for one label series,
     e.g. a disk mount) on this host, out of every rule that could apply.
@@ -68,6 +69,7 @@ def resolve_effective_rule(
     ancestry = host_ou_ancestry or []
     ancestry_depth = {ou.id: i for i, ou in enumerate(ancestry)}
     links = rule_ou_links or {}
+    site_ids = host_site_ids or set()
     # Deepest OU level on the path that blocks inheritance (None if none).
     blocked_level: int | None = None
     for ou in ancestry:
@@ -95,6 +97,8 @@ def resolve_effective_rule(
             return rule.scope_value == host_name
         if rule.scope_type == "ou":
             return any(o in ancestry_depth for o in _rule_ous(rule))
+        if rule.scope_type == "site":
+            return rule.scope_site_id in site_ids
         return False
 
     def _label_matches(rule: CheckRule) -> bool:
@@ -121,6 +125,8 @@ def resolve_effective_rule(
             # _scope_matches already passed.
             depths = [ancestry_depth[o] for o in _rule_ous(rule) if o in ancestry_depth]
             return gpo.LEVEL_OU_BASE + max(depths)
+        if rule.scope_type == "site":
+            return gpo.LEVEL_SITE
         if rule.scope_type == "group":
             return gpo.LEVEL_GROUP
         return gpo.LEVEL_GLOBAL
@@ -640,10 +646,13 @@ async def evaluate_host(
     # resolve_effective_rule can apply OU-scoped rules + GPO precedence
     # (enforced / block_inheritance). Empty for a host with no OU placement,
     # in which case only global/group/host rules apply (pre-L3a behavior).
-    from bossman.services.compiler import resolve_ou_ancestry
+    from bossman.services.compiler import resolve_ou_ancestry, resolve_site_ids
 
     host_ou_ancestry = await resolve_ou_ancestry(session, agent.ou_id)
     rule_ou_links = await load_rule_ou_links(session)
+    # Site (subnet) scope: the Sites this host's primary IP falls into, so
+    # site-scoped threshold rules apply (precedence LEVEL_SITE, between OU and host).
+    host_site_ids = await resolve_site_ids(session, agent)
 
     # Checkmk's six condition fields, applied BEFORE GPO resolution: the condition decides
     # whether a rule applies to this host at all, GPO then picks the winner among those
@@ -706,6 +715,7 @@ async def evaluate_host(
             rule = resolve_effective_rule(
                 list(rules), agent.name, agent.groups, metric, mount,
                 host_ou_ancestry=host_ou_ancestry, rule_ou_links=rule_ou_links,
+                host_site_ids=host_site_ids,
             )
             if rule is None:
                 continue

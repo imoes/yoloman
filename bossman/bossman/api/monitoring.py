@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.etag import check_if_match, compute_version
 from bossman.api.auth import get_current_identity
-from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service
+from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service, Site
 from bossman.db.session import get_session
 from bossman.services.auth import user_can_manage_agent
 from bossman.services.reconciler import enqueue_policy_event
@@ -443,6 +443,8 @@ class CheckRuleIn(BaseModel):
     # Block L3a: OU-scoped rules + GPO precedence. scope_type='ou' pins the
     # rule to scope_ou_id; enforced/link_order drive inheritance resolution.
     scope_ou_id: UUID | None = None
+    # Site (subnet) scope — set iff scope_type='site' (mirrors ConfigPolicy.site_id).
+    scope_site_id: UUID | None = None
     enforced: bool = False
     link_order: int = 100
     # Optional label pin (a disk mount) — see CheckRule.label_value (H6).
@@ -472,6 +474,7 @@ class CheckRuleOut(BaseModel):
     scope_type: str
     scope_value: str | None
     scope_ou_id: UUID | None
+    scope_site_id: UUID | None = None
     # Every OU this policy applies to: the primary scope_ou_id plus any
     # additional OUs linked via check_rule_ou_links (one policy → many OUs).
     # Populated by list_check_rules; empty on the bare from_model path.
@@ -505,6 +508,7 @@ class CheckRuleOut(BaseModel):
             scope_type=r.scope_type,
             scope_value=r.scope_value,
             scope_ou_id=r.scope_ou_id,
+            scope_site_id=r.scope_site_id,
             ou_ids=[r.scope_ou_id] if r.scope_ou_id is not None else [],
             enforced=r.enforced,
             link_order=r.link_order,
@@ -525,17 +529,26 @@ class CheckRuleOut(BaseModel):
         return self
 
 
-def _validate_scope(scope_type: str, scope_value: str | None, scope_ou_id: UUID | None = None) -> None:
-    if scope_type not in ("global", "group", "host", "ou"):
-        raise HTTPException(status_code=422, detail="scope_type must be one of global|group|host|ou")
+def _validate_scope(scope_type: str, scope_value: str | None, scope_ou_id: UUID | None = None,
+                    scope_site_id: UUID | None = None) -> None:
+    if scope_type not in ("global", "group", "host", "ou", "site"):
+        raise HTTPException(status_code=422, detail="scope_type must be one of global|group|host|ou|site")
     if scope_type == "ou":
         if scope_ou_id is None:
             raise HTTPException(status_code=422, detail="scope_ou_id is required when scope_type is 'ou'")
-        if scope_value is not None:
-            raise HTTPException(status_code=422, detail="scope_value must be null when scope_type is 'ou'")
+        if scope_value is not None or scope_site_id is not None:
+            raise HTTPException(status_code=422, detail="only scope_ou_id may be set when scope_type is 'ou'")
+        return
+    if scope_type == "site":
+        if scope_site_id is None:
+            raise HTTPException(status_code=422, detail="scope_site_id is required when scope_type is 'site'")
+        if scope_value is not None or scope_ou_id is not None:
+            raise HTTPException(status_code=422, detail="only scope_site_id may be set when scope_type is 'site'")
         return
     if scope_ou_id is not None:
         raise HTTPException(status_code=422, detail="scope_ou_id is only valid when scope_type is 'ou'")
+    if scope_site_id is not None:
+        raise HTTPException(status_code=422, detail="scope_site_id is only valid when scope_type is 'site'")
     if scope_type == "global" and scope_value is not None:
         raise HTTPException(status_code=422, detail="scope_value must be null when scope_type is global")
     if scope_type in ("group", "host") and not scope_value:
@@ -588,10 +601,12 @@ async def create_check_rule(
 ) -> CheckRuleOut:
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
-    _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id)
+    _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id, body.scope_site_id)
     _validate_composite(body)
     if body.scope_ou_id is not None and await session.get(OUNode, body.scope_ou_id) is None:
         raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
+    if body.scope_site_id is not None and await session.get(Site, body.scope_site_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such site {body.scope_site_id}")
 
     rule = CheckRule(
         service_name=body.service_name,
@@ -602,6 +617,7 @@ async def create_check_rule(
         scope_type=body.scope_type,
         scope_value=body.scope_value,
         scope_ou_id=body.scope_ou_id,
+        scope_site_id=body.scope_site_id,
         enforced=body.enforced,
         link_order=body.link_order,
         label_value=body.label_value,
@@ -642,10 +658,12 @@ async def update_check_rule(
         )
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
-    _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id)
+    _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id, body.scope_site_id)
     _validate_composite(body)
     if body.scope_ou_id is not None and await session.get(OUNode, body.scope_ou_id) is None:
         raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
+    if body.scope_site_id is not None and await session.get(Site, body.scope_site_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such site {body.scope_site_id}")
 
     rule.service_name = body.service_name
     rule.metric = body.metric
@@ -654,6 +672,7 @@ async def update_check_rule(
     rule.crit_threshold = body.crit_threshold
     rule.scope_type = body.scope_type
     rule.scope_value = body.scope_value
+    rule.scope_site_id = body.scope_site_id
     rule.scope_ou_id = body.scope_ou_id
     rule.enforced = body.enforced
     rule.link_order = body.link_order
