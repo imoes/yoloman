@@ -2,8 +2,6 @@ import { Component, Inject, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { environment } from '../../../../environments/environment';
@@ -27,7 +25,7 @@ const MASK = '••••••••';
 @Component({
   selector: 'app-scope-vars-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>Variables — {{ data.scopeLabel }}</h2>
     <mat-dialog-content>
@@ -35,16 +33,10 @@ const MASK = '••••••••';
         (group &lt; OU root→leaf &lt; host); deeper/host values win.</p>
       @for (r of rows(); track $index) {
         <div class="bm-row">
-          <mat-form-field appearance="outline" class="bm-key">
-            <mat-label>name</mat-label>
-            <input matInput [ngModel]="r.key" (ngModelChange)="setKey($index, $event)" placeholder="mysql_port" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="bm-val">
-            <mat-label>{{ r.secret ? 'secret value' : 'value' }}</mat-label>
-            <input matInput [type]="r.secret ? 'password' : 'text'" [ngModel]="r.value"
-                   (ngModelChange)="setVal($index, $event)" (focus)="onSecretFocus($index)"
-                   [placeholder]="r.secret ? '••••••••' : '3306'" />
-          </mat-form-field>
+          <input class="bm-in bm-key" [ngModel]="r.key" (ngModelChange)="setKey($index, $event)" placeholder="mysql_port" />
+          <input class="bm-in bm-val" [type]="r.secret ? 'password' : 'text'" [ngModel]="r.value"
+                 (ngModelChange)="setVal($index, $event)" (focus)="onSecretFocus($index)"
+                 [placeholder]="r.secret ? '••••••••' : '3306'" />
           <button mat-icon-button (click)="toggleSecret($index)"
                   [color]="r.secret ? 'primary' : undefined"
                   [title]="r.secret ? 'Secret — encrypted at rest' : 'Mark as secret (encrypt at rest)'">
