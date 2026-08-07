@@ -1,9 +1,6 @@
 import { Component, Inject, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { HostGroup, HostGroupInput } from '../../../core/models/host-group.model';
 import { OUNode } from '../../../core/models/ou.model';
@@ -18,34 +15,31 @@ export interface HostGroupDialogData {
 @Component({
   selector: 'app-host-group-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>{{ data.group ? 'Edit' : 'New' }} host group</h2>
     <mat-dialog-content [formGroup]="form">
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Name</mat-label>
-        <input matInput formControlName="name" placeholder="e.g. webservers" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Description</mat-label>
-        <input matInput formControlName="description" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>OU (optional)</mat-label>
-        <mat-select formControlName="ou_id">
-          <mat-option [value]="null">(none)</mat-option>
-          @for (n of data.nodes; track n.id) {
-            <mat-option [value]="n.id">{{ n.path }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+      <div class="bm-field">
+        <label>Name</label>
+        <input class="bm-in" formControlName="name" placeholder="e.g. webservers" />
+      </div>
+      <div class="bm-field">
+        <label>Description</label>
+        <input class="bm-in" formControlName="description" />
+      </div>
+      <div class="bm-field">
+        <label>OU (optional)</label>
+        <select class="bm-in" formControlName="ou_id">
+          <option [ngValue]="null">(none)</option>
+          @for (n of data.nodes; track n.id) { <option [ngValue]="n.id">{{ n.path }}</option> }
+        </select>
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
       <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Save</button>
     </mat-dialog-actions>
   `,
-  styles: [`.bm-full-width { width: 100%; }`],
 })
 export class HostGroupDialogComponent {
   dialogRef = inject(MatDialogRef<HostGroupDialogComponent, HostGroupInput>);

@@ -1,9 +1,6 @@
 import { Component, Inject, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { OUNode, OUNodeInput } from '../../../core/models/ou.model';
 
@@ -18,30 +15,27 @@ export interface OuNodeDialogData {
 @Component({
   selector: 'app-ou-node-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>New OU</h2>
     <mat-dialog-content [formGroup]="form">
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Parent OU</mat-label>
-        <mat-select formControlName="parent_id">
-          <mat-option [value]="null">(root)</mat-option>
-          @for (n of data.nodes; track n.id) {
-            <mat-option [value]="n.id">{{ n.path }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Name</mat-label>
-        <input matInput formControlName="name" placeholder="e.g. Munich" />
-      </mat-form-field>
+      <div class="bm-field">
+        <label>Parent OU</label>
+        <select class="bm-in" formControlName="parent_id">
+          <option [ngValue]="null">(root)</option>
+          @for (n of data.nodes; track n.id) { <option [ngValue]="n.id">{{ n.path }}</option> }
+        </select>
+      </div>
+      <div class="bm-field">
+        <label>Name</label>
+        <input class="bm-in" formControlName="name" placeholder="e.g. Munich" />
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
       <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Create</button>
     </mat-dialog-actions>
   `,
-  styles: [`.bm-full-width { width: 100%; }`],
 })
 export class OuNodeDialogComponent {
   dialogRef = inject(MatDialogRef<OuNodeDialogComponent, OUNodeInput>);
