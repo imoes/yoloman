@@ -671,15 +671,18 @@ async def list_config_policies(
     scope_ou_id: UUID | None = None,
     host_group_id: UUID | None = None,
     site_id: UUID | None = None,
+    set_id: UUID | None = None,
     unlinked: bool = False,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[dict]:
     """Config policies WITH their values documents, for the Policy-console
     gpedit editor (the OU objects list only carries a label). Filter by OU,
-    group or Site scope; `unlinked=true` returns the scope-less policies (created
-    via "New config policy" and not yet linked); no filter returns all."""
+    group or Site scope, or by `set_id` (a named policy's entries); `unlinked=true`
+    returns the scope-less policies not yet linked; no filter returns all."""
     stmt = select(ConfigPolicy)
+    if set_id is not None:
+        stmt = stmt.where(ConfigPolicy.set_id == set_id)
     if unlinked:
         # Bare unlinked entries only — those belonging to a named Policy (set_id)
         # are shown under their policy in the library, not as loose palette items.

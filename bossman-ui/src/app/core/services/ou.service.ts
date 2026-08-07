@@ -3,6 +3,32 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { OUNode, OUNodeInput, OUObject } from '../models/ou.model';
 
+/** A named policy (ConfigPolicySet) — the Miller library's column 1. */
+export interface PolicySet {
+  id: string;
+  name: string;
+  description: string | null;
+  scope_ou_id: string | null;
+  host_group_id: string | null;
+  site_id: string | null;
+  scope_label: string;
+  entry_count: number;
+}
+export interface PolicySetEntry {
+  id: string;
+  path: string;
+  type: string;
+  format: string | null;
+  separator: string | null;
+  values: Record<string, unknown>;
+  template: string | null;
+}
+/** Full policy: entries (column 2) + the flat all-values list (column 3, far right). */
+export interface PolicySetDetail extends PolicySet {
+  entries: PolicySetEntry[];
+  values_flat: { path: string; key: string; value: unknown }[];
+}
+
 /** RSoP report for a scope — matches bossman/api/ou.py PolicyReportOut. */
 export interface PolicyReportRow {
   kind: 'config' | 'threshold' | 'plan' | 'notification';
@@ -27,6 +53,17 @@ export class OuService {
   list() {
     return this.http.get<OUNode[]>(this.base);
   }
+
+  // --- Named policies (ConfigPolicySet) — the Miller-column policy library ---
+  listPolicySets() { return this.http.get<PolicySet[]>(`${environment.apiUrl}/policy-sets`); }
+  getPolicySet(id: string) { return this.http.get<PolicySetDetail>(`${environment.apiUrl}/policy-sets/${id}`); }
+  createPolicySet(body: { name: string; description?: string }) {
+    return this.http.post<PolicySetDetail>(`${environment.apiUrl}/policy-sets`, body);
+  }
+  patchPolicySet(id: string, body: { name?: string; description?: string; scope_ou_id?: string | null; host_group_id?: string | null; site_id?: string | null; unlink?: boolean }) {
+    return this.http.patch<PolicySetDetail>(`${environment.apiUrl}/policy-sets/${id}`, body);
+  }
+  deletePolicySet(id: string) { return this.http.delete<void>(`${environment.apiUrl}/policy-sets/${id}`); }
 
   /** Resultant Set of Policy for a scope — what applies here (own + inherited)
    * plus variables and where each rule comes from. Backs the right-hand report. */
@@ -59,9 +96,10 @@ export class OuService {
 
   /** Config policies WITH their values documents at one scope (the objects
    * list only carries a label) — feeds the Policy-console gpedit editor. */
-  listConfigPolicies(scope: { ouId?: string; groupId?: string; siteId?: string; unlinked?: boolean }) {
+  listConfigPolicies(scope: { ouId?: string; groupId?: string; siteId?: string; setId?: string; unlinked?: boolean }) {
     const q = scope.ouId ? `scope_ou_id=${scope.ouId}`
       : scope.siteId ? `site_id=${scope.siteId}`
+      : scope.setId ? `set_id=${scope.setId}`
       : scope.unlinked ? `unlinked=true`
       : `host_group_id=${scope.groupId}`;
     return this.http.get<

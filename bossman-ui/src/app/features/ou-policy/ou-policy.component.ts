@@ -43,6 +43,7 @@ import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/comp
 import { ConfigPolicyDialogComponent, ConfigPolicyDialogData, ConfigPolicyResult } from '../../shared/components/config-policy-dialog/config-policy-dialog.component';
 import { OuConfigEditorComponent } from './ou-config-editor.component';
 import { PolicyReportComponent } from './policy-report.component';
+import { PolicyLibraryComponent } from './policy-library.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
 import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gpedit-dialog.component';
 import {
@@ -214,6 +215,9 @@ interface PaletteItem {
         <div class="bm-palette">
           <div class="bm-palette-head">
             <span>Policies — drag onto an OU to link</span>
+            <button mat-stroked-button class="bm-palette-new" (click)="openPolicyLibrary()" title="Browse named policies (library) — entries + values in a Miller list">
+              <mat-icon>menu_book</mat-icon> Policy library
+            </button>
             <button mat-stroked-button class="bm-palette-new" (click)="newPolicyUnlinked()" title="Author config settings for the selected OU/group (gpedit)">
               <mat-icon>add</mat-icon> New config policy
             </button>
@@ -1235,6 +1239,13 @@ export class OuPolicyComponent implements OnInit {
     this.dialog.open<PolicyGpeditDialogComponent, PolicyGpeditDialogData>(
       PolicyGpeditDialogComponent, { data: { scope }, width: 'min(1100px, 94vw)', maxWidth: '94vw' },
     ).afterClosed().subscribe(() => this.reload());
+  }
+
+  /** Open the named-policy library — the Miller browser (policies → entries →
+   * values). Reloads the page after so any new/linked policies show up. */
+  openPolicyLibrary(): void {
+    this.dialog.open(PolicyLibraryComponent, { width: 'min(1000px, 94vw)', maxWidth: '94vw' })
+      .afterClosed().subscribe(() => this.reload());
   }
 
   /** The former "New Policy" — a composite role/threshold/route policy object. */

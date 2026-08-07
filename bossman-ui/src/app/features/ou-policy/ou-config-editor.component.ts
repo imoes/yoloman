@@ -30,9 +30,10 @@ interface SettingRow {
  * the catalog host is resolved from its member agent ids (an OU resolves it
  * from its subtree members endpoint). */
 export interface EditorScope {
-  // 'unlinked' authors a scope-less policy (GPMC "create a GPO, link it later");
-  // it carries no id and applies to nothing until dragged onto an OU/Site.
-  kind: 'ou' | 'group' | 'site' | 'unlinked';
+  // 'unlinked' authors a scope-less policy (GPMC "create a GPO, link it later").
+  // 'set' authors ENTRIES of a named policy (ConfigPolicySet) — id is the set id;
+  // entries inherit the set's scope on save.
+  kind: 'ou' | 'group' | 'site' | 'unlinked' | 'set';
   id?: string;
   label: string;
   memberAgentIds?: string[];
@@ -196,17 +197,19 @@ export class OuConfigEditorComponent implements OnChanges {
 
   get scopeWord(): string {
     return this.scope.kind === 'group' ? 'group' : this.scope.kind === 'site' ? 'site'
-      : this.scope.kind === 'unlinked' ? 'unlinked policy' : 'OU';
+      : this.scope.kind === 'unlinked' ? 'unlinked policy' : this.scope.kind === 'set' ? 'policy' : 'OU';
   }
   private listArg() {
     return this.scope.kind === 'ou' ? { ouId: this.scope.id }
       : this.scope.kind === 'site' ? { siteId: this.scope.id }
+      : this.scope.kind === 'set' ? { setId: this.scope.id }
       : this.scope.kind === 'unlinked' ? { unlinked: true }
       : { groupId: this.scope.id };
   }
   private scopeArg() {
     return this.scope.kind === 'ou' ? { scope_ou_id: this.scope.id }
       : this.scope.kind === 'site' ? { site_id: this.scope.id }
+      : this.scope.kind === 'set' ? { set_id: this.scope.id }
       : this.scope.kind === 'unlinked' ? {}
       : { host_group_id: this.scope.id };
   }
