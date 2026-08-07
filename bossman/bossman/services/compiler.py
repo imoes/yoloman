@@ -26,6 +26,7 @@ only persists the desired state for inspection.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 from dataclasses import dataclass, field
 from uuid import UUID
@@ -43,6 +44,7 @@ from bossman.db.models import (
     OrchestrationPlanLink,
     OrchestrationPlanVersion,
     OUNode,
+    Site,
     SystemSettings,
 )
 from bossman.services import gpo
@@ -106,6 +108,51 @@ async def resolve_host_group_ids(session: AsyncSession, agent_id: UUID) -> set[U
     return set(rows)
 
 
+def agent_primary_ip(agent: Agent) -> str | None:
+    """The host's primary IP for Site (subnet) matching — facts.primary_ip /
+    facts.ip, else the host part of Agent.address (host:port). None if unknown."""
+    facts = agent.facts or {}
+    for key in ("primary_ip", "ip"):
+        v = facts.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    addr = getattr(agent, "address", None)
+    if isinstance(addr, str) and addr:
+        host = addr.strip()
+        # ipv4 host:port → strip the port; leave bare ipv4/ipv6 as-is.
+        if host.count(":") == 1:
+            host = host.rsplit(":", 1)[0]
+        return host or None
+    return None
+
+
+async def resolve_site_ids(session: AsyncSession, agent: Agent) -> set[UUID]:
+    """Every Site whose subnets contain this host's primary IP (AD Sites). A
+    host can match more than one if subnets overlap; all their policies layer."""
+    ip_str = agent_primary_ip(agent)
+    if not ip_str or agent.tenant_id is None:
+        return set()
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return set()
+    sites = (
+        await session.scalars(
+            select(Site).where(Site.tenant_id == agent.tenant_id, Site.deleted_at.is_(None))
+        )
+    ).all()
+    out: set[UUID] = set()
+    for s in sites:
+        for cidr in (s.subnets or []):
+            try:
+                if ip in ipaddress.ip_network(cidr, strict=False):
+                    out.add(s.id)
+                    break
+            except ValueError:
+                continue
+    return out
+
+
 async def _plan_version(
     session: AsyncSession, plan: OrchestrationPlan, requested_version: int | None
 ) -> OrchestrationPlanVersion | None:
@@ -137,6 +184,7 @@ async def affected_agent_ids(
     ou_id: UUID | None = None,
     agent_id: UUID | None = None,
     host_group_id: UUID | None = None,
+    site_id: UUID | None = None,
     tenant_id: UUID | None = None,
 ) -> list[UUID]:
     """Which hosts a given scope (as used by an OrchestrationPlanLink)
@@ -153,6 +201,31 @@ async def affected_agent_ids(
     if target_type == "group":
         rows = (await session.scalars(select(HostGroupMember.agent_id).where(HostGroupMember.host_group_id == host_group_id))).all()
         return list(rows)
+    if target_type == "site":
+        site = await session.get(Site, site_id) if site_id else None
+        if site is None:
+            return []
+        nets = []
+        for cidr in (site.subnets or []):
+            try:
+                nets.append(ipaddress.ip_network(cidr, strict=False))
+            except ValueError:
+                continue
+        if not nets:
+            return []
+        agents = (await session.scalars(select(Agent).where(Agent.tenant_id == site.tenant_id))).all()
+        out: list[UUID] = []
+        for a in agents:
+            ip_str = agent_primary_ip(a)
+            if not ip_str:
+                continue
+            try:
+                ip = ipaddress.ip_address(ip_str)
+            except ValueError:
+                continue
+            if any(ip in n for n in nets):
+                out.append(a.id)
+        return out
     if target_type == "ou":
         node = await session.get(OUNode, ou_id) if ou_id else None
         if node is None:
@@ -192,6 +265,7 @@ async def resolve_orchestration_assignments(
     ancestry_depth = {n.id: i for i, n in enumerate(ancestry)}
     ou_paths = {n.id: n.path for n in ancestry}
     group_ids = await resolve_host_group_ids(session, agent.id)
+    site_ids = await resolve_site_ids(session, agent)
     # Deepest OU on the path that blocks inheritance (GPO Block Inheritance).
     blocked_level: int | None = None
     for n in ancestry:
@@ -230,6 +304,8 @@ async def resolve_orchestration_assignments(
             source = f"ou:{ou_paths.get(link.ou_id, link.ou_id)}"
         elif link.target_type == "group" and link.host_group_id in group_ids:
             level, source = gpo.LEVEL_GROUP, f"group:{link.host_group_id}"
+        elif link.target_type == "site" and link.site_id in site_ids:
+            level, source = gpo.LEVEL_SITE, f"site:{link.site_id}"
         elif link.target_type == "host" and link.agent_id == agent.id:
             level, source = gpo.LEVEL_HOST, "host"
         else:

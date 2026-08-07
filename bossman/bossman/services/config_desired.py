@@ -13,8 +13,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, ConfigPolicy, HostConfigResource, HostGroup
-from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry
+from bossman.db.models import Agent, ConfigPolicy, HostConfigResource, HostGroup, Site
+from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry, resolve_site_ids
 
 
 def resource_dict(type_: str | None, path: str, fmt: str | None, sep: str | None, values: dict | None, template: str | None) -> dict[str, Any]:
@@ -84,6 +84,20 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
         pols = (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.scope_ou_id.in_(list(depth))))).all()
         for p in sorted(pols, key=lambda p: depth.get(p.scope_ou_id, -1)):  # shallow → deep
             layers.setdefault(p.path, []).append((_layer(p), "ou:" + ou_paths.get(p.scope_ou_id, str(p.scope_ou_id))))
+
+    # Site layer — stronger than OU, weaker than host (global < group < OU < Site < host).
+    site_ids = await resolve_site_ids(session, agent)
+    if site_ids:
+        snames = dict(
+            (await session.execute(select(Site.id, Site.name).where(Site.id.in_(list(site_ids))))).all()
+        )
+        spols = (
+            await session.scalars(
+                select(ConfigPolicy).where(ConfigPolicy.site_id.in_(list(site_ids))).order_by(ConfigPolicy.site_id)
+            )
+        ).all()
+        for p in spols:
+            layers.setdefault(p.path, []).append((_layer(p), "site:" + snames.get(p.site_id, str(p.site_id))))
 
     for row in (await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))).all():
         layers.setdefault(row.path, []).append((_layer(row), "host"))

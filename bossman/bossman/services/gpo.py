@@ -25,6 +25,10 @@ from dataclasses import dataclass
 LEVEL_GLOBAL = 0
 LEVEL_GROUP = 1
 LEVEL_OU_BASE = 2  # an OU at ancestry depth d (0 = tenant root) has level LEVEL_OU_BASE + d
+# A Site (subnet-scoped) sits ABOVE every OU depth but below the host itself:
+# global < group < OU(any depth) < Site < host. High constant so no realistic OU
+# tree depth can reach it — avoids renumbering LEVEL_OU_BASE and its call sites.
+LEVEL_SITE = 500_000
 LEVEL_HOST = 1_000_000
 
 
