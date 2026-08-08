@@ -98,6 +98,7 @@ const WORKSPACES: Workspace[] = [
       { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
       { path: '/runbooks', label: 'Sequences', icon: 'account_tree' },
       { path: '/blueprint', label: 'Blueprints', icon: 'schema' },
+      { path: '/blueprint-drafts', label: 'Blueprint drafts', icon: 'account_tree' },
       { path: '/apps', label: 'App Store', icon: 'apps' },
       { path: '/docker-apps', label: 'Docker apps', icon: 'inventory_2' },
       { path: '/modules', label: 'Modules', icon: 'extension' },

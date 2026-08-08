@@ -46,6 +46,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/apps/docker-apps.component').then((m) => m.DockerAppsComponent),
   },
   {
+    path: 'blueprint-drafts',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/blueprint/blueprint-manager.component').then((m) => m.BlueprintManagerComponent),
+  },
+  {
     path: 'apps',
     canActivate: [authGuard],
     loadComponent: () => import('./features/apps/app-store.component').then((m) => m.AppStoreComponent),
