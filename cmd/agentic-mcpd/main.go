@@ -321,6 +321,26 @@ func loadComponents(cfg config.Config) (*components, error) {
 		if len(starMods) > 0 {
 			slog.Info("loaded Starlark modules", "count", len(starMods), "dir", cfg.ModulesDir)
 		}
+
+		// Language-agnostic script modules (.py/.sh/.bash) from the SAME
+		// modules_dir, dispatched through the same registry: functionality
+		// crosses via the Ansible-style stdin/stdout JSON contract, with Python
+		// and Bash as first-class module languages. Same gate + non-fatal skips.
+		scriptMods, scriptWarn, scriptErr := starmodules.LoadScriptDir(cfg.ModulesDir, cfg.Write)
+		if scriptErr != nil {
+			return nil, fmt.Errorf("loading script modules: %w", scriptErr)
+		}
+		for _, w := range scriptWarn {
+			slog.Warn("skipping script module", "reason", w)
+		}
+		for _, m := range scriptMods {
+			if regErr := modReg.Register(m); regErr != nil {
+				slog.Warn("skipping script module", "reason", regErr.Error())
+			}
+		}
+		if len(scriptMods) > 0 {
+			slog.Info("loaded script modules", "count", len(scriptMods), "dir", cfg.ModulesDir)
+		}
 	}
 
 	return &components{
