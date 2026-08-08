@@ -98,6 +98,32 @@ async def compile_blueprint_route(bp_id: UUID, session: AsyncSession = Depends(g
     return compile_blueprint(settings, b)
 
 
+@router.post("/api/v1/blueprints/{bp_id}/save-as-runbook")
+async def save_blueprint_as_runbook(bp_id: UUID, session: AsyncSession = Depends(get_session),
+                                    settings: Settings = Depends(get_settings), identity: Identity = Depends(get_current_identity)):
+    """Compile the blueprint and persist the typed playbook as a Runbook, so the
+    stack can be run (run-runbook), bound to a scope (orchestration link), or
+    delivered as a PXE target_runbook at boot. Idempotent on the runbook name."""
+    from bossman.db.models import Runbook
+
+    b = await session.get(Blueprint, bp_id)
+    if b is None:
+        raise HTTPException(404, "no such blueprint")
+    result = compile_blueprint(settings, b)
+    doc = result["playbook"]
+    name = doc["name"]
+    rb = await session.scalar(select(Runbook).where(Runbook.name == name))
+    if rb is None:
+        rb = Runbook(tenant_id=DEFAULT_TENANT_ID, name=name, kind="runbook", folder="blueprints",
+                     doc=doc, created_by=identity.name)
+        session.add(rb)
+    else:
+        rb.doc = doc
+    b.status = "ready"
+    await session.commit()
+    return {"runbook": name, "steps": len(doc["steps"]), "unresolved": result["unresolved"]}
+
+
 @router.post("/api/v1/blueprints/seed-drafts")
 async def seed_drafts(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
     """Install the sample blueprint drafts (idempotent)."""

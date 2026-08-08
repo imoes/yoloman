@@ -77,7 +77,11 @@ interface Compiled { playbook: { name: string; steps: { name: string; module: st
               <p class="bm-warn">⚠ Unresolved: @for (u of c.unresolved; track u.consumer + u.capability) { <span>{{ u.consumer }} needs {{ u.capability }}; </span> }</p>
             }
 
-            <h3>Compiled playbook <span class="bm-dim">({{ c.playbook.name }})</span></h3>
+            <div class="bm-bp-cphd">
+              <h3>Compiled playbook <span class="bm-dim">({{ c.playbook.name }})</span></h3>
+              <button mat-stroked-button (click)="saveAsRunbook()" [disabled]="busy()"><mat-icon>save</mat-icon> Save as runbook</button>
+              @if (savedMsg()) { <span class="bm-ok">{{ savedMsg() }}</span> }
+            </div>
             <ol class="bm-steps">
               @for (st of c.playbook.steps; track $index) {
                 <li>
@@ -121,6 +125,8 @@ interface Compiled { playbook: { name: string; steps: { name: string; module: st
     .bm-step-mod { font-family: ui-monospace, monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--mat-sys-primary) 15%, transparent); margin-right: 6px; }
     .bm-step-args { margin: 4px 0 0; padding: 8px; background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); border-radius: 6px; font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .bm-warn { color: #f9a825; font-size: 13px; } .bm-dim { opacity: 0.6; font-size: 13px; }
+    .bm-bp-cphd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .bm-ok { color: var(--bm-green,#2e7d32); font-size: 13px; }
   `],
 })
 export class BlueprintManagerComponent {
@@ -129,6 +135,7 @@ export class BlueprintManagerComponent {
   selected = signal<BlueprintT | null>(null);
   compiled = signal<Compiled | null>(null);
   busy = signal(false);
+  savedMsg = signal('');
 
   constructor() { this.reload(); }
 
@@ -142,8 +149,17 @@ export class BlueprintManagerComponent {
     });
   }
   select(b: BlueprintT): void {
-    this.selected.set(b); this.compiled.set(null);
+    this.selected.set(b); this.compiled.set(null); this.savedMsg.set('');
     this.http.get<Compiled>(`${environment.apiUrl}/blueprints/${b.id}/compile`).subscribe((c) => this.compiled.set(c));
+  }
+  saveAsRunbook(): void {
+    const b = this.selected();
+    if (!b) return;
+    this.busy.set(true); this.savedMsg.set('');
+    this.http.post<{ runbook: string; steps: number }>(`${environment.apiUrl}/blueprints/${b.id}/save-as-runbook`, {}).subscribe({
+      next: (r) => { this.busy.set(false); this.savedMsg.set(`Saved runbook “${r.runbook}” (${r.steps} steps) — run it, bind it to a scope, or deliver at PXE boot.`); this.reload(); },
+      error: (e) => { this.busy.set(false); this.savedMsg.set(e?.error?.detail || 'save failed'); },
+    });
   }
   kinds(b: BlueprintT): string { return [...new Set(b.services.map((s) => s.kind))].join(' + '); }
   setStr(s: Record<string, unknown>): string { return Object.entries(s).map(([k, v]) => `${k}=${v}`).join(', '); }
