@@ -1060,29 +1060,50 @@ import re as _re
 
 # Block 2b: retarget an SNMP check without rewriting its (root-owned) .star.
 # Translated SNMP checks hardcode `snmpwalk -c public localhost <oids>`. This
-# rewrites that argv IN MEMORY at push time so the community + target come from
-# the check's params — so the same check can be pointed at any device
-# (params: {target, community}). No params → defaults (localhost/public), i.e.
-# unchanged behaviour on a normal host. Only the dominant adjacent
-# "-c","<community>","<localhost|127.0.0.1>" form is handled; anything else is
-# left as-is.
-_SNMP_TARGET = _re.compile(r'("-c",\s*)"[A-Za-z0-9_]+"(,\s*)"(?:localhost|127\.0\.0\.1)"')
+# rewrites that argv IN MEMORY at push time so the connection args come from the
+# check's params — so the same check can be pointed at any device. Supports BOTH
+# SNMP v2c ({community}) and v3 ({snmp_version:"v3", sec_level, sec_name,
+# auth_proto/auth_pass, priv_proto/priv_pass, context}). No params → v2c
+# localhost/public, i.e. unchanged behaviour on a normal host. Only the dominant
+# adjacent "snmpwalk|snmpget","-c","<community>","<localhost|127.0.0.1>" form is
+# handled; anything else is left as-is.
+#
+# We can't splice a variable-length arg list into the literal (go.starlark.net has
+# no `[*a, *b]` unpacking), so we rewrite `["snmpwalk", "-c", "c", "host", …]` to
+# `["snmpwalk"] + _snmp_conn + […]` and compute _snmp_conn (a plain list, built
+# with `+`) at the top of main — v2c is `["-c", community, target]`, v3 the full
+# -v3/-l/-u/-a/-A/-x/-X/-n flag sequence gated by the security level.
+_SNMP_CONN = _re.compile(
+    r'("(?:snmpwalk|snmpget)")\s*,\s*"-c"\s*,\s*"[A-Za-z0-9_]+"\s*,\s*"(?:localhost|127\.0\.0\.1)"\s*,?\s*'
+)
+
+_SNMP_CONN_PREAMBLE = (
+    '    _snmp_target = params.get("target", "localhost")\n'
+    '    _snmp_version = params.get("snmp_version", "v2c")\n'
+    '    if _snmp_version == "v3":\n'
+    '        _snmp_level = params.get("sec_level", "authPriv")\n'
+    '        _snmp_conn = ["-v3", "-l", _snmp_level, "-u", params.get("sec_name", "")]\n'
+    '        if _snmp_level != "noAuthNoPriv":\n'
+    '            _snmp_conn = _snmp_conn + ["-a", params.get("auth_proto", "SHA"), "-A", params.get("auth_pass", "")]\n'
+    '        if _snmp_level == "authPriv":\n'
+    '            _snmp_conn = _snmp_conn + ["-x", params.get("priv_proto", "AES"), "-X", params.get("priv_pass", "")]\n'
+    '        if params.get("context", ""):\n'
+    '            _snmp_conn = _snmp_conn + ["-n", params.get("context", "")]\n'
+    '        _snmp_conn = _snmp_conn + [_snmp_target]\n'
+    '    else:\n'
+    '        _snmp_conn = ["-c", params.get("community", "public"), _snmp_target]\n'
+)
 
 
 def parameterize_snmp_star(star: str) -> str:
     if '"snmpwalk"' not in star and '"snmpget"' not in star:
         return star
-    if "_snmp_target" in star:  # already parameterized
+    if "_snmp_conn" in star:  # already parameterized
         return star
-    new, n = _SNMP_TARGET.subn(r'\1_snmp_community\2_snmp_target', star)
+    new, n = _SNMP_CONN.subn(r'\1] + _snmp_conn + [', star)
     if n == 0:
         return star
-    return _re.sub(
-        r"(def main\(ctx, params\):\n)",
-        r'\1    _snmp_community = params.get("community", "public")\n'
-        r'    _snmp_target = params.get("target", "localhost")\n',
-        new, count=1,
-    )
+    return _re.sub(r"(def main\(ctx, params\):\n)", r"\1" + _SNMP_CONN_PREAMBLE, new, count=1)
 
 
 def _sidecar_fqcn(sidecar: str, fallback: str) -> str:

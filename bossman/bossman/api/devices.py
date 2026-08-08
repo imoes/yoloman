@@ -32,11 +32,24 @@ router = APIRouter()
 _KINDS = ("snmp", "ssh")
 
 
+_SNMP_VERSIONS = ("v2c", "v3")
+_SEC_LEVELS = ("noAuthNoPriv", "authNoPriv", "authPriv")
+
+
 class DeviceIn(BaseModel):
     name: str
     kind: str = "snmp"  # snmp | ssh
     target: str  # IP / hostname the poller reaches
+    # SNMP: v2c uses `community`; v3 uses the USM security params below.
+    snmp_version: str = "v2c"  # v2c | v3
     community: str = "public"  # snmp v2c community
+    sec_level: str = "authPriv"  # v3: noAuthNoPriv | authNoPriv | authPriv
+    sec_name: str = ""  # v3 USM user
+    auth_proto: str = "SHA"  # v3: MD5 | SHA | SHA-224/256/384/512 (net-snmp -a)
+    auth_pass: str = ""  # v3 auth passphrase (-A)
+    priv_proto: str = "AES"  # v3: DES | AES | AES-192/256 (net-snmp -x)
+    priv_pass: str = ""  # v3 privacy passphrase (-X)
+    context: str = ""  # v3 context name (-n), optional
     user: str = ""  # ssh user
     password: str = ""  # ssh password (key auth is a follow-up)
     check_names: list[str] = []
@@ -47,7 +60,17 @@ class DeviceOut(BaseModel):
     name: str
     kind: str
     target: str
+    snmp_version: str
     community: str
+    # v3 params — passphrases are NEVER returned (only whether they are set), the
+    # same posture as the netboot secret.
+    sec_level: str
+    sec_name: str
+    auth_proto: str
+    priv_proto: str
+    context: str
+    auth_pass_set: bool
+    priv_pass_set: bool
     user: str
     check_names: list[str]
     last_seen_at: Any | None
@@ -70,7 +93,15 @@ def _to_out(a: Agent, checks: list[str]) -> DeviceOut:
     return DeviceOut(
         id=a.id, name=a.name, kind=meta.get("kind", "snmp"),
         target=meta.get("target", meta.get("snmp_target", "")),
+        snmp_version=meta.get("snmp_version", "v2c"),
         community=meta.get("community", meta.get("snmp_community", "public")),
+        sec_level=meta.get("sec_level", "authPriv"),
+        sec_name=meta.get("sec_name", ""),
+        auth_proto=meta.get("auth_proto", "SHA"),
+        priv_proto=meta.get("priv_proto", "AES"),
+        context=meta.get("context", ""),
+        auth_pass_set=bool(meta.get("auth_pass")),
+        priv_pass_set=bool(meta.get("priv_pass")),
         user=meta.get("user", ""), check_names=checks, last_seen_at=a.last_seen_at,
     )
 
@@ -108,7 +139,21 @@ async def create_device(
     # snmp_* aliases stay for back-compat with pre-generalisation devices.
     meta: dict[str, Any] = {"kind": body.kind, "target": target}
     if body.kind == "snmp":
-        meta.update(community=body.community or "public", snmp_target=target, snmp_community=body.community or "public")
+        version = body.snmp_version if body.snmp_version in _SNMP_VERSIONS else "v2c"
+        meta.update(snmp_version=version, snmp_target=target)
+        if version == "v3":
+            if body.sec_level not in _SEC_LEVELS:
+                raise HTTPException(status_code=422, detail=f"sec_level must be one of {_SEC_LEVELS}")
+            if not body.sec_name.strip():
+                raise HTTPException(status_code=422, detail="sec_name (SNMPv3 user) is required for v3")
+            meta.update(
+                sec_level=body.sec_level, sec_name=body.sec_name.strip(),
+                auth_proto=body.auth_proto, auth_pass=body.auth_pass,
+                priv_proto=body.priv_proto, priv_pass=body.priv_pass,
+                context=body.context.strip(),
+            )
+        else:
+            meta.update(community=body.community or "public", snmp_community=body.community or "public")
     else:  # ssh
         meta.update(user=body.user, password=body.password)
 

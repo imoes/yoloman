@@ -486,6 +486,13 @@ async def _poll_snmp_device(
         community = meta.get("community") or meta.get("snmp_community")
         if community:
             extra["community"] = str(community)
+        # SNMP v3: pass the security params through so parameterize_snmp_star builds
+        # the -v3/-l/-u/-a/-A/-x/-X/-n argv instead of the v2c -c community form.
+        if (meta.get("snmp_version") or "v2c") == "v3":
+            for k in ("snmp_version", "sec_level", "sec_name", "auth_proto",
+                      "auth_pass", "priv_proto", "priv_pass", "context"):
+                if meta.get(k):
+                    extra[k] = str(meta[k])
     elif kind == "ssh":
         if meta.get("user"):
             extra["user"] = str(meta["user"])

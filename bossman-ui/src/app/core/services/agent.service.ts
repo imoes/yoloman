@@ -199,7 +199,13 @@ export class AgentService {
   devices() {
     return this.http.get<Device[]>(`${environment.apiUrl}/devices`);
   }
-  createDevice(body: { name: string; kind: 'snmp' | 'ssh'; target: string; community?: string; user?: string; password?: string; check_names: string[] }) {
+  createDevice(body: {
+    name: string; kind: 'snmp' | 'ssh'; target: string; check_names: string[];
+    community?: string; user?: string; password?: string;
+    // SNMP v3 (USM)
+    snmp_version?: 'v2c' | 'v3'; sec_level?: string; sec_name?: string;
+    auth_proto?: string; auth_pass?: string; priv_proto?: string; priv_pass?: string; context?: string;
+  }) {
     return this.http.post<Device>(`${environment.apiUrl}/devices`, body);
   }
   deleteDevice(id: string) {

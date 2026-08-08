@@ -380,6 +380,15 @@ export interface Device {
   user: string;
   check_names: string[];
   last_seen_at: string | null;
+  // SNMP v3 (USM) — passphrases are never returned, only whether they are set.
+  snmp_version?: 'v2c' | 'v3';
+  sec_level?: string;
+  sec_name?: string;
+  auth_proto?: string;
+  priv_proto?: string;
+  context?: string;
+  auth_pass_set?: boolean;
+  priv_pass_set?: boolean;
 }
 
 /** F-9 — one configured piggyback source + its live status. */

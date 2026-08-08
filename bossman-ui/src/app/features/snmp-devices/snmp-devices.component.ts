@@ -61,9 +61,64 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
           </mat-form-field>
           @if (kind === 'snmp') {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Community (SNMP v2c)</mat-label>
-              <input matInput [(ngModel)]="community" placeholder="public" />
+              <mat-label>SNMP version</mat-label>
+              <mat-select [(ngModel)]="snmpVersion">
+                <mat-option value="v2c">v2c (community)</mat-option>
+                <mat-option value="v3">v3 (USM)</mat-option>
+              </mat-select>
             </mat-form-field>
+            @if (snmpVersion === 'v2c') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Community (SNMP v2c)</mat-label>
+                <input matInput [(ngModel)]="community" placeholder="public" />
+              </mat-form-field>
+            } @else {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Security level</mat-label>
+                <mat-select [(ngModel)]="secLevel">
+                  <mat-option value="noAuthNoPriv">noAuthNoPriv</mat-option>
+                  <mat-option value="authNoPriv">authNoPriv</mat-option>
+                  <mat-option value="authPriv">authPriv</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>User (secName)</mat-label>
+                <input matInput [(ngModel)]="secName" placeholder="monitor" />
+              </mat-form-field>
+              @if (secLevel !== 'noAuthNoPriv') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Auth protocol</mat-label>
+                  <mat-select [(ngModel)]="authProto">
+                    <mat-option value="SHA">SHA</mat-option>
+                    <mat-option value="MD5">MD5</mat-option>
+                    <mat-option value="SHA-256">SHA-256</mat-option>
+                    <mat-option value="SHA-512">SHA-512</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Auth passphrase</mat-label>
+                  <input matInput type="password" [(ngModel)]="authPass" />
+                </mat-form-field>
+              }
+              @if (secLevel === 'authPriv') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Privacy protocol</mat-label>
+                  <mat-select [(ngModel)]="privProto">
+                    <mat-option value="AES">AES</mat-option>
+                    <mat-option value="DES">DES</mat-option>
+                    <mat-option value="AES-256">AES-256</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Privacy passphrase</mat-label>
+                  <input matInput type="password" [(ngModel)]="privPass" />
+                </mat-form-field>
+              }
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Context (optional)</mat-label>
+                <input matInput [(ngModel)]="context" />
+              </mat-form-field>
+            }
           } @else {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>SSH user</mat-label>
@@ -115,7 +170,13 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
               </div>
               <dl class="bm-device-meta">
                 <dt>Address</dt><dd class="bm-mono">{{ d.target }}</dd>
-                <dt>{{ d.kind === 'snmp' ? 'Community' : 'User' }}</dt><dd class="bm-mono">{{ d.kind === 'snmp' ? d.community : d.user }}</dd>
+                @if (d.kind === 'ssh') {
+                  <dt>User</dt><dd class="bm-mono">{{ d.user }}</dd>
+                } @else if (d.snmp_version === 'v3') {
+                  <dt>SNMP</dt><dd class="bm-mono">v3 · {{ d.sec_level }} · {{ d.sec_name }}</dd>
+                } @else {
+                  <dt>Community</dt><dd class="bm-mono">{{ d.community }} <span class="bm-mono">(v2c)</span></dd>
+                }
                 <dt>Last seen</dt><dd>{{ d.last_seen_at ? (d.last_seen_at | date: 'medium') : 'never' }}</dd>
               </dl>
               <div class="bm-chips">
@@ -208,6 +269,15 @@ export class SnmpDevicesComponent implements OnInit {
   });
 
   kind: 'snmp' | 'ssh' = 'snmp';
+  // SNMP v3 (USM) inputs
+  snmpVersion: 'v2c' | 'v3' = 'v2c';
+  secLevel: 'noAuthNoPriv' | 'authNoPriv' | 'authPriv' = 'authPriv';
+  secName = '';
+  authProto = 'SHA';
+  authPass = '';
+  privProto = 'AES';
+  privPass = '';
+  context = '';
   name = '';
   target = '';
   community = 'public';
@@ -236,7 +306,10 @@ export class SnmpDevicesComponent implements OnInit {
     this.checkNames = [];
   }
   canCreate(): boolean {
-    return this.name.trim().length > 0 && this.target.trim().length > 0;
+    if (this.name.trim().length === 0 || this.target.trim().length === 0) return false;
+    // SNMPv3 needs a security user; other cases are always fine.
+    if (this.kind === 'snmp' && this.snmpVersion === 'v3' && this.secName.trim().length === 0) return false;
+    return true;
   }
 
   ngOnInit(): void {
@@ -265,11 +338,15 @@ export class SnmpDevicesComponent implements OnInit {
     this.agentService.createDevice({
       name: this.name.trim(), kind: this.kind, target: this.target.trim(),
       community: this.community.trim() || 'public', user: this.user.trim(), password: this.password,
+      snmp_version: this.snmpVersion, sec_level: this.secLevel, sec_name: this.secName.trim(),
+      auth_proto: this.authProto, auth_pass: this.authPass, priv_proto: this.privProto,
+      priv_pass: this.privPass, context: this.context.trim(),
       check_names: this.checkNames,
     }).subscribe({
       next: () => {
         this.creating.set(false);
         this.name = ''; this.target = ''; this.community = 'public'; this.user = ''; this.password = ''; this.checkNames = [];
+        this.snmpVersion = 'v2c'; this.secName = ''; this.authPass = ''; this.privPass = ''; this.context = '';
         this.reload();
       },
       error: (e) => { this.creating.set(false); this.err.set(e?.error?.detail ?? 'create failed'); },
