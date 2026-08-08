@@ -2232,37 +2232,15 @@ export class HostDetailComponent implements OnInit {
     const idx = this.tabOrder.indexOf(tab);
     if (idx >= 0) this.initialTabIndex = idx;
 
-    // ADMX: the per-directive value catalog, so a config setting's editor can
-    // offer the real allowed values (enum) instead of guessing a yes/no family.
-    this.agentService.configDirectives().subscribe({
-      next: (r) => this.directiveCatalog.set(r.directives || {}),
-      error: () => {},
-    });
-
-    // Host-independent codec catalog: every config file we know how to parse.
-    // Lets the operator add a file this host doesn't have yet (e.g. apt.conf)
-    // and define it as policy — parity with the OU policy editor (#5).
-    this.agentService.configCodecs().subscribe({
-      next: (r) => {
-        const seen = new Set<string>();
-        const files: { path: string; format: string; separator: string }[] = [];
-        for (const e of r.entries ?? []) {
-          const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
-          if (!path || path.includes('*') || seen.has(path)) continue;
-          seen.add(path);
-          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec, separator: e.separator ?? '' });
-        }
-        this.codecCatalog.set(files);
-      },
-      error: () => {},
-    });
-
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);
       this.healthStatus.set(agentHealthStatus(agent));
       // Deep-linked initial tab fires no (selectedTabChange) event, so kick the
-      // lazy Configuration load here when it's the landing tab.
-      if (this.tabOrder[this.initialTabIndex] === 'configuration') this.loadObserved();
+      // lazy Configuration loads here when it's the landing tab.
+      if (this.tabOrder[this.initialTabIndex] === 'configuration') {
+        this.loadConfigCatalogs();
+        this.loadObserved();
+      }
     });
 
     this.loadLatest(id);
@@ -2558,9 +2536,43 @@ export class HostDetailComponent implements OnInit {
     if (event.tab.textLabel === 'eBPF' && !this.ebpfLoaded() && !this.ebpfLoading()) {
       this.loadEbpf();
     }
-    if (event.tab.textLabel === 'Configuration' && this.observed() === null && !this.observedLoading()) {
-      this.loadObserved();
+    if (event.tab.textLabel === 'Configuration') {
+      this.loadConfigCatalogs();
+      if (this.observed() === null && !this.observedLoading()) this.loadObserved();
     }
+  }
+
+  /** The two host-independent config catalogs (directives ~1.9 MB, codecs ~0.6 MB)
+   * are ONLY needed by the Configuration tab's editors, so they are loaded lazily
+   * on first open rather than on every host page load — the single biggest chunk
+   * of the Host Overview's initial payload. Guarded so it fetches at most once. */
+  private configCatalogsLoaded = false;
+  private loadConfigCatalogs(): void {
+    if (this.configCatalogsLoaded) return;
+    this.configCatalogsLoaded = true;
+    // ADMX: the per-directive value catalog, so a config setting's editor can
+    // offer the real allowed values (enum) instead of guessing a yes/no family.
+    this.agentService.configDirectives().subscribe({
+      next: (r) => this.directiveCatalog.set(r.directives || {}),
+      error: () => { this.configCatalogsLoaded = false; },
+    });
+    // Host-independent codec catalog: every config file we know how to parse.
+    // Lets the operator add a file this host doesn't have yet (e.g. apt.conf)
+    // and define it as policy — parity with the OU policy editor (#5).
+    this.agentService.configCodecs().subscribe({
+      next: (r) => {
+        const seen = new Set<string>();
+        const files: { path: string; format: string; separator: string }[] = [];
+        for (const e of r.entries ?? []) {
+          const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
+          if (!path || path.includes('*') || seen.has(path)) continue;
+          seen.add(path);
+          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec, separator: e.separator ?? '' });
+        }
+        this.codecCatalog.set(files);
+      },
+      error: () => {},
+    });
   }
 
   /** Inner Configuration tabs: lazy-load the desired_state JSON on first open. */
