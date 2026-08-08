@@ -15,6 +15,8 @@ import { HostGroupService } from '../../core/services/host-group.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
+import { ScopeVarsDialogComponent, ScopeVarsDialogData } from '../../shared/components/scope-vars-dialog/scope-vars-dialog.component';
+import { HostTagsDialogComponent, HostTagsDialogData } from '../../shared/components/host-tags-dialog/host-tags-dialog.component';
 
 interface Row {
   kind: 'ou' | 'host' | 'unassigned';
@@ -94,11 +96,12 @@ interface AppliedPolicy {
             } @else {
               <div class="bm-node bm-host" [class.bm-selected]="selectedHost()?.id === row.host!.id"
                    [style.paddingLeft.px]="8 + row.depth * 18" (click)="selectHost(row.host!)"
-                   draggable="true" (dragstart)="onHostDragStart(row.host!, $event)" (dragend)="onHostDragEnd()">
+                   draggable="true" (dragstart)="onHostDragStart(row.host!, $event)" (dragend)="onHostDragEnd()"
+                   [cdkContextMenuTriggerFor]="hostMenu" (contextmenu)="ctxHost.set(row.host!)">
                 <span class="bm-twisty">·</span>
                 <mat-icon class="bm-host-icon">dns</mat-icon>
                 <span class="bm-label">{{ row.host!.name }}</span>
-                <span class="bm-drag-hint">drag onto an OU →</span>
+                <span class="bm-drag-hint">right-click to set rules →</span>
               </div>
             }
           }
@@ -228,6 +231,16 @@ interface AppliedPolicy {
     </div>
 
     <!-- OU context menu -->
+    <!-- Right-click a host: set the manual condition levers (tags / variables)
+         directly on it — another way to make a host pick up rules, beside OU
+         placement and group membership. -->
+    <ng-template #hostMenu>
+      <div class="bm-menu" cdkMenu>
+        <button class="bm-menu-item" cdkMenuItem (click)="setHostTags(ctxHost()!)">Set tags…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="setHostVars(ctxHost()!)">Set variables…</button>
+      </div>
+    </ng-template>
+
     <ng-template #ouMenu>
       <div class="bm-menu" cdkMenu>
         <button class="bm-menu-item" cdkMenuItem (click)="createOu(ctxOu()!.id)">New sub-OU…</button>
@@ -317,6 +330,22 @@ export class HostPlacementComponent implements OnInit {
   desiredConfig = signal<ConfigDesiredResource[] | null>(null);
   groupReport = signal<GroupPolicyReport | null>(null);
   ctxOu = signal<OUNode | null>(null);
+  ctxHost = signal<Agent | null>(null);
+
+  /** Right-click → set this host's tags (host_tags condition lever). On save,
+   * re-select the host so its applied-policies report reflects the new match. */
+  setHostTags(host: Agent): void {
+    this.dialog.open<HostTagsDialogComponent, HostTagsDialogData, boolean>(
+      HostTagsDialogComponent, { width: 'min(560px, 94vw)', data: { agentId: host.id, hostName: host.name } },
+    ).afterClosed().subscribe((ok) => { if (ok) this.selectHost(host); });
+  }
+
+  /** Right-click → set this host's variables (host_vars condition lever). */
+  setHostVars(host: Agent): void {
+    this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
+      ScopeVarsDialogComponent, { width: 'min(640px, 94vw)', data: { scopeType: 'host', scopeId: host.id, scopeLabel: 'host ' + host.name } },
+    ).afterClosed().subscribe((ok) => { if (ok) this.selectHost(host); });
+  }
   dragHostId = signal<string | null>(null);
   dropTargetId = signal<string | null>(null);
 
