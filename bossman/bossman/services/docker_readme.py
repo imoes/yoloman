@@ -73,20 +73,33 @@ async def fetch_readme(image: str, timeout: float = 20.0) -> dict[str, str]:
     }
 
 
-_SYSTEM = """You extract the configurable knobs of a Docker image from its README. Reply with a
-SINGLE JSON object and nothing else (no prose, no code fences):
+_SYSTEM = """You extract the configurable knobs of a Docker image from its README as TYPED DIRECTIVES.
+Reply with a SINGLE JSON object and nothing else (no prose, no code fences):
 
 {
   "description": "one line on what the image is",
-  "variables": [{"name": "POSTGRES_PASSWORD", "default": "", "description": "…", "required": true}],
+  "variables": [
+    {"name": "POSTGRES_PASSWORD", "type": "string", "default": "", "required": true,
+     "secret": true, "description": "Superuser password; must be set."},
+    {"name": "TZ", "type": "string", "default": "UTC", "required": false,
+     "description": "Container timezone, e.g. Europe/Berlin."},
+    {"name": "LOG_LEVEL", "type": "enum", "choices": ["debug","info","warn","error"], "default": "info",
+     "required": false, "description": "Logging verbosity."}
+  ],
   "ports": ["5432"],
   "volumes": ["/var/lib/postgresql/data"]
 }
 
-`variables` are the environment variables the image documents (name exactly as the env var, a default if the
-README gives one else "", a short description, required=true if it must be set). `ports` are the container
-ports it EXPOSEs/documents; `volumes` the data paths worth persisting. Include only what the README actually
-documents — do not invent. If none, use empty arrays."""
+Each variable is a directive with:
+- name  : the env var name, exactly.
+- type  : one of "string" | "int" | "bool" | "enum" | "port" | "path".
+- default: the documented default (a real value; "" only if there truly is none).
+- required: true if the container won't start / is unsafe without it.
+- choices: for type "enum", the allowed values (omit otherwise).
+- secret: true for passwords/tokens/keys (render as a password field).
+- description: one clear sentence — ALWAYS fill this, never leave empty.
+
+Include only variables/ports/volumes the README actually documents — do not invent. Empty arrays if none."""
 
 
 def _parse_json_object(text: str) -> dict[str, Any]:
@@ -121,6 +134,33 @@ async def extract_variables(readme: str, image: str, settings: Settings) -> dict
     return _parse_json_object(res.get("content", ""))
 
 
+_VALID_TYPES = {"string", "int", "bool", "enum", "port", "path"}
+
+
+def _normalize_var(v: Any) -> dict[str, Any] | None:
+    """Coerce one extracted variable into a complete, typed directive; drop it if
+    it has no usable name. Guarantees name/type/default/required/description keys
+    so the UI can render a typed field without guessing."""
+    if not isinstance(v, dict) or not str(v.get("name") or "").strip():
+        return None
+    vtype = str(v.get("type") or "string").lower()
+    if vtype not in _VALID_TYPES:
+        vtype = "string"
+    default = v.get("default", "")
+    out: dict[str, Any] = {
+        "name": str(v["name"]).strip(),
+        "type": vtype,
+        "default": "" if default is None else default,
+        "required": bool(v.get("required", False)),
+        "description": str(v.get("description") or "").strip(),
+    }
+    if v.get("secret"):
+        out["secret"] = True
+    if vtype == "enum" and isinstance(v.get("choices"), list) and v["choices"]:
+        out["choices"] = [str(c) for c in v["choices"]]
+    return out
+
+
 async def extract_and_store(
     session: AsyncSession, settings: Settings, image: str, popularity: int = 0
 ) -> DockerAppTemplate:
@@ -129,13 +169,16 @@ async def extract_and_store(
     meta = await fetch_readme(image)
     readme_hash = hashlib.sha256(meta["readme"].encode("utf-8")).hexdigest()
     row = await session.scalar(select(DockerAppTemplate).where(DockerAppTemplate.image == image))
-    if row is not None and row.readme_hash == readme_hash and row.variables:
+    # Re-extract when the README changed OR the stored vars predate the typed
+    # directive shape (missing "type"), so upgrades enrich existing rows.
+    typed = bool(row and row.variables) and all(isinstance(v, dict) and "type" in v for v in (row.variables or []))
+    if row is not None and row.readme_hash == readme_hash and row.variables and typed:
         if popularity and not row.popularity:
             row.popularity = popularity
         return row
 
     extracted = await extract_variables(meta["readme"], image, settings)
-    variables = extracted.get("variables") or []
+    variables = [nv for nv in (_normalize_var(v) for v in (extracted.get("variables") or [])) if nv]
     ports = [str(p) for p in (extracted.get("ports") or [])]
     volumes = [str(v) for v in (extracted.get("volumes") or [])]
     desc = extracted.get("description") or meta["description"]
