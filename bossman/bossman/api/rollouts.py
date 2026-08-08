@@ -29,6 +29,12 @@ DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 class RolloutIn(BaseModel):
     name: str
     runbook_name: str
+    # Optional post-upgrade functional test (an Ansible-style runbook, AI-authorable):
+    # each wave passes the gate only if this test succeeds on its hosts.
+    test_runbook_name: str | None = None
+    # One host per wave (blast radius 1): upgrade + test one machine, gate, then
+    # the next — the safest cadence for a dist-upgrade on a test group.
+    one_at_a_time: bool = False
     scope_type: str  # host | group | ou | global
     agent_id: UUID | None = None
     host_group_id: UUID | None = None
@@ -48,6 +54,7 @@ class RolloutOut(BaseModel):
     id: UUID
     name: str
     runbook_name: str
+    test_runbook_name: str | None = None
     dry_run: bool
     status: str
     current_wave: int
@@ -61,7 +68,8 @@ class RolloutOut(BaseModel):
     @classmethod
     def of(cls, r: Rollout) -> "RolloutOut":
         return cls(
-            id=r.id, name=r.name, runbook_name=r.runbook_name, dry_run=r.dry_run, status=r.status,
+            id=r.id, name=r.name, runbook_name=r.runbook_name, test_runbook_name=r.test_runbook_name,
+            dry_run=r.dry_run, status=r.status,
             current_wave=r.current_wave, waves=r.waves or [], health_gate=r.health_gate or {},
             progress=r.progress or [], started_at=r.started_at, finished_at=r.finished_at, created_at=r.created_at,
         )
@@ -102,8 +110,17 @@ async def create_rollout(body: RolloutIn, session: AsyncSession = Depends(get_se
         if not agent_ids:
             raise HTTPException(422, "scope matched no hosts")
         waves = plan_waves([str(a) for a in agent_ids], body.strategy)
+    if body.one_at_a_time:
+        # Explode into one host per wave, preserving order (by_ou/strategy order),
+        # so a bad upgrade stops after a single machine.
+        exploded: list = []
+        for w in waves:
+            for aid in w["agent_ids"]:
+                exploded.append({"name": f"{w['name']} · {aid[:8]}", "agent_ids": [aid]})
+        waves = exploded or waves
     r = Rollout(
         tenant_id=DEFAULT_TENANT_ID, name=body.name, runbook_name=body.runbook_name,
+        test_runbook_name=body.test_runbook_name or None,
         variables=body.variables, dry_run=body.dry_run, waves=waves,
         health_gate={"wait_seconds": body.wait_seconds, "max_fail_pct": body.max_fail_pct},
         status="pending", created_by=identity.name,

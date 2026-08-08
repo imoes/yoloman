@@ -100,19 +100,23 @@ async def plan_waves_by_ou(session: AsyncSession, ou_id, canary: bool = True) ->
     return waves
 
 
-async def _run_wave(session: AsyncSession, settings: Settings, rollout: Rollout, wave: dict, client_factory) -> dict:
-    """Run the rollout's runbook against one wave's hosts. Returns a result
-    dict {name, ok, failed, hosts:[{name,status}]}."""
+async def _run_runbook(
+    session: AsyncSession, settings: Settings, rollout: Rollout, runbook_name: str,
+    agent_ids: list, client_factory, *, label: str,
+) -> dict:
+    """Run one runbook against a set of hosts. Returns {name, ok, failed,
+    hosts:[{name,status}]}. Used for both the upgrade runbook and the optional
+    post-upgrade functional-test runbook."""
     from bossman.db.models import Runbook
 
-    rb = await session.scalar(select(Runbook).where(Runbook.name == rollout.runbook_name))
-    doc = nt_runbook.parse_data(rb.doc, source=f"runbook {rollout.runbook_name!r}") if rb else None
-    res = {"name": wave["name"], "ok": 0, "failed": 0, "hosts": []}
+    rb = await session.scalar(select(Runbook).where(Runbook.name == runbook_name))
+    doc = nt_runbook.parse_data(rb.doc, source=f"runbook {runbook_name!r}") if rb else None
+    res = {"name": label, "ok": 0, "failed": 0, "hosts": []}
     if not isinstance(doc, nt_runbook.Runbook):
-        res["failed"] = len(wave["agent_ids"])
-        res["error"] = "runbook missing or is a role"
+        res["failed"] = len(agent_ids)
+        res["error"] = f"runbook {runbook_name!r} missing or is a role"
         return res
-    for aid in wave["agent_ids"]:
+    for aid in agent_ids:
         agent = await session.get(Agent, aid)
         if agent is None or not agent.address:
             continue
@@ -193,18 +197,34 @@ async def execute_rollout(
             if rollout is None or rollout.status in ("aborted", "paused"):
                 return
             rollout.current_wave = i
+            test_runbook = rollout.test_runbook_name
             await session.commit()
             # Snapshot pre-wave CRIT hosts so the gate only reacts to NEW damage.
             baseline = await _crit_hosts(session, wave["agent_ids"])
-            result = await _run_wave(session, settings, rollout, wave, client_factory)
+            result = await _run_runbook(
+                session, settings, rollout, rollout.runbook_name, wave["agent_ids"],
+                client_factory, label=wave["name"],
+            )
 
         # Let state settle (reboot, checks re-run), then gate.
         await asyncio.sleep(gate_wait)
         async with session_factory() as session:
-            healthy, detail = await _wave_healthy(session, wave, baseline, max_fail)
-            result["health"] = detail
-            result["healthy"] = healthy
             rollout = await session.get(Rollout, rollout_id)
+            # Post-upgrade functional test (an Ansible-style playbook): the wave
+            # only passes if EVERY host's test succeeds. This is where a broken
+            # dist-upgrade is caught before it spreads (and where self-healing hooks in).
+            test_failed = 0
+            if test_runbook:
+                test_res = await _run_runbook(
+                    session, settings, rollout, test_runbook, wave["agent_ids"],
+                    client_factory, label=f"functional-test ({wave['name']})",
+                )
+                result["test"] = test_res
+                test_failed = test_res.get("failed", 0)
+            crit_ok, detail = await _wave_healthy(session, wave, baseline, max_fail)
+            healthy = crit_ok and test_failed == 0
+            result["health"] = detail + (f"; functional test: {test_failed} failed" if test_runbook else "")
+            result["healthy"] = healthy
             rollout.progress = list(rollout.progress or []) + [result]
             if not healthy:
                 rollout.status = "aborted"

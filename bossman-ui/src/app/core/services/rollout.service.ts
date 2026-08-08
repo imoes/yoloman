@@ -33,6 +33,10 @@ export interface RolloutInput {
   /** AD-consistent waves: one wave per OU in the subtree (requires scope_type=ou). */
   by_ou?: boolean;
   canary?: boolean;
+  /** Post-upgrade functional-test runbook; each wave passes only if it succeeds. */
+  test_runbook_name?: string | null;
+  /** One host per wave (blast radius 1). */
+  one_at_a_time?: boolean;
   variables?: Record<string, unknown>;
   dry_run: boolean;
   wait_seconds: number;

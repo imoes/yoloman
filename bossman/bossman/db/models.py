@@ -2056,6 +2056,10 @@ class Rollout(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     runbook_name: Mapped[str] = mapped_column(String, nullable=False)
+    # Optional functional-test runbook (an Ansible-style playbook, AI-authorable)
+    # run AFTER the upgrade on each wave's hosts; the wave only passes the health
+    # gate if this test succeeds. Empty = gate on service health only.
+    test_runbook_name: Mapped[str | None] = mapped_column(String)
     variables: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     waves: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)

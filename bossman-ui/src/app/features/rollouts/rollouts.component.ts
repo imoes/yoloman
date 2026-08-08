@@ -29,12 +29,19 @@ import { OuService } from '../../core/services/ou.service';
         <div class="bm-card bm-form">
           <div class="bm-row">
             <label>Name<input [(ngModel)]="draft.name" placeholder="July security patch" /></label>
-            <label>Runbook
+            <label>Runbook (upgrade)
               <select [(ngModel)]="draft.runbook_name">
                 <option value="" disabled>— pick —</option>
                 @for (r of runbooks(); track r) { <option [value]="r">{{ r }}</option> }
               </select>
             </label>
+            <label>Functional test (optional)
+              <select [(ngModel)]="draft.test_runbook_name">
+                <option [ngValue]="null">— none —</option>
+                @for (r of runbooks(); track r) { <option [ngValue]="r">{{ r }}</option> }
+              </select>
+            </label>
+            <label class="bm-check"><input type="checkbox" [(ngModel)]="draft.one_at_a_time" /> One host at a time</label>
           </div>
           <div class="bm-row">
             <label>Scope
@@ -165,7 +172,8 @@ export class RolloutsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
 
   private blank(): RolloutInput {
-    return { name: '', runbook_name: '', scope_type: 'global', agent_id: null, host_group_id: null, ou_id: null,
+    return { name: '', runbook_name: '', test_runbook_name: null, one_at_a_time: false, scope_type: 'global',
+      agent_id: null, host_group_id: null, ou_id: null,
       strategy: [1, '25%', 'rest'], by_ou: false, canary: true, dry_run: true, wait_seconds: 30, max_fail_pct: 0 };
   }
   private reload(): void { this.svc.list().subscribe((r) => this.rollouts.set(r)); }
