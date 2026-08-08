@@ -1,77 +1,37 @@
 {
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debugging output to stderr (only for troubleshooting)"
-  },
-  "spool_dir": {
+  "cs_warn": {
     "type": "string",
-    "default": "/var/spool/lpd",
-    "description": "Root directory for printer spool files (queues, job logs, status)"
+    "default": "Warning",
+    "description": "Warning string pattern to detect in checkpc output"
   },
-  "lpd_user": {
+  "cs_error": {
     "type": "string",
-    "default": "lp",
-    "description": "System user account under which the lpd daemon runs for security isolation"
+    "default": "lp\\:  Need to fix",
+    "description": "Error string pattern to detect in checkpc output"
   },
-  "max_jobs": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of print jobs that may be queued per printer simultaneously"
-  },
-  "max_job_size": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum size (in bytes) for a single print job. Set to 0 for unlimited size"
-  },
-  "remote_printer_connect_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Seconds to wait when connecting to a remote printer before timing out"
-  },
-  "bind_addr": {
+  "cs_lock_own": {
     "type": "string",
-    "default": "*",
-    "description": "IP address for lpd to bind to. Use '*' for all interfaces, or a specific IPv4/IPv6 address"
+    "default": "Warning - owner/group of ./var/lock. are 0/0, not 7/7",
+    "description": "Specific lock file ownership warning to ignore"
   },
-  "port": {
-    "type": "number",
-    "default": 515,
-    "description": "TCP port on which lpd listens for incoming LPR connections"
-  },
-  "ipv6": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable support for IPv6 connections to the lpd service"
-  },
-  "extended": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable LPRng extensions (e.g., job control, status queries) beyond strict LPR protocol"
-  },
-  "log_job": {
-    "type": "bool",
-    "default": true,
-    "description": "Log print job events (start, completion, errors) to the system syslog"
-  },
-  "log_level": {
-    "type": "number",
-    "default": 1,
-    "description": "Verbosity level for debug logging (0\u20137); higher values increase log detail"
-  },
-  "default_printer": {
+  "cs_lock_perm": {
     "type": "string",
-    "default": "",
-    "description": "Name of the default printer queue to use when no destination is specified"
+    "default": "Warning - permissions of ./var/lock. are 041777, not 042700",
+    "description": "Specific lock file permission warning to ignore"
   },
-  "printers": {
-    "type": "list",
-    "default": [],
-    "description": "List of printers configured on this system; each entry defines a print queue"
+  "cs_miss_lockfile": {
+    "type": "string",
+    "default": "Warning -   LPD Lockfile .* does not exist!",
+    "description": "Specific missing lockfile warning to ignore"
   },
-  "access_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of host/network access control rules for the LPR service"
+  "cs_rv_match": {
+    "type": "string",
+    "default": "0",
+    "description": "Return value string indicating errors were found (match for grep -v logic)"
+  },
+  "cs_error_message": {
+    "type": "string",
+    "default": "cron.daily found errors, run checkpc for details.",
+    "description": "Syslog message to log when errors are detected"
   }
 }

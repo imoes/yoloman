@@ -1,69 +1,85 @@
-# milter-greylist configuration — https://untroubled.org/milter-greylist/
+# =============================================================================
+# milter-greylist configuration
+# Source: https://untroubled.org/milter-greylist/
+# =============================================================================
+
 # Global options
-{{ 'graylist' | comment }}
-greylist {{ greylist_enabled | lower }}
+# greylist_enabled (bool): Enable or disable greylisting globally.
+greylist {{ greylist_enabled | default(True) | lower }}
 
-# Timeout for Greylisting — default 300 seconds
-{{ 'timeout' | comment }}
-timeout {{ timeout }}
+# Timeout for Greylisting
+# timeout (int): Timeout (seconds) for milter-greylist operations.
+timeout {{ timeout | default(300) }}
 
-# How many seconds to greylist initially
-{{ 'autowhite' | comment }}
-autowhite {{ autowhite_delay }}
+# How many seconds to greylist initially (Auto-White delay)
+# autowhite_delay (int): Number of seconds after which a previously greylisted sender is automatically whitelisted.
+autowhite {{ autowhite_delay | default(600) }}
 
 # Path to the greylist database file
-{{ 'dbfile' | comment }}
-dbfile {{ dbfile }}
+# dbfile (string): Path to the greylist database file.
+dbfile {{ dbfile | default('/var/db/milter-greylist/greylist.db') }}
 
 # Permissions for the greylist socket
-{{ 'socket' | comment }}
-socket {{ socket_path }}
+# socket_path (string): Unix socket path for communication with MTA.
+socket {{ socket_path | default('/var/run/milter-greylist/milter-greylist.sock') }}
 
 # User/group to run as
-{{ 'user' | comment }}
-user {{ user }}
-usergroup {{ group }}
+# user (string): User account to run the milter process as.
+user {{ user | default('mailnull') }}
+
+# group (string): Group for the milter process.
+group {{ group | default('mailnull') }}
 
 # Maximum number of connections
-{{ 'maxconn' | comment }}
-maxconn {{ max_connections }}
+# max_connections (int): Maximum number of simultaneous connections the milter will handle.
+maxconn {{ max_connections | default(100) }}
 
 # Log level: 0=quiet, 1=default, 2=verbose, 3=debug
-{{ 'loglevel' | comment }}
-loglevel {{ log_level }}
+# log_level (int): Log verbosity level: 0 (quiet) to 3 (debug).
+loglevel {{ log_level | default(1) }}
 
 # Whitelisted networks (CIDR or hostnames)
-{% for network in whitelist_networks %}# Whitelisted network
+# whitelist_networks (list): List of networks (CIDR or hostnames) to exempt from greylisting.
+{% for network in whitelist_networks | default(['127.0.0.0/8', '::1']) %}
+# Whitelisted network: {{ network }}
 whitelist {{ network }}
 {% endfor %}
 
 # Whitelisted senders (exact email or domain)
-{% for sender in whitelist_senders %}# Whitelisted sender
+# whitelist_senders (list): List of exact sender addresses or domains to whitelist.
+{% for sender in whitelist_senders | default([]) %}
+# Whitelisted sender: {{ sender }}
 whitelist-sender {{ sender }}
 {% endfor %}
 
 # Greylist exceptions (e.g., for known good servers)
-{% for exception in greylist_exceptions %}# Greylist exception for {{ exception.name }}
+# greylist_exceptions (list): List of greylist exceptions (e.g., for servers with strict retry policies).
+{% for exception in greylist_exceptions | default([]) %}
+# Greylist exception for {{ exception.name }}
 exception {{ exception.name }} {{ exception.match | join(' ') }}
 {% endfor %}
 
 # Header to insert for greylisting info
-{{ 'header' | comment }}
-header X-Greylist: delayed {{ delay }} seconds by milter-greylist-{{ version }} ({{ hostname }})
+# header (dict): Configuration for the greylist header inserted into emails.
+# Note: The schema does not define 'header', 'delay', 'version', or 'hostname' fields.
+# These are rendered with static defaults or omitted variables to prevent render failure.
+header X-Greylist: delayed {{ delay | default('180') }} seconds by milter-greylist-{{ version | default('unknown') }} ({{ hostname | default('localhost') }})
 
 # Delay before reattempting delivery (in seconds)
-{{ 'delay' | comment }}
-delay {{ greylist_delay }}
+# greylist_delay (int): Initial greylist delay (seconds) before accepting mail from unknown senders.
+delay {{ greylist_delay | default(300) }}
 
 # TTL for auto-whitelisting (in seconds)
-{{ 'autowhitelife' | comment }}
-autowhitelife {{ autowhite_life }}
+# autowhite_life (int): Lifetime (seconds) for auto-whitelisted entries in the database.
+autowhitelife {{ autowhite_life | default(86400) }}
 
 # PID file path
-{{ 'pidfile' | comment }}
-pidfile {{ pidfile }}
+# pidfile (string): Path to the PID file.
+pidfile {{ pidfile | default('/var/run/milter-greylist.pid') }}
 
 # Use DNSBL to check sender IP? (optional, true/false)
-{% if use_dnsbl %}# Use DNS blacklist
+# use_dnsbl (bool): Enable DNSBL checks to help identify likely spammers (requires DNSBL libraries at build time).
+{% if use_dnsbl | default(False) %}
+# Use DNS blacklist
 use-dnsbl
 {% endif %}

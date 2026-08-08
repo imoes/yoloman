@@ -1,110 +1,146 @@
-[DEFAULT]
+# =============================================================================
+# mtpolicyd Configuration Template
+# =============================================================================
+# This configuration file defines the runtime behavior, network listeners,
+# and plugin loading for mtpolicyd, an SMTP policy service.
+#
+# Structure:
+#   [DEFAULT] Section: Global daemon settings (PIDs, users, limits, logging).
+#   <VirtualHost> Blocks: Listener definitions with associated policy plugins.
+#   <SessionCache> Block: Session persistence backend configuration.
+#   <Connection> Blocks: Database/Service connection pool definitions used by plugins.
+# =============================================================================
+
+# [DEFAULT] Section
+# -----------------------------------------------------------------------------
+
 # Base directory for policy data and logs
-base_dir = {{ base_dir }}
+# Default: /etc/mtpolicyd
+base_dir = {{ base_dir | default('/etc/mtpolicyd') }}
 
-# PID file location
-pid_file = {{ pid_file }}
+# PID file location for the daemon process
+# Default: /var/run/mtpolicyd.pid
+pid_file = {{ pid_file | default('/var/run/mtpolicyd.pid') }}
 
-# Maximum number of concurrent connections
-max_connections = {{ max_connections }}
+# Minimum number of client processes to start to handle requests
+# Default: 4
+min_servers = {{ min_servers | default(4) }}
 
-# Timeout for SMTP transactions (seconds)
-smtp_timeout = {{ smtp_timeout }}
+# Minimum number of spare (idle) client processes kept available for quick handling
+# Default: 4
+min_spare_servers = {{ min_spare_servers | default(4) }}
 
-# Logging verbosity (0–5; higher = more verbose)
-log_level = {{ log_level }}
+# Maximum number of spare (idle) client processes before they are terminated
+# Default: 12
+max_spare_servers = {{ max_spare_servers | default(12) }}
 
-# Enable or disable debug mode
-debug_mode = {{ debug_mode | string | lower }}
+# Absolute maximum number of child processes allowed to run simultaneously
+# Default: 25
+max_servers = {{ max_servers | default(25) }}
 
-# Enable or disable TLS for internal services
-tls_enabled = {{ tls_enabled | string | lower }}
+# Maximum number of requests a child process handles before restarting (memory leak prevention)
+# Default: 1000
+max_requests = {{ max_requests | default(1000) }}
 
-# Path to CA certificate bundle for TLS validation
-ca_bundle_path = {{ ca_bundle_path }}
+# Number of keepalive requests after which the connection is closed.
+# Set to 0 for no limit (infinite keepalive).
+# Default: 0
+max_keepalive = {{ max_keepalive | default(0) }}
 
-# Path to server certificate
-server_cert_path = {{ server_cert_path }}
+# Unix user id to run the worker processes as (privilege separation)
+# Default: mtpolicyd
+user = {{ user | default('mtpolicyd') }}
 
-# Path to server private key
-server_key_path = {{ server_key_path }}
+# Unix group id to run the worker processes as
+# Default: mtpolicyd
+group = {{ group | default('mtpolicyd') }}
 
-[database]
-# Database backend type (e.g., sqlite, postgresql)
-type = {{ database.type }}
+# IP address to bind the listening sockets to
+# Default: 127.0.0.1
+host = {{ host | default('127.0.0.1') }}
 
-# SQLite file path (used only when type = sqlite)
-path = {{ database.path | default('/var/lib/mtpolicyd/policy.sqlite') }}
+# Comma-separated list of IP:Port addresses to listen on.
+# Example: "127.0.0.1:125, 0.0.0.0:125"
+# Default: 127.0.0.1:125
+port = {{ port | default('127.0.0.1:125') }}
 
-# PostgreSQL connection string (used only when type = postgresql)
-connection = {{ database.connection | default('') }}
+# Logging verbosity level:
+#   0 = err (errors only)
+#   1 = warning
+#   2 = notice
+#   3 = info (default)
+#   4 = debug
+# Default: 3
+log_level = {{ log_level | default(3) }}
 
-[listener]
-# IPv4 bind address
-bind_v4 = {{ listener.bind_v4 }}
+# Maximum total time (in seconds) allowed for a single policy request processing
+# Default: 30
+request_timeout = {{ request_timeout | default(30) }}
 
-# IPv6 bind address (empty to disable)
-bind_v6 = {{ listener.bind_v6 | default('::') }}
+# Enable VirtualHost selection based on the 'policy_context' request field.
+# If 1, the server uses the policy_context to determine which VirtualHost block
+# handles the request. If 0 or omitted, standard port-based binding is used.
+# Default: False (0)
+{% if vhost_by_policy_context is defined and vhost_by_policy_context %}
+vhost_by_policy_context=1
+{% endif %}
 
-# SMTP port
-port = {{ listener.port }}
+# =============================================================================
+# VirtualHost Blocks
+# =============================================================================
+# Define listeners and their associated policy plugins.
+# Each block identifies a port and a logical name for grouping plugins.
+# =============================================================================
+{% if virtual_hosts is defined and virtual_hosts %}
+{% for vhost in virtual_hosts %}
+# --- VirtualHost: {{ vhost.name | default('unnamed') }} ---
+<VirtualHost {{ vhost.port | default('0.0.0.0:0') }}>
+name={{ vhost.name | default('unnamed') }}
 
-# Enable or disable SMTPS (SMTP over TLS on port 465)
-smtps_enabled = {{ listener.smtps_enabled | string | lower }}
+{% for plugin in vhost.plugins | default([]) %}
+# --- Plugin: {{ plugin.name | default('unnamed') }} ---
+<Plugin {{ plugin.name | default('unnamed') }}>
+module="{{ plugin.module | default('') }}"
 
-# SMTPS port (only if enabled)
-smtps_port = {{ listener.smtps_port | default(465) }}
-
-[limits]
-# Maximum recipients per message
-max_recipients = {{ limits.max_recipients }}
-
-# Maximum message size (bytes)
-max_message_size = {{ limits.max_message_size }}
-
-# Rate limit: messages per minute per client
-rate_limit_ppm = {{ limits.rate_limit_ppm }}
-
-# Burst tolerance (extra messages allowed over rate limit)
-burst_tolerance = {{ limits.burst_tolerance }}
-
-# Delay between retries (seconds)
-retry_delay = {{ limits.retry_delay }}
-
-[domains]
-# Enable domain policy enforcement
-domain_policy_enabled = {{ domains.domain_policy_enabled | string | lower }}
-
-# File with allowed sender domains (one per line)
-allowed_senders_path = {{ domains.allowed_senders_path }}
-
-# File with blocked sender domains (one per line)
-blocked_senders_path = {{ domains.blocked_senders_path }}
-
-[senders]
-# Enable sender policy enforcement
-sender_policy_enabled = {{ senders.sender_policy_enabled | string | lower }}
-
-# Path to per-sender policy overrides (JSON format)
-sender_overrides_path = {{ senders.sender_overrides_path }}
-
-# Path to per-sender rate limit overrides (JSON format)
-sender_rate_limits_path = {{ senders.sender_rate_limits_path }}
-
-{% for policy in policies %}
-[{{ policy.name }}]
-# Policy rule: {{ policy.description | default('') }}
-enabled = {{ policy.enabled | string | lower }}
-
-{% if policy.conditions %}
-# Conditions (AND logic across keys)
-{% for key, value in policy.conditions.items() %}{{ key }} = {{ value }}
+{% for key, value in plugin.options | default({}) | dict2items %}
+{{ key.key }}="{{ value.value }}"
+{% endfor %}
+</Plugin>
+{% endfor %}
+</VirtualHost>
 {% endfor %}
 {% endif %}
 
-{% if policy.actions %}
-# Actions (applied when conditions match)
-{% for key, value in policy.actions.items() %}{{ key }} = {{ value }}
+# =============================================================================
+# Session Cache Configuration
+# =============================================================================
+# Optional block to configure persistent session storage for policy decisions.
+# If not defined, mtpolicyd does not use a session cache.
+# =============================================================================
+{% if session_cache is defined and session_cache %}
+<SessionCache>
+module="{{ session_cache.module | default('') }}"
+
+{% for key, value in session_cache.options | default({}) | dict2items %}
+{{ key.key }}="{{ value.value }}"
+{% endfor %}
+</SessionCache>
+{% endif %}
+
+# =============================================================================
+# Connection Pool Configuration
+# =============================================================================
+# Define named connection pools that plugins can reference.
+# Common backends: MySQL, PostgreSQL, Redis, etc.
+# =============================================================================
+{% if connections is defined and connections %}
+{% for conn in connections %}
+<Connection {{ conn.name | default('unnamed') }}>
+module="{{ conn.module | default('') }}"
+
+{% for key, value in conn.options | default({}) | dict2items %}
+{{ key.key }}="{{ value.value }}"
+{% endfor %}
+</Connection>
 {% endfor %}
 {% endif %}
-{% endfor %}

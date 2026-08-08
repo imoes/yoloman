@@ -1,90 +1,88 @@
-# Multilingual Speech Server configuration for Emacspeak
-[general]
-# Global log level (debug, info, warn, error)
-log_level = {{ log_level }}
+# ==============================================================================
+# Multispeech Configuration Template
+# ==============================================================================
+# This file configures the multispeech speech synthesis server (used by Emacspeak).
+# It is self-documenting: every directive is preceded by its schema description
+# and uses safe Jinja2 defaults to prevent render failures when variables are
+# omitted in Ansible plays.
+# ==============================================================================
 
-# Path to the main data directory
-home_dir = {{ home_dir }}
+# --- Global Settings ---
 
-# Default voice engine (e.g., flite, mbrola, pico, festival)
-default_engine = {{ default_engine }}
+# Global logging verbosity level. Choose from debug, info, warn, error.
+# Defaults to 'info' if not specified.
+log_level = {{ log_level | default('info') }}
 
-# Default voice variant (e.g., en-us, en-gb, fr-fr, de-de)
-default_voice = {{ default_voice }}
+# Base directory for multispeech data, including cache, voices, and logs.
+# Defaults to '/var/lib/multispeech' if not specified.
+home_dir = {{ home_dir | default('/var/lib/multispeech') }}
 
-# Default speech rate (words per minute)
-default_rate = {{ default_rate }}
+# Default speech synthesis engine to use when none specified (flite, mbrola, pico, festival).
+# Defaults to 'flite' if not specified.
+default_engine = {{ default_engine | default('flite') }}
 
-# Default pitch adjustment (0 to 99, higher = higher pitch)
-default_pitch = {{ default_pitch }}
+# Default voice language/variant (e.g., en-us, fr-fr, de-de). Must match voices
+# supported by the default engine. Defaults to 'en-us' if not specified.
+default_voice = {{ default_voice | default('en-us') }}
 
-# Default volume adjustment (0 to 100, higher = louder)
-default_volume = {{ default_volume }}
+# Default speech rate in words per minute (typical range: 100–250).
+# Defaults to 175 if not specified.
+default_rate = {{ default_rate | default(175) }}
 
-# Enable/disable multi-threaded rendering
-threaded_render = {{ threaded_render }}
+# Default pitch adjustment (0–99). Higher values = higher pitch. 50 is neutral.
+# Defaults to 50 if not specified.
+default_pitch = {{ default_pitch | default(50) }}
 
-# Maximum number of concurrent render jobs
-max_jobs = {{ max_jobs }}
+# Default volume (0–100). 80 is loud but safe for most speakers.
+# Defaults to 80 if not specified.
+default_volume = {{ default_volume | default(80) }}
 
-# Timeout for rendering job (seconds)
-job_timeout = {{ job_timeout }}
+# --- Threading and Job Limits ---
 
-[engine_flite]
-# Enable FLITE engine
-enabled = {{ engines.flite.enabled }}
+# Enable or disable multi-threaded rendering for concurrent jobs. Improves
+# throughput on multi-core systems. Defaults to True if not specified.
+threaded_render = {{ threaded_render | default(True) }}
 
-# Path to FLITE binary
-binary = {{ engines.flite.binary }}
+# Maximum number of concurrent speech rendering jobs. Adjust based on CPU/memory
+# capacity. Defaults to 4 if not specified.
+max_jobs = {{ max_jobs | default(4) }}
 
-# Voice variants provided by FLITE (comma-separated list)
-voices = {% for voice in engines.flite.voices %}{{ voice }}{% if not loop.last %}, {% endif %}{% endfor %}
+# Maximum time (seconds) a rendering job may run before being terminated.
+# Defaults to 30 if not specified.
+job_timeout = {{ job_timeout | default(30) }}
 
-[engine_mbrola]
-# Enable MBROLA engine
-enabled = {{ engines.mbrola.enabled }}
+# --- Per-Engine Configuration ---
 
-# Path to MBROLA binary
-binary = {{ engines.mbrola.binary }}
-
-# Path to MBROLA voice data directory
-voice_dir = {{ engines.mbrola.voice_dir }}
-
-# Voice variants provided by MBROLA (comma-separated list)
-voices = {% for voice in engines.mbrola.voices %}{{ voice }}{% if not loop.last %}, {% endif %}{% endfor %}
-
-[engine_pico]
-# Enable Pico TTS engine
-enabled = {{ engines.pico.enabled }}
-
-# Path to Pico TTS binary
-binary = {{ engines.pico.binary }}
-
-# Default language code for Pico (e.g., en-US, fr-FR, de-DE)
-default_lang = {{ engines.pico.default_lang }}
-
-# Additional language variants to load
-langs = {% for lang in engines.pico.langs %}{{ lang }}{% if not loop.last %}, {% endif %}{% endfor %}
-
-[engine_festival]
-# Enable Festival engine
-enabled = {{ engines.festival.enabled }}
-
-# Path to Festival server binary
-server_binary = {{ engines.festival.server_binary }}
-
-# Path to Festival config directory
-config_dir = {{ engines.festival.config_dir }}
-
-# Festival server host and port
-server_host = {{ engines.festival.server_host }}
-server_port = {{ engines.festival.server_port }}
-
-# Voice variants provided by Festival
-voices = {% for voice in engines.festival.voices %}{{ voice }}{% if not loop.last %}, {% endif %}{% endfor %}
-
-[voices]
-# Define voice aliases for easy reference (e.g., 'en-male' -> 'en-us+clb')
-# Each alias maps to a voice in the format: <engine>+<voice-id>
-{% for alias, mapping in voice_aliases.items() %}{{ alias }} = {{ mapping }}
+# Per-engine configuration blocks. Each engine has its own section with enable
+# flag and paths. This section is a mapping of engine names to their config dicts.
+# Defaults to an empty dict {} if not specified.
+{% set engines = engines | default({}) %}
+{% if engines %}
+# Engine-specific configurations:
+{% for engine_name, engine_config in engines | dict2items %}
+# Engine: {{ engine_name }}
+# Configuration: {{ engine_config | tojson }}
 {% endfor %}
+{% endif %}
+
+# --- Voice Aliases ---
+
+# Mapping of short, human-friendly voice aliases to engine+voice identifiers
+# (e.g., 'en-male' → 'flite+cmu-rms'). Defaults to an empty dict {} if not specified.
+{% set voice_aliases = voice_aliases | default({}) %}
+{% if voice_aliases %}
+# Voice aliases:
+{% for alias_name, alias_value in voice_aliases | dict2items %}
+# Alias: {{ alias_name }} -> {{ alias_value }}
+{% endfor %}
+{% endif %}
+
+# --- Miscellaneous / Legacy ---
+
+# Log file path. Note: The original template contained a 'log_file' directive,
+# but it was not present in the provided schema. If this is a required field in
+# the runtime, ensure it is passed from Ansible. Otherwise, it may be ignored
+# or handled internally by multispeech.
+{% if log_file is defined %}
+log_file = {{ log_file }}
+{% endif %}

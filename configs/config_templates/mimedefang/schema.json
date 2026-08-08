@@ -1,121 +1,35 @@
 {
-  "enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable the mimedefang mail filter."
-  },
-  "socket_path": {
-    "type": "string",
-    "default": "/var/spool/sendmail/mimedefang.sock",
-    "description": "Path to the Sendmail milter socket."
-  },
-  "user": {
-    "type": "string",
-    "default": "defang",
-    "description": "Unix user under which mimedefang runs."
-  },
-  "group": {
-    "type": "string",
-    "default": "defang",
-    "description": "Unix group under which mimedefang runs."
-  },
-  "num_workers": {
-    "type": "number",
-    "default": 4,
-    "description": "Number of worker processes to spawn for scanning messages."
-  },
-  "max_message_size": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum message size in bytes (0 = unlimited)."
-  },
-  "scan_timeout": {
-    "type": "number",
-    "default": 300,
-    "description": "Maximum time in seconds allowed for scanning a single message."
-  },
-  "temp_dir": {
-    "type": "string",
-    "default": "/var/spool/mimedefang",
-    "description": "Directory for temporary files created during scanning."
-  },
-  "perl_lib_paths": {
-    "type": "list",
-    "default": [
-      "/usr/lib/perl5/site_perl"
-    ],
-    "description": "List of directories containing Perl modules used by mimedefang filters."
-  },
-  "action_replace_subject_prefix": {
-    "type": "string",
-    "default": "[SPAM]",
-    "description": "Prefix added to subject line when message is tagged as spam."
-  },
-  "action_quarantine_dir": {
-    "type": "string",
-    "default": "/var/spool/mimedefang/quarantine",
-    "description": "Directory where quarantined messages are stored."
-  },
   "action_replace_sender": {
     "type": "string",
     "default": "postmaster@localhost",
     "description": "Sender address used for replacement notifications (e.g., spam rejections)."
   },
+  "action_replace_subject_prefix": {
+    "type": "string",
+    "default": "MIMEDefang Administrator's Full Name",
+    "description": "Prefix added to subject line when message is tagged as spam."
+  },
   "action_replace_recipients": {
     "type": "string",
-    "default": "postmaster@localhost",
+    "default": "mimedefang@localhost",
     "description": "Recipient address used for replacement notifications."
-  },
-  "action_quarantine_compress": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to compress quarantined messages with gzip."
   },
   "log_facility": {
     "type": "string",
     "default": "mail",
-    "description": "Syslog facility to use (e.g., mail, local0).",
+    "description": "Syslog facility to use (e.g., mail, local0). Enum: daemon, mail, news, security, syslog, user, local4.",
     "enum": [
       "daemon",
-      "mail",
-      "news",
-      "security",
-      "syslog",
       "user",
+      "mail",
+      "syslog",
+      "news",
       "local4"
     ]
   },
-  "log_level": {
+  "max_message_size": {
     "type": "number",
-    "default": 6,
-    "description": "Syslog verbosity level (0\u20137; higher = more verbose)."
-  },
-  "log_syslog": {
-    "type": "bool",
-    "default": true,
-    "description": "Log messages to syslog."
-  },
-  "log_stderr": {
-    "type": "bool",
-    "default": false,
-    "description": "Log messages to standard error (useful for debugging)."
-  },
-  "filters": {
-    "type": "list",
-    "default": [],
-    "description": "List of custom filter definitions to load."
-  },
-  "whitelist_dir": {
-    "type": "string",
-    "description": "Directory containing whitelisted sender addresses (one per line)."
-  },
-  "blacklist_dir": {
-    "type": "string",
-    "description": "Directory containing blacklisted sender addresses (one per line)."
-  },
-  "block_executables": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically block messages containing executable files."
+    "default": 512,
+    "description": "Maximum message size in KB for SpamAssassin scanning (0 = unlimited/unchecked)."
   }
 }

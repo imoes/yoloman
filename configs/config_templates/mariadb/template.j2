@@ -17,27 +17,27 @@ set -e
 set -u
 ${DEBIAN_SCRIPT_DEBUG:+ set -v -x}
 
-test -x {{ basedir }}/sbin/mariadbd || exit 0
+test -x /usr/sbin/mariadbd || exit 0
 
 # shellcheck source=/dev/null
 . /usr/lib/lsb/init-functions
 
 SELF="$(cd "$(dirname "$0")"; pwd -P)/$(basename "$0")"
 
-if [ -f {{ basedir }}/bin/mariadb-admin ]
+if [ -f /usr/bin/mariadb-admin ]
 then
-  MYADMIN="{{ basedir }}/bin/mariadb-admin --defaults-file=/etc/mysql/debian.cnf"
-elif [ -f {{ basedir }}/bin/mysqladmin ]
+  MYADMIN="/usr/bin/mariadb-admin --defaults-file=/etc/mysql/debian.cnf"
+elif [ -f /usr/bin/mysqladmin ]
 then
-  MYADMIN="{{ basedir }}/bin/mysqladmin --defaults-file=/etc/mysql/debian.cnf"
+  MYADMIN="/usr/bin/mysqladmin --defaults-file=/etc/mysql/debian.cnf"
 else
   log_failure_msg "Command mariadb-admin/mysqladmin not found! This SysV init script depends on it."
   exit 1
 fi
 
-if [ ! -x {{ basedir }}/bin/mariadbd-safe ]
+if [ ! -x /usr/bin/mariadbd-safe ]
 then
-  log_failure_msg "{{ basedir }}/bin/mariadbd-safe not found or executable! This SysV init script depends on it."
+  log_failure_msg "/usr/bin/mariadbd-safe not found or executable! This SysV init script depends on it."
   exit 1
 fi
 
@@ -72,7 +72,7 @@ export HOME=/etc/mysql/
 #
 # Usage: void mariadbd_get_param option
 mariadbd_get_param() {
-  {{ basedir }}/sbin/mariadbd --print-defaults \
+  /usr/sbin/mariadbd --print-defaults \
     | tr " " "\n" \
     | grep -- "--$1" \
     | tail -n 1 \
@@ -92,11 +92,12 @@ sanity_checks() {
   datadir="$(mariadbd_get_param datadir)"
 
   # If datadir location is not customized in configuration
-  # then it's not printed with {{ basedir }}/sbin/mariadbd --print-defaults
+  # then it's not printed with /usr/sbin/mariadbd --print-defaults
   # and this should fall back to a sane default value
   if [ -z "$datadir" ]
   then
-    datadir="{{ datadir }}"
+    # datadir: Directory where database files are stored.
+    datadir="{{ datadir | default('/var/lib/mysql') }}"
   fi
 
   # Verify the datadir location exists
@@ -125,7 +126,7 @@ sanity_checks() {
 #
 # Usage: boolean mariadbd_status [check_alive|check_dead] [warn|nowarn]
 mariadbd_status () {
-  ping_output="$( $MYADMIN ping 2>&1 )"
+  ping_output="$( $MYADMIN ping 2>&1)"
   # The whole mariadbd_status function should be rewritten in clean shell script,
   # so ignore minor Shellcheck nag for now as fixing it would be half of the
   # rewrite
@@ -149,7 +150,9 @@ mariadbd_status () {
   else
     if [ "$2" = "warn" ]
     then
-      echo -e "$ps_alive processes alive and '$MYADMIN ping' resulted in\n$ping_output\n" | $ERR_LOGGER -p daemon.debug
+      echo -e "$ps_alive processes alive and '$MYADMIN ping' resulted in
+$ping_output
+" | $ERR_LOGGER -p daemon.debug
     fi
   return 1 # EXIT_FAILURE
   fi
@@ -174,9 +177,10 @@ case "${1:-''}" in
     test -e /run/mysqld || install -m 755 -o mysql -g root -d /run/mysqld
 
     # Start MariaDB!
-    {{ basedir }}/bin/mariadbd-safe "${@:2}" 2>&1 >/dev/null | $ERR_LOGGER &
+    /usr/bin/mariadbd-safe "${@:2}" 2>&1 >/dev/null | $ERR_LOGGER &
 
-    for _ in $(seq 1 "${MYSQLD_STARTUP_TIMEOUT:-30}")
+    # startup_timeout: Maximum number of seconds to wait for the MariaDB server to start up during the 'start' operation.
+    for _ in $(seq 1 "${MYSQLD_STARTUP_TIMEOUT:-{{ startup_timeout | default(30) }}}")
     do
       sleep 1
       if mariadbd_status check_alive nowarn
@@ -206,7 +210,7 @@ case "${1:-''}" in
       else
         ERROR_LOG_FILE="$(mktemp).err"
         echo # ensure newline
-        timeout --kill-after=20 10 {{ basedir }}/bin/mariadbd-safe "${@:2}" --log-error="$ERROR_LOG_FILE"
+        timeout --kill-after=20 10 /usr/bin/mariadbd-safe "${@:2}" --log-error="$ERROR_LOG_FILE"
         echo "Running '/etc/init.d/mariadb start' failed with error log:"
         cat "$ERROR_LOG_FILE"
       fi
@@ -226,7 +230,7 @@ case "${1:-''}" in
   if ! mariadbd_status check_dead nowarn
   then
     set +e
-    shutdown_out="$( $MYADMIN shutdown 2>&1 )"
+    shutdown_out="$( $MYADMIN shutdown 2>&1)"
     r=$?
     set -e
     if [ "$r" -ne 0 ]
@@ -277,7 +281,7 @@ case "${1:-''}" in
   'status')
   if mariadbd_status check_alive nowarn
   then
-    log_action_msg "$( $MYADMIN version )"
+    log_action_msg "$( $MYADMIN version)"
   else
     log_action_msg "MariaDB is stopped."
     exit 3

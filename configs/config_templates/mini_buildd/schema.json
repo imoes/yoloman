@@ -30,7 +30,7 @@
     "description": "Port the daemon listens on for HTTP(S) requests."
   },
   "use_ssl": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable HTTPS for the web UI and API."
   },
@@ -80,26 +80,23 @@
     ],
     "description": "List of supported distributions to build for. Each entry defines name, suites, and architectures.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Distribution codename (e.g., bookworm, focal)."
+      "name": {
+        "type": "string",
+        "description": "Distribution codename (e.g., bookworm, focal)."
+      },
+      "suites": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "suites": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "description": "APT suites (e.g., stable, testing, unstable)."
+        "description": "APT suites (e.g., stable, testing, unstable)."
+      },
+      "architectures": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "architectures": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "description": "Supported architectures (e.g., amd64, arm64)."
-        }
+        "description": "Supported architectures (e.g., amd64, arm64)."
       }
     }
   },
@@ -115,40 +112,37 @@
     ],
     "description": "List of remote or local builders to use for builds.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Builder identifier (must be unique)."
-        },
-        "host": {
-          "type": "string",
-          "description": "Hostname or IP of builder (use 'localhost' for local builder)."
-        },
-        "port": {
-          "type": "number",
-          "default": 22,
-          "description": "SSH port for builder."
-        },
-        "ssh_user": {
-          "type": "string",
-          "description": "SSH username for builder."
-        },
-        "ssh_key_file": {
-          "type": "string",
-          "default": "",
-          "description": "Optional path to private SSH key file (if not default)."
-        },
-        "priority": {
-          "type": "number",
-          "default": 10,
-          "description": "Priority (higher = more preferred)."
-        },
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether this builder is enabled for new builds."
-        }
+      "name": {
+        "type": "string",
+        "description": "Builder identifier (must be unique)."
+      },
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP of builder (use 'localhost' for local builder)."
+      },
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "SSH port for builder."
+      },
+      "ssh_user": {
+        "type": "string",
+        "description": "SSH username for builder."
+      },
+      "ssh_key_file": {
+        "type": "string",
+        "default": "",
+        "description": "Optional path to private SSH key file (if not default)."
+      },
+      "priority": {
+        "type": "number",
+        "default": 10,
+        "description": "Priority (higher = more preferred)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this builder is enabled for new builds."
       }
     }
   },
@@ -163,7 +157,7 @@
     "description": "Distribution name used in the generated APT repository (e.g., 'stable', 'unstable')."
   },
   "enable_auth": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable HTTP Basic Authentication for the web UI and API."
   },

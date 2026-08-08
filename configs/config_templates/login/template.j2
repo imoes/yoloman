@@ -1,105 +1,39 @@
-# ==============================================================================
-# PAM Configuration for the Shadow `login' service
 #
-# This file defines the Pluggable Authentication Modules (PAM) stack used
-# when a user authenticates via the `login' service (e.g., on a local
-# console or via getty). It handles delays on failure, issue/motd display,
-# environment setup, authentication, and session initialization.
-# ==============================================================================
+# The PAM configuration file for the Shadow `login' service
+# This template is self-documenting: every variable has a default and a description.
+#
 
-# --------------------------------------------------------------------------
-# [delay_fail_microseconds]
-# desc: Microseconds to delay on auth failure
-# type: integer
-# default: 3000000
-# --------------------------------------------------------------------------
 # Enforce a minimal delay in case of failure (in microseconds).
-# (Replaces the `FAIL_DELAY' setting from login.defs)
-# Note that other modules may require another minimal delay. (for example,
-# to disable any delay, you should add the nodelay option to pam_unix)
-auth       optional   pam_faildelay.so  delay={{ delay_fail_microseconds | default(3000000) }}
+# Replaces the `FAIL_DELAY' setting from login.defs.
+# Other modules may require another minimal delay (use nodelay to disable).
+# delay_fail_microseconds: Microseconds to delay on auth failure
+auth       optional   pam_faildelay.so  delay={{ (delay_fail_microseconds | default(3000000)) }}
 
-# --------------------------------------------------------------------------
-# [issue_file_path]
-# desc: Path to issue file to display before login prompt (uncommented line if used)
-# type: string
-# default: /etc/issue
-# --------------------------------------------------------------------------
-# Outputs an issue file prior to each login prompt (Replaces the
-# ISSUE_FILE option from login.defs). Uncomment for use
-# auth       required   pam_issue.so issue={{ issue_file_path | default('/etc/issue') }}
+# Outputs an issue file prior to each login prompt.
+# Replaces the ISSUE_FILE option from login.defs.
+# Uncomment and set if you want to display a specific issue file.
+# issue_file_path: Path to issue file to display before login prompt
+# auth       required   pam_issue.so issue={{ (issue_file_path | default('/etc/issue')) }}
 
-# --------------------------------------------------------------------------
-# [faillock]
-# desc: Enable PAM faillock-based account lockout after failed login attempts. Configure thresholds and unlock delay. (If null, faillock is not configured.)
-# type: object/null
-# --------------------------------------------------------------------------
-# Enable PAM faillock-based account lockout after failed login attempts.
-# Configure thresholds and unlock delay. (If null, faillock is not configured.)
-{% if faillock is defined and faillock is not none %}
-# Faillock configuration block
-account    required   pam_faillock.so preauth silent audit deny={{ (faillock | default({})).deny | default(3) | int }} unlock_time={{ (faillock | default({})).unlock_time | default(600) | int }}
-account    required   pam_faillock.so authfail audit
-auth       required   pam_faillock.so
-{% else %}
-# faillock is not configured.
-{% endif %}
-
-# --------------------------------------------------------------------------
-# [tally2]
-# desc: Enable legacy pam_tally2-based lockout (for older systems). Prefer faillock if available. (If null, tally2 is not configured.)
-# type: object/null
-# --------------------------------------------------------------------------
-# Enable legacy pam_tally2-based lockout (for older systems). Prefer faillock if available. (If null, tally2 is not configured.)
-{% if tally2 is defined and tally2 is not none %}
-# Legacy tally2 configuration block
-account    required   pam_tally2.so deny={{ (tally2 | default({})).deny | default(3) | int }} unlock_time={{ (tally2 | default({})).unlock_time | default(600) | int }}
-auth       required   pam_tally2.so
-{% else %}
-# tally2 is not configured.
-{% endif %}
-
-# --------------------------------------------------------------------------
-# [audit_rules]
-# desc: List of audit/access control rules for login (e.g., restrict login to specific users).
-# type: list
-# default: []
-# --------------------------------------------------------------------------
-# List of audit/access control rules for login (e.g., restrict login to specific users).
-# These rules are typically applied via pam_access.so or similar.
-{% if audit_rules is defined and audit_rules is iterable %}
-{% for rule in audit_rules | default([]) %}
-account    required   pam_access.so accessfile={{ rule | default('/etc/security/access.conf') }}
-{% endfor %}
-{% else %}
-# No specific audit rules defined.
-{% endif %}
-
-# Disallows other than root logins when /etc/nologin exists
-# (Replaces the `NOLOGINS_FILE' option from login.defs)
+# Disallows other than root logins when /etc/nologin exists.
+# Replaces the `NOLOGINS_FILE' option from login.defs.
 auth       requisite  pam_nologin.so
 
 # SELinux needs to be the first session rule. This ensures that any
 # lingering context has been cleared. Without this it is possible
 # that a module could execute code in the wrong domain.
-# When the module is present, "required" would be sufficient (When SELinux
-# is disabled, this returns success.)
+# When the module is present, "required" would be sufficient.
+# When SELinux is disabled, this returns success.
 session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
 
-# Sets the loginuid process attribute
+# Sets the loginuid process attribute.
 session    required     pam_loginuid.so
 
-# --------------------------------------------------------------------------
-# [motd_dynamic_path]
-# desc: Path to dynamic MOTD file
-# type: string
-# default: /run/motd.dynamic
-# --------------------------------------------------------------------------
 # Prints the message of the day upon successful login.
-# (Replaces the `MOTD_FILE' option in login.defs)
-# This includes a dynamically generated part from {{ motd_dynamic_path | default('/run/motd.dynamic') }}
-# and a static (admin-editable) part from /etc/motd.
-session    optional   pam_motd.so motd={{ motd_dynamic_path | default('/run/motd.dynamic') }}
+# Replaces the `MOTD_FILE' option in login.defs.
+# This includes a dynamically generated part and a static (admin-editable) part.
+# motd_dynamic_path: Path to dynamic MOTD file
+session    optional   pam_motd.so motd={{ (motd_dynamic_path | default('/run/motd.dynamic')) }}
 session    optional   pam_motd.so noupdate
 
 # SELinux needs to intervene at login time to ensure that the process
@@ -108,9 +42,9 @@ session    optional   pam_motd.so noupdate
 # pam_selinux.so changes the SELinux context of the used TTY and configures
 # SELinux in order to transition to the user context with the next execve()
 # call.
+# When the module is present, "required" would be sufficient.
+# When SELinux is disabled, this returns success.
 session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
-# When the module is present, "required" would be sufficient (When SELinux
-# is disabled, this returns success.)
 
 # This module parses environment configuration file(s)
 # and also allows you to use an extended config
@@ -118,44 +52,40 @@ session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux
 #
 # parsing /etc/environment needs "readenv=1"
 session       required   pam_env.so readenv=1
-# --------------------------------------------------------------------------
-# [locale_env_file]
-# desc: Path to locale environment file
-# type: string
-# default: /etc/default/locale
-# --------------------------------------------------------------------------
-# locale variables can also be set in {{ locale_env_file | default('/etc/default/locale') }}
-# reading this file *in addition to /etc/environment* does not hurt
-session       required   pam_env.so readenv=1 envfile={{ locale_env_file | default('/etc/default/locale') }}
+
+# locale variables can also be set in /etc/default/locale.
+# reading this file *in addition to /etc/environment* does not hurt.
+# locale_env_file: Path to locale environment file
+session       required   pam_env.so readenv=1 envfile={{ (locale_env_file | default('/etc/default/locale')) }}
 
 # Standard Un*x authentication.
 @include common-auth
 
 # This allows certain extra groups to be granted to a user
 # based on things like time of day, tty, service, and user.
-# Please edit /etc/security/group.conf to fit your needs
-# (Replaces the `CONSOLE_GROUPS' option in login.defs)
+# Please edit /etc/security/group.conf to fit your needs.
+# Replaces the `CONSOLE_GROUPS' option in login.defs.
 auth       optional   pam_group.so
 
 # Uncomment and edit /etc/security/time.conf if you need to set
 # time restraint on logins.
-# (Replaces the `PORTTIME_CHECKS_ENAB' option from login.defs
-# as well as /etc/porttime)
+# Replaces the `PORTTIME_CHECKS_ENAB' option from login.defs
+# as well as /etc/porttime.
 # account    requisite  pam_time.so
 
-# Uncomment and edit /etc/security/access.conf if you need to
-# set access limits.
-# (Replaces /etc/login.access file)
+# Uncomment and edit /etc/security/access.conf if you need to set
+# access limits.
+# Replaces /etc/login.access file.
 # account  required       pam_access.so
 
-# Sets up user limits according to /etc/security/limits.conf
-# (Replaces the use of /etc/limits in old login)
+# Sets up user limits according to /etc/security/limits.conf.
+# Replaces the use of /etc/limits in old login.
 session    required   pam_limits.so
 
-# Prints the status of the user's mailbox upon successful login
-# (Replaces the `MAIL_CHECK_ENAB' option from login.defs).
+# Prints the status of the user's mailbox upon successful login.
+# Replaces the `MAIL_CHECK_ENAB' option from login.defs.
 #
-# This also defines the MAIL environment variable
+# This also defines the MAIL environment variable.
 # However, userdel also needs MAIL_DIR and MAIL_FILE variables
 # in /etc/login.defs to make sure that removing a user
 # also removes the user's mail spool file.
@@ -169,3 +99,61 @@ session    optional   pam_keyinit.so force revoke
 @include common-account
 @include common-session
 @include common-password
+
+# ==============================================================================
+# Faillock Configuration (PAM Account Lockout)
+# ==============================================================================
+# faillock: Enable PAM faillock-based account lockout after failed login attempts.
+# If null, faillock is not configured.
+# Configure thresholds and unlock delay.
+# If faillock is enabled, we append rules to the PAM stack.
+{% if (faillock | default(None)) is not none and (faillock | default(None)) %}
+# --- faillock: Account lockout via pam_faillock ---
+# Lock account after max failures, unlock after unlock time.
+# max_failures: Maximum number of failed attempts before lockout
+# unlock_time: Seconds to wait before unlocking the account
+# deny: Alias for max_failures (if not provided, uses max_failures)
+# unlock_time: Alias for unlock_time (if not provided, uses unlock_time)
+# Even if deny/unlock_time are not explicitly set in the faillock dict,
+# we use sensible defaults if the dict is present but empty.
+{% set faillock_config = (faillock | default({})) %}
+{% set deny_count = faillock_config.get('deny', faillock_config.get('max_failures', 5)) %}
+{% set unlock = faillock_config.get('unlock_time', 300) %}
+account    required     pam_faillock.so preauth silent deny={{ deny_count }} unlock_time={{ unlock }}
+account    [success=ok ignore=ignore auth_err=die default=die] pam_faillock.so authfail deny={{ deny_count }} unlock_time={{ unlock }}
+account    required     pam_faillock.so
+{% endif %}
+
+# ==============================================================================
+# Legacy Tally2 Configuration
+# ==============================================================================
+# tally2: Enable legacy pam_tally2-based lockout (for older systems).
+# Prefer faillock if available. If null, tally2 is not configured.
+# If tally2 is enabled, we append rules to the PAM stack.
+{% if (tally2 | default(None)) is not none and (tally2 | default(None)) %}
+# --- tally2: Account lockout via pam_tally2 (Legacy) ---
+# deny: Maximum number of failed attempts before lockout
+# unlock_time: Seconds to wait before unlocking the account
+{% set tally2_config = (tally2 | default({})) %}
+{% set deny_count_t = tally2_config.get('deny', tally2_config.get('max_failures', 5)) %}
+{% set unlock_t = tally2_config.get('unlock_time', 0) %}
+account    required     pam_tally2.so deny={{ deny_count_t }} unlock_time={{ unlock_t }}
+{% endif %}
+
+# ==============================================================================
+# Audit Rules
+# ==============================================================================
+# audit_rules: List of audit/access control rules for login.
+# Each rule is a string or a dict with 'type' (account/auth/session), 'control', 'module', 'options'.
+# If the list is empty (default), no audit rules are added.
+{% if (audit_rules | default([])) %}
+# --- Audit Rules ---
+{% for rule in (audit_rules | default([])) %}
+# Rule: {{ rule if rule is string else (rule.type ~ ' ' ~ rule.control ~ ' ' ~ rule.module) }}
+{% if rule is string %}
+{{ rule }}
+{% elif rule is mapping %}
+{{ rule.type | default('account') }}    {{ rule.control | default('required') }}   {{ rule.module }} {{ rule.options | default('') | trim }}
+{% endif %}
+{% endfor %}
+{% endif %}

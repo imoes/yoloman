@@ -1,0 +1,64 @@
+{
+  "provides": [
+    {
+      "capability": "web_server",
+      "backend": "nginx",
+      "port_field": "bind_port",
+      "default_port": 8786,
+      "provisionable": {}
+    }
+  ],
+  "requires": [
+    {
+      "capability": "database",
+      "backends": [
+        "mysql",
+        "mariadb"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": "database_connection",
+        "port": "database_connection",
+        "name": "database_connection",
+        "user": "database_connection",
+        "password": "database_connection"
+      }
+    },
+    {
+      "capability": "message_queue",
+      "backends": [
+        "rabbitmq"
+      ],
+      "backend_field": "notifications_driver",
+      "fields": {
+        "host": "notifications_driver",
+        "port": "notifications_driver",
+        "user": "notifications_driver",
+        "password": "notifications_driver",
+        "vhost": "notifications_driver"
+      }
+    },
+    {
+      "capability": "reverse_proxy",
+      "backends": [
+        "nginx",
+        "haproxy",
+        "apache"
+      ],
+      "backend_field": "enable_proxy_headers_parsing",
+      "fields": {
+        "upstream_host": "enable_proxy_headers_parsing",
+        "upstream_port": "enable_proxy_headers_parsing"
+      }
+    }
+  ],
+  "peer_injection": [
+    {
+      "capability": "nfs",
+      "field": "share_driver_list",
+      "kind": "backend_servers",
+      "items_style": "bare_map"
+    }
+  ],
+  "confidence": "high"
+}

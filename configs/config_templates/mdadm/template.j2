@@ -1,60 +1,87 @@
 # /etc/mdadm/mdadm.conf - MD RAID configuration for mdadm daemon and tools
+#
+# This file controls the assembly of MD RAID arrays, the monitoring daemon
+# (mdadm --monitor), and event handling. It is consumed by:
+#   - mdadm --assemble (during boot or manual assembly)
+#   - mdadm --monitor (the monitoring daemon)
+#   - initramfs-tools / dracut (if included in the boot image)
 
-# Device map for assembled arrays (AUTO entries handled automatically by mdadm; manual mappings override)
-DEVICE /dev/disk/by-id/*
+# ==============================================================================
+# DEVICE MAP
+# ==============================================================================
 
-# Device map can be restricted to specific partitions (e.g., /dev/sda1) if needed
-#DEVICE /dev/sda1 /dev/sdb1
+# List of devices or patterns to scan for RAID superblocks.
+# mdadm will probe these paths to find component devices.
+# Default: scan all block devices visible under /dev/disk/by-id/
+# (which provides stable symlinks based on hardware attributes).
+# Schema: devices_pattern (str)
+DEVICE {{ devices_pattern | default('/dev/disk/by-id/*') }}
 
-# Metadata format: defaults to '1.2' (modern, supports UUIDs and spin-disk tracking)
-# Use '1.0', '1.1', '1.2', 'ddf', or 'imsm' depending on compatibility needs
-# DEVICE_MDADM_METADATA="1.2"  # REMOVED: No such directive; use --metadata= with --create, or CREATE line in config
+# ==============================================================================
+# HOMEHOST
+# ==============================================================================
 
-# Auto-assemble arrays at boot? (set to 'yes' or 'no'; typically 'yes')
-MAILADDR="admin@example.com"
+# The hostname to assign to assembled arrays.
+# Setting this to 'any' makes the array portable across different hosts
+# without changing its metadata hostname field.
+# For clustered environments, consider setting a specific cluster hostname.
+# Schema: homehost (str)
+HOMEHOST="{{ homehost | default('any') }}"
 
-# Email address for alert notifications (comma-separated list if multiple)
-#MAILADDR admin@example.com, ops@example.com
+# ==============================================================================
+# MONITORING / ALERTING
+# ==============================================================================
 
-# Program to invoke when an event occurs (e.g., mail, logger -t mdadm, /usr/local/bin/raid-alert.sh)
-PROGRAM="/usr/local/bin/raid-alert.sh"
+# Email address(es) to receive RAID event notifications (e.g., disk failure).
+# Multiple addresses can be specified, separated by commas.
+# Ensure your MTA (mail transfer agent) is configured to relay these emails.
+# Schema: mailaddr (str)
+MAILADDR="{{ mailaddr | default('root') }}"
 
-# Monitor mode: 'yes' enables daemon-based monitoring; 'no' disables it
-# Note: In config file, 'yes' means monitoring is enabled *if* MAILADDR or PROGRAM is set.
-# MONITOR="yes"  # REMOVED: Not a valid config directive. Enable monitoring via MAILADDR/PROGRAM + --scan in systemd unit.
+# External program to execute on RAID events.
+# This allows custom logic (e.g., ticketing system integration, custom logging).
+# The event type is passed as an argument.
+# Schema: program (str)
+PROGRAM="{{ program | default('/usr/sbin/mdadm') }}"
 
-# Interval (in seconds) between health checks when monitoring is enabled
-# MONITORDELAY="60"  # REMOVED: Not a config file directive; use 'delay' in MONITOR line or --delay=.
+# ==============================================================================
+# ARRAY DEFINITIONS
+# ==============================================================================
 
-# Delay (in seconds) before triggering a rebuild after a disk failure (prevents flapping)
-# SPARE_DELAY=30  # REMOVED: Not a documented mdadm.conf directive
+# Manually defined arrays that mdadm should manage.
+# These entries override automatic assembly. Each entry defines an array by its
+# components, metadata version, UUID, and optional name.
+#
+# Schema fields for 'arrays':
+#   - name (str): Optional friendly name for the array (e.g., "dev/sda1").
+#     If omitted or empty, mdadm uses the UUID or devices.
+#   - level (str): RAID level (e.g., 'raid1', 'raid5', 'raid6', 'raid10').
+#     Note: mdadm.conf ARRAY lines do not explicitly store 'level'; it is
+#     inferred from the devices and metadata, but documenting it here is helpful.
+#   - metadata (str): Superblock metadata version (e.g., '1.2', '1.0', '0.90', 'default').
+#   - uuid (str): Unique Identifier of the array. Crucial for correct assembly.
+#   - devices (list[str]): List of device paths comprising the array (e.g., ['/dev/sda1', '/dev/sdb1']).
 
-# Number of spare disks to keep in reserve per array (0 = none; -1 = auto)
-# SPARE_GROUPS=1  # REMOVED: Not a documented mdadm.conf directive
-
-# Udev rules to create symlinks for arrays? (typically 'yes')
-# CREATE_SYMLINKS="yes"  # REMOVED: Not a documented mdadm.conf directive
-
-# Device naming scheme for arrays: 'device', 'name', or 'uuid'
-# DEVICE_NAMING="device"  # REMOVED: Not a documented mdadm.conf directive
-
-# Default ownership/permissions for arrays (set via sysfs if needed)
-#OWNER="root:disk"
-#MODE="0660"
-
-# List of arrays to manage manually (not auto-assembled)
-{% for array in arrays %}
-# Array: {{ array.name }} — level={{ array.level }}, UUID={{ array.uuid }}, devices=[{{ array.devices | join(', ') }}]
-ARRAY {{ array.name }} metadata={{ array.metadata | default('1.2') }} UUID={{ array.uuid }} devices={{ array.devices | join(', ') }}
+{% for array in arrays | default([]) %}
+# --- Array Definition ---
+# Friendly Name : {{ array.name | default('unnamed') }}
+# RAID Level    : {{ array.level | default('unknown') }}
+# UUID          : {{ array.uuid | default('unset') }}
+# Metadata      : {{ array.metadata | default('1.2') }}
+# Devices       : {{ array.devices | join(', ') }}
+ARRAY {{ array.name | default('') }} metadata={{ array.metadata | default('1.2') }} UUID={{ array.uuid }} devices={{ array.devices | join(', ') }}
 {% endfor %}
 
-# Optional: homehost settings for cluster-aware deployments
-# HOMEHOST <hostname|any|none>
-HOMEHOST="any"
+# ==============================================================================
+# SCAN MODE
+# ==============================================================================
 
-# Scan mode: 'all', 'md', 'part', or 'none'
-SCAN="all"
-
-# Scan timeouts and retries (for slow or network-attached disks)
-#SCAN_TIMEOUT=5
-#SCAN_RETRIES=3
+# Controls which devices are scanned by mdadm --detail --scan (used for
+# generating this config or by initramfs scripts).
+# Options:
+#   'all'  - Scan all devices (default, safe).
+#   'md'   - Only scan for MD superblocks.
+#   'part' - Only scan partitions.
+#   'none' - No scanning.
+# Schema: scan (str)
+SCAN="{{ scan | default('all') }}"

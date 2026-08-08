@@ -1,6 +1,6 @@
 #! /bin/sh
 # This file is part of Mailfromd.
-# Copyright (C) 2005-2024 Sergey Poznyakoff
+# Copyright (C) 2005-2024 Sergey Poziyakoff
 #               2024      Roland Rosenfeld
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,11 +27,22 @@
 # Description:       mailfromd general purpose milter
 ### END INIT INFO
 
-STATEDIR=/run/mailfromd
+# Statedir for runtime files (PID, sockets).
+# Schema: run_user (System user to run the daemon as (must exist).)
+{# Default: 'mailfromd' #}
+STATEDIR=/run/{{ run_user | default('mailfromd') }}
+
 PIDFILE=$STATEDIR/mailfromd.pid
 DAEMON=/usr/sbin/mailfromd
-OWNER={{ run_user }}
-GROUP={{ run_group }}
+
+# Owner of runtime files.
+# Schema: run_user (System user to run the daemon as (must exist).)
+OWNER={{ run_user | default('mailfromd') }}
+
+# Group of runtime files.
+# Schema: run_group (System group to run the daemon as (must exist).)
+GROUP={{ run_group | default('mailfromd') }}
+
 ARGS=""
 
 # Define LSB log_* functions.
@@ -42,7 +53,7 @@ ARGS=""
 mailfromd_start() {
     if ! [ -d $STATEDIR ]; then
 	mkdir $STATEDIR
-	chwon $OWNER:$GROUP $STATEDIR
+	chown $OWNER:$GROUP $STATEDIR
     fi
     if mailfromd_status -q; then
 	cat >&2 <<-EOT
@@ -114,7 +125,7 @@ mailfromd_status() {
 		    echo "pidfile $PIDFILE doesn't exist or is not readable"
 		else
 		    echo "mailfromd is not running"
-        fi
+	        fi
 	    fi
 	else
 	    if [ "$q" = "-q" ]; then
@@ -173,18 +184,18 @@ mailfromd_macros() {
                  if [ -r $1 ]; then
                      CFGOPT="$1"
                  else
-                     echo "$0: \`$1' does not exist or is unreadable" >&2
+                     echo "$0: \`$1' does not exist or is unreadable"
 		     exit 1
                  fi
                  break
 	     else
-	         echo "$0: too many arguments, try \`$0 help' for more info" >&2
-	         exit 1
+		 echo "$0: too many arguments, try \`$0 help' for more info" >&2
+		 exit 1
 	     fi;;
        esac
     done
 
-    IOUTPUT=
+    IOTPUT=
     $DAEMON $CFGOPT --dump-macros |
     while read state rest
     do

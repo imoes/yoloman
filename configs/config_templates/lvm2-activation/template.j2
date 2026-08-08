@@ -1,111 +1,261 @@
-{# LVM2 global configuration for activation behavior, device filters, and metadata handling #}
+{#
+  ============================================================================
+  LVM2 (Logical Volume Manager 2) Configuration Template
+  ============================================================================
+  This template generates /etc/lvm/lvm.conf for LVM2. It controls activation
+  behavior, device scanning, metadata backup, and logging.
 
-{# Global activation mode: 'global' (system-wide), 'local' (per-volume), 'none' (disabled) #}
+  IMPORTANT:
+  - Boolean values are written as `true` or `false` (lowercase).
+  - String values are double-quoted.
+  - Lists are rendered as LVM array syntax: [ "item1", "item2" ].
+  - Nested structures (raid, mirror, thin_pool) are sub-blocks within 'activation'.
+
+  See individual comments below for field semantics and defaults.
+  ============================================================================
+#}
+
+#
+# Global activation settings
+#
 activation {
-    # Control whether to use activation monitoring (e.g., for thin pools, snapshots) #
-    # Enable/Disable device-mapper event monitoring #
-    monitoring = {{ monitoring }}
+    {#
+      Enable device-mapper event monitoring for activation (e.g., thin pool status, LV lock status).
+      Disable only in minimal environments or debug.
+      Default: true
+    #}
+    monitoring = {{ (activation | default({})).monitoring | default(true) }}
 
-    # Minimum free space required (in MB) in a VG before allowing activation of LVs #
-    # Prevents activation if VG free space is below this threshold #
-    min_initial_size = {{ min_initial_size }}
+    {#
+      Minimum free space (in MiB) required in a volume group before activating logical volumes.
+      Helps prevent out-of-space failures.
+      Default: 0
+    #}
+    min_initial_size = {{ (activation | default({})).min_initial_size | default(0) }}
 
-    # Retry activation for up to this many seconds if LV is busy #
-    # Useful for devices with delayed or transient locking issues #
-    activation_retry = {{ activation_retry }}
+    {#
+      Maximum seconds to wait for an LV to become free before failing activation.
+      Increase for systems with slow I/O or high contention.
+      Default: 30
+    #}
+    activation_retry = {{ (activation | default({})).activation_retry | default(30) }}
 
-    # Use polling to check LV status during activation #
-    use_polling = {{ use_polling }}
+    {#
+      Use polling instead of asynchronous device-mapper event notifications for activation checks.
+      Avoid unless dm-notify is unavailable.
+      Default: false
+    #}
+    use_polling = {{ (activation | default({})).use_polling | default(false) }}
 
-    # Whether to activate LVs in read-only mode by default #
-    read_only = {{ read_only }}
+    {#
+      Activate all logical volumes in read-only mode by default.
+      Useful for disaster recovery or testing scenarios.
+      Default: false
+    #}
+    read_only = {{ (activation | default({})).read_only | default(false) }}
 
-    # Enable automatic activation of snapshots (if supported) #
-    auto_activation_volume_list = [ {{ auto_activation_volume_list | join(', ') }} ]
+    {#
+      List of volume or LV names (patterns or exact) that should auto-activate on boot.
+      Empty list = all eligible LVs auto-activate.
+      Default: []
+    #}
+    auto_activation_volume_list = [ {{ (activation | default({})).auto_activation_volume_list | default([]) | join(', ') }} ]
 
-    # Activation mode for mirrored and raid volumes #
-    # Options: 'mirrored', 'raid', 'snapshots' — each accepts a sub-block #
-    # Note: Only 'mirrored' and 'raid' are commonly configured via lvm.conf #
-    # For raid: controls sync behavior during rebuilds #
+    {#
+      RAID-specific activation settings
+    #}
     raid {
-        # Minimum number of images (legs) required for RAID activation #
-        # Prevents activation if fewer than this number of images are present #
-        min_home_pages = {{ raid.min_home_pages }}
-        # Maximum number of retries for sync operations #
-        sync_max = {{ raid.sync_max }}
+        {#
+          Minimum number of RAID home pages (metadata pages) required before RAID LV activation.
+          Prevents degraded RAID activation if metadata is too sparse.
+          Default: 0
+        #}
+        min_home_pages = {{ ((activation | default({})).raid | default({})).min_home_pages | default(0) }}
+
+        {#
+          Maximum number of sync operations LVM will attempt before aborting RAID rebuild/resync.
+          Default: 500
+        #}
+        sync_max = {{ ((activation | default({})).raid | default({})).sync_max | default(500) }}
     }
 
-    # For mirrored volumes: behavior on mirror log failures #
-    # Options: 'use_lvmlockd', 'use_lvmetad', 'local', 'none' — not all apply here #
-    # We use this section only for general fallback behavior #
+    {#
+      Mirror-specific activation settings
+    #}
     mirror {
-        # Whether to log mirror image failures #
-        log_failures = {{ mirror.log_failures }}
-        # Whether to automatically recover failed mirror images #
-        auto_recovery = {{ mirror.auto_recovery }}
-        # Minimum number of images required for mirror activation #
-        min_recovery_rate = {{ mirror.min_recovery_rate }}
+        {#
+          Log failures of mirror logs (e.g., when metadata is lost).
+          Helps diagnose mirror inconsistencies.
+          Default: true
+        #}
+        log_failures = {{ ((activation | default({})).mirror | default({})).log_failures | default(true) }}
+
+        {#
+          Automatically recover failed mirror images (if possible) after activation.
+          Disable if manual intervention preferred.
+          Default: true
+        #}
+        auto_recovery = {{ ((activation | default({})).mirror | default({})).auto_recovery | default(true) }}
+
+        {#
+          Minimum number of mirror images required to be healthy before mirror LV activates.
+          Prevents activation of critically degraded mirrors.
+          Default: 25
+        #}
+        min_recovery_rate = {{ ((activation | default({})).mirror | default({})).min_recovery_rate | default(25) }}
     }
 
-    # Thin pool activation thresholds #
+    {#
+      Thin pool activation settings
+    #}
     thin_pool {
-        # Minimum free space (in % of pool) required to allow activation #
-        # Prevents activation if pool metadata/data space falls below this #
-        metadata_read_ahead = {{ thin_pool.metadata_read_ahead }}
-        # Activation timeout for thin pool check operations (seconds) #
-        check_timeout = {{ thin_pool.check_timeout }}
-        # Whether to activate thin pools in read-only mode when near full #
-        error_when_full = {{ thin_pool.error_when_full }}
+        {#
+          Read-ahead (in sectors) for thin pool metadata devices.
+          0 = use kernel default.
+          Default: 0
+        #}
+        metadata_read_ahead = {{ ((activation | default({})).thin_pool | default({})).metadata_read_ahead | default(0) }}
+
+        {#
+          Seconds to wait for thin pool health check before treating pool as unhealthy (e.g., near full).
+          Default: 30
+        #}
+        check_timeout = {{ ((activation | default({})).thin_pool | default({})).check_timeout | default(30) }}
+
+        {#
+          Fail activation of thin pool when pool is full (or near full).
+          Set false to allow activation in degraded mode.
+          Default: true
+        #}
+        error_when_full = {{ ((activation | default({})).thin_pool | default({})).error_when_full | default(true) }}
     }
 }
 
-{# Device filter: restrict which block devices LVM will scan/use #}
-# Format: [a|r]regex — 'a' = accept, 'r' = reject #
-# Example: [ "a|/dev/sd.*|", "r|.*|" ] accepts all /dev/sdX but rejects all else #
-# Note: This list is evaluated in order; first match wins #
+#
+# Device settings: scanning, filtering, and preferred paths
+#
 device {
-    scan = [ {{ scan | join(', ') }} ]
-    preferred_names = [ {{ preferred_names | join(', ') }} ]
-    filtering = {{ filtering }}
-    md_component_detection = {{ md_component_detection }}
-    # Device alias mapping (e.g., for multipath) #
-    # Optional; leave empty if not needed #
-    aliases = [ {{ aliases | join(', ') }} ]
+    {#
+      List of device filters (regexes with a=accept, r=reject) to determine which block devices LVM scans for PVs.
+      Default: [ "a|/dev/sd.*|", "r|.*|" ]
+    #}
+    scan = [ {{ (device | default({})).scan | default(['"a|/dev/sd.*|"', '"r|.*|"']) | join(', ') }} ]
+
+    {#
+      List of device name patterns (regexes) used to prefer one path over others in multipath setups.
+      Default: []
+    #}
+    preferred_names = [ {{ (device | default({})).preferred_names | default([]) | join(', ') }} ]
+
+    {#
+      Enable device filtering via the scan rules above.
+      Disable only for debugging or trusted environments.
+      Default: true
+    #}
+    filtering = {{ (device | default({})).filtering | default(true) }}
+
+    {#
+      Detect and exclude Linux MD RAID components to avoid confusion between LVM PVs and MD arrays.
+      Default: true
+    #}
+    md_component_detection = {{ (device | default({})).md_component_detection | default(true) }}
+
+    {#
+      Optional device alias mappings (e.g., multipath wwid → /dev/mapper/...) for consistent naming.
+      Default: []
+    #}
+    aliases = [ {{ (device | default({})).aliases | default([]) | join(', ') }} ]
 }
 
-{# Metadata handling and backup/backup_dir settings #}
+#
+# Metadata backup and archive settings
+#
 backup {
-    # Whether to maintain backups of metadata before changes #
-    backup = {{ backup.backup }}
-    # Directory to store metadata backups (per-VG) #
-    backup_dir = "{{ backup.backup_dir }}"
-    # Archive settings — how many archives to retain #
-    archives = {{ backup.archives }}
-    # Prefix for archive filenames #
-    archive_prefix = "{{ backup.archive_prefix }}"
+    {#
+      Enable automatic backup of LVM metadata before modifications (e.g., lvcreate, vgreduce).
+      Default: true
+    #}
+    backup = {{ (backup | default({})).backup | default(true) }}
+
+    {#
+      Directory to store per-VG metadata backups. Should be on a reliable filesystem.
+      Default: /etc/lvm/backup
+    #}
+    backup_dir = "{{ (backup | default({})).backup_dir | default('/etc/lvm/backup') }}"
+
+    {#
+      Number of old metadata archives to retain per volume group.
+      Older archives are pruned automatically.
+      Default: 10
+    #}
+    archives = {{ (backup | default({})).archives | default(10) }}
+
+    {#
+      Prefix for archive filenames (usually 'vgname' or 'lvmbackup').
+      Archives named: vgname_timestamp
+      Default: vgname
+    #}
+    archive_prefix = "{{ (backup | default({})).archive_prefix | default('vgname') }}"
 }
 
-{# Shell command hooks for activation events (e.g., pre/post activation) #}
-# These are executed in sequence during activation/deactivation #
+#
+# Activation hooks: shell commands triggered by LVM events
+#
 activation_hooks {
-{% for hook in activation_hooks %}
-    # {{ hook.description }}
-    {{ hook.event }} = "{{ hook.command }}"
+    {#
+      List of activation event hooks (e.g., 'pre_pvmove', 'post_lvcreate').
+      Each hook executes a shell command.
+      If the list is empty, no hooks are emitted.
+    #}
+{% for hook in (activation_hooks | default([])) %}
+    {# {{ hook.event | default('unknown') }} #}
+    {{ hook.event | default('unknown') }} = "{{ hook.command | default('') }}"
 {% endfor %}
 }
 
-{# Logging configuration for activation-related messages #}
+#
+# Logging configuration
+#
 log {
-    # Verbosity: 0 = errors only, 1 = warnings, 2 = info, 3 = debug #
-    verbose = {{ log.verbose }}
-    # Prefix for all LVM log messages #
-    prefix = "{{ log.prefix }}"
-    # Where to send logs: "stdout", "syslog", or file path #
-    syslog = {{ log.syslog }}
-    # File to log to (if syslog=false) #
-    file = "{{ log.file }}"
-    # Whether to overwrite (true) or append (false) to log file #
-    overwrite = {{ log.overwrite }}
-    # Log level thresholds per subsystem #
-    level = {{ log.level }}
+    {#
+      Log verbosity:
+        0 = errors only
+        1 = warnings
+        2 = info
+        3 = debug
+      Higher values produce more detail.
+      Default: 0
+    #}
+    verbose = {{ (log | default({})).verbose | default(0) }}
+
+    {#
+      String prefix for all LVM log messages (e.g., '[LVM2] ').
+      Default: LVM2
+    #}
+    prefix = "{{ (log | default({})).prefix | default('LVM2') }}"
+
+    {#
+      Send LVM logs to system syslog (true) or to a file (false).
+      Default: true
+    #}
+    syslog = {{ (log | default({})).syslog | default(true) }}
+
+    {#
+      Path to file for logs when syslog=false. Requires write permission.
+      Default: /var/log/lvm2.log
+    #}
+    file = "{{ (log | default({})).file | default('/var/log/lvm2.log') }}"
+
+    {#
+      Overwrite log file (true) or append (false) when logging to a file.
+      Default: true
+    #}
+    overwrite = {{ (log | default({})).overwrite | default(true) }}
+
+    {#
+      Global minimum log level (0=error, 1=warn, 2=info, 3=debug).
+      Only messages ≥ this level are logged.
+      Default: 0
+    #}
+    level = {{ (log | default({})).level | default(0) }}
 }

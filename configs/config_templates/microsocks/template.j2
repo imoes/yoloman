@@ -1,39 +1,51 @@
-# Listen on this IP address (0.0.0.0 for all interfaces)
-bind_addr {{ bind_addr }}
+# --------------------------------------------------------------------------
+# microsocks Configuration Template
+# Self-documented: every directive is preceded by its schema description.
+# Variables use Jinja2 `default()` filters to ensure safe rendering even
+# when an upstream role omits optional fields.
+# --------------------------------------------------------------------------
 
-# Listen on this port
-port {{ port }}
+# IP address the server will listen on. Use 0.0.0.0 to listen on all interfaces.
+bind_addr {{ bind_addr | default('0.0.0.0') }}
 
-# Number of worker threads (0 = auto-detect CPU count)
-threads {{ threads }}
+# TCP port for SOCKS5 connections.
+port {{ port | default(1080) }}
 
-# Log level: 0=quiet, 1=errors, 2=warnings, 3=info, 4=debug
-loglevel {{ loglevel }}
+# Number of worker threads. Set to 0 to auto-detect based on CPU count.
+threads {{ threads | default(0) }}
 
-# Path to PID file (leave empty to disable PID file)
-pidfile {{ pidfile }}
+# Verbosity of logging: 0 (quiet) to 4 (debug). Higher values log more.
+loglevel {{ loglevel | default(1) }}
 
-# Enable UDP relay (requires -u support in microsocks build)
-{% if udp_enabled %}
+# Path to file where the process ID (PID) will be written. Leave empty ('') to disable.
+{% if pidfile | default('') != '' %}
+pidfile {{ pidfile | default('/run/microsocks/microsocks.pid') }}
+{% endif %}
+
+# Enable UDP relay support (requires microsocks built with -DENABLE_UDP).
+{% if udp_enabled | default(False) %}
 udp
 {% endif %}
 
-# Require authentication: none, userpass, or both (comma-separated: none,userpass)
-authmode {{ authmode }}
+# Authentication mode: none (no auth), userpass (username:password), or combined.
+authmode {{ authmode | default('none') }}
 
-# List of allowed username:password pairs (only if authmode includes userpass)
-{% for user in users %}
-user {{ user.username }}:{{ user.password }}
+# List of allowed user credentials. Only used when authmode includes userpass.
+# Format per line: user <username>:<password>
+{% for user_entry in users | default([]) %}
+user {{ user_entry.username | default('') }}:{{ user_entry.password | default('') }}
 {% endfor %}
 
-# Per-user allowed destination hosts (host or host:port, one per line)
-# Format: user: allowed_host1 allowed_host2 ...
-{% for rule in user_rules %}
-rule {{ rule.user }}: {{ rule.destinations | join(' ') }}
+# List of destination access rules per user. If empty, all destinations allowed.
+# Format per line: rule <username>: <host1> <host2> ...
+{% for rule in user_rules | default([]) %}
+rule {{ rule.user | default('') }}: {{ rule.destinations | default([]) | join(' ') }}
 {% endfor %}
 
-# Chroot directory (empty to disable chroot)
-chroot {{ chroot }}
+# Directory to chroot into after startup. Leave empty ('') to disable chrooting.
+{% if chroot | default('') != '' %}
+chroot {{ chroot | default('') }}
+{% endif %}
 
-# Drop privileges to this user after binding ports
-user {{ user_after_bind }}
+# System user to drop privileges to after binding privileged ports.
+user {{ user_after_bind | default('nobody') }}

@@ -6,6 +6,8 @@ import { OuConfigEditorComponent, EditorScope } from './ou-config-editor.compone
 
 export interface PolicyGpeditDialogData {
   scope: EditorScope;
+  /** Open directly on this config file (when editing a specific policy). */
+  path?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface PolicyGpeditDialogData {
       </button>
     </h2>
     <mat-dialog-content>
-      <app-ou-config-editor [scope]="data.scope" />
+      <app-ou-config-editor [scope]="data.scope" [initialPath]="data.path" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <!-- Each setting is applied by its own Apply button in the editor, so there

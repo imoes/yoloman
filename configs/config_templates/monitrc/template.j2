@@ -1,43 +1,102 @@
-# Monit global settings and control file
-# Set polling interval in seconds
-set daemon {{ daemon_interval | default(60) }}
+# Monit Control File - Self-Documenting Template
+# This file configures the Monit process monitor daemon.
 
-# Log file path
-{% if log_path %}set logfile {{ log_path }}{% endif %}
+# Global daemon polling interval in seconds.
+# Controls how often Monit checks all monitored services.
+set daemon {{ (daemon_interval | default(60)) }}
 
-# Syslog facility (e.g., 'daemon')
-{% if syslog_facility %}set syslog facility {{ syslog_facility }}{% endif %}
-
-# Mail server settings for alert notifications
-{% if mail_server %}
-set mailserver {{ mail_server }} port {{ mail_server_port | default(25) }}
-{% if mail_from %}with timeout {{ mail_timeout | default(30) }}{% endif %}
+# Path to the Monit log file.
+# If empty, Monit logs to syslog.
+{% if (log_path | default('')) != '' %}
+# Log file path: {{ log_path | default('') }}
+set logfile {{ log_path | default('') }}
 {% endif %}
 
-# Email alert recipients
-{% if mail_alerts %}{% for addr in mail_alerts %}set alert {{ addr }}{% endfor %}{% endif %}
+# Syslog facility to use when logging to syslog.
+# Common values: 'daemon', 'user', 'local0'.
+# Only used if log_path is empty or omitted.
+{% if (syslog_facility | default('')) != '' %}
+# Syslog facility: {{ syslog_facility | default('') }}
+set syslog facility {{ syslog_facility | default('') }}
+{% endif %}
 
-# HTTP daemon for web UI
-{% if httpd_enabled %}
+# SMTP mail server settings for sending alert emails.
+# Configures the connection to the mail relay.
+{% if (mail_server | default('')) != '' %}
+# Mail server: {{ mail_server | default('') }}
+# Mail server port: {{ mail_server_port | default(25) }}
+# Mail timeout: {{ mail_timeout | default(30) }}
+set mailserver {{ mail_server | default('') }} port {{ mail_server_port | default(25) }}
+{% if (mail_from | default('')) != '' %}
+with timeout {{ mail_timeout | default(30) }}
+{% endif %}
+{% endif %}
+
+# Email alert recipients.
+# Defines who receives Monit alert notifications.
+# Each address gets its own 'set alert' directive.
+{% if (mail_alerts | default([])) | length > 0 %}
+# Alert recipients: {{ mail_alerts | default([]) | join(', ') }}
+{% for addr in mail_alerts | default([]) %}set alert {{ addr }}{% endfor %}
+{% endif %}
+
+# Built-in HTTP server for the Monit web interface.
+# Provides a browser-based dashboard for monitoring status.
+{% if (httpd_enabled | default(True)) %}
+# Web interface port: {{ httpd_port | default(2812) }}
 set httpd port {{ httpd_port | default(2812) }}
-{% if httpd_allow_addr %}allow {{ httpd_allow_addr }}{% endif %}
-{% if httpd_allow_username %}allow {{ httpd_allow_username }}{% if httpd_allow_password %}:{{ httpd_allow_password }}{% endif %}{% endif %}
+
+# Access control for the web interface.
+# Specifies allowed IP addresses or CIDR subnets.
+{% if (httpd_allow_addr | default('localhost')) != '' %}
+allow {{ httpd_allow_addr | default('localhost') }}
 {% endif %}
 
-# Default service check interval (can be overridden per-service)
-{% if service_check_interval %}set daemon {{ service_check_interval | default(60) }}{% endif %}
+# HTTP Basic Authentication credentials.
+# If username is set, password is required.
+{% if (httpd_allow_username | default('')) != '' %}
+{% if (httpd_allow_password | default('')) != '' %}
+allow {{ httpd_allow_username | default('') }}:{{ httpd_allow_password | default('') }}
+{% else %}
+# Warning: Username set but no password defined.
+allow {{ httpd_allow_username | default('') }}
+{% endif %}
+{% endif %}
+{% endif %}
 
-# Umask
-{% if umask %}set umask {{ umask }}{% endif %}
+# Per-service default check interval in seconds.
+# This overrides the global daemon interval for individual service checks.
+# Note: If defined here, it resets the daemon interval.
+{% if (service_check_interval | default(60)) != (daemon_interval | default(60)) %}
+set daemon {{ service_check_interval | default(60) }}
+{% endif %}
 
-# PID file path
-{% if pidfile %}set pidfile {{ pidfile }}{% endif %}
+# Umask for Monit processes.
+# Controls file permissions for created files (e.g., PID files, logs).
+{% if (umask | default('')) != '' %}
+set umask {{ umask | default('') }}
+{% endif %}
 
-# Event queue settings (for batched alerts)
-{% if eventqueue_enabled %}
+# Path to the Monit PID file.
+# Used to track the running instance of the Monit daemon.
+{% if (pidfile | default('/var/run/monit.pid')) != '' %}
+set pidfile {{ pidfile | default('/var/run/monit.pid') }}
+{% endif %}
+
+# Event queue settings.
+# Buffers and batches alerts to prevent email storms during outages.
+{% if (eventqueue_enabled | default(False)) %}
 set eventqueue basedir {{ eventqueue_basedir | default('/var/lib/monit/events') }}
-{% if eventqueue_slots %}slots {{ eventqueue_slots }}{% endif %}
+{% if (eventqueue_slots | default(100)) > 0 %}
+slots {{ eventqueue_slots | default(100) }}
+{% endif %}
 {% endif %}
 
-# Include other config files (e.g., /etc/monit/conf.d/*.conf)
-{% if include_dirs %}{% for dir in include_dirs %}include {{ dir }}{% endfor %}{% else %}include /etc/monit/conf.d/*{% endif %}
+# Include other configuration files.
+# Allows splitting configuration into multiple files (e.g., per-service).
+# If include_dirs is empty, defaults to /etc/monit/conf.d/*.
+{% if (include_dirs | default([])) | length > 0 %}
+{% for dir in include_dirs | default([]) %}include {{ dir }}{% endfor %}
+{% else %}
+include /etc/monit/conf.d/*
+{% endif %}

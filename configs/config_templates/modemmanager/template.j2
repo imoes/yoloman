@@ -1,54 +1,86 @@
-# Allow only specified D-Bus connections
-# See mm-config.c for defaults and description of each option
-# Core settings
+# ModemManager configuration file (mm.conf)
+# This file controls the behavior of the ModemManager service, including logging,
+# device probing, plugin management, and feature toggles.
+#
+# This template is self-documenting: every configuration directive is preceded
+# by a comment derived from its schema definition. Variables use the `default()`
+# Jinja2 filter to ensure safe rendering even when an Ansible variable is unset.
+
 [General]
-# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug (default: 2)
-LogLevel={{ log_level }}
-# Log domain filters (comma-separated list of domains, or 'all', or empty for none)
-LogDomains={{ log_domains | join(', ') }}
-# Time to wait before scanning for modems (milliseconds, default: 1000)
-ModemProbeDelay={{ probe_delay_ms }}
-# Maximum time to wait for modem initialization (seconds, default: 60)
-ModemInitTimeout={{ modem_init_timeout_s }}
-# Maximum number of simultaneous connections (0 = no limit, default: 100)
-MaxConnections={{ max_connections }}
-# Enable/Disable phone state monitoring
-EnablePhoneStateMonitoring={{ enable_phone_state_monitoring | lower }}
-# Enable/Disable internal USB device probing
-EnableUsbDeviceProbing={{ enable_usb_device_probing | lower }}
-# Enable/Disable AT port auto-detection
-EnableAtPortAutoDetect={{ enable_at_port_auto_detect | lower }}
-# Enable/Disable firmware update support
-EnableFirmwareUpdate={{ enable_firmware_update | lower }}
-# Enable/Disable MM-SMS (ModemManager's native SMS handling)
-EnableMmSms={{ enable_mm_sms | lower }}
-# Enable/Disable QMI support
-EnableQmi={{ enable_qmi | lower }}
-# Enable/Disable NMEA GPS support
-EnableNmea={{ enable_nmea | lower }}
-# Enable/Disable serial port locking (requires root)
-EnableLockSerialPort={{ enable_lock_serial_port | lower }}
-# Enable/Disable plugin-specific serial port initialization
-EnablePluginModemfirmware={{ enable_plugin_modemfirmware | lower }}
-# List of plugin blacklists (comma-separated, no spaces)
-PluginBlacklist={{ plugin_blacklist | join(', ') }}
-# List of plugin whitelists (comma-separated, no spaces)
-PluginWhitelist={{ plugin_whitelist | join(', ') }}
-# List of port blacklists: 'device:port_type' (e.g., 'ttyUSB0:at')
-PortBlacklist={{ port_blacklist | join(', ') }}
-# List of port whitelists
-PortWhitelist={{ port_whitelist | join(', ') }}
-# USB device blacklists (vendor:product)
-UsbDeviceBlacklist={{ usb_device_blacklist | join(', ') }}
-# USB device whitelists
-UsbDeviceWhitelist={{ usb_device_whitelist | join(', ') }}
-# List of MM-specific options per plugin: plugin_name=key1=value1,key2=value2,...
-{% for plugin in plugin_options %}{{ plugin.name }}={{ plugin.options | join(',') }}
+
+# Logging verbosity: 0=none, 1=error, 2=warn, 3=info, 4=debug
+LogLevel={{ log_level | default(2) }}
+
+# List of log domains to include (e.g., ['MM', 'GPIOD', 'USB']). Use ['all'] for all domains.
+# Renders as a comma-separated list. Empty list results in empty string (no filtering).
+LogDomains={{ log_domains | default([]) | join(', ') }}
+
+# Delay (ms) to wait before scanning for modems after device addition
+ModemProbeDelay={{ probe_delay_ms | default(1000) }}
+
+# Maximum time (seconds) to wait for a modem to initialize before giving up
+ModemInitTimeout={{ modem_init_timeout_s | default(60) }}
+
+# Maximum number of simultaneous D-Bus client connections (0 = no limit)
+MaxConnections={{ max_connections | default(100) }}
+
+# Enable monitoring of phone call, SMS, and network registration state
+EnablePhoneStateMonitoring={{ enable_phone_state_monitoring | default(False) | lower }}
+
+# Enable automatic probing of USB devices for modems
+EnableUsbDeviceProbing={{ enable_usb_device_probing | default(True) | lower }}
+
+# Enable automatic detection of AT-capable serial ports
+EnableAtPortAutoDetect={{ enable_at_port_auto_detect | default(True) | lower }}
+
+# Enable firmware update support via QMI/MBIM
+EnableFirmwareUpdate={{ enable_firmware_update | default(True) | lower }}
+
+# Enable ModemManager’s native SMS handling (not use of ofono)
+EnableMmSms={{ enable_mm_sms | default(True) | lower }}
+
+# Enable QMI protocol support for modems
+EnableQmi={{ enable_qmi | default(True) | lower }}
+
+# Enable NMEA GPS data parsing from modems
+EnableNmea={{ enable_nmea | default(True) | lower }}
+
+# Lock serial ports to prevent concurrent access (requires root)
+EnableLockSerialPort={{ enable_lock_serial_port | default(False) | lower }}
+
+# Allow plugin-specific serial port initialization sequences
+EnablePluginModemfirmware={{ enable_plugin_modemfirmware | default(True) | lower }}
+
+# List of plugin names to disable (e.g., ['simtech', 'huawei'])
+# Renders as a comma-separated list.
+PluginBlacklist={{ plugin_blacklist | default([]) | join(', ') }}
+
+# List of plugin names to enable (only these will be used if non-empty)
+# Renders as a comma-separated list.
+PluginWhitelist={{ plugin_whitelist | default([]) | join(', ') }}
+
+# List of ports to ignore, in format 'device:port_type' (e.g., 'ttyS0:at')
+# Renders as a comma-separated list.
+PortBlacklist={{ port_blacklist | default([]) | join(', ') }}
+
+# List of ports to explicitly allow; only these will be used if non-empty
+# Renders as a comma-separated list.
+PortWhitelist={{ port_whitelist | default([]) | join(', ') }}
+
+# List of USB devices (vendor:product) to ignore (e.g., '12d1:140c')
+# Renders as a comma-separated list.
+UsbDeviceBlacklist={{ usb_device_blacklist | default([]) | join(', ') }}
+
+# List of USB devices to explicitly recognize as modems
+# Renders as a comma-separated list.
+UsbDeviceWhitelist={{ usb_device_whitelist | default([]) | join(', ') }}
+
+# Plugin-specific configuration overrides (key=value pairs per plugin).
+# The schema defines plugin_options as a list of mappings with 'name' and 'options' keys.
+# This loop iterates over that list to generate individual lines.
+{% for plugin in plugin_options | default([]) %}{{ plugin.name }}={{ plugin.options | join(',') }}
 {% endfor %}
 
 # Note: ModemManager configuration file does NOT support enabling/disabling MBIM
 # directly via a top-level boolean. Use `mmcli --create-modem --interface-type=mbim`
 # or udev rules for MBIM-specific handling.
-# The directive `EnableMmSms` was incorrectly named in the original as `EnableMmSms`
-# and is actually for enabling ModemManager's native SMS handling (not ofono).
-# Its default is true, and it's unrelated to MBIM.

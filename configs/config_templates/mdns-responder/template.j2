@@ -1,64 +1,91 @@
 [server]
-# Enables or disables the mDNS responder functionality
-{{ 'use-ipv6=yes' if use_ipv6 else 'use-ipv6=no' }}
-{{ 'use-ipv4=yes' if use_ipv4 else 'use-ipv4=no' }}
-{{ 'allow-interfaces=' + allow_interfaces | join(',') if allow_interfaces else '# allow-interfaces=' }}
-{{ 'deny-interfaces=' + deny_interfaces | join(',') if deny_interfaces else '# deny-interfaces=' }}
-# Sets the system hostname used in mDNS responses
-system-hostname={{ system_hostname }}
-# Sets the local service domain name (e.g., local.)
-domain-name={{ domain_name }}
+# Enable or disable IPv6 support for mDNS (default: True)
+{{ 'use-ipv6=yes' if (use_ipv6 | default(True)) else 'use-ipv6=no' }}
+
+# Enable or disable IPv4 support for mDNS (default: True)
+{{ 'use-ipv4=yes' if (use_ipv4 | default(True)) else 'use-ipv4=no' }}
+
+# List of network interface names to allow for mDNS traffic. If empty, all interfaces are allowed.
+{% if (allow_interfaces | default([])) | length > 0 %}
+allow-interfaces={{ allow_interfaces | default([]) | join(',') }}
+{% else %}
+# allow-interfaces=
+{% endif %}
+
+# List of network interface names to explicitly deny for mDNS traffic. Takes precedence over allow_interfaces.
+{% if (deny_interfaces | default([])) | length > 0 %}
+deny-interfaces={{ deny_interfaces | default([]) | join(',') }}
+{% else %}
+# deny-interfaces=
+{% endif %}
+
+# System hostname advertised via mDNS. Default uses the actual system hostname if left as placeholder.
+system-hostname={{ (system_hostname | default('{{ hostname }}')) if system_hostname is defined and system_hostname != '{{ hostname }}' else '{{ hostname }}' }}
+
+# Local mDNS domain name. Typically `local.` for IPv4/IPv6 link-local zones.
+domain-name={{ domain_name | default('local.') }}
 
 [reflector]
-# Enables or disables the mDNS reflector (forward mDNS traffic between subnets)
-enable-reflector={{ 'yes' if reflector_enabled else 'no' }}
-# Enables or disables DNS-SD reflection across subnets
-dns-reflect-services={{ 'yes' if reflect_dns_services else 'no' }}
+# Enable mDNS reflection between subnets. Use only in controlled environments (e.g., home networks with multiple subnets).
+enable-reflector={{ 'yes' if (reflector_enabled | default(False)) else 'no' }}
+
+# Enable reflection of DNS Service Discovery (DNS-SD) services across subnets.
+dns-reflect-services={{ 'yes' if (reflect_dns_services | default(False)) else 'no' }}
 
 [nss-resolve]
-# Enables or disables the nss-resolve module for system-wide mDNS resolution
-enable={{ 'yes' if nss_resolve_enabled else 'no' }}
+# Enable the nss-resolve module to make mDNS resolution available system-wide (e.g., via gethostbyname).
+enable={{ 'yes' if (nss_resolve_enabled | default(False)) else 'no' }}
 
 [cache]
-# Maximum number of entries in the mDNS response cache
-max-cache-entries={{ max_cache_entries }}
-# TTL for positive responses (in seconds)
-max-ttl={{ max_ttl }}
-# TTL for negative responses (in seconds)
-max-neg-ttl={{ max_neg_ttl }}
+# Maximum number of mDNS cache entries to store.
+max-cache-entries={{ max_cache_entries | default(10000) }}
+
+# Maximum TTL (in seconds) for positive mDNS responses.
+max-ttl={{ max_ttl | default(75) }}
+
+# Maximum TTL (in seconds) for negative mDNS responses.
+max-neg-ttl={{ max_neg_ttl | default(120) }}
 
 [wide-area]
-# Enables or disables Wide Area mDNS (disabled by default)
-enable-wide-area={{ 'yes' if wide_area_enabled else 'no' }}
+# Enable wide-area mDNS (disallowed by RFC, use only if you understand the risks).
+enable-wide-area={{ 'yes' if (wide_area_enabled | default(False)) else 'no' }}
 
 [publish]
-# Enables or disables publishing of mDNS records
-publish-hinfo={{ 'yes' if publish_hinfo else 'no' }}
-# Publishes the machine's DNS-SD services
-publish-services={{ 'yes' if publish_services else 'no' }}
-# Publishes address records (A/AAAA)
-publish-addresses={{ 'yes' if publish_addresses else 'no' }}
-# Publishes PTR (service discovery) records
-publish-ptr={{ 'yes' if publish_ptr else 'no' }}
-# Publishes SRV records for services
-publish-srv={{ 'yes' if publish_srv else 'no' }}
-# Publishes TXT records for services
-publish-txt={{ 'yes' if publish_txt else 'no' }}
-# Publishes the local workstation record ( workstation._workstation )
-publish-workstation={{ 'yes' if publish_workstation else 'no' }}
-# List of service types to publish (if publish-services=yes)
-{% for service_type in publish_service_types %}
+# Publish host information (CPU/OS) via mDNS.
+publish-hinfo={{ 'yes' if (publish_hinfo | default(False)) else 'no' }}
+
+# Enable publishing of locally registered DNS-SD services.
+publish-services={{ 'yes' if (publish_services | default(True)) else 'no' }}
+
+# Publish the host's A/AAAA records.
+publish-addresses={{ 'yes' if (publish_addresses | default(True)) else 'no' }}
+
+# Publish PTR records for service discovery.
+publish-ptr={{ 'yes' if (publish_ptr | default(True)) else 'no' }}
+
+# Publish SRV records for services.
+publish-srv={{ 'yes' if (publish_srv | default(True)) else 'no' }}
+
+# Publish TXT records for services.
+publish-txt={{ 'yes' if (publish_txt | default(True)) else 'no' }}
+
+# Publish the `workstation._workstation` service record.
+publish-workstation={{ 'yes' if (publish_workstation | default(False)) else 'no' }}
+
+# Additional service types to explicitly publish (beyond auto-discovered ones). Each entry is a service type string like `_http._tcp`.
+{% for service_type in (publish_service_types | default([])) %}
 publish-service={{ service_type }}
 {% endfor %}
 
 [respond-to]
-# List of interface names to respond to mDNS queries on
-{% for iface in respond_to_interfaces %}
+# List of interfaces to respond to mDNS queries on (overrides default behavior). If empty, responds on all allowed interfaces.
+{% for iface in (respond_to_interfaces | default([])) %}
 {{ iface }}
 {% endfor %}
 
 [rlimits]
-# Sets the maximum number of open file descriptors for the daemon
-rlimit-nofile={{ rlimit_nofile }}
-# Sets the maximum number of processes
-rlimit-nproc={{ rlimit_nproc }}
+# Maximum number of open file descriptors allowed for the Avahi daemon process.
+rlimit-nofile={{ rlimit_nofile | default(1024) }}
+
+# Maximum number of child processes the daemon may spawn.
+rlimit-nproc={{ rlimit_nproc | default(50) }}

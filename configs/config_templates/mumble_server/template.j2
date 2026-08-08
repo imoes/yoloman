@@ -1,102 +1,210 @@
-# Mumble server configuration file
-# For documentation, see https://mumble.info
+{# ============================================================================ #}
+{# Mumble Server Configuration Template                                         #}
+{# Self-documenting: every directive is prefixed with a comment explaining its  #}
+# purpose and mapping to the Ansible variable.                               #}
+{# ============================================================================ #}
 
-# Server port to listen on
-port: {{ server_port }}
+# ============================================================================ #
+# Basic Server Connection Settings                                             #}
+{# ============================================================================ #}
 
-# Interface to bind to (empty = all)
-host: {{ server_host }}
+# Server port to listen on (UDP and TCP for Mumble clients)
+# Schema: server_port (int)
+port: {{ (server_port | default(64738)) }}
 
-# Password required for clients to connect
-password: {{ server_password }}
+# Interface to bind to (empty string = all interfaces)
+# Schema: server_host (str)
+host: {{ (server_host | default('')) }}
 
-# Password required for the superuser (admin)
-superuser_password: {{ superuser_password }}
+# ============================================================================ #
+# Authentication & Passwords                                                   #}
+{# ============================================================================ #}
 
-# Path to SSL certificate chain (PEM format)
-certfile: {{ ssl_certfile }}
+# Global password required for all connecting users
+# Leave empty for no global password requirement.
+# Schema: server_password (str)
+password: {{ (server_password | default('')) }}
 
-# Path to SSL private key (PEM format)
-keyfile: {{ ssl_keyfile }}
+# Password required for the superuser (admin) account
+# Must be set initially to create the admin user; consider using a variable from vault.
+# Schema: superuser_password (str)
+superuser_password: {{ (superuser_password | default('')) }}
 
-# Enable or disable Web interface
-web_enabled: {{ web_enabled }}
+# ============================================================================ #
+# SSL/TLS Encryption                                                           #}
+{# ============================================================================ #}
 
-# Hostname used for the Web UI
-web_host: {{ web_host }}
+# Path to the SSL certificate chain (PEM format)
+# Used for encrypted client connections.
+# Schema: ssl_certfile (str)
+certfile: {{ (ssl_certfile | default('/etc/ssl/certs/mumble.crt')) }}
 
-# Port for Web UI (0 = disable)
-web_port: {{ web_port }}
+# Path to the SSL private key (PEM format)
+# Must match the certificate specified in certfile.
+# Schema: ssl_keyfile (str)
+keyfile: {{ (ssl_keyfile | default('/etc/ssl/private/mumble.key')) }}
 
-# Path to Web UI assets
-web_path: {{ web_path }}
+# Require clients to present a valid SSL certificate upon connection
+# If enabled, only clients with trusted certificates can connect.
+# Schema: cert_required (bool)
+cert_required: {{ (cert_required | default(false) | lower) }}
 
-# Maximum bandwidth per user (bps)
-bandwidth: {{ max_bandwidth }}
+# Path to CA certificate for validating client certificates
+# Optional; used only if cert_required is true.
+# Schema: ca_certfile (str)
+ca_certfile: {{ (ca_certfile | default('')) }}
 
-# Maximum number of concurrent users
-users: {{ max_users }}
+# ============================================================================ #
+# Web Interface                                                                #}
+{# ============================================================================ #}
 
-# Number of threads for audio processing (0 = auto)
-thr: {{ worker_threads }}
+# Enable or disable the built-in web interface
+# Used for admin and user management via browser.
+# Schema: web_enabled (bool)
+web_enabled: {{ (web_enabled | default(true) | lower) }}
 
-# Enable or disable UDP packet logging
-udptunnel: {{ udptunnel }}
+# Hostname/interface to bind the Web UI to
+# Schema: web_host (str)
+web_host: {{ (web_host | default('0.0.0.0')) }}
 
-# Logging level: 0=quiet, 1=error, 2=warning, 3=info, 4=debug
-loglevel: {{ log_level }}
+# Port for the Web UI (set to 0 to disable the web interface entirely)
+# Schema: web_port (int)
+web_port: {{ (web_port | default(0)) }}
 
-# Path to log file (empty = stdout)
-logfile: {{ log_file }}
+# Path to the Web UI assets (HTML, CSS, JS)
+# Schema: web_path (str)
+web_path: {{ (web_path | default('/usr/share/mumble-server/www')) }}
 
-# Ban list file path
-banfile: {{ ban_file }}
+# ============================================================================ #
+# Performance & Limits                                                         #}
+{# ============================================================================ #}
 
-# Enable or disable password-protected channels (by channel creator)
-channel_last_default: {{ channel_last_default }}
+# Maximum audio bandwidth (in bits per second) allowed per user
+# Higher values mean better quality but more network usage.
+# Schema: max_bandwidth (int)
+bandwidth: {{ (max_bandwidth | default(72000)) }}
 
-# Allow users to register themselves (if false, only superuser can register)
-register: {{ allow_registration }}
+# Maximum number of concurrent users allowed on the server
+# Schema: max_users (int)
+users: {{ (max_users | default(100)) }}
 
-# Enable or disable automatic user name normalization
-normalizenames: {{ normalize_names }}
+# Number of threads for audio processing
+# 0 = automatic (recommended), lets the OS decide the optimal count.
+# Schema: worker_threads (int)
+thr: {{ (worker_threads | default(0)) }}
 
-# Time (in minutes) after which unused user registrations expire
-reg_timeout: {{ registration_timeout }}
+# ============================================================================ #
+# Logging & Debugging                                                          #}
+{# ============================================================================ #}
 
-# Maximum channel depth (0 = unlimited)
-chan_depth: {{ max_channel_depth }}
+# Enable or disable UDP packet logging (for debugging network issues)
+# Note: This is named 'udptunnel' in Mumble but controls UDP logging verbosity.
+# Schema: udptunnel (bool)
+udptunnel: {{ (udptunnel | default(false) | lower) }}
 
-# Enable or disable RTTI (required for some features on older systems)
-rtti: {{ rtti_enabled }}
+# Logging verbosity level
+# 0=quiet, 1=error, 2=warning, 3=info, 4=debug
+# Schema: log_level (int)
+loglevel: {{ (log_level | default(3)) }}
 
-# Enable or disable client certificate checking
-cert_required: {{ cert_required }}
+# Path to the log file
+# Empty string means log to stdout (useful for systemd journals).
+# Schema: log_file (str)
+logfile: {{ (log_file | default('/var/log/mumble-server/mumble-server.log')) }}
 
-# Path to CA certificate for validating client certs (optional)
-ca_certfile: {{ ca_certfile }}
+# ============================================================================ #
+# Ban Management                                                               #}
+{# ============================================================================ #}
 
-# Enable or disable opus support (modern VoIP codec)
-opus: {{ opus_enabled }}
+# Path to the ban list database (SQLite format)
+# Stores IP-based bans and user bans.
+# Schema: ban_file (str)
+banfile: {{ (ban_file | default('/var/lib/mumble-server/ban.db')) }}
 
-# List of text messages to display on connect (each entry = one message)
-{% for msg in welcome_messages %}welcomeMessage: {{ msg | e }}
+# ============================================================================ #
+# Channel & User Behavior                                                      #}
+{# ============================================================================ #}
+
+# If enabled, newly created channels inherit password protection from their parent
+# Schema: channel_last_default (bool)
+channel_last_default: {{ (channel_last_default | default(true) | lower) }}
+
+# Allow users to register themselves via the client
+# If false, only superusers can create new accounts.
+# Schema: allow_registration (bool)
+register: {{ (allow_registration | default(true) | lower) }}
+
+# Automatically normalize user names to ASCII and remove illegal characters
+# Helps maintain consistent identity handling.
+# Schema: normalize_names (bool)
+normalizenames: {{ (normalize_names | default(true) | lower) }}
+
+# Time (in minutes) after which unactivated user registrations expire
+# 10080 minutes = 7 days.
+# Schema: registration_timeout (int)
+reg_timeout: {{ (registration_timeout | default(10080)) }}
+
+# Maximum depth of channel nesting
+# 0 = unlimited depth.
+# Schema: max_channel_depth (int)
+chan_depth: {{ (max_channel_depth | default(0)) }}
+
+# ============================================================================ #
+# Codec & Compatibility                                                        #}
+{# ============================================================================ #}
+
+# Enable or disable RTTI (Runtime Type Information)
+# Required only for legacy compatibility with older Mumble clients/plugins.
+# Schema: rtti_enabled (bool)
+rtti: {{ (rtti_enabled | default(false) | lower) }}
+
+# Enable or disable Opus audio codec
+# Required for high-quality, low-latency VoIP; recommended to keep enabled.
+# Schema: opus_enabled (bool)
+opus: {{ (opus_enabled | default(true) | lower) }}
+
+# ============================================================================ #
+# Welcome Messages                                                             #}
+{# ============================================================================ #}
+
+# List of text messages to display to users upon connection
+# Each list entry becomes a separate welcomeMessage directive.
+# Schema: welcome_messages (list)
+{% for msg in (welcome_messages | default(['Welcome to {{ (server_name | default("Mumble Server") }}!', 'Please read our rules in the documentation.'])) %}welcomeMessage: {{ msg | e }}
 {% endfor %}
 
-# List of users allowed to be registered automatically (each: username = password)
-{% for user in allowed_users %}{% if user.enabled %}{{ user.username }}={{ user.password | e }}
+# ============================================================================ #
+# Pre-created Users                                                            #}
+{# ============================================================================ #}
+
+# List of pre-created user accounts (admin or limited privilege)
+# Format: username=password (one per line).
+# Only users where 'enabled' is true are written.
+# Schema: allowed_users (list of dicts with username, password, enabled)
+{% for user in (allowed_users | default([])) %}{% if user.enabled | default(false) %}{{ user.username | e }}={{ user.password | e }}
 {% endif %}{% endfor %}
 
-# List of channels to pre-create (optional)
-{% for channel in static_channels %}[{{ channel.name }}]
+# ============================================================================ #
+# Static Channels                                                              #}
+{# ============================================================================ #}
+
+# List of channels to pre-create on server start
+# Each channel defines a section in the channel tree.
+# Schema: static_channels (list of dicts)
+{% for channel in (static_channels | default([{'name': 'root', 'display_name': 'Root', 'description': 'Main channel hierarchy root', 'position': 0}, {'name': 'general', 'display_name': 'General', 'description': 'General discussion', 'position': 1}])) %}[{{ channel.name | e }}]
 name: {{ channel.display_name | e }}
 description: {{ channel.description | e }}
-position: {{ channel.position }}
-{# Optional per-channel overrides #}
-{% if channel.max_users is defined %}users: {{ channel.max_users }}{% endif %}
-
+position: {{ channel.position | default(0) }}
+{% if channel.max_users is defined %}users: {{ channel.max_users }}
+{% endif %}
 {% endfor %}
 
-# Additional server options (pass-through for unsupported or advanced options)
-{% for key, value in extra_config.items() %}{{ key }}: {{ value | e }}
+# ============================================================================ #
+# Advanced / Extra Configuration                                               #}
+{# ============================================================================ #}
+
+# Additional server options (pass-through for unsupported or advanced settings)
+# These are rendered as key: value pairs.
+# Schema: extra_config (dict)
+{% for key, value in (extra_config | default({}) | dictsort) %}{{ key }}: {{ value | e }}
 {% endfor %}

@@ -1,279 +1,92 @@
 {
   "base_dir": {
     "type": "string",
-    "default": "/var/lib/mtpolicyd",
-    "description": "Base directory for storing policy data, databases, and runtime files."
+    "default": "/etc/mtpolicyd",
+    "description": "Base directory for configuration and runtime files."
   },
   "pid_file": {
     "type": "string",
-    "default": "/run/mtpolicyd.pid",
-    "description": "Path to the PID file used for process management."
+    "default": "/var/run/mtpolicyd.pid",
+    "description": "Location of the PID file."
   },
-  "max_connections": {
+  "min_servers": {
     "type": "number",
-    "default": 200,
-    "description": "Maximum number of concurrent SMTP connections to accept."
+    "default": 4,
+    "description": "The minimum number of client processes to start."
   },
-  "smtp_timeout": {
+  "min_spare_servers": {
     "type": "number",
-    "default": 300,
-    "description": "Timeout (in seconds) for SMTP sessions before they are dropped."
+    "default": 4,
+    "description": "The minimum number of client processes that should hang around idle."
+  },
+  "max_spare_servers": {
+    "type": "number",
+    "default": 12,
+    "description": "The maximum number of idle processes."
+  },
+  "max_servers": {
+    "type": "number",
+    "default": 25,
+    "description": "The absolute maximum number of child processes to start."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of requests per child process before restart."
+  },
+  "max_keepalive": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of requests after that mtpolicyd closes the connection or no limit if set to zero."
+  },
+  "user": {
+    "type": "string",
+    "default": "mtpolicyd",
+    "description": "User id to run as."
+  },
+  "group": {
+    "type": "string",
+    "default": "mtpolicyd",
+    "description": "Group id to run as."
+  },
+  "host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind to."
+  },
+  "port": {
+    "type": "string",
+    "default": "127.0.0.1:125",
+    "description": "Comma separated list of ports to listen on. Format: IP:Port."
   },
   "log_level": {
     "type": "number",
     "default": 3,
-    "description": "Logging verbosity level: 0=errors only, 5=debug (includes all protocol traffic)."
+    "description": "Verbosity of logging: 0='err', 1='warning', 2='notice', 3='info', 4='debug'."
   },
-  "debug_mode": {
+  "request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum total time for one request."
+  },
+  "vhost_by_policy_context": {
     "type": "bool",
     "default": false,
-    "description": "Enable verbose runtime diagnostics (logs full SMTP sessions)."
+    "description": "Select VirtualHost by 'policy_context' request field. Default is 0."
   },
-  "tls_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable TLS for internal components (e.g., database, inter-service)."
-  },
-  "ca_bundle_path": {
-    "type": "string",
-    "default": "/etc/ssl/certs/ca-certificates.crt",
-    "description": "Path to the CA certificate bundle for verifying TLS connections."
-  },
-  "server_cert_path": {
-    "type": "string",
-    "default": "/etc/mtpolicyd/server.crt",
-    "description": "Path to the server certificate (PEM format) used for SMTPS/TLS."
-  },
-  "server_key_path": {
-    "type": "string",
-    "default": "/etc/mtpolicyd/server.key",
-    "description": "Path to the server private key (PEM format) matching the certificate."
-  },
-  "database": {
-    "type": "object",
-    "default": {
-      "type": "sqlite",
-      "path": "/var/lib/mtpolicyd/policy.sqlite"
-    },
-    "description": "Database backend configuration.",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "sqlite",
-        "description": "Database type. Supported: 'sqlite', 'postgresql'.",
-        "enum": [
-          "sqlite",
-          "postgresql"
-        ]
-      },
-      "path": {
-        "type": "string",
-        "default": "/var/lib/mtpolicyd/policy.sqlite",
-        "description": "File path for SQLite database (ignored if PostgreSQL is selected)."
-      },
-      "connection": {
-        "type": "string",
-        "default": "",
-        "description": "PostgreSQL connection string (e.g., 'host=localhost port=5432 dbname=policy user=mp pass=secret'). Ignored for SQLite."
-      }
-    }
-  },
-  "listener": {
-    "type": "object",
-    "default": {
-      "bind_v4": "0.0.0.0",
-      "bind_v6": "::",
-      "port": 125,
-      "smtps_enabled": true,
-      "smtps_port": 465
-    },
-    "description": "Network listener configuration for SMTP/SMTPS.",
-    "items": {
-      "bind_v4": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "IPv4 address to bind the SMTP listener (use '127.0.0.1' to restrict to localhost)."
-      },
-      "bind_v6": {
-        "type": "string",
-        "default": "::",
-        "description": "IPv6 address to bind the SMTP listener (empty string disables IPv6)."
-      },
-      "port": {
-        "type": "number",
-        "default": 125,
-        "description": "Port for the standard SMTP policy service (RFC 6531 \u00a74.1)."
-      },
-      "smtps_enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable SMTPS (SMTP over TLS on port 465)."
-      },
-      "smtps_port": {
-        "type": "number",
-        "default": 465,
-        "description": "Port for SMTPS (ignored unless smtps_enabled is true)."
-      }
-    }
-  },
-  "limits": {
-    "type": "object",
-    "default": {
-      "max_recipients": 100,
-      "max_message_size": 26214400,
-      "rate_limit_ppm": 30,
-      "burst_tolerance": 10,
-      "retry_delay": 60
-    },
-    "description": "Rate and resource limits to prevent abuse.",
-    "items": {
-      "max_recipients": {
-        "type": "number",
-        "default": 100,
-        "description": "Maximum recipients per message (enforced at RCPT TO phase)."
-      },
-      "max_message_size": {
-        "type": "number",
-        "default": 26214400,
-        "description": "Maximum message size in bytes (25 MiB default)."
-      },
-      "rate_limit_ppm": {
-        "type": "number",
-        "default": 30,
-        "description": "Rate limit: maximum messages allowed per minute per client IP."
-      },
-      "burst_tolerance": {
-        "type": "number",
-        "default": 10,
-        "description": "Extra messages allowed beyond rate_limit_ppm before throttling."
-      },
-      "retry_delay": {
-        "type": "number",
-        "default": 60,
-        "description": "Minimum seconds between retries after hitting a limit."
-      }
-    }
-  },
-  "domains": {
-    "type": "object",
-    "default": {
-      "domain_policy_enabled": true,
-      "allowed_senders_path": "/etc/mtpolicyd/allowed_domains.txt",
-      "blocked_senders_path": "/etc/mtpolicyd/blocked_domains.txt"
-    },
-    "description": "Domain-based sender policies.",
-    "items": {
-      "domain_policy_enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable enforcement of domain allow/block lists."
-      },
-      "allowed_senders_path": {
-        "type": "string",
-        "default": "/etc/mtpolicyd/allowed_domains.txt",
-        "description": "Path to a text file listing allowed sender domains (one per line)."
-      },
-      "blocked_senders_path": {
-        "type": "string",
-        "default": "/etc/mtpolicyd/blocked_domains.txt",
-        "description": "Path to a text file listing blocked sender domains (one per line)."
-      }
-    }
-  },
-  "senders": {
-    "type": "object",
-    "default": {
-      "sender_policy_enabled": true,
-      "sender_overrides_path": "/etc/mtpolicyd/sender_overrides.json",
-      "sender_rate_limits_path": "/etc/mtpolicyd/sender_rate_limits.json"
-    },
-    "description": "Per-sender policy overrides and rate limits.",
-    "items": {
-      "sender_policy_enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable per-sender policy enforcement via JSON override files."
-      },
-      "sender_overrides_path": {
-        "type": "string",
-        "default": "/etc/mtpolicyd/sender_overrides.json",
-        "description": "Path to a JSON file with sender-specific policy overrides."
-      },
-      "sender_rate_limits_path": {
-        "type": "string",
-        "default": "/etc/mtpolicyd/sender_rate_limits.json",
-        "description": "Path to a JSON file with per-sender rate limit overrides."
-      }
-    }
-  },
-  "policies": {
+  "virtual_hosts": {
     "type": "list",
-    "default": [
-      {
-        "name": "block_tor",
-        "description": "Block known Tor exit nodes",
-        "enabled": true,
-        "conditions": {
-          "client_type": "tor_exit",
-          "source": "public_blocklist"
-        },
-        "actions": {
-          "action": "reject",
-          "reason": "Tor exit nodes are not permitted"
-        }
-      }
-    ],
-    "description": "List of custom policy rules (evaluated in order).",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique identifier for the policy rule."
-      },
-      "description": {
-        "type": "string",
-        "default": "",
-        "description": "Human-readable description of what the policy does."
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable or disable this rule (disabled rules are skipped)."
-      },
-      "conditions": {
-        "type": "object",
-        "default": {},
-        "description": "Map of key=value conditions that must all match for the rule to apply.",
-        "items": {
-          "any_key": {
-            "type": "string",
-            "description": "Condition key-value pair (e.g., 'client_type=tor_exit')"
-          }
-        }
-      },
-      "actions": {
-        "type": "object",
-        "default": {},
-        "description": "Map of key=value actions to execute if the rule matches.",
-        "items": {
-          "action": {
-            "type": "string",
-            "default": "reject",
-            "description": "Action type: 'reject', 'defer', 'accept', or 'tag'.",
-            "enum": [
-              "reject",
-              "defer",
-              "accept",
-              "tag"
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "default": "",
-            "description": "Human-readable rejection or action reason (shown to sender if applicable)."
-          }
-        }
-      }
-    }
+    "default": [],
+    "description": "List of VirtualHost configurations. Each VirtualHost must have a port, name, and at least one Plugin."
+  },
+  "connections": {
+    "type": "list",
+    "default": [],
+    "description": "List of Connection pool definitions."
+  },
+  "session_cache": {
+    "type": "object",
+    "default": null,
+    "description": "SessionCache configuration block. If not defined, defaults to 'None'."
   }
 }

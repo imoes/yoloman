@@ -1,47 +1,57 @@
-# Listen interface and port
-listen_address = {{ listen_address }}
-port = {{ port }}
+# ==============================================================================
+# Merecat HTTP Server Configuration
+# This template generates a self-documenting configuration file for the Merecat
+# static HTTP server. Every directive is annotated with its schema description.
+# ==============================================================================
 
-# Server root (document root)
-root = {{ root }}
+# IP address the server listens on (e.g., '127.0.0.1', '::', or '0.0.0.0' for all interfaces)
+listen_address = {{ listen_address | default('0.0.0.0') }}
 
-# Default index files to serve
-default_files = {{ default_files | join(', ') }}
+# TCP port to listen on for HTTP traffic
+port = {{ port | default(8080) }}
 
-# Maximum number of connections (0 = no limit)
-max_connections = {{ max_connections }}
+# Default document root directory
+root = {{ root | default('/var/www') }}
 
-# Maximum request body size in bytes (0 = no limit)
-max_body_size = {{ max_body_size }}
+# List of filenames to try as index files when a directory is requested
+default_files = {{ default_files | default(['index.html', 'index.htm']) | join(', ') }}
 
-# Enable or disable directory listings
-directory_listing = {{ directory_listing }}
+# Maximum simultaneous connections (0 = no limit)
+max_connections = {{ max_connections | default(0) }}
 
-# Enable or disable SSL/TLS
-ssl_enabled = {{ ssl_enabled }}
+# Maximum allowed size of HTTP request body in bytes (0 = no limit)
+max_body_size = {{ max_body_size | default(0) }}
 
-# SSL certificate and key paths (only used if ssl_enabled is true)
-ssl_cert = {{ ssl_cert }}
-ssl_key = {{ ssl_key }}
+# Whether to show directory listings when no index file exists
+directory_listing = {{ directory_listing | default(true) }}
 
-# Virtual hosts — list of host blocks
-{% for host in virtual_hosts %}
+# Enable TLS/SSL encryption for HTTPS traffic
+ssl_enabled = {{ ssl_enabled | default(false) }}
+
+# Path to SSL certificate file (PEM format)
+ssl_cert = {{ ssl_cert | default('/etc/merecat/ssl/fullchain.pem') }}
+
+# Path to SSL private key file (PEM format)
+ssl_key = {{ ssl_key | default('/etc/merecat/ssl/privkey.pem') }}
+
+# List of virtual host configurations
+{% for host in virtual_hosts | default([]) %}
 # Virtual host: {{ host.name }}
-host {{ host.name }} {
-  root {{ host.root }}
+host {{ host.name | default('') }} {
+  root {{ host.root | default(root | default('/var/www')) }}
   {% if host.index_files is defined %}index {{ host.index_files | join(', ') }}{% endif %}
   {% if host.ssl_cert is defined %}ssl_cert {{ host.ssl_cert }}{% endif %}
   {% if host.ssl_key is defined %}ssl_key {{ host.ssl_key }}{% endif %}
 }
 {% endfor %}
 
-# MIME type overrides — map file extensions to MIME types
-{% for ext, mime in mime_types.items() %}
-mime_type .{{ ext }} = {{ mime }}
+# Map of file extensions (without dot) to MIME types
+{% for ext in mime_types | default({'html': 'text/html', 'css': 'text/css', 'js': 'application/javascript', 'png': 'image/png', 'jpg': 'image/jpeg', 'svg': 'image/svg+xml', 'json': 'application/json'}) | dict2items %}
+mime_type .{{ ext.key }} = {{ ext.value }}
 {% endfor %}
 
-# Access logging (empty string disables logging)
-access_log = {{ access_log }}
+# Path to access log file (empty string disables logging)
+access_log = {{ access_log | default('/var/log/merecat/access.log') }}
 
-# Error logging (empty string disables logging)
-error_log = {{ error_log }}
+# Path to error log file (empty string disables logging)
+error_log = {{ error_log | default('/var/log/merecat/error.log') }}

@@ -1,269 +1,321 @@
-# Luanti (Minetest) server configuration
-# Generated via Jinja2 template — do not edit manually; use configuration management
+# =============================================================================
+# Luanti (Minetest) Server Configuration Template
+# =============================================================================
+# This configuration file controls the behavior of the Luanti dedicated server.
+# It is generated via Ansible/Jinja2. Do not edit manually.
+#
+# Key concepts:
+# - Directives use `key = value` syntax.
+# - Booleans are written as `true` or `false`.
+# - Lists are typically comma-separated inline or expanded into numbered keys (e.g., trusted_mods_1).
+# - Empty strings for optional fields are often represented as empty values (key = ).
+# =============================================================================
 
-# Base directory for world data
-world_dir = {{ world_dir }}
+# --- Basic Server Identity & Network ---
 
-# Server listen address (empty = all interfaces)
+# Directory where world data is stored.
+world_dir = {{ world_dir | default('/var/lib/luanti/worlds/main') }}
+
+# IP address to bind the server socket to.
+# Leave empty to bind to all available interfaces (0.0.0.0 / ::).
 bind_to = {{ bind_to | default('') }}
 
-# Port to listen on
-port = {{ port }}
+# TCP port used for client connections.
+port = {{ port | default(30000) }}
 
-# Server name displayed in server list
-server_name = {{ server_name }}
+# The public name of this server, displayed in the server list.
+server_name = {{ server_name | default('Luanti Server') }}
 
-# Server description
-server_description = {{ server_description }}
+# A short description shown below the server name in the client UI.
+server_description = {{ server_description | default('A friendly Luanti server') }}
 
-# URL for server website (shown in client server list)
+# URL to a website containing server rules, forums, or wiki (optional).
 server_url = {{ server_url | default('') }}
 
-# Admin email (optional)
+# Admin contact email address (internal use, not necessarily public).
 admin_email = {{ admin_email | default('') }}
 
-# Maximum number of players
-max_users = {{ max_users }}
+# Maximum number of simultaneous players allowed on the server.
+max_users = {{ max_users | default(10) }}
 
-# Enable remote access (required for public servers)
-enable_remote_media_server = {{ enable_remote_media_server | lower }}
+# Enable the remote media server to fetch textures/models from other servers.
+# Required for players with custom textures to see the world correctly.
+enable_remote_media_server = {{ enable_remote_media_server | default(true) | lower }}
 
-# Enable PVP
-pvp_mode = {{ pvp_mode | lower }}
+# --- Gameplay Rules ---
 
-# Enable creative mode for new players by default
-default_privs = {{ default_privs | join(', ') }}
+# Allow players to attack and damage each other (PVP).
+pvp_mode = {{ pvp_mode | default(true) | lower }}
 
-# Enable digital currency (economy) mod support
-economy_enabled = {{ economy_enabled | lower }}
+# Default privileges granted to new players upon joining.
+# Comma-separated list: interact, chat, shout, fast, dig, place, destroy,
+# place_node, place_wield, drop, use, trust, ban, mod, setview,
+# formdesign, menu, process_metadata, core, server, debug,
+# noclip, fly, fast, fastfly, fastfly, fastfly, etc.
+default_privs = {{ default_privs | default(['interact', 'chat']) | join(', ') }}
 
-# Enable spawn point protection radius (0 = disabled)
-protect_spawn_radius = {{ protect_spawn_radius }}
+# Enable economy features (e.g., currency-based mods).
+economy_enabled = {{ economy_enabled | default(false) | lower }}
 
-# Enable anticheat (basic built-in)
-anticheat_enabled = {{ anticheat_enabled | lower }}
+# Radius (in nodes) around the spawn point protected from modification.
+protect_spawn_radius = {{ protect_spawn_radius | default(10) }}
 
-# Enable flight for players
-allow_flying = {{ allow_flying | lower }}
+# Enable the built-in anticheat module (basic movement and speed checks).
+anticheat_enabled = {{ anticheat_enabled | default(true) | lower }}
 
-# Enable unlimited flying (if allow_flying)
-unlimited_flying = {{ unlimited_flying | lower }}
+# Allow players to enable flight mode.
+allow_flying = {{ allow_flying | default(false) | lower }}
 
-# Enable voice chat
-voice_chat_enabled = {{ voice_chat_enabled | lower }}
+# Allow unlimited flight duration (bypasses stamina limitations).
+unlimited_flying = {{ unlimited_flying | default(false) | lower }}
 
-# Enable chat logging
-chat_logging_enabled = {{ chat_logging_enabled | lower }}
+# Enable in-game voice chat (requires the Voice mod and a functioning media server).
+voice_chat_enabled = {{ voice_chat_enabled | default(false) | lower }}
 
-# Chat message limit (characters)
-chat_message_limit = {{ chat_message_limit }}
+# Log chat messages to the server log file.
+chat_logging_enabled = {{ chat_logging_enabled | default(false) | lower }}
 
-# Chat rate limit (seconds between messages)
-chat_rate_limit = {{ chat_rate_limit }}
+# Maximum length of a chat message in characters.
+chat_message_limit = {{ chat_message_limit | default(256) }}
 
-# Enable damage (e.g., from falls, mobs)
-damage_enabled = {{ damage_enabled | lower }}
+# Minimum time (in seconds) between consecutive chat messages from a player.
+chat_rate_limit = {{ chat_rate_limit | default(3) }}
 
-# Enable hunger
-hunger_enabled = {{ hunger_enabled | lower }}
+# Enable damage from falls, mobs, lava, and other sources.
+damage_enabled = {{ damage_enabled | default(true) | lower }}
 
-# Default difficulty
-difficulty = {{ difficulty }}
+# Enable hunger mechanics (requires the Hunger mod to be active).
+hunger_enabled = {{ hunger_enabled | default(true) | lower }}
 
-# Enable physics speed (multiplier)
-physics_speed = {{ physics_speed }}
+# Game difficulty setting:
+# 0 = Peaceful (mobs don't attack), 1 = Easy, 2 = Normal, 3 = Hard.
+difficulty = {{ difficulty | default(1) }}
 
-# Enable time speed (multiplier)
-time_speed = {{ time_speed }}
+# Global physics speed multiplier (1.0 is normal).
+physics_speed = {{ physics_speed | default(1.0) }}
 
-# World generation parameters
-world_generation_name = {{ world_generation.name }}
-world_generation_seed = {{ world_generation.seed | default('') }}
-world_generation_size = {{ world_generation.size | default('1') }}
-world_generation_flags = {{ world_generation.flags | join(',') }}
+# Day-night cycle speed multiplier (1.0 is normal).
+time_speed = {{ time_speed | default(1.0) }}
 
-# Enable mod security (if enabled, mods must be in world directory or trusted)
-secure_enable_security = {{ secure_enable_security | lower }}
+# --- World Generation ---
 
-# Trusted mod directories
-{% for mod_dir in trusted_mod_dirs %}
+# World generation protocol name (e.g., v5, v6, vallev, flat).
+world_generation_name = {{ (world_generation | default({'name': 'v6', 'seed': '', 'size': '1', 'flags': ''})).name | default('v6') }}
+
+# Random seed for world generation. Empty string generates a random seed.
+world_generation_seed = {{ (world_generation | default({'name': 'v6', 'seed': '', 'size': '1', 'flags': ''})).seed | default('') }}
+
+# Map generation size parameter (specific to the generation protocol).
+world_generation_size = {{ (world_generation | default({'name': 'v6', 'seed': '', 'size': '1', 'flags': ''})).size | default('1') }}
+
+# Flags for world generation (specific to the generation protocol).
+world_generation_flags = {{ (world_generation | default({'name': 'v6', 'seed': '', 'size': '1', 'flags': ''})).flags | default('') }}
+
+# --- Security & Mods ---
+
+# Enforce mod security: only allow mods from trusted directories or the world folder.
+secure_enable_security = {{ secure_enable_security | default(true) | lower }}
+
+# List of directories containing trusted mods.
+# Each directory gets its own config entry (trusted_mods_1, trusted_mods_2, ...).
+{% for mod_dir in trusted_mod_dirs | default(['/usr/share/luanti/mods']) %}
 trusted_mods_{{ loop.index }} = {{ mod_dir }}
 {% endfor %}
 
-# Server motd (message of the day)
+# --- Chat & UI ---
+
+# Message of the Day displayed to players upon connection.
 motd = {{ motd | default('A Luanti server') }}
 
-# Default player password (if empty, no password required)
+# Server password. If empty, the server is open to everyone.
 password = {{ password | default('') }}
 
-# Enable server announcement (to Minetest server list)
-enable_heartbeat = {{ enable_heartbeat | lower }}
+# Enable server heartbeat/announce to public Minetest server lists.
+enable_heartbeat = {{ enable_heartbeat | default(true) | lower }}
 
-# Public server listing
-server_announce = {{ server_announce | lower }}
+# Announce this server to the public server list.
+server_announce = {{ server_announce | default(true) | lower }}
 
-# Announce URL (public server list)
+# URL of the public server list service to announce to.
 server_announce_url = {{ server_announce_url | default('https://servers.minetest.net') }}
 
-# Server list timeout
-server_announce_timeout = {{ server_announce_timeout }}
+# Timeout interval (in seconds) for heartbeat announcements.
+server_announce_timeout = {{ server_announce_timeout | default(60) }}
 
-# Enable dedicated server mode (prevents GUI)
+# Dedicated mode flag. Prevents the server from trying to run a GUI.
 dedicated = true
 
-# Enable console
-enable_console = {{ enable_console | lower }}
+# Enable interactive console input (typically Ctrl+T in dedicated mode).
+enable_console = {{ enable_console | default(false) | lower }}
 
-# Console buffer size (lines)
-console_buffer_size = {{ console_buffer_size }}
+# Size of the console command history buffer (lines).
+console_buffer_size = {{ console_buffer_size | default(1000) }}
 
-# Log level (none, error, warning, info, debug)
-log_level = {{ log_level }}
+# --- Logging ---
 
-# Log file path
-log_file = {{ log_file }}
+# Minimum log level: none, error, warning, info, debug.
+log_level = {{ log_level | default('info') }}
 
-# Log to stdout
-log_stderr = {{ log_stderr | lower }}
+# Path to the server log file.
+log_file = {{ log_file | default('/var/log/luanti/server.log') }}
 
-# Max block send distance (rendering range, in blocks)
-max_block_send_dist = {{ max_block_send_dist }}
+# Output log messages to stderr (the console/terminal).
+log_stderr = {{ log_stderr | default(true) | lower }}
 
-# Maximum simulation distance (in nodes)
-simul_distance = {{ simul_distance }}
+# --- Network Performance ---
 
-# Minimum time between sends (ms)
-min_time_between_sends = {{ min_time_between_sends }}
+# Maximum block send distance (rendering range in blocks).
+max_block_send_dist = {{ max_block_send_dist | default(10) }}
 
-# Send queue low-water mark (chunks)
-send_queue_low_water_mark = {{ send_queue_low_water_mark }}
+# Maximum simulation distance (in nodes).
+simul_distance = {{ simul_distance | default(10) }}
 
-# Send queue high-water mark (chunks)
-send_queue_high_water_mark = {{ send_queue_high_water_mark }}
+# Minimum time (ms) between sending network packets to a player.
+min_time_between_sends = {{ min_time_between_sends | default(50) }}
 
-# Max pending sends
-max_pending_sends = {{ max_pending_sends }}
+# Low-water mark for the send queue (number of chunks).
+send_queue_low_water_mark = {{ send_queue_low_water_mark | default(20) }}
 
-# Max sends per second (0 = unlimited)
-sends_per_second = {{ sends_per_second }}
+# High-water mark for the send queue (number of chunks).
+send_queue_high_water_mark = {{ send_queue_high_water_mark | default(100) }}
 
-# Max packets per send
-max_packets_per_send = {{ max_packets_per_send }}
+# Maximum number of pending outgoing sends.
+max_pending_sends = {{ max_pending_sends | default(50) }}
 
-# Max packets per receive
-max_packets_per_receive = {{ max_packets_per_receive }}
+# Maximum sends per second (0 = unlimited).
+sends_per_second = {{ sends_per_second | default(0) }}
 
-# Network compression level (1–9)
-network_compression = {{ network_compression }}
+# Maximum packets allowed per single send operation.
+max_packets_per_send = {{ max_packets_per_send | default(20) }}
 
-# Network compression level for world data
-network_compression_world = {{ network_compression_world }}
+# Maximum packets allowed per single receive operation.
+max_packets_per_receive = {{ max_packets_per_receive | default(50) }}
 
-# Enable IPv6
-enable_ipv6 = {{ enable_ipv6 | lower }}
+# Network packet compression level (1=low, 9=high).
+network_compression = {{ network_compression | default(7) }}
 
-# Use SSL for remote media (if enabled)
-ssl_enable = {{ ssl_enable | lower }}
+# World data compression level (1=low, 9=high).
+network_compression_world = {{ network_compression_world | default(5) }}
 
-# SSL certificate file (if enabled)
+# Enable IPv6 support.
+enable_ipv6 = {{ enable_ipv6 | default(true) | lower }}
+
+# --- SSL/TLS ---
+
+# Enable SSL/TLS for remote media and HTTP connections.
+ssl_enable = {{ ssl_enable | default(false) | lower }}
+
+# Path to the SSL certificate chain file (PEM format).
 ssl_cert = {{ ssl_cert | default('') }}
 
-# SSL key file (if enabled)
+# Path to the SSL private key file (PEM format).
 ssl_key = {{ ssl_key | default('') }}
 
-# Trusted CA file
+# Path to the SSL CA certificate file (for client certificate verification).
 ssl_ca_file = {{ ssl_ca_file | default('') }}
 
-# Enable map saving
-enable_map_saving = {{ enable_map_saving | lower }}
+# --- Map & World Persistence ---
 
-# Map compression (0 = none, 1 = fast, 2 = best)
-map_compression_level = {{ map_compression_level }}
+# Enable automatic saving of world changes to disk.
+enable_map_saving = {{ enable_map_saving | default(true) | lower }}
 
-# Enable automatic world backup
-world_backup_enable = {{ world_backup_enable | lower }}
+# Map storage compression level (0=none, 1=fast, 2=best).
+map_compression_level = {{ map_compression_level | default(2) }}
 
-# Backup interval (minutes)
-world_backup_interval = {{ world_backup_interval }}
+# Enable automatic world backups.
+world_backup_enable = {{ world_backup_enable | default(true) | lower }}
 
-# Max backup files
-world_backup_max_files = {{ world_backup_max_files }}
+# Interval between automatic world backups (in minutes).
+world_backup_interval = {{ world_backup_interval | default(720) }}
 
-# World backup path
-world_backup_path = {{ world_backup_path }}
+# Maximum number of backup files to retain.
+world_backup_max_files = {{ world_backup_max_files | default(5) }}
 
-# Enable VFS write (for mod development only)
-enable_vfs_write = {{ enable_vfs_write | lower }}
+# Directory path for storing world backups.
+world_backup_path = {{ world_backup_path | default('/var/lib/luanti/backups') }}
 
-# Enable built-in HTTP server (for remote media)
-enable_http = {{ enable_http | lower }}
+# --- Advanced / Development ---
 
-# HTTP server port
-http_port = {{ http_port }}
+# Allow Virtual File System (VFS) writes.
+# WARNING: Security risk. Only enable for development.
+enable_vfs_write = {{ enable_vfs_write | default(false) | lower }}
 
-# HTTP server address (empty = all)
+# Enable the built-in HTTP server (used for remote media serving).
+enable_http = {{ enable_http | default(true) | lower }}
+
+# --- HTTP Server Configuration ---
+
+# Port for the built-in HTTP server.
+http_port = {{ http_port | default(30001) }}
+
+# IP address to bind the HTTP server to (empty = all).
 http_address = {{ http_address | default('') }}
 
-# HTTP max connections
-http_max_connections = {{ http_max_connections }}
+# Maximum number of simultaneous HTTP connections allowed.
+http_max_connections = {{ http_max_connections | default(50) }}
 
-# HTTP max requests per connection
-http_requests_per_second = {{ http_requests_per_second }}
+# Maximum HTTP requests per second allowed per connection.
+http_requests_per_second = {{ http_requests_per_second | default(20) }}
 
-# HTTP request timeout (ms)
-http_request_timeout = {{ http_request_timeout }}
+# Timeout for incoming HTTP requests (in milliseconds).
+http_request_timeout = {{ http_request_timeout | default(30000) }}
 
-# HTTP response timeout (ms)
-http_response_timeout = {{ http_response_timeout }}
+# Timeout for outgoing HTTP responses (in milliseconds).
+http_response_timeout = {{ http_response_timeout | default(30000) }}
 
-# HTTP max request size (bytes)
-http_max_request_size = {{ http_max_request_size }}
+# Maximum size of an HTTP request payload (in bytes).
+http_max_request_size = {{ http_max_request_size | default(10485760) }}
 
-# HTTP max response size (bytes)
-http_max_response_size = {{ http_max_response_size }}
+# Maximum size of an HTTP response payload (in bytes).
+http_max_response_size = {{ http_max_response_size | default(104857600) }}
 
-# HTTP max upload size (bytes)
-http_max_upload_size = {{ http_max_upload_size }}
+# Maximum upload size per single HTTP request (in bytes).
+http_max_upload_size = {{ http_max_upload_size | default(104857600) }}
 
-# HTTP upload timeout (ms)
-http_upload_timeout = {{ http_upload_timeout }}
+# Timeout for HTTP upload operations (in milliseconds).
+http_upload_timeout = {{ http_upload_timeout | default(120000) }}
 
-# HTTP upload max files
-http_upload_max_files = {{ http_upload_max_files }}
+# Maximum number of files allowed in a single upload request.
+http_upload_max_files = {{ http_upload_max_files | default(100) }}
 
-# HTTP upload allowed extensions
-http_upload_allowed_extensions = {{ http_upload_allowed_extensions | join(',') }}
+# Comma-separated list of allowed file extensions for uploads.
+http_upload_allowed_extensions = {{ http_upload_allowed_extensions | default(['.png', '.dds', '.webp', '.ogg', '.mp3', '.json']) | join(',') }}
 
-# HTTP upload path
-http_upload_path = {{ http_upload_path }}
+# Local filesystem path where uploaded files are stored.
+http_upload_path = {{ http_upload_path | default('/var/lib/luanti/http_upload') }}
 
-# HTTP upload quota (bytes)
-http_upload_quota = {{ http_upload_quota }}
+# Total upload quota allowed per user (in bytes).
+http_upload_quota = {{ http_upload_quota | default(1073741824) }}
 
-# HTTP upload rate limit (bytes/s)
-http_upload_rate_limit = {{ http_upload_rate_limit }}
+# Upload rate limit (in bytes per second).
+http_upload_rate_limit = {{ http_upload_rate_limit | default(1048576) }}
 
-# HTTP upload burst (bytes)
-http_upload_burst = {{ http_upload_burst }}
+# Upload burst size (in bytes).
+http_upload_burst = {{ http_upload_burst | default(5242880) }}
 
-# HTTP upload max concurrent
-http_upload_max_concurrent = {{ http_upload_max_concurrent }}
+# Maximum number of simultaneous upload streams per user.
+http_upload_max_concurrent = {{ http_upload_max_concurrent | default(5) }}
 
-# HTTP upload allowed IPs
-{% for ip in http_upload_allowed_ips %}
+# --- HTTP Upload Access Control ---
+
+# Allowed source IP addresses for HTTP uploads.
+# Each IP gets its own config entry (http_upload_allow_ip_1, http_upload_allow_ip_2, ...).
+{% for ip in http_upload_allowed_ips | default(['127.0.0.1', '::1']) %}
 http_upload_allow_ip_{{ loop.index }} = {{ ip }}
 {% endfor %}
 
-# HTTP upload deny IPs
-{% for ip in http_upload_deny_ips %}
+# Denied source IP addresses for HTTP uploads.
+# Each IP gets its own config entry (http_upload_deny_ip_1, ...).
+{% for ip in http_upload_deny_ips | default([]) %}
 http_upload_deny_ip_{{ loop.index }} = {{ ip }}
 {% endfor %}
 
-# HTTP upload require auth
-http_upload_require_auth = {{ http_upload_require_auth | lower }}
+# Require authentication for HTTP upload operations.
+http_upload_require_auth = {{ http_upload_require_auth | default(true) | lower }}
 
-# HTTP upload admin user
-http_upload_admin_user = {{ http_upload_admin_user | default('') }}
+# Username for HTTP upload authentication.
+http_upload_admin_user = {{ http_upload_admin_user | default('admin') }}
 
-# HTTP upload admin pass
+# Password for HTTP upload authentication.
+# Note: If storing a hash, ensure the server software supports hashed passwords.
 http_upload_admin_pass = {{ http_upload_admin_pass | default('') }}

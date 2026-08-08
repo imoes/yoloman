@@ -1,55 +1,63 @@
+# ==============================================================================
 # Configuration for Lomiri Network Indicator
 # Controls how the network indicator behaves in the system settings menu
+# ==============================================================================
 
 [general]
-# Whether to show network indicator in the system menu
-show_indicator={{ show_indicator | lower }}
+# Whether to show network indicator in the system menu (default: true)
+show_indicator={{ show_indicator | default(true) | lower }}
 
-# Maximum number of connection profiles to display before truncating
-max_connections={{ max_connections }}
+# Maximum number of connection profiles to display before truncating (default: 5)
+max_connections={{ max_connections | default(5) }}
 
-# Whether to automatically reconnect to known networks
-auto_connect={{ auto_connect | lower }}
+# Whether to automatically reconnect to known networks on startup (default: false)
+auto_connect={{ auto_connect | default(false) | lower }}
 
-# Delay (in seconds) before retrying failed connections
-reconnect_delay={{ reconnect_delay }}
+# Delay (in seconds) before retrying failed connections (default: 30)
+reconnect_delay={{ reconnect_delay | default(30) }}
 
 [icons]
-# Path to the icon used for active wired connections
-wired_icon={{ wired_icon }}
+# Path to the icon used for active wired connections (default: /usr/share/icons/hicolor/scalable/status/network-wired-symbolic.svg)
+wired_icon={{ wired_icon | default('/usr/share/icons/hicolor/scalable/status/network-wired-symbolic.svg') }}
 
-# Path to the icon used for active wireless connections
-wireless_icon={{ wireless_icon }}
+# Path to the icon used for active wireless connections (default: /usr/share/icons/hicolor/scalable/status/network-wireless-symbolic.svg)
+wireless_icon={{ wireless_icon | default('/usr/share/icons/hicolor/scalable/status/network-wireless-symbolic.svg') }}
 
-# Path to the icon used for disconnected state
-disconnected_icon={{ disconnected_icon }}
+# Path to the icon used for disconnected state (default: /usr/share/icons/hicolor/scalable/status/network-disconnected-symbolic.svg)
+disconnected_icon={{ disconnected_icon | default('/usr/share/icons/hicolor/scalable/status/network-disconnected-symbolic.svg') }}
 
-# Path to the icon used for offline mode
-offline_icon={{ offline_icon }}
+# Path to the icon used for offline mode (default: /usr/share/icons/hicolor/scalable/status/network-offline-symbolic.svg)
+offline_icon={{ offline_icon | default('/usr/share/icons/hicolor/scalable/status/network-offline-symbolic.svg') }}
 
 [notifications]
-# Enable desktop notifications for connection events
-enable_notifications={{ enable_notifications | lower }}
+# Enable desktop notifications for connection events (default: true)
+enable_notifications={{ enable_notifications | default(true) | lower }}
 
-# List of network types to notify about (e.g., 'wifi', 'ethernet', 'mobile')
-notify_on={{ notify_on | join(', ') }}
+# List of network types to notify about (e.g., 'wifi', 'ethernet', 'mobile') (default: wifi, ethernet, mobile)
+{% set notify_on_list = notify_on | default(['wifi', 'ethernet', 'mobile']) %}
+notify_on={{ notify_on_list | join(', ') }}
 
 [privacy]
-# Whether to anonymize SSID in logs and notifications
-anonymize_ssids={{ anonymize_ssids | lower }}
+# Whether to anonymize SSID in logs and notifications (default: false)
+anonymize_ssids={{ anonymize_ssids | default(false) | lower }}
 
-# Whether to suppress location hints (e.g., nearby SSID names) for privacy
-suppress_location_hints={{ suppress_location_hints | lower }}
+# Whether to suppress location hints (e.g., nearby SSID names) for privacy (default: true)
+suppress_location_hints={{ suppress_location_hints | default(true) | lower }}
 
 [mobile]
-# Enable mobile data management in indicator
-enable_mobile={{ enable_mobile | lower }}
+# Enable mobile data management in indicator (default: true)
+enable_mobile={{ enable_mobile | default(true) | lower }}
 
 # List of mobile providers with custom APN overrides (if any)
-{% for apn in apn_overrides %}
+{% set apn_overrides_list = apn_overrides | default([]) %}
+{% for apn in apn_overrides_list %}
 [apn:{{ apn.name }}]
-apn={{ apn.apn }}
-user={{ apn.user }}
-password={{ apn.password }}
-auth_type={{ apn.auth_type }}
+# Custom APN configuration for a specific mobile provider
+apn={{ apn.apn | default('') }}
+# Authentication username for the APN (if required by the carrier)
+user={{ apn.user | default('') }}
+# Authentication password for the APN (if required by the carrier)
+password={{ apn.password | default('') }}
+# Authentication type (e.g., PAP, CHAP, PAP&CHAP)
+auth_type={{ apn.auth_type | default('') }}
 {% endfor %}

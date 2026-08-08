@@ -1,24 +1,57 @@
 # Magic pattern file for the 'file' command
-# Each line defines a test for file type detection
-# Format: offset type [modifiers] value message
+# This configuration defines file type detection rules using the libmagic format.
+# Each entry specifies how to identify a file type based on byte offsets, types,
+# and expected values, followed by a descriptive message.
+#
+# Structure of each entry (based on schema):
+#   offset: integer or string (quoted regex/pattern) — byte position to start matching
+#   type: string — data type to read (e.g., 'int16', 'string', 'stringz', 'leint16')
+#   modifiers: string, optional — flags like 'l', 'b', 'n', 'z', 'x', etc.
+#   comparison: string, optional — comparison operator ('==', '!=', '>', '<', '=~')
+#   value: mixed — value to compare against (integer, string, or regex pattern)
+#   message: string — human-readable description of the detected file type
+#   mime_type: string, optional — MIME type associated with this entry
+#   extensions: list, optional — common file extensions for this type
+#   strength: int, optional — priority weight; higher values override lower ones
 
-# Top-level magic entries; binary tests are tried before text ones
-{% for entry in magic_entries %}
-{% if entry.offset is number %}{{ entry.offset }}{% else %}"{{ entry.offset }}"{% endif %} {{ entry.type }}{% if entry.modifiers %} {{ entry.modifiers }}{% endif %}{% if entry.comparison is defined %} {{ entry.comparison }}{% endif %}{{ entry.value | tojson }} {{ entry.message }}
+{# Iterate over the list of magic entries. Use default([]) to handle undefined or null variables. #}
+{% for entry in magic_entries | default([]) %}
+# --- Magic entry: {{ loop.index }} ---
+# Offset: The byte position in the file to inspect.
+# If numeric, written as-is. If a pattern/regex string, quoted.
+{% if entry.offset is number %}{{ entry.offset }}{% else %}"{{ entry.offset }}"
+# Pattern-based offset: treated as a regex string, hence the quotes.
+{% endif %} {{ entry.type | default('') }}
+# Type: The data type to read at the offset.
+# Common values: string, stringz, leint16, beint16, leint32, leleint32, leleint64, etc.
+{% if entry.modifiers is defined and entry.modifiers != '' %} {{ entry.modifiers }}
+# Modifiers: Flags modifying interpretation (e.g., 'l' = little-endian, 'b' = big-endian,
+#           'n' = count, 'z' = null-terminated, 'x' = hex output, 'd' = decimal).
+{% endif %}{% if entry.comparison is defined and entry.comparison != '' %} {{ entry.comparison }}
+# Comparison: Operator used to match the value against 'value'.
+# Common operators: '==' (equal), '!=' (not equal), '>' (greater), '<' (less),
+#                   '=~' (regex match), '=&' (bitwise AND).
+{% endif %}{{ entry.value | default('') | tojson }} {{ entry.message | default('') }}
+# Value: The expected value to compare. tojson ensures proper quoting for strings.
+# Message: A human-readable description of the file type identified by this rule.
 
-{% if entry.mime_type is defined %}
-# MIME type associated with the preceding file type description
+{% if entry.mime_type is defined and entry.mime_type != '' %}
+# MIME type associated with the preceding file type description.
+# This allows tools to quickly identify the content type without full parsing.
 !:mime {{ entry.mime_type }}
 
 {% endif %}
-{% if entry.extensions is defined %}
-# Common filename extensions for this file type
-#:ext {{ entry.extensions | join('/') }}
+{% if entry.extensions is defined and entry.extensions | length > 0 %}
+# Common filename extensions for this file type.
+# Multiple extensions are joined with '/' (e.g., 'doc/docx').
+!:ext {{ entry.extensions | join('/') }}
 
 {% endif %}
-{% if entry.strength is defined %}
-# Optional strength override (higher priority wins in ambiguous cases)
-#: strength {{ entry.strength }}
+{% if entry.strength is defined and entry.strength is not none %}
+# Optional strength override.
+# Higher strength values take precedence in ambiguous cases where multiple
+# magic rules might match the same file.
+!:strength {{ entry.strength }}
 
 {% endif %}
 {% endfor %}

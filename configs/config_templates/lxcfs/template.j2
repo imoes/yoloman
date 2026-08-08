@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 
 ### BEGIN INIT INFO
 # Short-Description:    FUSE filesystem for LXC
@@ -12,10 +12,27 @@
 # Default-Stop:         0 1 6
 ### END INIT INFO
 
-DAEMON={{ bin_dir }}/lxcfs
+# ==============================================================================
+# LXCFS Init Script - Ansible Managed
+# ==============================================================================
+# This script manages the LXCFS daemon. LXCFS provides a FUSE filesystem
+# that emulates /proc, /sys, and /etc/hostname to improve container resource
+# visibility and isolation.
+#
+# Configuration variables are derived from the Ansible role variables.
+# See the schema definition for defaults and descriptions.
+# ==============================================================================
+
+# bin_dir: Directory containing the lxcfs binary.
+DAEMON={{ bin_dir | default('/usr/bin') }}/lxcfs
+
 NAME=lxcfs
 DESC="FUSE filesystem for LXC"
-PIDFILE={{ pid_file }}
+
+# pid_file: Path to the PID file for the lxcfs daemon.
+PIDFILE={{ pid_file | default('/run/lxcfs.pid') }}
+
+# OOM_SCORE_ADJ: Adjust the Out-Of-Memory score to protect the daemon.
 OOM_SCORE_ADJ="-1000"
 
 . /lib/lsb/init-functions
@@ -24,23 +41,34 @@ test -f ${DAEMON} || exit 0
 
 set -e
 
+# Construct the start arguments.
+# -m: Mount the filesystem.
+# --start: Start the daemon.
+# --quiet: Reduce verbosity.
+# --pidfile: Specify the PID file path.
+# --name: Service name.
+# --startas: Path to the actual binary.
+# --background: Run in background.
 START="-m --start --quiet --pidfile ${PIDFILE} --name ${NAME} --startas $DAEMON --background"
+
 case "$1" in
     start)
         if init_is_upstart; then
             exit 1
         fi
 
-        # Don't start if bind-mounted from host
-        [ ! -d {{ mount_point }}/proc ] || exit 0
+        # mount_point: Mount point for the LXCFS FUSE filesystem.
+        # Must exist and be accessible by the lxcfs process.
+        # Don't start if the mount point structure already exists (indicating previous mount).
+        [ ! -d {{ mount_point | default('/var/lib/lxcfs') }}/proc ] || exit 0
 
         # Cleanup in case of crash
-        fusermount -u {{ mount_point }} 2> /dev/null || true
+        fusermount -u {{ mount_point | default('/var/lib/lxcfs') }} 2> /dev/null || true
         [ -L /etc/mtab ] || \
-            sed -i "/^lxcfs {{ mount_point }} fuse.lxcfs/d" /etc/mtab
+            sed -i "/^lxcfs \/{{ mount_point | default('/var/lib/lxcfs') }} fuse.lxcfs/d" /etc/mtab
 
         echo -n "Starting $DESC: "
-        if start-stop-daemon ${START} -- {{ mount_point }} >/dev/null 2>&1 ; then
+        if start-stop-daemon ${START} -- {{ mount_point | default('/var/lib/lxcfs') }} >/dev/null 2>&1 ; then
             echo "${NAME}."
             echo ${OOM_SCORE_ADJ} > /proc/`cat ${PIDFILE}`/oom_score_adj
         else
@@ -89,6 +117,7 @@ case "$1" in
         if init_is_upstart; then
             exit 1
         fi
+        # Reload configuration by sending USR1 signal to the daemon.
         kill -USR1 $(cat ${PIDFILE})
     ;;
 

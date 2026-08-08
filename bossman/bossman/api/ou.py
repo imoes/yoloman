@@ -708,6 +708,28 @@ async def list_config_policies(
     ]
 
 
+@router.get("/api/v1/config-policies/{policy_id}")
+async def get_config_policy(
+    policy_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """One config policy by id WITH its values — so a selected policy (in the tree
+    or palette) can show exactly what it sets, without knowing its scope up front."""
+    cp = await session.get(ConfigPolicy, policy_id)
+    if cp is None:
+        raise HTTPException(status_code=404, detail="no such config policy")
+    return {
+        "id": str(cp.id),
+        "scope_ou_id": str(cp.scope_ou_id) if cp.scope_ou_id else None,
+        "host_group_id": str(cp.host_group_id) if cp.host_group_id else None,
+        "site_id": str(cp.site_id) if cp.site_id else None,
+        "set_id": str(cp.set_id) if cp.set_id else None,
+        "path": cp.path, "type": cp.type, "format": cp.config_format,
+        "separator": cp.separator, "values": cp.values or {}, "template": cp.template,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Named policies (ConfigPolicySet): a container with a name + multiple entries
 

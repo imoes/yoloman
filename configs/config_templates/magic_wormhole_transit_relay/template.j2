@@ -1,35 +1,93 @@
-{# Listen address and port for the transit relay #}
-bind_address = "{{ bind_address }}:{{ port }}"
+# ===========================================================================
+# magic_wormhole_transit_relay configuration
+# ===========================================================================
+# This file configures the magic-wormhole transit relay server.
+# It controls network binding, connection limits, TLS settings, logging,
+# and optional per-namespace rate limiting.
+#
+# All variables must have defaults defined in the Ansible role vars to
+# ensure idempotent and safe rendering.
+# ===========================================================================
 
-{# Maximum number of concurrent connections per client #}
-max_connections_per_client = {{ max_connections_per_client }}
+{# -------------------------------------------------------------------------
+   bind_address: Network interface IP address to bind the relay server to
+   (e.g., 0.0.0.0 for all interfaces).
+   ------------------------------------------------------------------------- #}
+{% set _bind = bind_address | default('0.0.0.0') %}
+{% set _port = port | default(4000) %}
+bind_address = "{{ _bind }}:{{ _port }}"
 
-{# Maximum total number of simultaneous connections (0 = no limit) #}
-max_total_connections = {{ max_total_connections }}
+{# -------------------------------------------------------------------------
+   max_connections_per_client: Maximum number of concurrent connections
+   allowed per client IP address. Prevents a single peer from hogging
+   the relay's resources.
+   ------------------------------------------------------------------------- #}
+max_connections_per_client = {{ max_connections_per_client | default(50) }}
 
-{# Maximum bytes per connection per second (0 = no limit) #}
-rate_limit_bytes_per_sec = {{ rate_limit_bytes_per_sec }}
+{# -------------------------------------------------------------------------
+   max_total_connections: Maximum total concurrent connections across all
+   clients. Set to 0 for unlimited (not recommended for production).
+   ------------------------------------------------------------------------- #}
+max_total_connections = {{ max_total_connections | default(0) }}
 
-{# TLS certificate and key paths (optional) #}
-{% if tls_enabled %}
-{% if tls_cert_path %}
-tls_cert = "{{ tls_cert_path }}"
+{# -------------------------------------------------------------------------
+   rate_limit_bytes_per_sec: Global per-connection rate limit in bytes/second.
+   Set to 0 for unlimited throughput. Use this to prevent a single
+   connection from saturating the network link.
+   ------------------------------------------------------------------------- #}
+rate_limit_bytes_per_sec = {{ rate_limit_bytes_per_sec | default(0) }}
+
+{# -------------------------------------------------------------------------
+   TLS Settings:
+   Enable TLS encryption for connections to the relay server.
+   Both tls_cert and tls_key must be present if TLS is enabled.
+   ------------------------------------------------------------------------- #}
+{% if tls_enabled | default(False) | bool %}
+  {# -------------------------------------------------------------------------
+     tls_cert: Path to the TLS certificate file (PEM format).
+     Required if tls_enabled is true.
+     ------------------------------------------------------------------------- #}
+{% if tls_cert_path | default('') %}
+tls_cert = "{{ tls_cert_path | default('') }}"
 {% endif %}
-{% if tls_key_path %}
-tls_key = "{{ tls_key_path }}"
+
+  {# -------------------------------------------------------------------------
+     tls_key: Path to the TLS private key file (PEM format).
+     Required if tls_enabled is true.
+     ------------------------------------------------------------------------- #}
+{% if tls_key_path | default('') %}
+tls_key = "{{ tls_key_path | default('') }}"
 {% endif %}
 {% endif %}
 
-{# Logging level: "debug", "info", "warn", or "error" #}
-log_level = "{{ log_level }}"
+{# -------------------------------------------------------------------------
+   log_level: Verbosity level for server logs.
+   Accepted values: "debug", "info", "warn", "error".
+   ------------------------------------------------------------------------- #}
+log_level = "{{ log_level | default('info') }}"
 
-{# Optional: Relay hostname for external clients (e.g., public DNS) #}
-{% if relay_hostname %}
-relay_hostname = "{{ relay_hostname }}"
+{# -------------------------------------------------------------------------
+   relay_hostname: Publicly accessible hostname for the relay.
+   This is advertised to clients so they know how to connect.
+   If empty, clients may infer the address from the bind_address.
+   ------------------------------------------------------------------------- #}
+{% if relay_hostname | default('') %}
+relay_hostname = "{{ relay_hostname | default('') }}"
 {% endif %}
 
-{# Optional: Per-namespace rate limits (list of {namespace, rate_limit_bytes_per_sec}) #}
-{% for ns in rate_limit_namespaces %}
-[rate_limits.{{ ns.namespace | replace(".", "_") | replace("-", "_") }}]
-bytes_per_sec = {{ ns.rate_limit_bytes_per_sec }}
+{# -------------------------------------------------------------------------
+   Per-namespace rate limits:
+   List of dictionaries, each containing 'namespace' (string) and
+   'rate_limit_bytes_per_sec' (int).
+   Generates sections like [rate_limits.my_namespace]
+   ------------------------------------------------------------------------- #}
+{% for ns in rate_limit_namespaces | default([]) %}
+{% set _ns_name = ns.namespace | default('') | replace(".", "_") | replace("-", "_") %}
+{% if _ns_name %}
+[rate_limits.{{ _ns_name }}]
+  {# -------------------------------------------------------------------------
+     bytes_per_sec: Rate limit in bytes/second for this specific namespace.
+     ------------------------------------------------------------------------- #}
+bytes_per_sec = {{ ns.rate_limit_bytes_per_sec | default(0) }}
+{% endif %}
 {% endfor %}

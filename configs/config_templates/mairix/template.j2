@@ -1,75 +1,120 @@
-# mairix configuration file — indexes and searches locally-stored email
-# Base folder containing your mail (MBox, Maildir, etc.)
-base={{ mail_base }}
+# ==============================================================================
+# mairix configuration file
+# ==============================================================================
+# This template generates the mairix.conf configuration file.
+# mairix is a fast mail indexer that allows searching through local mail folders.
+# It indexes maildir or mbox formats and creates a searchable database.
+# ==============================================================================
 
-# Database file used for indexing (must be absolute path or relative to base)
-db={{ db_path }}
+# -----------------------------------------------------------------------------
+# mail_base: Top-level directory where your mail folders reside (e.g., `~/Mail` for Maildir, `/var/mail` for MBox).
+# -----------------------------------------------------------------------------
+base={{ mail_base | default('~') }}
 
-# Folders to index (comma- or space-separated; supports wildcards like * and ?)
-folder={{ mail_folders | join(',') }}
+# -----------------------------------------------------------------------------
+# db_path: Path to the index database file, relative to `mail_base` or absolute.
+# -----------------------------------------------------------------------------
+db={{ db_path | default('.mairix') }}
 
-# Optional: extra folders to index (e.g., for backup or secondary inboxes)
-{% if extra_folders %}
-# Extra folders to index
-folder={{ extra_folders | join(',') }}
+# -----------------------------------------------------------------------------
+# mail_folders: List of mail folders to index (relative to `mail_base`). Supports wildcards (e.g., `Inbox*`, `Sent*`).
+# -----------------------------------------------------------------------------
+# Join the list of mail folders into a comma-separated string using the 'join' filter.
+folder={{ (mail_folders | default(['.'])) | join(',') }}
+
+# -----------------------------------------------------------------------------
+# extra_folders: Additional folders to index (e.g., secondary inboxes or backups). Optional.
+# -----------------------------------------------------------------------------
+{% set extra_folders_list = extra_folders | default([]) %}
+{% if extra_folders_list | length > 0 %}
+# -----------------------------------------------------------------------------
+# Extra folders to index (from extra_folders)
+# -----------------------------------------------------------------------------
+folder={{ extra_folders_list | join(',') }}
 {% endif %}
 
-# Path to your MTA’s sendmail-compatible command (used for reply/forward via mairix)
-{% if sendmail_path %}
-sendmail={{ sendmail_path }}
+# -----------------------------------------------------------------------------
+# sendmail_path: Path to an MTA-compatible sendmail binary used when composing/replying to messages.
+# -----------------------------------------------------------------------------
+{% set sendmail_path_val = sendmail_path | default('/usr/sbin/sendmail') %}
+{% if sendmail_path_val %}
+sendmail={{ sendmail_path_val }}
 {% endif %}
 
-# Maximum number of results to display in search output (0 = unlimited)
-resultlimit={{ result_limit }}
+# -----------------------------------------------------------------------------
+# result_limit: Maximum number of matching messages to display in search results. Use `0` for unlimited.
+# -----------------------------------------------------------------------------
+resultlimit={{ result_limit | default(100) }}
 
-# Whether to include message IDs in search results
-{% if include_message_ids %}
+# -----------------------------------------------------------------------------
+# include_message_ids: Include message IDs in search output (helpful for integration with mail clients).
+# -----------------------------------------------------------------------------
+{% if include_message_ids | default(true) %}
 msgid=1
 {% else %}
 msgid=0
 {% endif %}
 
-# Whether to use case-insensitive search (default: on)
-{% if case_insensitive_search %}
+# -----------------------------------------------------------------------------
+# case_insensitive_search: Enable case-insensitive search (recommended for most users).
+# -----------------------------------------------------------------------------
+{% if case_insensitive_search | default(true) %}
 casefold=1
 {% else %}
 casefold=0
 {% endif %}
 
-# Whether to include headers in search (default: on)
-{% if search_headers %}
+# -----------------------------------------------------------------------------
+# search_headers: Search in message headers (From, To, Subject, etc.).
+# -----------------------------------------------------------------------------
+{% if search_headers | default(true) %}
 search_headers=1
 {% else %}
 search_headers=0
 {% endif %}
 
-# Whether to include message bodies in search (default: on)
-{% if search_bodies %}
+# -----------------------------------------------------------------------------
+# search_bodies: Search in message body content (text/plain and text/html parts).
+# -----------------------------------------------------------------------------
+{% if search_bodies | default(true) %}
 search_bodies=1
 {% else %}
 search_bodies=0
 {% endif %}
 
-# Optional: custom mxfolder definitions (for non-standard folder names)
-{% for name, pattern in custom_folders.items() %}
-# Custom folder mapping: {{ name }}
-mxfolder.{{ name }}={{ pattern }}
+# -----------------------------------------------------------------------------
+# custom_folders: Map of custom folder names to patterns (e.g., `{'Archive': 'Archives/*'}`).
+# Uses dict2items to safely iterate mappings without Python .items() calls.
+# -----------------------------------------------------------------------------
+{% for item in (custom_folders | default({})) | dict2items %}
+# Custom folder mapping: {{ item.key }} -> {{ item.value }}
+mxfolder.{{ item.key }}={{ item.value }}
 {% endfor %}
 
-# Optional: pattern to ignore files (e.g., for Maildir: ".*, tmp, cache")
-{% if ignore_pattern %}
+# -----------------------------------------------------------------------------
+# ignore_pattern: Comma-separated list of file/folder patterns to ignore (e.g., for Maildir: `.*, tmp, cache`).
+# -----------------------------------------------------------------------------
+{% set ignore_pattern_val = ignore_pattern | default('.*, tmp') %}
+{% if ignore_pattern_val %}
 # Ignore patterns (comma-separated)
-ignore={{ ignore_pattern }}
+ignore={{ ignore_pattern_val }}
 {% endif %}
 
-# Optional: prefix to strip from folder names in search output
-{% if folder_prefix %}
+# -----------------------------------------------------------------------------
+# folder_prefix: Prefix to strip from folder names in search results (e.g., `Mail/` → shows `Inbox` instead of `Mail/Inbox`).
+# -----------------------------------------------------------------------------
+{% set folder_prefix_val = folder_prefix | default('') %}
+{% if folder_prefix_val %}
 # Strip this prefix from displayed folder names
-folderprefix={{ folder_prefix }}
+folderprefix={{ folder_prefix_val }}
 {% endif %}
 
-# Optional: path to an external indexer script (e.g., for non-MBox formats)
-{% if external_indexer %}
+# -----------------------------------------------------------------------------
+# external_indexer: Path to an external script that handles indexing (e.g., for non-standard formats).
+# Must accept a folder path as its only argument.
+# -----------------------------------------------------------------------------
+{% set external_indexer_val = external_indexer | default('') %}
+{% if external_indexer_val %}
 # Use external indexer script (must accept folder path as argument)
-indexer={{ external_indexer }}
+indexer={{ external_indexer_val }}
 {% endif %}

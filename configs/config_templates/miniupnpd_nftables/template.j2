@@ -1,85 +1,136 @@
-# Configuration file for miniupnpd (nftables backend)
-# See 'man miniupnpd.conf' for detailed syntax
+# ============================================================================
+# miniupnpd Configuration Template (nftables Backend)
+# ============================================================================
+# This template generates the configuration file for miniupnpd, a lightweight
+# UPnP IGD daemon. It supports UPnP, NAT-PMP, and PCP protocols.
+# All variables use the schema defaults provided in the role.
+# ============================================================================
 
-# Network interface to listen on for UPnP/PCP/NAT-PMP requests
-interface={{ interface }}
+# ---------------------------------------------------------------------------
+# Network Interface Configuration
+# ---------------------------------------------------------------------------
 
-# IP address of the network interface (auto-detected if empty)
-{{ "# " if not enable_static_internal_ip else "" }}internal_ip={{ internal_ip }}
+# Network interface (e.g., 'eth0', 'br-lan') used for internal (LAN) traffic.
+# This interface listens for UPnP/PCP/NAT-PMP requests.
+interface={{ interface | default('eth1') }}
 
-# Netmask of the internal network (e.g., 24 for /24 subnet)
-{{ "# " if not enable_static_internal_netmask else "" }}internal_netmask={{ internal_netmask }}
+# Static internal IP address of the interface.
+# If empty, auto-detected from interface. Only active if enable_static_internal_ip is true.
+{% if enable_static_internal_ip | default(False) | bool %}
+internal_ip={{ internal_ip | default('') }}
+{% endif %}
 
-# External interface (WAN) — used for NAT mapping and PCP/NAT-PMP public IP discovery
-external_interface={{ external_interface }}
+# CIDR prefix length (e.g., '24') for internal network.
+# Auto-detected if empty. Only active if enable_static_internal_ip is true.
+{% if enable_static_internal_ip | default(False) | bool %}
+internal_netmask={{ internal_netmask | default('') }}
+{% endif %}
 
-# Enable NAT-PMP support (default: yes)
-enable_natpmp={{ enable_natpmp | lower }}
+# ---------------------------------------------------------------------------
+# External Interface & Protocol Support
+# ---------------------------------------------------------------------------
 
-# Enable PCP support (default: yes)
-enable_pcp={{ enable_pcp | lower }}
+# External (WAN) interface used for public NAT mappings and public IP discovery.
+external_interface={{ external_interface | default('eth0') }}
 
-# Enable UPnP IGDv1 support (default: yes)
-enable_upnp={{ enable_upnp | lower }}
+# Enable NAT-PMP protocol support (RFC 6886).
+enable_natpmp={{ enable_natpmp | default(True) | lower }}
 
-# Enable UPnP IGDv2 support (default: yes)
-enable_ip6={{ enable_ip6 | lower }}
+# Enable PCP (Port Control Protocol) support (RFC 6887).
+enable_pcp={{ enable_pcp | default(True) | lower }}
 
-# Allow control traffic only from these IPv4 subnets (CIDR notation)
-# Format: allow 192.168.1.0/24
-{% for subnet in allowed_subnets %}allow {{ subnet }}
+# Enable UPnP IGDv1 (Internet Gateway Device v1) support.
+enable_upnp={{ enable_upnp | default(True) | lower }}
+
+# Enable UPnP IGDv2 (IPv6 and additional features) support.
+enable_ip6={{ enable_ip6 | default(True) | lower }}
+
+# ---------------------------------------------------------------------------
+# Access Control Lists (ACL)
+# ---------------------------------------------------------------------------
+
+# List of allowed IPv4 subnets (CIDR) that may request port mappings.
+# Format: allow <subnet>
+{% for subnet in allowed_subnets | default(['192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12']) %}allow {{ subnet }}
 {% endfor %}
 
-# Deny control traffic from these IPv4 subnets
-# Format: deny 10.0.0.0/8
-{% for subnet in denied_subnets %}deny {{ subnet }}
+# List of IPv4 subnets explicitly denied from making port mapping requests.
+# Format: deny <subnet>
+{% for subnet in denied_subnets | default([]) %}deny {{ subnet }}
 {% endfor %}
 
-# Maximum number of port mappings (0 = unlimited)
-max_mappings={{ max_mappings }}
+# ---------------------------------------------------------------------------
+# Limits & Backend Paths
+# ---------------------------------------------------------------------------
 
-# Path to the nftables ruleset file used by miniupnpd
-nft_ruleset={{ nft_ruleset }}
+# Maximum number of simultaneous port mappings (0 = unlimited).
+max_mappings={{ max_mappings | default(0) }}
 
-# Path to the nftables binary (optional; auto-detected if empty)
-{{ "# " if not custom_nft_path else "" }}nft_path={{ nft_path }}
+# Path to the nftables ruleset file that miniupnpd uses for NAT rules.
+nft_ruleset={{ nft_ruleset | default('/etc/nftables/miniupnpd.nft') }}
 
-# Unique device name for SSDP announcements
-friendly_name={{ friendly_name }}
+# Full path to the nft binary (e.g., '/usr/sbin/nft').
+# Leave empty to auto-detect. Only active if custom_nft_path is true.
+{% if custom_nft_path | default(False) | bool %}
+nft_path={{ nft_path | default('') }}
+{% endif %}
 
-# Model name/model number for SSDP
-model_name={{ model_name }}
-model_number={{ model_number }}
+# ---------------------------------------------------------------------------
+# Device Identity (SSDP/UPnP Metadata)
+# ---------------------------------------------------------------------------
 
-# UUID of the device (e.g., urn:uuid:12345678-1234-5678-9abc-def012345678)
-uuid={{ uuid }}
+# Human-readable device name displayed in UPnP clients.
+friendly_name={{ friendly_name | default('UPnP IGD Firewall') }}
 
-# UPnP event subscription timeout in seconds (default: 1800)
-subscription_timeout={{ subscription_timeout }}
+# Model name for SSDP discovery (e.g., 'Linux Router').
+model_name={{ model_name | default('MiniUPnPd') }}
 
-# Enable verbose logging (default: no)
-verbose_logging={{ verbose_logging | lower }}
+# Model number/version of the device.
+model_number={{ model_number | default('2.3') }}
 
-# Log file path (if empty, logs to syslog)
-{{ "# " if not log_to_file else "" }}log_file={{ log_file }}
+# Unique device identifier (UUID), should be stable across reboots.
+uuid={{ uuid | default('uuid:12345678-1234-5678-9abc-def012345678') }}
 
-# Path to the pidfile
-pidfile={{ pidfile }}
+# ---------------------------------------------------------------------------
+# UPnP Event & SSDP Configuration
+# ---------------------------------------------------------------------------
 
-# Enable secure mode: only allow mappings with explicit external port
-secure_mode={{ secure_mode | lower }}
+# Default event subscription timeout in seconds (1–604800).
+subscription_timeout={{ subscription_timeout | default(1800) }}
 
-# Enable SSDP multicast announcements (default: yes)
-ssdp_broadcast={{ ssdp_broadcast | lower }}
+# Enable verbose logging (includes debug-level details).
+verbose_logging={{ verbose_logging | default(False) | lower }}
 
-# SSDP broadcast interval in seconds (default: 30)
-ssdp_interval={{ ssdp_interval }}
+# Log file path (only used if log_to_file is enabled).
+# If disabled, logs go to syslog.
+{% if log_to_file | default(False) | bool %}
+log_file={{ log_file | default('/var/log/miniupnpd.log') }}
+{% endif %}
 
-# SSDP server port (default: 1900)
-ssdp_port={{ ssdp_port }}
+# Path to the PID file for process management.
+pidfile={{ pidfile | default('/run/miniupnpd.pid') }}
 
-# UPnP port (default: 0 = auto-select)
-upnp_port={{ upnp_port }}
+# ---------------------------------------------------------------------------
+# Security & Discovery Options
+# ---------------------------------------------------------------------------
 
-# Disable default gateway detection (e.g., for double-NAT setups)
-{{ "# " if not disable_gateway_detection else "" }}disable_gateway_detection={{ disable_gateway_detection | lower }}
+# Enforce that port mappings must specify an external port (prevents wildcard mappings).
+secure_mode={{ secure_mode | default(True) | lower }}
+
+# Enable SSDP multicast announcements (required for device discovery).
+ssdp_broadcast={{ ssdp_broadcast | default(True) | lower }}
+
+# Interval (in seconds) between SSDP announcements.
+ssdp_interval={{ ssdp_interval | default(30) }}
+
+# UDP port used for SSDP traffic.
+ssdp_port={{ ssdp_port | default(1900) }}
+
+# TCP port for HTTP service (0 = auto-select, typically 49152–65535).
+upnp_port={{ upnp_port | default(0) }}
+
+# Disable automatic gateway detection (useful for complex NAT topologies).
+# Only active if set to true.
+{% if disable_gateway_detection | default(False) | bool %}
+disable_gateway_detection={{ disable_gateway_detection | default(False) | lower }}
+{% endif %}

@@ -1,64 +1,87 @@
-[# mailutils-imap4d service configuration
+# mailutils-imap4d service configuration
 # This file configures the IMAP4D daemon (part of mailutils).
 # It uses INI-style syntax with sections, key-value pairs, and optional comments.
 # See `man 5 mailutils`, `man 8 imap4d` for full details.
 
 [imap4d]
-# Enable debug logging (very verbose)
-debug = {{ debug }}
-# Maximum number of simultaneous client connections
-maxconn = {{ maxconn }}
-# Enable SSL/TLS support
-ssl = {{ ssl }}
-# Path to the SSL certificate file (PEM format)
-ssl-cert = {{ ssl_cert }}
-# Path to the SSL private key file
-ssl-key = {{ ssl_key }}
-# Port to listen on for unencrypted IMAP
-port = {{ port }}
-# Port to listen on for IMAPS (if ssl enabled)
-ssl-port = {{ ssl_port }}
-# Maximum idle time for a client (in seconds)
-idle-timeout = {{ idle_timeout }}
-# Enable syslog logging
-syslog = {{ syslog }}
-# Enable plaintext authentication (WARNING: insecure unless SSL/TLS is enforced)
-allow-plaintext = {{ allow_plaintext }}
-# List of allowed authentication mechanisms (e.g., plain, login, cram-md5)
-auth-mechs = {{ auth_mechs | join(',') }}
-# Path to the SASL configuration (if using SASL auth)
-sasl-config = {{ sasl_config }}
-# Enable IPv6 listening
-ipv6 = {{ ipv6 }}
-# Log level (0–3); higher = more verbose
-loglevel = {{ loglevel }}
-# Path to PID file
-pidfile = {{ pidfile }}
-# Daemon user to drop privileges to (usually 'mail' or 'nobody')
-user = {{ user }}
-# Daemon group
--group = {{ group }}
+# Enable very verbose debug logging to stdout (for troubleshooting only).
+# Type: boolean. Default: false.
+debug = {{ debug | default(False) | lower }}
+# Maximum number of simultaneous client connections allowed to the server.
+# Type: integer. Default: 50.
+maxconn = {{ maxconn | default(50) }}
+# Enable SSL/TLS encryption for secure IMAPS connections.
+# Type: boolean. Default: true.
+ssl = {{ ssl | default(True) | lower }}
+# Path to the SSL certificate file (PEM-encoded).
+# Required if SSL is enabled.
+# Type: string. Default: /etc/ssl/certs/imapd.pem.
+ssl_cert = {{ ssl_cert | default('/etc/ssl/certs/imapd.pem') }}
+# Path to the SSL private key file (PEM-encoded).
+# Required if SSL is enabled.
+# Type: string. Default: /etc/ssl/private/imapd.key.
+ssl_key = {{ ssl_key | default('/etc/ssl/private/imapd.key') }}
+# Port to listen on for unencrypted IMAP (standard IMAP port).
+# Type: integer. Default: 143.
+port = {{ port | default(143) }}
+# Port to listen on for IMAPS (IMAP over SSL/TLS).
+# Type: integer. Default: 993.
+ssl_port = {{ ssl_port | default(993) }}
+# Maximum idle time (in seconds) before a client is disconnected.
+# Type: integer. Default: 900.
+idle_timeout = {{ idle_timeout | default(900) }}
+# Log messages to the system logger (syslog).
+# Type: boolean. Default: true.
+syslog = {{ syslog | default(True) | lower }}
+# Allow authentication over unencrypted connections (insecure).
+# Only enable if SSL is enforced for other traffic, or explicitly intended.
+# Type: boolean. Default: false.
+allow_plaintext = {{ allow_plaintext | default(False) | lower }}
+# List of allowed SASL authentication mechanisms.
+# Prefer secure mechanisms (e.g., cram-md5, gssapi); avoid plain/login unless over SSL.
+# Type: list of strings. Default: ['cram-md5', 'digest-md5'].
+auth_mechs = {{ auth_mechs | default(['cram-md5', 'digest-md5']) | join(', ') }}
+# Path to SASL daemon configuration file (used if external SASL auth is configured).
+# Type: string. Default: /etc/sasl2/imapd.conf.
+sasl_config = {{ sasl_config | default('/etc/sasl2/imapd.conf') }}
+# Enable IPv6 listening socket.
+# Type: boolean. Default: true.
+ipv6 = {{ ipv6 | default(True) | lower }}
+# Logging verbosity: 0 = errors only, 1 = warnings, 2 = info, 3 = debug.
+# Type: integer. Default: 1.
+loglevel = {{ loglevel | default(1) }}
+# Path to the PID file for the daemon.
+# Type: string. Default: /run/imap4d/imap4d.pid.
+pidfile = {{ pidfile | default('/run/imap4d/imap4d.pid') }}
+# System user account to run the daemon as (for privilege dropping).
+# Type: string. Default: mail.
+user = {{ user | default('mail') }}
+# System group to run the daemon as (for privilege dropping).
+# Type: string. Default: mail.
+group = {{ group | default('mail') }}
 
 [mailbox]
-# Default mailbox format (mbox, maildir, etc.)
-default = {{ mailbox_default }}
-# Maildir: enable dot-locking for compatibility
-maildir-dotlock = {{ maildir_dotlock }}
+# Default mailbox format: 'mbox' (single-file) or 'maildir' (directory per message).
+# Type: string. Default: maildir.
+default = {{ mailbox_default | default('maildir') }}
+# Use dot-locking (fcntl + lock file) for maildir compatibility with older clients.
+# Type: boolean. Default: true.
+maildir_dotlock = {{ maildir_dotlock | default(True) | lower }}
 
 # Optional: per-client limits (repeatable section)
-{% for client_limit in client_limits %}
+{% for client_limit in client_limits | default([]) %}
 [client-limit:{{ client_limit.name }}]
-# Apply to IP/subnet or host pattern
-match = {{ client_limit.match }}
-# Max connections per matching client
-maxconn = {{ client_limit.maxconn }}
+# Apply to IP/subnet or host pattern.
+match = {{ client_limit.match | default('') }}
+# Max connections per matching client.
+maxconn = {{ client_limit.maxconn | default(10) }}
 {% endfor %}
 
 # Optional: access control list (repeatable)
-{% for acl in acl_rules %}
+{% for acl in acl_rules | default([]) %}
 [access:{{ acl.name }}]
-# Pattern to match client host/IP
-match = {{ acl.match }}
-# Action: allow or deny
-action = {{ acl.action }}
+# Pattern to match client host/IP.
+match = {{ acl.match | default('') }}
+# Action: allow or deny.
+action = {{ acl.action | default('allow') }}
 {% endfor %}

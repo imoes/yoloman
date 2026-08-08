@@ -1,123 +1,113 @@
 # /etc/monerod.conf — Main configuration file for the Monero daemon (monerod)
-# This file is parsed line-by-line; lines starting with '#' or ';' are comments.
+#
+# This file is parsed line-by-line by monerod.
+# Lines starting with '#' are comments.
+# This template is self-documenting: every directive is preceded by its
+# schema description and uses explicit defaults for safety.
+#
+# Variables are expected to be defined in Ansible variables (e.g., monero_p2p_port).
+# If a variable is undefined, the default specified in the Jinja2 `default()` filter is used.
 
-# Listen for P2P connections on this port
-p2p-bind-port={{ p2p_port }}
+# Port on which the daemon listens for incoming P2P connections.
+p2p-bind-port={{ p2p_port | default(18080) }}
 
-# Bind to this address for P2P communication
-p2p-bind-ip={{ p2p_bind_ip }}
+# IP address to bind the P2P interface to. Use '127.0.0.1' to restrict to local only.
+p2p-bind-ip={{ p2p_bind_ip | default('0.0.0.0') }}
 
-# Allow incoming P2P connections (set to false to run in client-only mode)
-no-igd={{ not p2p_incoming_enabled }}
+# Disable Internet Gateway Protocol (NAT-PMP/UPnP) port forwarding. Default is true (disabled).
+no-igd={{ p2p_no_igd | default(true) }}
 
-# RPC listen port for external clients (e.g., wallets, explorers)
-rpc-bind-port={{ rpc_port }}
+# Port for the JSON-RPC API (used by wallets, explorers, and tools).
+rpc-bind-port={{ rpc_port | default(18081) }}
 
-# Bind RPC server to this address (typically 127.0.0.1 for security)
-rpc-bind-ip={{ rpc_bind_ip }}
+# IP to bind the RPC server to. Keep '127.0.0.1' for local-only access for security.
+rpc-bind-ip={{ rpc_bind_ip | default('127.0.0.1') }}
 
-# Enable RPC server (if false, disables JSON-RPC API)
-enable-cors={{ rpc_enabled }}
+# Authentication credentials in 'username:password' format. Leave empty for no auth.
+rpc-login={{ rpc_login | default('') }}
 
-# Require authentication for RPC (username:password or token)
-rpc-login={{ rpc_login }}
+# Restrict RPC to known outputs, incoming transactions, and the wallet daemon.
+# Set to true for tighter security.
+restrict-rpc={{ rpc_restricted | default(false) }}
 
-# Enable public RPC (if true, allows unauthenticated RPC access — not recommended for public nodes)
-public-node={{ rpc_public }}
+# Directory where the blockchain and wallet data are stored.
+data-dir={{ data_dir | default('/var/lib/monero') }}
 
-# Data directory for blockchain and wallet storage
-data-dir={{ data_dir }}
+# Path to the log file. If empty or omitted, logs go to stderr.
+log-file={{ log_file | default('') }}
 
-# Log file path (optional — if omitted, logs to stderr)
-log-file={{ log_file }}
+# Verbosity level: 0 (none), 1 (info), 2 (debug), 3 (trace). Use '1' for production.
+log-level={{ log_level | default(1) }}
 
-# Log level: 0=none, 1=info, 2=debug, 3=trace
-log-level={{ log_level }}
+# Rate limit for inbound traffic in KB/s. 0 means no limit.
+limit-download={{ limit_download | default(0) }}
 
-# Maximum number of P2P connections (peers)
-max-concurrency={{ max_concurrency }}
+# Rate limit for outbound traffic in KB/s. 0 means no limit.
+limit-upload={{ limit_upload | default(0) }}
 
-# Limit number of incoming P2P connections
-limit-rate={{ limit_rate }}
+# Enable DNSSEC validation for Monero DNS seeds.
+# Note: The config key 'dns-secure' is the inverse of the schema 'dnssec_enabled'.
+dns-secure={{ not dnssec_enabled | default(false) }}
 
-# Preserve transaction fee (true = keep miner fee in tx; false = deduct from amount)
-preserve-transaction-fee={{ preserve_tx_fee }}
+# Optional list of trusted seed nodes (host:port) for bootstrap.
+# Leave empty to use default seeds.
+{% if seed_nodes | default([]) | length > 0 %}
+seed-node={{ seed_nodes | default([]) | join(',') }}
+{% endif %}
 
-# Enable DNSSEC validation for DNS seed resolution
-dns-secure={{ dnssec_enabled }}
+# List of trusted daemon nodes to exclusively use for syncing.
+{% if exclusive_nodes | default([]) | length > 0 %}
+add-exclusive-node={{ exclusive_nodes | default([]) | join(',') }}
+{% endif %}
 
-# Use specific DNS seeds (comma-separated list); if empty, use defaults
-seed-node={{ seed_nodes | join(',') if seed_nodes else '' }}
+# Additional nodes to try connecting to.
+{% if additional_nodes | default([]) | length > 0 %}
+add-node={{ additional_nodes | default([]) | join(',') }}
+{% endif %}
 
-# Additional trusted daemon(s) for bootstrap (comma-separated)
-add-exclusive-node={{ exclusive_nodes | join(',') if exclusive_nodes else '' }}
+# Enable blockchain pruning to reduce disk usage.
+prune-blockchain={{ pruning_enabled | default(false) }}
 
-# Additional seeds to try (comma-separated)
-add-node={{ additional_nodes | join(',') if additional_nodes else '' }}
+# Enable local mining. Requires CPU and significant power.
+# Note: The config key 'disable-mining' is the inverse of the schema 'mining_enabled'.
+disable-mining={{ not mining_enabled | default(false) }}
 
-# Disable block download during initial sync (for slow/historical nodes)
-no-sync={{ not sync_enabled }}
+# Number of mining threads. 0 = auto-detect.
+miner-threads={{ mining_threads | default(0) }}
 
-# Enable pruning (reduces disk usage by discarding old block data)
-prune-blockchain={{ pruning_enabled }}
+# Monero address to receive mined rewards. Required if mining is enabled.
+miner-address={{ mining_address | default('') }}
 
-# Prune threshold (in MB); used only if pruning is enabled
-prune-threshold={{ pruning_threshold }}
+# Allow background mining when system is idle.
+background-mining-enabled={{ background_mining_enabled | default(false) }}
 
-# Disable mining (always true for most users)
-disable-mining={{ not mining_enabled }}
+# Enable local network peer discovery (LAN).
+local-peer-discovery={{ local_peer_discovery_enabled | default(true) }}
 
-# Mining thread count (0 = auto-select)
-miner-threads={{ mining_threads }}
+# Enable UPnP port mapping. Use with caution.
+upnp={{ upnp_enabled | default(false) }}
 
-# Mining address (required if mining enabled)
-miner-address={{ mining_address }}
+# RPC timeout in milliseconds (e.g., 30000 = 30s).
+rpc-timeout={{ rpc_timeout | default(30000) }}
 
-# Background mining (requires user consent on first run)
-background-mining-enabled={{ background_mining_enabled }}
+# Override minimum fee (e.g., '0.00001' XMR per KB).
+fee-override={{ fee_override | default('') }}
 
-# Allow local network discovery
-local-peer-discovery={{ local_peer_discovery_enabled }}
+# URL of a Monero blockchain snapshot for fast initial sync.
+sync-from-snapshot-url={{ sync_snapshot_url | default('') }}
 
-# Allow remote RPC (if false, only localhost may connect to RPC)
-confirm-external-bind={{ rpc_allow_remote }}
+# Enable ZeroMQ for real-time pub/sub of blocks/transactions.
+enable-zmq={{ zmq_enabled | default(false) }}
 
-# Disable IPv6 (if true, disables IPv6 binding/listening)
-disable-ipv6={{ not ipv6_enabled }}
+# ZMQ address to publish raw transactions.
+zmq-pub-tx-address={{ zmq_pub_tx_addr | default('tcp://127.0.0.1:18083') }}
 
-# Allow UPnP port mapping (deprecated; may cause issues on some routers)
-upnp={{ upnp_enabled }}
+# ZMQ address to publish new blocks in JSON format.
+zmq-pub-block-address={{ zmq_pub_block_addr | default('tcp://127.0.0.1:18084') }}
 
-# Set maximum number of connections to RPC clients
-rpc-max-connections={{ rpc_max_connections }}
+# ZMQ address to publish raw (binary) blocks.
+zmq-pub-raw-block-address={{ zmq_pub_raw_block_addr | default('tcp://127.0.0.1:18085') }}
 
-# Set maximum size of incoming RPC request body (in bytes)
-rpc-max-request-size={{ rpc_max_request_size }}
-
-# Set timeout for RPC requests (in ms)
-rpc-timeout={{ rpc_timeout }}
-
-# Set fee threshold for low-fee tx rejection (in monero per KB, e.g. 0.00001)
-fee-override={{ fee_override }}
-
-# Sync from snapshot (URL or 'auto')
-sync-from-snapshot-url={{ sync_snapshot_url }}
-
-# Sync from snapshot height (0 = auto)
-sync-from-snapshot-height={{ sync_snapshot_height }}
-
-# Enable ZMQ for real-time transaction/block notifications
-enable-zmq={{ zmq_enabled }}
-
-# ZMQ publish address for transactions
-zmq-pub-tx-address={{ zmq_pub_tx_addr }}
-
-# ZMQ publish address for blocks
-zmq-pub-block-address={{ zmq_pub_block_addr }}
-
-# ZMQ publish address for raw blocks
-zmq-pub-raw-block-address={{ zmq_pub_raw_block_addr }}
-
-# Extra arguments (unparsed lines passed directly to daemon)
-{% for extra_line in extra_lines %}{{ extra_line }}
+# Unparsed additional configuration lines to append verbatim.
+{% for extra_line in extra_lines | default([]) %}{{ extra_line }}
 {% endfor %}

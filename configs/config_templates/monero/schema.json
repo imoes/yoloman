@@ -9,10 +9,10 @@
     "default": "0.0.0.0",
     "description": "IP address to bind the P2P interface to. Use '127.0.0.1' to restrict to local only."
   },
-  "p2p_incoming_enabled": {
-    "type": "boolean",
+  "p2p_no_igd": {
+    "type": "bool",
     "default": true,
-    "description": "Whether to accept incoming P2P connections. Disable to run as a client-only node."
+    "description": "Disable Internet Gateway Protocol (NAT-PMP/UPnP) port forwarding. Default is true (disabled)."
   },
   "rpc_port": {
     "type": "number",
@@ -24,20 +24,15 @@
     "default": "127.0.0.1",
     "description": "IP to bind the RPC server to. Keep '127.0.0.1' for local-only access for security."
   },
-  "rpc_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable the RPC server. Disable only if you use local RPC or a proxy."
-  },
   "rpc_login": {
     "type": "string",
     "default": "",
-    "description": "Authentication credentials in 'username:password' format. Leave empty for no auth (not recommended for public nodes)."
+    "description": "Authentication credentials in 'username:password' format. Leave empty for no auth."
   },
-  "rpc_public": {
-    "type": "boolean",
+  "rpc_restricted": {
+    "type": "bool",
     "default": false,
-    "description": "Whether to expose a public RPC endpoint without authentication (dangerous \u2014 only for trusted infrastructure)."
+    "description": "Restrict RPC to known outputs, incoming transactions, and the wallet daemon. Set to true for tighter security."
   },
   "data_dir": {
     "type": "string",
@@ -46,7 +41,7 @@
   },
   "log_file": {
     "type": "string",
-    "default": "/var/log/monero/monerod.log",
+    "default": "",
     "description": "Path to the log file. If empty or omitted, logs go to stderr."
   },
   "log_level": {
@@ -54,77 +49,50 @@
     "default": 1,
     "description": "Verbosity level: 0 (none), 1 (info), 2 (debug), 3 (trace). Use '1' for production."
   },
-  "max_concurrency": {
-    "type": "number",
-    "default": 32,
-    "description": "Maximum number of simultaneous P2P connections (peers). Adjust based on system resources."
-  },
-  "limit_rate": {
+  "limit_download": {
     "type": "number",
     "default": 0,
-    "description": "Rate limit (in KB/s) for inbound/outbound traffic. 0 means no limit."
+    "description": "Rate limit for inbound traffic in KB/s. 0 means no limit."
   },
-  "preserve_tx_fee": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, preserves the transaction fee in the transaction output; otherwise, fee is deducted from the sender."
+  "limit_upload": {
+    "type": "number",
+    "default": 0,
+    "description": "Rate limit for outbound traffic in KB/s. 0 means no limit."
   },
   "dnssec_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable DNSSEC validation for Monero DNS seeds. Recommended for security."
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNSSEC validation for Monero DNS seeds. Set to true to enable (internal flag inverts for no-dns-secure)."
   },
   "seed_nodes": {
     "type": "list",
     "default": [],
-    "description": "Optional list of trusted seed nodes (host:port) for bootstrap. Leave empty to use default seeds.",
-    "items": {
-      "type": "string",
-      "format": "host:port"
-    }
+    "description": "Optional list of trusted seed nodes (host:port) for bootstrap. Leave empty to use default seeds."
   },
   "exclusive_nodes": {
     "type": "list",
     "default": [],
-    "description": "List of trusted daemon nodes to exclusively use for syncing (comma-separated in raw config).",
-    "items": {
-      "type": "string",
-      "format": "host:port"
-    }
+    "description": "List of trusted daemon nodes to exclusively use for syncing."
   },
   "additional_nodes": {
     "type": "list",
     "default": [],
-    "description": "Additional nodes to try connecting to (seed nodes for redundancy).",
-    "items": {
-      "type": "string",
-      "format": "host:port"
-    }
-  },
-  "sync_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable blockchain synchronization on startup. Disable for archival or offline nodes."
+    "description": "Additional nodes to try connecting to."
   },
   "pruning_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
-    "description": "Enable blockchain pruning to reduce disk usage. Not compatible with all tools (e.g., some explorers)."
-  },
-  "pruning_threshold": {
-    "type": "number",
-    "default": 10000,
-    "description": "Size (MB) threshold for pruning \u2014 disk space saved beyond this amount will be reclaimed."
+    "description": "Enable blockchain pruning to reduce disk usage."
   },
   "mining_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable local mining. Requires CPU and significant power \u2014 only for test or dedicated mining setups."
   },
   "mining_threads": {
     "type": "number",
     "default": 0,
-    "description": "Number of mining threads. 0 = auto-detect. Recommended \u2264 (logical cores - 1) to preserve system responsiveness."
+    "description": "Number of mining threads. 0 = auto-detect."
   },
   "mining_address": {
     "type": "string",
@@ -132,39 +100,19 @@
     "description": "Monero address to receive mined rewards. Required if mining is enabled."
   },
   "background_mining_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
-    "description": "Allow background mining when system is idle. May increase battery/CPU usage."
+    "description": "Allow background mining when system is idle."
   },
   "local_peer_discovery_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
-    "description": "Enable local network peer discovery (LAN). Safe in trusted environments."
-  },
-  "rpc_allow_remote": {
-    "type": "boolean",
-    "default": false,
-    "description": "Allow RPC connections from remote hosts. Not recommended \u2014 use a reverse proxy instead."
-  },
-  "ipv6_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable IPv6 support. Disable if IPv6 is misconfigured or unused."
+    "description": "Enable local network peer discovery (LAN)."
   },
   "upnp_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
-    "description": "Enable UPnP port mapping. May fail or cause issues on modern routers \u2014 use with caution."
-  },
-  "rpc_max_connections": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum concurrent RPC connections. Increase for high-load wallet services."
-  },
-  "rpc_max_request_size": {
-    "type": "number",
-    "default": 1048576,
-    "description": "Maximum RPC request size (bytes). Increase only if using large batch requests."
+    "description": "Enable UPnP port mapping. Use with caution."
   },
   "rpc_timeout": {
     "type": "number",
@@ -174,27 +122,22 @@
   "fee_override": {
     "type": "string",
     "default": "",
-    "description": "Override minimum fee (e.g., '0.00001' XMR per KB). Use carefully \u2014 low fees may delay confirmations."
+    "description": "Override minimum fee (e.g., '0.00001' XMR per KB)."
   },
   "sync_snapshot_url": {
     "type": "string",
     "default": "",
-    "description": "URL of a Monero blockchain snapshot for fast initial sync (e.g., 'auto' or full HTTPS URL)."
-  },
-  "sync_snapshot_height": {
-    "type": "number",
-    "default": 0,
-    "description": "Snapshot block height (0 = auto-select latest)."
+    "description": "URL of a Monero blockchain snapshot for fast initial sync."
   },
   "zmq_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
-    "description": "Enable ZeroMQ for real-time pub/sub of blocks/transactions. Required for some services like block explorers."
+    "description": "Enable ZeroMQ for real-time pub/sub of blocks/transactions."
   },
   "zmq_pub_tx_addr": {
     "type": "string",
     "default": "tcp://127.0.0.1:18083",
-    "description": "ZMQ address to publish raw transactions (e.g., 'tcp://127.0.0.1:18083')."
+    "description": "ZMQ address to publish raw transactions."
   },
   "zmq_pub_block_addr": {
     "type": "string",
@@ -209,9 +152,6 @@
   "extra_lines": {
     "type": "list",
     "default": [],
-    "description": "Unparsed additional configuration lines to append verbatim (for advanced or undocumented options).",
-    "items": {
-      "type": "string"
-    }
+    "description": "Unparsed additional configuration lines to append verbatim."
   }
 }

@@ -1,102 +1,138 @@
 #!/bin/sh
-# Start/stop the MRTG
-# Original author:    Stefan SF <stefan@sf-net.com> (for Fedora Project)
-# Updates for Debian: Joao Eriberto Mota Filho <eriberto@debian.org>
+# Start/stop the MRTG daemon
 #
+# The Multi Router Traffic Grapher (MRTG) is a tool for monitoring network links
+# and traffic load. It uses SNMP to query routers/switches and generates HTML
+# pages with PNG graphs (daily, weekly, monthly, yearly).
+#
+# This init script manages the MRTG daemon process, ensuring it runs under the
+# correct system user and that the working directory is properly configured and owned.
 ### BEGIN INIT INFO
-# Provides: mrtg
-# Required-Start: $network
-# Required-Stop: $network
-# Default-Start: 2 3 4 5
-# Default-Stop: 0 1 6
-# Short-Description: Starts the The Multi Router Traffic Grapher
-# Description: The Multi Router Traffic Grapher is a tool primarily used to
-#              monitor the traffic load on network links (typically by using
-#              SNMP). MRTG generates HTML pages containing PNG images which
-#              provide a LIVE visual representation of this traffic. MRTG
-#              typically produces daily, weekly, monthly, and yearly graphs.
+# Provides:          mrtg
+# Required-Start:    $network
+# Required-Stop:     $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Starts the Multi Router Traffic Grapher
+# Description:       MRTG monitors network traffic load via SNMP and generates
+#                    visual graphs in HTML pages. It typically produces daily,
+#                    weekly, monthly, and yearly graphs.
 ### END INIT INFO
 
-# source function library
+# Source function library (Debian/LSB standard)
 . /lib/lsb/init-functions
 
+# ---------------------------------------------------------------------------
+# Configuration variables
+# ---------------------------------------------------------------------------
+
+# Path to the MRTG binary
 MRTG="/usr/bin/mrtg"
-USERMRTG="mrtg"
+
+# System user account under which MRTG runs
+# Schema: usermrtg (default: 'mrtg')
+USERMRTG="{{ usermrtg | default('mrtg') }}"
+
+# Path to the main MRTG configuration file
 CONFIG="/etc/mrtg/mrtg.cfg"
+
+# Path to the PID file for the daemon process
 PIDFILE="/run/mrtg/mrtg.pid"
+
+# Daemon options: run as daemon (FHS mode) using the specified user
 OPTIONS="--daemon --fhs --user=${USERMRTG}"
 
+# Return value for LSB status reporting
 RETVAL=0
 
+# ---------------------------------------------------------------------------
+# Functions
+# ---------------------------------------------------------------------------
+
 start() {
-	if [ ! -e $PIDFILE ]
-	then
-	    WORKDIR=$(cat ${CONFIG} | grep -i WorkDir | cut -d: -f2 | tr -d " ")
-	    if [ -z ${WORKDIR} ]
-	    then
-		echo "ERROR: WorkDir not defined in config file"
-		exit 1
-	    fi
-	    if [ ! -d ${WORKDIR} ]
-	    then
-		echo "ERROR: no such directory: ${WORKDIR}"
-		exit 1
-	    fi
-	    OWNERWORKDIR=$(stat -c '%U' ${WORKDIR})
-	    if [ ${OWNERWORKDIR} != ${USERMRTG} ]
-	    then
-		echo "ERROR: ${WORKDIR} is not owned by ${USERMRTG}"
-		exit 1
-	    fi
-	    echo "Starting MRTG"
-	    LANG=C ${MRTG} ${OPTIONS} ${CONFIG}
-	    RETVAL=$?
-	else
-	    echo "MRTG is already running"
-	    RETVAL=$?
-	fi
+    # Check if PID file exists (process already running)
+    if [ ! -e $PIDFILE ]
+    then
+        # Extract the WorkDir from the MRTG config file
+        # This directory must exist and be owned by the MRTG user
+        WORKDIR=$(cat ${CONFIG} | grep -i WorkDir | cut -d: -f2 | tr -d " ")
+
+        # Validate that WorkDir is defined
+        if [ -z ${WORKDIR} ]
+        then
+            echo "ERROR: WorkDir not defined in config file"
+            exit 1
+        fi
+
+        # Validate that WorkDir directory exists
+        if [ ! -d ${WORKDIR} ]
+        then
+            echo "ERROR: no such directory: ${WORKDIR}"
+            exit 1
+        fi
+
+        # Validate that WorkDir is owned by the MRTG user
+        OWNERWORKDIR=$(stat -c '%U' ${WORKDIR})
+        if [ ${OWNERWORKDIR} != ${USERMRTG} ]
+        then
+            echo "ERROR: ${WORKDIR} is not owned by ${USERMRTG}"
+            exit 1
+        fi
+
+        echo "Starting MRTG"
+        LANG=C ${MRTG} ${OPTIONS} ${CONFIG}
+        RETVAL=$?
+    else
+        echo "MRTG is already running"
+        RETVAL=$?
+    fi
 }
 
 stop() {
-	if [  -e $PIDFILE ]
-	then
-	    echo "Stopping MRTG"
-	    kill `cat ${PIDFILE}`
-	    RETVAL=$?
-	else
-	    echo "MRTG is not running"
-	    RETVAL=$?
-	fi
+    # Check if PID file exists (process is running)
+    if [ -e $PIDFILE ]
+    then
+        echo "Stopping MRTG"
+        kill `cat ${PIDFILE}`
+        RETVAL=$?
+    else
+        echo "MRTG is not running"
+        RETVAL=$?
+    fi
 }
 
 restart() {
-	stop
-	sleep 1
-	start
+    stop
+    sleep 1
+    start
 }
+
+# ---------------------------------------------------------------------------
+# Case statement for LSB-compliant command handling
+# ---------------------------------------------------------------------------
 
 case "$1" in
   start)
-	start
-	;;
+    start
+    ;;
   stop)
-	stop
-	;;
+    stop
+    ;;
   restart|force-reload)
-	restart
-	;;
+    restart
+    ;;
   status)
-	if [ -e $PIDFILE ]; then
-		echo "MRTG is enabled"
-		RETVAL=0
-	else
-		echo "MRTG is disabled"
-		RETVAL=3
-	fi
-	;;
+    if [ -e $PIDFILE ]; then
+        echo "MRTG is enabled"
+        RETVAL=0
+    else
+        echo "MRTG is disabled"
+        RETVAL=3
+    fi
+    ;;
   *)
-	echo "Usage: $0 {start|stop|status|restart|force-reload}"
-	exit 1
+    echo "Usage: $0 {start|stop|status|restart|force-reload}"
+    exit 1
 esac
 
 exit $RETVAL

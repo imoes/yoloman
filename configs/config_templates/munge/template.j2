@@ -1,4 +1,15 @@
-# MUNGE configuration
+# MUNGE configuration file (munge.conf)
+#
+# Munge (Unix Name Space Governance Extension) is used to provide a
+# credential service for secure user authentication. This template
+# configures the daemon's core runtime parameters.
 
-# Pass additional command-line options to munged.
-# OPTIONS="--key-file={{ key_path }} --num-threads={{ num_workers }}"
+# Path to the symmetric secret key file (binary format).
+# Must be readable only by the munge user (mode 0400).
+# The munge daemon reads this key at startup to sign/verify credentials.
+key_file: {{ key_path | default('/etc/munge/munge.key') }}
+
+# Number of worker threads to handle credential requests.
+# Increase for high-throughput environments.
+# Defaults to 4 if not specified.
+num_threads: {{ num_workers | default(4) }}

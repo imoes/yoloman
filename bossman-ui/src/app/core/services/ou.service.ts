@@ -107,6 +107,12 @@ export class OuService {
     >(`${environment.apiUrl}/config-policies?${q}`);
   }
 
+  /** One config policy by id, WITH its values — for the right-pane values view. */
+  getConfigPolicy(id: string) {
+    return this.http.get<{ id: string; scope_ou_id: string | null; host_group_id: string | null; site_id: string | null; set_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null }>(
+      `${environment.apiUrl}/config-policies/${id}`);
+  }
+
   /** GPO "Not configured" at OU/group/site scope: stop managing one key. */
   unsetConfigPolicyKey(body: { scope_ou_id?: string; host_group_id?: string; site_id?: string; path: string; key: string }) {
     return this.http.post<{ unset: boolean }>(`${environment.apiUrl}/config-policies/unset`, body);

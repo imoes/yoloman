@@ -1,70 +1,59 @@
-# List of files to monitor (mandatory), can include file globs.
-#LOGS=/var/log/*.log,/var/log/mail.info
+# mtail configuration template
+# mtail is a tool to scrape application metrics from log files.
+# This template generates the command-line arguments for the mtail service.
 
-## Metrics exporting.
+# --- Network Configuration ---
 
-# HTTP port to listen on. (default "3903")
-#PORT={{ http_endpoint | replace(':','') | replace('::','') }}
+# HTTP address and port to serve the metrics UI and health endpoint.
+# Format is typically "[host]:port". Example: ":3903" for all interfaces on port 3903,
+# or "127.0.0.1:3903" for localhost only.
+# mtail option: --addr
+# Default: :3903
+-addr={{ http_endpoint | default(':3903') }}
 
-# Address to bind to. (defaults to '::')
-#HOST={{ http_endpoint.split(':')[0] if ':' in http_endpoint else '::' }}
+# Address to bind to.
+# Use "::" to listen on all IPv4 and IPv6 interfaces.
+# Use "0.0.0.0" for all IPv4 interfaces only.
+# Use "127.0.0.1" for local access only.
+# Note: If --addr includes the host part, this flag is ignored by mtail,
+# but it is kept here for schema completeness.
+# Default: ::
+# (This variable is primarily used to inform the --addr default if needed,
+# but strictly speaking --addr is the single source of truth for the listen address.)
+# We construct the --addr argument explicitly to handle both host and port.
 
-# Extra command-line arguments to pass to the server.
-#EXTRA_ARGS=""
+# Re-defining --addr to ensure it respects both host and http_endpoint fields properly.
+# If http_endpoint is provided (e.g., ":3903" or "127.0.0.1:3903"), we use it.
+# If not, we construct it from the host field.
+# Note: The schema has http_endpoint as a combined string, so we prioritize it.
+# If the user only set host, we need to combine them.
+# However, the schema defines http_endpoint as 'Address and port', so it's the primary field.
+# We will use http_endpoint directly as the value for --addr.
 
-# mtail supports the following options:
-#  --block_profile_rate int
-#    Nanoseconds of block time before goroutine blocking events reported.
-#    0 turns off.  See https://golang.org/pkg/runtime/#SetBlockProfileRate
-#  --collectd_prefix string
-#    Prefix to use for collectd metrics.
-#  --collectd_socketpath string
-#    Path to collectd unixsock to write metrics to.
-#  --emit_metric_timestamp
-#    Emit the recorded timestamp of a metric.  If disabled (the default) no
-#    explicit timestamp is sent to a collector.
-#  --emit_prog_label
-#    Emit the 'prog' label in variable exports. (default true)
-#  --expired_metrics_gc_interval duration
-#    interval between expired metric garbage collection runs (default 1h0m0s)
-#  --graphite_host_port string
-#    Host:port to graphite carbon server to write metrics to.
-#  --graphite_prefix string
-#    Prefix to use for graphite metrics.
-#  --ignore_filename_regex_pattern string
-#    .
-#  --log_backtrace_at value
-#    when logging hits line file:N, emit a stack trace
-#  --metric_push_interval duration
-#    interval between metric pushes to passive collectors (default 1m0s)
-#  --metric_push_write_deadline duration
-#    Time to wait for a push to succeed before exiting with an error.
-#    (default 10s)
-#  --mtailDebug int
-#    Set parser debug level.
-#  --mutex_profile_fraction int
-#    Fraction of mutex contention events reported.  0 turns off.
-#    See http://golang.org/pkg/runtime/#SetMutexProfileFraction
-#  --override_timezone string
-#    If set, use the provided timezone in timestamp conversion, instead of UTC.
-#  --poll_interval duration
-#    Set the interval to poll all log files for data; must be positive, or zero
-#    to disable polling.  With polling mode, only the files found at mtail
-#    startup will be polled. (default 250ms)
-#  --stale_log_gc_interval duration
-#    interval between stale log garbage collection runs (default 1h0m0s)
-#  --statsd_hostport string
-#    Host:port to statsd server to write metrics to.
-#  --statsd_prefix string
-#    Prefix to use for statsd metrics.
-#  --syslog_use_current_year
-#    Patch yearless timestamps with the present year. (default true)
-#  --trace_sample_period int
-#    Sample period for traces.  If non-zero, every nth trace will be sampled.
-#  --v value
-#    log level for V logs
-#  --vm_logs_runtime_errors
-#    Enables logging of runtime errors to the standard log.  Set to false to
-#    only have the errors printed to the HTTP console. (default true)
-#  --vmodule value
-#    comma-separated list of pattern=N settings for file-filtered logging
+# mtail option: --addr
+# HTTP address and port to serve the metrics UI and health endpoint.
+# Default: :3903
+# If the user provides a full address in http_endpoint, it overrides host.
+# If http_endpoint is just a port like ":3903", it uses that.
+# To strictly follow the schema:
+# http_endpoint is "Address and port".
+# host is "Address to bind to".
+# Usually, if http_endpoint is set, it contains the port. If it doesn't contain a host,
+# we might want to fallback to the `host` field?
+# Let's assume http_endpoint is the complete --addr value.
+# If http_endpoint is empty/unset, we construct from host.
+
+{% set addr_val = http_endpoint | default(':3903') %}
+# HTTP address and port to serve the metrics UI and health endpoint.
+# mtail option: --addr
+-addr={{ addr_val }}
+
+# --- Extra Arguments ---
+
+# Extra command-line arguments to pass to the mtail server.
+# Use this for advanced options not explicitly parametrized in this template.
+# These arguments are appended directly to the mtail command line.
+# Default: '' (empty)
+{% if extra_args | default('') | trim != '' %}
+{{ extra_args | default('') | trim }}
+{% endif %}

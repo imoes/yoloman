@@ -1,54 +1,61 @@
 [DEFAULT]
-# The log directory for Masakari
-log_dir = {{ log_dir }}
+# Directory where process monitor log files are stored.
+log_dir = {{ log_dir | default('/var/log/masakari') }}
 
-# The log file to use
-log_file = {{ log_file }}
+# Name of the log file (relative to log_dir).
+log_file = {{ log_file | default('masakari-process-monitor.log') }}
 
-# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level = {{ log_level }}
+# Verbosity of logging (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
 
-# RPC backend to use (typically 'messagingv2')
-transport_url = {{ transport_url }}
+# Message broker URL for RPC communication with OpenStack services.
+transport_url = {{ transport_url | default('rabbit://openstack:password@controller:5672/') }}
 
-# Path to the process monitor configuration file (if externalized)
-# process_monitor_config_file = {{ process_monitor_config_file }}
+# Path to an optional external process monitor configuration file (for advanced setups).
+# process_monitor_config_file = {{ process_monitor_config_file | default('/etc/masakari/process_monitor.conf') }}
 
 [process_monitor]
-# Whether process monitoring is enabled
-enabled = {{ enabled }}
+# Enable or disable the process monitor service globally.
+enabled = {{ enabled | default(true) }}
 
-# Interval (in seconds) between process checks
-check_interval = {{ check_interval }}
+# Number of seconds between checks for monitored processes.
+check_interval = {{ check_interval | default(10) }}
 
-# Number of consecutive failures before triggering recovery action
-failure_threshold = {{ failure_threshold }}
+# Number of consecutive failed checks before triggering recovery.
+failure_threshold = {{ failure_threshold | default(3) }}
 
-# Action to take when a process failure is detected: restart, reboot_host, failover_host
-recovery_method = {{ recovery_method }}
+# Recovery action: 'restart' (restart process), 'reboot_host' (reboot the node), or 'failover_host' (trigger VM HA failover).
+recovery_method = {{ recovery_method | default('restart') }}
 
-# Hostname or IP of the local node (if not auto-detected)
-host_name = {{ host_name }}
+# Explicit hostname for this node; leave blank to auto-detect.
+# Required if DNS/hostname resolution is unreliable.
+host_name = {{ host_name | default('') }}
 
-# Whether to restart the failed process automatically (used with recovery_method=restart)
-enable_auto_recovery = {{ enable_auto_recovery }}
+# Whether to automatically restart a failed process (only effective when recovery_method is 'restart').
+enable_auto_recovery = {{ enable_auto_recovery | default(true) }}
 
-# List of monitored processes with their specific settings
-{% for proc in monitored_processes %}
+# List of processes to monitor.
+# Each entry defines the name, whether it's monitored, the command pattern (regex),
+# PID file (if any), and per-process recovery settings.
+{% for proc in monitored_processes | default([
+  {'name': 'masakari-process-monitor', 'enabled': True, 'command_pattern': 'masakari-process-monitor', 'pid_file': '', 'recovery_method': 'restart', 'failure_threshold': 3},
+  {'name': 'libvirtd', 'enabled': True, 'command_pattern': 'libvirtd', 'pid_file': '/run/libvirtd.pid', 'recovery_method': 'reboot_host', 'failure_threshold': 3},
+  {'name': 'qemu-kvm', 'enabled': True, 'command_pattern': 'qemu-kvm', 'pid_file': '', 'recovery_method': 'reboot_host', 'failure_threshold': 3}
+]) %}
 [{{ proc.name }}]
-# Enable monitoring for this process
+# Enable monitoring for this process.
 enabled = {{ proc.enabled | default(true) }}
 
-# Command pattern to match (regular expression or exact command)
-command_pattern = {{ proc.command_pattern }}
+# Command pattern to match (regular expression or exact command).
+command_pattern = {{ proc.command_pattern | default('') }}
 
-# PID file path (optional, if process writes one)
+# PID file path (optional, if process writes one).
 pid_file = {{ proc.pid_file | default('') }}
 
-# Action override per-process (inherit from global recovery_method if not set)
+# Action override per-process (inherit from global recovery_method if not set).
 recovery_method = {{ proc.recovery_method | default(recovery_method) }}
 
-# Failure threshold override per-process
+# Failure threshold override per-process.
 failure_threshold = {{ proc.failure_threshold | default(failure_threshold) }}
 
 {% endfor %}

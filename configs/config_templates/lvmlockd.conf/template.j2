@@ -3,50 +3,50 @@
 # It uses an INI-style format; Jinja2 variables are substituted in as needed.
 
 [global]
-# Enable/disable lvmlockd daemon
-enabled = {{ enabled|default(false)|lower }}
+# Enable or disable the lvmlockd daemon on system startup.
+enabled = {{ (enabled | default(false)) | lower }}
 
-# Path to lockspace directory
-lockdir = {{ lockdir|default('/run/lock/lvm') }}
+# Path to the lock directory used for lockspace coordination files.
+lockdir = {{ lockdir | default('/run/lock/lvm') }}
 
-# Maximum number of lockspaces
-max_lockspaces = {{ max_lockspaces|default(128) }}
+# Maximum number of lockspaces the daemon will manage.
+max_lockspaces = {{ max_lockspaces | default(128) }}
 
 [daemon]
-# Number of worker threads
-worker_threads = {{ worker_threads|default(4) }}
+# Number of worker threads to handle lock operations.
+worker_threads = {{ worker_threads | default(4) }}
 
-# Log level: 0=error, 1=warn, 2=info, 3=debug
-log_level = {{ log_level|default(2) }}
+# Logging verbosity: 0 (error), 1 (warning), 2 (info), 3 (debug).
+log_level = {{ log_level | default(2) }}
 
-# PID file path
-pid_file = {{ pid_file|default('/run/lvmlockd.pid') }}
+# Path to the PID file for the lvmlockd daemon.
+pid_file = {{ pid_file | default('/run/lvmlockd.pid') }}
 
 [lockspaces]
-# Default lockspace options
-# Each entry defines a lockspace to be created or monitored
-{% for ls in lockspaces %}
-[{{ ls.name }}]
+# List of lockspaces to configure. Each defines a lockspace (e.g., for clustered LVM volumes).
+# Each entry defines a lockspace section [name] with specific parameters.
+{% for ls in (lockspaces | default([])) %}
+[{{ ls.name | default('unnamed') }}]
 # Lockspace type: 'dlm' (Distributed Lock Manager) or 'sanlock'
-lock_type = {{ ls.lock_type|default('dlm') }}
+lock_type = {{ ls.lock_type | default('dlm') }}
 
-# For 'sanlock', specify the path to the metadata disk or file
-{% if ls.lock_type == 'sanlock' %}
-path = {{ ls.path }}
-offset = {{ ls.offset|default(0) }}
+# For 'sanlock', specify the path to the metadata disk or file and offset.
+{% if ls.lock_type | default('dlm') == 'sanlock' %}
+path = {{ ls.path | default('') }}
+offset = {{ ls.offset | default(0) }}
 {% else %}
-# For 'dlm', cluster name and optionally domain
-cluster_name = {{ ls.cluster_name|default('') }}
+# For 'dlm', cluster name and optionally domain. If empty, the daemon may auto-discover.
+cluster_name = {{ ls.cluster_name | default('') }}
 {% endif %}
 
-# Auto-create lockspace on daemon start
-auto_create = {{ ls.auto_create|default(true)|lower }}
+# Auto-create lockspace on daemon start.
+auto_create = {{ ls.auto_create | default(true) | lower }}
 {% endfor %}
 
 [pacemaker]
-# Integration with Pacemaker (optional)
-# Enable Pacemaker coordination
-enabled = {{ pacemaker_enabled|default(false)|lower }}
+# Integration with Pacemaker (optional).
+# Enable Pacemaker coordination.
+enabled = {{ (pacemaker_enabled | default(false)) | lower }}
 
-# Pacemaker socket path
-socket_path = {{ pacemaker_socket_path|default('/var/run/pacemaker/pacemaker-socket') }}
+# Unix socket path to communicate with Pacemaker's resource manager.
+socket_path = {{ pacemaker_socket_path | default('/var/run/pacemaker/pacemaker-socket') }}

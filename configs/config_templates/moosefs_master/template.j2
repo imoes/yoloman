@@ -1,69 +1,86 @@
-{# MooseFS Master Server main configuration file #}
-{# Listen address for incoming client connections (required) #}
-MASTER_HOST = {{ master_host }}
+{# ============================================================
+   MooseFS Master Server Configuration (mfsmaster.cfg)
+   ============================================================
+   This template generates the main configuration file for the
+   MooseFS (MoosEFS) Master Server. It documents every directive
+   with the schema description and provides safe defaults for all
+   variables.
+   ============================================================ #}
 
-{# Listen port for incoming client connections (default: 9421) #}
-MASTER_PORT = {{ master_port }}
+{# MASTER_HOST: Hostname or IP address the master server listens on for client connections. #}
+MASTER_HOST = {{ master_host | default('mfsmaster') }}
 
-{# Data directory for metadata (chunks metadata, changelog, etc.) #}
-DATA_PATH = {{ data_path }}
+{# MASTER_PORT: TCP port the master server listens on for client connections. #}
+MASTER_PORT = {{ master_port | default(9421) }}
 
-{# Path to export rules file (optional, default: /etc/mfs/mfsexports.cfg) #}
-EXPORTS_FILE = {{ exports_file }}
+{# DATA_PATH: Directory where metadata (chunks metadata, changelog, session files) is stored. #}
+DATA_PATH = {{ data_path | default('/var/lib/mfs') }}
 
-{# Enable or disable the metadata logging to file (default: 1 = enabled) #}
-META_LOGGING = {{ meta_logging }}
+{# EXPORTS_FILE: Path to the file defining exported directories and access permissions. #}
+EXPORTS_FILE = {{ exports_file | default('/etc/mfs/mfsexports.cfg') }}
 
-{# Maximum number of open file descriptors (0 = use system limit) #}
-MAX_OPEN_FILES = {{ max_open_files }}
+{# META_LOGGING: Whether to log metadata changes (e.g., file operations) to a changelog file for recovery. #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+META_LOGGING = {{ meta_logging | default(true) | ternary(1, 0) }}
 
-{# Number of worker threads for handling client requests (0 = auto-configure based on CPU cores) #}
-WORKER_PROCESSES = {{ worker_processes }}
+{# MAX_OPEN_FILES: Maximum number of open file descriptors (0 means use the system's limit). #}
+MAX_OPEN_FILES = {{ max_open_files | default(0) }}
 
-{# Timeout (in seconds) for chunkserver heartbeats (default: 600) #}
-HEARTBEAT_TIMEOUT = {{ heartbeat_timeout }}
+{# WORKER_PROCESSES: Number of worker threads for handling client requests (0 = automatically set to number of CPU cores). #}
+WORKER_PROCESSES = {{ worker_processes | default(0) }}
 
-{# Interval (in seconds) between chunkserver heartbeats (default: 60) #}
-HEARTBEAT_INTERVAL = {{ heartbeat_interval }}
+{# HEARTBEAT_TIMEOUT: Time in seconds after which a chunkserver is considered dead if no heartbeat is received. #}
+HEARTBEAT_TIMEOUT = {{ heartbeat_timeout | default(600) }}
 
-{# Enable or disable the access log (default: 0 = disabled) #}
-ACCESS_LOGGING = {{ access_logging }}
+{# HEARTBEAT_INTERVAL: Interval in seconds between chunkserver heartbeat messages. #}
+HEARTBEAT_INTERVAL = {{ heartbeat_interval | default(60) }}
 
-{# List of metadata chunkserver replicas (for HA, at least 1 required for recovery) #}
-{# Each entry is: HOST:PORT:WEIGHT (WEIGHT is optional, default 1) #}
+{# ACCESS_LOGGING: Whether to log all file access operations (read/write/open/close). #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+ACCESS_LOGGING = {{ access_logging | default(false) | ternary(1, 0) }}
+
+{# METADATA_REPLICA: List of metadata replica servers (for high availability). Each entry includes host, port, and optional weight. #}
+{# Format: HOST:PORT:WEIGHT (WEIGHT is optional, default 1) #}
+{% if metadata_replicas is defined and metadata_replicas %}
 {% for replica in metadata_replicas %}
-METADATA_REPLICA = {{ replica.host }}:{{ replica.port }}{% if 'weight' in replica %}:{{ replica.weight }}{% endif %}
+METADATA_REPLICA = {{ replica.host }}:{{ replica.port }}{% if replica.weight is defined %}:{{ replica.weight }}{% endif %}
 {% endfor %}
+{% endif %}
 
-{# Enable or disable the garbage collection for deleted chunks (default: 1 = enabled) #}
-GARBAGE_COLLECTION = {{ garbage_collection }}
+{# GARBAGE_COLLECTION: Enable or disable garbage collection of deleted chunks (recommended for production). #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+GARBAGE_COLLECTION = {{ garbage_collection | default(true) | ternary(1, 0) }}
 
-{# Maximum age (in seconds) of a deleted chunk before it is purged from the trash (default: 86400) #}
-TRASH_EXPIRE_TIME = {{ trash_expire_time }}
+{# TRASH_EXPIRE_TIME: Time in seconds before deleted chunks in the trash are permanently removed. #}
+TRASH_EXPIRE_TIME = {{ trash_expire_time | default(86400) }}
 
-{# Enable or disable the chunk allocation balancing (default: 1 = enabled) #}
-BALANCING = {{ balancing }}
+{# BALANCING: Enable automatic balancing of chunk distribution across chunkservers. #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+BALANCING = {{ balancing | default(true) | ternary(1, 0) }}
 
-{# Minimum free space (in MB) required on a chunkserver before it stops accepting new chunks (default: 0 = disabled) #}
-MIN_FREE_SPACE_MB = {{ min_free_space_mb }}
+{# MIN_FREE_SPACE_MB: Minimum free space (in MB) required on a chunkserver before it rejects new writes. #}
+MIN_FREE_SPACE_MB = {{ min_free_space_mb | default(0) }}
 
-{# Maximum size (in MB) of a single file chunk (default: 64 MB) #}
-MAX_CHUNK_SIZE_MB = {{ max_chunk_size_mb }}
+{# MAX_CHUNK_SIZE_MB: Maximum size (in MB) of a single data chunk. Larger chunks improve performance for big files. #}
+MAX_CHUNK_SIZE_MB = {{ max_chunk_size_mb | default(64) }}
 
-{# Enable or disable the HTTP stats server (default: 0 = disabled) #}
-STATS_HTTP_ENABLED = {{ stats_http_enabled }}
+{# STATS_HTTP_ENABLED: Enable the built-in HTTP stats server for monitoring cluster status. #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+STATS_HTTP_ENABLED = {{ stats_http_enabled | default(false) | ternary(1, 0) }}
 
-{# Listen address for HTTP stats (default: 0.0.0.0) #}
-STATS_HTTP_HOST = {{ stats_http_host }}
+{# STATS_HTTP_HOST: Interface (IP or hostname) the HTTP stats server binds to. #}
+STATS_HTTP_HOST = {{ stats_http_host | default('0.0.0.0') }}
 
-{# Listen port for HTTP stats (default: 9420) #}
-STATS_HTTP_PORT = {{ stats_http_port }}
+{# STATS_HTTP_PORT: Port for the HTTP stats server. #}
+STATS_HTTP_PORT = {{ stats_http_port | default(9420) }}
 
-{# Authentication password file for HTTP stats (optional) #}
-STATS_HTTP_PASSWORD_FILE = {{ stats_http_password_file }}
+{# STATS_HTTP_PASSWORD_FILE: Optional path to a file containing username:password for HTTP stats access. #}
+STATS_HTTP_PASSWORD_FILE = {{ stats_http_password_file | default('') }}
 
-{# Enable or disable the secure mode (requires password for all operations) (default: 0 = disabled) #}
-SECURE_MODE = {{ secure_mode }}
+{# SECURE_MODE: Enable secure mode — requires password for all administrative operations (e.g., via mfsmount -o password). #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+SECURE_MODE = {{ secure_mode | default(false) | ternary(1, 0) }}
 
-{# Enable or disable the read-only mode (for maintenance) (default: 0 = disabled) #}
-READ_ONLY_MODE = {{ read_only_mode }}
+{# READ_ONLY_MODE: Enable read-only mode — no writes allowed (useful during maintenance or recovery). #}
+{# Note: MooseFS uses 1 for enabled, 0 for disabled. #}
+READ_ONLY_MODE = {{ read_only_mode | default(false) | ternary(1, 0) }}

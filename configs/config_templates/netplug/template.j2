@@ -2,7 +2,7 @@
 ### BEGIN INIT INFO
 # Provides:          netplug
 # Required-Start:    $local_fs
-# Required-Stop:     $local_fs
+# Required-Stop:    $local_fs
 # Should-Start:      $network $syslog
 # Should-Stop:       $network $syslog
 # Default-Start:     2 3 4 5
@@ -17,6 +17,22 @@ DAEMON=/usr/sbin/netplugd
 NAME=netplugd
 DESC="network plug daemon"
 PIDFILE=/var/run/$NAME.pid
+
+# Global script path to run for *all* interfaces (used when per-interface scripts are omitted).
+# Default: '' (empty string, meaning no global script is executed)
+DEFAULT_SCRIPT={{ default_script | default('') }}
+
+# Seconds to wait after a link change before considering the link stable and triggering scripts.
+# Default: 2
+LINK_STABLE_DELAY={{ link_stable_delay | default(2) }}
+
+# Maximum seconds to wait for a script to finish before sending SIGKILL.
+# Default: 30
+SCRIPT_TIMEOUT={{ script_timeout | default(30) }}
+
+# List of network interfaces to monitor for link state changes (e.g., ['eth0', 'wlan0']).
+# Default: [] (empty list, meaning no specific interfaces are configured, likely relying on defaults)
+interfaces={{ interfaces | default([]) | join(" ") }}
 
 test -x "$DAEMON" || exit 0
 
@@ -35,7 +51,7 @@ do_start () {
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" --test >/dev/null || return 1
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
-		--exec "$DAEMON" -- -p "$PIDFILE" >/dev/null || return 2
+		--exec "$DAEMON" -- -p "$PIDFILE" -l "$LINK_STABLE_DELAY" -t "$SCRIPT_TIMEOUT" ${DEFAULT_SCRIPT:+-s "$DEFAULT_SCRIPT"} ${interfaces:+-i "$interfaces"} >/dev/null || return 2
 }
 
 do_stop () {

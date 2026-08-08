@@ -231,8 +231,10 @@ interface PaletteItem {
               draggable="true"
               (dragstart)="onPolicyDragStart(p, $event)"
               (dragend)="onDragEnd()"
+              (click)="selectPalettePolicy(p)"
               [cdkContextMenuTriggerFor]="paletteMenu"
               (contextmenu)="paletteCtx.set(p)"
+              [title]="p.kind === 'config_policy' ? 'Click to see its values; drag onto an OU/Site to link' : 'Drag onto an OU to link'"
             >
               <mat-icon class="bm-obj-icon">{{ paletteIcon(p.kind) }}</mat-icon>
               <span class="bm-label">{{ p.label }}</span>
@@ -293,6 +295,23 @@ interface PaletteItem {
                   <span>A Site scopes policy by SUBNET: every host whose primary IP is in one of its subnets gets these settings. Right-click → <strong>Subnets…</strong> to edit the CIDRs, <strong>Config setting…</strong> / <strong>Threshold…</strong> to add policy.</span>
                 </p>
                 <app-policy-report scopeType="site" [scopeId]="sel.obj!.id" />
+              }
+              @if (sel.obj!.kind === 'config_policy') {
+                <div class="bm-pol-hd">
+                  <h3 class="bm-checks-h">Config policy — {{ policyDetail()?.path ?? sel.obj!.label }}</h3>
+                  <button mat-stroked-button class="bm-palette-new" (click)="editConfigPolicy(sel)"><mat-icon>edit</mat-icon> Edit…</button>
+                </div>
+                @if (policyDetail(); as pd) {
+                  <table class="bm-kv">
+                    @for (e of policyEntries(); track e.key) {
+                      <tr><th>{{ e.key }}</th><td>{{ e.value === null ? '(removed / absent)' : fmtVal(e.value) }}</td></tr>
+                    } @empty {
+                      <tr><td colspan="2" class="bm-dim">This policy sets no values yet — click Edit… to add settings.</td></tr>
+                    }
+                  </table>
+                } @else {
+                  <p class="bm-hint">Loading values…</p>
+                }
               }
             }
           } @else {
@@ -377,6 +396,10 @@ interface PaletteItem {
         }
         @if (ctx()?.obj?.kind === 'variables') {
           <button class="bm-menu-item" cdkMenuItem (click)="editVariablesObject(ctx()!)">Edit variables…</button>
+          <div class="bm-menu-sep"></div>
+        }
+        @if (ctx()?.obj?.kind === 'config_policy') {
+          <button class="bm-menu-item" cdkMenuItem (click)="editObject(ctx()!)">Edit…</button>
           <div class="bm-menu-sep"></div>
         }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
@@ -472,6 +495,8 @@ interface PaletteItem {
       .bm-badge-off { background: color-mix(in srgb, var(--mat-sys-on-surface) 14%, transparent); }
       .bm-empty { opacity: 0.7; padding: 12px 16px; }
       .bm-hint { opacity: 0.6; font-size: 12.5px; margin-top: 16px; }
+      .bm-pol-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+      .bm-dim { opacity: 0.6; }
       .bm-hint-cfg { display: flex; align-items: flex-start; gap: 8px; opacity: 0.85; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--mat-sys-outline-variant); border-radius: 8px; line-height: 1.5; }
       .bm-hint-cfg span { flex: 1; }
       .bm-hint-cfg mat-icon { flex: 0 0 auto; opacity: 0.8; }
@@ -735,14 +760,44 @@ export class OuPolicyComponent implements OnInit {
     return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', site: 'lan', orchestration_link: 'widgets', config_policy: 'dataset', variables: 'data_object' }[kind];
   }
 
+  // The values of a selected config_policy (fetched by id), so the right pane
+  // shows WHAT the policy sets — path + each key=value — not just its kind.
+  policyDetail = signal<{ path: string; type: string; values: Record<string, unknown> } | null>(null);
+
+  policyEntries = computed(() => {
+    const d = this.policyDetail();
+    if (!d) return [];
+    return Object.entries(d.values || {}).map(([key, value]) => ({ key, value }));
+  });
+
   select(row: TreeRow): void {
     this.selected.set(row);
     this.ouChecks.set([]);
+    this.policyDetail.set(null);
     if (row.kind === 'ou') this.loadOuChecks(row.ou!.id);
+    else if (row.obj?.kind === 'config_policy') {
+      this.ouService.getConfigPolicy(row.obj.id).subscribe({
+        next: (p) => this.policyDetail.set({ path: p.path, type: p.type, values: p.values || {} }),
+        error: () => this.policyDetail.set(null),
+      });
+    }
+  }
+
+  /** Click a policy in the palette → select it (show its values on the right),
+   * as a synthetic object row so the same detail pane renders. */
+  selectPalettePolicy(p: PaletteItem): void {
+    if (p.kind !== 'config_policy') return;
+    this.select({ kind: 'object', depth: 0, ownerOuId: p.ownerOuId ?? undefined,
+      obj: { kind: 'config_policy', id: p.id, label: p.label, enforced: false, enabled: true } });
   }
 
   private loadOuChecks(ouId: string): void {
     this.checkService.listAssignments({ ou_id: ouId }).subscribe((r) => this.ouChecks.set(r.assignments));
+  }
+
+  /** Render a policy value for display (objects/lists as JSON). */
+  fmtVal(v: unknown): string {
+    return v === null ? '(removed)' : typeof v === 'object' ? JSON.stringify(v) : String(v);
   }
 
   paramsSummary(params: Record<string, unknown>): string {
@@ -1235,10 +1290,16 @@ export class OuPolicyComponent implements OnInit {
    * entry point every "author/edit config settings" affordance now uses — the OU/group right-click "Config
    * setting…", the palette "New Policy", and Edit… on a placed config policy — so they all get the same
    * Miller-column editor instead of the old single-key dialog. */
-  private openGpedit(scope: PolicyGpeditDialogData['scope']): void {
+  private openGpedit(scope: PolicyGpeditDialogData['scope'], path?: string): void {
     this.dialog.open<PolicyGpeditDialogComponent, PolicyGpeditDialogData>(
-      PolicyGpeditDialogComponent, { data: { scope }, width: 'min(1100px, 94vw)', maxWidth: '94vw' },
+      PolicyGpeditDialogComponent, { data: { scope, path }, width: 'min(1100px, 94vw)', maxWidth: '94vw' },
     ).afterClosed().subscribe(() => this.reload());
+  }
+
+  /** The path of a config_policy object/palette item, parsed from its label
+   * "/etc/foo.conf (N keys)" — used to open gpedit directly on that file. */
+  private policyPath(label: string): string {
+    return label.split(' (')[0].trim();
   }
 
   /** Open the named-policy library — the Miller browser (policies → entries →
@@ -1298,8 +1359,22 @@ export class OuPolicyComponent implements OnInit {
 
   // --- edit an existing object (Block L3c) ---
 
+  /** Open the gpedit editor for a config policy, directly on its file so the set
+   * values are visible. Works whether it's linked to an OU or still unlinked. */
+  editConfigPolicy(row: TreeRow): void {
+    const obj = row.obj!;
+    const path = this.policyPath(obj.label);
+    const ou = row.ownerOuId ? this.ous().find((n) => n.id === row.ownerOuId) : null;
+    const scope: PolicyGpeditDialogData['scope'] = ou
+      ? { kind: 'ou', id: ou.id, label: ou.path }
+      : { kind: 'unlinked', label: 'unlinked policy' };
+    this.openGpedit(scope, path);
+  }
+
   editObject(row: TreeRow): void {
     const obj = row.obj!;
+    // Config policies work linked or unlinked — handle before the OU lookup.
+    if (obj.kind === 'config_policy') { this.editConfigPolicy(row); return; }
     const ou = this.ous().find((n) => n.id === row.ownerOuId);
     if (!ou) return;
     if (obj.kind === 'check_rule') {
@@ -1329,10 +1404,6 @@ export class OuPolicyComponent implements OnInit {
           });
         });
       });
-    } else if (obj.kind === 'config_policy') {
-      // Editing a placed config policy reopens the full gpedit editor at its OU scope — the editor lists
-      // the scope's policies so the operator can change, add or remove settings (Edit… was a no-op before).
-      this.openGpedit({ kind: 'ou', id: ou.id, label: ou.path });
     }
   }
 
@@ -1430,8 +1501,13 @@ export class OuPolicyComponent implements OnInit {
    * orchestration plan (incl. an UNLINKED one) can be renamed here — its entries stay authored in the
    * plan/role designer, but its label is editable in place. */
   async palettePolicyEdit(p: PaletteItem): Promise<void> {
-    if (p.kind === 'config_policy' && p.ownerOuId) {
-      this.openGpedit({ kind: 'ou', id: p.ownerOuId, label: p.ownerPath ?? '' });
+    if (p.kind === 'config_policy') {
+      // Open gpedit directly on this policy's file so its values show at once.
+      // Linked → its OU scope; unlinked → the scope-less editor.
+      const scope: PolicyGpeditDialogData['scope'] = p.ownerOuId
+        ? { kind: 'ou', id: p.ownerOuId, label: p.ownerPath ?? '' }
+        : { kind: 'unlinked', label: 'unlinked policy' };
+      this.openGpedit(scope, this.policyPath(p.label));
       return;
     }
     if (p.kind === 'plan') {

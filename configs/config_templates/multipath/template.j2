@@ -1,173 +1,213 @@
 # multipath.conf — Device Mapper Multipath configuration
-# Set verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug
-verbosity {{ verbosity }}
+# This file configures device-mapper-multipath. It consists of a global block,
+# a defaults block for unmatched devices, and an optional per-device 'devices' list.
 
-# Optional: global defaults for device behavior
+# =============================================================================
+# GLOBAL SETTINGS
+# =============================================================================
+
+# Global log verbosity: 0 = quiet, 1 = normal, 2 = verbose, 3 = debug
+# See 'man multipath.conf' for detailed logging levels.
+verbosity {{ verbosity | default(1) }}
+
 global {
-  # Default user-friendly name format for devices (override with 'wwid' or 'vendor_product' if needed)
-  user_friendly_names {{ user_friendly_names | string | lower }}
+  # Enable user-friendly device names (e.g., 'mpath0') instead of WWIDs.
+  # If false, devices are named by their WWID.
+  user_friendly_names {{ user_friendly_names | default(true) | string | lower }}
 
-  # Enable/disable automatic loading of the multipath module at boot
-  find_multipaths {{ find_multipaths | string | lower }}
+  # If true, only create multipath devices when multiple paths exist.
+  # If false, create a multipath device on the first path seen.
+  find_multipaths {{ find_multipaths | default(true) | string | lower }}
 
-  # Default hardware handler (e.g., 'alua' for ALUA targets, 'emc' for CLARiiON)
-  # Set to empty string to disable hardware handler usage
-  hardware_handler "{{ hardware_handler }}"
-
-  # Default path grouping policy: 'group_by_prio', 'group_by_node_name', 'group_by_serial', 'failover'
-  path_grouping_policy "{{ path_grouping_policy }}"
-
-  # Default path selector algorithm: 'round-robin', 'queue-length', 'service-time'
-  path_selector "{{ path_selector }}"
-
-  # Default path priority algorithm (for ALUA or other prio-based policies)
-  prio "{{ prio }}"
-
-  # Default path checker: 'directio', 'emc_clariion', 'hp_sw', 'tur', 'readsector0'
-  checker "{{ checker }}"
-
-  # Default timeout for path checks in seconds
-  path_checking_interval {{ path_checking_interval }}
-
-  # Max number of retries for a failed path before marking it down
-  max_fds {{ max_fds }}
-
-  # Default queue depth per device
-  queue_depth {{ queue_depth }}
-
-  # Default number of I/O operations before re-evaluating path priority
-  rr_min_io {{ rr_min_io }}
-
-  # Default number of I/O operations before switching path in round-robin (0 = default for device)
-  rr_min_io_rq {{ rr_min_io_rq }}
-}
-
-# Optional: default settings for all devices not matched in 'devices' section
-defaults {
-  # Weight for path priority calculation (used by 'prio' plugins)
-  prio_args "{{ prio_args | default('') }}"
-
-  # Device removal behavior: 'delayed_remove', 'immediate_remove', 'no_remove'
-  remove_retries "{{ remove_retries }}"
-
-  # Number of retries to re-enable a failed path
-  max_check_failures {{ max_check_failures }}
-
-  # Time (in seconds) to wait before retrying a failed path
-  path_recovery_delay {{ path_recovery_delay }}
-
-  # Enable/disable deferred removal (for use with udev or lvm)
-  deferred_remove {{ deferred_remove | string | lower }}
-
-  # Enable/disable hardware handler detection fallback
-  hw_down_fail {{ hw_down_fail | string | lower }}
-
-  # Enable/disable queuing during initialization
-  queue_without_daemon {{ queue_without_daemon | string | lower }}
-
-  # Default FIFO or SYMMETRIC_LB queue handling
-  path_grouping_policy "{{ path_grouping_policy | default('group_by_prio') }}"
-
-  # Default path selector (overrides global if set here)
-  path_selector "{{ path_selector | default('round-robin') }}"
-
-  # Default path checker (overrides global if set here)
-  checker "{{ checker | default('directio') }}"
-
-  # Default path group init policy: 'group_by_serial', 'group_by_prio', etc.
-  pg_init_retries {{ pg_init_retries }}
-
-  # Delay before path group initialization (in seconds)
-  pg_init_delay {{ pg_init_delay }}
-
-  # Enable/disable fast_io_fail_tmo handling
-  fast_io_fail_tmo {{ fast_io_fail_tmo }}
-
-  # Timeout (in seconds) for unresponsive paths
-  dev_loss_tmo {{ dev_loss_tmo }}
-
-  # Enable/disable write barriers (for write-through caching)
-  write_barriers {{ write_barriers | string | lower }}
-
-  # Enable/disable automatic re-enable of paths after recovery
-  detect_prio {{ detect_prio | string | lower }}
-
-  # Enable/disable hardware-dependent path grouping
+  # Default hardware handler module to use (e.g., 'alua', 'emc', 'hp_sw').
+  # Set to '' to disable hardware handler usage.
   hardware_handler "{{ hardware_handler | default('') }}"
 
-  # Max number of sector requeues per device
-  max_sectors {{ max_sectors }}
+  # Default path grouping policy:
+  # 'group_by_prio' - Group paths by priority (best for ALUA)
+  # 'group_by_node_name' - Group by target node name
+  # 'group_by_serial' - Group by device serial number
+  # 'failover' - Only one path is active at a time (active/standby)
+  path_grouping_policy "{{ path_grouping_policy | default('group_by_prio') }}"
 
-  # Enable/disable deferred deletion of devices
-  deferred_delete {{ deferred_delete | string | lower }}
+  # Default path selector algorithm:
+  # 'round-robin' - Distribute I/O evenly across paths
+  # 'queue-length' - Select path with fewest pending I/Os
+  # 'service-time' - Select path with shortest estimated service time
+  path_selector "{{ path_selector | default('round-robin') }}"
 
-  # Enable/disable automatic re-evaluation of path priority after events
-  detect_prio {{ detect_prio | string | lower }}
+  # Default path priority plugin:
+  # 'alua' - ALUA (Asymmetric Logical Unit Access)
+  # 'emc' - EMC-specific
+  # 'hp_sw' - HP-specific
+  # 'const' - Constant priority
+  # 'rand' - Random selection
+  prio "{{ prio | default('alua') }}"
+
+  # Default path checker:
+  # 'directio' - Check via direct I/O
+  # 'emc_clariion' - EMC CLARiiON specific
+  # 'hp_sw' - HP software check
+  # 'tur' - Test Unit Ready
+  # 'readsector0' - Read sector 0
+  checker "{{ checker | default('directio') }}"
+
+  # Interval (seconds) between path state checks.
+  path_checking_interval {{ path_checking_interval | default(5) }}
+
+  # Maximum number of file descriptors multipathd may use.
+  max_fds {{ max_fds | default(2048) }}
+
+  # Default queue depth per multipath device.
+  queue_depth {{ queue_depth | default(32) }}
+
+  # Number of I/Os before switching path in round-robin (0 = use device default).
+  rr_min_io {{ rr_min_io | default(1000) }}
+
+  # Number of I/O requests before switching path (0 = use device default).
+  rr_min_io_rq {{ rr_min_io_rq | default(1) }}
 }
 
-# Optional: per-device configuration blocks
-{% for device in devices %}
-# Device-specific configuration for {{ device.description | default('device') }}
+# =============================================================================
+# DEFAULTS FOR UNMATCHED DEVICES
+# =============================================================================
+# These settings apply to all devices NOT explicitly listed in the 'devices' section below.
+
+defaults {
+  # Weight for path priority calculation (used by 'prio' plugins).
+  # Syntax is plugin-specific (e.g., 'alua:strict' or 'emc:policy').
+  # Set to '' to disable or use default plugin behavior.
+  prio_args "{{ prio_args | default('') }}"
+
+  # Device removal behavior: 'delayed_remove', 'immediate_remove', 'no_remove'.
+  remove_retries "{{ remove_retries | default('') }}"
+
+  # Number of retries to re-enable a failed path.
+  max_check_failures {{ max_check_failures | default(0) }}
+
+  # Time (in seconds) to wait before retrying a failed path.
+  path_recovery_delay {{ path_recovery_delay | default(0) }}
+
+  # Enable/disable deferred removal (for use with udev or lvm).
+  deferred_remove {{ deferred_remove | default(false) | string | lower }}
+
+  # Enable/disable hardware handler detection fallback.
+  hw_down_fail {{ hw_down_fail | default(false) | string | lower }}
+
+  # Enable/disable queuing during initialization.
+  queue_without_daemon {{ queue_without_daemon | default(false) | string | lower }}
+
+  # Default path grouping policy override.
+  path_grouping_policy "{{ path_grouping_policy | default('group_by_prio') }}"
+
+  # Default path selector override.
+  path_selector "{{ path_selector | default('round-robin') }}"
+
+  # Default path checker override.
+  checker "{{ checker | default('directio') }}"
+
+  # Default path group init retries.
+  pg_init_retries {{ pg_init_retries | default(5) }}
+
+  # Delay before path group initialization (in seconds).
+  pg_init_delay {{ pg_init_delay | default(0) }}
+
+  # Enable/disable fast_io_fail_tmo handling.
+  fast_io_fail_tmo {{ fast_io_fail_tmo | default(-1) }}
+
+  # Timeout (in seconds) for unresponsive paths.
+  dev_loss_tmo {{ dev_loss_tmo | default(300) }}
+
+  # Enable/disable write barriers (for write-through caching).
+  write_barriers {{ write_barriers | default(false) | string | lower }}
+
+  # Enable/disable automatic re-enable of paths after recovery.
+  detect_prio {{ detect_prio | default(false) | string | lower }}
+
+  # Enable/disable hardware-dependent path grouping.
+  hardware_handler "{{ hardware_handler | default('') }}"
+
+  # Max number of sector requeues per device.
+  max_sectors {{ max_sectors | default(0) }}
+
+  # Enable/disable deferred deletion of devices.
+  deferred_delete {{ deferred_delete | default(false) | string | lower }}
+
+  # Enable/disable automatic re-evaluation of path priority after events.
+  detect_prio {{ detect_prio | default(false) | string | lower }}
+}
+
+# =============================================================================
+# PER-DEVICE CONFIGURATION OVERRIDES
+# =============================================================================
+# List of vendor/product pairs with specific overrides.
+# If empty, the defaults block applies to all devices.
+
+{% for device in devices | default([]) %}
+# Device-specific configuration for {{ device.vendor | default('unknown') }} {{ device.product | default('unknown') }}
+# Description: {{ device.description | default('No description provided') }}
 devices {
-  # Vendor and product ID (e.g., vendor "DGC" product "LUNZ")
+  # Vendor string (e.g., "DGC", "HP", "IBM")
   vendor "{{ device.vendor }}"
+
+  # Product string (e.g., "LUNZ", "OpenVMS", "DS4000")
   product "{{ device.product }}"
 
-  # Optional: custom alias for this device (overrides user_friendly_names)
+  # Optional: custom alias for this device (overrides user_friendly_names).
   alias "{{ device.alias | default('') }}"
 
-  # Optional: custom WWID (wildcards supported: * for any char, ? for single char)
+  # Optional: custom WWID (wildcards supported: * for any char, ? for single char).
   wwid "{{ device.wwid | default('') }}"
 
-  # Path group policy override for this device
+  # Path group policy override for this device.
   path_grouping_policy "{{ device.path_grouping_policy | default('') }}"
 
-  # Path selector override
+  # Path selector override for this device.
   path_selector "{{ device.path_selector | default('') }}"
 
-  # Priority plugin override
+  # Priority plugin override for this device.
   prio "{{ device.prio | default('') }}"
 
-  # Priority arguments override
+  # Priority arguments override for this device.
   prio_args "{{ device.prio_args | default('') }}"
 
-  # Checker override
+  # Checker override for this device.
   checker "{{ device.checker | default('') }}"
 
-  # Number of initial retries for path setup
+  # Number of initial retries for path setup.
   pg_init_retries {{ device.pg_init_retries | default(5) }}
 
-  # Delay before first path group init (seconds)
+  # Delay before first path group init (seconds).
   pg_init_delay {{ device.pg_init_delay | default(5) }}
 
-  # Number of retries to get a valid path before failing
+  # Command to get the unique ID for the path.
   getuid_callout "{{ device.getuid_callout | default('') }}"
 
-  # Hardware handler override
+  # Hardware handler override for this device.
   hardware_handler "{{ device.hardware_handler | default('') }}"
 
-  # Path failure threshold before marking device failed
+  # Path failure threshold before marking device failed.
   path_failover_threshold {{ device.path_failover_threshold | default(1) }}
 
-  # Enable/disable fast I/O failure handling
+  # Enable/disable fast I/O failure handling.
   fast_io_fail_tmo {{ device.fast_io_fail_tmo | default(-1) }}
 
-  # Device loss timeout (seconds)
+  # Device loss timeout (seconds).
   dev_loss_tmo {{ device.dev_loss_tmo | default(300) }}
 
-  # Enable/disable write barriers for this device
+  # Enable/disable write barriers for this device.
   write_barriers {{ device.write_barriers | default(false) | string | lower }}
 
-  # Enable/disable automatic path re-enable after recovery
+  # Enable/disable automatic path re-enable after recovery.
   detect_prio {{ device.detect_prio | default(true) | string | lower }}
 
-  # Enable/disable deferred removal
+  # Enable/disable deferred removal.
   deferred_remove {{ device.deferred_remove | default(false) | string | lower }}
 
-  # Queue depth per device
+  # Queue depth per device.
   queue_depth {{ device.queue_depth | default(32) }}
 
-  # Max number of open file descriptors for multipathd
+  # Max number of open file descriptors for multipathd.
   max_fds {{ device.max_fds | default(2048) }}
 }
 {% endfor %}

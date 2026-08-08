@@ -33,105 +33,18 @@ if [ -r /lib/init/vars.sh ] ; then
 	. /lib/init/vars.sh
 fi
 
-read_config () {
-	sed -rn '
-s|^\s*"${2}"='\''([^'\'']+)\''\s*$|\1|g
-thold
-s|^\s*"${2}"='"'([^'"']+)'"'\s*$|\1|g
-thold
-s|^\s*"${2}"=(\S+)\s*$|\1|
-thold
-b
-:hold
-p
-	' "${1}"
-}
+# Read configuration from the default sysconfig file
+# ENABLED: Enable the daemon. Set to 1 to start. 0 prevents start.
+ENABLED="{{ START_DAEMON | default(0) }}"
 
-# Make sure the package hasn't been removed but not purged
-if ! [ -x ${DAEMON} ] ; then
-	exit 0
+# Read configuration from the default sysconfig file
+# EXTRA_OPTS: Additional command-line options passed to miniupnpd.
+EXTRA_OPTS="{{ MiniUPnPd_OTHER_OPTIONS | default('') }}"
+
+# Determine whether the daemon should be started based on the ENABLED flag
+if [ "$ENABLED" -eq 1 ] 2>/dev/null; then
+    # If extra options are defined, append them to the daemon command arguments
+    if [ -n "$EXTRA_OPTS" ]; then
+        DAEMON_ARGS="$DAEMON_ARGS $EXTRA_OPTS"
+    fi
 fi
-
-case "${1}" in
-	start)
-		if [ "${START_DAEMON}" = 0 ] ; then
-			log_daemon_msg "${DAEMON_NAME}: ${DEFAULT} isn't set to START_DAEMON=1: exiting"
-			log_end_msg 1
-
-			exit 0
-		fi
-
-		log_daemon_msg "Initializing ${DAEMON_SERVICE_NAME} *tables" "${DAEMON_NAME}"
-		if ! /usr/libexec/miniupnpd-startstop-helper.sh start ; then
-			log_end_msg 1
-			exit 2
-		fi
-
-		start-stop-daemon -q --start --exec "${DAEMON}" -- ${MiniUPnPd_OTHER_OPTIONS}
-		RET="${?}"
-
-		case "${RET}" in
-			0|1)
-				log_end_msg 0
-				;;
-
-			*)
-				log_end_msg 1
-
-				exit 1
-				;;
-			esac
-			;;
-
-	opt)
-		log_daemon_msg "Stopping ${DAEMON_SERVICE_NAME}" "${DAEMON_NAME}"
-
-		start-stop-daemon -q --stop --oknodo --pidfile ${PIDFILE}
-		RET="${?}"
-
-		log_daemon_msg "Deconfiguring ${DAEMON_SERVICE_NAME} *tables" "${DAEMON_NAME}"
-		/usr/libexec/miniupnpd-startstop-helper.sh stop
-
-		case "${RET}" in
-			0|1)
-				log_end_msg 0
-				;;
-
-			*)
-				log_end_msg 1
-
-				exit 1
-				;;
-			esac
-			;;
-
-	restart|force-reload)
-		${0} stop
-		case "$?" in
-			0|1)
-				${0} start
-				case "$?" in
-					0) log_end_msg 0 ;;
-					1) log_end_msg 1 ;; # Old process is still running
-					*) log_end_msg 1 ;; # Failed to start
-					esac
-					;;
-			*)
-				# Failed to stop
-				log_end_msg 1
-				;;
-		esac
-		;;
-
-	status)
-		status_of_proc "${DAEMON}" "${DAEMON_NAME}"
-		exit ${?}
-		;;
-
-	*)
-		echo "Usage: ${0} {start|stop|restart|status}"
-		exit 1
-		;;
-esac
-
-exit 0

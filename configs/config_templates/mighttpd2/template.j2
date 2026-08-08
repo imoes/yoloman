@@ -1,92 +1,124 @@
-# Listen on this address and port
-bind: {{ bind_address }}:{{ port }}
+# =============================================================================
+# mighttpd2 HTTP Server Configuration
+# =============================================================================
+# This template generates the mighttpd2.conf file.
+# Variables are mapped directly from the Ansible role's variables (schema fields).
+# All variables have safe defaults to ensure the configuration is always valid.
+# =============================================================================
 
-# Maximum number of incoming connections
-max-connections: {{ max_connections }}
+# --- Network Binding ---
 
-# Number of worker threads (0 = auto, based on CPU cores)
-worker: {{ worker_count }}
+# IP address to bind the server to (e.g., 127.0.0.1, 0.0.0.0, or IPv6 address)
+# Default: 127.0.0.1
+bind: {{ bind_address | default('127.0.0.1') }}:{{ port | default(8080) }}
 
-# Timeout for request headers (seconds)
-request-header-timeout: {{ request_header_timeout }}
+# Maximum number of concurrent connections the server will accept
+# Default: 4096
+max-connections: {{ max_connections | default(4096) }}
 
-# Timeout for request body (seconds)
-request-body-timeout: {{ request_body_timeout }}
+# Number of worker threads (0 = auto-detect based on CPU cores)
+# Default: 0
+worker: {{ worker_count | default(0) }}
 
-# Timeout for response (seconds)
-response-timeout: {{ response_timeout }}
+# --- Timeouts ---
 
-# Maximum size of request body (bytes) — 0 means unlimited
-max-request-body-size: {{ max_request_body_size }}
+# Maximum time (seconds) to wait for request headers before timing out
+# Default: 60
+request-header-timeout: {{ request_header_timeout | default(60) }}
 
-# Enable/disable gzip compression
-compression: {{ compression_enabled }}
+# Maximum time (seconds) to wait for request body upload before timing out
+# Default: 60
+request-body-timeout: {{ request_body_timeout | default(60) }}
 
-# Enable/disable TLS (requires certificate and key paths)
-{% if tls_enabled %}
-tls: on
-certificate: {{ tls_certificate_path }}
-key: {{ tls_key_path }}
-{% else %}
-tls: off
+# Maximum time (seconds) to send the full response before timing out
+# Default: 60
+response-timeout: {{ response_timeout | default(60) }}
+
+# Maximum allowed size of request body in bytes (0 = unlimited)
+# Default: 104857600
+max-request-body-size: {{ max_request_body_size | default(104857600) }}
+
+# --- Features ---
+
+# Enable gzip compression for responses (reduces bandwidth, increases CPU usage)
+# Default: True
+compression: {{ compression_enabled | default(true) }}
+
+# --- TLS/SSL Configuration ---
+
+# Enable TLS (HTTPS) — requires valid certificate and key files
+# If enabled, the certificate and key paths must be valid
+# Default: False
+tls: {{ 'on' if tls_enabled | default(false) else 'off' }}
+{% if tls_enabled | default(false) %}
+certificate: {{ tls_certificate_path | default('/etc/mighttpd2/tls/cert.pem') }}
+key: {{ tls_key_path | default('/etc/mighttpd2/tls/key.pem') }}
 {% endif %}
 
-# Access log file path (empty = disable)
-access-log: {{ access_log_path }}
+# --- Logging ---
 
-# Error log file path (empty = disable)
-error-log: {{ error_log_path }}
+# Path to the access log file (empty string to disable access logging)
+# Default: /var/log/mighttpd2/access.log
+access-log: {{ access_log_path | default('/var/log/mighttpd2/access.log') }}
 
-# Logging level (debug, info, warn, error)
-log-level: {{ log_level }}
+# Path to the error log file (empty string to disable error logging)
+# Default: /var/log/mighttpd2/error.log
+error-log: {{ error_log_path | default('/var/log/mighttpd2/error.log') }}
 
-# MIME types mapping file (optional)
-{% if mime_types_path %}
-mime-types: {{ mime_types_path }}
+# Logging verbosity level
+# Default: info
+log-level: {{ log_level | default('info') }}
+
+# Optional custom MIME types file path (leave empty to use built-in defaults)
+# Default: '' (empty)
+{% if mime_types_path | default('') %}
+mime-types: {{ mime_types_path | default('') }}
 {% endif %}
 
-# Virtual host configurations
-{% for host in virtual_hosts %}
+# --- Virtual Hosts ---
+
+# List of virtual host configurations
+# Each entry defines a host name, document root, index files, and directory listing setting
+# Default: [] (empty list)
+{% for host in virtual_hosts | default([]) %}
 # Virtual host: {{ host.name }}
 host: {{ host.name }}
 root: {{ host.document_root }}
 index: {{ host.index_files | join(', ') }}
-{% if host.enable_directory_listing %}
-directory-listing: on
-{% else %}
-directory-listing: off
-{% endif %}
+directory-listing: {{ 'on' if host.enable_directory_listing | default(false) else 'off' }}
 {% endfor %}
 
-# Static file caching (seconds, 0 = disable)
-static-cache-time: {{ static_cache_time }}
+# --- Caching & Protocols ---
 
-# Enable/disable HTTP/2 (requires TLS)
-{% if http2_enabled %}
-http2: on
-{% else %}
-http2: off
-{% endif %}
+# Cache duration (seconds) for static assets (0 = disable caching headers)
+# Default: 300
+static-cache-time: {{ static_cache_time | default(300) }}
 
-# Graceful shutdown timeout (seconds)
-shutdown-timeout: {{ shutdown_timeout }}
+# Enable HTTP/2 protocol (requires TLS)
+# Default: False
+http2: {{ 'on' if http2_enabled | default(false) else 'off' }}
 
-# Enable/disable X-Frame-Options header
-{% if x_frame_options_enabled %}
-x-frame-options: SAMEORIGIN
-{% else %}
-x-frame-options: off
-{% endif %}
+# --- Shutdown ---
 
-# Enable/disable X-Content-Type-Options header
-{% if x_content_type_options_enabled %}
-x-content-type-options: nosniff
-{% else %}
-x-content-type-options: off
-{% endif %}
+# Seconds to wait for graceful shutdown (in-flight requests complete)
+# Default: 10
+shutdown-timeout: {{ shutdown_timeout | default(10) }}
 
-# Additional HTTP headers to add to all responses
-{% for header in custom_headers %}
+# --- Security Headers ---
+
+# Include 'X-Frame-Options: SAMEORIGIN' header to prevent clickjacking
+# Default: True
+x-frame-options: {{ 'SAMEORIGIN' if x_frame_options_enabled | default(true) else 'off' }}
+
+# Include 'X-Content-Type-Options: nosniff' header to prevent MIME-type sniffing
+# Default: True
+x-content-type-options: {{ 'nosniff' if x_content_type_options_enabled | default(true) else 'off' }}
+
+# --- Custom Headers ---
+
+# Additional HTTP headers to include in all responses
+# Default: [] (empty list)
+{% for header in custom_headers | default([]) %}
 # Custom header: {{ header.name }}
 header: {{ header.name }}: {{ header.value }}
 {% endfor %}

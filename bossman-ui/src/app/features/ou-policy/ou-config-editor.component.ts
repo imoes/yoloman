@@ -189,6 +189,9 @@ export interface EditorScope {
 })
 export class OuConfigEditorComponent implements OnChanges {
   @Input({ required: true }) scope!: EditorScope;
+  // Open directly ON this config file (a specific policy the user clicked to
+  // edit), so its set values are visible immediately instead of an empty tree.
+  @Input() initialPath?: string;
 
   private agentService = inject(AgentService);
   private ouService = inject(OuService);
@@ -243,7 +246,18 @@ export class OuConfigEditorComponent implements OnChanges {
     this.policies.set([]);
     this.selected.set(null);
     this.editKey.set(null);
-    this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => this.policies.set(ps));
+    this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => {
+      this.policies.set(ps);
+      // Show set values right away: select the file the user came to edit, else
+      // the first file that HAS a policy at this scope — so the configured values
+      // are on screen immediately instead of an empty tree.
+      if (!this.selected()) {
+        const target = (this.initialPath && ps.some((p) => p.path === this.initialPath))
+          ? this.initialPath
+          : (ps[0]?.path ?? null);
+        if (target) this.selected.set(target);
+      }
+    });
     if (!Object.keys(this.directiveCatalog()).length) {
       this.agentService.configDirectives().subscribe({ next: (r) => this.directiveCatalog.set(r.directives || {}), error: () => {} });
     }

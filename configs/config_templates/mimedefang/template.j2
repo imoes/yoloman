@@ -17,18 +17,18 @@
 #***********************************************************************
 # Set administrator's e-mail address here.  The administrator receives
 # quarantine messages and is listed as the contact for site-wide
-# MIMEDefang policy.    A good example would be '{{ action_replace_sender }}'
+# MIMEDefang policy.    A good example would be 'defang-admin@mydomain.com'
 #***********************************************************************
 $AdminAddress = '{{ action_replace_sender }}';
-$AdminName = "MIMEDefang Administrator's Full Name";
+$AdminName = "{{ action_replace_subject_prefix }}";
 
 #***********************************************************************
 # Set the e-mail address from which MIMEDefang quarantine warnings and
 # user notifications appear to come.    A good example would be
-# 'mimedefang@localhost'.    Make sure to have an alias for this
+# 'mimedefang@mydomain.com'.    Make sure to have an alias for this
 # address if you want replies to it to work.
 #***********************************************************************
-$DaemonAddress = 'mimedefang@localhost';
+$DaemonAddress = '{{ action_replace_recipients }}';
 
 #***********************************************************************
 # If you set $AddWarningsInline to 1, then MIMEDefang tries *very* hard
@@ -261,7 +261,7 @@ sub filter_end {
 
     # Spam checks if SpamAssassin is installed
     if ($Features{"SpamAssassin"}) {
-        if (-s "./INPUTMSG" < 512*1024) {
+        if (-s "./INPUTMSG" < {{ max_message_size }}) {
             # Only scan messages smaller than 512KB. Larger messages are 
             # unlikely to be spam and SpamAssassin is slow on very large messages.
             my($hits, $req, $names, $report) = spam_assassin_check();

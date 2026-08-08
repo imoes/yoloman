@@ -1,47 +1,68 @@
-# System-wide defaults for user account creation and management
-# Password aging controls
-PASS_MAX_DAYS   {{ password.pass_max_days }}
-PASS_MIN_DAYS   {{ password.pass_min_days }}
-PASS_WARN_AGE   {{ password.pass_warn_age }}
+# /etc/login.defs — System-wide defaults for user account creation and management
+# This template is self-documenting: every directive is preceded by its schema description.
+# Variables are sourced from the Ansible play/role variables, with schema defaults applied
+# inline to ensure the file renders even if a variable is omitted.
 
-# UID/GID ranges for normal and system accounts
-UID_MIN         {{ ranges.uid_min }}
-UID_MAX         {{ ranges.uid_max }}
-GID_MIN         {{ ranges.gid_min }}
-GID_MAX         {{ ranges.gid_max }}
+# === Password aging controls for new accounts ===
+# Controls: maximum days between changes, minimum days between changes, and days warning before expiry.
+# If 'password' is not defined, uses defaults: pass_max_days=99999, pass_min_days=0, pass_warn_age=7.
+PASS_MAX_DAYS   {{ (password | default({'pass_max_days': 99999})).pass_max_days | default(99999) }}
+PASS_MIN_DAYS   {{ (password | default({'pass_min_days': 0})).pass_min_days | default(0) }}
+PASS_WARN_AGE   {{ (password | default({'pass_warn_age': 7})).pass_warn_age | default(7) }}
+
+# === UID/GID ranges ===
+# Defines ranges for normal users vs system accounts.
+# Normal users: uid_min–uid_max, gid_min–gid_max.
+# System accounts: sys_uid_min–sys_uid_max, sys_gid_min–sys_gid_max.
+# Defaults: normal 1000-60000, system 100-999.
+UID_MIN         {{ (ranges | default({'uid_min': 1000})).uid_min | default(1000) }}
+UID_MAX         {{ (ranges | default({'uid_max': 60000})).uid_max | default(60000) }}
+GID_MIN         {{ (ranges | default({'gid_min': 1000})).gid_min | default(1000) }}
+GID_MAX         {{ (ranges | default({'gid_max': 60000})).gid_max | default(60000) }}
 
 # System account UID/GID range (reserved for services/daemons)
-SYS_UID_MIN     {{ ranges.sys_uid_min }}
-SYS_UID_MAX     {{ ranges.sys_uid_max }}
-SYS_GID_MIN     {{ ranges.sys_gid_min }}
-SYS_GID_MAX     {{ ranges.sys_gid_max }}
+SYS_UID_MIN     {{ (ranges | default({'sys_uid_min': 100})).sys_uid_min | default(100) }}
+SYS_UID_MAX     {{ (ranges | default({'sys_uid_max': 999})).sys_uid_max | default(999) }}
+SYS_GID_MIN     {{ (ranges | default({'sys_gid_min': 100})).sys_gid_min | default(100) }}
+SYS_GID_MAX     {{ (ranges | default({'sys_gid_max': 999})).sys_gid_max | default(999) }}
 
-# Default shell and home directory
-DEF_SHELL       {{ defaults.def_shell }}
-DEF_HOME        {{ defaults.def_home }}
+# === User creation defaults ===
+# Defines the default login shell and home directory location for new users.
+# Defaults: shell=/bin/bash, home=/home.
+DEF_SHELL       {{ (defaults | default({'def_shell': '/bin/bash'})).def_shell | default('/bin/bash') }}
+DEF_HOME        {{ (defaults | default({'def_home': '/home'})).def_home | default('/home') }}
 
 # Default umask for new users
-UMASK           {{ defaults.umask }}
+# Controls the file permission bits removed for newly created files/directories.
+# Default: 022 (rw-r--r-- for files, rwxr-xr-x for dirs).
+UMASK           {{ (defaults | default({'umask': '022'})).umask | default('022') }}
 
 # Enforce strict group ownership for user home directories?
-USERGROUPS_ENAB {{ defaults.usergroups_enab | lower }}
+# When true, new users get a private group with the same name as the user.
+# Default: true.
+USERGROUPS_ENAB {{ (defaults | default({'usergroups_enab': true})).usergroups_enab | default(true) | lower }}
 
-# Default login restrictions
-LOGIN_RETRIES   {{ limits.login_retries }}
-LOGIN_TIMEOUT   {{ limits.login_timeout }}
+# === Login session controls ===
+# Max failed login attempts before lockout/timeout and timeout before re-prompting.
+# Defaults: retries=3, timeout=60.
+LOGIN_RETRIES   {{ (limits | default({'login_retries': 3})).login_retries | default(3) }}
+LOGIN_TIMEOUT   {{ (limits | default({'login_timeout': 60})).login_timeout | default(60) }}
 
-# Logging of failed login attempts
-FAILLOG_ENAB    {{ logging.faillog_enab | lower }}
-LOG_UNKFAIL_ENAB {{ logging.log_unknown_fail | lower }}
-LOG_OK_LOGINS   {{ logging.log_ok_logins | lower }}
+# === Login audit logging ===
+# Whether to maintain a failure log, log unknown failures, and log successful logins.
+# Defaults: faillog_enab=true, log_unknown_fail=true, log_ok_logins=false.
+FAILLOG_ENAB    {{ (logging | default({'faillog_enab': true})).faillog_enab | default(true) | lower }}
+LOG_UNKFAIL_ENAB {{ (logging | default({'log_unknown_fail': true})).log_unknown_fail | default(true) | lower }}
+LOG_OK_LOGINS   {{ (logging | default({'log_ok_logins': false})).log_ok_logins | default(false) | lower }}
 
-# Default groups to add to new users
-{{ for groups_def in defaults.groups_to_add }}
-{{ groups_def.name }}
-{{ endfor }}
+# === Default groups to add to new users ===
+# If 'defaults.groups_to_add' is a list, each item is rendered as its name (or the item itself if string).
+# Defaults to an empty list, so no extra groups are added by default.
+{% for group_def in (defaults | default({'groups_to_add': []})).groups_to_add %}
+{{ group_def.name if group_def is mapping else group_def }}
+{% endfor %}
 
 # Default mail directory and spool
-SPOOL_DIR       {{ defaults.spool_dir }}
-
-# Enable/disable user private groups (UPG) by default
-USERGROUPS_ENAB {{ defaults.usergroups_enab | lower }}
+# Location of the mail spool directory for new users.
+# Default: /var/spool/mail.
+SPOOL_DIR       {{ (defaults | default({'spool_dir': '/var/spool/mail'})).spool_dir | default('/var/spool/mail') }}

@@ -1,85 +1,145 @@
-# Enable process supervision and daemonization
+# =============================================================================
+# ExaBGP / Bird Daemon BGP Configuration Template
+# =============================================================================
+# This template generates the configuration for a BGP daemon. It handles global
+# BGP settings, peer definitions, an optional API listener, and process hooks.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Service Management Section
+# -----------------------------------------------------------------------------
+# Controls daemonization and PID file location.
 service exabgp {
+    # Enable process supervision and daemonization
     daemonize: true
+
+    # PID file path for the daemon
     pid: /run/exabgp/exabgp.pid
 }
 
-# Global BGP settings
+# -----------------------------------------------------------------------------
+# Global BGP Settings
+# -----------------------------------------------------------------------------
 bgp {
-    router-id: {{ bgp_router_id }};
-    local-address: {{ bgp_local_address }};
-    local-as: {{ bgp_local_as }};
-    {{# Authentication for peers (MD5 if enabled) is optional; use peer.auth_key only when needed
-    {{% for peer in bgp_peers }}
-    neighbor {{ peer.address }} {
-        remote-as: {{ peer.remote_as }};
-        {{% if peer.auth_key is defined and peer.auth_key | length > 0 }}
+    # IPv4 router-id for the BGP speaker (must be unique per AS)
+    router-id: {{ (bgp_router_id | default('192.0.2.1')) }};
+
+    # Local IP address to bind the BGP session(s) to
+    local-address: {{ (bgp_local_address | default('192.0.2.1')) }};
+
+    # Autonomous System Number (ASN) of this BGP speaker (32-bit or 16-bit)
+    local-as: {{ (bgp_local_as | default(64500)) }};
+
+    # -----------------------------------------------------------------
+    # Peer Definitions
+    # -----------------------------------------------------------------
+    # Iterates over the list of BGP peers defined in the schema.
+    {% for peer in (bgp_peers | default([])) %}
+    neighbor {{ (peer.address | default('0.0.0.0')) }} {
+        # Remote ASN for this specific peer
+        remote-as: {{ (peer.remote_as | default(0)) }};
+
+        # MD5 Password for authentication (optional)
+        {% if (peer.auth_key | default('')) | length > 0 %}
         password: "{{ peer.auth_key }}";
-        {{% endif %}}
-        {{% if peer.description is defined and peer.description | length > 0 }}
+        {% endif %}
+
+        # Human-readable description for the peer (optional)
+        {% if (peer.description | default('')) | length > 0 %}
         description: "{{ peer.description }}";
-        {{% endif %}}
-        {{% if peer.hold_time is defined }}
-        hold-time: {{ peer.hold_time }};
-        {{% endif %}}
-        {{% if peer.connect_retry is defined }}
-        connect-retry: {{ peer.connect_retry }};
-        {{% endif %}}
-        {{% if peer.keepalive is defined }}
-        keepalive: {{ peer.keepalive }};
-        {{% endif %}}
-        {{% if peer.add_paths is defined and peer.add_paths is true }}
+        {% endif %}
+
+        # Hold time in seconds before declaring the session down (optional)
+        {% if peer.hold_time is defined %}
+        hold-time: {{ (peer.hold_time | default(90)) }};
+        {% endif %}
+
+        # Connect retry timer in seconds (optional)
+        {% if peer.connect_retry is defined %}
+        connect-retry: {{ (peer.connect_retry | default(3)) }};
+        {% endif %}
+
+        # Keepalive interval in seconds (optional)
+        {% if peer.keepalive is defined %}
+        keepalive: {{ (peer.keepalive | default(10)) }};
+        {% endif %}
+
+        # Enable Add-Paths if specified (optional)
+        {% if (peer.add_paths | default(false)) is sameas true %}
         add-paths: send;
-        {{% endif %}}
+        {% endif %}
+
+        # Family configuration (address families to exchange)
         {
             family:
                 ipv4 unicast;
                 ipv6 unicast;
         }
-        {{% if peer.inbound_filter or peer.outbound_filter }}
+
+        # Route filtering rules (optional)
+        {% if peer.inbound_filter is defined or peer.outbound_filter is defined %}
         route-filter {
-            {{% if peer.inbound_filter }}
+            {% if peer.inbound_filter is defined %}
             inbound-filter: {{ peer.inbound_filter }};
-            {{% endif %}}
-            {{% if peer.outbound_filter }}
+            {% endif %}
+            {% if peer.outbound_filter is defined %}
             outbound-filter: {{ peer.outbound_filter }};
-            {{% endif %}}
+            {% endif %}
         }
-        {{% endif %}}
+        {% endif %}
     }
-    {{% endfor %}}
+    {% endfor %}
 }
 
-# API listener for external control (optional — disable for hardened deployments)
+# -----------------------------------------------------------------------------
+# API Listener Configuration
+# -----------------------------------------------------------------------------
+# Enables programmatic control of the BGP daemon via HTTP/REST API.
 api {
     processes [
         "neighbor-up-down"
     ]
     parser: "text"
-    {{% if api_enabled }}
+
+    {% if (api_enabled | default(false)) is sameas true %}
+    # API is enabled — connect settings follow
     connect:
-        host: {{ api_host }};
-        port: {{ api_port }};
-        {{% if api_tls_enabled }}
+        # IP address the API will bind to (prefer 127.0.0.1 for security)
+        host: {{ (api_host | default('127.0.0.1')) }};
+        # TCP port for the API listener
+        port: {{ (api_port | default(5000)) }};
+
+        {% if (api_tls_enabled | default(false)) is sameas true %}
+        # TLS encryption is enabled — certificate paths required
         tls:
-            certificate: "{{ api_tls_cert }}";
-            key: "{{ api_tls_key }}";
-            ca: "{{ api_tls_ca }}";
-        {{% endif %}}
-    {{% else %}}
-    # API disabled — remove or comment to enable
-    # connect: ...
-    {{% endif %}}
+            # Path to the TLS server certificate file
+            certificate: "{{ (api_tls_cert | default('/etc/exabgp/tls/api.crt')) }}";
+            # Path to the TLS private key file
+            key: "{{ (api_tls_key | default('/etc/exabgp/tls/api.key')) }}";
+            # Path to the CA certificate for client validation
+            ca: "{{ (api_tls_ca | default('/etc/exabgp/tls/ca.crt')) }}";
+        {% endif %}
+    {% else %}
+        # API disabled — remove or comment to enable
+        # connect: ...
+    {% endif %}
 }
 
-# Process hooks (e.g., for BGP state change notifications)
+# -----------------------------------------------------------------------------
+# Process Hooks
+# -----------------------------------------------------------------------------
+# Defines external processes triggered by BGP state changes.
 process neighbor-up-down {
+    # Command/script to run on neighbor state changes
     run: /usr/local/bin/exabgp-notify.sh;
-    {{% if process_env }}
+
+    # Environment variables for the hook process (optional)
+    {% if (process_env | default({})) | length > 0 %}
     env {
-        {{% for key, val in process_env.items() }}
-        {{ key }} "{{ val }}";
-        {{% endfor %}}
+        # Iterates over the key-value pairs in process_env
+        {% for key, val in (process_env | default({})) | dict2items %}
+        {{ key.key }} "{{ key.value }}";
+        {% endfor %}
     }
-    {{% endif %}}
+    {% endif %}
 }

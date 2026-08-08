@@ -2,75 +2,147 @@
 # Adjusted for production use with clear structure and site-specific variables
 # See `man 5 multipath.conf` for details
 
-# Global defaults
+# Global defaults for multipath behavior. Adjust these only if you understand the implications.
 defaults {
-    user_friendly_names "{{ defaults.user_friendly_names }}"
-    path_grouping_policy "{{ defaults.path_grouping_policy }}"
-    path_selector "{{ defaults.path_selector }}"
-    failback "{{ defaults.failback }}"
-    no_path_retry "{{ defaults.no_path_retry }}"
-    rr_weight "{{ defaults.rr_weight }}"
-    priority_exponent "{{ defaults.priority_exponent }}"
-    mac_prefix "{{ defaults.mac_prefix }}"
-    fast_io_fail_tmo "{{ defaults.fast_io_fail_tmo }}"
-    dev_loss_tmo "{{ defaults.dev_loss_tmo }}"
-    max_fds "{{ defaults.max_fds }}"
-    detect_prio "{{ defaults.detect_prio }}"
-    checker_timeout "{{ defaults.checker_timeout }}"
-    allow_port_shutdown "{{ defaults.allow_port_shutdown }}"
+    # Set to 'yes' to use /dev/mapper/<name> instead of /dev/mapper/<wwid>
+    user_friendly_names "{{ (defaults | default({})).user_friendly_names | default('no') }}"
+    
+    # Policy for path grouping: group_by_prio, failover, multibus, etc.
+    path_grouping_policy "{{ (defaults | default({})).path_grouping_policy | default('group_by_prio') }}"
+    
+    # How to select the next path: round-robin, service-time, etc.
+    path_selector "{{ (defaults | default({})).path_selector | default('round-robin 0') }}"
+    
+    # Failback mode: manual, immediate, or a timeout in seconds
+    failback "{{ (defaults | default({})).failback | default('manual') }}"
+    
+    # Number of attempts before disabling paths: 'on', 'queue', or a number
+    no_path_retry "{{ (defaults | default({})).no_path_retry | default('queue') }}"
+    
+    # Weighting for round-robin: 'priorities', 'queue_length', 'uniform'
+    rr_weight "{{ (defaults | default({})).rr_weight | default('priorities') }}"
+    
+    # Exponent for priority-based weighting
+    priority_exponent "{{ (defaults | default({})).priority_exponent | default(10) }}"
+    
+    # MAC address prefix for iSCSI WWID generation (4 bytes)
+    mac_prefix "{{ (defaults | default({})).mac_prefix | default('0') }}"
+    
+    # Fast I/O fail timeout in seconds: 'off' or an integer
+    fast_io_fail_tmo "{{ (defaults | default({})).fast_io_fail_tmo | default('off') }}"
+    
+    # Device loss timeout in seconds: 'off' or an integer
+    dev_loss_tmo "{{ (defaults | default({})).dev_loss_tmo | default('off') }}"
+    
+    # Maximum number of file descriptors for multipathd
+    max_fds "{{ (defaults | default({})).max_fds | default('max') }}"
+    
+    # Detect priority from device attributes: 'yes' or 'no'
+    detect_prio "{{ (defaults | default({})).detect_prio | default('yes') }}"
+    
+    # Timeout for path checker commands in seconds
+    checker_timeout "{{ (defaults | default({})).checker_timeout | default(12) }}"
+    
+    # Allow port shutdown during path verification (internal flag)
+    allow_port_shutdown "{{ (defaults | default({})).allow_port_shutdown | default('no') }}"
 }
 
-# Device-specific overrides
-{% for dev in devices %}
+# Device-specific rules for storage arrays that differ from global defaults.
+# Add one entry per device type or vendor/product combination.
+{% for dev in (devices | default([])) %}
 device {
+    # Device vendor string
 {% if dev.vendor is defined %}    vendor "{{ dev.vendor }}"{% endif %}
+    
+    # Device product string
 {% if dev.product is defined %}    product "{{ dev.product }}"{% endif %}
+    
+    # Features string passed to the path checker
 {% if dev.features is defined %}    features "{{ dev.features }}"{% endif %}
+    
+    # Hardware handler module name
 {% if dev.hwhandler is defined %}    hw_handler "{{ dev.hwhandler }}"{% endif %}
+    
+    # Path grouping policy override for this device
 {% if dev.pgpolicy is defined %}    path_grouping_policy "{{ dev.pgpolicy }}"{% endif %}
+    
+    # Priority algorithm for this device
 {% if dev.prio is defined %}    prio "{{ dev.prio }}"{% endif %}
+    
+    # Path selector override for this device
 {% if dev.selector is defined %}    path_selector "{{ dev.selector }}"{% endif %}
-    path_checkers "{{ dev.checker or 'readsector0' }}"
-    fast_io_fail_tmo "{{ dev.fast_io_fail_tmo }}"
-    dev_loss_tmo "{{ dev.dev_loss_tmo }}"
+    
+    # Path checker program to use (e.g., 'readsector0', 'mpath_prio_alua', 'none')
+    path_checker "{{ dev.checker | default('readsector0') }}"
+    
+    # Fast I/O fail timeout override for this device: 'off' or seconds
+    fast_io_fail_tmo "{{ dev.fast_io_fail_tmo | default((defaults | default({})).fast_io_fail_tmo | default('off')) }}"
+    
+    # Device loss timeout override for this device: 'off' or seconds
+    dev_loss_tmo "{{ dev.dev_loss_tmo | default((defaults | default({})).dev_loss_tmo | default('off')) }}"
 }
 {% endfor %}
 
-# Blacklist rules
-{% for pattern in blacklist.wwids %}
+# Blacklist rules: devices to exclude from multipath management.
+# Prefer explicit device matching over broad patterns.
+
+# Blacklist by WWID (World Wide Identifier)
+{% for pattern in (blacklist | default({})).wwids | default([]) %}
 blacklist {
+    # WWID to exclude
     wwid "{{ pattern }}"
 }
 {% endfor %}
-{% for pattern in blacklist.devices %}
+
+# Blacklist by device attributes (vendor/product/devnode)
+{% for pattern in (blacklist | default({})).devices | default([]) %}
 blacklist {
-{% if pattern.vendor is defined %}    vendor "{{ pattern.vendor }}"{% endif %}
-{% if pattern.product is defined %}    product "{{ pattern.product }}"{% endif %}
-{% if pattern.devnode is defined %}    devnode "{{ pattern.devnode }}"{% endif %}
+{% if pattern.vendor is defined %}    # Vendor string to match
+    vendor "{{ pattern.vendor }}"{% endif %}
+{% if pattern.product is defined %}    # Product string to match
+    product "{{ pattern.product }}"{% endif %}
+{% if pattern.devnode is defined %}    # Device node regex (e.g., '^sd[a-d]$')
+    devnode "{{ pattern.devnode }}"{% endif %}
 }
 {% endfor %}
-{% if blacklist.excludes %}
+
+# Blacklist by composite device attributes
+{% if (blacklist | default({})).excludes | default([]) %}
 blacklist {
-{% for exclude in blacklist.excludes %}
-{% if exclude.wwid is defined %}    wwid "{{ exclude.wwid }}"{% endif %}
-{% if exclude.vendor is defined %}    vendor "{{ exclude.vendor }}"{% endif %}
-{% if exclude.product is defined %}    product "{{ exclude.product }}"{% endif %}
-{% if exclude.devnode is defined %}    devnode "{{ exclude.devnode }}"{% endif %}
-{% if exclude.adapter is defined %}    device "{{ exclude.adapter }}"{% endif %}
+{% for exclude in (blacklist | default({})).excludes | default([]) %}
+{% if exclude.wwid is defined %}    # WWID to exclude
+    wwid "{{ exclude.wwid }}"{% endif %}
+{% if exclude.vendor is defined %}    # Vendor string to match
+    vendor "{{ exclude.vendor }}"{% endif %}
+{% if exclude.product is defined %}    # Product string to match
+    product "{{ exclude.product }}"{% endif %}
+{% if exclude.devnode is defined %}    # Device node regex to match
+    devnode "{{ exclude.devnode }}"{% endif %}
+{% if exclude.adapter is defined %}    # Adapter name regex to match
+    device "{{ exclude.adapter }}"{% endif %}
 {% endfor %}
 }
 {% endif %}
 
-# Blacklist exceptions (devices to include despite matching a blacklist rule)
-{% for pattern in blacklist_exceptions.wwids %}
+# Blacklist exceptions: devices to explicitly include despite matching a blacklist rule.
+# Useful for mixed environments where some devices from a blacklisted vendor should be multipathed.
+
+# Blacklist exception by WWID
+{% for pattern in (blacklist_exceptions | default({})).wwids | default([]) %}
 blacklist_exceptions {
+    # WWID to include despite blacklist
     wwid "{{ pattern }}"
 }
 {% endfor %}
-{% for pattern in blacklist_exceptions.devices %}
+
+# Blacklist exception by device attributes
+{% for pattern in (blacklist_exceptions | default({})).devices | default([]) %}
 blacklist_exceptions {
-{% if pattern.vendor is defined %}    vendor "{{ pattern.vendor }}"{% endif %}
-{% if pattern.product is defined %}    product "{{ pattern.product }}"{% endif %}
-{% if pattern.devnode is defined %}    devnode "{{ pattern.devnode }}"{% endif %}
+{% if pattern.vendor is defined %}    # Vendor string to include
+    vendor "{{ pattern.vendor }}"{% endif %}
+{% if pattern.product is defined %}    # Product string to include
+    product "{{ pattern.product }}"{% endif %}
+{% if pattern.devnode is defined %}    # Device node regex to include
+    devnode "{{ pattern.devnode }}"{% endif %}
 }
 {% endfor %}

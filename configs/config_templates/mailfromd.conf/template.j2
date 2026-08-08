@@ -1,75 +1,146 @@
-# Mailfromd main configuration file
-# This file configures the mailfromd daemon, which acts as an MTA filter
-# See `man 5 mailfromd.conf` for detailed documentation
+# =============================================================================
+# Mailfromd Main Configuration
+# This file configures the mailfromd daemon, which acts as an MTA filter for
+# SMTP connections. It performs validation checks (SPF, DKIM, DNSBL, etc.)
+# before forwarding mail to the destination MTA.
+# See `man 5 mailfromd.conf` for detailed documentation.
+# =============================================================================
 
-# Enable verbose logging to syslog
-verbose {{ verbose }}
+# -----------------------------------------------------------------------------
+# System / Security Settings
+# -----------------------------------------------------------------------------
 
-# User to drop privileges to after binding to privileged ports
-user "{{ user }}"
+# Enable verbose logging (additional debug output to syslog)
+# Default: False
+verbose {{ verbose | default(false) }}
 
-# Group to drop privileges to
-# (defaults to user's primary group)
-group "{{ group }}"
+# System user to drop privileges to after startup
+# Default: 'mailfromd'
+user "{{ user | default('mailfromd') }}"
 
-# PID file location
-pidfile "{{ pidfile }}"
+# System group to drop privileges to after startup
+# (defaults to user's primary group if not specified)
+# Default: 'mailfromd'
+group "{{ group | default('mailfromd') }}"
 
-# chroot directory (empty string disables chroot)
-# Set to empty string to run without chroot
-chroot "{{ chroot }}"
+# Path to the PID file
+# Default: '/var/run/mailfromd.pid'
+pidfile "{{ pidfile | default('/var/run/mailfromd.pid') }}"
 
-# Maximum number of simultaneous connections
-max-connections {{ max_connections }}
+# Chroot directory
+# Set to empty string to disable chroot
+# Default: '/var/chroot/mailfromd'
+chroot "{{ chroot | default('/var/chroot/mailfromd') }}"
+
+# -----------------------------------------------------------------------------
+# Connection Limits & Timeouts
+# -----------------------------------------------------------------------------
+
+# Maximum number of simultaneous client connections
+# Default: 1000
+max-connections {{ max_connections | default(1000) }}
 
 # Maximum number of recipients per message
-max-recipients {{ max_recipients }}
+# Default: 50
+max-recipients {{ max_recipients | default(50) }}
 
 # Timeout for SMTP commands (in seconds)
-command-timeout {{ command_timeout }}
+# Default: 300
+command-timeout {{ command_timeout | default(300) }}
 
 # Timeout for data transfer (in seconds)
-data-timeout {{ data_timeout }}
+# Default: 120
+data-timeout {{ data_timeout | default(120) }}
 
 # Timeout for connection establishment (in seconds)
-connect-timeout {{ connect_timeout }}
+# Default: 30
+connect-timeout {{ connect_timeout | default(30) }}
 
-# Listen address(es) and port(s)
-# Supports multiple listen directives
-{% for listener in listeners %}
+# -----------------------------------------------------------------------------
+# Network Listeners
+# Defines which interfaces and ports the daemon binds to.
+# Default: [{'address': '127.0.0.1', 'port': 25}]
+# -----------------------------------------------------------------------------
+{% for listener in (listeners | default([{'address': '127.0.0.1', 'port': 25}])) %}
 listen {{ listener.address }} {{ listener.port }}
 {% endfor %}
 
-# TLS/SSL configuration (optional)
-{% if tls_enabled %}
-tls-certificate "{{ tls_certificate }}"
-tls-key "{{ tls_key }}"
-{% if tls_ca %}tls-ca "{{ tls_ca }}"{% endif %}
+# -----------------------------------------------------------------------------
+# TLS/SSL Configuration
+# -----------------------------------------------------------------------------
+
+# Enable TLS encryption for inbound connections
+# Default: False
+{% if tls_enabled | default(false) %}
+# Path to TLS certificate file
+# Default: '/etc/mailfromd/cert.pem'
+tls-certificate "{{ tls_certificate | default('/etc/mailfromd/cert.pem') }}"
+
+# Path to TLS private key file
+# Default: '/etc/mailfromd/key.pem'
+tls-key "{{ tls_key | default('/etc/mailfromd/key.pem') }}"
+
+# Path to CA certificate bundle for client verification (optional)
+# Default: '' (empty string means no client cert verification)
+{% if tls_ca | default('') %}
+tls-ca "{{ tls_ca | default('') }}"
+{% endif %}
 {% endif %}
 
-# DNSBL (DNS-based Blackhole List) configuration
-{% for dnsbl in dnsbls %}
-dnsbl "{{ dnsbl.domain }}" {{ dnsbl.action }}{% if dnsbl.ttl %} {{ dnsbl.ttl }}{% endif %}
+# -----------------------------------------------------------------------------
+# DNSBL (DNS-based Blackhole List) Configuration
+# Lists of DNS blackhole servers to query for sender IP reputation.
+# Default: [] (empty list, no DNSBL checks)
+# -----------------------------------------------------------------------------
+{% for dnsbl in (dnsbls | default([])) %}
+dnsbl "{{ dnsbl.domain }}" {{ dnsbl.action }}{% if dnsbl.ttl is defined %} {{ dnsbl.ttl }}{% endif %}
 {% endfor %}
 
-# Whitelisted hosts/networks
-{% for whitelist in whitelists %}
-whitelist {{ whitelist.network }}{% if whitelist.comment %} # {{ whitelist.comment }}{% endif %}
+# -----------------------------------------------------------------------------
+# Whitelists
+# Trusted hosts/networks that bypass DNSBL and rate limiting.
+# Default: [] (empty list, no whitelists)
+# -----------------------------------------------------------------------------
+{% for whitelist in (whitelists | default([])) %}
+whitelist {{ whitelist.network }}{% if whitelist.comment is defined %} # {{ whitelist.comment }}{% endif %}
 {% endfor %}
 
-# Action to take for blocked senders
-blocked-action {{ blocked_action }}
+# -----------------------------------------------------------------------------
+# Blocked Action
+# SMTP action to take when a sender is blocked by DNSBL or other checks.
+# Options: 'reject', 'discard'
+# Default: 'reject'
+# -----------------------------------------------------------------------------
+blocked-action {{ blocked_action | default('reject') }}
 
-# Rate limiting configuration
-{% if rate_limiting %}
-rate-limit {{ rate_limit }}
+# -----------------------------------------------------------------------------
+# Rate Limiting
+# -----------------------------------------------------------------------------
+
+# Enable connection rate limiting per IP
+# Default: True
+{% if rate_limiting | default(true) %}
+# Maximum connections per minute per IP (used when rate_limiting=true)
+# Default: 10
+rate-limit {{ rate_limit | default(10) }}
 {% endif %}
 
-# Log format (syslog priority, or "-" for stdout)
-log-format {{ log_format }}
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
 
-# Enable SPF validation
-spf {{ "yes" if spf_enabled else "no" }}
+# Log format (syslog facility/priority or "-" for stdout)
+# Default: 'mail.fromd'
+log-format {{ log_format | default('mail.fromd') }}
+
+# -----------------------------------------------------------------------------
+# Authentication & Verification Protocols
+# -----------------------------------------------------------------------------
+
+# Enable Sender Policy Framework validation
+# Default: True
+spf {{ "yes" if spf_enabled | default(true) else "no" }}
 
 # Enable DKIM verification
-dkim {{ "yes" if dkim_enabled else "no" }}
+# Default: True
+dkim {{ "yes" if dkim_enabled | default(true) else "no" }}

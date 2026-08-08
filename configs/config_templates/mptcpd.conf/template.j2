@@ -1,55 +1,55 @@
-{# MPTCP daemon global configuration #}
-{% if log_level is defined and log_level != '' %}log_level: {{ log_level }}
-{% endif %}{# log level: debug, info, warn, error, critical #}
+{# ============================================================================ #}
+{# mptcpd.conf — MPTCP daemon global configuration                             #}
+{#                                                                              #}
+{# This template is self-documenting: every directive is preceded by a comment  #}
+{# that restates its schema description. All variables use safe defaults to     #}
+{# prevent render errors when a field is omitted.                               #}
+{# ============================================================================ #}
 
-{% if log_file is defined and log_file != '' %}log_file: {{ log_file }}
-{% endif %}{# path to log file #}
+{# Logging verbosity (debug, info, warn, error, critical). Default is warn if not specified. #}
+log_level: {{ log_level | default('warn') }}
 
-{% if pid_file is defined and pid_file != '' %}pid_file: {{ pid_file }}
-{% endif %}{# path to PID file #}
+{# Path to the log file #}
+log_file: {{ log_file | default('/var/log/mptcpd/mptcpd.log') }}
 
-{% if run_dir is defined and run_dir != '' %}run_dir: {{ run_dir }}
-{% endif %}{# directory for runtime files (e.g., sockets) #}
+{# Path to the PID file #}
+pid_file: {{ pid_file | default('/run/mptcpd/mptcpd.pid') }}
 
-{% if default_subflow_timeout is defined %}default_subflow_timeout: {{ default_subflow_timeout }}
-{% endif %}{# seconds before unused subflow is removed #}
+{# Directory for runtime files (e.g., Unix sockets) #}
+run_dir: {{ run_dir | default('/run/mptcpd') }}
 
-{% if auto_create_subflows is defined %}auto_create_subflows: {{ auto_create_subflows | lower }}
-{% endif %}{# enable automatic subflow creation on new connections #}
-
-{% if address_auto_add is defined %}address_auto_add: {{ address_auto_add | lower }}
-{% endif %}{# automatically announce local addresses via MPTCP DUMP #}
-
-{% if address_auto_delete is defined %}address_auto_delete: {{ address_auto_delete | lower }}
-{% endif %}{# automatically withdraw local addresses when they are removed #}
-
-{% if allowed_interfaces is defined and allowed_interfaces | length > 0 %}# allow subflows only on these interfaces
+{# List of network interface names allowed to carry MPTCP subflows (leave empty to allow all) #}
+{% if (allowed_interfaces | default([]) | length) > 0 %}
 allowed_interfaces:
-{% for iface in allowed_interfaces %}  - {{ iface }}
-{% endfor %}{% endif %}
+{% for iface in allowed_interfaces %}
+  - {{ iface }}
+{% endfor %}
+{% endif %}
 
-{% if blocked_interfaces is defined and blocked_interfaces | length > 0 %}# disallow subflows on these interfaces
+{# List of network interface names explicitly disallowed for MPTCP subflows #}
+{% if (blocked_interfaces | default([]) | length) > 0 %}
 blocked_interfaces:
-{% for iface in blocked_interfaces %}  - {{ iface }}
-{% endfor %}{% endif %}
+{% for iface in blocked_interfaces %}
+  - {{ iface }}
+{% endfor %}
+{% endif %}
 
-{% if endpoints is defined and endpoints | length > 0 %}# static MPTCP endpoints (optional, overrides auto detection)
+{# Static endpoint definitions (override auto-detected addresses) #}
+{% if (endpoints | default([]) | length) > 0 %}
 endpoints:
-{% for ep in endpoints %}  - address: {{ ep.address }}
-    {% if ep.port is defined %}    port: {{ ep.port }}
-    {% endif %}
-    {% if ep.interface is defined %}    interface: {{ ep.interface }}
-    {% endif %}
-    {% if ep.priority is defined %}    priority: {{ ep.priority }}
-    {% endif %}
-    {% if ep.backup is defined %}    backup: {{ ep.backup | lower }}
-    {% endif %}
-{% endfor %}{% endif %}
-
-{% if kernel_limits is defined %}# kernel-level limits (optional, leave empty to use system defaults)
-kernel_limits:
-  {% if kernel_limits.max_subflows is defined %}max_subflows: {{ kernel_limits.max_subflows }}
-  {% endif %}
-  {% if kernel_limits.token_max is defined %}token_max: {{ kernel_limits.token_max }}
-  {% endif %}
+{% for ep in endpoints %}
+  - address: {{ ep.address }}
+{% if ep.port is defined %}
+    port: {{ ep.port }}
+{% endif %}
+{% if ep.interface is defined %}
+    interface: {{ ep.interface }}
+{% endif %}
+{% if ep.priority is defined %}
+    priority: {{ ep.priority }}
+{% endif %}
+{% if ep.backup is defined %}
+    backup: {{ ep.backup | lower }}
+{% endif %}
+{% endfor %}
 {% endif %}

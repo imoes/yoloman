@@ -1,45 +1,93 @@
-# WebSocket listener configuration for Mosquitto
-listener 1883 {{ websocket_port }}
+# =============================================================================
+# Mosquitto WebSocket Listener Configuration
+# =============================================================================
+# This template configures a single WebSocket listener for the Mosquitto MQTT broker.
+# It exposes MQTT messages via WebSockets, allowing browser-based clients to connect.
+# =============================================================================
 
-# Allow unencrypted WebSocket connections (use with caution — consider TLS in production)
+# -----------------------------------------------------------------------------
+# Listener Port
+# Description: Port on which the WebSocket listener will accept connections
+# (typically 1883 for unencrypted, or 8883 for encrypted).
+# -----------------------------------------------------------------------------
+listener {{ websocket_port | default(1883) }}
+
+# -----------------------------------------------------------------------------
+# Protocol
+# Description: Enables WebSocket protocol support for this listener.
+# -----------------------------------------------------------------------------
 protocol websockets
 
-# Bind to all interfaces; change to a specific IP if needed
-bind {{ websocket_bind_address }}
+# -----------------------------------------------------------------------------
+# Bind Address
+# Description: IP address the WebSocket listener binds to (e.g., '127.0.0.1'
+# for localhost-only, '0.0.0.0' for all interfaces).
+# -----------------------------------------------------------------------------
+bind {{ websocket_bind_address | default('0.0.0.0') }}
 
-# Maximum number of simultaneous WebSocket connections
-max_connections {{ max_websocket_connections }}
+# -----------------------------------------------------------------------------
+# Maximum Connections
+# Description: Maximum number of concurrent WebSocket connections allowed.
+# -----------------------------------------------------------------------------
+max_connections {{ max_websocket_connections | default(100) }}
 
-# Enable WebSocket keep-alive (in seconds) to detect dead connections
-websocket_keepalive {{ websocket_keepalive }}
+# -----------------------------------------------------------------------------
+# Keep-Alive Interval
+# Description: Interval (in seconds) for WebSocket ping/pong keep-alive
+# messages to detect broken connections.
+# -----------------------------------------------------------------------------
+websocket_keepalive {{ websocket_keepalive | default(60) }}
 
-# WebSocket idle timeout (in seconds) before closing inactive connections
-websocket_idle_timeout {{ websocket_idle_timeout }}
+# -----------------------------------------------------------------------------
+# Idle Timeout
+# Description: Time (in seconds) after which an idle WebSocket connection
+# is closed.
+# -----------------------------------------------------------------------------
+websocket_idle_timeout {{ websocket_idle_timeout | default(300) }}
 
-{% if enable_tls %}
-# TLS/SSL configuration for secure WebSocket (wss://)
-tls_version {{ tls_version }}
-tls_cert_file {{ tls_cert_file }}
-tls_key_file {{ tls_key_file }}
-{% if tls_ca_file %}
-tls_ca_file {{ tls_ca_file }}
+# -----------------------------------------------------------------------------
+# TLS Configuration
+# Description: Enables and configures TLS for secure WebSocket (wss://)
+# connections. Required if connecting over HTTPS or from browsers requiring
+# encrypted connections.
+# -----------------------------------------------------------------------------
+{% if enable_tls | default(False) | bool %}
+# TLS is enabled
+tls_version {{ tls_version | default('tlsv1.2') }}
+tls_cert_file {{ tls_cert_file | default('/etc/mosquitto/certs/server.crt') }}
+tls_key_file {{ tls_key_file | default('/etc/mosquitto/certs/server.key') }}
+{% if tls_ca_file | default('') | string | trim | length > 0 %}
+tls_ca_file {{ tls_ca_file | default('') }}
 {% endif %}
 {% endif %}
 
-# Optional: Require authentication for WebSocket clients
-{% if require_auth %}
+# -----------------------------------------------------------------------------
+# Authentication & Authorization
+# Description: Controls whether clients must authenticate (username/password)
+# or if anonymous connections are permitted.
+# -----------------------------------------------------------------------------
+{% if require_auth | default(False) | bool %}
+# Authentication is required; anonymous access is disabled.
 allow_anonymous false
-password_file {{ password_file }}
+password_file {{ password_file | default('/etc/mosquitto/passwd') }}
 {% else %}
-allow_anonymous {{ allow_anonymous | lower }}
+# Authentication is not required; anonymous access is allowed (controlled by allow_anonymous).
+allow_anonymous {{ allow_anonymous | default(True) | lower }}
 {% endif %}
 
-# Logging
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# Description: Directs Mosquitto log output to a specific file.
+# -----------------------------------------------------------------------------
 daemon false
 log_type all
-log_dest file {{ log_file }}
+log_dest file {{ log_file | default('/var/log/mosquitto/mosquitto.log') }}
 
-# Persistence (optional — adjust path if needed)
+# -----------------------------------------------------------------------------
+# Persistence Configuration
+# Description: Enables persistence of retained messages and subscriptions to
+# disk, ensuring state survives broker restarts.
+# -----------------------------------------------------------------------------
 persistence true
-persistence_location {{ persistence_dir }}
+persistence_location {{ persistence_dir | default('/var/lib/mosquitto') }}
 persistence_file mosquitto.db

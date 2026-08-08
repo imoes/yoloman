@@ -11,7 +11,7 @@ Path {{ chroot_path }}
 Umask {{ umask | default('022') }}
 
 # Maximum number of concurrent sessions
-MaxSession {{ max_sessions | default(10) }}
+MaxSessions {{ max_sessions | default('10') }}
 
 # Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
 LogLevel {{ log_level | default('INFO') }}
@@ -23,7 +23,7 @@ LogLevel {{ log_level | default('INFO') }}
 Listen {{ listen_address | default('0.0.0.0') }}
 
 # Port to listen on
-Port {{ port | default(2222) }}
+Port {{ port | default('2222') }}
 
 # Enable or disable PAM authentication (required for system user auth)
 {{ '# ' if not use_pam else '' }}PAM yes
@@ -50,7 +50,7 @@ SSLKeyFile {{ tls_key_file }}
     Shell {{ user.shell | default('/bin/false') }}
     # Permissions: R=READ, W=WRITE, M=MODIFY, D=DELETE, L=LIST, A=ALL
     Permissions {{ user.permissions | default('RL') }}
-    # Max upload size (in MB) for this user (0 = unlimited)
+    # Max upload size (in KB) for this user (0 = unlimited)
     MaxUploadSize {{ user.max_upload_size | default(0) }}
     # IP whitelist (comma-separated CIDRs or IPs); empty = no restriction
     {{ '# ' if not user.ip_whitelist else '' }}IP {{ user.ip_whitelist | default('') | join(', ') }}
@@ -76,21 +76,8 @@ SSLKeyFile {{ tls_key_file }}
 </DirectoryACL>
 {% endif %}
 
-# Bandwidth limits (KB/s); 0 = unlimited
-{% if bandwidth_limits %}
-# Global upload and download limits
-{{ '# ' if not bandwidth_limits.global_upload_limit else '' }}UploadLimit {{ bandwidth_limits.global_upload_limit | default(0) }}
-{{ '# ' if not bandwidth_limits.global_download_limit else '' }}DownloadLimit {{ bandwidth_limits.global_download_limit | default(0) }}
-
-# Per-user limits
-{% for limit in bandwidth_limits.user_limits %}
-UserUploadLimit {{ limit.user_name }} {{ limit.upload_limit }}
-UserDownloadLimit {{ limit.user_name }} {{ limit.download_limit }}
-{% endfor %}
-{% endif %}
-
 # Idle timeout (seconds)
-IdleTimeout {{ idle_timeout | default(900) }}
+IdleTimeout {{ idle_timeout | default('900') }}
 
 # Disable or enable directory listing compression (experimental)
 {{ '# ' if not enable_compression else '' }}Compression yes

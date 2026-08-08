@@ -1,12 +1,41 @@
 #
-# cron-jobs for munin
+# Munin Cron Job Configuration
+# This file defines the scheduled tasks for Munin monitoring.
+# It controls when reports are mailed, when limits are checked,
+# and when stale HTML/graph files are cleaned up.
 #
 
-MAILTO={{ contact_groups.alerts.command | replace('mail -s \'Munin alert\' root', '').replace('mail -s', '').strip().replace('\'','').replace('root', '{{ contact_groups.alerts.contacts[0].value if contact_groups.alerts.contacts else 'root' }}') }}
+# Email address where Munin cron job reports are sent.
+# Default: root
+MAILTO={{ (defaults | default({})).mailto | default('root') }}
 
-*/{{ defaults.interval }} * * * *     {{ defaults.user }} if [ -x /usr/bin/munin-cron ]; then /usr/bin/munin-cron; fi
-14 10 * * *     {{ defaults.user }} if [ -x /usr/share/munin/munin-limits ]; then /usr/share/munin/munin-limits --force --contact nagios --contact old-nagios; fi
+# Unix user account under which Munin processes run.
+# This user must have permissions to read system metrics and write to the lib_dir.
+# Default: munin
+#
+# Schedule: Every 5 minutes
+# Action: Execute munin-cron if it exists
+{{ (defaults | default({})).user | default('munin') }} if [ -x /usr/bin/munin-cron ]; then /usr/bin/munin-cron; fi
 
-# remove stale generated html and graph files (e.g. disabled plugins or fields with volatile names)
-27 03 * * *     {{ defaults.user }} htmldir=$({ cat /etc/munin/munin.conf /etc/munin/munin-conf.d/* 2>/dev/null || true; } | sed -nE 's/^\s*htmldir\s+(\S.*)$/\1/p' | tail -1); htmldir=${htmldir:-{{ defaults.html_dir }}}; if [ -d "$htmldir" ]; then find "$htmldir/" -type f -name "*.html" -mtime +30 -delete; find "$htmldir/" -mindepth 1 -type d -empty -delete; fi
-32 03 * * *     {{ defaults.user }} cgitmpdir=$({ cat /etc/munin/munin.conf /etc/munin/munin-conf.d/* 2>/dev/null || true; } | sed -nE 's/^\s*cgitmpdir\s+(\S.*)$/\1/p' | tail -1); cgitmpdir=${cgitmpdir:-/var/lib/munin/cgi-tmp}; if [ -d "$cgitmpdir" ]; then find "$cgitmpdir/" -type f -mtime +1 -delete; find "$cgitmpdir/" -mindepth 1 -type d -empty -delete; fi
+# Schedule: Daily at 10:14
+# Action: Check Munin limits and send alerts to Nagios contacts
+# This job ensures that defined thresholds for monitored nodes are evaluated.
+{{ (defaults | default({})).user | default('munin') }} if [ -x /usr/share/munin/munin-limits ]; then /usr/share/munin/munin-limits --force --contact nagios --contact old-nagios; fi
+
+# Remove stale generated HTML and graph files.
+# This cleans up files older than 30 days from the HTML output directory.
+# It dynamically determines the htmldir from Munin configuration files,
+# falling back to the default if not explicitly configured.
+#
+# Schedule: Daily at 03:27
+# Action: Delete old .html files and empty directories in htmldir
+27 03 * * *     {{ (defaults | default({})).user | default('munin') }} htmldir=$({ cat /etc/munin/munin.conf /etc/munin/munin-conf.d/* 2>/dev/null || true; } | sed -nE 's/^\s*htmldir\s+(\S.*)$/\1/p' | tail -1); htmldir=${htmldir:-{{ (defaults | default({})).html_dir | default('/var/cache/munin/www') }}}; if [ -d "$htmldir" ]; then find "$htmldir/" -type f -name "*.html" -mtime +30 -delete; find "$htmldir/" -mindepth 1 -type d -empty -delete; fi
+
+# Remove stale CGI temporary files.
+# Cleans up temporary files used by Munin's CGI interface.
+# Dynamically determines the cgitmpdir from Munin configuration,
+# falling back to the default derived from lib_dir.
+#
+# Schedule: Daily at 03:32
+# Action: Delete old files and empty directories in cgitmpdir
+32 03 * * *     www-data cgitmpdir=$({ cat /etc/munin/munin.conf /etc/munin/munin-conf.d/* 2>/dev/null || true; } | sed -nE 's/^\s*cgitmpdir\s+(\S.*)$/\1/p' | tail -1); cgitmpdir=${cgitmpdir:-{{ (defaults | default({})).lib_dir | default('/var/lib/munin') }}/cgi-tmp}; if [ -d "$cgitmpdir" ]; then find "$cgitmpdir/" -type f -mtime +1 -delete; find "$cgitmpdir/" -mindepth 1 -type d -empty -delete; fi

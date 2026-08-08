@@ -1,89 +1,127 @@
+{# ConnMan VPN Global Configuration Template #}
+{# This template generates the global configuration file for the ConnMan VPN plugin. #}
+{# It is self-documenting: every variable is described, defaulted, and safely rendered. #}
+
 # ConnMan VPN global configuration
-# Enables/disables the VPN plugin globally
-enabled = {{ enabled | lower }}
+# Enables/disables the VPN plugin globally.
+# Schema: enabled (bool)
+enabled = {{ (enabled | default(True)) | lower }}
 
-# Default DNS servers to use for VPN connections (space-separated list)
-# Overrides system DNS when VPN is active
-default_dns = {{ default_dns | join(' ') }}
+# Default DNS servers to use for VPN connections (space-separated list).
+# Overrides system DNS when VPN is active.
+# Schema: default_dns (list of strings)
+default_dns = {{ (default_dns | default(['8.8.8.8', '8.8.4.4'])) | join(' ') }}
 
-# Timeout (in seconds) for connection establishment
-connect_timeout = {{ connect_timeout }}
+# Timeout (in seconds) for connection establishment.
+# Schema: connect_timeout (int)
+connect_timeout = {{ (connect_timeout | default(30)) }}
 
-# Maximum number of concurrent VPN connections
-max_connections = {{ max_connections }}
+# Maximum number of concurrent VPN connections.
+# Schema: max_connections (int)
+max_connections = {{ (max_connections | default(5)) }}
 
-# Enable or disable IPv6 support in VPN tunnels
-ipv6_enabled = {{ ipv6_enabled | lower }}
+# Enable or disable IPv6 support in VPN tunnels.
+# Schema: ipv6_enabled (bool)
+ipv6_enabled = {{ (ipv6_enabled | default(False)) | lower }}
 
-# Authentication method: 'certificate', 'psk', 'eap', or 'userpass'
-auth_method = {{ auth_method }}
+# Authentication method: 'certificate', 'psk', 'eap', or 'userpass'.
+# Schema: auth_method (string)
+auth_method = {{ (auth_method | default('eap')) }}
 
-# Path to CA certificate (for certificate-based auth)
-# Leave empty if not using certificate auth
-cacert_path = {{ cacert_path }}
+# Path to CA certificate (for certificate-based auth).
+# Leave empty if not using certificate auth.
+# Schema: cacert_path (string)
+cacert_path = {{ (cacert_path | default('')) }}
 
-# Path to client certificate (for certificate-based auth)
-# Leave empty if not using certificate auth
-cert_path = {{ cert_path }}
+# Path to client certificate (for certificate-based auth).
+# Leave empty if not using certificate auth.
+# Schema: cert_path (string)
+cert_path = {{ (cert_path | default('')) }}
 
-# Path to client private key (for certificate-based auth)
-# Leave empty if not using certificate auth
-key_path = {{ key_path }}
+# Path to client private key (for certificate-based auth).
+# Leave empty if not using certificate auth.
+# Schema: key_path (string)
+key_path = {{ (key_path | default('')) }}
 
-# EAP inner authentication type (e.g., 'md5', 'mschapv2', 'peap', 'ttls')
-eap_inner = {{ eap_inner }}
+# EAP inner authentication type (e.g., 'md5', 'mschapv2', 'peap', 'ttls').
+# Only used when auth_method is 'eap'.
+# Schema: eap_inner (string)
+eap_inner = {{ (eap_inner | default('mschapv2')) }}
 
-# Pre-shared key (for PSK auth)
-# WARNING: In production, use secure key management instead of plain text
-psk = {{ psk }}
+# Pre-shared key (for PSK auth).
+# WARNING: In production, use secure key management instead of plain text.
+# Schema: psk (string)
+psk = {{ (psk | default('')) }}
 
-# List of allowed remote gateways (hostnames or IPs)
-{% for gateway in allowed_gateways %}# Gateway {{ loop.index }}
-gateway_{{ loop.index }} = {{ gateway.host }}{% if gateway.port %}:{{ gateway.port }}{% endif %}
+# List of allowed remote gateways (hostnames or IPs).
+# Each entry can include a host and optional port (e.g., 'vpn.example.com:500').
+# Schema: allowed_gateways (list of dicts with 'host' and optional 'port')
+{% for gw in (allowed_gateways | default([])) %}
+# Gateway {{ loop.index }}
+gateway_{{ loop.index }} = {{ (gw.host | default('')) }}{% if (gw.port | default(None)) is not none %}:{{ (gw.port | default(None)) }}{% endif %}
 {% endfor %}
 
-# List of excluded local subnets (no NAT for these ranges)
-{% for subnet in excluded_subnets %}# Exclude subnet {{ subnet }}
+# List of excluded local subnets (no NAT for these ranges).
+# Each entry is a CIDR notation string (e.g., '192.168.1.0/24').
+# Schema: excluded_subnets (list of strings)
+{% for subnet in (excluded_subnets | default([])) %}
+# Exclude subnet {{ subnet }}
 exclude_subnet_{{ loop.index }} = {{ subnet }}
 {% endfor %}
 
-# Route priority: higher = more preferred
-# Used when multiple VPNs offer overlapping routes
-route_priority = {{ route_priority }}
+# Route priority: higher = more preferred.
+# Used when multiple VPNs offer overlapping routes.
+# Schema: route_priority (int)
+route_priority = {{ (route_priority | default(100)) }}
 
-# Enable automatic reconnection on link loss
-auto_reconnect = {{ auto_reconnect | lower }}
+# Enable automatic reconnection on link loss.
+# Schema: auto_reconnect (bool)
+auto_reconnect = {{ (auto_reconnect | default(True)) | lower }}
 
-# Delay (in seconds) before attempting reconnection
-reconnect_delay = {{ reconnect_delay }}
+# Delay (in seconds) before attempting reconnection.
+# Schema: reconnect_delay (int)
+reconnect_delay = {{ (reconnect_delay | default(5)) }}
 
-# Log level: 'debug', 'info', 'warning', 'error'
-log_level = {{ log_level }}
+# Log level: 'debug', 'info', 'warning', 'error'.
+# Schema: log_level (string)
+log_level = {{ (log_level | default('warning')) }}
 
-# Path to custom log file (optional)
-log_file = {{ log_file }}
+# Path to custom log file (optional).
+# Empty string disables file logging.
+# Schema: log_file (string)
+log_file = {{ (log_file | default('/var/log/connman-vpn.log')) }}
 
-# Enable or disable MOBIKE (IKEv2 Mobility and Multihoming)
-mobike_enabled = {{ mobike_enabled | lower }}
+# Enable or disable MOBIKE (IKEv2 Mobility and Multihoming).
+# Schema: mobike_enabled (bool)
+mobike_enabled = {{ (mobike_enabled | default(True)) | lower }}
 
-# Enable or disable dead peer detection (DPD)
-dpd_enabled = {{ dpd_enabled | lower }}
+# Enable or disable dead peer detection (DPD).
+# Schema: dpd_enabled (bool)
+dpd_enabled = {{ (dpd_enabled | default(True)) | lower }}
 
-# DPD interval (in seconds)
-dpd_delay = {{ dpd_delay }}
+# DPD interval (in seconds).
+# Schema: dpd_delay (int)
+dpd_delay = {{ (dpd_delay | default(30)) }}
 
-# DPD timeout (in seconds)
-dpd_timeout = {{ dpd_timeout }}
+# DPD timeout (in seconds).
+# Schema: dpd_timeout (int)
+dpd_timeout = {{ (dpd_timeout | default(10)) }}
 
-# Optional: DNS search domains for VPN (space-separated)
-{% if dns_search_domains %}dns_search = {{ dns_search_domains | join(' ') }}
+# Optional: DNS search domains for VPN (space-separated).
+# Schema: dns_search_domains (list of strings)
+{% if (dns_search_domains | default([])) | length > 0 %}
+dns_search = {{ (dns_search_domains | default([])) | join(' ') }}
 {% endif %}
 
-# Optional: Custom DNS resolver (e.g., 'systemd-resolved', 'dnsmasq', 'none')
-{% if dns_backend %}dns_backend = {{ dns_backend }}
+# Optional: Custom DNS resolver backend (e.g., 'systemd-resolved', 'dnsmasq', 'none').
+# Schema: dns_backend (string)
+{% if (dns_backend | default('systemd-resolved')) != 'none' %}
+dns_backend = {{ (dns_backend | default('systemd-resolved')) }}
 {% endif %}
 
-# Optional: Custom plugin-specific options (key=value)
-{% for opt_key, opt_val in extra_options %}# Extra option: {{ opt_key }}
-{{ opt_key }} = {{ opt_val }}
+# Optional: Custom plugin-specific options (key=value).
+# Schema: extra_options (list of lists/sequences: [key, value])
+{% for opt_pair in (extra_options | default([])) %}
+# Extra option: {{ opt_pair[0] }}
+{{ opt_pair[0] }} = {{ opt_pair[1] }}
 {% endfor %}

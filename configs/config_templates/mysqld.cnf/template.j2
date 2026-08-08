@@ -1,103 +1,207 @@
 [mysqld]
+
+# ==============================================================================
 # Basic server identity and operation
-user                    = {{ mysql_user }}
-gid                     = {{ mysql_gid }}
+# ==============================================================================
 
+# User account under which mysqld runs.
+user = {{ mysql_user | default('mysql') }}
+
+# Group ID for the MySQL user (often same as mysql_user).
+# Note: 'gid' is not a standard mysqld config directive, but preserved for compatibility if used by wrapper scripts.
+gid = {{ mysql_gid | default('mysql') }}
+
+# ==============================================================================
 # Data directory and base paths
-datadir                 = {{ mysql_datadir }}
-tmpdir                  = {{ mysql_tmpdir }}
-socket                  = {{ mysql_socket }}
+# ==============================================================================
 
+# Directory where MySQL stores its data files.
+datadir = {{ mysql_datadir | default('/var/lib/mysql') }}
+
+# Directory for temporary files.
+tmpdir = {{ mysql_tmpdir | default('/tmp') }}
+
+# Unix socket file for local connections.
+socket = {{ mysql_socket | default('/var/run/mysqld/mysqld.sock') }}
+
+# ==============================================================================
 # Network listening configuration
-bind-address            = {{ mysql_bind_address }}
-port                    = {{ mysql_port }}
+# ==============================================================================
 
+# IP address to bind to. Use '0.0.0.0' to accept all remote connections.
+bind-address = {{ mysql_bind_address | default('127.0.0.1') }}
+
+# TCP/IP port number to listen on.
+port = {{ mysql_port | default(3306) }}
+
+# ==============================================================================
 # Character set and collation
-character-set-server    = {{ mysql_character_set_server }}
-collation-server        = {{ mysql_collation_server }}
+# ==============================================================================
 
-# Time zone (use 'SYSTEM' to inherit system TZ)
-time_zone               = {{ mysql_time_zone }}
+# Default character set for new databases and tables.
+character-set-server = {{ mysql_character_set_server | default('utf8mb4') }}
 
+# Default collation for new databases and tables.
+collation-server = {{ mysql_collation_server | default('utf8mb4_general_ci') }}
+
+# ==============================================================================
+# Time zone
+# ==============================================================================
+
+# Default server time zone. Use 'SYSTEM' to inherit the OS time zone.
+time_zone = {{ mysql_time_zone | default('SYSTEM') }}
+
+# ==============================================================================
 # InnoDB engine settings
-innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size }}
-innodb_log_file_size    = {{ mysql_innodb_log_file_size }}
-innodb_flush_log_at_trx_commit = {{ mysql_innodb_flush_log_at_trx_commit }}
-innodb_file_per_table   = {{ mysql_innodb_file_per_table }}
-innodb_flush_method     = {{ mysql_innodb_flush_method }}
+# ==============================================================================
 
-# Query cache (deprecated in MySQL 8.0+, but still present in config templates for compatibility)
-{% if mysql_query_cache_size is defined and mysql_query_cache_size > 0 %}
-query_cache_type        = {{ mysql_query_cache_type | default('OFF') }}
-query_cache_size        = {{ mysql_query_cache_size }}
-query_cache_limit       = {{ mysql_query_cache_limit | default('256K') }}
+# Size of InnoDB buffer pool (memory for caching data and indexes).
+innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size | default('256M') }}
+
+# Size of each InnoDB log file.
+innodb_log_file_size = {{ mysql_innodb_log_file_size | default('48M') }}
+
+# Controls durability/speed tradeoff (1= safest, 0/2= faster).
+innodb_flush_log_at_trx_commit = {{ mysql_innodb_flush_log_at_trx_commit | default(1) }}
+
+# Store each InnoDB table in its own .ibd file.
+innodb_file_per_table = {{ mysql_innodb_file_per_table | default(true) | lower }}
+
+# How InnoDB flushes data to disk (common values: fdatasync, O_DIRECT).
+innodb_flush_method = {{ mysql_innodb_flush_method | default('fdatasync') }}
+
+# ==============================================================================
+# Query cache settings
+# Note: Query cache is deprecated in MySQL 8.0+.
+# ==============================================================================
+
+# Total size of query cache (set >0 to enable).
+# Deprecated in MySQL 8.0+.
+{% set qc_size = mysql_query_cache_size | default('0') %}
+{% if qc_size is number or (qc_size is string and qc_size is number) or (qc_size | int > 0) %}
+# Query cache is enabled based on configuration.
+query_cache_type = {{ mysql_query_cache_type | default('OFF') }}
+query_cache_size = {{ mysql_query_cache_size | default('0') }}
+query_cache_limit = {{ mysql_query_cache_limit | default('256K') }}
 {% else %}
-query_cache_type        = OFF
-query_cache_size        = 0
+# Query cache is disabled (default or explicitly set to 0).
+query_cache_type = OFF
+query_cache_size = 0
 {% endif %}
 
+# ==============================================================================
 # Connection handling
-max_connections         = {{ mysql_max_connections }}
-max_allowed_packet      = {{ mysql_max_allowed_packet }}
-thread_cache_size       = {{ mysql_thread_cache_size }}
-thread_stack            = {{ mysql_thread_stack }}
+# ==============================================================================
 
+# Maximum number of simultaneous client connections.
+max_connections = {{ mysql_max_connections | default(151) }}
+
+# Maximum size of one packet or any generated/intermediate string.
+max_allowed_packet = {{ mysql_max_allowed_packet | default('64M') }}
+
+# Number of threads to keep in cache for reuse.
+thread_cache_size = {{ mysql_thread_cache_size | default(15) }}
+
+# ==============================================================================
 # Logging
-{% if mysql_general_log == true %}
-general_log             = ON
-general_log_file        = {{ mysql_general_log_file }}
+# ==============================================================================
+
+# Enable general query log (logs all statements).
+{% if mysql_general_log | default(false) %}
+# General query log is enabled. Logs all statements.
+general_log = ON
+general_log_file = {{ mysql_general_log_file | default('/var/log/mysql/general.log') }}
+{% else %}
+# General query log is disabled.
 {% endif %}
 
-{% if mysql_slow_query_log == true %}
-slow_query_log          = ON
-slow_query_log_file     = {{ mysql_slow_query_log_file }}
-long_query_time         = {{ mysql_long_query_time }}
+# Enable slow query log (logs queries taking longer than long_query_time).
+{% if mysql_slow_query_log | default(false) %}
+# Slow query log is enabled. Logs queries exceeding long_query_time.
+slow_query_log = ON
+slow_query_log_file = {{ mysql_slow_query_log_file | default('/var/log/mysql/slow.log') }}
+long_query_time = {{ mysql_long_query_time | default(2) }}
+{% else %}
+# Slow query log is disabled.
 {% endif %}
 
-{% if mysql_log_error != '' %}
-log_error               = {{ mysql_log_error }}
+# Path to error log file. Set to empty string to disable.
+{% if mysql_log_error | default('') != '' %}
+log_error = {{ mysql_log_error | default('/var/log/mysql/error.log') }}
+{% else %}
+# Log error destination is disabled or not set.
 {% endif %}
 
+# ==============================================================================
 # Binary logging (for replication and point-in-time recovery)
-{% if mysql_binlog_format != '' %}
-log_bin                 = {{ mysql_log_bin }}
-binlog_format           = {{ mysql_binlog_format }}
-expire_logs_days        = {{ mysql_expire_logs_days }}
-max_binlog_size         = {{ mysql_max_binlog_size }}
-binlog_cache_size       = {{ mysql_binlog_cache_size }}
+# ==============================================================================
+
+# Base name for binary log files (includes path, excludes extension).
+{% if mysql_log_bin | default('') != '' %}
+# Binary logging is enabled for replication and recovery.
+log_bin = {{ mysql_log_bin | default('/var/log/mysql/mysql-bin') }}
+binlog_format = {{ mysql_binlog_format | default('ROW') }}
+expire_logs_days = {{ mysql_expire_logs_days | default(7) }}
+max_binlog_size = {{ mysql_max_binlog_size | default('100M') }}
+binlog_cache_size = {{ mysql_binlog_cache_size | default('32K') }}
 {% endif %}
 
+# ==============================================================================
 # Replication (for master/slave setup)
-{% for replica in mysql_replication_slaves %}
-# Replication slave config for host: {{ replica.host }}
-server-id               = {{ replica.server_id }}
-{% if replica.master_host is defined %}
-replicate-do-db         = {{ replica.replicate_do_db | join(', ') }}
+# ==============================================================================
+
+# List of replication slave configurations.
+{% for replica in (mysql_replication_slaves | default([])) %}
+# Replication slave config for host: {{ replica.host | default('unknown') if replica.host else 'unspecified' }}
+server-id = {{ replica.server_id | default(1) }}
+{% if replica.master_host | default('') != '' %}
+# Note: replicate-do-db is deprecated in favor of replication filters, but retained for legacy compatibility.
+{% set rdo = replica.replicate_do_db | default([]) %}
+{% if rdo is iterable and (rdo | length) > 0 %}
+replicate-do-db = {{ rdo | join(', ') }}
+{% endif %}
 {% endif %}
 {% endfor %}
 
-# TLS/SSL (optional, disabled by default unless keys are specified)
-{% if mysql_ssl_ca is defined and mysql_ssl_ca != '' %}
-ssl_ca                  = {{ mysql_ssl_ca }}
-ssl_cert                = {{ mysql_ssl_cert }}
-ssl_key                 = {{ mysql_ssl_key }}
+# ==============================================================================
+# TLS/SSL (optional)
+# ==============================================================================
+
+# SSL configuration. Disabled by default unless keys are specified.
+{% if mysql_ssl_ca | default('') != '' %}
+ssl_ca = {{ mysql_ssl_ca }}
+ssl_cert = {{ mysql_ssl_cert | default('') }}
+ssl_key = {{ mysql_ssl_key | default('') }}
 {% endif %}
 
-# Security: disable local infile unless explicitly needed
-local_infile            = {{ 'ON' if mysql_local_infile else 'OFF' }}
+# ==============================================================================
+# Security settings
+# ==============================================================================
 
+# Security: disable local infile unless explicitly needed.
+local_infile = {{ mysql_local_infile | default(false) | ternary('ON', 'OFF') }}
+
+# ==============================================================================
 # Memory/performance tuning
-join_buffer_size        = {{ mysql_join_buffer_size }}
-sort_buffer_size        = {{ mysql_sort_buffer_size }}
-read_buffer_size        = {{ mysql_read_buffer_size }}
-read_rnd_buffer_size    = {{ mysql_read_rnd_buffer_size }}
-tmp_table_size          = {{ mysql_tmp_table_size }}
-max_heap_table_size     = {{ mysql_max_heap_table_size }}
+# ==============================================================================
 
+# Buffer sizes for various operations. Uses defaults if not specified.
+join_buffer_size = {{ mysql_join_buffer_size | default('256K') }}
+sort_buffer_size = {{ mysql_sort_buffer_size | default('256K') }}
+read_buffer_size = {{ mysql_read_buffer_size | default('128K') }}
+read_rnd_buffer_size = {{ mysql_read_rnd_buffer_size | default('256K') }}
+tmp_table_size = {{ mysql_tmp_table_size | default('64M') }}
+max_heap_table_size = {{ mysql_max_heap_table_size | default('64M') }}
+
+# ==============================================================================
 # Table and file descriptor limits
-open_files_limit        = {{ mysql_open_files_limit }}
-table_open_cache        = {{ mysql_table_open_cache }}
-thread_concurrency      = {{ mysql_thread_concurrency }}
+# ==============================================================================
 
+open_files_limit = {{ mysql_open_files_limit | default(65535) }}
+table_open_cache = {{ mysql_table_open_cache | default(4000) }}
+
+# ==============================================================================
 # Default storage engine
-default_storage_engine  = {{ mysql_default_storage_engine }}
+# ==============================================================================
+
+default_storage_engine = {{ mysql_default_storage_engine | default('InnoDB') }}

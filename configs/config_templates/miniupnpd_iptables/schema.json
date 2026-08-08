@@ -12,21 +12,6 @@
         "cidr": "192.168.1.0/24"
       }
     ],
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "eth1",
-          "description": "Internal (LAN) interface name (e.g., br0, eth1)."
-        },
-        "cidr": {
-          "type": "string",
-          "default": "192.168.1.0/24",
-          "description": "IPv4 network address and CIDR prefix (e.g., 192.168.1.0/24). Optional but recommended."
-        }
-      }
-    },
     "description": "List of internal (LAN) interfaces with optional network CIDR. Supports multiple LANs."
   },
   "enable_upnp": {
@@ -55,43 +40,43 @@
     "description": "Only allow port forwarding rules from internal IPs. Prevents rogue external port mapping attempts."
   },
   "system_update": {
-    "type": "bool",
-    "default": true,
-    "description": "Send UPnP SSDP system-update notifications to notify clients of reboots or config changes."
+    "type": "number",
+    "default": 1800,
+    "description": "Interval in seconds between SSDP system-update notifications. Set to 0 to disable."
   },
   "presentation_url": {
     "type": "string",
-    "default": "http://192.168.1.1/",
+    "default": "",
     "description": "Web UI URL advertised via UPnP for gateway management. Set to '' to disable."
   },
   "friendly_name": {
     "type": "string",
-    "default": "My Router",
-    "description": "Human-readable name shown in UPnP control points (e.g., 'D-Link Router')."
+    "default": "MiniUPnPd",
+    "description": "Human-readable name shown in UPnP control points."
   },
   "uuid": {
     "type": "string",
     "default": "",
-    "description": "Unique device identifier (UPnP UUID format: uuid:12345678-1234-1234-1234-123456789abc). Leave empty for auto-generate."
+    "description": "Unique device identifier (UPnP UUID format). Leave empty for auto-generate."
   },
   "serial": {
     "type": "string",
-    "default": "12345678",
-    "description": "Device serial number for UPnP identification (e.g., hardware serial or MAC-based)."
+    "default": "1",
+    "description": "Device serial number for UPnP identification."
   },
   "model_name": {
     "type": "string",
     "default": "MiniUPnPd",
-    "description": "Model name advertised via UPnP (e.g., 'Linux Router')."
+    "description": "Model name advertised via UPnP."
   },
   "model_number": {
     "type": "string",
-    "default": "1.0",
-    "description": "Model version or revision (e.g., '1.0.0')."
+    "default": "1",
+    "description": "Model version or revision."
   },
   "lease_file": {
     "type": "string",
-    "default": "/var/lib/miniupnpd/leases",
+    "default": "",
     "description": "Path to persistent lease file for dynamic port mappings. Set to '' to disable persistence."
   },
   "upnp_port_min": {
@@ -101,12 +86,12 @@
   },
   "upnp_port_max": {
     "type": "number",
-    "default": 0,
+    "default": 65535,
     "description": "Maximum external port allowed in port mappings (0 = no limit)."
   },
   "logfile": {
     "type": "string",
-    "default": "/var/log/miniupnpd.log",
+    "default": "",
     "description": "Path to log file (empty = no file logging)."
   },
   "log_verbosity": {
@@ -116,18 +101,8 @@
   },
   "log_syslog": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Log to syslog in addition to file."
-  },
-  "natpmp_port_min": {
-    "type": "number",
-    "default": 0,
-    "description": "Minimum external port for NAT-PMP mappings (if enabled)."
-  },
-  "natpmp_port_max": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum external port for NAT-PMP mappings (if enabled)."
   },
   "allow_ports": {
     "type": "list",
@@ -151,7 +126,7 @@
   },
   "ssdp_broadcast_interval": {
     "type": "number",
-    "default": 30,
+    "default": 180,
     "description": "Interval (seconds) between SSDP multicast broadcasts."
   },
   "ssdp_alive_time": {
@@ -168,20 +143,5 @@
     "type": "string",
     "default": "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
     "description": "UPnP device type string (IGDv1 or IGDv2). Change only for compatibility."
-  },
-  "enable_content_filtering": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable UPnP content filtering (not implemented for iptables backend; kept for config compatibility)."
-  },
-  "start_script": {
-    "type": "string",
-    "default": "",
-    "description": "Optional shell script executed after service starts (e.g., firewall warm-up)."
-  },
-  "stop_script": {
-    "type": "string",
-    "default": "",
-    "description": "Optional shell script executed before service stops (e.g., cleanup rules)."
   }
 }

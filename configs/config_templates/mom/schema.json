@@ -1,13 +1,90 @@
 {
-  "enabled": {
+  "main_loop_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "The wake up frequency of the main daemon (in seconds)."
+  },
+  "host_monitor_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "The data collection interval for host statistics (in seconds)."
+  },
+  "guest_monitor_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "The data collection interval for guest statistics (in seconds)."
+  },
+  "guest_manager_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "The wake up frequency of the guest manager (in seconds)."
+  },
+  "hypervisor_interface": {
+    "type": "string",
+    "default": "libvirt",
+    "description": "The interface MOM using to discover active guests and collect guest memory statistics. Choices: libvirt, vdsm.",
+    "enum": [
+      "libvirt",
+      "vdsm"
+    ]
+  },
+  "policy_engine_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "The wake up frequency of the policy engine (in seconds)."
+  },
+  "controllers": {
+    "type": "list",
+    "default": [
+      "Balloon",
+      "KSM"
+    ],
+    "description": "A comma-separated list of Controller plugins to enable."
+  },
+  "sample_history_length": {
+    "type": "number",
+    "default": 10,
+    "description": "Sets the maximum number of statistic samples to keep for the purpose of calculating moving averages."
+  },
+  "libvirt_hypervisor_uri": {
+    "type": "string",
+    "default": "",
+    "description": "The URI to use when connecting to this host's libvirt interface. If left blank, the system default URI is used."
+  },
+  "plot_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Set this to an existing, writable directory to enable plotting. If empty, plotting is disabled."
+  },
+  "rpc_port": {
+    "type": "number",
+    "default": -1,
+    "description": "Activate the RPC server on the designated port (-1 to disable)."
+  },
+  "policy_file": {
+    "type": "string",
+    "default": "",
+    "description": "At startup, load a policy from the given file. If empty, no policy is loaded."
+  },
+  "policy_dir": {
+    "type": "string",
+    "default": "/etc/mom/policies.d",
+    "description": "At startup, load policies from the given directory. Only filenames matching *.policy will be considered."
+  },
+  "guest_manager_multi_thread": {
     "type": "bool",
     "default": true,
-    "description": "Enable or disable the MOM daemon (restart required after change)."
+    "description": "Monitor each VM in a separate thread (true) or use a single thread for all VMs (false)."
+  },
+  "log_destination": {
+    "type": "string",
+    "default": "stdio",
+    "description": "Set the destination for program log messages. This can be either 'stdio' or a filename."
   },
   "log_level": {
     "type": "string",
     "default": "info",
-    "description": "Verbosity of logging.",
+    "description": "Set the logging verbosity level. Supported levels: debug, info, warn, error, critical.",
     "enum": [
       "debug",
       "info",
@@ -16,144 +93,31 @@
       "critical"
     ]
   },
-  "state_file": {
+  "host_collectors": {
+    "type": "list",
+    "default": [
+      "HostMemory",
+      "HostKSM"
+    ],
+    "description": "A comma-separated list of Collector plugins to use for Host data collection."
+  },
+  "guest_collectors": {
+    "type": "list",
+    "default": [
+      "GuestQemuProc",
+      "GuestMemory",
+      "GuestBalloon"
+    ],
+    "description": "A comma-separated list of Collector plugins to use for Guest data collection."
+  },
+  "socket_path": {
     "type": "string",
-    "default": "/var/lib/mom/mom.state",
-    "description": "Path to MOM runtime state file for persistence between restarts."
+    "default": "/var/lib/libvirt/qemu",
+    "description": "Set the base path where the host-side sockets for guest communication can be found."
   },
-  "policy_directory": {
+  "socket_name_template": {
     "type": "string",
-    "default": "/etc/mom/policies.d",
-    "description": "Directory containing additional per-policy configuration files."
-  },
-  "poll_interval": {
-    "type": "number",
-    "default": 10,
-    "description": "Interval (in seconds) between resource evaluations and policy enforcement checks."
-  },
-  "memory_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable dynamic memory overcommitment and ballooning."
-  },
-  "memory_max_overcommit_ratio": {
-    "type": "number",
-    "default": 1.5,
-    "description": "Maximum memory overcommitment ratio (guest total memory / host physical memory)."
-  },
-  "min_free_memory": {
-    "type": "number",
-    "default": 512,
-    "description": "Minimum free memory (MiB) to retain on host to prevent OOM conditions."
-  },
-  "balancer_threshold": {
-    "type": "number",
-    "default": 1024,
-    "description": "Memory pressure threshold (MiB) above which aggressive memory balancing is triggered."
-  },
-  "ballooning_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow dynamic memory balloon drivers to be used for guest memory reclamation."
-  },
-  "cpu_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable dynamic CPU overcommitment and throttling."
-  },
-  "cpu_max_overcommit_ratio": {
-    "type": "number",
-    "default": 2.0,
-    "description": "Maximum CPU overcommitment ratio (total vCPUs allocated / physical CPU cores)."
-  },
-  "min_shares_per_vm": {
-    "type": "number",
-    "default": 64,
-    "description": "Minimum CPU shares guaranteed per VM (CFS scheduler weight, range 0\u20131024)."
-  },
-  "cpu_throttling_policy": {
-    "type": "string",
-    "default": "adaptive",
-    "description": "Throttling strategy: none (no throttling), constant (fixed shares), adaptive (reactive based on load)."
-  },
-  "disk_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable disk I/O throttling per VM and globally."
-  },
-  "max_total_iops": {
-    "type": "number",
-    "default": 50000,
-    "description": "Maximum total I/O operations per second allowed across all VMs."
-  },
-  "max_per_vm_iops": {
-    "type": "number",
-    "default": 5000,
-    "description": "Maximum I/O operations per second allowed per VM."
-  },
-  "burst_allowed_percent": {
-    "type": "number",
-    "default": 20,
-    "description": "Allowed burst above max limits (as a percentage)."
-  },
-  "network_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable network bandwidth QoS per VM and globally."
-  },
-  "max_total_bandwidth": {
-    "type": "number",
-    "default": 10000,
-    "description": "Maximum total bandwidth (Mbps) allowed across all VMs."
-  },
-  "max_per_vm_bandwidth": {
-    "type": "number",
-    "default": 1000,
-    "description": "Maximum bandwidth (Mbps) allowed per VM."
-  },
-  "network_burst_allowed_percent": {
-    "type": "number",
-    "default": 25,
-    "description": "Allowed network bandwidth burst above limit (as percentage)."
-  },
-  "memory_pressure_cmd": {
-    "type": "string",
-    "default": "",
-    "description": "Command template executed when memory pressure occurs. Supports placeholders: {vm} (VM name), {action} (balloon/balance), {reason}."
-  },
-  "cpu_throttling_cmd": {
-    "type": "string",
-    "default": "",
-    "description": "Command template executed when CPU throttling is triggered. Supports placeholders: {vm}, {action}, {reason}."
-  },
-  "policy_engine_interval": {
-    "type": "number",
-    "default": 10,
-    "description": "The wake up frequency of the policy engine (in seconds)."
-  },
-  "controllers": {
-    "type": "string",
-    "default": "Balloon, KSM",
-    "description": "A comma-separated list of Controller plugins to enable."
-  },
-  "libvirt_hypervisor_uri": {
-    "type": "string",
-    "default": "",
-    "description": "The URI to use when connecting to this host's libvirt interface."
-  },
-  "plot_dir": {
-    "type": "string",
-    "default": "",
-    "description": "Directory to enable plotting (empty string disables)."
-  },
-  "rpc_port": {
-    "type": "number",
-    "default": -1,
-    "description": "RPC server port (-1 to disable)."
-  },
-  "policy_file": {
-    "type": "string",
-    "default": "",
-    "description": "At startup, load a policy from this file. If empty, no policy is loaded."
+    "default": "%(name)s.agent",
+    "description": "Set the socket name template. Default: %(name)s.agent."
   }
 }

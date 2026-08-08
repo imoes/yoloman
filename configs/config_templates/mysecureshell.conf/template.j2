@@ -1,133 +1,145 @@
-{# Main MySecureShell configuration file #}
+; MySecureShell configuration file
+; This file configures the MySecureShell daemon, which wraps OpenSSH to provide
+; chrooted SFTP/SCP access with fine-grained control over user permissions and logging.
+;
+; Sections:
+;   [General] - Global daemon settings (ports, logging, auth, chroot)
+;   [Users]   - Per-user overrides and constraints
+;   [Groups]  - Per-group constraints inherited by users
+;   [AllowedIPs] - Whitelisted IP/CIDR ranges
+;   [DeniedIPs]  - Blacklisted IP/CIDR ranges
+;   [Directories] - Chrooted directory permission policies
+;   [Subsystems] - Protocol subsystem definitions (SFTP/SCP)
+
 [General]
-{# Enable or disable debug mode #}
-Debug = {{ debug_mode | lower }}
-{# Log level: 0=error, 1=warn, 2=info, 3=debug #}
-LogLevel = {{ log_level }}
-{# Path to log file (empty string to log to syslog) #}
-LogPath = {{ log_path }}
-{# Maximum number of concurrent connections #}
-MaxConnPerIP = {{ max_conn_per_ip }}
-{# Maximum number of connections per user #}
-MaxConnPerUser = {{ max_conn_per_user }}
-{# SSH port to listen on #}
-Port = {{ ssh_port }}
-{# Bind address for SSH service #}
-ListenAddr = {{ listen_addr }}
-{# Path to chroot directory for sftp users #}
-ChrootPath = {{ chroot_path }}
-{# Enable or disable SFTP support #}
-SFTPEnabled = {{ sftp_enabled | lower }}
-{# Enable or disable SCP support #}
-SCPOutEnabled = {{ scp_enabled | lower }}
-{# Enable or disable password authentication #}
-PasswordAuth = {{ password_auth | lower }}
-{# Enable or disable public key authentication #}
-PubKeyAuth = {{ pub_key_auth | lower }}
-{# Maximum time (in seconds) to wait for client authentication #}
-LoginTimeout = {{ login_timeout }}
-{# Maximum number of failed authentication attempts before disconnecting #}
-MaxAuthTries = {{ max_auth_tries }}
-{# Enable or disable banner display on connect #}
-Banner = {{ banner_enabled | lower }}
-{# Path to banner file #}
-BannerPath = {{ banner_path }}
+; Enable verbose debug logging (not recommended for production).
+Debug = {{ debug_mode | default(False) | lower }}
+
+; Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.
+LogLevel = {{ log_level | default(2) }}
+
+; Path to the log file (empty string to log to syslog).
+LogPath = {{ log_path | default('') }}
+
+; Maximum number of concurrent SSH connections allowed per IP address.
+MaxConnPerIP = {{ max_conn_per_ip | default(5) }}
+
+; Maximum number of concurrent SSH connections allowed per user.
+MaxConnPerUser = {{ max_conn_per_user | default(3) }}
+
+; TCP port on which the SSH/SFTP service will listen.
+Port = {{ ssh_port | default(2222) }}
+
+; IP address to bind the SSH/SFTP service (e.g., '127.0.0.1' or '::').
+ListenAddr = {{ listen_addr | default('0.0.0.0') }}
+
+; Path to the root directory for chrooted users (must be owned by root).
+ChrootPath = {{ chroot_path | default('/var/chroot/mysecureshell') }}
+
+; Enable SFTP protocol support.
+SFTPEnabled = {{ sftp_enabled | default(True) | lower }}
+
+; Enable SCP protocol support for file transfers.
+SCPOutEnabled = {{ scp_enabled | default(True) | lower }}
+
+; Allow authentication via username and password.
+PasswordAuth = {{ password_auth | default(False) | lower }}
+
+; Allow authentication via SSH public keys.
+PubKeyAuth = {{ pub_key_auth | default(True) | lower }}
+
+; Maximum time in seconds allowed for client authentication before disconnect.
+LoginTimeout = {{ login_timeout | default(30) }}
+
+; Maximum number of authentication attempts before disconnecting the client.
+MaxAuthTries = {{ max_auth_tries | default(6) }}
+
+; Display a legal banner to users upon connection.
+Banner = {{ banner_enabled | default(True) | lower }}
+
+; Path to the file containing the login banner.
+BannerPath = {{ banner_path | default('/etc/mysecureshell/banner.txt') }}
 
 [Users]
-{# List of users with their configurations #}
-{% for user in users %}
-{% if loop.first %}
-{% else %}
+; List of SSH users with their configurations.
+; Each user block is keyed by 'name' and applies specific overrides.
+{% for user in users | default([]) %}
+{% if loop.index0 > 0 %}
 
 {% endif %}
-{% for key, value in user.items() | sort %}
+{% for key, value in user | dict2items %}
 {% if key != 'name' %}
 {{ user.name }}.{{ key }} = {{ value }}
 {% endif %}
 {% endfor %}
-{% if user.name is defined %}
+; The user's name is explicitly set for identification.
 {{ user.name }}.name = {{ user.name }}
-{% endif %}
 {% endfor %}
 
 [Groups]
-{# List of groups with their configurations #}
-{% for group in groups %}
-{% if loop.first %}
-{% else %}
+; List of user groups with shared configurations.
+{% for group in groups | default([]) %}
+{% if loop.index0 > 0 %}
 
 {% endif %}
-{% for key, value in group.items() | sort %}
+{% for key, value in group | dict2items %}
 {{ group.name }}.{{ key }} = {{ value }}
 {% endfor %}
 {% endfor %}
 
 [AllowedIPs]
-{# List of IP ranges allowed to connect (CIDR or single IP) #}
-{% for ip in allowed_ips %}
-{% if loop.first %}
-{% else %}
+; List of allowed IP ranges (CIDR notation or single IPs) to connect to the SSH service.
+{% for ip in allowed_ips | default(['0.0.0.0/0']) %}
+{% if loop.index0 > 0 %}
+
 {% endif %}
-{% if loop.last %}
 {{ ip }}
-{% else %}
-{{ ip }}
-{% endif %}
 {% endfor %}
 
 [DeniedIPs]
-{# List of IP ranges denied from connecting (CIDR or single IP) #}
-{% for ip in denied_ips %}
-{% if loop.first %}
-{% else %}
+; List of denied IP ranges to block from connecting.
+{% for ip in denied_ips | default([]) %}
+{% if loop.index0 > 0 %}
+
 {% endif %}
-{% if loop.last %}
 {{ ip }}
-{% else %}
-{{ ip }}
-{% endif %}
 {% endfor %}
 
 [Directories]
-{# Directory permissions for chroot environments #}
-{% for dir in directory_permissions %}
-{% if loop.first %}
-{% else %}
+; Custom permissions for chrooted directories.
+{% for dir in directory_permissions | default([]) %}
+{% if loop.index0 > 0 %}
 
 {% endif %}
-{{ dir.path }}.path = {{ dir.path }}
+{% set dpath = dir.path | default('unknown') %}
+{{ dpath }}.path = {{ dpath }}
 {% if dir.mode is defined %}
-{{ dir.path }}.mode = {{ dir.mode }}
+{{ dpath }}.mode = {{ dir.mode }}
 {% endif %}
 {% if dir.owner is defined %}
-{{ dir.path }}.owner = {{ dir.owner }}
+{{ dpath }}.owner = {{ dir.owner }}
 {% endif %}
 {% if dir.group is defined %}
-{{ dir.path }}.group = {{ dir.group }}
+{{ dpath }}.group = {{ dir.group }}
 {% endif %}
 {% if dir.read_only is defined %}
-{{ dir.path }}.read_only = {{ dir.read_only | lower }}
+{{ dpath }}.read_only = {{ dir.read_only | lower }}
 {% endif %}
 {% if dir.max_files is defined %}
-{{ dir.path }}.max_files = {{ dir.max_files }}
+{{ dpath }}.max_files = {{ dir.max_files }}
 {% endif %}
 {% if dir.max_size is defined %}
-{{ dir.path }}.max_size = {{ dir.max_size }}
+{{ dpath }}.max_size = {{ dir.max_size }}
 {% endif %}
 {% endfor %}
 
 [Subsystems]
-{# SFTP subsystem configuration #}
-{% if sftp_subsystem %}
-{% if sftp_subsystem.name is defined %}
-{% set name = sftp_subsystem.name %}
-{% else %}
-{% set name = 'sftp' %}
-{% endif %}
-{{ name }}.command = {{ sftp_subsystem.command }}
-{% if sftp_subsystem.args is defined %}
-{% if sftp_subsystem.args | length > 0 %}
-{{ name }}.args = {{ sftp_subsystem.args | join(' ') }}
-{% endif %}
+; SFTP subsystem definition.
+{% set subsystem = sftp_subsystem | default({'command': 'internal-sftp'}) %}
+{% set subsys_name = subsystem.name | default('sftp') %}
+{{ subsys_name }}.command = {{ subsystem.command | default('internal-sftp') }}
+{% if subsystem.args is defined %}
+{% if subsystem.args is iterable and not (subsystem.args is string) %}
+{{ subsys_name }}.args = {{ subsystem.args | join(' ') }}
 {% endif %}
 {% endif %}

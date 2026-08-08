@@ -1,152 +1,110 @@
-#!/bin/sh
+# Ansible-managed configuration for Mosquitto MQTT broker
+# This file is generated from an Ansible template. Do not edit manually.
+# Each directive is prefixed with a comment describing its purpose and default value.
 
-### BEGIN INIT INFO
-# Provides:       mosquitto
-# Required-Start: $remote_fs $syslog
-# Required-Stop:  $remote_fs $syslog
-# Default-Start:  2 3 4 5
-# Default-Stop:   0 1 6
-# Short-Description: mosquitto MQTT 3.1/3.1.1/5.0 message broker
-# Description:
-#  This is a message broker that supports version 3.1 of the MQ Telemetry
-#  Transport (MQTT) protocol.
-#  
-#  MQTT provides a method of carrying out messaging using a publish/subscribe
-#  model. It is lightweight, both in terms of bandwidth usage and ease of
-#  implementation. This makes it particularly useful at the edge of the network
-#  where a sensor or other simple device may be implemented using an arduino for
-#  example.
-### END INIT INFO
+# --- Listeners ---
+# List of listeners to expose (port, optional bind address, protocol). Each defines a listening endpoint.
+# Default: [] (empty list, meaning no listeners are configured unless explicitly added)
+{% for listener in listeners | default([]) %}
+# Listener {{ loop.index }}: port={{ listener.port | default(1883) }}, bind={{ listener.bind | default('0.0.0.0') }}
+port {{ listener.port | default(1883) }}
+# Optional: bind_address for this listener (defaults to 0.0.0.0 if not specified)
+{% if listener.bind | default('0.0.0.0') != '0.0.0.0' %}
+bind_address {{ listener.bind | default('0.0.0.0') }}
+{% endif %}
+# Optional: protocol for this listener (e.g., mqtt, websockets)
+{% if listener.protocol is defined %}
+protocol {{ listener.protocol }}
+{% endif %}
 
-set -e
+{% endfor %}
 
-NAME=mosquitto
-USER=mosquitto
-DAEMON=/usr/sbin/mosquitto
-PIDDIR=/run/mosquitto
-PIDFILE="${PIDDIR}/mosquitto.pid"
-LOGDIR=/var/log/mosquitto
-CONFFILE=/etc/mosquitto/mosquitto.conf
+# --- Authentication & Authorization ---
 
-# /etc/init.d/mosquitto: start and stop the mosquitto MQTT message broker
+# Allow clients to connect with an empty client ID (disables automatic client ID assignment).
+# Default: False
+allow_zero_length_clientid {{ allow_zero_length_clientid | default(false) | lower }}
 
-test -x "$DAEMON" || exit 0
+# If true, permits connections without username/password authentication.
+# Set to false to require auth.
+# Default: True
+allow_anonymous {{ allow_anonymous | default(true) | lower }}
 
-umask 022
+# Absolute path to the file containing usernames and hashed passwords (use mosquitto_passwd to create).
+# Only used if allow_anonymous is false.
+# Default: /etc/mosquitto/passwd
+password_file {{ password_file | default('/etc/mosquitto/passwd') }}
 
-. /lib/lsb/init-functions
+# Absolute path to the file defining access control lists (permissions per user or pattern).
+# Only used if allow_anonymous is false.
+# Default: /etc/mosquitto/acl
+acl_file {{ acl_file | default('/etc/mosquitto/acl') }}
 
-# Are we running from init?
-run_by_init() {
-    ([ "$previous" ] && [ "$runlevel" ]) || [ "$runlevel" = S ]
-}
+# --- Persistence ---
 
-export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+# Enable disk persistence of subscriptions, retained messages, and in-flight messages.
+# Default: False
+persistence {{ persistence | default(false) | lower }}
 
-create_dirs() {
-    mkdir -p "$PIDDIR"
-    chown "$USER" "$PIDDIR"
-    mkdir -p "$LOGDIR"
-    chown "$USER" "$LOGDIR"
-}
+# Directory where persistence files are stored (must exist and be writable by mosquitto user).
+# Only used if persistence is true.
+# Default: /var/lib/mosquitto
+persistence_location {{ persistence_location | default('/var/lib/mosquitto') }}
 
-case "$1" in
-    start)
-        if init_is_upstart; then
-            exit 1
-        fi
-        create_dirs
-        log_daemon_msg "Starting network daemon" "$NAME"
-        if start-stop-daemon --user "$USER" --chuid "$USER" --start --quiet --oknodo --background --pidfile "$PIDFILE" --exec "$DAEMON" -- -c "$CONFFILE" ; then
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+# --- Performance ---
 
-    stop)
-        if init_is_upstart; then
-            exit 0
-        fi
-        log_daemon_msg "Stopping network daemon" "$NAME"
-        if start-stop-daemon --user "$USER" --chuid "$USER" --stop --quiet --oknodo --pidfile "$PIDFILE"; then
-            log_end_msg 0
-            rm -f "$PIDFILE"
-        else
-            log_end_msg 1
-        fi
-        ;;
+# Maximum number of QoS 1/2 messages in-flight per client (not yet acknowledged).
+# Default: 20
+max_inflight_messages {{ max_inflight_messages | default(20) }}
 
-    reload|force-reload)
-        if init_is_upstart; then
-            exit 1
-        fi
-        log_daemon_msg "Reloading network daemon configuration" "$NAME"
-        if start-stop-daemon --user "$USER" --stop --signal HUP --quiet --oknodo --pidfile "$PIDFILE"; then
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+# Maximum size (in bytes) of an incoming MQTT packet (set to 0 for no limit).
+# Recommended <= 256MB.
+# Default: 268435456 (256 MB)
+max_packet_size {{ max_packet_size | default(268435456) }}
 
-    restart)
-        if init_is_upstart; then
-            exit 1
-        fi
-        log_daemon_msg "Restarting network daemon" "$NAME"
-        if start-stop-daemon --user "$USER" --stop --quiet --oknodo --retry 30 --pidfile "$PIDFILE"; then
-            rm -f "$PIDFILE"
-        fi
-        create_dirs
-        if start-stop-daemon --user "$USER" --chuid "$USER" --start --quiet --oknodo --background --pidfile "$PIDFILE" --exec "$DAEMON" -- -c "$CONFFILE" ; then
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+# --- Logging ---
 
-    try-restart)
-        if init_is_upstart; then
-            exit 1
-        fi
-        log_daemon_msg "Trying to restart network daemon" "$NAME"
-        set +e
-        start-stop-daemon --user "$USER" --stop --quiet --retry 30 --pidfile "$PIDFILE"
-        RET="$?"
-        set -e
-        case "$RET" in
-            0)
-                # old daemon stopped
-                rm -f "$PIDFILE"
-                if start-stop-daemon --user "$USER" --chuid "$USER" --start --quiet --oknodo --background --pidfile "$PIDFILE" --exec "$DAEMON" -- -c "$CONFFILE" ; then
-                    log_end_msg 0
-                else
-                    log_end_msg 1
-                fi
-                ;;
-            1)
-                # daemon not running
-                log_progress_msg "(not running)"
-                log_end_msg 0
-                ;;
-            *)
-                # failed to stop
-                log_progress_msg "(failed to stop)"
-                log_end_msg 1
-                ;;
-        esac
-        ;;
+# Log client connect/disconnect messages to the log.
+# Default: True
+connection_messages {{ connection_messages | default(true) | lower }}
 
-    status)
-        if init_is_upstart; then
-            exit 1
-        fi
-        status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME" && exit 0 || exit "$?"
-        ;;
+# Maximum number of simultaneous client connections (-1 = unlimited).
+# Default: -1
+max_connections {{ max_connections | default(-1) }}
 
-    *)
-        log_action_msg "Usage: /etc/init.d/mosquitto {start|stop|reload|force-reload|restart|try-restart|status}"
-        exit 1
-esac
+# Absolute path to the log file (requires proper permissions and directory).
+# Default: /var/log/mosquitto/mosquitto.log
+log_file {{ log_file | default('/var/log/mosquitto/mosquitto.log') }}
 
-exit 0
+# List of log message types to record (options: none, error, warning, notice, information, subscribe, unsubscribe, websockets, audit, debug).
+# Default: ['error', 'warning', 'notice', 'information']
+{% for log_type_entry in log_type | default(['error', 'warning', 'notice', 'information']) %}
+log_type {{ log_type_entry }}
+{% endfor %}
+
+# Include ISO 601 timestamps in log entries.
+# Default: True
+log_timestamp {{ log_timestamp | default(true) | lower }}
+
+# --- TLS/SSL Configuration ---
+
+# Absolute path to the server’s TLS certificate (PEM format).
+# Required if TLS is enabled for listeners.
+# Default: /etc/mosquitto/certs/server.crt
+tls_certfile {{ tls_certfile | default('/etc/mosquitto/certs/server.crt') }}
+
+# Absolute path to the server’s TLS private key (PEM format).
+# Required if TLS is enabled for listeners.
+# Default: /etc/mosquitto/certs/server.key
+tls_keyfile {{ tls_keyfile | default('/etc/mosquitto/certs/server.key') }}
+
+# Absolute path to the CA certificate file (PEM format) for validating client certificates.
+# Leave empty if client certificate verification is not required.
+# Default: '' (empty)
+{% if tls_ca_file | default('') | trim | length > 0 %}
+tls_ca_file {{ tls_ca_file | default('') }}
+{% endif %}
+
+# Minimum TLS version to support (e.g., 'tlsv1.2', 'tlsv1.1').
+# Default: 'tlsv1.2'
+tls_version {{ tls_version | default('tlsv1.2') }}

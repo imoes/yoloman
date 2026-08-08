@@ -1,102 +1,145 @@
+# ============================================================================
+# magnum-conductor configuration template
+# ============================================================================
+# This file configures the OpenStack Magnum Conductor service.
+# It uses an INI-style format with sections corresponding to
+# oslo_config groups and specific Magnum configuration groups.
+#
+# All variables use | default() filters with the schema defaults.
+# ============================================================================
+
 [DEFAULT]
-# The name of this node (conductor node) in the cluster.
-#host_name = {{ host_name }}
+# The name of this conductor node in the cluster.
+# This is used to identify the node within the cluster.
+host_name = {{ host_name | default('magnum-conductor') }}
 
-# Number of workers for the conductor service.
-#conductor_workers = {{ conductor_workers }}
+# Number of worker processes for the conductor service.
+# Controls the concurrency of the conductor.
+conductor_workers = {{ conductor_workers | default(1) }}
 
-# Listen address for the conductor API.
-#bind_host = {{ bind_host }}
+# IP address on which the conductor API listens.
+# Set to 0.0.0.0 to listen on all interfaces.
+bind_host = {{ bind_host | default('0.0.0.0') }}
 
-# Port on which the conductor listens.
-#bind_port = {{ bind_port }}
+# Port on which the conductor API listens.
+bind_port = {{ bind_port | default(9511) }}
 
-# Path to the CA certificate file for TLS.
-#ca_file = {{ ca_file }}
+# Path to the CA certificate file used for TLS.
+# Used to verify client certificates if TLS is enabled.
+ca_file = {{ ca_file | default('/etc/ssl/certs/magnum-ca.crt') }}
 
 # Path to the server certificate file for TLS.
-#cert_file = {{ cert_file }}
+# The public certificate presented by the conductor API.
+cert_file = {{ cert_file | default('/etc/ssl/certs/magnum.crt') }}
 
 # Path to the private key file for TLS.
-#key_file = {{ key_file }}
+# The private key corresponding to the server certificate.
+key_file = {{ key_file | default('/etc/ssl/private/magnum.key') }}
 
 # Enable TLS for the conductor API.
-#enabled = {{ enable_tls | lower }}
+# When true, the API will use SSL/TLS for connections.
+enabled = {{ enable_tls | default(False) | lower }}
 
 [database]
 # Connection string for the backend database.
-#connection = {{ database_connection }}
+# Contains the driver, credentials, host, and database name.
+# Example: mysql+pymysql://user:pass@host/dbname
+connection = {{ database_connection | default('mysql+pymysql://magnum:magnum@localhost/magnum') }}
 
 [keystone]
-# Auth URL for Keystone (v3 endpoint).
-#auth_url = {{ keystone_auth_url }}
+# Keystone v3 authentication URL.
+# Used to authenticate API requests to OpenStack Identity.
+auth_url = {{ keystone_auth_url | default('https://keystone.example.com:5000/v3') }}
 
-# Domain name for Keystone admin user.
-#admin_domain_name = {{ keystone_admin_domain_name }}
+# Domain name for the Keystone admin user.
+# The domain in which the service account user resides.
+admin_domain_name = {{ keystone_admin_domain_name | default('Default') }}
 
-# Admin username for Keystone.
-#admin_user = {{ keystone_admin_user }}
+# Admin username for Keystone authentication.
+# The service account user used by Magnum to interact with Keystone.
+admin_user = {{ keystone_admin_user | default('magnum') }}
 
-# Admin password for Keystone.
-#admin_password = {{ keystone_admin_password }}
+# Admin password for Keystone authentication.
+# The password for the Magnum service account.
+admin_password = {{ keystone_admin_password | default('magnum_password') }}
 
-# Admin project name for Keystone.
-#admin_project_name = {{ keystone_admin_project_name }}
+# Admin project (tenant) name for Keystone.
+# The project in which the Magnum service user operates.
+admin_project_name = {{ keystone_admin_project_name | default('service') }}
 
-# Region name for Keystone.
-#region_name = {{ keystone_region_name }}
+# Region name for Keystone service catalog.
+# Determines which region's endpoints are used for service discovery.
+region_name = {{ keystone_region_name | default('RegionOne') }}
 
 [magnum]
-# Path to the directory containing certificates used by Magnum.
-#cert_manager = {{ cert_manager }}
+# Name of the certificate manager backend.
+# Options include 'cert_manager' (OpenStack Certificates API) or 'local'.
+cert_manager = {{ cert_manager | default('cert_manager') }}
 
-# Path to the directory for temporary certificates.
-#temp_dir = {{ temp_dir }}
+# Directory for temporary certificates and artifacts.
+# Used during cluster creation and certificate generation.
+temp_dir = {{ temp_dir | default('/var/lib/magnum/temp') }}
 
-# Cluster template defaults.
-{% for template_default in cluster_template_defaults %}
+# List of default values for cluster template attributes.
+# These defaults are applied when creating new clusters if not specified.
+# Each entry in the list is a dictionary with 'name' and 'value'.
+{% for template_default in cluster_template_defaults | default([{'name': 'coe', 'value': 'kubernetes'}, {'name': 'image_id', 'value': 'fedora-atomic-latest'}, {'name': 'flavor_id', 'value': 'm1.small'}, {'name': 'master_flavor_id', 'value': 'm1.medium'}, {'name': 'network_driver', 'value': 'flannel'}, {'name': 'container_runtime', 'value': 'docker'}]) %}
 # Default {{ template_default.name }} for new cluster templates.
-#default_{{ template_default.name | replace(' ', '_') | lower }} = {{ template_default.value }}
+# The key name is lowercased and spaces replaced with underscores.
+default_{{ template_default.name | replace(' ', '_') | lower }} = {{ template_default.value }}
 {% endfor %}
 
 # Supported Docker storage drivers.
-#docker_storage_driver = {{ docker_storage_driver | join(', ') }}
+# A list of drivers that Magnum can use for Docker storage.
+# Formatted as a comma-separated list.
+docker_storage_driver = {{ docker_storage_driver | default(['overlay2']) | join(', ') }}
 
-# Default Docker storage driver.
-#default_docker_storage_driver = {{ default_docker_storage_driver }}
+# Default Docker storage driver to use for clusters.
+# The specific driver selected from supported drivers.
+default_docker_storage_driver = {{ default_docker_storage_driver | default('overlay2') }}
 
 [oslo_messaging]
-# RPC backend for Magnum conductor.
-#transport_url = {{ transport_url }}
+# Message queue transport URL.
+# Configures the RabbitMQ (or other MQ) connection for RPC and notifications.
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
 
 [trust]
-# Trustee domain ID for delegated access.
-#trustee_domain_id = {{ trustee_domain_id }}
+# Domain ID where trustee users are created for delegated access.
+# Used for creating trust relationships between users and Magnum.
+trustee_domain_id = {{ trustee_domain_id | default('default') }}
 
-# Trustee user name for delegated access.
-#trustee_domain_admin = {{ trustee_domain_admin }}
+# Username of the trustee domain admin.
+# The user account used to manage trustee domains.
+trustee_domain_admin = {{ trustee_domain_admin | default('trustee_admin') }}
 
-# Trustee password for delegated access.
-#trustee_domain_admin_password = {{ trustee_domain_admin_password }}
+# Password of the trustee domain admin.
+# The password for the trustee domain admin account.
+trustee_domain_admin_password = {{ trustee_domain_admin_password | default('trustee_admin_password') }}
 
 [clients_keystone]
 # Endpoint type for Keystone client.
-#endpoint_type = {{ keystone_endpoint_type }}
+# Determines which endpoint URL to use: 'public', 'internal', or 'admin'.
+endpoint_type = {{ keystone_endpoint_type | default('public') }}
 
 [certificates]
-# CA certificate validity in days.
-#ca_valid_time = {{ ca_valid_time }}
+# Validity period (in days) of the CA certificate.
+# How long the Magnum CA certificate remains valid before renewal.
+ca_valid_time = {{ ca_valid_time | default(3650) }}
 
-# Certificate validity in days.
-#cert_valid_time = {{ cert_valid_time }}
+# Validity period (in days) of cluster node certificates.
+# How long certificates for individual cluster nodes remain valid.
+cert_valid_time = {{ cert_valid_time | default(365) }}
 
-# Certificate renew time in days.
-#renew_time = {{ renew_time }}
+# Number of days before certificate expiry to trigger renewal.
+# The lead time for automatic certificate renewal processes.
+renew_time = {{ renew_time | default(30) }}
 
 [cluster]
-# Default timeout for cluster operations in seconds.
-#cluster_create_timeout = {{ cluster_create_timeout }}
+# Timeout (in minutes) for cluster creation operations.
+# Maximum time allowed for the entire cluster creation workflow.
+cluster_create_timeout = {{ cluster_create_timeout | default(60) }}
 
 [barbican]
-# Enable use of Barbican for secret storage.
-#enabled = {{ enable_barbican | lower }}
+# Enable use of Barbican as a secret backend.
+# If true, Magnum will store certificates and keys in Barbican.
+enabled = {{ enable_barbican | default(False) | lower }}

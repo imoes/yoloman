@@ -1,86 +1,208 @@
-# Author: Simon Deziel <simon@sdeziel.info>
+# AppArmor profile for msmtp.
+#
+# This profile confines the /usr/bin/msmtp binary. It is loaded by
+# AppArmor on the system. The template is self-documenting: every
+# directive is preceded by a comment explaining its purpose based on
+# the role's schema and standard AppArmor semantics.
 
 #include <tunables/global>
 
+# AppArmor profile definition for msmtp.
+# The 'flags=(attach_disconnected)' allows the profile to be applied
+# even if the binary is not immediately accessible during profile loading.
 profile msmtp /usr/bin/msmtp flags=(attach_disconnected) {
+  # Include base abstractions providing common system libraries,
+  # standard I/O, and basic OS interfaces required by almost all binaries.
   #include <abstractions/base>
+
+  # Include D-Bus session abstractions to allow msmtp to communicate
+  # with session services (e.g., for secret/keyring access).
   #include <abstractions/dbus-session-strict>
+
+  # Include nameservice abstractions: allows reading /etc/hosts,
+  # DNS resolution, NSS modules, etc. Necessary for hostname resolution
+  # when sending mail.
   #include <abstractions/nameservice>
+
+  # Include P11-kit abstractions for PKCS#11 token access (smart cards,
+  # hardware security modules) if msmtp is configured to use them.
   #include <abstractions/p11-kit>
+
+  # Include SSL/TLS certificate abstractions: allows reading system
+  # CA certificates and SSL configuration files required for STARTTLS.
   #include <abstractions/ssl_certs>
+
+  # Include SSL/TLS key abstractions: allows reading private keys
+  # if client certificate authentication is used.
   #include <abstractions/ssl_keys>
+
+  # Include Kerberos client abstractions: allows Kerberos ticket cache
+  # access and GSS-API initialization if GSSAPI authentication is used.
   #include <abstractions/kerberosclient>
 
+  # Allow reading and executing the msmtp binary itself.
   /usr/bin/msmtp          mr,
+
+  # Allow reading the system-wide aliases file (usually for /bin/mail
+  # compatibility, expanding short names to full addresses).
   /etc/aliases            r,
+
+  # Allow reading the main msmtp configuration file.
   /etc/msmtprc            r,
+
+  # Allow reading the local hostname/mailname for default domain
+  # appending in envelope headers.
   /etc/mailname           r,
+
+  # Allow reading the system-wide netrc file for SMTP credentials
+  # (host, login, password) if not specified in msmtprc.
   /etc/netrc              r,
+
+  # Allow reading per-user msmtp configuration files (e.g., .msmtprc).
   owner @{HOME}/.msmtp*   r,
+
+  # Allow reading per-user netrc files for SMTP credentials.
   owner @{HOME}/.netrc    r,
+
+  # Allow reading per-user TLS Certificate Revocation Lists (CRLs).
   owner @{HOME}/.tls-crls r,
 
+  # Allow writing and keeping (wk) log files in the user's home
+  # directory (e.g., .msmtp.log). The 'w' flag permits writing;
+  # 'k' permits keeping the file open across exec().
   owner @{HOME}/.msmtp*.log wk,
-  /var/log/msmtp            wk,
 
+  # Allow writing and keeping (wk) the configured log file.
+  # Schema field: log_file
+  # Description: Path to log file for debugging and monitoring
+  #              (empty string disables logging).
+  # Default: '/var/log/msmtp'
+  {{ log_file | default('/var/log/msmtp') }}            wk,
+
+  # Allow reading msmtp configuration files stored in home
+  # subdirectories (legacy or alternative locations).
   owner @{HOME}/**/*msmtprc        r,
+
+  # Allow reading configuration files in the XDG config directory.
   owner @{HOME}/.config/msmtp/*    r,
+
+  # Allow reading cache files in the XDG cache directory.
   owner @{HOME}/.cache/msmtp/*     r,
+
+  # Allow writing and keeping log files in the XDG cache directory.
   owner @{HOME}/.cache/msmtp/*.log wk,
 
+  # Allow reading the process's loginuid for auditing/tracing purposes.
   @{PROC}/@{pid}/loginuid r,
+
+  # Allow read/write access to the /tmp directory and its contents
+  # to support temporary file creation (e.g., for mail content or
+  # credential helpers).
   /tmp/                   rw,
   owner /tmp/*            rw,
 
-  # kerberos related
+  # Kerberos-related paths:
+  # Allow read/write/keep access to Kerberos credential cache files
+  # in /tmp. The pattern matches files like krb5cc_*.
   /tmp/{,.}krb5cc_* rwk,
+
+  # Allow reading GSS mechanism configuration files.
   /etc/gss/mech.d/ r,
   /etc/gss/mech.d/** r,
 
-  # to type password interactively
+  # Allow read/write access to the terminal device (/dev/tty) so that
+  # msmtp can prompt the user interactively for passwords if configured.
   /dev/tty                rw,
+
+  # Allow read/write access to pseudo-terminal slave devices, enabling
+  # interactive password prompts in certain terminal environments.
   owner /dev/pts/[0-9]*   rw,
 
+  # D-Bus policy: Allow sending messages to the Secret Service API
+  # to store or retrieve credentials securely.
   dbus send
        bus=session
        path=/org/freedesktop/secrets
        interface=org.freedesktop.Secret.Service,
+
+  # D-Bus policy: Allow receiving signals/responses from the Secret
+  # Service API.
   dbus receive
        bus=session
        path=/org/freedesktop/secrets
        interface=org.freedesktop.Secret.Service,
+
+  # D-Bus policy: Allow sending messages to the Secret Prompt service
+  # to display authentication dialogs when credentials are needed.
   dbus send
        bus=session
        path=/org/freedesktop/secrets/prompt/*
        interface=org.freedesktop.Secret.Prompt,
+
+  # D-Bus policy: Allow receiving responses from the Secret Prompt service.
   dbus receive
        bus=session
        path=/org/freedesktop/secrets/prompt/*
        interface=org.freedesktop.Secret.Prompt,
+
+  # D-Bus policy: Allow calling the GetAll property on the Secret
+  # Service interface to query available secrets.
   dbus send
        bus=session
        path=/org/freedesktop/secrets
-       interface=org.freedesktop.DBus.Properties
+       interface=org.freedesktop.Secret.DBus.Properties
        member=GetAll,
 
-  # secret helpers
+  # Secret helpers profile:
+  # When msmtp executes a helper command (e.g., secret-tool, gpg,
+  # pass) to retrieve a password, it transitions to the 'helpers'
+  # profile for the child process. The 'Cx' transition type means
+  # "exec, confined".
   /{,usr/}bin/bash Cx -> helpers,
   /{,usr/}bin/dash Cx -> helpers,
+
+  # Nested profile for helper commands.
   profile helpers {
+    # Include base abstractions for the helper environment.
     #include <abstractions/base>
+
+    # Allow reading and executing bash and dash shells.
     /{,usr/}bin/bash mr,
     /{,usr/}bin/dash mr,
+
+    # Allow read/write access to /tmp for helper temp files.
     /tmp/            rw,
     owner /tmp/*     rw,
 
+    # Allow executing the 'secret-tool' utility for fetching secrets
+    # from the GNOME/keyring or similar secret service.
+    # P: execute with profile transition (not used here, just execute)
+    # U: unconstrained (execute as-is)
+    # x: execute with profile transition (helpers)
     /usr/bin/secret-tool PUx,
+
+    # Allow executing GPG for encryption/decryption of credentials.
     /usr/bin/gpg{,2}     PUx,
+
+    # Allow executing 'pass' (the standard unix password manager).
     /usr/bin/pass        PUx,
+
+    # Allow executing 'head' to read the first line of a credential file.
     /usr/bin/head        PUx,
+
+    # Allow executing 'keyring' (if available) for credential retrieval.
     /usr/bin/keyring     PUx,
+
+    # Allow executing 'cat' for reading files (commonly used in
+    # credential helper scripts).
     /{,usr/}bin/cat      PUx,
+
+    # Allow executing 'oauth2get' for OAuth2 token retrieval.
     /usr/bin/oauth2get   PUx,
   }
 
+  # Include local customizations for msmtp. This file can be used
+  # by administrators to add site-specific rules without modifying
+  # the base profile.
   #include <local/usr.bin.msmtp>
 }

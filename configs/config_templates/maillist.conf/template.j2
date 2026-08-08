@@ -1,44 +1,124 @@
-{# mlmmj maillist.conf: main configuration for a mailing list #}
-ADMIN={{ admin_email }}
-LISTNAME={{ list_name }}
-DOMAIN={{ domain }}
-MAILLIST_DIR={{ list_dir }}
+{# =============================================================================
+   mlmmj maillist.conf: Main configuration for a mailing list managed by mlmmj.
+   
+   This template generates the configuration file for a single mailing list.
+   Every variable uses the `default()` filter to ensure safe rendering even if
+   the variable is undefined in the Ansible inventory. Comments describe the
+   schema field each directive corresponds to.
+   ============================================================================= #}
 
+# =============================================================================
+# General List Information
+# =============================================================================
+
+# Email address of the list administrator (for bug reports and list management requests).
+ADMIN={{ (admin_email | default('list-admin@example.com')) | string }}
+
+# Name of the mailing list (used in list ID and subject prefixes).
+LISTNAME={{ (list_name | default('discuss')) | string }}
+
+# Domain used for list addresses (e.g., discuss@example.com).
+DOMAIN={{ (domain | default('example.com')) | string }}
+
+# Absolute path to the list's working directory (contains queues, archives, and metadata).
+MAILLIST_DIR={{ (list_dir | default('/var/lib/mlmmj/lists/example.com/discuss')) | string }}
+
+# =============================================================================
 # Access control and moderation
-ACCESS={{ access_type }}
-MODERATE={{ moderate | lower }}
+# =============================================================================
 
-# Subscription and unsubscription
-SUBSCRIBE={{ subscribe_enabled | lower }}
-UNSUBSCRIBE={{ unsubscribe_enabled | lower }}
-SUBSCRIBE_REQUIRED_CONFIRM={{ require_subscription_confirm | lower }}
+# Access mode for the list: 'public', 'private', or 'moderated'. Controls visibility and posting permissions.
+ACCESS={{ (access_type | default('public')) | string | lower }}
 
-# Message handling
-ALLOW_ANONYMOUS_POST={{ allow_anonymous_post | lower }}
-MAX_MESSAGE_SIZE={{ max_message_size }}
-MAX_ATTACHMENT_SIZE={{ max_attachment_size }}
-MAX_ATTACHMENTS={{ max_attachments }}
+# If true, all posts require moderator approval before delivery.
+# Note: mlmmj uses 'yes'/'no' or 'on'/'off' typically, but based on schema default False, we output lowercased boolean string.
+MODERATE={{ (moderate | default(false)) | bool | ternary('yes', 'no') }}
 
-# Delivery settings
-RETRY_INTERVAL={{ retry_interval }}
-MAX_RETRY={{ max_retry }}
+# =============================================================================
+# Subscription and unsubscription settings
+# =============================================================================
 
+# If true, allow users to subscribe to the list via email command.
+SUBSCRIBE={{ (subscribe_enabled | default(true)) | bool | ternary('yes', 'no') }}
+
+# If true, allow users to unsubscribe from the list via email command.
+UNSUBSCRIBE={{ (unsubscribe_enabled | default(true)) | bool | ternary('yes', 'no') }}
+
+# If true, require subscription confirmation via email (prevents accidental or spam subscriptions).
+SUBSCRIBE_REQUIRED_CONFIRM={{ (require_subscription_confirm | default(true)) | bool | ternary('yes', 'no') }}
+
+# =============================================================================
+# Message handling policies
+# =============================================================================
+
+# If true, permit posts from unauthenticated or non-subscriber senders.
+ALLOW_ANONYMOUS_POST={{ (allow_anonymous_post | default(false)) | bool | ternary('yes', 'no') }}
+
+# Maximum size (in bytes) allowed for incoming messages (0 = unlimited).
+MAX_MESSAGE_SIZE={{ (max_message_size | default(10240)) | int }}
+
+# Maximum size (in bytes) allowed per attachment (0 = no limit per file).
+MAX_ATTACHMENT_SIZE={{ (max_attachment_size | default(2621440)) | int }}
+
+# Maximum number of attachments allowed per message.
+MAX_ATTACHMENTS={{ (max_attachments | default(10)) | int }}
+
+# =============================================================================
+# Delivery and retry settings
+# =============================================================================
+
+# Seconds between delivery retries for failed messages.
+RETRY_INTERVAL={{ (retry_interval | default(3600)) | int }}
+
+# Maximum number of delivery retries before bouncing a message.
+MAX_RETRY={{ (max_retry | default(5)) | int }}
+
+# =============================================================================
 # Logging and archiving
-LOGLEVEL={{ log_level }}
-ARCHIVE={{ archive_enabled | lower }}
-ARCHIVE_DIR={{ archive_dir }}
+# =============================================================================
 
-# Optional features
-DIGEST={{ digest_enabled | lower }}
-DIGEST_MAX_AGE={{ digest_max_age }}
-DIGEST_MAX_MESSAGES={{ digest_max_messages }}
+# Verbosity of logging: 'debug', 'info', 'warn', or 'error'.
+LOGLEVEL={{ (log_level | default('info')) | string | lower }}
 
-# Welcome and goodbye messages
-WELCOME_MSG={{ welcome_msg_enabled | lower }}
-GOODBYE_MSG={{ goodbye_msg_enabled | lower }}
+# If true, archive all list messages to disk.
+ARCHIVE={{ (archive_enabled | default(true)) | bool | ternary('yes', 'no') }}
 
-# Additional moderators and admins (one per line)
-{% for mod in moderators %}MODERATOR={{ mod }}
+# Directory where archived messages are stored.
+ARCHIVE_DIR={{ (archive_dir | default('/var/lib/mlmmj/lists/example.com/discuss/archive')) | string }}
+
+# =============================================================================
+# Optional features: Digests
+# =============================================================================
+
+# If true, enable digest mode (batching messages into periodic digests).
+DIGEST={{ (digest_enabled | default(false)) | bool | ternary('yes', 'no') }}
+
+# Maximum age (in seconds) of a digest before sending (e.g., 86400 = 1 day).
+DIGEST_MAX_AGE={{ (digest_max_age | default(86400)) | int }}
+
+# Maximum number of messages to include in a single digest before sending early.
+DIGEST_MAX_MESSAGES={{ (digest_max_messages | default(50)) | int }}
+
+# =============================================================================
+# Optional features: Welcome and Goodbye messages
+# =============================================================================
+
+# If true, send a welcome message to new subscribers.
+WELCOME_MSG={{ (welcome_msg_enabled | default(true)) | bool | ternary('yes', 'no') }}
+
+# If true, send a goodbye message when a user unsubscribes.
+GOODBYE_MSG={{ (goodbye_msg_enabled | default(true)) | bool | ternary('yes', 'no') }}
+
+# =============================================================================
+# Additional administrators and moderators
+# =============================================================================
+
+# List of email addresses for list moderators (they may approve/deny posts in moderated mode).
+# One MODERATOR directive per line.
+{% for mod in (moderators | default([])) %}MODERATOR={{ mod | string }}
 {% endfor %}
-{% for admin in additional_admins %}ADMIN={{ admin }}
+
+# List of additional email addresses granted administrative rights (in addition to admin_email).
+# One ADMIN directive per line.
+{% for admin in (additional_admins | default([])) %}ADMIN={{ admin | string }}
 {% endfor %}

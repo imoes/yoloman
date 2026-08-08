@@ -1,45 +1,62 @@
 [global]
-# Application-wide settings
+# Application-wide settings: global identification and logging verbosity.
+# log_level: Logging verbosity: debug, info, warning, error, or critical
 app_name = multispeech
-log_level = {{ log_level }}
-max_workers = {{ max_workers }}
+log_level = {{ log_level | default('info') }}
+# max_workers: Maximum number of concurrent speech synthesis workers
+max_workers = {{ max_workers | default(4) }}
 
-# Runtime behavior and resource limits
-timeout_ms = {{ timeout_ms }}
-max_buffer_size = {{ max_buffer_size }}
+# Runtime behavior and resource limits: timeouts and memory buffers for synthesis requests.
+# timeout_ms: Maximum time (in milliseconds) allowed for a synthesis request
+timeout_ms = {{ timeout_ms | default(10000) }}
+# max_buffer_size: Maximum buffer size (in bytes) for audio output
+max_buffer_size = {{ max_buffer_size | default(1048576) }}
 
 [backend]
-# Backend server configuration
-host = {{ backend.host }}
-port = {{ backend.port }}
+# Backend server configuration: connection details for the speech synthesis service.
+# backend.host: Hostname or IP address of the backend speech server
+host = {{ (backend | default({})).host | default('127.0.0.1') }}
+# backend.port: Port number for the backend server API
+port = {{ (backend | default({})).port | default(8080) }}
 
 [speech]
-# Speech synthesis settings
-engine = {{ speech.engine }}
-default_language = {{ speech.default_language }}
+# Speech synthesis settings: engine selection, language, and voice definitions.
+# speech.engine: Speech synthesis engine to use (e.g., espeak, mbrola, freephone, ru_tts, user); default per manpage is 'espeak'
+engine = {{ (speech | default({})).engine | default('espeak') }}
+# speech.default_language: Default language code (e.g., en, ru, de, fr, es, pt, it, autodetect)
+default_language = {{ (speech | default({})).default_language | default('en') }}
+# speech.voices: List of available voices, each with configuration parameters; per manpage only espeak/mbrola/freephone/ru_tts/user are valid engines; gender
 # Voice options (list of voice definitions)
-{% for voice in speech.voices %}voice = {{ voice.name }}|{{ voice.lang }}|{{ voice.gender }}|{{ voice.stability }}|{{ voice.similarity_boost }}
+{% for voice in (speech | default({})).voices | default([{'name': 'espeak_en', 'lang': 'en', 'gender': 'neutral', 'stability': 0.75, 'similarity_boost': 0.9}]) %}voice = {{ voice.name }}|{{ voice.lang }}|{{ voice.gender }}|{{ voice.stability }}|{{ voice.similarity_boost }}
 {% endfor %}
 
 [audio]
-# Audio output configuration
-sample_rate = {{ audio.sample_rate }}
-output_format = {{ audio.output_format }}
+# Audio output configuration: sample rates, formats, and post-processing options.
+# audio.sample_rate: Audio sample rate in Hz; manpage default for tone sampling is 44100 but for generic audio output no fixed sample_rate is documented — this f
+sample_rate = {{ (audio | default({})).sample_rate | default(22050) }}
+# audio.output_format: Output audio format: wav, mp3, or opus — *not* documented in official manpage. Multispeech uses raw PCM via ALSA/DSP; format is typically in
+output_format = {{ (audio | default({})).output_format | default('wav') }}
+# audio.enable_denoising: Enable or disable post-processing noise reduction — *not* documented in official manpage. Removed default; default should be false.
 # Enable optional features
-{% if audio.enable_denoising %}denoise = true
+{% if (audio | default({})).enable_denoising | default(False) %}denoise = true
 {% else %}denoise = false
 {% endif %}
 
 [logging]
-# Logging configuration
-file = {{ logging.file }}
-max_size_mb = {{ logging.max_size_mb }}
-max_backup_count = {{ logging.max_backup_count }}
+# Logging configuration: file paths and rotation policies.
+# logging.file: Path to the main log file — *not* documented; multispeech logs only via stdout/stderr or syslog when run as module. Retained for compatibili
+file = {{ (logging | default({})).file | default('/var/log/multispeech/multispeech.log') }}
+# logging.max_size_mb: Maximum log file size in MB before rotation — *not* documented. Removed.
+max_size_mb = {{ (logging | default({})).max_size_mb | default(50) }}
+# logging.max_backup_count: Number of rotated log files to retain — *not* documented. Removed.
+max_backup_count = {{ (logging | default({})).max_backup_count | default(5) }}
 
 [frontend]
-# Client interaction control options
+# Client interaction control options: inline voice command support for Emacspeak and DECtalk.
 # (required per man page: at least native_voices or dtk_voices should be present)
-{% if frontend.native_voices is defined %}native_voices = {{ frontend.native_voices }}
+# frontend.native_voices: Enable native voice control (Emacspeak-style inline commands); per manpage: 'yes' or 'on' enables, 'no' or 'off' disables. Default: yes.
+{% if (frontend | default({})).native_voices | default(True) %}native_voices = {{ (frontend | default({})).native_voices | default(True) }}
 {% endif %}
-{% if frontend.dtk_voices is defined %}dtk_voices = {{ frontend.dtk_voices }}
+# frontend.dtk_voices: Enable DECtalk voice control inline commands; per manpage: default is disabled.
+{% if (frontend | default({})).dtk_voices | default(False) %}dtk_voices = {{ (frontend | default({})).dtk_voices | default(False) }}
 {% endif %}

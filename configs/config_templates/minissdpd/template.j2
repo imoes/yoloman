@@ -3,11 +3,11 @@
 ### BEGIN INIT INFO
 # Provides:          minissdpd
 # Required-Start:    $remote_fs
-# Required-Stop:     $remote_fs
+# Required-Stop:    $remote_fs
 # Should-Start:      $local_fs $network $time
 # Should-Stop:       $local_fs $network $time
 # Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
+# Default-Stop:     0 1 6
 # Short-Description: keep memory of all UPnP devices that announced themselves
 # Description:       MiniSSDPd is a small daemon used by MiniUPnPc (a UPnP control point for IGD
 #                    devices) to speed up device discoveries. MiniSSDPd keep memory of all UPnP
@@ -20,7 +20,8 @@ NAME=MiniSSDPd
 DESC="UPnP devices daemon"
 DAEMON=/usr/sbin/minissdpd
 DEFAULT_FILE=/etc/default/minissdpd
-PIDFILE=/var/run/minissdpd.pid
+# Path to the PID file used by the init script for process management.
+PIDFILE={{ pidfile | default('/var/run/minissdpd.pid') }}
 
 [ -x "${DAEMON}" ] || exit 0
 
@@ -36,12 +37,14 @@ case "$1" in
 			exit 1
 		fi
 
+		# Whether to start the minissdpd daemon (must be set to true in /etc/default/minissdpd for startup to proceed).
 		if [ "${START_DAEMON}" != 1 ] ; then
 			log_daemon_msg "MiniSSDPd: START_DAEMON is not set to 1; exiting"
 			log_end_msg 1
 			exit 1
 		fi
 
+		# Space-separated list of interface names or IP addresses for SSDP listening (e.g., 'eth0 192.168.1.1'). Required field; must be non-empty.
 		if [ -z "${MiniSSDPd_INTERFACE_ADDRESS}" ] ; then
 			log_daemon_msg "MiniSSDPd: No interface defined; exiting"
 			log_end_msg 1
@@ -55,7 +58,9 @@ case "$1" in
 			listening_ip="${listening_ip} -i ${ip_or_iface}"
 		done
 
-		start-stop-daemon --start --pidfile "${PIDFILE}" --exec "${DAEMON}" -- ${listening_ip} ${MiniSSDPd_OTHER_OPTIONS}
+		# Note: The original template uses ${MiniSSDPd_OTHER_OPTIONS}, but the schema defines extra_options.
+		# We generate the command line arguments based on the schema variable extra_options.
+		start-stop-daemon --start --pidfile "${PIDFILE}" --exec "${DAEMON}" -- ${listening_ip} {{ extra_options | default('') }}
 		RET=$?
 		case "${RET}" in
 			0|1)
@@ -66,7 +71,7 @@ case "$1" in
 				log_end_msg 1
 				exit 1
 			;;
-		esac
+			esac
 	;;
 
 	stop)
@@ -82,7 +87,7 @@ case "$1" in
 				log_end_msg 1
 				exit 1
 			;;
-		esac
+			esac
 	;;
 
 	status)
@@ -99,6 +104,7 @@ case "$1" in
 	*)
 		echo "Usage: ${0} {start|stop|status|restart|reload}"
 		exit 1
+	;;
 esac
 
 exit 0

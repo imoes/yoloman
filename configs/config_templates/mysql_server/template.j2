@@ -1,90 +1,139 @@
 [mysqld]
-# Basic server identification and operational mode
-bind-address = {{ bind_address }}
+# IP address the MySQL server listens on. Use '0.0.0.0' for all interfaces.
+bind-address = {{ bind_address | default('127.0.0.1') }}
 
-# TCP port for client connections
-port = {{ port }}
+# TCP port for MySQL client connections.
+port = {{ port | default(3306) }}
 
-# Directory for MySQL data files
-basedir = {{ basedir }}
-datadir = {{ datadir }}
+# Base directory for MySQL installation binaries.
+basedir = {{ basedir | default('/usr') }}
 
-# Default authentication plugin
-# (e.g., mysql_native_password, caching_sha2_password)
-default_authentication_plugin = {{ default_authentication_plugin }}
+# Directory containing MySQL database files (data).
+datadir = {{ datadir | default('/var/lib/mysql') }}
 
-# Logging: general query log (off by default)
-general_log = {{ general_log | lower }}
-general_log_file = {{ general_log_file }}
+# Default authentication plugin for new users (e.g., caching_sha2_password).
+default_authentication_plugin = {{ default_authentication_plugin | default('caching_sha2_password') }}
 
-# Logging: slow query log for performance tuning
-slow_query_log = {{ slow_query_log | lower }}
-slow_query_log_file = {{ slow_query_log_file }}
-long_query_time = {{ long_query_time }}
+# Enable general query logging (all queries logged).
+general_log = {{ general_log | default(False) | lower }}
 
-# Logging: error log file path
-log_error = {{ log_error }}
+# Path to the general query log file.
+general_log_file = {{ general_log_file | default('/var/log/mysql/general.log') }}
 
-# Binary logging for replication and point-in-time recovery
-log_bin = {{ log_bin }}
-binlog_format = {{ binlog_format }}
-expire_logs_days = {{ expire_logs_days }}
-max_binlog_size = {{ max_binlog_size }}
+# Enable logging of slow queries for performance analysis.
+slow_query_log = {{ slow_query_log | default(False) | lower }}
 
-# InnoDB storage engine defaults
-innodb_buffer_pool_size = {{ innodb_buffer_pool_size }}
-innodb_log_file_size = {{ innodb_log_file_size }}
-innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit }}
-innodb_file_per_table = {{ innodb_file_per_table | lower }}
-innodb_flush_method = {{ innodb_flush_method }}
+# Path to the slow query log file.
+slow_query_log_file = {{ slow_query_log_file | default('/var/log/mysql/slow-query.log') }}
 
-# Memory & connection limits
-max_connections = {{ max_connections }}
-max_allowed_packet = {{ max_allowed_packet }}
-tmp_table_size = {{ tmp_table_size }}
-max_heap_table_size = {{ max_heap_table_size }}
+# Threshold (seconds) above which queries are logged as slow.
+long_query_time = {{ long_query_time | default(2) }}
 
-# Character set and collation
-character_set_server = {{ character_set_server }}
-collation_server = {{ collation_server }}
+# Path to the error log file.
+log_error = {{ log_error | default('/var/log/mysql/error.log') }}
 
-# Time zone handling
-time_zone = {{ time_zone }}
+# Base filename for binary log files (required for replication and PITR).
+log_bin = {{ log_bin | default('/var/log/mysql/mysql-bin.log') }}
 
-# Server UUID (auto-generated; usually not overridden)
-server_id = {{ server_id }}
+# Binary logging format: ROW, STATEMENT, or MIXED.
+binlog_format = {{ binlog_format | default('ROW') }}
 
-# Thread caching for connection reuse
-thread_cache_size = {{ thread_cache_size }}
+# Automatic expiration of binary logs after N days.
+expire_logs_days = {{ expire_logs_days | default(10) }}
 
-# Table open cache
-open_tables = {{ open_tables }}
-open_table_definitions = {{ open_table_definitions }}
+# Maximum size of a binary log file before rotation.
+max_binlog_size = {{ max_binlog_size | default('100M') }}
 
-# Replication settings (for master/replica roles)
-{% if replication_role == 'master' %}
-# Enable binary logging for replication
-log_bin = {{ log_bin }}
-server_id = {{ server_id }}
-binlog_do_db = {% for db in replicate_dbs %}{{ db }}{% if not loop.last %}, {% endif %}{% endfor %}
-{% elif replication_role == 'replica' %}
-# Replica configuration
-server_id = {{ server_id }}
-read_only = ON
-relay_log = {{ relay_log }}
-replicate_do_db = {% for db in replicate_dbs %}{{ db }}{% if not loop.last %}, {% endif %}{% endfor %}
+# Size of InnoDB buffer pool (cache for data and indexes).
+innodb_buffer_pool_size = {{ innodb_buffer_pool_size | default('128M') }}
+
+# Size of each InnoDB log file in the log group.
+innodb_log_file_size = {{ innodb_log_file_size | default('48M') }}
+
+# Flush behavior at transaction commit (1 = safest, 0/2 = faster but less durable).
+innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit | default(1) }}
+
+# Store each InnoDB table in a separate .ibd file.
+innodb_file_per_table = {{ innodb_file_per_table | default(True) | lower }}
+
+# I/O method for InnoDB data and log files (e.g., fsync, O_DIRECT).
+innodb_flush_method = {{ innodb_flush_method | default('fsync') }}
+
+# Maximum number of simultaneous client connections.
+max_connections = {{ max_connections | default(151) }}
+
+# Maximum size of a single packet or any row.
+max_allowed_packet = {{ max_allowed_packet | default('64M') }}
+
+# Maximum size for in-memory temporary tables.
+tmp_table_size = {{ tmp_table_size | default('16M') }}
+
+# Maximum size for user-created MEMORY tables.
+max_heap_table_size = {{ max_heap_table_size | default('16M') }}
+
+# Default character set for the server.
+character_set_server = {{ character_set_server | default('utf8mb4') }}
+
+# Default collation for the server.
+collation_server = {{ collation_server | default('utf8mb4_unicode_ci') }}
+
+# Default time zone (e.g., 'UTC', '+00:00', or 'SYSTEM').
+time_zone = {{ time_zone | default('SYSTEM') }}
+
+# Unique server ID (required for replication; must differ across instances).
+server_id = {{ server_id | default(1) }}
+
+# Number of threads to keep in cache for reuse.
+thread_cache_size = {{ thread_cache_size | default(9) }}
+
+# Number of open tables for all threads.
+open_tables = {{ open_tables | default(400) }}
+
+# Number of table definitions to cache.
+open_table_definitions = {{ open_table_definitions | default(2000) }}
+
+# Role in replication topology (standalone, master, or replica).
+replication_role = {{ replication_role | default('standalone') }}
+
+# List of database names to replicate (master: binlog_do_db, replica: replicate_do_db).
+{% if replicate_dbs | default([]) | length > 0 %}
+{% if replication_role | default('standalone') == 'master' %}
+# Master: specify databases to log to binary log
+binlog_do_db = {{ replicate_dbs | default([]) | join(', ') }}
+{% elif replication_role | default('standalone') == 'replica' %}
+# Replica: specify databases to replicate
+replicate_do_db = {{ replicate_dbs | default([]) | join(', ') }}
+{% endif %}
 {% endif %}
 
-# TLS/SSL configuration (optional)
-{% if ssl_enabled %}
-ssl_ca = {{ ssl_ca }}
-ssl_cert = {{ ssl_cert }}
-ssl_key = {{ ssl_key }}
+# Base filename for relay log files (replica only).
+relay_log = {{ relay_log | default('/var/log/mysql/relay-bin.log') }}
+
+# If replica, enable read-only mode and set relay log.
+{% if replication_role | default('standalone') == 'replica' %}
+# Enable read-only mode for replica safety
+read_only = ON
+{% endif %}
+
+# Enable SSL/TLS encryption for client connections.
+ssl_enabled = {{ ssl_enabled | default(False) }}
+
+# Path to SSL CA certificate.
+ssl_ca = {{ ssl_ca | default('/etc/mysql/ssl/ca.pem') }}
+
+# Path to SSL server certificate.
+ssl_cert = {{ ssl_cert | default('/etc/mysql/ssl/server-cert.pem') }}
+
+# Path to SSL server private key.
+ssl_key = {{ ssl_key | default('/etc/mysql/ssl/server-key.pem') }}
+
+{% if ssl_enabled | default(False) %}
+# Require secure transport when SSL is enabled
 require_secure_transport = ON
 {% endif %}
 
-# Skip name resolution for faster connections (if DNS unreliable)
-skip_name_resolve = {{ skip_name_resolve | lower }}
+# Skip DNS host name resolution (faster, require IP-only grants).
+skip_name_resolve = {{ skip_name_resolve | default(True) | lower }}
 
-# Skip grant tables (dangerous; only for recovery)
-skip_grant_tables = {{ skip_grant_tables | lower }}
+# Skip grant tables (disables authentication) — dangerous, for recovery only.
+skip_grant_tables = {{ skip_grant_tables | default(False) | lower }}

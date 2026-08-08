@@ -1,46 +1,91 @@
+# ==============================================================================
+# MereCat Web Server Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the MereCat static web server.
+# It is self-documenting: every setting is commented with its schema description
+# and uses safe default values to prevent render failures if variables are unset.
+# ==============================================================================
+
 [# General server settings #]
-host = {{ host }}
-port = {{ port }}
-root = {{ root }}
+# IP address the server binds to (e.g., '127.0.0.1' for localhost only).
+host = {{ host | default('0.0.0.0') }}
+
+# Port number to listen on.
+port = {{ port | default(8080) }}
+
+# Document root directory (files served from this path).
+root = {{ root | default('/var/www') }}
 
 [# Logging configuration #]
-log_file = {{ log_file }}
-log_level = {{ log_level }}
+# Path to the log file. Set to 'stderr' to log to standard error.
+log_file = {{ log_file | default('/var/log/merecat/merecat.log') }}
+
+# Logging verbosity: 'debug', 'info', 'warn', or 'error'.
+log_level = {{ log_level | default('info') }}
 
 [# MIME and index settings #]
-mime_file = {{ mime_file }}
-index_files = {{ index_files | join(', ') }}
+# Path to the MIME types definition file.
+mime_file = {{ mime_file | default('/etc/mime.types') }}
+
+# List of filenames to serve when a directory is requested.
+index_files = {{ index_files | default(['index.html', 'index.htm', 'index.cgi']) | join(', ') }}
 
 [# Security & access control #]
-user = {{ user }}
-group = {{ group }}
-allow_symlink = {{ 'yes' if allow_symlink else 'no' }}
-allow_dir_listing = {{ 'yes' if allow_dir_listing else 'no' }}
+# User to drop privileges to after binding to port.
+user = {{ user | default('nobody') }}
+
+# Group to drop privileges to after binding to port.
+group = {{ group | default('nogroup') }}
+
+# Whether to follow symbolic links outside the document root.
+allow_symlink = {{ 'yes' if allow_symlink | default(False) else 'no' }}
+
+# Whether to show directory listings when no index file exists.
+allow_dir_listing = {{ 'yes' if allow_dir_listing | default(True) else 'no' }}
 
 [# Threading & performance #]
-threads = {{ threads }}
+# Number of worker threads (0 for single-threaded).
+threads = {{ threads | default(4) }}
 
 [# TLS / HTTPS support #]
-ssl_enabled = {{ 'yes' if ssl_enabled else 'no' }}
-{% if ssl_enabled %}
-ssl_cert = {{ ssl_cert }}
-ssl_key = {{ ssl_key }}
+# Enable HTTPS support (requires valid certificate/key).
+ssl_enabled = {{ 'yes' if ssl_enabled | default(False) else 'no' }}
+
+{% if ssl_enabled | default(False) %}
+# Path to SSL/TLS certificate file (only used if SSL is enabled).
+ssl_cert = {{ ssl_cert | default('/etc/merecat/server.crt') }}
+
+# Path to SSL/TLS private key file (only used if SSL is enabled).
+ssl_key = {{ ssl_key | default('/etc/merecat/server.key') }}
 {% endif %}
 
 [# Custom server headers #]
-{% for header in server_headers %}header_{{ loop.index }} = {{ header.name }}: {{ header.value }}
+# Additional HTTP headers to add to every response.
+{% for header in server_headers | default([]) %}
+header_{{ loop.index }} = {{ header.name }}: {{ header.value }}
 {% endfor %}
 
 [# Access restrictions by IP (optional) #]
-{% if allowed_ips %}# Allow only these IPs
-{% for ip in allowed_ips %}allow_ip = {{ ip }}
-{% endfor %}{% endif %}
+# List of allowed client IP addresses (if empty, all IPs are allowed).
+{% if allowed_ips | default([]) %}
+# Allow only these IPs
+{% for ip in allowed_ips | default([]) %}
+allow_ip = {{ ip }}
+{% endfor %}
+{% endif %}
 
 [# Custom 404/50x error pages #]
-error_404 = {{ error_404 }}
-{% if error_50x %}error_50x = {{ error_50x }}
+# Path (relative to root) or absolute path to custom 404 error page.
+error_404 = {{ error_404 | default('/error/404.html') }}
+
+# Path (relative to root) or absolute path to custom 5xx error page (optional).
+{% if error_50x | default(None) is not none %}
+error_50x = {{ error_50x | default('/error/50x.html') }}
 {% endif %}
 
 [# Timeout settings (seconds) #]
-read_timeout = {{ read_timeout }}
-write_timeout = {{ write_timeout }}
+# Maximum seconds to wait for an incoming request before closing the connection.
+read_timeout = {{ read_timeout | default(30) }}
+
+# Maximum seconds to wait for a response write before closing the connection.
+write_timeout = {{ write_timeout | default(30) }}

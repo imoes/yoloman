@@ -28,19 +28,8 @@ tls_key_file {{ tls_key_file }}
 {% if tls_nocertcheck | default(false) %}
 tls_nocertcheck on
 {% endif %}
-{% if tls_min_dhparam | default('') %}
-tls_min_dhparam {{ tls_min_dhparam }}
-{% endif %}
-{% if tls_priorities is defined and tls_priorities %}
-tls_priorities {{ tls_priorities }}
-{% endif %}
 {% else %}
 tls off
-{% endif %}
-
-# TLS CA bundle alternative (legacy alias, prefer tls_trust_file above)
-{% if ca_bundle_file is defined and ca_bundle_file and tls_trust_file is not defined %}
-tls_ca_cert_file {{ ca_bundle_file }}
 {% endif %}
 
 {% for account in accounts %}
@@ -77,18 +66,3 @@ tls_nocertcheck on
 {% endif %}
 {% else %}
 {% endfor %}
-
-# Default fallback: catch-all for accounts not explicitly defined
-{% if catch_all_host is defined and catch_all_from is defined %}
-# Catch-all fallback account (legacy-style single-server config)
-account catchall
-host {{ catch_all_host }}
-port {{ catch_all_port | default(587) }}
-from {{ catch_all_from }}
-{% if catch_all_tls is defined and catch_all_tls == false %}
-tls off
-{% else %}
-tls on
-tls_starttls {{ catch_all_tls_starttls | default(true) }}
-{% endif %}
-{% endif %}

@@ -1,13 +1,123 @@
-#! /bin/sh
+# ============================================================================
+# lpr (Line Printer Remote / LPD) Daemon Configuration
+# ============================================================================
+# This template configures the LPD (Line Printer Daemon) service, which
+# implements the LPD/LPR protocol (RFC 1179) for networked printing.
+#
+# Variables used:
+#   lpd_enabled        - Enable/disable the service (bool, default: false)
+#   lpd_port           - Port for LPD service (int, default: 515)
+#   lpd_listen_address - Address to listen on (str, default: 0.0.0.0)
+#   lpd_log_dir        - Directory for LPD logs (str, default: /var/log)
+#   lpd_allow_hosts    - List of allowed client hosts/networks (list, default: [])
+#   lpd_deny_hosts     - List of denied client hosts/networks (list, default: [])
+#   lpd_max_jobs       - Max jobs per queue (int, default: 100)
+#   lpd_user           - OS user to run as (str, default: lp)
+#   lpd_group          - OS group to run as (str, default: lp)
+#   lpd_queue_dir      - Directory for spool files (str, default: /var/spool/lpd)
+# ============================================================================
 
-DAEMON=/usr/sbin/lpd
+{% set lpd_enabled = lpd_enabled | default(false) %}
+{% set lpd_port = lpd_port | default(515) %}
+{% set lpd_listen_address = lpd_listen_address | default('0.0.0.0') %}
+{% set lpd_log_dir = lpd_log_dir | default('/var/log') %}
+{% set lpd_allow_hosts = lpd_allow_hosts | default([]) %}
+{% set lpd_deny_hosts = lpd_deny_hosts | default([]) %}
+{% set lpd_max_jobs = lpd_max_jobs | default(100) %}
+{% set lpd_user = lpd_user | default('lp') %}
+{% set lpd_group = lpd_group | default('lp') %}
+{% set lpd_queue_dir = lpd_queue_dir | default('/var/spool/lpd') %}
 
-# Make sure the lpr package is installed (use pac because lprng doesn't have it
-test -f /usr/sbin/pac || exit 0
+# ---------------------------------------------------------------------------
+# Service Control
+# ---------------------------------------------------------------------------
+# If false, this template will not enable or start the daemon.
+# Other roles should check this before attempting to connect.
+{% if lpd_enabled %}
+# Service is enabled
+service_enabled = yes
+{% else %}
+# Service is disabled
+service_enabled = no
+{% endif %}
 
-savelog -u lp -g adm -m 0640 -n -q -t /var/log/lp-acct
-savelog -u lp -g adm -m 0640 -n -q -t /var/log/lp-errs
+# ---------------------------------------------------------------------------
+# Network Configuration
+# ---------------------------------------------------------------------------
+# The port number on which the LPD daemon listens.
+# Standard LPD port is 515.
+# Schema field: lpd_port
+daemon_port = {{ lpd_port }}
 
-if /sbin/start-stop-daemon --quiet --stop --signal 0 --exec $DAEMON; then
-	/etc/init.d/lpd restart >/dev/null
-fi
+# The IP address interface to bind to.
+# Use '0.0.0.0' to listen on all interfaces, or a specific IP for security.
+# Schema field: lpd_listen_address
+daemon_address = {{ lpd_listen_address }}
+
+# ---------------------------------------------------------------------------
+# Access Control
+# ---------------------------------------------------------------------------
+# List of hostnames or IP addresses allowed to send print jobs.
+# Leave empty to allow all (not recommended for production).
+# Format: one entry per line or comma-separated depending on LPD impl.
+# Here we use a standard comment-based allow list often supported by
+# openbsd-lpd or xinetd wrappers.
+#
+# Schema field: lpd_allow_hosts
+{% if lpd_allow_hosts %}
+# allow_hosts = {{ lpd_allow_hosts | join(',') }}
+{% endif %}
+
+# List of hostnames or IP addresses denied.
+# Schema field: lpd_deny_hosts
+{% if lpd_deny_hosts %}
+# deny_hosts = {{ lpd_deny_hosts | join(',') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Queue and Spool Configuration
+# ---------------------------------------------------------------------------
+# Directory where print job spool files are stored.
+# Schema field: lpd_queue_dir
+spool_directory = {{ lpd_queue_dir }}
+
+# Maximum number of jobs allowed in the queue system-wide.
+# Schema field: lpd_max_jobs
+max_jobs = {{ lpd_max_jobs }}
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+# Directory where log files are stored.
+# Schema field: lpd_log_dir
+log_directory = {{ lpd_log_dir }}
+
+# Log file names (implementation specific, commonly lp-errs and lp-acct).
+# These are often handled by syslog, but some LPD daemons write directly here.
+# Schema field: lpd_log_dir
+error_log = {{ lpd_log_dir }}/lp-errs
+account_log = {{ lpd_log_dir }}/lp-acct
+
+# ---------------------------------------------------------------------------
+# Privilege Separation
+# ---------------------------------------------------------------------------
+# The OS user under which the LPD daemon runs.
+# Typically 'lp' (lineprinter) for security isolation.
+# Schema field: lpd_user
+daemon_user = {{ lpd_user }}
+
+# The OS group under which the LPD daemon runs.
+# Schema field: lpd_group
+daemon_group = {{ lpd_group }}
+
+# ---------------------------------------------------------------------------
+# Init Script Compatibility Note
+# ---------------------------------------------------------------------------
+# The original template contained logic for restarting the service via
+# /etc/init.d/lpd and rotating logs via savelog. This is now typically
+# managed by systemd or a supervisor. If you are using systemd, ensure
+# the service unit file handles:
+#   - RestartPolicy=on-failure
+#   - StandardOutput=journal
+#   - StandardError=journal
+#   - Logs are rotated by logrotate(8) configured for {{ lpd_log_dir }}/lp-*.

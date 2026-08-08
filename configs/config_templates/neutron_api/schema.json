@@ -1,6 +1,6 @@
 {
   "debug": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable debug logging for detailed troubleshooting."
   },
@@ -21,8 +21,8 @@
   },
   "rpc_backend": {
     "type": "string",
-    "default": "oslo",
-    "description": "RPC transport backend (e.g., oslo, rabbitmq, zmq)."
+    "default": "rabbit",
+    "description": "RPC transport backend (e.g., rabbit). Note: 'oslo' is not a valid backend type."
   },
   "auth_strategy": {
     "type": "string",
@@ -97,16 +97,7 @@
   "notification_drivers": {
     "type": "list",
     "default": [],
-    "description": "List of notification drivers (e.g., ['noop', 'routing']).",
-    "items": {
-      "type": "string",
-      "enum": [
-        "noop",
-        "routing",
-        "log",
-        "none"
-      ]
-    }
+    "description": "List of notification drivers (e.g., ['noop', 'routing'])."
   },
   "notification_level": {
     "type": "string",
@@ -129,7 +120,7 @@
     "description": "Time-to-live (in seconds) for security group rule cache."
   },
   "allow_overlapping_ips": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Allow tenants to use overlapping IP ranges (dangerous in production)."
   },
@@ -150,11 +141,8 @@
   },
   "quotas": {
     "type": "object",
-    "default": {},
-    "description": "Per-tenant resource quotas (key: resource name, value: limit).",
-    "additionalProperties": {
-      "type": "number"
-    }
+    "default": "",
+    "description": "Per-tenant resource quotas (key: resource name, value: limit)."
   },
   "default_floating_pool": {
     "type": "string",
@@ -169,10 +157,7 @@
   "service_plugins": {
     "type": "list",
     "default": [],
-    "description": "List of service plugin modules (e.g., ['router', 'trunk']).",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of service plugin modules (e.g., ['router', 'trunk'])."
   },
   "ml2_config_path": {
     "type": "string",
@@ -190,12 +175,12 @@
     "description": "Path to DHCP agent configuration file (if separate)."
   },
   "enable_isolated_metadata": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable isolated metadata service for VMs in private networks."
   },
   "enable_metadata_proxy": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable metadata proxy for tenant network metadata access."
   },
@@ -236,81 +221,17 @@
   },
   "keystone_authtoken": {
     "type": "object",
-    "default": {},
-    "description": "Keystone authentication settings for Neutron service.",
-    "properties": {
-      "auth_url": {
-        "type": "string",
-        "default": "http://localhost:5000",
-        "description": "Keystone public identity endpoint URL."
-      },
-      "project_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "Project domain name for keystone v3."
-      },
-      "user_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "User domain name for keystone v3."
-      },
-      "project_name": {
-        "type": "string",
-        "default": "service",
-        "description": "Project (tenant) name for the Neutron service account."
-      },
-      "username": {
-        "type": "string",
-        "default": "neutron",
-        "description": "Username for the Neutron service account."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for the Neutron service account (required for production)."
-      },
-      "auth_version": {
-        "type": "string",
-        "default": "v3",
-        "description": "Keystone API version (v2 or v3)."
-      },
-      "signing_dir": {
-        "type": "string",
-        "default": "/var/cache/neutron/keystone-signing",
-        "description": "Directory to cache signed tokens (v2 only)."
-      },
-      "insecure": {
-        "type": "boolean",
-        "default": false,
-        "description": "Disable SSL certificate verification (not recommended)."
-      }
-    }
+    "default": "",
+    "description": "Keystone authentication settings for Neutron service."
   },
   "oslo_concurrency": {
     "type": "object",
-    "default": {},
-    "description": "Concurrency and locking settings for Neutron processes.",
-    "properties": {
-      "lock_path": {
-        "type": "string",
-        "default": "/var/lib/neutron/tmp",
-        "description": "Directory for lock files (overrides global lock_path)."
-      }
-    }
+    "default": "",
+    "description": "Concurrency and locking settings for Neutron processes."
   },
   "oslo_messaging_notifications": {
     "type": "object",
-    "default": {},
-    "description": "Notifications configuration (alternative to global section).",
-    "properties": {
-      "drivers": {
-        "type": "list",
-        "default": [],
-        "description": "List of notification drivers (overrides notification_drivers if present).",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
+    "default": "",
+    "description": "Notifications configuration (alternative to global section)."
   }
 }

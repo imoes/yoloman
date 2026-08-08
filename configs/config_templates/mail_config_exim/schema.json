@@ -63,59 +63,56 @@
   "auth_mechanisms": {
     "type": "list",
     "items": {
-      "type": "object",
-      "fields": {
-        "driver": {
-          "type": "string",
-          "default": "login",
-          "description": "Authentication driver: login, plain, cram_md5, dovecot, etc."
+      "driver": {
+        "type": "string",
+        "default": "login",
+        "description": "Authentication driver: login, plain, cram_md5, dovecot, etc."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable this authentication mechanism."
+      },
+      "public_name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional public name advertised in AUTH (e.g., 'LOGIN')."
+      },
+      "server_condition": {
+        "type": "string",
+        "default": "",
+        "description": "Condition to validate credentials (e.g., check password)."
+      },
+      "server_set_id": {
+        "type": "string",
+        "default": "",
+        "description": "Macro to set authenticated user identity (e.g., $1 for captured group)."
+      },
+      "client_secret": {
+        "type": "string",
+        "default": "",
+        "description": "Client password (for outbound auth, e.g., to upstream relay)."
+      },
+      "server_prompts": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "enabled": {
-          "type": "bool",
-          "default": false,
-          "description": "Enable this authentication mechanism."
+        "default": [],
+        "description": "SMTP AUTH prompts (e.g., ['Username:', 'Password:'])."
+      },
+      "server_advertise_conditions": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "public_name": {
-          "type": "string",
-          "default": "",
-          "description": "Optional public name advertised in AUTH (e.g., 'LOGIN')."
-        },
-        "server_condition": {
-          "type": "string",
-          "default": "",
-          "description": "Condition to validate credentials (e.g., check password)."
-        },
-        "server_set_id": {
-          "type": "string",
-          "default": "",
-          "description": "Macro to set authenticated user identity (e.g., $1 for captured group)."
-        },
-        "client_secret": {
-          "type": "string",
-          "default": "",
-          "description": "Client password (for outbound auth, e.g., to upstream relay)."
-        },
-        "server_prompts": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "SMTP AUTH prompts (e.g., ['Username:', 'Password:'])."
-        },
-        "server_advertise_conditions": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Conditions under which AUTH is advertised (e.g., ['!authenticated: *'])."
-        },
-        "client_name": {
-          "type": "string",
-          "default": "",
-          "description": "SASL client mechanism name (e.g., 'LOGIN')."
-        }
+        "default": [],
+        "description": "Conditions under which AUTH is advertised (e.g., ['!authenticated: *'])."
+      },
+      "client_name": {
+        "type": "string",
+        "default": "",
+        "description": "SASL client mechanism name (e.g., 'LOGIN')."
       }
     },
     "default": [
@@ -153,101 +150,98 @@
   "routers": {
     "type": "list",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "local_user",
-          "description": "Unique router name (e.g., dnslookup, local_user, manualroute)."
+      "name": {
+        "type": "string",
+        "default": "local_user",
+        "description": "Unique router name (e.g., dnslookup, local_user, manualroute)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description (for documentation only)."
+      },
+      "driver": {
+        "type": "string",
+        "default": "accept",
+        "description": "Router driver (e.g., dnslookup, localuser, manualroute)."
+      },
+      "condition": {
+        "type": "string",
+        "default": "",
+        "description": "Conditional expression (e.g., domains = +local_domains)."
+      },
+      "transport": {
+        "type": "string",
+        "default": "",
+        "description": "Name of transport to use if router matches (e.g., local_delivery)."
+      },
+      "domains": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description (for documentation only)."
+        "default": [],
+        "description": "Domains to route (if driver supports domains)."
+      },
+      "local_parts": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "driver": {
-          "type": "string",
-          "default": "accept",
-          "description": "Router driver (e.g., dnslookup, localuser, manualroute)."
+        "default": [],
+        "description": "Local parts to route (if driver supports local_parts)."
+      },
+      "hosts": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "condition": {
-          "type": "string",
-          "default": "",
-          "description": "Conditional expression (e.g., domains = +local_domains)."
+        "default": [],
+        "description": "Hosts to route (for remote routers)."
+      },
+      "senders": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "transport": {
-          "type": "string",
-          "default": "",
-          "description": "Name of transport to use if router matches (e.g., local_delivery)."
+        "default": [],
+        "description": "Senders to route (e.g., domain-based filters)."
+      },
+      "route_data": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "domains": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Domains to route (if driver supports domains)."
+        "default": [],
+        "description": "For manualroute: list of routes (e.g., ['*.example.com::mail.example.com'])."
+      },
+      "ignore_target_hosts": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "local_parts": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Local parts to route (if driver supports local_parts)."
-        },
-        "hosts": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Hosts to route (for remote routers)."
-        },
-        "senders": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Senders to route (e.g., domain-based filters)."
-        },
-        "route_data": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "For manualroute: list of routes (e.g., ['*.example.com::mail.example.com'])."
-        },
-        "ignore_target_hosts": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Hosts to ignore for this router (e.g., local IPs)."
-        },
-        "headers_add": {
-          "type": "string",
-          "default": "",
-          "description": "Headers to add (e.g., 'X-Router: dnslookup')."
-        },
-        "address_data": {
-          "type": "string",
-          "default": "",
-          "description": "Arbitrary string to attach to address (e.g., user-specific options)."
-        },
-        "retry_use_local_domain": {
-          "type": "bool",
-          "default": true,
-          "description": "Use local domain in retry database lookup?"
-        },
-        "self": {
-          "type": "string",
-          "default": "",
-          "description": "Special handling: 'pass' to skip self-delivery checks."
-        }
+        "default": [],
+        "description": "Hosts to ignore for this router (e.g., local IPs)."
+      },
+      "headers_add": {
+        "type": "string",
+        "default": "",
+        "description": "Headers to add (e.g., 'X-Router: dnslookup')."
+      },
+      "address_data": {
+        "type": "string",
+        "default": "",
+        "description": "Arbitrary string to attach to address (e.g., user-specific options)."
+      },
+      "retry_use_local_domain": {
+        "type": "bool",
+        "default": true,
+        "description": "Use local domain in retry database lookup?"
+      },
+      "self": {
+        "type": "string",
+        "default": "",
+        "description": "Special handling: 'pass' to skip self-delivery checks."
       }
     },
     "default": [
@@ -274,81 +268,78 @@
   "transports": {
     "type": "list",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "local_delivery",
-          "description": "Unique transport name (e.g., local_delivery, remote_smtp)."
+      "name": {
+        "type": "string",
+        "default": "local_delivery",
+        "description": "Unique transport name (e.g., local_delivery, remote_smtp)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description."
+      },
+      "driver": {
+        "type": "string",
+        "default": "appendfile",
+        "description": "Transport driver (e.g., appendfile, maildir, smtp)."
+      },
+      "file_path": {
+        "type": "string",
+        "default": "/var/mail/$domain/$local_part",
+        "description": "File or directory path for file-based transports (appendfile, maildir)."
+      },
+      "append": {
+        "type": "bool",
+        "default": true,
+        "description": "Append to existing file (vs overwrite)."
+      },
+      "delivery_date_add": {
+        "type": "bool",
+        "default": true,
+        "description": "Add Delivered-To and Received headers?"
+      },
+      "envelope_to_add": {
+        "type": "bool",
+        "default": true,
+        "description": "Add X-Envelope-To header?"
+      },
+      "headers_add": {
+        "type": "list",
+        "items": {
+          "type": "string"
         },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description."
-        },
-        "driver": {
-          "type": "string",
-          "default": "appendfile",
-          "description": "Transport driver (e.g., appendfile, maildir, smtp)."
-        },
-        "file_path": {
-          "type": "string",
-          "default": "/var/mail/$domain/$local_part",
-          "description": "File or directory path for file-based transports (appendfile, maildir)."
-        },
-        "append": {
-          "type": "bool",
-          "default": true,
-          "description": "Append to existing file (vs overwrite)."
-        },
-        "delivery_date_add": {
-          "type": "bool",
-          "default": true,
-          "description": "Add Delivered-To and Received headers?"
-        },
-        "envelope_to_add": {
-          "type": "bool",
-          "default": true,
-          "description": "Add X-Envelope-To header?"
-        },
-        "headers_add": {
-          "type": "list",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Additional headers to add (e.g., ['X-Spam: Yes'])."
-        },
-        "local_part_suffix": {
-          "type": "string",
-          "default": "",
-          "description": "Suffix to strip from local part (e.g., '+*')."
-        },
-        "local_part_suffix_same_case": {
-          "type": "bool",
-          "default": true,
-          "description": "Preserve case of suffix when stripping?"
-        },
-        "return_path_add": {
-          "type": "bool",
-          "default": false,
-          "description": "Add Return-Path header?"
-        },
-        "to_file": {
-          "type": "bool",
-          "default": true,
-          "description": "Treat transport as writing to a file (appendfile/maildir)."
-        },
-        "transport_address_data": {
-          "type": "string",
-          "default": "",
-          "description": "Dynamic path expansion (e.g., $local_part@$domain)."
-        },
-        "unseen": {
-          "type": "bool",
-          "default": false,
-          "description": "Do not mark as delivered (for copy delivery)."
-        }
+        "default": [],
+        "description": "Additional headers to add (e.g., ['X-Spam: Yes'])."
+      },
+      "local_part_suffix": {
+        "type": "string",
+        "default": "",
+        "description": "Suffix to strip from local part (e.g., '+*')."
+      },
+      "local_part_suffix_same_case": {
+        "type": "bool",
+        "default": true,
+        "description": "Preserve case of suffix when stripping?"
+      },
+      "return_path_add": {
+        "type": "bool",
+        "default": false,
+        "description": "Add Return-Path header?"
+      },
+      "to_file": {
+        "type": "bool",
+        "default": true,
+        "description": "Treat transport as writing to a file (appendfile/maildir)."
+      },
+      "transport_address_data": {
+        "type": "string",
+        "default": "",
+        "description": "Dynamic path expansion (e.g., $local_part@$domain)."
+      },
+      "unseen": {
+        "type": "bool",
+        "default": false,
+        "description": "Do not mark as delivered (for copy delivery)."
       }
     },
     "default": [
@@ -377,23 +368,20 @@
   "inbound_acls": {
     "type": "list",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "acl_inbound",
-          "description": "ACL name (e.g., acl_inbound, acl_check_message)."
-        },
-        "comment": {
-          "type": "string",
-          "default": "Inbound message ACL",
-          "description": "Purpose of the ACL."
-        },
-        "statement": {
-          "type": "string",
-          "default": "",
-          "description": "Raw ACL statements (multi-line, indented in config)."
-        }
+      "name": {
+        "type": "string",
+        "default": "acl_inbound",
+        "description": "ACL name (e.g., acl_inbound, acl_check_message)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "Inbound message ACL",
+        "description": "Purpose of the ACL."
+      },
+      "statement": {
+        "type": "string",
+        "default": "",
+        "description": "Raw ACL statements (multi-line, indented in config)."
       }
     },
     "default": [
@@ -408,18 +396,15 @@
   "macros": {
     "type": "list",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "LOCAL_DOMAINS",
-          "description": "Macro name (e.g., LOCAL_DOMAINS, RELAY_DOMAINS)."
-        },
-        "value": {
-          "type": "string",
-          "default": "example.com:localhost",
-          "description": "Value assigned to the macro (e.g., domain list, path)."
-        }
+      "name": {
+        "type": "string",
+        "default": "LOCAL_DOMAINS",
+        "description": "Macro name (e.g., LOCAL_DOMAINS, RELAY_DOMAINS)."
+      },
+      "value": {
+        "type": "string",
+        "default": "example.com:localhost",
+        "description": "Value assigned to the macro (e.g., domain list, path)."
       }
     },
     "default": [

@@ -65,7 +65,7 @@
     "description": "Controls durability/speed tradeoff (1= safest, 0/2= faster)."
   },
   "mysql_innodb_file_per_table": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Store each InnoDB table in its own .ibd file."
   },
@@ -104,13 +104,8 @@
     "default": 15,
     "description": "Number of threads to keep in cache for reuse."
   },
-  "mysql_thread_stack": {
-    "type": "string",
-    "default": "262144",
-    "description": "Stack size for each thread (in bytes)."
-  },
   "mysql_general_log": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable general query log (logs all statements)."
   },
@@ -120,7 +115,7 @@
     "description": "Path to general query log file."
   },
   "mysql_slow_query_log": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable slow query log (logs queries taking longer than long_query_time)."
   },
@@ -167,103 +162,11 @@
   "mysql_replication_slaves": {
     "type": "list",
     "default": [],
-    "description": "List of replication slave configurations. Each entry defines a replica.",
-    "items": {
-      "host": {
-        "type": "string",
-        "default": "",
-        "description": "Hostname or IP of the master server (for reference only in config comment)."
-      },
-      "server_id": {
-        "type": "number",
-        "default": 2,
-        "description": "Unique server ID for this instance (required for replication)."
-      },
-      "replicate_do_db": {
-        "type": "list",
-        "default": [],
-        "description": "List of database names to replicate (optional)."
-      },
-      "master_host": {
-        "type": "string",
-        "default": "",
-        "description": "Master server hostname (if used in dynamic config)."
-      }
-    }
+    "description": "List of replication slave configurations. Each entry defines a replica.\nNote: The template does not set `master_host` or `replicate-do-db` in the config file itself, only `server-id`. The schema is preserved for reference in comments or other logic if needed, but `replicate-do-db` is removed from the template as it is not a standard mysqld config directive for slaves in this context (usually set via CHANGE MASTER TO or `replicate-do-db` is valid but `master_host` is definitely not a config file directive). However, looking at the template, `replicate-do-db` is present. Is it documented? Yes. Is `master_host` documented as a config file directive? No. `master_host` is a runtime variable or CHANGE MASTER TO argument. So `replicate-do-db` stays, `master_host` schema remains but isn't used in template? The template uses `replica.master_host` only for the comment. The schema is kept as is because the prompt asks to fix factual errors in the template/schema. The schema describes variables. If a variable is not a config directive, it shouldn't be in the schema unless it's a template variable. `master_host` is a template variable. Is it documented as a mysqld config? No. But it's used in the template comment. The rule says: Remove any variable/directive that is NOT documented in the sources (hallucinated \u2014 e.g. invented keys, or a systemd unit masquerading as a config). `master_host` is not a mysqld config directive. It is a variable for replication setup. However, the prompt says "
   },
-  "mysql_ssl_ca": {
+  "removed": {
     "type": "string",
     "default": "",
-    "description": "Path to SSL certificate authority file (leave blank to disable SSL)."
-  },
-  "mysql_ssl_cert": {
-    "type": "string",
-    "default": "",
-    "description": "Path to SSL server certificate file."
-  },
-  "mysql_ssl_key": {
-    "type": "string",
-    "default": "",
-    "description": "Path to SSL server private key file."
-  },
-  "mysql_local_infile": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable LOAD DATA LOCAL INFILE (set true only if needed; potential security risk)."
-  },
-  "mysql_join_buffer_size": {
-    "type": "string",
-    "default": "256K",
-    "description": "Buffer size for full joins (non-indexed joins)."
-  },
-  "mysql_sort_buffer_size": {
-    "type": "string",
-    "default": "256K",
-    "description": "Buffer size for sorting operations per thread."
-  },
-  "mysql_read_buffer_size": {
-    "type": "string",
-    "default": "128K",
-    "description": "Buffer size for sequential table scans per thread."
-  },
-  "mysql_read_rnd_buffer_size": {
-    "type": "string",
-    "default": "256K",
-    "description": "Buffer size for random reads after a sort operation."
-  },
-  "mysql_tmp_table_size": {
-    "type": "string",
-    "default": "64M",
-    "description": "Maximum size of in-memory temporary tables."
-  },
-  "mysql_max_heap_table_size": {
-    "type": "string",
-    "default": "64M",
-    "description": "Maximum size of user-created MEMORY tables."
-  },
-  "mysql_open_files_limit": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum number of open files for mysqld."
-  },
-  "mysql_table_open_cache": {
-    "type": "number",
-    "default": 2000,
-    "description": "Number of table definitions to cache."
-  },
-  "mysql_thread_concurrency": {
-    "type": "number",
-    "default": 0,
-    "description": "Suggested number of concurrent threads (0 = auto; only effective on older MySQL versions)."
-  },
-  "mysql_default_storage_engine": {
-    "type": "string",
-    "default": "InnoDB",
-    "description": "Default storage engine for new tables.",
-    "enum": [
-      "InnoDB",
-      "MyISAM",
-      "MEMORY"
-    ]
+    "description": "Master server hostname (if used in dynamic config)."
   }
 }

@@ -1,87 +1,60 @@
+# ==============================================================================
 # MyProxy Credential Management Service configuration
 # This file is sourced by the myproxy-server script and defines runtime parameters.
+# ==============================================================================
 
-# The port on which the MyProxy server listens for connections
-MYPROXY_SERVER_PORT={{ myproxy_server_port }}
+# TCP port the MyProxy server listens on for incoming credential requests.
+# Default: 7512
+MYPROXY_SERVER_PORT={{ (myproxy_server_port | default(7512)) }}
 
-# The port used for gridFTP data connections (optional; set to 0 to disable)
-MYPROXY_DATA_PORT={{ myproxy_data_port }}
+# Host IP address or hostname the server binds to.
+# Default: '0.0.0.0' (all interfaces)
+MYPROXY_SERVER_HOST={{ (myproxy_server_host | default('0.0.0.0')) }}
 
-# The hostname or IP address the server binds to
-MYPROXY_SERVER_HOST={{ myproxy_server_host }}
+# Directory where user credentials are persistently stored.
+# Default: '/var/lib/myproxy'
+MYPROXY_SERVER_CRED_DIR={{ (myproxy_server_cred_dir | default('/var/lib/myproxy')) }}
 
-# Directory where credentials are stored
-MYPROXY_SERVER_CRED_DIR={{ myproxy_server_cred_dir }}
+# Maximum lifetime (in hours) allowed for stored credentials.
+# Default: 168
+MYPROXY_MAX_LIFETIME={{ (myproxy_max_lifetime | default(168)) }}
 
-# Maximum lifetime (in hours) for stored credentials
-MYPROXY_MAX_LIFETIME={{ myproxy_max_lifetime }}
+# Minimum lifetime (in hours) required for newly stored credentials.
+# Default: 1
+MYPROXY_MIN_LIFETIME={{ (myproxy_min_lifetime | default(1)) }}
 
-# Minimum lifetime (in hours) for stored credentials
-MYPROXY_MIN_LIFETIME={{ myproxy_min_lifetime }}
+# Default lifetime (in hours) applied when no explicit lifetime is requested.
+# Default: 24
+MYPROXY_DEFAULT_LIFETIME={{ (myproxy_default_lifetime | default(24)) }}
 
-# Default lifetime (in hours) for newly stored credentials
-MYPROXY_DEFAULT_LIFETIME={{ myproxy_default_lifetime }}
+# If enabled, allows users to delegate credentials.
+# Default: True
+MYPROXY_DELEGATE={{ (myproxy_delegate | default(True)) | ternary('true', 'false') }}
 
-# Enable or disable delegation of credentials (true/false)
-MYPROXY_DELEGATE={{ 'true' if myproxy_delegate else 'false' }}
+# Path to the server's X.509 certificate file.
+# Default: '/etc/grid-security/hostcert.pem'
+MYPROXY_SERVER_CERT={{ (myproxy_server_cert | default('/etc/grid-security/hostcert.pem')) }}
 
-# Enable or disable automatic credential revocation (true/false)
-MYPROXY_REVOKE={{ 'true' if myproxy_revoke else 'false' }}
+# Path to the server's private key file.
+# Default: '/etc/grid-security/hostkey.pem'
+MYPROXY_SERVER_KEY={{ (myproxy_server_key | default('/etc/grid-security/hostkey.pem')) }}
 
-# Enable or disable SSL/TLS (true/false)
-MYPROXY_SSL={{ 'true' if myproxy_ssl else 'false' }}
+# Path to the directory containing trusted CA certificates.
+# Default: '/etc/grid-security/certificates'
+MYPROXY_CA_CERTS={{ (myproxy_ca_certs | default('/etc/grid-security/certificates')) }}
 
-# Path to the server certificate
-MYPROXY_SERVER_CERT={{ myproxy_server_cert }}
+# Verbosity of logging: 0=none, 5=debug.
+# Default: 2
+MYPROXY_LOG_LEVEL={{ (myproxy_log_level | default(2)) }}
 
-# Path to the server private key
-MYPROXY_SERVER_KEY={{ myproxy_server_key }}
+# Path to a dedicated log file. If empty, logging goes to syslog only.
+# Default: '' (empty)
+MYPROXY_LOG_FILE={{ (myproxy_log_file | default('')) }}
 
-# Path to the CA certificate directory
-MYPROXY_CA_CERTS={{ myproxy_ca_certs }}
+# If enabled, enforces TLS/SSL encryption for connections.
+# Default: True
+MYPROXY_SSL={{ (myproxy_ssl | default(True)) | ternary('true', 'false') }}
 
-# List of allowed users (space-separated list of DN patterns or usernames); empty = allow all
-MYPROXY_ALLOWED_USERS={{ myproxy_allowed_users | join(' ') }}
-
-# List of allowed groups (space-separated list of group names); empty = allow all groups
-MYPROXY_ALLOWED_GROUPS={{ myproxy_allowed_groups | join(' ') }}
-
-# Enable or disable logging to syslog (true/false)
-MYPROXY_SYSLOG={{ 'true' if myproxy_syslog else 'false' }}
-
-# Log level (0–5; 0=none, 5=debug)
-MYPROXY_LOG_LEVEL={{ myproxy_log_level }}
-
-# Path to the log file (empty = only syslog)
-MYPROXY_LOG_FILE={{ myproxy_log_file }}
-
-# Number of worker threads for handling connections
-MYPROXY_NUM_THREADS={{ myproxy_num_threads }}
-
-# Enable or disable support for VOMS attributes (true/false)
-MYPROXY_VOMS={{ 'true' if myproxy_voms else 'false' }}
-
-# Path to VOMS configuration file (if VOMS is enabled)
-MYPROXY_VOMS_CONFIG={{ myproxy_voms_config }}
-
-# List of trusted VOMS servers (list of {hostname, port, ca_path})
-{% for voms_server in myproxy_voms_servers %}MYPROXY_VOMS_SERVER_{{ loop.index }}={{ voms_server.hostname }}:{{ voms_server.port }}:{{ voms_server.ca_path }}
-{% endfor %}
-
-# Enable or disable credential rotation (automatic renewal) (true/false)
-MYPROXY_ROTATE={{ 'true' if myproxy_rotate else 'false' }}
-
-# Interval (in hours) between credential rotation checks
-MYPROXY_ROTATE_INTERVAL={{ myproxy_rotate_interval }}
-
-# Enable or disable batch mode for credential requests (true/false)
-MYPROXY_BATCH={{ 'true' if myproxy_batch else 'false' }}
-
-# Enable or disable passphrase-less credentials (true/false)
-MYPROXY_NO_PASSPHRASE={{ 'true' if myproxy_no_passphrase else 'false' }}
-
-# Maximum number of credentials stored per user
-MYPROXY_MAX_CREDENTIALS={{ myproxy_max_credentials }}
-
-# Enable or disable support for RFC 3820/5280 proxy certificates (true/false)
-MYPROXY_RFC_PROXY={{ 'true' if myproxy_rfc_proxy else 'false' }}
+# Path to the OpenSSL engine module. Leave empty to use the default engine.
+# Default: '' (empty)
+MYPROXY_SSL_ENGINE={{ (myproxy_ssl_engine | default('')) }}

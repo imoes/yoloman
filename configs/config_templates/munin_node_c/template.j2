@@ -1,51 +1,67 @@
-# Listen on this address and port
-bind {{ listen_address }} {{ listen_port }}
+# ============================================================
+# Munin Node Configuration Template
+# Self-documenting: every directive is preceded by a comment
+# derived from the schema field description.
+# ============================================================
 
-# Username under which the node runs
-user {{ munin_user }}
+# IP address the node listens on. Use 0.0.0.0 for all interfaces, or a specific IP.
+bind {{ (listen_address | default('0.0.0.0')) }} {{ (listen_port | default(4949)) }}
 
-# Log level: 0=quiet, 1=errors, 2=warnings, 3=info, 4=debug
-log_level {{ log_level }}
+# System user account under which the node daemon runs for security isolation.
+user {{ (munin_user | default('munin')) }}
 
-# PID file location
-pid_file {{ pid_file }}
+# Verbosity level: 0 (quiet), 1 (errors only), 2 (warnings), 3 (info), 4 (debug).
+log_level {{ (log_level | default(1)) }}
 
-# Maximum number of simultaneous connections
-max_connections {{ max_connections }}
+# Path to the PID file for the munin-node process.
+pid_file {{ (pid_file | default('/var/run/munin/munin-node.pid')) }}
 
-# Enable TLS (true/false)
-{% if use_tls %}tls true
-tls_cert_file {{ tls_cert_file }}
-tls_key_file {{ tls_key_file }}
-{% else %}tls false
+# Maximum number of simultaneous client connections allowed.
+max_connections {{ (max_connections | default(10)) }}
+
+{% if (use_tls | default(False) | bool) %}
+# Enable TLS encryption for client-server communication.
+tls true
+# Path to TLS certificate file (used only if TLS enabled).
+tls_cert_file {{ (tls_cert_file | default('/etc/munin/munin-node.crt')) }}
+# Path to TLS private key file (used only if TLS enabled).
+tls_key_file {{ (tls_key_file | default('/etc/munin/munin-node.key')) }}
+{% else %}
+# Enable TLS encryption for client-server communication.
+tls false
 {% endif %}
 
-# List of allowed client hosts (CIDR or hostname)
-{% for host in allowed_hosts %}allow ^{{ host | replace('.', '\.') | replace('*', '.*') }}$
+# List of client host patterns (in regex-like form with dots escaped, wildcards as *) allowed to connect.
+{% for host_pattern in (allowed_hosts | default(['^127\\.0\\.0\\.1$', '^::1$'])) %}
+allow ^{{ (host_pattern | replace('.', '\\.') | replace('*', '.*')) }}$
 {% endfor %}
 
-# Optional: list of plugins to exclude from auto-discovery
-{% for plugin in excluded_plugins %}exclude {{ plugin }}
+# Plugins to disable even if found in plugin_dir. Useful for hiding sensitive or unstable plugins.
+{% for plugin_name in (excluded_plugins | default(['proc', 'uptime'])) %}
+exclude {{ (plugin_name) }}
 {% endfor %}
 
-# Optional: plugin-specific config (e.g., timeouts)
-{% for plugin, config in plugin_configs.items() %}[{{ plugin }}]
-{% for key, value in config.items() %}  {{ key }} {{ value }}
-{% endfor %}{% endfor %}
-
-# Optional: host-specific config (for multi-host setups)
-{% for host_config in host_configs %}[{{ host_config.host_name }}]
-  address {{ host_config.address }}
-  use_tls {{ 'true' if host_config.use_tls else 'false' }}
-  port {{ host_config.port }}
+# Per-plugin configuration overrides (e.g., set timeouts, environment variables). Keys are plugin names, values are key-value maps.
+{% for plugin_name, plugin_conf in (plugin_configs | default({}) | dict2items) %}
+[{{ (plugin_name) }}]
+{% for cfg_key, cfg_value in (plugin_conf | default({} | dict2items)) %}
+  {{ (cfg_key) }} {{ (cfg_value) }}
+{% endfor %}
 {% endfor %}
 
-# Final directive: which plugins to run (auto if omitted)
-# plugin_dir specifies where to look for plugins
-plugin_dir {{ plugin_dir }}
+# List of remote hosts that this node serves as a proxy for (optional advanced use case).
+{% for host_config in (host_configs | default([])) %}
+[{{ (host_config.host_name) }}]
+  address {{ (host_config.address) }}
+  use_tls {{ (host_config.use_tls | default(False) | ternary('true', 'false')) }}
+  port {{ (host_config.port) }}
+{% endfor %}
 
-# Timeout for plugin execution (seconds)
-plugin_timeout {{ plugin_timeout }}
+# Directory where Munin plugins are stored. Must be readable by the munin user.
+plugin_dir {{ (plugin_dir | default('/usr/share/munin/plugins')) }}
 
-# Whether to include load plugin in defaults
-plugin_load_include {{ 'true' if plugin_load_include else 'false' }}
+# Maximum time (in seconds) allowed for any plugin to execute before termination.
+plugin_timeout {{ (plugin_timeout | default(10)) }}
+
+# Include the 'load' plugin in auto-discovered list if no explicit plugin list is given.
+plugin_load_include {{ ((plugin_load_include | default(True) | bool) | ternary('true', 'false')) }}

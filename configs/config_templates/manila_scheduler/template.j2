@@ -1,64 +1,81 @@
 [DEFAULT]
-# Logging configuration
-log_dir = {{ log_dir }}
-log_file = {{ log_file }}
+# Directory to store log files for the Manila scheduler service.
+log_dir = {{ log_dir | default('/var/log/manila') }}
 
-# Debug / verbosity
-# Enable debug mode for verbose logging
-debug = {{ debug }}
+# Filename for the main scheduler log file (relative to log_dir).
+log_file = {{ log_file | default('manila-scheduler.log') }}
 
-# RPC / messaging backend
-# Transport URL for message broker (e.g., rabbitmq, redis, or fake for testing)
-transport_url = {{ transport_url }}
+# Enable debug-level logging for troubleshooting (verbose output).
+# Must be 'true' or 'false' (boolean).
+debug = {{ debug | default(false) | lower }}
 
-# Authentication
-# Authentication strategy (keystone recommended for production)
+# Message broker transport URL. Supports RabbitMQ, Redis, or fake (for testing).
+# Example: rabbit://openstack:openstack@localhost:5672/
+transport_url = {{ transport_url | default('rabbit://openstack:openstack@localhost:5672/') }}
+
+# Authentication strategy.
+# Keystone is recommended for production environments.
 auth_strategy = keystone
 
-# Database connection
-# SQLAlchemy connection string for Manila database
-connection = {{ db_connection }}
+# Database connection string (SQLAlchemy format).
+# Maps to the 'database' capability (mysql/mariadb backends).
+connection = {{ db_connection | default('mysql+pymysql://manila:manila@localhost/manila') }}
 
-# Scheduler driver
-# Driver used to select a backend share server for share creation
-scheduler_driver = {{ scheduler_driver }}
+# Scheduler driver class used to select a share backend for new shares.
+# Loaded dynamically via stevedore.
+scheduler_driver = {{ scheduler_driver | default('manila.scheduler.drivers.filter.FilterScheduler') }}
 
-# Scheduler filters
-# Comma-separated list of filter classes to apply (loaded via stevedore)
-scheduler_default_filters = {{ scheduler_default_filters | join(', ') }}
+# Ordered list of scheduler filter classes to apply when choosing a backend.
+# Filters are AND'd together unless negated.
+# Loaded dynamically via stevedore.
+scheduler_default_filters = {{ scheduler_default_filters | default(['AvailabilityZoneFilter', 'CapacitiesFilter', 'CapabilitiesFilter', 'PoolFilter', 'WeightedRandomFilter']) | join(', ') }}
 
-# Scheduler weights
-# Comma-separated list of weight filter classes
-scheduler_weight_filters = {{ scheduler_weight_filters | join(', ') }}
+# List of scheduler weighter classes used to score filtered backends (higher is better).
+# Loaded dynamically via stevedore.
+scheduler_weight_filters = {{ scheduler_weight_filters | default(['WeightedRandomFilter']) | join(', ') }}
 
-# Scheduler options
-# Number of scheduler workers (processes) to spawn
-workers = {{ workers }}
+# Number of separate worker processes to spawn for the scheduler service.
+workers = {{ workers | default(1) }}
 
-# Share driver
-# Default share server type; must match enabled backends
-# (e.g., manila.share.drivers.lvm.LVMShareDriver)
-share_driver = {{ share_driver }}
+# Default backend share driver class (must be installed and enabled).
+share_driver = {{ share_driver | default('manila.share.drivers.lvm.LVMShareDriver') }}
 
-# Driver helpers & options — passed to share driver
-# Enable use of network allocation on scheduler (e.g., for Neutron-backed networks)
-driver_handles_share_servers = {{ driver_handles_share_servers }}
+# Whether the driver manages share servers.
+# true = driver handles networking, security, etc.
+# false = simple driver (no share servers).
+driver_handles_share_servers = {{ driver_handles_share_servers | default(false) | lower }}
 
-# Share network security service integration
-# Optional: enable integration with LDAP/Kerberos/Active Directory
-# (see manila.conf documentation for [keystone_authtoken] settings)
-
-{% for service in service_auth_params %}
-# Service credentials for {{ service.name }}
-[{{ service.section }}]
-{% if service.section == 'keystone_authtoken' %}
-auth_url = {{ service.auth_url }}
-project_domain_name = {{ service.project_domain_name }}
-user_domain_name = {{ service.user_domain_name }}
-project_name = {{ service.project_name }}
-username = {{ service.username }}
-password = {{ service.password }}
-{% elif service.section == 'oslo_concurrency' %}
-lock_path = {{ service.lock_path }}
+# Service credentials and configuration blocks.
+# Each item defines a config section and its key-value pairs (e.g., for auth or locking).
+{% for service in service_auth_params | default([{'name': 'Keystone', 'section': 'keystone_authtoken', 'auth_url': 'http://keystone.local:5000', 'project_domain_name': 'Default', 'user_domain_name': 'Default', 'project_name': 'service', 'username': 'manila', 'password': 'changeme'}, {'name': 'Locking', 'section': 'oslo_concurrency', 'lock_path': '/var/lib/manila/tmp'}]) %}
+# Service credentials for {{ service.name | default('Unknown') }}
+[{{ service.section | default('default') }}]
+# Authentication URL for Keystone or similar auth service.
+{% if service.auth_url is defined %}
+auth_url = {{ service.auth_url | default('http://localhost:5000') }}
+{% endif %}
+# Domain name for the project scope.
+{% if service.project_domain_name is defined %}
+project_domain_name = {{ service.project_domain_name | default('Default') }}
+{% endif %}
+# Domain name for the user scope.
+{% if service.user_domain_name is defined %}
+user_domain_name = {{ service.user_domain_name | default('Default') }}
+{% endif %}
+# Name of the project (tenant) to authenticate against.
+{% if service.project_name is defined %}
+project_name = {{ service.project_name | default('service') }}
+{% endif %}
+# Username for the service account.
+{% if service.username is defined %}
+username = {{ service.username | default('manila') }}
+{% endif %}
+# Password for the service account.
+{% if service.password is defined %}
+password = {{ service.password | default('changeme') }}
+{% endif %}
+# Lock path for oslo.concurrency mutual exclusion.
+{% if service.lock_path is defined %}
+lock_path = {{ service.lock_path | default('/var/lib/manila/tmp') }}
 {% endif %}
 {% endfor %}
