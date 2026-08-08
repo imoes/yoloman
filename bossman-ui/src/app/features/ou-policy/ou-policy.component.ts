@@ -903,7 +903,7 @@ export class OuPolicyComponent implements OnInit {
     ref.afterClosed().subscribe((res) => {
       if (!res) return;
       this.stage(`Assign check "${res.check_name}" → OU ${ou.path}`,
-        () => this.checkService.createAssignment({ check_name: res.check_name, scope_type: 'ou', ou_id: ou.id, parameters: res.parameters }));
+        () => this.checkService.createAssignment({ check_name: res.check_name, scope_type: 'ou', ou_id: ou.id, parameters: res.parameters, conditions: res.conditions }));
     });
   }
 
@@ -915,7 +915,7 @@ export class OuPolicyComponent implements OnInit {
     ref.afterClosed().subscribe((res) => {
       if (!res) return;
       this.stage(`Assign check "${res.check_name}" → group ${row.obj!.label}`,
-        () => this.checkService.createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters }));
+        () => this.checkService.createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters, conditions: res.conditions }));
     });
   }
 

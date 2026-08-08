@@ -95,6 +95,10 @@ export interface CheckRule {
   is_default: boolean;
   enabled: boolean;
   created_at: string;
+  /** Checkmk match conditions (host_tags / labels / os / folder / host+service
+   * name) — the rule applies only where these match, on top of its scope.
+   * Optional so existing CheckRuleInput literals need not set it. */
+  conditions?: Record<string, unknown>;
 }
 
 export type CheckRuleInput = Omit<CheckRule, 'id' | 'created_at' | 'is_default'>;

@@ -103,7 +103,7 @@ export class OuService {
       : scope.unlinked ? `unlinked=true`
       : `host_group_id=${scope.groupId}`;
     return this.http.get<
-      { id: string; scope_ou_id: string | null; host_group_id: string | null; site_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null }[]
+      { id: string; scope_ou_id: string | null; host_group_id: string | null; site_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null; conditions: Record<string, unknown> }[]
     >(`${environment.apiUrl}/config-policies?${q}`);
   }
 
@@ -130,6 +130,13 @@ export class OuService {
       `${environment.apiUrl}/scope-vars?scope_type=ou&ou_id=${ouId}`);
   }
 
+  /** Known tag groups / label keys / OU folders — powers the conditions editor's
+   * suggestion dropdowns (free text is still allowed). */
+  matchVocabulary() {
+    return this.http.get<{ host_tags: Record<string, string[]>; host_labels: Record<string, string[]>; ou_folders: string[] }>(
+      `${environment.apiUrl}/match-vocabulary`);
+  }
+
   /** Move a placed config policy to another OU/group/site scope. */
   rescopeConfigPolicy(id: string, body: { scope_ou_id?: string; host_group_id?: string; site_id?: string }) {
     return this.http.patch<{ id: string }>(`${environment.apiUrl}/config-policies/${id}`, body);
@@ -146,6 +153,7 @@ export class OuService {
     path: string;
     format: string;
     values: Record<string, unknown>;
+    conditions?: Record<string, unknown>;
     dry_run?: boolean;
   }) {
     return this.http.post<{ scope: string; applied_hosts: string[]; skipped_hosts: string[]; dry_run: boolean }>(

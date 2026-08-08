@@ -65,6 +65,7 @@ def _assignment_out(a: CheckAssignment) -> dict[str, Any]:
         "agent_id": str(a.agent_id) if a.agent_id else None,
         "host_group_id": str(a.host_group_id) if a.host_group_id else None,
         "parameters": a.parameters or {},
+        "conditions": a.conditions or {},
         "enabled": a.enabled,
         "source": a.source,
     }
@@ -128,6 +129,9 @@ class CreateAssignmentRequest(BaseModel):
     host_group_id: UUID | None = None
     parameters: dict[str, Any] = {}
     source: str = "manual"
+    # Checkmk match conditions (services/rule_conditions): host_tags / labels /
+    # os / folder / host+service name; empty = applies wherever the scope reaches.
+    conditions: dict[str, Any] = {}
 
 
 @router.post("/api/v1/check-assignments")
@@ -167,6 +171,7 @@ async def create_assignment(
         agent_id=body.agent_id if body.scope_type == "host" else None,
         host_group_id=body.host_group_id if body.scope_type == "group" else None,
         parameters=body.parameters or {},
+        conditions=body.conditions or {},
         source=body.source if body.source in ("manual", "autodiscovered", "ai") else "manual",
         created_by=identity.name,
     )

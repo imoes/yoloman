@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { CheckRule, CheckRuleComparison, CheckRuleInput, MetricCatalogEntry } from '../../../core/models/monitoring.model';
 import { MonitoringService } from '../../../core/services/monitoring.service';
 import { isStatefulMetric } from '../../metric-kind.util';
+import { ConditionsEditorComponent } from '../conditions-editor/conditions-editor.component';
 
 export interface ThresholdDialogData {
   /** OU scope (Block L3c) — set for an OU-scoped threshold. */
@@ -62,7 +63,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
 @Component({
   selector: 'app-threshold-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule],
+  imports: [FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule, ConditionsEditorComponent],
   template: `
     <h2 mat-dialog-title>
       {{ data.rule ? 'Edit' : 'New' }} threshold {{ scopeLabel() }}
@@ -116,6 +117,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
           } @else { <p class="bm-dim">Pick a metric on the left.</p> }
         </div>
       </div>
+      <app-conditions-editor [conditions]="conditions()" (conditionsChange)="conditions.set($event)" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -169,6 +171,9 @@ export class ThresholdDialogComponent implements OnInit {
 
   // Miller-list search term (free text over name + raw key + description).
   search = signal('');
+  // Checkmk match conditions (host_tags / labels / os / folder / service) for
+  // this threshold; empty = applies wherever the scope reaches.
+  conditions = signal<Record<string, unknown>>({});
   // The selected metric + service name drive the stateful check (no thresholds).
   private metricTerm = toSignal(this.form.controls.metric.valueChanges, { initialValue: '' });
   private serviceTerm = toSignal(this.form.controls.service_name.valueChanges, { initialValue: '' });
@@ -228,6 +233,7 @@ export class ThresholdDialogComponent implements OnInit {
       // Pre-open the category that holds the edited metric so column 2 highlights
       // it and column 3 shows its params immediately.
       this.selectedCat.set(metricCategory({ metric: data.rule.metric, display_name: data.rule.service_name, unit: '' }));
+      if (data.rule.conditions) this.conditions.set(data.rule.conditions as Record<string, unknown>);
     } else if (data.hostName) {
       // Per-service override on a host: pre-fill the metric + a sensible
       // service name from the service the operator clicked.
@@ -281,6 +287,7 @@ export class ThresholdDialogComponent implements OnInit {
       label_value: this.data.labelValue ?? this.data.rule?.label_value ?? null,
       max_attempts: this.data.rule?.max_attempts ?? null,
       enabled: this.data.rule?.enabled ?? true,
+      conditions: this.conditions(),
     });
   }
 }

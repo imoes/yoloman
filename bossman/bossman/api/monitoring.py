@@ -603,6 +603,10 @@ class CheckRuleIn(BaseModel):
     # Block K9: composite/multi-metric conditions — see CheckRule.extra_conditions.
     extra_conditions: list[dict] | None = None
     condition_logic: str = "AND"
+    # Checkmk MATCH conditions (services/rule_conditions): host_tags / labels /
+    # os / folder / host+service name. Distinct from extra_conditions (which are
+    # threshold logic); empty = applies wherever the scope reaches.
+    conditions: dict = {}
 
 
 class CheckRuleOut(BaseModel):
@@ -636,6 +640,7 @@ class CheckRuleOut(BaseModel):
     depends_on_service_name: str | None
     extra_conditions: list[dict] | None
     condition_logic: str
+    conditions: dict = {}
 
     @classmethod
     def from_model(cls, r: CheckRule) -> "CheckRuleOut":
@@ -663,6 +668,7 @@ class CheckRuleOut(BaseModel):
             depends_on_service_name=r.depends_on_service_name,
             extra_conditions=r.extra_conditions,
             condition_logic=r.condition_logic,
+            conditions=r.conditions or {},
         )
 
     def with_version(self) -> "CheckRuleOut":
@@ -769,6 +775,7 @@ async def create_check_rule(
         depends_on_service_name=body.depends_on_service_name,
         extra_conditions=body.extra_conditions,
         condition_logic=body.condition_logic,
+        conditions=body.conditions or {},
     )
     session.add(rule)
     await _enqueue_rule_change(session)
@@ -825,6 +832,7 @@ async def update_check_rule(
     rule.depends_on_service_name = body.depends_on_service_name
     rule.extra_conditions = body.extra_conditions
     rule.condition_logic = body.condition_logic
+    rule.conditions = body.conditions or {}
     await _enqueue_rule_change(session)
     await session.commit()
     return CheckRuleOut.from_model(rule).with_version()

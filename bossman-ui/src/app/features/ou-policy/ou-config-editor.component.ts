@@ -10,6 +10,7 @@ import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { DirectiveSpec } from '../../core/models/agent.model';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
+import { ConditionsEditorComponent } from '../../shared/components/conditions-editor/conditions-editor.component';
 
 interface ScopePolicy {
   id: string;
@@ -19,6 +20,7 @@ interface ScopePolicy {
   separator: string | null;
   values: Record<string, unknown>;
   template: string | null;
+  conditions?: Record<string, unknown>;
 }
 
 interface SettingRow {
@@ -64,7 +66,7 @@ export interface EditorScope {
 @Component({
   selector: 'app-ou-config-editor',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ConditionsEditorComponent],
   template: `
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
@@ -157,6 +159,14 @@ export interface EditorScope {
               <input class="bm-oce-val" placeholder="Add a setting key…" [ngModel]="newKey()" (ngModelChange)="newKey.set($event)" />
               <button mat-stroked-button (click)="addKey()" [disabled]="!newKey().trim()">Add</button>
             </div>
+            @if (deferApply) {
+              <!-- Checkmk match conditions for THIS file (staged with the values;
+                   Save commits, Cancel discards). Empty = applies wherever the
+                   scope reaches. -->
+              <div class="bm-oce-cond">
+                <app-conditions-editor [conditions]="condFor(sel)" (conditionsChange)="setCond(sel, $event)" />
+              </div>
+            }
           } @else {
             <p class="bm-oce-empty">Select a config file.</p>
           }
@@ -200,6 +210,7 @@ export interface EditorScope {
       .bm-oce-val { padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
       .bm-oce-actions { display: flex; justify-content: flex-end; gap: 8px; }
       .bm-oce-add { margin-top: 10px; display: flex; gap: 8px; }
+      .bm-oce-cond { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-oce-empty { opacity: 0.6; font-size: 13px; padding: 8px 10px; }
       .bm-oce-err { color: var(--mat-sys-error); font-size: 13px; margin: 0; }
     `,
@@ -257,11 +268,25 @@ export class OuConfigEditorComponent implements OnChanges {
   newKey = signal('');
   busy = signal(false);
   error = signal<string | null>(null);
-  // Staged edits in deferred mode, keyed by `${path} ${key}` so a key can be
+  // Staged edits in deferred mode, keyed by `${path}\u0000${key}` so a key can be
   // re-edited before Save. Empty in immediate mode.
   pending = signal<Map<string, PendingEdit>>(new Map());
-  private pk(path: string, key: string): string { return `${path} ${key}`; }
-  pendingCount(): number { return this.pending().size; }
+  private pk(path: string, key: string): string { return `${path}\u0000${key}`; }
+  pendingCount(): number { return this.pending().size + this.condDirty.size; }
+  // Per-file (path) Checkmk match conditions, editable below the settings (dialog
+  // only). Seeded from the policy at this scope; condDirty remembers files whose
+  // conditions changed so saveAll writes them even without a value edit.
+  condByPath = signal<Map<string, Record<string, unknown>>>(new Map());
+  private condDirty = new Set<string>();
+  condFor(path: string): Record<string, unknown> {
+    return this.condByPath().get(path) ?? this.policyFor(path)?.conditions ?? {};
+  }
+  setCond(path: string, c: Record<string, unknown>): void {
+    const next = new Map(this.condByPath());
+    next.set(path, c);
+    this.condByPath.set(next);
+    this.condDirty.add(path);
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['scope']) this.reload();
@@ -274,6 +299,8 @@ export class OuConfigEditorComponent implements OnChanges {
     this.selected.set(null);
     this.editKey.set(null);
     this.pending.set(new Map());
+    this.condByPath.set(new Map());
+    this.condDirty.clear();
     this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => {
       this.policies.set(ps);
       // Show set values right away: select the file the user came to edit, else
@@ -414,7 +441,6 @@ export class OuConfigEditorComponent implements OnChanges {
    * Completes before the dialog closes so the page's reload sees the result. */
   saveAll(): Observable<unknown> {
     const map = this.pending();
-    if (!map.size) return of(null);
     const byPath = new Map<string, { fmt: string; values: Record<string, unknown>; unset: string[] }>();
     for (const e of map.values()) {
       const g = byPath.get(e.path) ?? { fmt: e.fmt || 'keyvalue', values: {}, unset: [] };
@@ -422,18 +448,38 @@ export class OuConfigEditorComponent implements OnChanges {
       else Object.assign(g.values, this.unflatten(e.key, e.mode === 'removed' ? null : e.value, e.fmt !== 'keyvalue'));
       byPath.set(e.path, g);
     }
+    // A file whose ONLY change is its conditions still needs a write — ensure it
+    // has an entry so its createConfigPolicy runs (empty values = conditions-only).
+    for (const path of this.condDirty) {
+      if (!byPath.has(path)) {
+        const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
+        byPath.set(path, { fmt, values: {}, unset: [] });
+      }
+    }
+    if (!byPath.size) return of(null);
     const ops: Observable<unknown>[] = [];
     for (const [path, g] of byPath) {
-      if (Object.keys(g.values).length) ops.push(this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: g.fmt, values: g.values }));
+      const cond = this.condFor(path);
+      // Write the policy when it has values OR carries conditions (so a
+      // conditions-only edit persists); the backend replaces conditions wholesale.
+      if (Object.keys(g.values).length || Object.keys(cond).length || this.condDirty.has(path)) {
+        ops.push(this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: g.fmt, values: g.values, conditions: cond }));
+      }
       for (const key of g.unset) if (this.policyFor(path)) ops.push(this.ouService.unsetConfigPolicyKey({ ...this.scopeArg(), path, key }));
     }
-    if (!ops.length) { this.pending.set(new Map()); return of(null); }
-    return forkJoin(ops).pipe(tap(() => this.pending.set(new Map())));
+    if (!ops.length) { this.clearStaged(); return of(null); }
+    return forkJoin(ops).pipe(tap(() => this.clearStaged()));
+  }
+
+  private clearStaged(): void {
+    this.pending.set(new Map());
+    this.condByPath.set(new Map());
+    this.condDirty.clear();
   }
 
   /** Drop all staged edits (deferred/dialog Cancel) — nothing was persisted. */
   discardAll(): void {
-    this.pending.set(new Map());
+    this.clearStaged();
     this.editKey.set(null);
   }
 
@@ -516,7 +562,7 @@ export class OuConfigEditorComponent implements OnChanges {
     }
     const value = this.mode() === 'removed' ? null : this.value();
     const values = this.unflatten(key, value, fmt !== 'keyvalue');
-    this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: fmt ?? 'keyvalue', values }).subscribe({
+    this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: fmt ?? 'keyvalue', values, conditions: this.condFor(path) }).subscribe({
       next: (r) => {
         this.appDialog.notify(
           r.applied_hosts.length ? `Applied to ${r.applied_hosts.length} host(s).` : 'Policy saved (no reachable member yet).',

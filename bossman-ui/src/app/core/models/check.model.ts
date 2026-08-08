@@ -68,5 +68,6 @@ export interface CreateCheckAssignment {
   agent_id?: string | null;
   host_group_id?: string | null;
   parameters?: Record<string, unknown>;
+  conditions?: Record<string, unknown>;
   source?: string;
 }

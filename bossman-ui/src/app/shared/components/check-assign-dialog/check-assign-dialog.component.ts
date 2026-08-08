@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { CheckCatalogEntry, CheckOption } from '../../../core/models/check.model';
 import { CheckService } from '../../../core/services/check.service';
+import { ConditionsEditorComponent } from '../conditions-editor/conditions-editor.component';
 
 export interface CheckAssignDialogData {
   scopeLabel: string; // e.g. "OU /Databases" or "group web-servers"
@@ -12,6 +13,7 @@ export interface CheckAssignDialogData {
 export interface CheckAssignResult {
   check_name: string;
   parameters: Record<string, unknown>;
+  conditions: Record<string, unknown>;
 }
 
 /** Pick a library check and fill its parameters, to assign it to an OU/group/
@@ -22,7 +24,7 @@ export interface CheckAssignResult {
 @Component({
   selector: 'app-check-assign-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, ConditionsEditorComponent],
   template: `
     <h2 mat-dialog-title>Assign a check to {{ data.scopeLabel }}</h2>
     <mat-dialog-content>
@@ -51,6 +53,7 @@ export interface CheckAssignResult {
           } @else { <p class="bm-dim">Pick a check on the left.</p> }
         </div>
       </div>
+      <app-conditions-editor [conditions]="conditions()" (conditionsChange)="conditions.set($event)" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -78,6 +81,7 @@ export class CheckAssignDialogComponent implements OnInit {
   pick = signal<string>('');
   draft = signal<Record<string, string>>({});
   search = signal<string>('');
+  conditions = signal<Record<string, unknown>>({});
 
   filtered = computed<CheckCatalogEntry[]>(() => {
     const q = this.search().trim().toLowerCase();
@@ -128,6 +132,6 @@ export class CheckAssignDialogComponent implements OnInit {
 
   save(): void {
     if (!this.pick()) return;
-    this.dialogRef.close({ check_name: this.pick(), parameters: this.typedParams() });
+    this.dialogRef.close({ check_name: this.pick(), parameters: this.typedParams(), conditions: this.conditions() });
   }
 }
