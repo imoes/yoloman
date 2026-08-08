@@ -19,6 +19,7 @@ import { BindZonesComponent } from './packages/bind-zones.component';
 import { NfsExportsComponent } from './packages/nfs-exports.component';
 import { DhcpdComponent } from './packages/dhcpd.component';
 import { CronComponent } from './packages/cron.component';
+import { LogrotateComponent } from './packages/logrotate.component';
 import { AptReposComponent } from './packages/apt-repos.component';
 import { SambaComponent } from './packages/samba.component';
 import { PureFtpdComponent } from './packages/pure-ftpd.component';
@@ -46,7 +47,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
-    CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
+    CronComponent, LogrotateComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
     WebConfigTreeComponent, WebSingleConfigTreeComponent, TraefikConfigComponent,
   ],
   template: `
@@ -94,6 +95,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-caddy')) { <div [style.display]="show('pkg-caddy')"><app-web-single-config-tree #caddyTree [agentId]="agentId()" [profile]="caddyProfile" /></div> }
         @if (visited().has('pkg-traefik')) { <div [style.display]="show('pkg-traefik')"><app-traefik-config [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
+        @if (visited().has('logrotate')) { <div [style.display]="show('logrotate')"><app-logrotate [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
           @if (visited().has(p.id)) { <div [style.display]="show(p.id)"><app-package-config [agentId]="agentId()" [def]="p" /></div> }
@@ -183,6 +185,7 @@ export class HostManagementComponent implements OnInit {
     { id: 'servicechecks', label: 'Service checks', icon: 'network_check', category: 'Monitoring' },
     { id: 'services', label: 'Services', icon: 'settings_applications', category: 'Server' },
     { id: 'cron', label: 'Scheduled jobs', icon: 'schedule', category: 'Server' },
+    { id: 'logrotate', label: 'Log rotation', icon: 'sync', category: 'Server' },
     { id: 'updates', label: 'Updates', icon: 'system_update_alt', category: 'Server' },
     { id: 'apt-repos', label: 'Software sources', icon: 'inventory_2', category: 'Server' },
     { id: 'logs', label: 'Logs', icon: 'article', category: 'Server' },
@@ -297,6 +300,7 @@ export class HostManagementComponent implements OnInit {
   private nfsExports = viewChild(NfsExportsComponent);
   private dhcpd = viewChild(DhcpdComponent);
   private cron = viewChild(CronComponent);
+  private logrotate = viewChild(LogrotateComponent);
   private aptRepos = viewChild(AptReposComponent);
   private samba = viewChild(SambaComponent);
   private pureftpd = viewChild(PureFtpdComponent);
@@ -340,6 +344,7 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-caddy': this.caddyTree()?.loadOnce(); break;
         case 'pkg-traefik': this.traefikConfig()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
+        case 'logrotate': this.logrotate()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.
         default:
