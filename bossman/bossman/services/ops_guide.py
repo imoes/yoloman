@@ -23,6 +23,7 @@ tools. **Golden rules:**
 
 **Inspect a host / the fleet**
 - `list_hosts` — every managed host (name, address, tags, OU). Start here.
+- `fleet_search(query)` — **search the WHOLE fleet's desired state in one call** (config keys/values, variables, host tags, Ansible facts, applied checks/roles/thresholds). Fastest way to answer "which hosts have X?". Plain substring, or `key=value` (path contains key AND value contains value): `os.family=Debian`, `timezone=Europe`, `role=web`, `config./etc/ntp.conf`.
 - `host_status(host)` / `diagnose_host(host)` — facts, latest metrics, recent run, cross-signal snapshot.
 - `fleet_health` / `list_problems` / `host_services(host)` — monitoring state; `get_host_logs`, `get_host_processes`.
 - `get_server_document(host)` / `explain_server(host, question)` — the whole host as a document / NL Q&A grounded in live state.
@@ -35,6 +36,7 @@ tools. **Golden rules:**
 - Scopes form a tree: `get_ou_tree` (OUs), `list_host_groups`, plus subnet **Sites**. Precedence: global < group < OU(deep) < Site < host (closest-to-host wins).
 - A **named policy** groups several config-file entries; link it to an OU/Site to apply to every host under it. Thresholds: `set_threshold(...)`. Orchestration/role policies: `list_orchestration_plans`, `preview_orchestration_plan_link`, then `propose_orchestration_plan_link(...)` — the ONE gated write (starts pending human approval).
 - **When to use which:** one host, one file → `set_host_config`. Same setting for a whole group/OU/subnet → a policy linked to that scope. A monitoring limit → `set_threshold`. A role/package rollout → an orchestration plan link.
+- **Rule conditions (Checkmk-style):** any policy / threshold / check assignment can carry `conditions` that further narrow WHERE it applies, on top of its scope — matched against host tags, OS, **Ansible facts** (`host_facts`, dotted e.g. `os.family`), **desired-state variables** (`host_vars`), host/service name and OU folder. Empty = applies wherever the scope reaches. Set host-level levers directly with host tags / host variables (also via right-click on a host in Host placement).
 
 **Monitoring & checks**
 - `list_problems` / `host_services(host)` to see state; `set_threshold` to author a rule; `acknowledge_problem` / `schedule_downtime` to manage noise.
