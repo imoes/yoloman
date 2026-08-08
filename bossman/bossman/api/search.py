@@ -18,12 +18,14 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import delete as sa_delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.api.auth import get_current_identity
-from bossman.db.models import Agent, Service
+from bossman.api.auth import Identity, get_current_identity
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, SavedSearch, Service
 from bossman.db.session import get_session
 from bossman.services import search as search_svc
 from bossman.services.fleet_search import fleet_search
@@ -211,3 +213,61 @@ async def list_sites(
 ) -> dict:
     """Distinct site values across the fleet, for site: autocomplete."""
     return {"sites": await search_svc.distinct_sites(session)}
+
+
+# ── Saved searches (Fleet-search P3 — Checkmk saved-views parity) ──────────
+
+class SavedSearchIn(BaseModel):
+    name: str
+    query: str
+
+
+def _saved_out(s: SavedSearch) -> dict:
+    return {"id": str(s.id), "name": s.name, "query": s.query,
+            "created_by": s.created_by, "created_at": s.created_at.isoformat()}
+
+
+@router.get("/api/v1/saved-searches")
+async def list_saved_searches(
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """The tenant's named Fleet-search queries, alphabetical — the recall list."""
+    rows = (await session.scalars(
+        select(SavedSearch).where(SavedSearch.tenant_id == DEFAULT_TENANT_ID).order_by(SavedSearch.name))).all()
+    return {"searches": [_saved_out(s) for s in rows]}
+
+
+@router.post("/api/v1/saved-searches")
+async def create_saved_search(
+    body: SavedSearchIn,
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> dict:
+    """Save (or overwrite by name) a Fleet-search query for later recall."""
+    name, query = body.name.strip(), body.query.strip()
+    if not name or not query:
+        raise HTTPException(status_code=422, detail="name and query are required")
+    existing = await session.scalar(
+        select(SavedSearch).where(SavedSearch.tenant_id == DEFAULT_TENANT_ID, SavedSearch.name == name))
+    if existing is not None:
+        existing.query = query
+        existing.created_by = identity.name
+    else:
+        session.add(SavedSearch(tenant_id=DEFAULT_TENANT_ID, name=name, query=query, created_by=identity.name))
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=f"a saved search named {name!r} already exists") from None
+    row = await session.scalar(
+        select(SavedSearch).where(SavedSearch.tenant_id == DEFAULT_TENANT_ID, SavedSearch.name == name))
+    return _saved_out(row)
+
+
+@router.delete("/api/v1/saved-searches/{search_id}", status_code=204)
+async def delete_saved_search(
+    search_id: UUID,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> None:
+    await session.execute(sa_delete(SavedSearch).where(SavedSearch.id == search_id))
+    await session.commit()

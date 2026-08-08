@@ -2217,6 +2217,23 @@ class ChangeProposal(Base):
     __table_args__ = (Index("idx_change_proposals_status", "status", "created_at"),)
 
 
+class SavedSearch(Base):
+    """A named Fleet-search query the operator can recall (Checkmk saved-views
+    parity, Fleet-search P3). Just the omnibox query string (crit:/site:/tag:/…)
+    under a label, tenant-scoped and shared across the tenant's operators."""
+
+    __tablename__ = "saved_searches"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    query: Mapped[str] = mapped_column(String, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_saved_search_name"),)
+
+
 class Event(Base):
     """A passively-received event — a syslog message or an SNMP trap (gap #2,
     the Event Console). Unlike checks (which we poll), these arrive unsolicited

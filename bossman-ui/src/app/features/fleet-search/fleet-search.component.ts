@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 interface Leaf { path: string; value: string; }
 interface HostHit { host: string; generation: number; match_count: number; matches: Leaf[]; }
 interface FleetSearchResult { query: string; host_count: number; hosts: HostHit[]; }
+interface SavedSearch { id: string; name: string; query: string; created_by: string | null; }
 
 /**
  * Fleet-wide search over every host's compiled desired_state (config keys/values,
@@ -31,7 +32,22 @@ interface FleetSearchResult { query: string; host_count: number; hosts: HostHit[
         <button class="bm-fs-go" (click)="run()" [disabled]="loading()">
           <mat-icon>search</mat-icon> {{ loading() ? 'Searching…' : 'Search' }}
         </button>
+        <button class="bm-fs-save" (click)="saveCurrent()" [disabled]="!q().trim()" title="Save this search">
+          <mat-icon>bookmark_add</mat-icon> Save
+        </button>
       </div>
+
+      @if (saved().length) {
+        <div class="bm-fs-saved">
+          <span class="bm-fs-saved-lbl">Saved:</span>
+          @for (s of saved(); track s.id) {
+            <span class="bm-fs-chip" [class.on]="q() === s.query" (click)="runSaved(s)" [title]="s.query">
+              {{ s.name }}
+              <mat-icon class="bm-fs-chip-x" (click)="deleteSaved(s, $event)">close</mat-icon>
+            </span>
+          }
+        </div>
+      }
 
       @if (result(); as r) {
         <p class="bm-fs-count">{{ r.host_count }} host{{ r.host_count === 1 ? '' : 's' }} match “{{ r.query }}”</p>
@@ -71,6 +87,15 @@ interface FleetSearchResult { query: string; host_count: number; hosts: HostHit[
     .bm-fs-in { flex: 1; max-width: 560px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 14px; }
     .bm-fs-go { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; border: none; border-radius: 8px; background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); cursor: pointer; font-size: 14px; }
     .bm-fs-go:disabled { opacity: 0.6; cursor: default; }
+    .bm-fs-save { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; font-size: 14px; }
+    .bm-fs-save:disabled { opacity: 0.5; cursor: default; }
+    .bm-fs-saved { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 16px; }
+    .bm-fs-saved-lbl { font-size: 12.5px; opacity: 0.6; }
+    .bm-fs-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; padding: 3px 6px 3px 10px; border-radius: 14px; border: 1px solid var(--mat-sys-outline-variant); cursor: pointer; }
+    .bm-fs-chip:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-fs-chip.on { border-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); }
+    .bm-fs-chip-x { font-size: 15px; height: 15px; width: 15px; opacity: 0.55; }
+    .bm-fs-chip-x:hover { opacity: 1; }
     .bm-fs-count { font-size: 13px; opacity: 0.75; margin: 0 0 10px; }
     .bm-fs-host { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
     .bm-fs-hh { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; }
@@ -94,6 +119,28 @@ export class FleetSearchComponent {
   loading = signal(false);
   result = signal<FleetSearchResult | null>(null);
   openHosts = signal<Set<string>>(new Set());
+  saved = signal<SavedSearch[]>([]);
+
+  constructor() { this.loadSaved(); }
+
+  private loadSaved(): void {
+    this.http.get<{ searches: SavedSearch[] }>(`${environment.apiUrl}/saved-searches`)
+      .subscribe({ next: (r) => this.saved.set(r.searches || []), error: () => {} });
+  }
+  saveCurrent(): void {
+    const query = this.q().trim();
+    if (!query) return;
+    const name = (prompt('Name this search:', query.slice(0, 40)) || '').trim();
+    if (!name) return;
+    this.http.post<SavedSearch>(`${environment.apiUrl}/saved-searches`, { name, query })
+      .subscribe({ next: () => this.loadSaved(), error: (e) => alert(e?.error?.detail || 'save failed') });
+  }
+  runSaved(s: SavedSearch): void { this.q.set(s.query); this.run(); }
+  deleteSaved(s: SavedSearch, ev: Event): void {
+    ev.stopPropagation();
+    this.http.delete(`${environment.apiUrl}/saved-searches/${s.id}`)
+      .subscribe({ next: () => this.loadSaved(), error: () => {} });
+  }
 
   run(): void {
     const query = this.q().trim();
