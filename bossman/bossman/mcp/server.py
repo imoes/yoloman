@@ -231,6 +231,23 @@ def build_mcp_server(
             )
 
     @mcp.tool()
+    async def desired_state_diff(host: str, from_gen: int = 0, to_gen: int = 0) -> dict[str, Any]:
+        """Time machine: what changed in a host's desired_state between two
+        generations (leaf-level added/removed/changed). Defaults (0/0) diff the
+        previous generation → the current one. Use desired_state generations via
+        get_server_document / the REST history to pick specific generations.
+        Answers "what changed on this host, and when"."""
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            from bossman.services.state_history import diff_generations
+
+            return await diff_generations(
+                session, agent.id, from_gen or None, to_gen or None
+            )
+
+    @mcp.tool()
     async def lint_policies() -> dict[str, Any]:
         """Static-analyse the whole policy tree and report problems: config
         policies linked to nothing or setting no values, thresholds with no

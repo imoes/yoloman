@@ -421,3 +421,26 @@ async def get_agent_desired_state(
         agent_id=agent_id, generation=result.generation, config_hash=result.config_hash,
         state=result.state, explain=result.explain,
     )
+
+
+@router.get("/api/v1/agents/{agent_id}/desired-state/generations")
+async def get_desired_state_generations(
+    agent_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> dict:
+    """The host's compiled desired-state generation history (Bossman-side), newest
+    first — the time machine's index."""
+    from bossman.services.state_history import list_generations
+
+    return {"agent_id": str(agent_id), "generations": await list_generations(session, agent_id)}
+
+
+@router.get("/api/v1/agents/{agent_id}/desired-state/diff")
+async def get_desired_state_diff(
+    agent_id: UUID, from_gen: int | None = None, to_gen: int | None = None,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """Leaf-level diff of the host's desired_state between two generations
+    (default: previous → current) — what config/variable/threshold/role changed."""
+    from bossman.services.state_history import diff_generations
+
+    return await diff_generations(session, agent_id, from_gen, to_gen)
