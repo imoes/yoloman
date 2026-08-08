@@ -809,15 +809,15 @@ async def match_vocabulary(
         p for (p,) in (await session.execute(select(OUNode.path))).all() if p
     )
 
-    def cap(d: dict[str, set[str]]) -> dict[str, list[str]]:
-        # Cap values per key so a high-cardinality fact can't bloat the payload.
-        return {k: sorted(vs)[:100] for k, vs in sorted(d.items())}
+    def dedup(d: dict[str, set[str]]) -> dict[str, list[str]]:
+        # Deduplicated + sorted; no cap — the editor's live search filters client-side.
+        return {k: sorted(vs) for k, vs in sorted(d.items())}
 
     return {
-        "host_tags": cap(tag_groups),
-        "host_facts": cap(facts),
-        "variables": cap(variables),
-        "host_labels": cap(labels),
+        "host_tags": dedup(tag_groups),
+        "host_facts": dedup(facts),
+        "variables": dedup(variables),
+        "host_labels": dedup(labels),
         "ou_folders": ou_folders,
     }
 

@@ -498,6 +498,14 @@ async def _build_desired_state(
         for e in eff
     ]
 
+    # Resolved desired-state variables (GPO-merged ScopeVars): part of the
+    # document so they are visible + searchable alongside config, and so a rule
+    # condition on host_vars matches the same values a host actually gets. Lazy
+    # import — scope_vars imports this module's resolvers.
+    from bossman.services.scope_vars import resolve_scope_vars
+
+    variables = await resolve_scope_vars(session, agent)
+
     # Inventory (the "server is a document" tail): the near-static HW/OS/network
     # facts already stored on the agent row, plus installed packages when the
     # poller has collected them. Appended LAST so the document ends with a full
@@ -523,6 +531,7 @@ async def _build_desired_state(
             ],
         },
         "config": config,
+        "variables": variables,
         "inventory": inventory,
     }
     explain = {

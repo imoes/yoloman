@@ -122,6 +122,7 @@ export interface CompiledHostState {
     monitoring: { checks: string[]; thresholds: Record<string, unknown>; notifications: string[] };
     orchestration: { roles: string[]; plans: { name: string; version: number; type: string; parameters: Record<string, unknown> }[] };
     config?: { path: string; format: string | null; values: Record<string, unknown>; source: string; key_sources: Record<string, string> }[];
+    variables?: Record<string, unknown>;
     inventory?: HostInventory;
   };
   explain: Record<string, unknown>;
