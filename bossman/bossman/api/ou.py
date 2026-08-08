@@ -779,6 +779,19 @@ async def get_config_policy(
     }
 
 
+@router.get("/api/v1/policy-lint")
+async def policy_lint(
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Static analysis over the policy tree — unlinked/empty policies, thresholds
+    with no warn/crit, and conditions whose tag/fact/variable/label key no host
+    currently has ("why doesn't my policy apply?"). Read-only."""
+    from bossman.services.policy_lint import lint_policies
+
+    return await lint_policies(session)
+
+
 @router.get("/api/v1/match-vocabulary")
 async def match_vocabulary(
     session: AsyncSession = Depends(get_session),

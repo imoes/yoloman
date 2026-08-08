@@ -197,6 +197,19 @@ def build_mcp_server(
             return await _fleet_search(session, query, per_host=per_host)
 
     @mcp.tool()
+    async def lint_policies() -> dict[str, Any]:
+        """Static-analyse the whole policy tree and report problems: config
+        policies linked to nothing or setting no values, thresholds with no
+        warn/crit, and — most useful — conditions whose tag/fact/variable/label
+        key NO host currently has (so the rule matches nothing right now, the
+        "I set it but nothing happened" trap). Read-only. Returns
+        {finding_count, findings:[{severity, kind, subject, detail}]}."""
+        from bossman.services.policy_lint import lint_policies as _lint
+
+        async with session_factory() as session:
+            return await _lint(session)
+
+    @mcp.tool()
     async def capability_match(host: str) -> dict[str, Any]:
         """For a host, list what each of its unmet service requirements needs and WHO in the inventory
         provides it — the deterministic Lego matcher (same logic as the REST /capabilities/match and the
