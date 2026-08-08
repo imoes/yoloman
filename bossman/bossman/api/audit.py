@@ -6,14 +6,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import Identity, require_admin
-from bossman.db.models import AuditLog
+from bossman.config import Settings, get_settings
+from bossman.db.models import Agent, AuditLog
 from bossman.db.session import get_session
+from bossman.services import external_audit
 
 router = APIRouter()
 
@@ -67,6 +71,48 @@ async def list_audit(
         stmt = stmt.where(AuditLog.action.ilike(like) | AuditLog.path.ilike(like) | AuditLog.target.ilike(like))
     rows = (await session.scalars(stmt.limit(limit))).all()
     return [AuditOut.of(r) for r in rows]
+
+
+class ExternalScanIn(BaseModel):
+    # A live scan reads auditd on the host. For a push model / testing, `raw` lets
+    # a caller hand pre-collected `ausearch` output straight to the parser+ingest.
+    raw: str | None = None
+    since: str = "today"
+
+
+@router.post("/api/v1/agents/{agent_id}/audit-external/scan")
+async def scan_external_audit(
+    agent_id: UUID,
+    body: ExternalScanIn,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _admin: Identity = Depends(require_admin),
+):
+    """Capture out-of-band (drift) changes to this host's managed config via
+    auditd and fold them into the audit trail. Live path: install watch rules for
+    the files in the host's desired_state, then read auditd since `since`. Or pass
+    `raw` (pre-collected ausearch output) to parse+ingest directly. Rows land in
+    audit_log as actor_kind=external / source=auditd, so they show up in the Audit
+    log next to Bossman's own changes."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="no such host")
+
+    if body.raw is not None:
+        res = await external_audit.ingest_raw(session, agent, body.raw)
+        return {"host": agent.name, "mode": "raw", **res}
+
+    # Live scan: the managed config paths come from the compiled desired state.
+    from bossman.services.config_desired import effective_resources
+
+    eff = await effective_resources(session, agent)
+    paths = [e["path"] for e in eff if e.get("path")]
+
+    from bossman.api.plans import get_client_factory
+
+    client = get_client_factory()(agent, settings)
+    res = await external_audit.scan_host(session, agent, client, paths, since=body.since)
+    return {"host": agent.name, "mode": "live", "paths": len(paths), **res}
 
 
 @router.get("/api/v1/audit/stats")

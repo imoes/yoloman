@@ -430,6 +430,38 @@ async def _collect_packages(agent: Agent, client: AgentClient, now: datetime) ->
     agent.facts_updated_at = now
 
 
+async def _maybe_scan_external_audit(
+    session: AsyncSession, agent: Agent, client: AgentClient, settings: Settings, now: datetime,
+) -> None:
+    """Opt-in out-of-band audit (BOSSMAN_EXTERNAL_AUDIT_ENABLED): install auditd
+    watch rules on this host's managed config files and ingest any hand-edits into
+    the audit trail. Throttled + best-effort — a host without auditd returns
+    {available: false} and is simply skipped; nothing here may break the poll."""
+    if not settings.external_audit_enabled:
+        return
+    facts = agent.facts or {}
+    last = facts.get("external_audit_at")
+    if last:
+        try:
+            if (now - datetime.fromisoformat(last)).total_seconds() < settings.external_audit_interval_seconds:
+                return
+        except (ValueError, TypeError):
+            pass
+    try:
+        from bossman.services import external_audit
+        from bossman.services.config_desired import effective_resources
+
+        eff = await effective_resources(session, agent)
+        paths = [e["path"] for e in eff if e.get("path")]
+        if not paths:
+            return
+        await external_audit.scan_host(session, agent, client, paths)
+    except Exception:  # noqa: BLE001 — never let drift-auditing break the poll cycle
+        logger.exception("external audit scan failed for agent %s", agent.name)
+        return
+    agent.facts = {**(agent.facts or {}), "external_audit_at": now.isoformat()}
+
+
 async def _poll_snmp_device(
     session: AsyncSession, device: Agent, settings: Settings, client_factory: ClientFactory,
 ) -> PollResult:
@@ -624,6 +656,8 @@ async def poll_agent(
                     await _refresh_observed_cache(session, agent, client, now)
                 except Exception:
                     logger.exception("observed-state cache refresh failed for agent %s", agent.name)
+                # Out-of-band (drift) audit via auditd — opt-in, throttled, best-effort.
+                await _maybe_scan_external_audit(session, agent, client, settings, now)
 
         await session.commit()
 

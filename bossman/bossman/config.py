@@ -359,6 +359,14 @@ class Settings(BaseSettings):
     housekeeping_interval_seconds: int = 3600
     notifications_retention_days: int = 90
     plan_runs_retention_days: int = 90
+    # Out-of-band (drift) auditing via the host's auditd (services/external_audit).
+    # OFF by default: when on, the poller opportunistically installs audit watch
+    # rules on each host's managed config files and ingests hand-edits into the
+    # audit trail. Off by default because enabling it WRITES audit rules onto the
+    # host — an opt-in the operator turns on (BOSSMAN_EXTERNAL_AUDIT_ENABLED=true).
+    external_audit_enabled: bool = False
+    # Don't re-run the (auditd setup + ausearch) scan on every poll — throttle it.
+    external_audit_interval_seconds: int = 900
     # Process (pid,comm) metric series with no fresh sample within this window
     # are treated as dead and deleted by housekeeping (a live process samples
     # every collect interval, ~60s). Runs on housekeeping_interval_seconds.
