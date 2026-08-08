@@ -240,6 +240,98 @@ async def lint_runbook(body: LintBody, _identity=Depends(get_current_identity)) 
             "playbook": ansible_playbook.doc_to_playbook(d)}
 
 
+_NL_SYSTEM = """You turn an operator's plain-language request into an Ansible playbook that Bossman runs on ONE Linux host.
+
+Output ONLY a YAML task list — no prose, no explanations, no ``` fences. Each task has:
+- name: a short human description
+- exactly one module from: shell, command, package, service, copy, file, lineinfile, template, set_fact, debug
+- the module's arguments as a mapping
+
+Rules:
+- Prefer typed modules (package/service/file/lineinfile/copy) over shell; use shell/command ONLY for actions no module covers.
+- Do NOT invent module names. Keep it minimal and idempotent.
+- No `hosts:`, `become:`, or play wrapper — just the flat list of tasks.
+- If the request needs a value you don't know, use a sensible default and note it in the task name.
+
+Example output:
+- name: Ensure nginx is installed
+  package: { name: nginx, state: present }
+- name: Enable and start nginx
+  service: { name: nginx, state: started, enabled: true }
+"""
+
+
+class FromNlBody(BaseModel):
+    instruction: str
+    backend: str | None = None        # optional per-request chat-backend override
+
+
+async def _complete_text(backend, system: str, user: str) -> str:
+    """One-shot completion by accumulating the backend's stream deltas (every
+    backend implements stream; complete_with_tools is optional)."""
+    from bossman.services.chat_backend import ChatBackendError
+
+    chunks: list[str] = []
+    try:
+        async for ev in backend.stream([{"role": "user", "content": user}], system=system):
+            if ev.get("type") == "delta" and ev.get("text"):
+                chunks.append(ev["text"])
+            elif ev.get("type") == "error":
+                raise ChatBackendError(ev.get("text") or "backend error")
+    except ChatBackendError:
+        raise
+    return "".join(chunks)
+
+
+def _strip_fences(text: str) -> str:
+    """Drop a leading/trailing ``` / ```yaml fence the model may add anyway."""
+    t = (text or "").strip()
+    if t.startswith("```"):
+        lines = t.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        t = "\n".join(lines).strip()
+    return t
+
+
+@router.post("/api/v1/runbooks/from-nl")
+async def runbook_from_nl(
+    body: FromNlBody,
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """NL → typed runbook (Agentic-OS reasoning): turn a plain-language instruction
+    into an Ansible playbook via the chat LLM, then parse + shape-validate it (the
+    same lint the editor uses). Returns {ok, doc, playbook} so the runbook editor
+    can load it for the operator to review, dry-run and apply — the model authors,
+    the human confirms. Does NOT execute anything."""
+    from bossman.services.chat_backend import ChatBackendError, chat_backend_for
+
+    instruction = (body.instruction or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=422, detail="instruction is required")
+    try:
+        backend = chat_backend_for(settings, body.backend)
+        raw = await _complete_text(backend, _NL_SYSTEM, instruction)
+    except ChatBackendError as exc:
+        raise HTTPException(status_code=502, detail=f"chat backend: {exc}") from exc
+
+    playbook_text = _strip_fences(raw)
+    if not playbook_text:
+        return {"ok": False, "error": "the model returned nothing", "raw": raw[:4096]}
+    try:
+        doc = ansible_playbook.parse_playbook(playbook_text)
+    except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
+        # Hand the raw YAML back so the operator can fix it in the editor.
+        return {"ok": False, "error": f"generated playbook did not parse: {exc}",
+                "playbook": playbook_text, "raw": raw[:4096]}
+    d = doc.to_dict()
+    return {"ok": True, "kind": doc.kind, "name": doc.name, "steps": len(doc.steps),
+            "doc": d, "playbook": ansible_playbook.doc_to_playbook(d), "instruction": instruction}
+
+
 class RunBody(BaseModel):
     playbook: str | None = None       # Ansible task YAML
     variables: dict[str, Any] = {}

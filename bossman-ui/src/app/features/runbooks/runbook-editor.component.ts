@@ -348,6 +348,17 @@ const MAGIC_VAR_GROUPS = (() => {
             </div>
           }
 
+          <div class="bm-nlbar">
+            <mat-icon class="bm-nl-i">auto_awesome</mat-icon>
+            <input class="bm-nl-input" [(ngModel)]="nlPrompt" [disabled]="nlBusy()"
+                   (keyup.enter)="generateFromNl()"
+                   placeholder="Describe what to do in plain language — e.g. 'install nginx and start it'" />
+            <button mat-stroked-button (click)="generateFromNl()" [disabled]="nlBusy() || !nlPrompt.trim()">
+              <mat-icon>auto_awesome</mat-icon> {{ nlBusy() ? 'Generating…' : 'Generate' }}
+            </button>
+            @if (nlError()) { <span class="bm-nl-err">{{ nlError() }}</span> }
+          </div>
+
           <div class="bm-toolbar">
             <button mat-stroked-button (click)="doLint()"><mat-icon>check_circle</mat-icon> Lint</button>
             <mat-form-field appearance="outline" class="bm-host" subscriptSizing="dynamic">
@@ -512,6 +523,13 @@ const MAGIC_VAR_GROUPS = (() => {
       .bm-designer { display: block; height: 560px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; min-width: 0; }
       .bm-designer-loading { display: flex; align-items: center; justify-content: center; }
       .bm-params { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
+      .bm-nlbar { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap;
+        padding: 8px 10px; border: 1px dashed color-mix(in srgb, var(--mat-sys-primary) 45%, transparent); border-radius: 8px;
+        background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
+      .bm-nl-i { color: var(--mat-sys-primary); }
+      .bm-nl-input { flex: 1; min-width: 220px; padding: 6px 10px; border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 6px; background: var(--mat-sys-surface); color: inherit; }
+      .bm-nl-err { color: var(--mat-sys-error, #c62828); font-size: 12.5px; }
       .bm-toolbar { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
       .bm-host { width: 220px; }
       .bm-lint { padding: 8px 12px; border-radius: 6px; font-size: 13px; }
@@ -556,6 +574,12 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   currentId = signal<string>('');
   saveMsg = signal<string>('');
   runs = signal<RunRow[]>([]);
+  // NL → runbook (Agentic-OS reasoning): describe the goal, the LLM authors the
+  // playbook, the operator reviews/dry-runs/applies it (the model authors, the
+  // human confirms — same preview→apply flow, nothing runs automatically).
+  nlPrompt = '';
+  nlBusy = signal(false);
+  nlError = signal('');
   magicVarGroups = MAGIC_VAR_GROUPS;
   // Library folder tree (mirrors Plan library): runbooks grouped by `folder`.
   expanded = signal<Set<string>>(new Set(['']));
@@ -1219,6 +1243,28 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.http.post<LintResult>(`${this.base}/runbooks/lint`, { playbook: this.source() }).subscribe({
       next: (r) => { this.lint.set(r); this.setMarkers(r); },
       error: (e) => { const l = { ok: false, error: e?.error?.detail ?? 'lint failed' }; this.lint.set(l); this.setMarkers(l); },
+    });
+  }
+
+  /** NL → runbook: the LLM authors the playbook from a plain-language goal; we
+   * load it into the editor (Monaco stays the source of truth) and lint it, so
+   * the operator reviews → dry-runs → applies exactly as with a hand-written one. */
+  generateFromNl(): void {
+    const instruction = this.nlPrompt.trim();
+    if (!instruction || this.nlBusy()) return;
+    this.nlBusy.set(true); this.nlError.set('');
+    this.http.post<{ ok: boolean; playbook?: string; error?: string }>(
+      `${this.base}/runbooks/from-nl`, { instruction }).subscribe({
+      next: (r) => {
+        this.nlBusy.set(false);
+        if (r.playbook) {
+          this.ed?.setValue(r.playbook);
+          if (this.mode() !== 'text') this.refreshVisual();
+          this.doLint();
+        }
+        if (!r.ok) this.nlError.set(r.error || 'the model output did not parse — review + fix below');
+      },
+      error: (e) => { this.nlBusy.set(false); this.nlError.set(e?.error?.detail || 'generation failed'); },
     });
   }
 
