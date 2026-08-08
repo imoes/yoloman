@@ -174,6 +174,29 @@ def build_mcp_server(
         ]
 
     @mcp.tool()
+    async def fleet_search(query: str, per_host: int = 20) -> dict[str, Any]:
+        """Search the WHOLE fleet's desired state in one call — the fastest way to
+        analyse the fleet. Scans every host's compiled desired_state document
+        (config keys/values, variables, host tags, Ansible facts, applied checks/
+        roles/thresholds) and returns the hosts that match, with the matching
+        leaves.
+
+        `query` is a plain substring matched against each leaf's "path value", or
+        a `key=value` form for precision (path contains key AND value contains
+        value). Examples:
+          - "nginx"                 → any host whose desired state mentions nginx
+          - "os.family=Debian"      → hosts whose facts say Debian
+          - "timezone=Europe"       → hosts with a Europe timezone variable
+          - "role=web"              → hosts that got the web role
+          - "config./etc/ntp.conf"  → hosts managing that file
+        Returns {query, host_count, hosts:[{host, generation, match_count,
+        matches:[{path,value}]}]}, hosts sorted by match_count desc."""
+        from bossman.services.fleet_search import fleet_search as _fleet_search
+
+        async with session_factory() as session:
+            return await _fleet_search(session, query, per_host=per_host)
+
+    @mcp.tool()
     async def capability_match(host: str) -> dict[str, Any]:
         """For a host, list what each of its unmet service requirements needs and WHO in the inventory
         provides it — the deterministic Lego matcher (same logic as the REST /capabilities/match and the

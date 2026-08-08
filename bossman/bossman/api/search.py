@@ -26,6 +26,7 @@ from bossman.api.auth import get_current_identity
 from bossman.db.models import Agent, Service
 from bossman.db.session import get_session
 from bossman.services import search as search_svc
+from bossman.services.fleet_search import fleet_search
 
 router = APIRouter()
 
@@ -179,6 +180,19 @@ async def search_host_groups(
 ) -> dict:
     node = search_svc.parse_query(q)
     return {"host_groups": await search_svc.search_groups(session, node, limit=limit)}
+
+
+@router.get("/api/v1/fleet/search")
+async def fleet_search_route(
+    q: str = Query("", description="substring, or key=value (path contains key AND value contains value)"),
+    per_host: int = Query(50, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Fleet-wide search across every host's compiled desired_state — config
+    keys/values, variables, tags, facts, applied checks/roles/thresholds — in one
+    call. Backs the fleet-search view and the MCP fleet_search tool."""
+    return await fleet_search(session, q, per_host=per_host)
 
 
 @router.get("/api/v1/tags")
