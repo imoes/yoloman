@@ -51,7 +51,14 @@ import { OuService } from '../../core/services/ou.service';
                 </select>
               </label>
             }
-            <label>Waves (strategy)<input [(ngModel)]="strategyText" placeholder="1, 25%, rest" class="bm-mono" /></label>
+            @if (draft.scope_type === 'ou') {
+              <label class="bm-check"><input type="checkbox" [(ngModel)]="draft.by_ou" /> Wave per OU (AD tree)</label>
+            }
+            @if (draft.by_ou && draft.scope_type === 'ou') {
+              <label class="bm-check"><input type="checkbox" [(ngModel)]="draft.canary" /> Canary first host</label>
+            } @else {
+              <label>Waves (strategy)<input [(ngModel)]="strategyText" placeholder="1, 25%, rest" class="bm-mono" /></label>
+            }
           </div>
           <div class="bm-row">
             <label>Health-gate wait (s)<input type="number" [(ngModel)]="draft.wait_seconds" /></label>
@@ -159,7 +166,7 @@ export class RolloutsComponent implements OnInit, OnDestroy {
 
   private blank(): RolloutInput {
     return { name: '', runbook_name: '', scope_type: 'global', agent_id: null, host_group_id: null, ou_id: null,
-      strategy: [1, '25%', 'rest'], dry_run: true, wait_seconds: 30, max_fail_pct: 0 };
+      strategy: [1, '25%', 'rest'], by_ou: false, canary: true, dry_run: true, wait_seconds: 30, max_fail_pct: 0 };
   }
   private reload(): void { this.svc.list().subscribe((r) => this.rollouts.set(r)); }
   private loadRefs(): void {
@@ -174,7 +181,7 @@ export class RolloutsComponent implements OnInit, OnDestroy {
     return { host: this.hosts(), group: this.groupList(), ou: this.ouList(), global: [] }[this.draft.scope_type] || [];
   }
   targetId(): string { return this.draft.agent_id || this.draft.host_group_id || this.draft.ou_id || ''; }
-  onScope(): void { this.draft.agent_id = this.draft.host_group_id = this.draft.ou_id = null; }
+  onScope(): void { this.draft.agent_id = this.draft.host_group_id = this.draft.ou_id = null; if (this.draft.scope_type !== 'ou') this.draft.by_ou = false; }
   setTarget(id: string): void {
     this.draft.agent_id = this.draft.scope_type === 'host' ? id : null;
     this.draft.host_group_id = this.draft.scope_type === 'group' ? id : null;

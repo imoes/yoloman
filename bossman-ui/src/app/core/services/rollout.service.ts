@@ -30,6 +30,9 @@ export interface RolloutInput {
   host_group_id?: string | null;
   ou_id?: string | null;
   strategy: (number | string)[];
+  /** AD-consistent waves: one wave per OU in the subtree (requires scope_type=ou). */
+  by_ou?: boolean;
+  canary?: boolean;
   variables?: Record<string, unknown>;
   dry_run: boolean;
   wait_seconds: number;

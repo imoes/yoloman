@@ -17,11 +17,11 @@ import logging
 import math
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
-from bossman.db.models import Agent, Rollout, Service
+from bossman.db.models import Agent, OUNode, Rollout, Service
 from bossman.services import nt_runbook
 from bossman.services.runbook_exec import execute_runbook
 
@@ -51,6 +51,52 @@ def plan_waves(agent_ids: list[str], strategy: list) -> list[dict]:
         remaining = remaining[n:]
     if remaining:  # anything left over becomes a final wave
         waves.append({"name": f"ring {len(waves)}", "agent_ids": remaining})
+    return waves
+
+
+async def plan_waves_by_ou(session: AsyncSession, ou_id, canary: bool = True) -> list[dict]:
+    """AD-consistent waves: one wave PER OU in the target subtree, ordered
+    shallow→deep (the parent OU rolls out and must pass the health gate before
+    its children), each wave named by the OU path and carrying the hosts placed
+    directly in that OU. This makes the rollout follow the same OU tree operators
+    manage in Host placement, instead of arbitrary percentage slices of a flat
+    host list. With `canary`, the first host of the first non-empty OU is pulled
+    into its own leading wave. Hosts not placed in the subtree are not included."""
+    target = await session.get(OUNode, ou_id)
+    if target is None:
+        return []
+    ous = (
+        await session.scalars(
+            select(OUNode)
+            .where(OUNode.tenant_id == target.tenant_id, text("ou_nodes.ltree_path <@ :p ::ltree"))
+            .params(p=str(target.ltree_path))
+        )
+    ).all()
+    # Shallow→deep (fewer ltree labels = shallower), then by human path for stability.
+    ous_sorted = sorted(ous, key=lambda n: (str(n.ltree_path).count("."), n.path))
+    ou_ids = [o.id for o in ous_sorted]
+    agents = (
+        await session.scalars(
+            select(Agent).where(
+                Agent.tenant_id == target.tenant_id, Agent.ou_id.in_(ou_ids), Agent.address.isnot(None)
+            )
+        )
+    ).all()
+    by_ou: dict = {}
+    for a in agents:
+        by_ou.setdefault(a.ou_id, []).append(str(a.id))
+
+    waves: list[dict] = [
+        {"name": o.path, "agent_ids": by_ou[o.id]} for o in ous_sorted if by_ou.get(o.id)
+    ]
+    if canary and waves and waves[0]["agent_ids"]:
+        first = waves[0]
+        head, tail = first["agent_ids"][0], first["agent_ids"][1:]
+        rebuilt = [{"name": f"canary ({first['name']})", "agent_ids": [head]}]
+        if tail:
+            first["agent_ids"] = tail
+            rebuilt.append(first)
+        waves = rebuilt + waves[1:]
     return waves
 
 

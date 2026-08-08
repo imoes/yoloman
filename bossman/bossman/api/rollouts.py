@@ -20,7 +20,7 @@ from bossman.config import Settings, get_settings
 from bossman.db.models import Rollout
 from bossman.db.session import get_session
 from bossman.services.compiler import affected_agent_ids
-from bossman.services.rollout import execute_rollout, plan_waves
+from bossman.services.rollout import execute_rollout, plan_waves, plan_waves_by_ou
 
 router = APIRouter()
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -34,6 +34,10 @@ class RolloutIn(BaseModel):
     host_group_id: UUID | None = None
     ou_id: UUID | None = None
     strategy: list = [1, "25%", "rest"]  # canary, quarter, rest
+    # AD-consistent waves: one wave per OU in the target subtree (shallow→deep),
+    # instead of percentage slices of a flat host list. Requires scope_type=ou.
+    by_ou: bool = False
+    canary: bool = True  # (by_ou) pull the first host into a leading canary wave
     variables: dict = {}
     dry_run: bool = False
     wait_seconds: int = 30
@@ -83,13 +87,21 @@ async def create_rollout(body: RolloutIn, session: AsyncSession = Depends(get_se
                          identity: Identity = Depends(get_current_identity)):
     if body.scope_type not in ("host", "group", "ou", "global"):
         raise HTTPException(422, "scope_type must be host|group|ou|global")
-    agent_ids = await affected_agent_ids(
-        session, body.scope_type, ou_id=body.ou_id, agent_id=body.agent_id,
-        host_group_id=body.host_group_id, tenant_id=DEFAULT_TENANT_ID,
-    )
-    if not agent_ids:
-        raise HTTPException(422, "scope matched no hosts")
-    waves = plan_waves([str(a) for a in agent_ids], body.strategy)
+    if body.by_ou:
+        # AD-consistent: waves follow the OU subtree (one wave per OU).
+        if body.scope_type != "ou" or body.ou_id is None:
+            raise HTTPException(422, "by_ou requires scope_type=ou and ou_id")
+        waves = await plan_waves_by_ou(session, body.ou_id, canary=body.canary)
+        if not waves:
+            raise HTTPException(422, "OU subtree has no placed, reachable hosts")
+    else:
+        agent_ids = await affected_agent_ids(
+            session, body.scope_type, ou_id=body.ou_id, agent_id=body.agent_id,
+            host_group_id=body.host_group_id, tenant_id=DEFAULT_TENANT_ID,
+        )
+        if not agent_ids:
+            raise HTTPException(422, "scope matched no hosts")
+        waves = plan_waves([str(a) for a in agent_ids], body.strategy)
     r = Rollout(
         tenant_id=DEFAULT_TENANT_ID, name=body.name, runbook_name=body.runbook_name,
         variables=body.variables, dry_run=body.dry_run, waves=waves,
