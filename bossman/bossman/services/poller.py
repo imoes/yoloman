@@ -640,18 +640,18 @@ async def poll_agent(
         except Exception:
             logger.exception("notification dispatch failed for agent %s", agent.name)
 
-        # Event-driven self-healing (same `_notify_event=="problem"` markers):
-        # run any remediation policy that matches a check that just went hard.
+        # Event-driven self-healing — AUTOMATIC event handling only: a check that
+        # just went hard records a PENDING remediation proposal for each matching
+        # policy. Nothing runs automatically; an operator/AI applies it.
         if settings.remediation_enabled:
             try:
                 from bossman.services import remediation
-                from bossman.services.agent_client import client_for
 
-                healed = await remediation.collect_and_run(session, settings, touched, client_for)
-                if healed:
+                proposed = await remediation.collect_and_propose(session, touched)
+                if proposed:
                     await session.commit()
             except Exception:
-                logger.exception("remediation failed for agent %s", agent.name)
+                logger.exception("remediation proposal failed for agent %s", agent.name)
         return result
 
 

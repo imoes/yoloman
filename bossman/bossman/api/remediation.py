@@ -109,13 +109,47 @@ class RemediationRunOut(BaseModel):
 
 
 @router.get("/api/v1/remediation-runs", response_model=list[RemediationRunOut])
-async def list_remediation_runs(limit: int = Query(100, ge=1, le=500),
+async def list_remediation_runs(status: str | None = Query(None), limit: int = Query(100, ge=1, le=500),
                                 session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
-    rows = (await session.scalars(select(RemediationRun).order_by(RemediationRun.at.desc()).limit(limit))).all()
+    """Remediation history + the pending-proposal queue (?status=pending)."""
+    stmt = select(RemediationRun)
+    if status:
+        stmt = stmt.where(RemediationRun.status == status)
+    rows = (await session.scalars(stmt.order_by(RemediationRun.at.desc()).limit(limit))).all()
     return [RemediationRunOut(
         id=r.id, policy_id=r.policy_id, agent_id=r.agent_id, service_name=r.service_name,
         runbook_name=r.runbook_name, status=r.status, detail=r.detail, at=r.at,
     ) for r in rows]
+
+
+@router.post("/api/v1/remediation-runs/{run_id}/apply")
+async def apply_remediation_run(
+    run_id: UUID, session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _i: Identity = Depends(get_current_identity), client_factory=Depends(get_client_factory),
+) -> dict:
+    """Apply a PENDING remediation proposal now — the manual "Apply" action.
+    Self-healing never runs automatically; this is the only execution path
+    (besides the direct /remediate trigger)."""
+    run = await session.get(RemediationRun, run_id)
+    if run is None:
+        raise HTTPException(404, "no such remediation run")
+    if run.status != "pending":
+        raise HTTPException(409, f"run is '{run.status}', not pending")
+    from bossman.services.remediation import apply_run
+
+    result = await apply_run(session, settings, run, client_factory)
+    await session.commit()
+    return result
+
+
+@router.post("/api/v1/remediation-runs/{run_id}/dismiss", status_code=204)
+async def dismiss_remediation_run(run_id: UUID, session: AsyncSession = Depends(get_session),
+                                  _i: Identity = Depends(get_current_identity)) -> None:
+    """Dismiss a pending proposal without running it."""
+    run = await session.get(RemediationRun, run_id)
+    if run is not None and run.status == "pending":
+        run.status = "dismissed"
+        await session.commit()
 
 
 @router.post("/api/v1/agents/{agent_id}/remediate")

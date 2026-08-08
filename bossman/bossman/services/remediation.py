@@ -75,33 +75,21 @@ async def _recent_runs(session: AsyncSession, policy_id: UUID, agent_id: UUID) -
     ) or 0)
 
 
-async def _run_policy(
+async def _execute_policy(
     session: AsyncSession, settings: Settings, agent: Agent, service_name: str,
-    policy: RemediationPolicy, client_factory, *, force: bool = False,
-) -> dict[str, Any]:
-    """Apply one remediation policy to one host: rate-limit, then run (auto) or
-    propose. Records a RemediationRun and returns a small summary dict."""
-    def log(status: str, detail: str) -> dict[str, Any]:
-        session.add(RemediationRun(
-            tenant_id=agent.tenant_id, policy_id=policy.id, agent_id=agent.id,
-            service_name=service_name, runbook_name=policy.runbook_name, status=status, detail=detail[:2000],
-        ))
-        return {"policy": policy.name, "host": agent.name, "service": service_name,
-                "runbook": policy.runbook_name, "status": status, "detail": detail}
-
-    if not force and await _recent_runs(session, policy.id, agent.id) >= policy.max_per_hour:
-        return log("rate_limited", f"{policy.max_per_hour}/h reached for this host")
-    if policy.mode == "propose":
-        return log("proposed", "mode=propose — suggestion only, not executed")
+    policy: RemediationPolicy, client_factory,
+) -> tuple[str, str]:
+    """Actually run one policy's remediation runbook on the host. Returns
+    (status, detail). Execution NEVER happens automatically — only from an Apply
+    (manual/AI), so there is no gate here beyond a reachable host."""
     if not agent.address:
-        return log("failed", "host has no reachable address")
-
+        return "failed", "host has no reachable address"
     rb = await session.scalar(select(Runbook).where(Runbook.name == policy.runbook_name))
     doc = nt_runbook.parse_data(rb.doc, source=f"runbook {policy.runbook_name!r}") if rb else None
     if not isinstance(doc, nt_runbook.Runbook):
-        return log("failed", f"runbook {policy.runbook_name!r} missing or is a role")
-    # Params carry the target (e.g. {"service": "nginx"}); the triggering check is
-    # exposed so a generic playbook can act on it.
+        return "failed", f"runbook {policy.runbook_name!r} missing or is a role"
+    # Params carry the target (e.g. {"service": "nginx"}); the triggering check
+    # is exposed so a generic playbook can act on it.
     request_vars = {**(policy.params or {}), "check_service": service_name, "check_host": agent.name}
     try:
         _, rr = await execute_runbook(
@@ -109,27 +97,80 @@ async def _run_policy(
             request_vars=request_vars, dry_run=False, requested_by=f"remediation:{policy.name}", commit=False,
         )
         ok = rr.get("ok", True) and not rr.get("aborted")
-        return log("ran" if ok else "failed", "remediation runbook " + ("succeeded" if ok else "failed"))
+        return ("ran" if ok else "failed"), "remediation runbook " + ("succeeded" if ok else "failed")
     except Exception as exc:  # noqa: BLE001 — one bad remediation must not sink the cycle
-        return log("failed", f"error: {str(exc)[:200]}")
+        return "failed", f"error: {str(exc)[:200]}"
+
+
+async def _has_open_proposal(session: AsyncSession, policy_id: UUID, agent_id: UUID, service_name: str) -> bool:
+    """Is there already an un-applied proposal for this (policy, host, check)?
+    Avoids re-proposing the same fix on every poll while the problem persists."""
+    row = await session.scalar(
+        select(RemediationRun.id).where(
+            RemediationRun.policy_id == policy_id, RemediationRun.agent_id == agent_id,
+            RemediationRun.service_name == service_name, RemediationRun.status == "pending",
+        ).limit(1)
+    )
+    return row is not None
+
+
+async def propose_for_service(session: AsyncSession, agent: Agent, service_name: str) -> list[dict[str, Any]]:
+    """Event handling (automatic): record a PENDING remediation proposal for each
+    matching policy — never executes. Deduped against an already-open proposal so
+    a persistent problem doesn't spam the queue. Apply runs it."""
+    out: list[dict[str, Any]] = []
+    for p in await matching_policies(session, agent, service_name):
+        if await _has_open_proposal(session, p.id, agent.id, service_name):
+            continue
+        run = RemediationRun(
+            tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
+            runbook_name=p.runbook_name, status="pending",
+            detail=f"auto-detected on '{service_name}' — awaiting Apply",
+        )
+        session.add(run)
+        out.append({"policy": p.name, "host": agent.name, "service": service_name, "runbook": p.runbook_name})
+    return out
+
+
+async def apply_run(session: AsyncSession, settings: Settings, run: RemediationRun, client_factory) -> dict[str, Any]:
+    """Execute a pending proposal now (the Apply button / AI). Updates the run's
+    status to ran/failed."""
+    policy = await session.get(RemediationPolicy, run.policy_id) if run.policy_id else None
+    agent = await session.get(Agent, run.agent_id) if run.agent_id else None
+    if policy is None or agent is None:
+        run.status = "failed"
+        run.detail = "policy or host no longer exists"
+        return {"status": "failed", "detail": run.detail}
+    status, detail = await _execute_policy(session, settings, agent, run.service_name, policy, client_factory)
+    run.status = status
+    run.detail = detail
+    run.at = datetime.now(timezone.utc)
+    return {"status": status, "detail": detail, "host": agent.name, "runbook": policy.runbook_name}
 
 
 async def run_remediations_for_service(
     session: AsyncSession, settings: Settings, agent: Agent, service_name: str, client_factory, *, force: bool = False,
 ) -> list[dict[str, Any]]:
-    """Run every matching remediation policy for one (host, check). `force`
-    bypasses the rate limit (manual/AI trigger)."""
+    """Run every matching policy for one (host, check) NOW and log each — the
+    manual/AI direct trigger (there is no automatic execution path)."""
     results = []
     for p in await matching_policies(session, agent, service_name):
-        results.append(await _run_policy(session, settings, agent, service_name, p, client_factory, force=force))
+        status, detail = await _execute_policy(session, settings, agent, service_name, p, client_factory)
+        session.add(RemediationRun(
+            tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
+            runbook_name=p.runbook_name, status=status, detail=detail[:2000],
+        ))
+        results.append({"policy": p.name, "host": agent.name, "service": service_name,
+                        "runbook": p.runbook_name, "status": status, "detail": detail})
     return results
 
 
-async def collect_and_run(session: AsyncSession, settings: Settings, touched: list[Service], client_factory) -> int:
-    """Poller hook: for every just-touched service that flipped INTO a hard
-    problem (`_notify_event == "problem"`), run its matching remediation
-    policies. Returns how many remediation runbooks actually ran."""
-    ran = 0
+async def collect_and_propose(session: AsyncSession, touched: list[Service]) -> int:
+    """Poller hook (AUTOMATIC event handling): for every just-touched service that
+    flipped INTO a hard problem, record a pending remediation proposal for each
+    matching policy. Nothing is executed — an operator/AI applies it. Returns how
+    many proposals were created."""
+    proposed = 0
     agents: dict[UUID, Agent] = {}
     for svc in touched:
         if getattr(svc, "_notify_event", None) != "problem":
@@ -140,7 +181,5 @@ async def collect_and_run(session: AsyncSession, settings: Settings, touched: li
             if agent is None:
                 continue
             agents[svc.agent_id] = agent
-        for res in await run_remediations_for_service(session, settings, agent, svc.name, client_factory):
-            if res.get("status") == "ran":
-                ran += 1
-    return ran
+        proposed += len(await propose_for_service(session, agent, svc.name))
+    return proposed
