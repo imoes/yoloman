@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { environment } from '../../../environments/environment';
@@ -10,6 +11,8 @@ interface BpService { name: string; kind: 'native' | 'docker'; image?: string; r
 interface BlueprintT { id: string; name: string; description: string; status: string; services: BpService[]; }
 interface WireEntry { consumer: string; provider: string; capability: string; backend?: string; set: Record<string, unknown>; }
 interface Warning { service: string; kind: string; template?: string; message: string; }
+interface OuRow { id: string; name: string; path: string; }
+interface SiteRow { id: string; name: string; }
 interface Compiled { playbook: { name: string; steps: { name: string; module: string; args: Record<string, unknown> }[] }; order: string[]; wiring: WireEntry[]; unresolved: { consumer: string; capability: string }[]; warnings?: Warning[]; }
 
 /**
@@ -20,7 +23,7 @@ interface Compiled { playbook: { name: string; steps: { name: string; module: st
 @Component({
   selector: 'app-blueprint-manager',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [FormsModule, MatIconModule, MatButtonModule],
   template: `
     <div class="bm-bp">
       <div class="bm-bp-list">
@@ -95,6 +98,29 @@ interface Compiled { playbook: { name: string; steps: { name: string; module: st
               }
             </ol>
             <p class="bm-dim">This typed playbook is what a PXE-provisioned host (or the docker host) runs to provision + configure the whole stack — steps are ordered by dependency and the requirements are wired automatically.</p>
+
+            <h3>Bind to a scope (auto-deploy)</h3>
+            <p class="bm-dim">Bind the stack to an OU or Site as a deployment plan — every host in it (including a freshly PXE-booted one) gets the blueprint as desired state, no per-host step.</p>
+            <div class="bm-bind">
+              <select [ngModel]="bindKind()" (ngModelChange)="bindKind.set($event)">
+                <option value="ou">OU</option>
+                <option value="site">Site</option>
+              </select>
+              @if (bindKind() === 'ou') {
+                <select [ngModel]="bindOu()" (ngModelChange)="bindOu.set($event)">
+                  <option value="" disabled selected>Choose OU…</option>
+                  @for (o of ous(); track o.id) { <option [value]="o.id">{{ o.path || o.name }}</option> }
+                </select>
+              } @else {
+                <select [ngModel]="bindSite()" (ngModelChange)="bindSite.set($event)">
+                  <option value="" disabled selected>Choose Site…</option>
+                  @for (s of sites(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+                </select>
+              }
+              <label class="bm-chk"><input type="checkbox" [ngModel]="bindAuto()" (ngModelChange)="bindAuto.set($event)" /> apply now (skip approval)</label>
+              <button mat-stroked-button (click)="bind()" [disabled]="busy() || !bindTarget()"><mat-icon>link</mat-icon> Bind</button>
+              @if (bindMsg()) { <span class="bm-ok">{{ bindMsg() }}</span> }
+            </div>
           } @else { <p class="bm-dim">Compiling…</p> }
         } @else { <p class="bm-dim">Pick a blueprint on the left.</p> }
       </div>
@@ -131,6 +157,9 @@ interface Compiled { playbook: { name: string; steps: { name: string; module: st
     .bm-warn { color: #f9a825; font-size: 13px; } .bm-dim { opacity: 0.6; font-size: 13px; }
     .bm-bp-cphd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .bm-ok { color: var(--bm-green,#2e7d32); font-size: 13px; }
+    .bm-bind { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+    .bm-bind select { padding: 5px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: transparent; color: inherit; }
+    .bm-chk { display: flex; align-items: center; gap: 5px; font-size: 12.5px; opacity: 0.85; }
   `],
 })
 export class BlueprintManagerComponent {
@@ -140,11 +169,43 @@ export class BlueprintManagerComponent {
   compiled = signal<Compiled | null>(null);
   busy = signal(false);
   savedMsg = signal('');
+  // Scope binding
+  ous = signal<OuRow[]>([]);
+  sites = signal<SiteRow[]>([]);
+  bindKind = signal<'ou' | 'site'>('ou');
+  bindOu = signal('');
+  bindSite = signal('');
+  bindAuto = signal(false);
+  bindMsg = signal('');
+  bindTarget = computed(() => (this.bindKind() === 'ou' ? this.bindOu() : this.bindSite()));
 
-  constructor() { this.reload(); }
+  constructor() {
+    this.reload();
+    this.http.get<OuRow[]>(`${environment.apiUrl}/ou`).subscribe((o) => this.ous.set(o || []));
+    this.http.get<SiteRow[]>(`${environment.apiUrl}/policy-sites`).subscribe((s) => this.sites.set(s || []));
+  }
 
   reload(): void {
     this.http.get<BlueprintT[]>(`${environment.apiUrl}/blueprints`).subscribe((b) => this.blueprints.set(b));
+  }
+
+  bind(): void {
+    const b = this.selected();
+    const target = this.bindTarget();
+    if (!b || !target) return;
+    this.busy.set(true); this.bindMsg.set('');
+    const body: Record<string, unknown> = { target_type: this.bindKind(), auto_apply: this.bindAuto(), require_approval: !this.bindAuto() };
+    if (this.bindKind() === 'ou') body['ou_id'] = target; else body['site_id'] = target;
+    this.http.post<{ status: string; affected_hosts: number; version: number }>(`${environment.apiUrl}/blueprints/${b.id}/bind-to-scope`, body).subscribe({
+      next: (r) => {
+        this.busy.set(false);
+        this.bindMsg.set(r.status === 'active'
+          ? `Bound & applied (v${r.version}) — ${r.affected_hosts} host(s) will converge; new hosts in this scope get it automatically.`
+          : `Bound (v${r.version}) — pending approval. Approve it under OU / Policy to activate.`);
+        this.reload();
+      },
+      error: (e) => { this.busy.set(false); this.bindMsg.set(e?.error?.detail || 'Bind failed.'); },
+    });
   }
   seed(): void {
     this.busy.set(true);
