@@ -164,7 +164,7 @@ export interface EditorScope {
                    Save commits, Cancel discards). Empty = applies wherever the
                    scope reaches. -->
               <div class="bm-oce-cond">
-                <app-conditions-editor [conditions]="condFor(sel)" (conditionsChange)="setCond(sel, $event)" />
+                <app-conditions-editor [conditions]="condFor(sel)" (conditionsChange)="setCond(sel, $event)" [previewScope]="previewScope()" />
               </div>
             }
           } @else {
@@ -248,6 +248,16 @@ export class OuConfigEditorComponent implements OnChanges {
       : this.scope.kind === 'set' ? { set_id: this.scope.id }
       : this.scope.kind === 'unlinked' ? {}
       : { host_group_id: this.scope.id };
+  }
+
+  /** Scope for the conditions editor's blast-radius preview — only concrete
+   * scopes (ou/group/site); unlinked/set policies have no host set to preview. */
+  previewScope(): { scope_type: string; ou_id?: string; host_group_id?: string; site_id?: string } | undefined {
+    const s = this.scope;
+    if (s.kind === 'ou' && s.id) return { scope_type: 'ou', ou_id: s.id };
+    if (s.kind === 'group' && s.id) return { scope_type: 'group', host_group_id: s.id };
+    if (s.kind === 'site' && s.id) return { scope_type: 'site', site_id: s.id };
+    return undefined;
   }
 
   loaded = signal(false);

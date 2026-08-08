@@ -58,6 +58,11 @@ const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = 
       <div class="bm-cond-hd">
         <span class="bm-cond-h">Conditions</span>
         <span class="bm-cond-hint">{{ clauses().length ? 'Applies only where ALL of these match' : 'No conditions — applies wherever the scope reaches' }}</span>
+        @if (previewScope && preview(); as p) {
+          <span class="bm-cond-preview" [title]="p.matched.join(', ')">
+            <mat-icon>groups</mat-icon> matches {{ p.matched_count }} of {{ p.total_in_scope }} host{{ p.total_in_scope === 1 ? '' : 's' }}
+          </span>
+        }
       </div>
       @for (c of clauses(); track $index) {
         <div class="bm-cond-row">
@@ -96,6 +101,8 @@ const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = 
     .bm-cond-hd { display: flex; align-items: baseline; gap: 10px; }
     .bm-cond-h { font-size: 12px; font-weight: 600; opacity: 0.8; }
     .bm-cond-hint { font-size: 11.5px; opacity: 0.6; }
+    .bm-cond-preview { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-tertiary) 18%, transparent); cursor: default; }
+    .bm-cond-preview mat-icon { font-size: 15px; width: 15px; height: 15px; }
     .bm-cond-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .bm-cin { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 12.5px; box-sizing: border-box; }
     .bm-cin-cat { flex: 0 0 140px; }
@@ -120,6 +127,11 @@ export class ConditionsEditorComponent implements OnInit {
     this.clauses.set(this.deserialize(v || {}));
   }
   @Output() conditionsChange = new EventEmitter<Record<string, unknown>>();
+  // Optional: when the host authoring this policy knows its scope, show a live
+  // "matches N of M hosts" blast-radius preview via /whatif/scope.
+  @Input() previewScope?: { scope_type: string; ou_id?: string; host_group_id?: string; site_id?: string; agent_id?: string };
+  preview = signal<{ total_in_scope: number; matched_count: number; matched: string[] } | null>(null);
+  private previewTimer: ReturnType<typeof setTimeout> | null = null;
 
   clauses = signal<Clause[]>([]);
   vocab = signal<{
@@ -132,6 +144,19 @@ export class ConditionsEditorComponent implements OnInit {
 
   ngOnInit(): void {
     this.ouService.matchVocabulary().subscribe({ next: (v) => this.vocab.set(v), error: () => {} });
+    this.refreshPreview(this.serialize(this.clauses()));
+  }
+
+  /** Debounced blast-radius preview for the current conditions at previewScope. */
+  private refreshPreview(conditions: Record<string, unknown>): void {
+    if (!this.previewScope) return;
+    if (this.previewTimer) clearTimeout(this.previewTimer);
+    this.previewTimer = setTimeout(() => {
+      this.ouService.whatifScope({ ...this.previewScope!, conditions }).subscribe({
+        next: (r) => this.preview.set(r),
+        error: () => this.preview.set(null),
+      });
+    }, 300);
   }
 
   catOf(cat: Category) { return CATS.find((c) => c.v === cat)!; }
@@ -196,6 +221,7 @@ export class ConditionsEditorComponent implements OnInit {
     const obj = this.serialize(this.clauses());
     this.lastEmitted = JSON.stringify(obj);
     this.conditionsChange.emit(obj);
+    this.refreshPreview(obj);
   }
 
   // --- serialize: clauses → Checkmk conditions object ---

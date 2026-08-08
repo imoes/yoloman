@@ -132,6 +132,13 @@ export class OuService {
 
   /** Known tag groups / label keys / OU folders — powers the conditions editor's
    * suggestion dropdowns (free text is still allowed). */
+  /** Blast-radius preview: which hosts a policy at this scope + conditions would
+   * hit, before creating it. */
+  whatifScope(body: { scope_type: string; ou_id?: string; host_group_id?: string; site_id?: string; agent_id?: string; conditions: Record<string, unknown> }) {
+    return this.http.post<{ total_in_scope: number; matched_count: number; matched: string[]; excluded: string[] }>(
+      `${environment.apiUrl}/whatif/scope`, body);
+  }
+
   matchVocabulary() {
     return this.http.get<{
       host_tags: Record<string, string[]>;

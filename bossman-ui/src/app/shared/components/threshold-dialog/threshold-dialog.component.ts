@@ -117,7 +117,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
           } @else { <p class="bm-dim">Pick a metric on the left.</p> }
         </div>
       </div>
-      <app-conditions-editor [conditions]="conditions()" (conditionsChange)="conditions.set($event)" />
+      <app-conditions-editor [conditions]="conditions()" (conditionsChange)="conditions.set($event)" [previewScope]="previewScope()" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -247,6 +247,13 @@ export class ThresholdDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.monitoring.metricCatalog().subscribe((c) => this.catalog.set(c));
+  }
+
+  /** Scope for the conditions blast-radius preview (OU / Site scopes). */
+  previewScope(): { scope_type: string; ou_id?: string; site_id?: string } | undefined {
+    if (this.data.siteId) return { scope_type: 'site', site_id: this.data.siteId };
+    if (this.data.ouId) return { scope_type: 'ou', ou_id: this.data.ouId };
+    return undefined;
   }
 
   scopeLabel(): string {
