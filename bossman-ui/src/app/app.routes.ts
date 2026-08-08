@@ -36,6 +36,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/hosts/hosts-list.component').then((m) => m.HostsListComponent),
   },
   {
+    path: 'fleet-search',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/fleet-search/fleet-search.component').then((m) => m.FleetSearchComponent),
+  },
+  {
     path: 'apps',
     canActivate: [authGuard],
     loadComponent: () => import('./features/apps/app-store.component').then((m) => m.AppStoreComponent),

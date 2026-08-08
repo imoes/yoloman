@@ -82,6 +82,7 @@ const WORKSPACES: Workspace[] = [
     hint: 'The assets you manage',
     items: [
       { path: '/hosts', label: 'Hosts', icon: 'dns' },
+      { path: '/fleet-search', label: 'Fleet search', icon: 'search' },
       { path: '/systems', label: 'Systems', icon: 'lan' },
       { path: '/snmp-devices', label: 'Devices', icon: 'router' },
       { path: '/host-placement', label: 'Host placement', icon: 'lan' },
