@@ -373,6 +373,9 @@ class Settings(BaseSettings):
     # background loop doesn't race per-test DB state.
     reconcile_enabled: bool = True
     reconcile_interval_seconds: int = 15
+    # Event-driven self-healing: run RemediationPolicy runbooks when a check goes
+    # hard on the poll path. Off in the test suite (like the poller loops).
+    remediation_enabled: bool = True
     # Wake the reconciler INSTANTLY on a change via Postgres LISTEN/NOTIFY, instead
     # of waiting up to reconcile_interval_seconds. enqueue_policy_event fires a
     # NOTIFY in the same transaction (delivered on commit); a dedicated listener

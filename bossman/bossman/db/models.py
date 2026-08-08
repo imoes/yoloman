@@ -2080,6 +2080,60 @@ class Rollout(Base):
     )
 
 
+class RemediationPolicy(Base):
+    """Event-driven self-healing: when a check (service) enters a hard problem
+    state on a host this policy reaches, run a parameter-driven remediation
+    runbook (restart a service / a docker container / clear logs, …). Bound to a
+    check by `match_service_name` (empty = any) plus a structural scope +
+    optional conditions, so it applies like every other policy. Guardrails:
+    `max_per_hour` rate-limits per host, `mode` is auto (run) or propose (log a
+    suggestion only)."""
+
+    __tablename__ = "remediation_policies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    match_service_name: Mapped[str] = mapped_column(String, nullable=False, default="")  # "" = any check
+    scope_type: Mapped[str] = mapped_column(String, nullable=False, default="global")  # global|ou|group|host
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    runbook_name: Mapped[str] = mapped_column(String, nullable=False)
+    params: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    max_per_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    mode: Mapped[str] = mapped_column(String, nullable=False, default="auto")  # auto | propose
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('global', 'ou', 'group', 'host')", name="ck_remediation_scope"),
+        CheckConstraint("mode IN ('auto', 'propose')", name="ck_remediation_mode"),
+        Index("idx_remediation_service", "match_service_name"),
+    )
+
+
+class RemediationRun(Base):
+    """One remediation attempt (audit + rate-limit source): which policy fired on
+    which host/service, the outcome, and when."""
+
+    __tablename__ = "remediation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    policy_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("remediation_policies.id", ondelete="SET NULL"))
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"))
+    service_name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    runbook_name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String, nullable=False)  # ran|proposed|rate_limited|failed
+    detail: Mapped[str | None] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("idx_remediation_runs_recent", "policy_id", "agent_id", "at"),)
+
+
 class Event(Base):
     """A passively-received event — a syslog message or an SNMP trap (gap #2,
     the Event Console). Unlike checks (which we poll), these arrive unsolicited
