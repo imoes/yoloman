@@ -1,46 +1,50 @@
 [linux_bridge]
-# Physical network device to map virtual networks onto
-physical_interface_mappings = {{ physical_interface_mappings | default('') | join(', ') }}
+# Comma-separated list of mappings of physical network names to physical interface names
+# (e.g., physnet1:eth1,physnet2:eth2).
+physical_interface_mappings = {{ physical_interface_mappings | default('') }}
 
-# VLAN range for tenant networks
-vni_ranges = {{ vni_ranges | default('') | join(', ') }}
+# Comma-separated list of VXLAN network identifier (VNI) ranges for tenant networks
+# (e.g., 1:1000,2000:3000).
+vni_ranges = {{ vni_ranges | default('') }}
 
-# Enable or disable VXLAN overlay network
-enable_vxlan = {{ enable_vxlan | string | lower }}
+# Enable or disable VXLAN overlay networks.
+enable_vxlan = {{ enable_vxlan | default(true) | bool | ternary('True', 'False') }}
 
-# TTL for VXLAN packets
-vxlan_ttl = {{ vxlan_ttl }}
+# Time-to-live (TTL) for VXLAN packets.
+vxlan_ttl = {{ vxlan_ttl | default(1) }}
 
-# Enable or disable ARP responder for VXLAN
-arp_responder = {{ arp_responder | string | lower }}
+# Enable or disable ARP responder for VXLAN to reply to ARP requests locally.
+arp_responder = {{ arp_responder | default(false) | bool | ternary('True', 'False') }}
 
-# Maximum transmission unit for VXLAN interface
+# Local IP address for VXLAN UDP endpoint. Must be reachable between compute hosts.
 vxlan_local_ip = {{ vxlan_local_ip | default('') }}
 
 [network_types]
-# Supported network types for tenant networks
-tenant_network_types = {{ tenant_network_types | default('flat,vlan,vxlan') | join(', ') }}
+# Ordered list of network types supported for tenant networks (e.g., flat, vlan, vxlan).
+tenant_network_types = {{ tenant_network_types | default(['flat', 'vlan', 'vxlan']) | join(', ') }}
 
 [linux_bridge]
-# Physical bridge interface for flat and VLAN networks
-bridge_mappings = {{ bridge_mappings | default('') | join(', ') }}
+# Comma-separated list of mappings of physical network names to Linux bridge names
+# (e.g., physnet1:br-eth1, physnet2:br-eth2).
+bridge_mappings = {{ bridge_mappings | default('') }}
 
 [securitygroup]
-# Enable or disable security groups
-enable_security_group = {{ enable_security_group | string | lower }}
+# Enable or disable security groups for instances.
+enable_security_group = {{ enable_security_group | default(true) | bool | ternary('True', 'False') }}
 
-# Firewall driver for security groups
+# Firewall driver implementation (e.g., neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+# or neutron.agent.linux.nftables_firewall.NFTablesFirewallDriver).
 firewall_driver = {{ firewall_driver | default('neutron.agent.linux.iptables_firewall.IptablesFirewallDriver') }}
 
-# Enable or disable DHCP options for security groups
-enable_dhcp_options = {{ enable_dhcp_options | string | lower }}
+# Enable or disable DHCP options for security group rules.
+enable_dhcp_options = {{ enable_dhcp_options | default(true) | bool | ternary('True', 'False') }}
 
 [agent]
-# Minimum number of seconds between agent state reports
-min_agent_rounds = {{ min_agent_rounds }}
+# Minimum number of agent cycles to wait before reporting state to server.
+min_agent_rounds = {{ min_agent_rounds | default(3) }}
 
-# Polling interval for agent state reports
-polling_interval = {{ polling_interval }}
+# Seconds between agent state reports to the server (lower = more frequent).
+polling_interval = {{ polling_interval | default(2) }}
 
-# Maximum time to wait for agent to register with server
-registration_delay = {{ registration_delay }}
+# Seconds to wait before re-registering with the server after failure.
+registration_delay = {{ registration_delay | default(2) }}

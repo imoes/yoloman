@@ -7,7 +7,7 @@ import { OuService } from '../../core/services/ou.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { DirectiveSpec } from '../../core/models/agent.model';
-import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
+import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
 
 interface ScopePolicy {
   id: string;
@@ -56,31 +56,36 @@ export interface EditorScope {
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
       <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}; a host's own config overrides them. Pick from every known config file (the codec registry) — the host doesn't need the file yet.</p>
       <input class="bm-oce-search" type="search" placeholder="Search settings…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
-      <div class="bm-oce-panes">
-        <!-- Left: gpedit-style tree — each category expands to its config files
-             (like the Local Group Policy Editor's Administrative Templates tree). -->
-        <div class="bm-oce-tree">
+      <!-- Three Miller columns: Category → File → Settings. The settings column is
+           always visible, so which values are Configured/Removed is never hidden
+           behind a collapsed tree node. -->
+      <div class="bm-oce-miller">
+        <!-- Column 1: semantic categories. -->
+        <div class="bm-oce-col bm-oce-col-cat">
           @for (grp of groups(); track grp.cat.key) {
-            <div class="bm-oce-tcat" (click)="toggleCat(grp.cat.key)">
-              <mat-icon class="bm-oce-tw">{{ isCatOpen(grp.cat.key) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+            <div class="bm-oce-item" [class.bm-oce-sel]="activeCat() === grp.cat.key" (click)="selectCat(grp.cat.key)">
               <mat-icon class="bm-oce-cat-ic">{{ grp.cat.icon }}</mat-icon>
               <span class="bm-oce-tlabel">{{ grp.cat.label }}</span>
               <span class="bm-oce-count">{{ grp.files.length }}</span>
             </div>
-            @if (isCatOpen(grp.cat.key)) {
-              @for (f of grp.files; track f.path) {
-                <div class="bm-oce-tfile" [class.bm-oce-sel]="selected() === f.path" (click)="select(f.path)" [title]="f.path">
-                  <span class="bm-oce-tlabel">{{ baseName(f.path) }}</span>
-                  @if (policyFor(f.path)) { <span class="bm-oce-dot" title="policy at this scope">●</span> }
-                </div>
-              }
-            }
           } @empty {
             <p class="bm-oce-empty">{{ loaded() ? 'Nothing matches.' : 'Loading…' }}</p>
           }
         </div>
-        <!-- Right: the selected file's settings list (Setting / State / value) -->
-        <div class="bm-oce-main">
+        <!-- Column 2: the files in the active category; ● marks a file that has a
+             policy at this scope. -->
+        <div class="bm-oce-col bm-oce-col-file">
+          @for (f of filesInCat(); track f.path) {
+            <div class="bm-oce-item" [class.bm-oce-sel]="selected() === f.path" (click)="select(f.path)" [title]="f.path">
+              <span class="bm-oce-tlabel">{{ baseName(f.path) }}</span>
+              @if (policyFor(f.path)) { <span class="bm-oce-dot" title="policy at this scope">●</span> }
+            </div>
+          } @empty {
+            <p class="bm-oce-empty">Pick a category.</p>
+          }
+        </div>
+        <!-- Column 3: the selected file's settings — Setting / State / value / default. -->
+        <div class="bm-oce-col bm-oce-col-set">
           @if (selected(); as sel) {
             <div class="bm-oce-file-hd">
               <h4 class="bm-oce-file-h">{{ sel }}</h4>
@@ -150,24 +155,21 @@ export interface EditorScope {
       .bm-oce { margin-top: 18px; }
       .bm-oce-h { margin: 0 0 4px; }
       .bm-oce-src { font-size: 12px; opacity: 0.65; margin: 0 0 10px; }
-      /* Wrap so the settings list drops below the tree in a narrow panel (the
-         OU detail panel) instead of overflowing to the right; stays side-by-side
-         when there's room (like the Windows Local Group Policy Editor). */
-      .bm-oce-panes { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
       .bm-oce-search { display: block; width: 100%; max-width: 420px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
-      /* gpedit tree: category nodes expand to their config-file leaves. */
-      .bm-oce-tree { flex: 0 0 250px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 4px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
-      .bm-oce-tcat { padding: 6px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
-      .bm-oce-tcat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
-      .bm-oce-tw { font-size: 18px; width: 18px; height: 18px; opacity: 0.7; flex: 0 0 18px; }
-      .bm-oce-tcat .bm-oce-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
+      /* Three Miller columns (Category → File → Settings). Wraps on a narrow panel;
+         each column scrolls on its own so a long list never pushes the page sideways. */
+      .bm-oce-miller { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+      .bm-oce-col { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 4px; font-size: 13px; max-height: 480px; overflow-y: auto; box-sizing: border-box; }
+      .bm-oce-col-cat { flex: 0 0 210px; }
+      .bm-oce-col-file { flex: 0 0 210px; }
+      .bm-oce-col-set { flex: 1 1 340px; min-width: 0; padding: 10px; overflow-x: auto; }
+      .bm-oce-item { padding: 6px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; border-radius: 4px; user-select: none; }
+      .bm-oce-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-oce-item .bm-oce-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
       .bm-oce-cat-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; flex: 0 0 16px; }
-      .bm-oce-tfile { padding: 5px 8px 5px 36px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
-      .bm-oce-tfile:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-oce-tlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .bm-oce-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
-      .bm-oce-dot { color: var(--mat-sys-primary); font-size: 10px; }
-      .bm-oce-main { flex: 1 1 360px; min-width: 0; overflow-x: auto; }
+      .bm-oce-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); }
+      .bm-oce-dot { color: var(--mat-sys-primary); font-size: 10px; margin-left: auto; }
       .bm-oce-live { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .bm-oce-file-h { margin: 0 0 8px; font-family: ui-monospace, monospace; font-size: 14px; }
       .bm-oce-settings { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -225,9 +227,9 @@ export class OuConfigEditorComponent implements OnChanges {
   private catalog = signal<{ path: string; format: string }[]>([]);
   private policies = signal<ScopePolicy[]>([]);
   search = signal('');
-  // Which tree categories are expanded (gpedit tree). A live search force-opens
-  // every matching category so results are visible without manual expansion.
-  catOpen = signal<Set<string>>(new Set());
+  // Miller column state: the selected category (col 1) and file (col 2); col 3
+  // is the selected file's settings — so what's Configured is always on screen.
+  selectedCat = signal<string | null>(null);
   selected = signal<string | null>(null);
   editKey = signal<string | null>(null);
   mode = signal<'notconf' | 'configured' | 'removed'>('configured');
@@ -255,7 +257,7 @@ export class OuConfigEditorComponent implements OnChanges {
         const target = (this.initialPath && ps.some((p) => p.path === this.initialPath))
           ? this.initialPath
           : (ps[0]?.path ?? null);
-        if (target) this.selected.set(target);
+        if (target) this.select(target);
       }
     });
     if (!Object.keys(this.directiveCatalog()).length) {
@@ -313,21 +315,33 @@ export class OuConfigEditorComponent implements OnChanges {
     return Object.keys(this.specsForFile(path));
   }
 
-  /** Tree navigation: a category node expands to reveal its config files.
-   * A live search force-opens every category so filtered files are visible. */
-  isCatOpen(key: string): boolean {
-    return this.search().trim() !== '' || this.catOpen().has(key);
+  /** The effective category key for column 1's highlight and column 2's list —
+   * the explicitly selected one, or the first visible category as a fallback. */
+  activeCat(): string | null {
+    const sel = this.selectedCat();
+    const gs = this.groups();
+    if (sel && gs.some((g) => g.cat.key === sel)) return sel;
+    return gs[0]?.cat.key ?? null;
   }
 
-  toggleCat(key: string): void {
-    const next = new Set(this.catOpen());
-    if (next.has(key)) next.delete(key); else next.add(key);
-    this.catOpen.set(next);
+  /** Column 2: the files in the active category (search already applied in groups()). */
+  filesInCat(): { path: string }[] {
+    const key = this.activeCat();
+    return this.groups().find((g) => g.cat.key === key)?.files ?? [];
   }
 
-  select(path: string): void {
+  /** Column 1 click: pick a category and drill straight into its first file so
+   * column 3 (the settings, with their set values) is never empty. */
+  selectCat(key: string): void {
+    this.selectedCat.set(key);
+    const files = this.filesInCat();
+    this.select(files[0]?.path ?? null);
+  }
+
+  select(path: string | null): void {
     this.selected.set(path);
     this.editKey.set(null);
+    if (path) this.selectedCat.set(categorizeConfigPath(path).key);
   }
 
   policyFor(path: string): ScopePolicy | undefined {

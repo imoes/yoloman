@@ -1,92 +1,112 @@
 [DEFAULT]
-# The host IP address used by the metadata agent to listen for requests
-bind_host = {{ metadata_bind_host }}
+# The IP address the metadata agent binds to. Use '0.0.0.0' to bind to all interfaces.
+bind_host = {{ (metadata_bind_host | default('127.0.0.1')) }}
 
-# The TCP port used by the metadata agent
-bind_port = {{ metadata_bind_port }}
+# TCP port the metadata agent listens on.
+bind_port = {{ (metadata_bind_port | default(9697)) }}
 
-# Path to the Neutron configuration file for agent-to-core communication
-neutron_config_file = {{ neutron_config_file }}
+# Path to the main Neutron configuration file.
+neutron_config_file = {{ (neutron_config_file | default('/etc/neutron/neutron.conf')) }}
 
-# Path to the Nova configuration file for metadata proxy authorization (if used)
-nova_metadata_ini = {{ nova_metadata_ini }}
+# Path to the Nova configuration file (for metadata proxy authorization).
+nova_metadata_ini = {{ (nova_metadata_ini | default('/etc/nova/nova.conf')) }}
 
-# Shared secret used to sign metadata request headers (must match nova.conf)
-metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}
+# Shared secret used to sign metadata request headers. Must match the value in nova.conf.
+metadata_proxy_shared_secret = {{ (metadata_proxy_shared_secret | default('')) }}
 
-# Whether to enable metadata proxy (required when using neutron metadata proxy)
-enable_metadata_proxy = {{ enable_metadata_proxy | lower }}
+# Enable the metadata proxy functionality.
+enable_metadata_proxy = {{ (enable_metadata_proxy | default(True)) | lower }}
 
-# Number of worker processes for handling requests
-workers = {{ workers }}
+# Number of worker processes for the metadata agent.
+workers = {{ (workers | default(1)) }}
 
-# Number of RPC worker processes for handling notifications
-rpc_workers = {{ rpc_workers }}
+# Number of RPC worker processes for handling notifications.
+rpc_workers = {{ (rpc_workers | default(1)) }}
 
 # Logging configuration
-log_file = {{ log_file }}
-log_dir = {{ log_dir }}
+# Path to the log file.
+log_file = {{ (log_file | default('/var/log/neutron/metadata-agent.log')) }}
 
-# Debug mode
-debug = {{ debug | lower }}
+# Directory for log files (used if log_file is not set).
+log_dir = {{ (log_dir | default('/var/log/neutron')) }}
 
-# Verbose logging
-verbose = {{ verbose | lower }}
+# Enable debug-level logging.
+debug = {{ (debug | default(False)) | lower }}
 
-# Logging format string
-log_format = {{ log_format }}
+# Enable verbose logging.
+verbose = {{ (verbose | default(True)) | lower }}
 
-# Logging date format
-log_date_format = {{ log_date_format }}
+# Format string for log messages.
+log_format = {{ (log_format | default('%(asctime)s %(levelname)8s [%(name)s] %(message)s')) }}
 
-{% if debug_loggers %}
-# Additional debug loggers (comma-separated logger names)
-debug_loggers = {{ debug_loggers | join(', ') }}
+# Date/time format used in log messages.
+log_date_format = {{ (log_date_format | default('%Y-%m-%d %H:%M:%S')) }}
+
+# List of logger names to enable debug logging for.
+{% if (debug_loggers | default([])) | length > 0 %}
+debug_loggers = {{ (debug_loggers | default([])) | join(', ') }}
 {% endif %}
 
-# Timeout (seconds) for metadata requests to the Neutron API
-metadata_workers = {{ metadata_workers }}
+# Number of workers for metadata request handling (legacy alias for workers).
+metadata_workers = {{ (metadata_workers | default(1)) }}
 
-# SSL/TLS configuration for metadata service endpoint
-# (used only if metadata_service_ssl is True)
-{% if metadata_service_ssl %}
-metadata_service_ssl = {{ metadata_service_ssl | lower }}
-metadata_service_ca_cert = {{ metadata_service_ca_cert }}
-metadata_service_cert = {{ metadata_service_cert }}
-metadata_service_key = {{ metadata_service_key }}
+# Use SSL/TLS for communication with the metadata service endpoint.
+{% if (metadata_service_ssl | default(False)) %}
+# Path to CA certificate file for metadata service SSL.
+metadata_service_ca_cert = {{ (metadata_service_ca_cert | default('/etc/ssl/certs/ca-certificates.crt')) }}
+
+# Path to client certificate file for metadata service SSL.
+metadata_service_cert = {{ (metadata_service_cert | default('')) }}
+
+# Path to client private key file for metadata service SSL.
+metadata_service_key = {{ (metadata_service_key | default('')) }}
+
+# Enable SSL/TLS for the metadata service.
+metadata_service_ssl = true
 {% endif %}
 
-# Metadata proxy health check interval (seconds)
-metadata_proxy_healthcheck_interval = {{ metadata_proxy_healthcheck_interval }}
+# Interval (seconds) between metadata proxy health checks.
+metadata_proxy_healthcheck_interval = {{ (metadata_proxy_healthcheck_interval | default(60)) }}
 
-# Metadata proxy health check timeout (seconds)
-metadata_proxy_healthcheck_timeout = {{ metadata_proxy_healthcheck_timeout }}
+# Timeout (seconds) for metadata proxy health checks.
+metadata_proxy_healthcheck_timeout = {{ (metadata_proxy_healthcheck_timeout | default(10)) }}
 
-# Maximum number of retries for metadata proxy requests
-metadata_proxy_max_retries = {{ metadata_proxy_max_retries }}
+# Maximum number of retries for metadata proxy requests.
+metadata_proxy_max_retries = {{ (metadata_proxy_max_retries | default(3)) }}
 
-# Retry delay (seconds) for metadata proxy requests
-metadata_proxy_retry_delay = {{ metadata_proxy_retry_delay }}
+# Delay (seconds) between retries for metadata proxy requests.
+metadata_proxy_retry_delay = {{ (metadata_proxy_retry_delay | default(2)) }}
 
-# Use SSL for communication with Nova metadata service
-{% if use_ssl_with_nova %}
-use_ssl_with_nova = {{ use_ssl_with_nova | lower }}
-nova_metadata_insecure = {{ nova_metadata_insecure | lower }}
-nova_metadata_client_cert = {{ nova_metadata_client_cert }}
-nova_metadata_client_key = {{ nova_metadata_client_key }}
-nova_metadata_ca_cert = {{ nova_metadata_ca_cert }}
+# Use SSL/TLS when connecting to the Nova metadata service.
+{% if (use_ssl_with_nova | default(False)) %}
+# Allow insecure connections to Nova metadata service (disable certificate verification).
+nova_metadata_insecure = {{ (nova_metadata_insecure | default(False)) | lower }}
+
+# Path to client certificate for Nova metadata SSL.
+nova_metadata_client_cert = {{ (nova_metadata_client_cert | default('')) }}
+
+# Path to client private key for Nova metadata SSL.
+nova_metadata_client_key = {{ (nova_metadata_client_key | default('')) }}
+
+# Path to CA certificate for Nova metadata SSL.
+nova_metadata_ca_cert = {{ (nova_metadata_ca_cert | default('/etc/ssl/certs/ca-certificates.crt')) }}
+
+# Enable SSL/TLS when connecting to Nova.
+use_ssl_with_nova = true
 {% endif %}
 
-# Cache configuration (e.g., for metadata caching)
-{% if metadata_cache_enabled %}
-metadata_cache_enabled = {{ metadata_cache_enabled | lower }}
-metadata_cache_memcached_servers = {{ metadata_cache_memcached_servers | join(', ') }}
-metadata_cache_ttl = {{ metadata_cache_ttl }}
+# Enable metadata caching using memcached.
+{% if (metadata_cache_enabled | default(False)) %}
+# List of memcached server hosts (host:port).
+metadata_cache_memcached_servers = {{ (metadata_cache_memcached_servers | default([])) | join(' ') }}
+
+# Time-to-live (seconds) for cached metadata entries.
+metadata_cache_ttl = {{ (metadata_cache_ttl | default(300)) }}
+
+# Enable metadata caching.
+metadata_cache_enabled = true
 {% endif %}
 
 [AGENT]
-# Agent reporting interval (seconds)
-report_interval = {{ agent_report_interval }}
-
-# Agent log level (optional; overrides DEFAULT.log_level)
-# log_level = {{ agent_log_level }}
+# Interval (seconds) between agent status reports to the Neutron server.
+report_interval = {{ (agent_report_interval | default(30)) }}

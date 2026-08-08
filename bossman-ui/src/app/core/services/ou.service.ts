@@ -124,6 +124,12 @@ export class OuService {
     return this.http.put<unknown>(`${environment.apiUrl}/scope-vars`, { scope_type: 'ou', ou_id: ouId, vars });
   }
 
+  /** Read an OU's variables (for the right-pane values view of the Variables object). */
+  getOuVars(ouId: string) {
+    return this.http.get<{ vars: Record<string, unknown>; secret_keys?: string[] }>(
+      `${environment.apiUrl}/scope-vars?scope_type=ou&ou_id=${ouId}`);
+  }
+
   /** Move a placed config policy to another OU/group/site scope. */
   rescopeConfigPolicy(id: string, body: { scope_ou_id?: string; host_group_id?: string; site_id?: string }) {
     return this.http.patch<{ id: string }>(`${environment.apiUrl}/config-policies/${id}`, body);

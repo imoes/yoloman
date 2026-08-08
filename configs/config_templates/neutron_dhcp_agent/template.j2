@@ -1,100 +1,135 @@
 [DEFAULT]
-# Enable debugging for DHCP agent
-{% if debug | default(false) %}debug = True{% else %}debug = False{% endif %}
+# Enable debug logging for troubleshooting.
+debug = {{ debug | default(False) | ternary('True', 'False') }}
 
-# Logging verbosity
-{% if verbose | default(false) %}verbose = True{% else %}verbose = False{% endif %}
+# Enable verbose (trace-level) logging.
+verbose = {{ verbose | default(False) | ternary('True', 'False') }}
 
-# Path to the rootwrap configuration
-{% if rootwrap_config %}rootwrap_config = {{ rootwrap_config }}{% else %}rootwrap_config = /etc/neutron/rootwrap.conf{% endif %}
+# Path to the rootwrap configuration file used to elevate privileges.
+rootwrap_config = {{ rootwrap_config | default('/etc/neutron/rootwrap.conf') }}
 
-# RPC backend to use
-{% if rpc_backend | default('rabbit') %}rpc_backend = {{ rpc_backend }}{% endif %}
+# RPC backend to use (e.g., rabbit, redis, or messaging v2).
+rpc_backend = {{ rpc_backend | default('rabbit') }}
 
-# RabbitMQ connection string (if rpc_backend=rabbit)
-{% if rabbit_host %}rabbit_host = {{ rabbit_host }}{% endif %}
-{% if rabbit_port %}rabbit_port = {{ rabbit_port }}{% endif %}
-{% if rabbit_user %}rabbit_userid = {{ rabbit_user }}{% endif %}
-{% if rabbit_password %}rabbit_password = {{ rabbit_password }}{% endif %}
-{% if rabbit_virtual_host %}rabbit_virtual_host = {{ rabbit_virtual_host }}{% endif %}
+# Hostname or IP of RabbitMQ server.
+rabbit_host = {{ rabbit_host | default('localhost') }}
 
-# GlusterFS or other backend (optional, rarely used)
-{% if state_path %}state_path = {{ state_path }}{% endif %}
+# Port of RabbitMQ server.
+rabbit_port = {{ rabbit_port | default(5672) }}
 
-# Number of DHCP agents per network
-{% if dhcp_agents_per_network | default(1) %}dhcp_agents_per_network = {{ dhcp_agents_per_network }}{% endif %}
+# Username for RabbitMQ authentication.
+rabbit_userid = {{ rabbit_user | default('guest') }}
 
-# Number of DHCP processes per network (deprecated in newer releases)
-{% if dhcp_driver | default('neutron.agent.linux.dhcp.Dnsmasq') %}dhcp_driver = {{ dhcp_driver }}{% endif %}
+# Password for RabbitMQ authentication (required in production).
+rabbit_password = {{ rabbit_password | default('') }}
 
-# Enable or disable internal metadata proxy
-{% if enable_isolated_metadata | default(false) %}enable_isolated_metadata = True{% else %}enable_isolated_metadata = False{% endif %}
+# Virtual host for RabbitMQ.
+rabbit_virtual_host = {{ rabbit_virtual_host | default('/') }}
 
-# Enable or disable metadata NAT (needed if isolated metadata enabled)
-{% if enable_metadata_network | default(false) %}enable_metadata_network = True{% else %}enable_metadata_network = False{% endif %}
+# Base directory for runtime state files.
+state_path = {{ state_path | default('/var/lib/neutron') }}
 
-# Metadata proxy shared secret (for auth)
-{% if metadata_proxy_shared_secret %}metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}{% endif %}
+# Number of DHCP agents to handle each network (enables high availability).
+dhcp_agents_per_network = {{ dhcp_agents_per_network | default(1) }}
 
-# Interface driver for DHCP agents
-{% if interface_driver | default('neutron.agent.linux.interface.OVSInterfaceDriver') %}interface_driver = {{ interface_driver }}{% endif %}
+# DHCP driver to use (e.g., Dnsmasq, external, or custom).
+dhcp_driver = {{ dhcp_driver | default('neutron.agent.linux.dhcp.Dnsmasq') }}
 
-# Device name used for metadata namespace
-{% if metadata_driver | default('neutron.agent.linux.metadata.driver.MetadataDriver') %}metadata_driver = {{ metadata_driver }}{% endif %}
+# Enable metadata service for isolated networks (requires NAT).
+enable_isolated_metadata = {{ enable_isolated_metadata | default(False) | ternary('True', 'False') }}
 
-# DHCP lease time (in seconds)
-{% if dhcp_lease_time | default(86400) %}dhcp_lease_time = {{ dhcp_lease_time }}{% endif %}
+# Enable metadata network (required when using isolated metadata with NAT).
+enable_metadata_network = {{ enable_metadata_network | default(False) | ternary('True', 'False') }}
 
-# DNS servers for instances (list)
-{% if dns_servers %}dns_servers = {{ dns_servers | join(', ') }}{% endif %}
+# Shared secret for authenticating metadata proxy requests (must match server config).
+metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret | default('') }}
 
-# Network namespace prefix
-{% if network_namespace %}network_namespace = {{ network_namespace }}{% endif %}
+# Interface driver for plug/unplug devices (OVS, LinuxBridge, or custom).
+interface_driver = {{ interface_driver | default('neutron.agent.linux.interface.OVSInterfaceDriver') }}
 
-# PID file path
-{% if pid_file %}pid_file = {{ pid_file }}{% endif %}
+# Metadata driver for handling instance metadata.
+metadata_driver = {{ metadata_driver | default('neutron.agent.linux.metadata.driver.MetadataDriver') }}
 
-# OVS integration bridge (if using OVS interface driver)
-{% if ovs_integration_bridge %}ovs_integration_bridge = {{ ovs_integration_bridge }}{% endif %}
+# DHCP lease time in seconds (default: 24 hours).
+dhcp_lease_time = {{ dhcp_lease_time | default(86400) }}
 
-# Linux bridge physical device mapping (if using LinuxBridge driver)
-{% if linux_bridge_physical_device_mappings %}
+# List of DNS servers for instances (IPv4 or IPv6 addresses).
+{% if dns_servers | default([]) | length > 0 %}
+dns_servers = {{ dns_servers | default([]) | join(', ') }}
+{% endif %}
+
+# Prefix for network namespaces (if namespaces enabled).
+network_namespace = {{ network_namespace | default('qdhcp-') }}
+
+# Path to PID file for the DHCP agent process.
+pid_file = {{ pid_file | default('/var/run/neutron/dhcp-agent.pid') }}
+
+# Open vSwitch integration bridge name (for OVS driver).
+ovs_integration_bridge = {{ ovs_integration_bridge | default('br-int') }}
+
+# Map physical networks to devices for Linux Bridge driver.
+{% if linux_bridge_physical_device_mappings | default([]) | length > 0 %}
 # Format: <physical_network>:<device_name>
-{% for mapping in linux_bridge_physical_device_mappings %}linux_bridge_physical_device_mappings = {{ mapping.physical_network }}:{{ mapping.device_name }}
+{% for mapping in linux_bridge_physical_device_mappings | default([]) %}
+linux_bridge_physical_device_mappings = {{ mapping.physical_network }}:{{ mapping.device_name }}
 {% endfor %}{% endif %}
 
-# VxLAN group for overlay networks
-{% if vxlan_group %}vxlan_group = {{ vxlan_group }}{% endif %}
+# Multicast group for VxLAN overlays (e.g., '239.1.1.1').
+{% if vxlan_group | default('') | trim | length > 0 %}
+vxlan_group = {{ vxlan_group | default('') }}
+{% endif %}
 
-# MTU for DHCP packets
-{% if dhcp_mtu | default(1500) %}dhcp_mtu = {{ dhcp_mtu }}{% endif %}
+# MTU to send in DHCP options (overrides interface MTU).
+dhcp_mtu = {{ dhcp_mtu | default(1500) }}
 
-# Use metadata forwarding instead of proxy (advanced)
-{% if use_namespaces | default(true) %}use_namespaces = True{% else %}use_namespaces = False{% endif %}
+# Enable per-network namespaces (required for overlapping IPs).
+use_namespaces = {{ use_namespaces | default(True) | ternary('True', 'False') }}
 
-# Number of DHCP processes (deprecated, use dhcp_agents_per_network instead)
-{% if dhcp_agents | default(2) %}dhcp_agents = {{ dhcp_agents }}{% endif %}
+# [Deprecated] Number of DHCP agents; use `dhcp_agents_per_network` instead.
+dhcp_agents = {{ dhcp_agents | default(2) }}
 
-# Send DHCP option 121 (classless static route)
-{% if enable_dhcp_opt121 | default(false) %}enable_dhcp_opt121 = True{% else %}enable_dhcp_opt121 = False{% endif %}
+# Enable DHCP option 121 (classless static route) for improved routing.
+enable_dhcp_opt121 = {{ enable_dhcp_opt121 | default(False) | ternary('True', 'False') }}
 
-# Hostname for this agent
-{% if host %}host = {{ host }}{% endif %}
+# Hostname or identifier for this agent (must match nova/neutron config).
+{% if host | default('') | trim | length > 0 %}
+host = {{ host | default('') }}
+{% endif %}
 
-# API endpoint for Neutron service
-{% if auth_url %}auth_url = {{ auth_url }}{% endif %}
-{% if auth_type %}auth_type = {{ auth_type }}{% endif %}
-{% if project_domain_name %}project_domain_name = {{ project_domain_name }}{% endif %}
-{% if user_domain_name %}user_domain_name = {{ user_domain_name }}{% endif %}
-{% if project_name %}project_name = {{ project_name }}{% endif %}
-{% if username %}username = {{ username }}{% endif %}
-{% if password %}password = {{ password }}{% endif %}
-{% if insecure | default(false) %}insecure = True{% else %}insecure = False{% endif %}
-{% if cafile %}cafile = {{ cafile }}{% endif %}
+# Identity endpoint URL (Keystone v3).
+auth_url = {{ auth_url | default('http://controller:5000/v3') }}
+
+# Authentication type (e.g., password, token, or application credential).
+auth_type = {{ auth_type | default('password') }}
+
+# Project domain name for authentication.
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# User domain name for authentication.
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Service project name (tenant) for authentication.
+project_name = {{ project_name | default('service') }}
+
+# Username for service authentication.
+username = {{ username | default('neutron') }}
+
+# Password for service authentication (required).
+password = {{ password | default('') }}
+
+# Allow insecure TLS connections (disable certificate verification).
+insecure = {{ insecure | default(False) | ternary('True', 'False') }}
+
+# Path to CA bundle for TLS verification (if insecure=false).
+{% if cafile | default('') | trim | length > 0 %}
+cafile = {{ cafile | default('') }}
+{% endif %}
 
 [agent]
-# Polling interval for resource updates (seconds)
-{% if polling_interval | default(2) %}polling_interval = {{ polling_interval }}{% endif %}
+# Interval (seconds) between resource updates from Neutron server.
+polling_interval = {{ polling_interval | default(2) }}
 
-# QoS driver (if enabled)
-{% if qos_driver %}qos_driver = {{ qos_driver }}{% endif %}
+# QoS driver class (e.g., neutron.plugins.ml2.drivers.mech_sriov.agent.qos_driver.QoSDriver).
+{% if qos_driver | default('') | trim | length > 0 %}
+qos_driver = {{ qos_driver | default('') }}
+{% endif %}

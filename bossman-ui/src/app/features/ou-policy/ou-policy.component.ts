@@ -313,6 +313,23 @@ interface PaletteItem {
                   <p class="bm-hint">Loading values…</p>
                 }
               }
+              @if (sel.obj!.kind === 'variables') {
+                <div class="bm-pol-hd">
+                  <h3 class="bm-checks-h">Variables</h3>
+                  <button mat-stroked-button class="bm-palette-new" (click)="editVariablesObject(sel)"><mat-icon>edit</mat-icon> Edit…</button>
+                </div>
+                @if (varsDetail(); as vd) {
+                  <table class="bm-kv">
+                    @for (e of varsEntries(); track e.key) {
+                      <tr><th>{{ e.key }}</th><td>{{ fmtVal(e.value) }}</td></tr>
+                    } @empty {
+                      <tr><td colspan="2" class="bm-dim">No variables set — click Edit… to add some.</td></tr>
+                    }
+                  </table>
+                } @else {
+                  <p class="bm-hint">Loading variables…</p>
+                }
+              }
             }
           } @else {
             <p class="bm-empty">Select a node to see its scope.</p>
@@ -770,15 +787,26 @@ export class OuPolicyComponent implements OnInit {
     return Object.entries(d.values || {}).map(([key, value]) => ({ key, value }));
   });
 
+  // The variables of a selected "Variables" object (fetched from its OU), so the
+  // right pane shows the actual key=value pairs, not just the object kind.
+  varsDetail = signal<Record<string, unknown> | null>(null);
+  varsEntries = computed(() => Object.entries(this.varsDetail() || {}).map(([key, value]) => ({ key, value })));
+
   select(row: TreeRow): void {
     this.selected.set(row);
     this.ouChecks.set([]);
     this.policyDetail.set(null);
+    this.varsDetail.set(null);
     if (row.kind === 'ou') this.loadOuChecks(row.ou!.id);
     else if (row.obj?.kind === 'config_policy') {
       this.ouService.getConfigPolicy(row.obj.id).subscribe({
         next: (p) => this.policyDetail.set({ path: p.path, type: p.type, values: p.values || {} }),
         error: () => this.policyDetail.set(null),
+      });
+    } else if (row.obj?.kind === 'variables' && row.ownerOuId) {
+      this.ouService.getOuVars(row.ownerOuId).subscribe({
+        next: (r) => this.varsDetail.set(r.vars || {}),
+        error: () => this.varsDetail.set(null),
       });
     }
   }
