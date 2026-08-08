@@ -779,6 +779,34 @@ async def get_config_policy(
     }
 
 
+class WhatIfIn(BaseModel):
+    """Blast-radius preview for a policy you haven't created yet."""
+    scope_type: str  # ou | group | site | host | global
+    ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+    site_id: UUID | None = None
+    agent_id: UUID | None = None
+    conditions: dict = {}
+
+
+@router.post("/api/v1/whatif/scope")
+async def whatif_scope_route(
+    body: WhatIfIn,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Which hosts a policy at this scope + these conditions WOULD apply to,
+    before creating it — {total_in_scope, matched_count, matched, excluded}."""
+    if body.scope_type not in ("ou", "group", "site", "host", "global"):
+        raise HTTPException(status_code=422, detail="scope_type must be ou|group|site|host|global")
+    from bossman.services.whatif import whatif_scope
+
+    return await whatif_scope(
+        session, body.scope_type, ou_id=body.ou_id, host_group_id=body.host_group_id,
+        site_id=body.site_id, agent_id=body.agent_id, conditions=body.conditions,
+    )
+
+
 @router.get("/api/v1/policy-lint")
 async def policy_lint(
     session: AsyncSession = Depends(get_session),

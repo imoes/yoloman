@@ -197,6 +197,40 @@ def build_mcp_server(
             return await _fleet_search(session, query, per_host=per_host)
 
     @mcp.tool()
+    async def whatif_scope(
+        scope_type: str, ou: str = "", group: str = "", site: str = "", host: str = "",
+        conditions: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Blast radius BEFORE you create a policy: which hosts a policy at this
+        scope + these Checkmk conditions would apply to. scope_type is
+        ou|group|site|host|global; pass the matching name in ou/group/site/host.
+        conditions is the same shape as a policy's conditions (host_tags,
+        host_facts, host_vars, host_label_groups, host_name, host_folder,
+        service_*). Returns {total_in_scope, matched_count, matched, excluded}.
+        Use this to check a proposed policy hits what you expect before applying."""
+        from bossman.db.models import HostGroup, OUNode, Site
+        from bossman.services.whatif import whatif_scope as _whatif
+
+        async with session_factory() as session:
+            ou_id = group_id = site_id = agent_id = None
+            if scope_type == "ou" and ou:
+                row = await session.scalar(select(OUNode).where(OUNode.path == ou))
+                ou_id = row.id if row else None
+            elif scope_type == "group" and group:
+                row = await session.scalar(select(HostGroup).where(HostGroup.name == group))
+                group_id = row.id if row else None
+            elif scope_type == "site" and site:
+                row = await session.scalar(select(Site).where(Site.name == site))
+                site_id = row.id if row else None
+            elif scope_type == "host" and host:
+                row = await session.scalar(select(Agent).where(Agent.name == host))
+                agent_id = row.id if row else None
+            return await _whatif(
+                session, scope_type, ou_id=ou_id, host_group_id=group_id,
+                site_id=site_id, agent_id=agent_id, conditions=conditions or {},
+            )
+
+    @mcp.tool()
     async def lint_policies() -> dict[str, Any]:
         """Static-analyse the whole policy tree and report problems: config
         policies linked to nothing or setting no values, thresholds with no
