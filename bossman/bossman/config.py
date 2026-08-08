@@ -319,6 +319,10 @@ class Settings(BaseSettings):
     # (e.g. nousresearch/hermes-3) have NO tool-use endpoint and 404 on tools.
     openrouter_model: str = "qwen/qwen-2.5-7b-instruct"
     openrouter_token: str = ""
+    # Model used to extract configurable variables from Docker Hub READMEs
+    # (services/docker_readme) via the OpenRouter backend. Overridable with
+    # BOSSMAN_DOCKER_EXTRACT_MODEL.
+    docker_extract_model: str = "poolside/laguna-s-2.1"
     # SearXNG metasearch (co-located with the LLM host) — backs the package-doc
     # verification batch and the web_search MCP tool.
     searxng_base_url: str = "http://llm.example.internal:8080"

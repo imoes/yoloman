@@ -1753,6 +1753,30 @@ class DeploymentTemplate(Base):
     )
 
 
+class DockerAppTemplate(Base):
+    """A deployable Docker container in the app store, with its configurable
+    variables extracted from the image's Docker Hub README (env vars → templating
+    params, plus ports/volumes) — the docker counterpart to the config templates,
+    so a container is offered with typed, documented knobs instead of a raw run
+    command."""
+
+    __tablename__ = "docker_app_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=DEFAULT_TENANT_ID)
+    image: Mapped[str] = mapped_column(String, nullable=False)         # e.g. "nginx", "library/postgres"
+    name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    variables: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)   # [{name, default, description, required}]
+    ports: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)       # ["80", "443"]
+    volumes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)     # ["/var/lib/postgresql/data"]
+    popularity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)    # curated rank (for top-N ordering)
+    readme_hash: Mapped[str | None] = mapped_column(String)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("image", name="uq_docker_app_templates_image"),)
+
+
 class VmHost(Base):
     """A hypervisor the provisioner can create VMs on: vCenter or Proxmox. The credentials are stored
     encrypted (vault) so the environment is picked once and reused; the `kind` is auto-detected from the

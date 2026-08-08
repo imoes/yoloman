@@ -91,3 +91,82 @@ async def docker_remove(
     """Force-remove a container by name."""
     agent = await _agent_with_address(session, agent_id)
     return await remove_container(agent, client_factory, settings, name=body.name)
+
+
+# --- Docker app-store templates (README-extracted variables) ---
+from fastapi import HTTPException, Query  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+from bossman.api.auth import get_current_identity  # noqa: E402
+from bossman.db.models import DockerAppTemplate  # noqa: E402
+
+
+class DockerAppTemplateOut(BaseModel):
+    image: str
+    name: str
+    description: str
+    variables: list
+    ports: list
+    volumes: list
+    popularity: int
+
+
+@router.get("/api/v1/docker/app-templates", response_model=list[DockerAppTemplateOut])
+async def list_docker_app_templates(
+    session: AsyncSession = Depends(get_session), _i=Depends(get_current_identity)
+):
+    """The docker app-store catalog: containers with their README-extracted
+    variables (env → params), ports and volumes, most-popular first."""
+    rows = (await session.scalars(
+        select(DockerAppTemplate).order_by(DockerAppTemplate.popularity.desc(), DockerAppTemplate.image)
+    )).all()
+    return [DockerAppTemplateOut(
+        image=r.image, name=r.name, description=r.description, variables=r.variables or [],
+        ports=r.ports or [], volumes=r.volumes or [], popularity=r.popularity,
+    ) for r in rows]
+
+
+class DockerExtractBody(BaseModel):
+    image: str
+
+
+@router.post("/api/v1/docker/app-templates/extract", response_model=DockerAppTemplateOut)
+async def extract_docker_app_template(
+    body: DockerExtractBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), _i=Depends(get_current_identity),
+):
+    """Extract one image's configurable variables from its Docker Hub README
+    (via the OpenRouter model settings.docker_extract_model) and store it."""
+    from bossman.services.docker_readme import extract_and_store
+
+    try:
+        row = await extract_and_store(session, settings, body.image.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    await session.commit()
+    return DockerAppTemplateOut(
+        image=row.image, name=row.name, description=row.description, variables=row.variables or [],
+        ports=row.ports or [], volumes=row.volumes or [], popularity=row.popularity,
+    )
+
+
+@router.post("/api/v1/docker/app-templates/extract-batch")
+async def extract_docker_catalog(
+    limit: int = Query(100, ge=1, le=200), session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), _i=Depends(get_current_identity),
+):
+    """Populate the docker catalog: extract variables for the top `limit` curated
+    images (services/docker_readme.TOP_IMAGES). Per-image failures are reported,
+    never fatal. Idempotent (an unchanged README skips the LLM)."""
+    from bossman.services.docker_readme import TOP_IMAGES, extract_and_store
+
+    done, failed = 0, []
+    for rank, image in enumerate(TOP_IMAGES[:limit]):
+        try:
+            await extract_and_store(session, settings, image, popularity=len(TOP_IMAGES) - rank)
+            await session.commit()
+            done += 1
+        except Exception as exc:  # noqa: BLE001 — one bad image must not stop the batch
+            await session.rollback()
+            failed.append({"image": image, "error": str(exc)[:200]})
+    return {"extracted": done, "failed": failed}

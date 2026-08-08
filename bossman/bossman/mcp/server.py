@@ -262,6 +262,22 @@ def build_mcp_server(
             return await propose_policy_from_nl(session, settings, instruction)
 
     @mcp.tool()
+    async def extract_docker_vars(image: str) -> dict[str, Any]:
+        """Extract a Docker image's configurable variables from its Docker Hub
+        README (env vars → params, plus ports/volumes) via the configured
+        OpenRouter model, and store it in the app-store docker catalog. Returns
+        {image, name, description, variables, ports, volumes}. e.g. image="postgres"."""
+        from bossman.services.docker_readme import extract_and_store
+
+        async with session_factory() as session:
+            row = await extract_and_store(session, settings, image.strip())
+            await session.commit()
+            return {
+                "image": row.image, "name": row.name, "description": row.description,
+                "variables": row.variables or [], "ports": row.ports or [], "volumes": row.volumes or [],
+            }
+
+    @mcp.tool()
     async def lint_policies() -> dict[str, Any]:
         """Static-analyse the whole policy tree and report problems: config
         policies linked to nothing or setting no values, thresholds with no
