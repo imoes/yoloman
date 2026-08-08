@@ -41,6 +41,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/fleet-search/fleet-search.component').then((m) => m.FleetSearchComponent),
   },
   {
+    path: 'docker-apps',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/apps/docker-apps.component').then((m) => m.DockerAppsComponent),
+  },
+  {
     path: 'apps',
     canActivate: [authGuard],
     loadComponent: () => import('./features/apps/app-store.component').then((m) => m.AppStoreComponent),
