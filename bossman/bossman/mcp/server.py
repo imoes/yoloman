@@ -248,6 +248,20 @@ def build_mcp_server(
             )
 
     @mcp.tool()
+    async def propose_config_policy(instruction: str) -> dict[str, Any]:
+        """Turn a plain-language request ("set the NTP server to 10.0.0.1 on all
+        Debian web servers in Munich") into a STRUCTURED, reviewable config-policy
+        proposal — path, format, values, scope and Checkmk conditions — grounded
+        in the fleet's real OUs/groups/sites and tag/fact/variable keys, plus the
+        blast radius (which hosts it would hit). Never applies anything: review
+        the proposal, then create it (dry_run first) to apply. Returns {applied:
+        false, proposal, blast_radius, note}."""
+        from bossman.services.nl_policy import propose_policy_from_nl
+
+        async with session_factory() as session:
+            return await propose_policy_from_nl(session, settings, instruction)
+
+    @mcp.tool()
     async def lint_policies() -> dict[str, Any]:
         """Static-analyse the whole policy tree and report problems: config
         policies linked to nothing or setting no values, thresholds with no

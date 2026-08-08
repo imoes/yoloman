@@ -779,6 +779,30 @@ async def get_config_policy(
     }
 
 
+class NlPolicyIn(BaseModel):
+    instruction: str
+    backend: str | None = None
+
+
+@router.post("/api/v1/policy/propose-nl")
+async def policy_propose_nl(
+    body: NlPolicyIn,
+    session: AsyncSession = Depends(get_session),
+    settings=Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Natural language → a reviewable config-policy proposal + its blast radius.
+    Never applies anything — the caller reviews and creates it (dry_run first)."""
+    from bossman.services.nl_policy import propose_policy_from_nl
+
+    if not body.instruction.strip():
+        raise HTTPException(status_code=422, detail="instruction is required")
+    try:
+        return await propose_policy_from_nl(session, settings, body.instruction, body.backend)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 class WhatIfIn(BaseModel):
     """Blast-radius preview for a policy you haven't created yet."""
     scope_type: str  # ou | group | site | host | global
