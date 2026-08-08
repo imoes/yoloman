@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
@@ -40,6 +40,11 @@ ClientFactory = Callable[[Agent, Settings], AgentClient]
 # poison event is parked as 'failed' (dead letter) rather than looping forever.
 _MAX_ATTEMPTS = 5
 _MAX_BACKOFF = timedelta(minutes=5)
+
+# Postgres LISTEN/NOTIFY channel that wakes the reconciler the instant a change
+# is committed (see enqueue_policy_event + reconciler_loop). A wake is just a
+# hint to drain now — carries no data the outbox doesn't already hold.
+OUTBOX_CHANNEL = "bossman_outbox"
 
 
 async def enqueue_policy_event(
@@ -60,6 +65,15 @@ async def enqueue_policy_event(
     await session.flush()  # need event.id for the outbox FK
     session.add(ControllerOutbox(tenant_id=tenant_id, event_id=event.id, status="pending"))
     await session.flush()
+    # Wake the reconciler the moment this change commits. pg_notify enqueues the
+    # notification in THIS transaction, so Postgres delivers it exactly when (and
+    # only if) the caller commits — atomic with the outbox row. Best-effort: a
+    # NOTIFY failure must never block the change (the interval poll still drains).
+    try:
+        await session.execute(text("SELECT pg_notify(:ch, :payload)"),
+                              {"ch": OUTBOX_CHANNEL, "payload": str(tenant_id)})
+    except Exception:  # noqa: BLE001 — durability is the outbox, not the NOTIFY
+        pass
 
 
 async def _delivery_for(session: AsyncSession, agent: Agent, result: CompiledState) -> AgentConfigDelivery:
@@ -224,6 +238,50 @@ async def _affected_from_event(session: AsyncSession, event: PolicyEvent) -> lis
     return []
 
 
+def _asyncpg_dsn(database_url: str) -> str:
+    """Strip SQLAlchemy's driver suffix so asyncpg.connect accepts the URL:
+    'postgresql+asyncpg://u:p@h/db' → 'postgresql://u:p@h/db'."""
+    scheme, sep, rest = database_url.partition("://")
+    return f"{scheme.split('+', 1)[0]}{sep}{rest}"
+
+
+async def _listen_for_wakeups(settings: Settings, wake, stop_event) -> None:
+    """Hold a dedicated asyncpg connection LISTENing on OUTBOX_CHANNEL; every
+    NOTIFY sets `wake` so the reconciler drains immediately. Self-healing: on any
+    connection error it backs off and reconnects. Never raises out — if it can't
+    listen at all, the reconciler simply falls back to interval polling."""
+    import asyncio
+    import asyncpg
+
+    dsn = _asyncpg_dsn(settings.database_url)
+    while not stop_event.is_set():
+        conn = None
+        try:
+            conn = await asyncpg.connect(dsn)
+            await conn.add_listener(OUTBOX_CHANNEL, lambda *_a: wake.set())
+            # Stay connected until asked to stop or the socket drops; a dead
+            # listener connection is silent, so poll is_closed() to trigger a
+            # reconnect on the outer loop.
+            while not stop_event.is_set() and not conn.is_closed():
+                try:
+                    await asyncio.wait_for(stop_event.wait(), timeout=30)
+                except (asyncio.TimeoutError, TimeoutError):
+                    pass
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — reconnect after a short backoff
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=5)
+            except (asyncio.TimeoutError, TimeoutError):
+                pass
+        finally:
+            if conn is not None:
+                try:
+                    await conn.close()
+                except Exception:  # noqa: BLE001
+                    pass
+
+
 async def reconciler_loop(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
@@ -231,28 +289,50 @@ async def reconciler_loop(
     stats: ReconcileStats | None = None,
     client_factory: ClientFactory = client_for,
 ) -> None:
-    """Background worker (mirrors services/poller.poller_loop): drains the
-    outbox every reconcile_interval_seconds. Gated by settings.reconcile_enabled
-    (disabled in the test suite, like the poller/housekeeping loops)."""
+    """Background worker (mirrors services/poller.poller_loop): drains the outbox
+    when woken by a LISTEN/NOTIFY wake-up (settings.reconcile_listen_notify), and
+    every reconcile_interval_seconds as a fallback (also the cadence for
+    available_at backoff retries). Gated by settings.reconcile_enabled (disabled
+    in the test suite, like the poller/housekeeping loops)."""
     import asyncio
 
-    while not stop_event.is_set():
-        if settings.reconcile_enabled:
+    wake = asyncio.Event()
+    listener_task: asyncio.Task | None = None
+    if settings.reconcile_enabled and settings.reconcile_listen_notify:
+        listener_task = asyncio.create_task(_listen_for_wakeups(settings, wake, stop_event))
+    try:
+        while not stop_event.is_set():
+            # Clear BEFORE draining: a NOTIFY that arrives during the drain keeps
+            # `wake` set, so the next wait returns at once and we drain again —
+            # never a missed change.
+            wake.clear()
+            if settings.reconcile_enabled:
+                try:
+                    async with session_factory() as session:
+                        run = await process_outbox_once(session, settings, client_factory=client_factory)
+                    if stats is not None:
+                        stats.last_run_at = run.last_run_at
+                        stats.processed += run.processed
+                        stats.recompiled += run.recompiled
+                        stats.delivered += run.delivered
+                        stats.failed += run.failed
+                except Exception:  # noqa: BLE001 — never let the loop die
+                    pass
+            # Wake on: a NOTIFY, shutdown, or the fallback interval — whichever is first.
+            waiters = [asyncio.ensure_future(stop_event.wait()), asyncio.ensure_future(wake.wait())]
             try:
-                async with session_factory() as session:
-                    run = await process_outbox_once(session, settings, client_factory=client_factory)
-                if stats is not None:
-                    stats.last_run_at = run.last_run_at
-                    stats.processed += run.processed
-                    stats.recompiled += run.recompiled
-                    stats.delivered += run.delivered
-                    stats.failed += run.failed
-            except Exception:  # noqa: BLE001 — never let the loop die
+                await asyncio.wait(waiters, timeout=settings.reconcile_interval_seconds,
+                                   return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                for w in waiters:
+                    w.cancel()
+    finally:
+        if listener_task is not None:
+            listener_task.cancel()
+            try:
+                await listener_task
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
                 pass
-        try:
-            await asyncio.wait_for(stop_event.wait(), timeout=settings.reconcile_interval_seconds)
-        except (asyncio.TimeoutError, TimeoutError):
-            pass
 
 
 @dataclass

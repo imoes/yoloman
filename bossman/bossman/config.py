@@ -373,6 +373,13 @@ class Settings(BaseSettings):
     # background loop doesn't race per-test DB state.
     reconcile_enabled: bool = True
     reconcile_interval_seconds: int = 15
+    # Wake the reconciler INSTANTLY on a change via Postgres LISTEN/NOTIFY, instead
+    # of waiting up to reconcile_interval_seconds. enqueue_policy_event fires a
+    # NOTIFY in the same transaction (delivered on commit); a dedicated listener
+    # connection wakes the loop. Pure optimisation — the outbox is still the
+    # durable truth and reconcile_interval_seconds remains the fallback/backoff
+    # poll — so it degrades cleanly to interval polling if the listener drops.
+    reconcile_listen_notify: bool = True
     # Config-distribution convergence sweep (gap #15): the backstop that pushes
     # any host whose compiled generation is ahead of what it last ACKed — catches
     # hosts down at push time, newly-enrolled hosts, and un-enqueued mutations.
