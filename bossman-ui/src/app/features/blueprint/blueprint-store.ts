@@ -9,14 +9,20 @@
  * the inspector can say where a value came from and `disconnect()` can take exactly
  * those keys away again. That is what makes the graph worth drawing — see the plan.
  */
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import {
   Blueprint, BlueprintService, PaletteEntry, sanitizeServiceName,
 } from './compose-model';
 import { fromComposeText, toComposeJson, toComposeYaml } from './compose-io';
 import { openRequirements, openRequirementCaps, removeService, renameService, unwireOne, wireEdge, Require } from './compose-wiring';
+import { environment } from '../../../environments/environment';
 
 const STORAGE_KEY = 'bm_blueprint_draft';
+
+/** Backend blueprint list row (GET /blueprints) — just what the picker needs. */
+export interface BackendBlueprintRow { id: string; name: string; description: string; status: string; }
 
 function emptyBlueprint(): Blueprint {
   return { name: 'mein-stack', services: [] };
@@ -24,10 +30,14 @@ function emptyBlueprint(): Blueprint {
 
 @Injectable({ providedIn: 'root' })
 export class BlueprintStore {
+  private http = inject(HttpClient);
   private bp = signal<Blueprint>(emptyBlueprint());
   readonly blueprint = this.bp.asReadonly();
   readonly selected = signal<string | null>(null);
   readonly error = signal('');
+  /** id of the backend Blueprint this draft is bound to (null = local-only, not yet saved to the fleet). */
+  readonly backendId = signal<string | null>(null);
+  readonly saving = signal(false);
 
   readonly services = computed(() => this.bp().services);
   readonly selectedService = computed(() =>
@@ -247,6 +257,7 @@ export class BlueprintStore {
     this.bp.set(emptyBlueprint());
     this.selected.set(null);
     this.error.set('');
+    this.backendId.set(null);
     this.persist();
   }
 
@@ -256,9 +267,88 @@ export class BlueprintStore {
       this.bp.set(fromComposeText(text));
       this.selected.set(null);
       this.error.set('');
+      this.backendId.set(null);
       this.persist();
     } catch (e) {
       this.error.set(`Import fehlgeschlagen: ${(e as Error).message}`);
+    }
+  }
+
+  // ---- backend (fleet) persistence ---------------------------------------
+  // The local draft is the working copy; "Save to fleet" promotes it to a real
+  // backend Blueprint (services mapped to the shape services/blueprint.py compiles
+  // and PXE-deploys), and the picker loads an existing one back into the editor.
+
+  /** Map the compose model to the backend Blueprint.services shape (snake_case,
+   *  provides/requires from the role contract). */
+  private toBackendServices(): Record<string, unknown>[] {
+    return this.bp().services.map((s) => ({
+      name: s.name, kind: s.kind,
+      image: s.image ?? null, role: s.role ?? null, template: s.template ?? null,
+      depends_on: [...(s.dependsOn ?? [])],
+      environment: { ...s.environment }, values: { ...s.values }, ports: [...s.ports],
+      provides: s.caps?.provides ?? [], requires: s.caps?.requires ?? [],
+      // layout kept so a round-trip through the backend preserves the canvas.
+      x: s.x, y: s.y,
+    }));
+  }
+
+  /** Map a backend Blueprint row back into the compose model. */
+  private fromBackendServices(services: any[]): BlueprintService[] {
+    return (services ?? []).map((s: any, i: number) => ({
+      name: s.name, kind: s.kind ?? 'docker',
+      // The canvas keys its glyph on `icon` (iconFor); a backend row authored for
+      // the manager view may not carry one, so fall back to a per-kind default —
+      // otherwise the cytoscape style binds a null background-image and throws.
+      icon: s.icon || (s.kind === 'docker' ? 'container' : 'server'),
+      role: s.role ?? undefined, image: s.image ?? undefined, template: s.template ?? undefined,
+      environment: s.environment ?? {}, values: s.values ?? {}, ports: s.ports ?? [],
+      dependsOn: s.depends_on ?? s.dependsOn ?? [], bindings: s.bindings ?? {},
+      caps: (s.provides?.length || s.requires?.length) ? { provides: s.provides ?? [], requires: s.requires ?? [] } : undefined,
+      // Fall back to a simple grid when the backend row carries no saved layout.
+      x: typeof s.x === 'number' ? s.x : 60 + (i % 4) * 220,
+      y: typeof s.y === 'number' ? s.y : 60 + Math.floor(i / 4) * 160,
+    }));
+  }
+
+  /** List backend blueprints for the picker. */
+  listBackend() {
+    return this.http.get<BackendBlueprintRow[]>(`${environment.apiUrl}/blueprints`);
+  }
+
+  /** Promote the local draft to the fleet: create (no backendId yet) or update. */
+  async saveToBackend(): Promise<BackendBlueprintRow> {
+    this.saving.set(true); this.error.set('');
+    const body = {
+      name: this.bp().name || 'blueprint',
+      description: '', status: 'draft', services: this.toBackendServices(),
+    };
+    try {
+      const id = this.backendId();
+      const row = id
+        ? await firstValueFrom(this.http.put<BackendBlueprintRow>(`${environment.apiUrl}/blueprints/${id}`, body))
+        : await firstValueFrom(this.http.post<BackendBlueprintRow>(`${environment.apiUrl}/blueprints`, body));
+      this.backendId.set(row.id);
+      return row;
+    } catch (e: any) {
+      this.error.set(e?.error?.detail || 'Save to fleet failed.');
+      throw e;
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  /** Load a backend blueprint into the editor (becomes the working draft). */
+  async openBackend(id: string): Promise<void> {
+    this.error.set('');
+    try {
+      const bp = await firstValueFrom(this.http.get<{ id: string; name: string; services: any[] }>(`${environment.apiUrl}/blueprints/${id}`));
+      this.bp.set({ name: bp.name, services: this.fromBackendServices(bp.services) });
+      this.backendId.set(bp.id);
+      this.selected.set(null);
+      this.persist();
+    } catch (e: any) {
+      this.error.set(e?.error?.detail || 'Load failed.');
     }
   }
 }

@@ -111,8 +111,22 @@ def _native_steps(svc: dict, wired_vals: dict[str, Any]) -> list[dict]:
     ]
 
 
-def compile_blueprint(settings: Settings, bp: Blueprint) -> dict[str, Any]:
-    """Compile a blueprint into a typed playbook + a wiring/order report. Pure."""
+def _template_of(svc: dict) -> str:
+    """The config template a native service's config_template step references —
+    kept in one place so validation and the emitted step agree."""
+    return svc.get("template") or svc.get("role") or svc["name"]
+
+
+def compile_blueprint(
+    settings: Settings, bp: Blueprint, known_templates: set[str] | None = None,
+) -> dict[str, Any]:
+    """Compile a blueprint into a typed playbook + a wiring/order report. Pure.
+
+    `known_templates` (the set of real config_template names) lets the compile
+    flag native services whose template doesn't exist — the same check the
+    runbook linter/whatif does, surfaced at design time so a draft can't be
+    saved referencing a template that isn't there. None skips the check.
+    """
     services = list(bp.services or [])
     wiring, unresolved = resolve_wiring(settings, services)
     # Index wiring by consumer for env/vals injection.
@@ -122,11 +136,16 @@ def compile_blueprint(settings: Settings, bp: Blueprint) -> dict[str, Any]:
 
     ordered = _topo_order(services)
     steps: list[dict] = []
+    warnings: list[dict] = []
     for svc in ordered:
         injected = by_consumer.get(svc["name"], {})
         if svc.get("kind") == "docker":
             steps.append(_docker_run_step(svc, injected))
         else:
+            tpl = _template_of(svc)
+            if known_templates is not None and tpl not in known_templates:
+                warnings.append({"service": svc["name"], "kind": "unknown_template", "template": tpl,
+                                 "message": f"config template {tpl!r} does not exist"})
             steps.extend(_native_steps(svc, injected))
 
     playbook = {
@@ -141,6 +160,7 @@ def compile_blueprint(settings: Settings, bp: Blueprint) -> dict[str, Any]:
         "order": [s["name"] for s in ordered],
         "wiring": wiring,
         "unresolved": unresolved,
+        "warnings": warnings,
     }
 
 

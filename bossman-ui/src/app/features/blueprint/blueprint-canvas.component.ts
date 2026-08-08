@@ -83,6 +83,9 @@ export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
 
   private cy: cytoscape.Core | null = null;
   private ready = signal(false);
+  /** node-id set from the previous sync — lets sync tell an incremental edit
+   *  (keep the view) from a wholesale load/import (re-fit to the new nodes). */
+  private prevIds = new Set<string>();
 
   constructor() {
     // Re-render whenever the document changes (add/remove/rename/connect) — but
@@ -211,10 +214,24 @@ export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
                            label: wired ? `${wired} var` : 'depends_on' } });
       }
     }
+    // A wholesale replacement (a blueprint loaded from the fleet or an imported
+    // compose) has an entirely different node set — its saved positions sit
+    // wherever they were authored, so keep the current pan/zoom only for
+    // incremental edits (drag/add/connect) and re-fit when the set changed
+    // wholesale, otherwise the loaded nodes land off-screen.
+    const newIds = new Set(bp.services.map((s) => s.name));
+    const wholesale = this.prevIds.size > 0 && ![...newIds].some((id) => this.prevIds.has(id));
+    const firstFill = this.prevIds.size === 0 && newIds.size > 0;
+    this.prevIds = newIds;
+
     const zoom = cy.zoom(); const pan = cy.pan();
     cy.elements().remove();
     cy.add(els);
-    cy.zoom(zoom); cy.pan(pan);
+    if (wholesale || firstFill) {
+      setTimeout(() => { this.cy?.resize(); this.fit(); }, 30);
+    } else {
+      cy.zoom(zoom); cy.pan(pan);
+    }
     cy.$(':selected').unselect();
     if (sel) cy.$id(sel).select();
     const p = this.pending();

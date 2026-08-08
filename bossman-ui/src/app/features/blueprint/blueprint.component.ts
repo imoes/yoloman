@@ -1,13 +1,14 @@
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { environment } from '../../../environments/environment';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { BlueprintCanvasComponent } from './blueprint-canvas.component';
-import { BlueprintStore } from './blueprint-store';
+import { BlueprintStore, BackendBlueprintRow } from './blueprint-store';
 import { PALETTE, PaletteEntry, RoleContract, isValidEnvName, paletteFor } from './compose-model';
 import { ResolvedVar, resolveService, startOrder } from './compose-resolver';
 import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
@@ -28,7 +29,7 @@ interface RunbookRow { id: string; name: string; folder: string }
 @Component({
   selector: 'app-blueprint',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ParamFormComponent, BlueprintCanvasComponent],
+  imports: [FormsModule, RouterLink, MatIconModule, MatButtonModule, ParamFormComponent, BlueprintCanvasComponent],
   template: `
     <div class="bm-page">
       <div class="bm-head">
@@ -69,6 +70,22 @@ interface RunbookRow { id: string; name: string; folder: string }
           <button mat-stroked-button class="bm-w" (click)="fileInput.click()"><mat-icon>upload</mat-icon> Import</button>
           <input #fileInput type="file" accept=".yml,.yaml,.json" hidden (change)="onFile($event)" />
           <button mat-stroked-button class="bm-w" (click)="store.reset()"><mat-icon>delete_sweep</mat-icon> Clear</button>
+
+          <div class="bm-pal-h" style="margin-top:14px">Fleet</div>
+          <select class="bm-w bm-bp-pick" [ngModel]="''" (ngModelChange)="loadBackend($event)"
+                  title="Load a saved blueprint from the fleet into the editor">
+            <option value="" disabled selected>Load saved blueprint…</option>
+            @for (b of backendList(); track b.id) { <option [value]="b.id">{{ b.name }} ({{ b.status }})</option> }
+          </select>
+          <button mat-flat-button color="primary" class="bm-w" (click)="saveToFleet()" [disabled]="store.saving() || !store.services().length">
+            <mat-icon>cloud_upload</mat-icon> {{ store.backendId() ? 'Update in fleet' : 'Save to fleet' }}
+          </button>
+          @if (store.backendId(); as id) {
+            <a class="bm-w bm-bp-open" [routerLink]="'/blueprint-drafts'" title="Open in Blueprint management (compile, wiring, save as runbook)">
+              <mat-icon>open_in_new</mat-icon> Manage / compile
+            </a>
+          }
+          @if (savedMsg()) { <p class="bm-ok">{{ savedMsg() }}</p> }
         </aside>
 
         <!-- Canvas + document -->
@@ -350,6 +367,9 @@ export class BlueprintComponent implements OnInit {
   view = signal<'yaml' | 'json'>('yaml');
   docOpen = signal(true);
   roles = signal<RunbookRow[]>([]);
+  /** saved backend blueprints (the fleet picker) + a transient "saved" toast. */
+  backendList = signal<BackendBlueprintRow[]>([]);
+  savedMsg = signal('');
   selectedEdge = signal<{ from: string; to: string } | null>(null);
   newVarKey = signal('');
   /** the package catalog — supplies each role's `kind` and `category` */
@@ -379,6 +399,7 @@ export class BlueprintComponent implements OnInit {
   order = computed(() => startOrder(this.store.blueprint()));
 
   ngOnInit(): void {
+    this.refreshBackendList();
     // The palette of roles = the seeded install-<pkg> wizards, whose `parameters`
     // are a real typed input mask (with enums) — that is where the variables come from.
     this.http.get<{ runbooks: RunbookRow[] }>(`${environment.apiUrl}/runbooks`).subscribe({
@@ -395,6 +416,31 @@ export class BlueprintComponent implements OnInit {
       next: (r) => this.catalog.set(r.packages || {}),
       error: () => { /* filtering degrades to "show all roles" */ },
     });
+  }
+
+  // ---- fleet persistence (backend blueprints) ----------------------------
+
+  private refreshBackendList(): void {
+    this.store.listBackend().subscribe({
+      next: (rows) => this.backendList.set(rows || []),
+      error: () => { /* offline / empty — picker just stays empty */ },
+    });
+  }
+
+  /** Load a saved blueprint from the fleet into the editor. */
+  loadBackend(id: string): void {
+    if (!id) return;
+    this.savedMsg.set('');
+    void this.store.openBackend(id).then(() => this.savedMsg.set('Loaded from fleet.'));
+  }
+
+  /** Promote the current draft to a backend blueprint (create or update). */
+  saveToFleet(): void {
+    this.savedMsg.set('');
+    void this.store.saveToBackend().then((row) => {
+      this.savedMsg.set(`Saved “${row.name}” to the fleet — open Manage / compile to deploy it.`);
+      this.refreshBackendList();
+    }).catch(() => { /* error surfaced via store.error */ });
   }
 
   /** Roles offered for a component: catalog kind==='role', and — when the palette

@@ -9,7 +9,8 @@ interface Require { capability: string; backends?: string[]; fields?: Record<str
 interface BpService { name: string; kind: 'native' | 'docker'; image?: string; role?: string; template?: string; depends_on?: string[]; provides?: Provide[]; requires?: Require[]; environment?: Record<string, unknown>; values?: Record<string, unknown>; ports?: string[]; }
 interface BlueprintT { id: string; name: string; description: string; status: string; services: BpService[]; }
 interface WireEntry { consumer: string; provider: string; capability: string; backend?: string; set: Record<string, unknown>; }
-interface Compiled { playbook: { name: string; steps: { name: string; module: string; args: Record<string, unknown> }[] }; order: string[]; wiring: WireEntry[]; unresolved: { consumer: string; capability: string }[]; }
+interface Warning { service: string; kind: string; template?: string; message: string; }
+interface Compiled { playbook: { name: string; steps: { name: string; module: string; args: Record<string, unknown> }[] }; order: string[]; wiring: WireEntry[]; unresolved: { consumer: string; capability: string }[]; warnings?: Warning[]; }
 
 /**
  * Blueprint management — browse the drafts, see each service's capability
@@ -75,6 +76,9 @@ interface Compiled { playbook: { name: string; steps: { name: string; module: st
             } @else { <p class="bm-dim">No cross-service wiring.</p> }
             @if (c.unresolved.length) {
               <p class="bm-warn">⚠ Unresolved: @for (u of c.unresolved; track u.consumer + u.capability) { <span>{{ u.consumer }} needs {{ u.capability }}; </span> }</p>
+            }
+            @if (c.warnings?.length) {
+              <p class="bm-warn">⚠ @for (w of c.warnings; track w.service + w.kind) { <span>{{ w.service }}: {{ w.message }}; </span> }</p>
             }
 
             <div class="bm-bp-cphd">

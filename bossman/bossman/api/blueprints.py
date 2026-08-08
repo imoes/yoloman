@@ -95,7 +95,10 @@ async def compile_blueprint_route(bp_id: UUID, session: AsyncSession = Depends(g
     b = await session.get(Blueprint, bp_id)
     if b is None:
         raise HTTPException(404, "no such blueprint")
-    return compile_blueprint(settings, b)
+    from bossman.api.config_templates import load_template_bodies
+
+    known = set(load_template_bodies(settings))
+    return compile_blueprint(settings, b, known_templates=known)
 
 
 @router.post("/api/v1/blueprints/{bp_id}/save-as-runbook")
@@ -109,7 +112,10 @@ async def save_blueprint_as_runbook(bp_id: UUID, session: AsyncSession = Depends
     b = await session.get(Blueprint, bp_id)
     if b is None:
         raise HTTPException(404, "no such blueprint")
-    result = compile_blueprint(settings, b)
+    from bossman.api.config_templates import load_template_bodies
+
+    known = set(load_template_bodies(settings))
+    result = compile_blueprint(settings, b, known_templates=known)
     doc = result["playbook"]
     name = doc["name"]
     rb = await session.scalar(select(Runbook).where(Runbook.name == name))
