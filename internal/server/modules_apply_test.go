@@ -68,6 +68,43 @@ func TestModulesApply_RegistersAndPersists(t *testing.T) {
 	}
 }
 
+func TestModulesApply_ScriptModule(t *testing.T) {
+	dir := t.TempDir()
+	reg := NewDefaultModuleRegistry()
+	srv := httptest.NewServer(NewRESTHandler(RESTConfig{Write: true, ModReg: reg, ModulesDir: dir}))
+	defer srv.Close()
+
+	script := "#!/usr/bin/env bash\ncat >/dev/null\necho '{\"changed\": false, \"msg\": \"ok\"}'\n"
+	sidecar := "name: pinger\nfqcn: test.pinger\ncollection: test\nshort_description: p\noptions: {}\nwrites: false\n"
+	sum := sha256.Sum256([]byte(script))
+	body, _ := json.Marshal(map[string]any{"modules": []map[string]any{{
+		"fqcn": "test.pinger", "star": script, "ext": ".sh", "sidecar": sidecar,
+		"sidecar_format": "yaml", "sha256": hex.EncodeToString(sum[:]),
+	}}})
+	resp, err := http.Post(srv.URL+"/api/v1/modules/apply", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Applied int `json:"applied"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	if out.Applied != 1 {
+		t.Fatalf("applied = %d, want 1 (script module)", out.Applied)
+	}
+	if _, ok := reg.Get("test.pinger"); !ok {
+		t.Error("script module not registered in the live registry")
+	}
+	// persisted under its language extension so a restart's LoadScriptDir reloads it
+	if _, err := os.Stat(filepath.Join(dir, "test", "pinger.sh")); err != nil {
+		t.Errorf("script not persisted as .sh: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "test", "pinger.yaml")); err != nil {
+		t.Errorf("sidecar not persisted: %v", err)
+	}
+}
+
 func TestModulesApply_ShaMismatchRejected(t *testing.T) {
 	dir := t.TempDir()
 	reg := NewDefaultModuleRegistry()

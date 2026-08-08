@@ -10,18 +10,30 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules"
 )
 
-// moduleDelivery is one pushed Starlark module: its fqcn, the .star source,
-// the metadata sidecar (+ its format), and a sha256 of the .star for
-// integrity.
+// moduleDelivery is one pushed module: its fqcn, the source (a .star, or a
+// script when `Ext` names one), the metadata sidecar (+ its format), and a
+// sha256 of the source for integrity. `Ext` is empty/".star" for a Starlark
+// module, or ".py"/".sh"/".bash" for a language-agnostic script module.
 type moduleDelivery struct {
 	FQCN          string `json:"fqcn"`
-	Star          string `json:"star"`
+	Star          string `json:"star"` // the module source (.star or script text)
+	Ext           string `json:"ext,omitempty"`
 	Sidecar       string `json:"sidecar"`
 	SidecarFormat string `json:"sidecar_format"` // "nt" | "yaml"
 	SHA256        string `json:"sha256"`
+}
+
+// isScriptExt reports whether ext names a language-agnostic script module.
+func isScriptExt(ext string) bool {
+	switch strings.ToLower(ext) {
+	case ".py", ".sh", ".bash":
+		return true
+	}
+	return false
 }
 
 type modulesApplyRequest struct {
@@ -76,8 +88,16 @@ func applyOneModule(cfg RESTConfig, md moduleDelivery) error {
 			return fmt.Errorf("sha256 mismatch")
 		}
 	}
-	// Validate + build (parse/lint gate) before touching disk.
-	m, err := starmodules.BuildModule([]byte(md.Star), []byte(md.Sidecar), md.SidecarFormat, cfg.Write)
+	// Build (validate) before touching disk. A script module (Ext=.py/.sh/.bash)
+	// goes through BuildScriptModule; everything else is a Starlark .star. Both
+	// return a modules.Module for the shared registry.
+	var m modules.Module
+	var err error
+	if isScriptExt(md.Ext) {
+		m, err = starmodules.BuildScriptModule([]byte(md.Star), []byte(md.Sidecar), md.SidecarFormat, md.Ext, cfg.Write)
+	} else {
+		m, err = starmodules.BuildModule([]byte(md.Star), []byte(md.Sidecar), md.SidecarFormat, cfg.Write)
+	}
 	if err != nil {
 		return err
 	}
@@ -99,8 +119,14 @@ func persistModule(modulesDir string, md moduleDelivery) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("mkdir %q: %w", dir, err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, name+".star"), []byte(md.Star), 0o644); err != nil {
-		return fmt.Errorf("writing .star: %w", err)
+	// Script modules persist under their language extension so LoadScriptDir
+	// picks them up on restart; Starlark modules keep .star.
+	srcExt := ".star"
+	if isScriptExt(md.Ext) {
+		srcExt = strings.ToLower(md.Ext)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+srcExt), []byte(md.Star), 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", srcExt, err)
 	}
 	ext := ".yaml"
 	if md.SidecarFormat == "nt" {
