@@ -47,7 +47,7 @@ from bossman.db.models import (
     Site,
     SystemSettings,
 )
-from bossman.services import gpo
+from bossman.services import gpo, rule_conditions
 
 
 @dataclass
@@ -288,6 +288,17 @@ async def resolve_orchestration_assignments(
         # candidate — evaluated as if it were active, since previewing a
         # pending-approval link's would-be effect is the whole point.
         links = [*links, extra_candidate_link]
+
+    # Checkmk rule conditions (host_tags / labels / os-tag / folder / …) on top of
+    # the structural scope: the scope says WHERE a link can reach, the condition
+    # whether it actually applies to THIS host. Built once per host, only when a
+    # link states conditions (every pre-conditions link has {} → matches all).
+    # Lazy import: check_assignments imports resolve_* from this module.
+    if any(getattr(link, "conditions", None) for link in links):
+        from bossman.services.check_assignments import build_match_context
+
+        ctx = await build_match_context(session, agent, ancestry)
+        links = [link for link in links if rule_conditions.matches(getattr(link, "conditions", None), ctx)]
 
     # Group candidate links per plan; the GPO winner per plan is the
     # effective assignment (Block L3a: enforced/block_inheritance/level via

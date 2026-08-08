@@ -33,6 +33,7 @@ from bossman.db.models import (
     ConfigPolicy,
     ConfigPolicySet,
     HostGroup,
+    HostLabel,
     Site,
     NotificationRule,
     OrchestrationPlan,
@@ -570,6 +571,10 @@ class ConfigPolicyIn(BaseModel):
     separator: str | None = None
     values: dict = {}
     template: str | None = None
+    # Checkmk rule conditions (services/rule_conditions): host_tags / labels / os
+    # tag / host_folder / host_name / service_*; empty = applies wherever the
+    # scope reaches. Preserved across the create-or-update below.
+    conditions: dict = {}
     dry_run: bool = False
 
 
@@ -643,6 +648,10 @@ async def create_config_policy(
         else:
             pol.values = _merge_values(pol.values, body.values, body.format)
         pol.template = body.template
+        # Conditions are whole-object (not per-key merged like values): the caller
+        # sends the file's full condition set. gpedit resends the file's current
+        # conditions on every save, so a value-only edit never drops them.
+        pol.conditions = body.conditions or {}
         pol.updated_at = datetime.now(timezone.utc)
         await session.commit()
 
@@ -741,6 +750,7 @@ async def list_config_policies(
             "site_id": str(cp.site_id) if cp.site_id else None,
             "path": cp.path, "type": cp.type, "format": cp.config_format,
             "separator": cp.separator, "values": cp.values or {}, "template": cp.template,
+            "conditions": cp.conditions or {},
         }
         for cp in (await session.scalars(stmt)).all()
     ]
@@ -765,6 +775,33 @@ async def get_config_policy(
         "set_id": str(cp.set_id) if cp.set_id else None,
         "path": cp.path, "type": cp.type, "format": cp.config_format,
         "separator": cp.separator, "values": cp.values or {}, "template": cp.template,
+        "conditions": cp.conditions or {},
+    }
+
+
+@router.get("/api/v1/match-vocabulary")
+async def match_vocabulary(
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Known values for the rule-conditions editor (Checkmk match categories):
+    host tag groups → their observed values, host label keys → values, and the OU
+    folder paths. Free-text is still allowed in the editor — this only powers the
+    suggestion dropdowns so common tags/labels/OUs don't have to be typed."""
+    tag_groups: dict[str, set[str]] = {}
+    for a in (await session.scalars(select(Agent))).all():
+        for k, v in (a.tags or {}).items():
+            tag_groups.setdefault(str(k), set()).add(str(v))
+    labels: dict[str, set[str]] = {}
+    for row in (await session.scalars(select(HostLabel))).all():
+        labels.setdefault(row.key, set()).add(row.value)
+    ou_folders = sorted(
+        p for (p,) in (await session.execute(select(OUNode.path))).all() if p
+    )
+    return {
+        "host_tags": {g: sorted(vs) for g, vs in sorted(tag_groups.items())},
+        "host_labels": {k: sorted(vs) for k, vs in sorted(labels.items())},
+        "ou_folders": ou_folders,
     }
 
 

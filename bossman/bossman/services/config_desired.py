@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, ConfigPolicy, HostConfigResource, HostGroup, Site
+from bossman.services import rule_conditions
 from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry, resolve_site_ids
 
 
@@ -67,6 +68,20 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
     # Collect layers per path, weak → strong: group(s), OU shallow→deep, host.
     layers: dict[str, list[tuple[dict[str, Any], str]]] = {}
 
+    # Checkmk rule conditions (host_tags / labels / os-tag / folder / …): a policy
+    # with conditions only contributes its layer when they match THIS host. Built
+    # once (lazily, only if some policy states conditions); empty conditions = all.
+    _ctx: dict[str, rule_conditions.MatchContext] = {}
+
+    async def _keep(pol: ConfigPolicy) -> bool:
+        if not getattr(pol, "conditions", None):
+            return True
+        if "v" not in _ctx:
+            from bossman.services.check_assignments import build_match_context
+
+            _ctx["v"] = await build_match_context(session, agent, ancestry)
+        return rule_conditions.matches(pol.conditions, _ctx["v"])
+
     group_ids = await resolve_host_group_ids(session, agent.id)
     if group_ids:
         gnames = dict(
@@ -78,12 +93,14 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
             )
         ).all()
         for p in gpols:
-            layers.setdefault(p.path, []).append((_layer(p), "group:" + gnames.get(p.host_group_id, str(p.host_group_id))))
+            if await _keep(p):
+                layers.setdefault(p.path, []).append((_layer(p), "group:" + gnames.get(p.host_group_id, str(p.host_group_id))))
 
     if depth:
         pols = (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.scope_ou_id.in_(list(depth))))).all()
         for p in sorted(pols, key=lambda p: depth.get(p.scope_ou_id, -1)):  # shallow → deep
-            layers.setdefault(p.path, []).append((_layer(p), "ou:" + ou_paths.get(p.scope_ou_id, str(p.scope_ou_id))))
+            if await _keep(p):
+                layers.setdefault(p.path, []).append((_layer(p), "ou:" + ou_paths.get(p.scope_ou_id, str(p.scope_ou_id))))
 
     # Site layer — stronger than OU, weaker than host (global < group < OU < Site < host).
     site_ids = await resolve_site_ids(session, agent)
@@ -97,7 +114,8 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
             )
         ).all()
         for p in spols:
-            layers.setdefault(p.path, []).append((_layer(p), "site:" + snames.get(p.site_id, str(p.site_id))))
+            if await _keep(p):
+                layers.setdefault(p.path, []).append((_layer(p), "site:" + snames.get(p.site_id, str(p.site_id))))
 
     for row in (await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))).all():
         layers.setdefault(row.path, []).append((_layer(row), "host"))

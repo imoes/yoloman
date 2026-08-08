@@ -1561,6 +1561,11 @@ class ConfigPolicy(Base):
     separator: Mapped[str | None] = mapped_column(String)
     values: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     template: Mapped[str | None] = mapped_column(Text)
+    # Checkmk rule conditions (services/rule_conditions.matches): host_name,
+    # host_folder, host_tags, host_label_groups, service_*; empty = applies
+    # wherever the scope (ou/group/site) reaches. Evaluated per host in
+    # services/config_desired.effective_resources.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (
