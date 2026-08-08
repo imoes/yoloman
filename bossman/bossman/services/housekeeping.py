@@ -33,8 +33,17 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from uuid import UUID
+
 from bossman.config import Settings
-from bossman.db.models import Notification, PlanRun
+from bossman.db.models import (
+    SYSTEM_SETTINGS_ID,
+    AuditLog,
+    Notification,
+    PlanRun,
+    RunbookRun,
+    SystemSettings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +188,23 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
         result = await session.execute(delete(model).where(time_col < cutoff))
         await session.commit()
         deleted[table_name] = result.rowcount or 0
+
+    # Event/run history retention (gap #13, Event Browser): unlike the two above
+    # this window is DB-backed and operator-set from the Admin settings UI
+    # (SystemSettings.run_retention_days), so it's read live each pass rather than
+    # from the env-config. 0 = keep forever (skip). Covers both the play log
+    # (runbook_runs) and the who-did-what audit trail (audit_log).
+    ss = await session.get(SystemSettings, UUID(SYSTEM_SETTINGS_ID))
+    run_retention = ss.run_retention_days if ss else 0
+    if run_retention and run_retention > 0:
+        event_cutoff = now - timedelta(days=run_retention)
+        for table_name, model, time_col in (
+            ("runbook_runs", RunbookRun, RunbookRun.created_at),
+            ("audit_log", AuditLog, AuditLog.at),
+        ):
+            res = await session.execute(delete(model).where(time_col < event_cutoff))
+            await session.commit()
+            deleted[table_name] = res.rowcount or 0
 
     # The fast per-PID prune (also driven by its own loop — see
     # process_prune_loop, because hourly is far too slow for PID churn).

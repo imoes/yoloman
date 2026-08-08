@@ -1257,10 +1257,16 @@ def build_mcp_server(
             # parameter defaults, config-template bodies, role-call expansion, and
             # the persisted RunbookRun — no drift, no missing pieces.
             client = client_factory(agent, settings)
+            # Attribute AI-driven runs so the Event Browser answers "who commissioned
+            # the AI": prefix the human identity with "ai:" (the MCP facade is how
+            # the chat/agent acts on a user's behalf). Falls back to a bare marker
+            # when no identity is bound (e.g. a system MCP client).
+            _actor = current_identity.get()
+            _requested_by = f"ai:{_actor}" if _actor else "ai:mcp"
             _run_row, rr = await runbook_exec.execute_runbook(
                 session, agent, doc, settings=settings, client=client,
                 request_vars=variables or {}, dry_run=check_mode,
-                requested_by=(current_identity.get() or "mcp-facade"), commit=True,
+                requested_by=_requested_by, commit=True,
             )
         return {"runbook": doc.name, "host": host, "dry_run": check_mode, **rr}
 

@@ -458,6 +458,126 @@ async def create_vm(
         raise HTTPException(status_code=502, detail=f"VM creation failed: {exc}") from exc
 
 
+class AutoProvisionIn(BaseModel):
+    """One-shot provisioning: create a VM on a hypervisor and, using the MAC the
+    hypervisor assigns, arm the whole PXE flow — planned host + restore job — so
+    the freshly-created NIC is bound to the install with no operator retyping the
+    MAC. This is what a blueprint-defined server compiles down to.
+
+    The `mac` binding is the entire point: create-vm returns it, and it's written
+    into BOTH the planned host (provision_mac) AND the restore job (target_mac), so
+    the netboot check-in matches this exact machine — never a wildcard, never a typo.
+    """
+
+    # VM to create (same shape as VmCreateIn).
+    node: str
+    name: str
+    storage: str
+    bridge: str
+    cores: int = 2
+    memory_mb: int = 2048
+    disk_gib: int = 32
+    uefi: bool = False
+    vlan: int | None = None
+    # Provisioning intent for the imaged host.
+    image_id: UUID
+    hostname: str
+    roles: list[str] = []
+    network: dict = {}
+    write: bool = True
+    target_disk: str | None = None
+    # Optional bootstrap→production VLAN handoff after imaging (retags THIS VM).
+    production_vlan: int | None = None
+    production_bridge: str | None = None
+
+
+@router.post("/api/v1/provisioning/vm-hosts/{host_id}/auto-provision", status_code=201)
+async def auto_provision(
+    host_id: UUID, body: AutoProvisionIn,
+    session: AsyncSession = Depends(get_session), identity=Depends(get_current_identity),
+) -> dict:
+    """Create the VM, then bind its MAC to a fresh planned host + restore job in
+    one call — the single endpoint a blueprint→PXE job uses. Returns the created
+    {vmid, mac}, the planned host id, and the armed restore job.
+
+    Sequence (each step reuses the same logic the standalone endpoints do, so there
+    is no behavioural drift):
+      1. create-vm on the hypervisor      -> {vmid, mac}
+      2. planned host with provision_mac = that mac (upsert by hostname)
+      3. restore job with target_mac = that mac (+ VLAN handoff pointing at the VM)
+    """
+    vm_host = await session.get(VmHost, host_id)
+    if vm_host is None:
+        raise HTTPException(status_code=404, detail="no such VM host")
+    img = await _image_or_404(session, body.image_id)
+    if img.status != "ready":
+        raise HTTPException(status_code=409, detail=f"image {img.name!r} is {img.status}, not ready to deploy")
+    hostname = body.hostname.strip()
+    if not hostname:
+        raise HTTPException(status_code=422, detail="hostname is required")
+
+    # 1) Create + start the VM. The hypervisor assigns the MAC — the whole point of
+    #    this endpoint is that we never ask the operator to retype it.
+    password = _vault().decrypt(vm_host.secret)
+    try:
+        client = (hypervisor.ProxmoxClient if vm_host.kind == "proxmox" else hypervisor.VCenterClient)(
+            vm_host.host, vm_host.username, password, verify_tls=vm_host.verify_tls)
+        created = await client.create_vm(
+            body.node, body.name.strip(), cores=body.cores, memory_mb=body.memory_mb,
+            disk_gib=body.disk_gib, storage=body.storage, bridge=body.bridge,
+            uefi=body.uefi, vlan=body.vlan)
+    except hypervisor.HypervisorError as exc:
+        log.warning("auto-provision create-vm on %s (%s/%s) failed: %s", vm_host.host, body.node, body.name, exc)
+        raise HTTPException(status_code=502, detail=f"VM creation failed: {exc}") from exc
+
+    vmid = str(created.get("vmid") or "")
+    mac = normalise_mac(created.get("mac") or "")  # 422 if the hypervisor gave us no usable MAC
+
+    # 2) Planned host, bound to that MAC (upsert by hostname — re-provision reuses the row).
+    new_meta = {
+        "provision_mac": mac,
+        "provision_network": body.network or {},
+        "provision_roles": list(body.roles),
+        "provision_write": bool(body.write),
+    }
+    planned = await session.scalar(select(Agent).where(Agent.name == hostname))
+    if planned is not None:
+        meta = dict(planned.agent_metadata or {})
+        meta.update(new_meta)
+        planned.agent_metadata = meta
+        planned.enrollment_state = "planned"
+    else:
+        planned = Agent(name=hostname, address=None, token=secrets.token_hex(16), mode="standalone",
+                        enrollment_state="planned", agent_metadata=new_meta)
+        session.add(planned)
+    await session.flush()  # need planned.id for the job link
+
+    # 3) Restore job, keyed by the SAME MAC. Refuse if that MAC already has one active
+    #    (mirrors create_restore_job — the DB's partial unique index also enforces it).
+    dupe = await session.scalar(
+        select(RestoreJob).where(RestoreJob.target_mac == mac, RestoreJob.status.in_(("pending", "running"))))
+    if dupe is not None:
+        raise HTTPException(status_code=409, detail=f"{mac} already has an active job ({dupe.status})")
+    handoff = body.production_bridge is not None or body.production_vlan is not None
+    job = RestoreJob(
+        image_id=img.id, target_mac=mac, target_hostname=hostname, target_disk=body.target_disk,
+        agent_id=planned.id,
+        vm_host_id=host_id if handoff else None,
+        vm_node=body.node if handoff else None,
+        vm_id=vmid if handoff else None,
+        production_vlan=body.production_vlan, production_bridge=body.production_bridge,
+    )
+    session.add(job)
+    await session.commit()
+    log.info("auto-provision: host=%s vmid=%s mac=%s -> planned %s + restore job %s (by %s)",
+             hostname, vmid, mac, planned.id, job.id, getattr(identity, "name", "?"))
+    return {
+        "vmid": vmid, "mac": mac,
+        "host_id": str(planned.id), "hostname": hostname,
+        "job": RestoreJobOut.from_model(job).model_dump(mode="json"),
+    }
+
+
 @router.get("/api/v1/provisioning/vm-hosts/{host_id}/placement")
 async def vm_host_placement(
     host_id: UUID,

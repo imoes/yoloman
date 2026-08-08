@@ -1,8 +1,10 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { environment } from '../environments/environment';
 import { AuthService } from './core/auth/auth.service';
 import { ChatDockComponent } from './features/chat/chat-dock.component';
 import { IconComponent } from './shared/components/icon/icon.component';
@@ -22,7 +24,7 @@ const NAV_ICON: Record<string, string> = {
   '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy',
   // Previously unmapped (they silently fell back to 'fleet'). Icon names repeat across workspaces where
   // the set has no closer match — harmless, since each appears in a different tree.
-  '/blueprint': 'template', '/events': 'notifications', '/compliance': 'checks',
+  '/blueprint': 'template', '/events': 'notifications', '/event-browser': 'runs', '/compliance': 'checks',
   '/config-sync': 'config-templates', '/audit': 'users',
 };
 
@@ -72,6 +74,7 @@ const WORKSPACES: Workspace[] = [
       { path: '/security', label: 'Security', icon: 'security' },
       { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
       { path: '/runs', label: 'Runs', icon: 'history' },
+      { path: '/event-browser', label: 'Event Browser', icon: 'fact_check' },
       { path: '/audit', label: 'Audit log', icon: 'receipt_long', adminOnly: true },
     ],
   },
@@ -140,10 +143,24 @@ const WORKSPACES: Workspace[] = [
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {
+export class App implements OnDestroy {
   auth = inject(AuthService);
   private router = inject(Router);
+  private http = inject(HttpClient);
   navIcon(path: string): string { return NAV_ICON[path] ?? 'fleet'; }
+
+  // Header Event-Console badge (top-right): number of jobs running RIGHT NOW
+  // (plan runs / PXE restores / rollouts) from GET /activity/running, polled.
+  // Clicking it opens the Event Browser.
+  runningJobs = signal(0);
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollActivity(): void {
+    if (!this.auth.isLoggedIn()) return;
+    this.http.get<{ count: number }>(`${environment.apiUrl}/activity/running`).subscribe({
+      next: (r) => this.runningJobs.set(r.count ?? 0),
+      error: () => {},
+    });
+  }
   // Chromeless routes (e.g. the pop-out console) render bare — no nav/chat —
   // so a console window is just the terminal.
   private url = signal(this.router.url);
@@ -161,6 +178,13 @@ export class App {
         // open, so a deep link is never shown under the wrong workspace.
         this.picked.set(null);
       });
+    // Poll the running-jobs badge (light: one small count query every 15s).
+    this.pollActivity();
+    this.pollTimer = setInterval(() => this.pollActivity(), 15000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer);
   }
 
   @HostListener('document:keydown', ['$event'])

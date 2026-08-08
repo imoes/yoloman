@@ -1257,6 +1257,9 @@ class SystemSettings(Base):
     # plaintext is never returned by the API (only whether it is set) — see api/system_settings.py.
     netboot_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", default=False)
     netboot_secret: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
+    # Event/run history retention (days). Housekeeping prunes runbook_runs + audit_log rows older than this.
+    # 0 = keep forever (no auto-purge). Operator-set from the Admin settings UI, DB-backed like the rest.
+    run_retention_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="90", default=90)
     updated_by: Mapped[str | None] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 

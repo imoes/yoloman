@@ -351,6 +351,8 @@ def create_app() -> FastAPI:
     app.include_router(sites.router, tags=["sites"])
     app.include_router(orchestration.router, tags=["orchestration"])
     app.include_router(system_settings.router, tags=["system-settings"])
+    from bossman.api import activity as activity_api
+    app.include_router(activity_api.router, tags=["activity"])
     app.include_router(security.router, tags=["security"])
     # Block L4 is PUSH, not pull: Bossman's reconciler (services/reconciler.py)
     # POSTs each new generation to the agent's own POST /api/v1/config/apply

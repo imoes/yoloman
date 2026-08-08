@@ -32,6 +32,8 @@ class SystemSettingsOut(BaseModel):
     # The netboot secret's plaintext is NEVER returned — only whether one is set + the enable toggle.
     netboot_enabled: bool
     netboot_secret_set: bool
+    # Event/run history retention (days); 0 = keep forever. Housekeeping prunes older runbook_runs + audit.
+    run_retention_days: int
     updated_by: str | None
     updated_at: datetime
 
@@ -43,6 +45,7 @@ def _out(s: SystemSettings) -> "SystemSettingsOut":
         helm_no_proxy=s.helm_no_proxy or "",
         netboot_enabled=s.netboot_enabled,
         netboot_secret_set=bool(s.netboot_secret),
+        run_retention_days=s.run_retention_days,
         updated_by=s.updated_by,
         updated_at=s.updated_at,
     )
@@ -107,6 +110,29 @@ async def set_netboot(
     if body.enabled and not (settings.netboot_secret or get_settings().netboot_secret):
         raise HTTPException(status_code=400, detail="cannot enable netboot without a secret set")
     settings.netboot_enabled = body.enabled
+    settings.updated_by = identity.name
+    await session.commit()
+    return _out(settings)
+
+
+class SetRetentionIn(BaseModel):
+    # Days of event/run history to keep; 0 = forever. Clamped to a sane range.
+    run_retention_days: int
+
+
+@router.put("/api/v1/system/retention", response_model=SystemSettingsOut)
+async def set_retention(
+    body: SetRetentionIn,
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> SystemSettingsOut:
+    """Set the event/run history retention window (Admin settings). Housekeeping's
+    hourly sweep prunes runbook_runs + audit_log rows older than this many days;
+    0 disables auto-purge (keep forever). The Event Browser also offers a manual
+    purge that ignores this window."""
+    days = max(0, min(int(body.run_retention_days), 3650))
+    settings = await _get_or_seed(session)
+    settings.run_retention_days = days
     settings.updated_by = identity.name
     await session.commit()
     return _out(settings)

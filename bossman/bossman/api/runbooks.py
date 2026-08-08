@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from bossman.api.auth import get_current_identity
+from bossman.api.auth import get_current_identity, require_admin
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Runbook, RunbookRun, ScopeVars
@@ -59,30 +59,102 @@ def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
     raise HTTPException(status_code=422, detail="provide `playbook` or `doc`")
 
 
+def _effect(r: RunbookRun) -> str:
+    """The playbook-job outcome an operator reads at a glance: failed > changed >
+    unchanged. `status` is the engine verdict (ok|failed|aborted); `changed`
+    the idempotency flag. Rendered as a colour badge in the Event Browser."""
+    if r.status in ("failed", "aborted"):
+        return "failed"
+    return "changed" if r.changed else "unchanged"
+
+
 @router.get("/api/v1/runbook-runs")
 async def list_runbook_runs(
     agent_id: UUID | None = None,
+    status: str | None = None,
+    effect: str | None = None,
+    q: str | None = None,
     limit: int = 100,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
     """Block F6 — runbook execution history, newest first (optionally one
     host). Sibling of GET /runs (plan runs) so the unified Runs page can list
-    plan + runbook + deploy runs together."""
+    plan + runbook + deploy runs together. The Event Browser adds status/effect
+    (failed|changed|unchanged) and `q` (requested_by/runbook substring) filters.
+    Each row carries `host` (resolved agent hostname) and `effect` so the UI
+    renders the changed/failed/unchanged badge without a second lookup."""
     stmt = select(RunbookRun).order_by(RunbookRun.created_at.desc()).limit(min(limit, 500))
     if agent_id is not None:
         stmt = stmt.where(RunbookRun.agent_id == agent_id)
+    if status:
+        stmt = stmt.where(RunbookRun.status == status)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(RunbookRun.runbook_name.ilike(like) | RunbookRun.requested_by.ilike(like))
     rows = (await session.scalars(stmt)).all()
+    # Resolve hostnames in one round-trip rather than N+1 per row.
+    ids = {r.agent_id for r in rows if r.agent_id}
+    hosts: dict[UUID, str] = {}
+    if ids:
+        for a in (await session.scalars(select(Agent).where(Agent.id.in_(ids)))).all():
+            hosts[a.id] = a.name
+    runs = [
+        {
+            "id": str(r.id), "runbook_name": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
+            "host": hosts.get(r.agent_id) if r.agent_id else None,
+            "status": r.status, "effect": _effect(r), "dry_run": r.dry_run, "changed": r.changed,
+            "requested_by": r.requested_by, "created_at": r.created_at.isoformat(),
+        }
+        for r in rows
+    ]
+    if effect:
+        runs = [x for x in runs if x["effect"] == effect]
+    return {"runs": runs}
+
+
+@router.get("/api/v1/runbook-runs/{run_id}")
+async def get_runbook_run(
+    run_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Full detail of one play — the engine's per-step RunResult (`result`) as
+    stored JSON, so the Event Browser can render it like a playbook job (each
+    step ok/changed/skipped/failed) plus who ran it and when."""
+    r = await session.get(RunbookRun, run_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="no such run")
+    host = None
+    if r.agent_id:
+        a = await session.get(Agent, r.agent_id)
+        host = a.name if a else None
     return {
-        "runs": [
-            {
-                "id": str(r.id), "runbook_name": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
-                "status": r.status, "dry_run": r.dry_run, "changed": r.changed,
-                "requested_by": r.requested_by, "created_at": r.created_at.isoformat(),
-            }
-            for r in rows
-        ]
+        "id": str(r.id), "runbook_name": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
+        "host": host, "status": r.status, "effect": _effect(r), "dry_run": r.dry_run, "changed": r.changed,
+        "requested_by": r.requested_by, "created_at": r.created_at.isoformat(), "result": r.result or {},
     }
+
+
+@router.delete("/api/v1/runbook-runs")
+async def purge_runbook_runs(
+    older_than_days: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    _identity: Identity = Depends(require_admin),
+) -> dict[str, int]:
+    """Clear play history (admin only). Without `older_than_days` deletes the
+    whole runbook_runs history; with it, only rows older than that many days.
+    Complements the automatic retention sweep in services/housekeeping."""
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import delete as sa_delete
+
+    stmt = sa_delete(RunbookRun)
+    if older_than_days is not None and older_than_days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+        stmt = stmt.where(RunbookRun.created_at < cutoff)
+    result = await session.execute(stmt)
+    await session.commit()
+    return {"deleted": result.rowcount or 0}
 
 
 @router.get("/api/v1/runbooks")
