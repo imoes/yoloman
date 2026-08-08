@@ -91,6 +91,9 @@ async def lifespan(app: FastAPI):
             from bossman.services.remediation_seed import seed_remediation_runbooks
 
             await seed_remediation_runbooks(session)
+            from bossman.services.blueprint import seed_blueprint_drafts
+
+            await seed_blueprint_drafts(session)
             await session.commit()
 
     # Mark the co-located SNMP/SSH poller as a hidden proxy ("selecta") so it
@@ -315,6 +318,8 @@ def create_app() -> FastAPI:
     app.include_router(rollouts_api.router, tags=["rollouts"])
     from bossman.api import remediation as remediation_api
     app.include_router(remediation_api.router, tags=["remediation"])
+    from bossman.api import blueprints as blueprints_api
+    app.include_router(blueprints_api.router, tags=["blueprints"])
     app.include_router(compliance_api.router, tags=["compliance"])
     app.include_router(audit_api.router, tags=["audit"])
     app.include_router(business_services_api.router, tags=["business-services"])

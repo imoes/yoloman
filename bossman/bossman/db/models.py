@@ -1770,11 +1770,37 @@ class DockerAppTemplate(Base):
     variables: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)   # [{name, default, description, required}]
     ports: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)       # ["80", "443"]
     volumes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)     # ["/var/lib/postgresql/data"]
+    # Capability contract (RoleContract shape, like config_templates/*/capabilities.json)
+    # so docker services join the same provides/requires matcher as native roles.
+    provides: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)    # [{capability, backend, default_port}]
+    requires: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)    # [{capability, backends, fields}]
     popularity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)    # curated rank (for top-N ordering)
     readme_hash: Mapped[str | None] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("image", name="uq_docker_app_templates_image"),)
+
+
+class Blueprint(Base):
+    """A composition of services (native roles + docker containers) wired by
+    capability (requires↔provides), managed as a draft and compiled into a typed
+    playbook that provisions + configures the whole stack. `services` mirrors the
+    UI compose model: [{name, kind, role|image, template?, environment, values,
+    ports, depends_on, provides, requires, bindings}]."""
+
+    __tablename__ = "blueprints"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=DEFAULT_TENANT_ID)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String, nullable=False, default="draft")   # draft | ready
+    services: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_blueprints_name"),)
 
 
 class VmHost(Base):

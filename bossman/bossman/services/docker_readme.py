@@ -46,6 +46,50 @@ TOP_IMAGES: list[str] = [
 ]
 
 
+# Curated capability contracts for common images (RoleContract shape). Keyed by
+# image; applied on extraction so docker services wire against native roles and
+# each other through the same matcher (services/capabilities). `fields` maps the
+# host/port role to the container's real env var so wiring fills the right knob.
+DOCKER_CAPABILITIES: dict[str, dict] = {
+    "postgres": {"provides": [{"capability": "database", "backend": "postgresql", "default_port": 5432}]},
+    "mysql": {"provides": [{"capability": "database", "backend": "mysql", "default_port": 3306}]},
+    "mariadb": {"provides": [{"capability": "database", "backend": "mariadb", "default_port": 3306}]},
+    "mongo": {"provides": [{"capability": "database", "backend": "mongodb", "default_port": 27017}]},
+    "redis": {"provides": [{"capability": "cache", "backend": "redis", "default_port": 6379}]},
+    "memcached": {"provides": [{"capability": "cache", "backend": "memcached", "default_port": 11211}]},
+    "rabbitmq": {"provides": [{"capability": "message_queue", "backend": "rabbitmq", "default_port": 5672}]},
+    "nginx": {"provides": [{"capability": "web_server", "backend": "nginx", "default_port": 80},
+                            {"capability": "reverse_proxy", "backend": "nginx", "default_port": 80}]},
+    "httpd": {"provides": [{"capability": "web_server", "backend": "apache", "default_port": 80}]},
+    "caddy": {"provides": [{"capability": "web_server", "backend": "caddy", "default_port": 80},
+                            {"capability": "reverse_proxy", "backend": "caddy", "default_port": 80}]},
+    "traefik": {"provides": [{"capability": "reverse_proxy", "backend": "traefik", "default_port": 80}]},
+    "haproxy": {"provides": [{"capability": "reverse_proxy", "backend": "haproxy", "default_port": 80}]},
+    "elasticsearch": {"provides": [{"capability": "search", "backend": "elasticsearch", "default_port": 9200}]},
+    "prom/prometheus": {"provides": [{"capability": "metrics", "backend": "prometheus", "default_port": 9090}]},
+    "grafana/grafana": {"provides": [{"capability": "dashboard", "backend": "grafana", "default_port": 3000}],
+                         "requires": [{"capability": "metrics", "backends": ["prometheus"],
+                                       "fields": {"host": "GF_METRICS_HOST", "port": "GF_METRICS_HOST"}}]},
+    "wordpress": {"provides": [{"capability": "web_server", "backend": "php", "default_port": 80}],
+                   "requires": [{"capability": "database", "backends": ["mysql", "mariadb"],
+                                 "fields": {"host": "WORDPRESS_DB_HOST", "port": "WORDPRESS_DB_HOST"}}]},
+    "nextcloud": {"provides": [{"capability": "web_server", "backend": "php", "default_port": 80}],
+                   "requires": [{"capability": "database", "backends": ["postgresql", "mysql", "mariadb"],
+                                 "fields": {"host": "POSTGRES_HOST", "port": "POSTGRES_HOST"}},
+                                {"capability": "cache", "backends": ["redis"],
+                                 "fields": {"host": "REDIS_HOST", "port": "REDIS_HOST"}}]},
+    "ghost": {"provides": [{"capability": "web_server", "backend": "node", "default_port": 2368}],
+               "requires": [{"capability": "database", "backends": ["mysql", "mariadb"],
+                             "fields": {"host": "database__connection__host"}}]},
+}
+
+
+def capabilities_for(image: str) -> dict:
+    """Curated {provides, requires} for an image (empty lists if unknown)."""
+    c = DOCKER_CAPABILITIES.get(image) or DOCKER_CAPABILITIES.get(image.split("/")[-1]) or {}
+    return {"provides": c.get("provides", []), "requires": c.get("requires", [])}
+
+
 def _repo_path(image: str) -> str:
     """Docker Hub repo path: official images live under `library/`."""
     img = image.split(":", 1)[0]  # drop any tag
@@ -175,6 +219,9 @@ async def extract_and_store(
     if row is not None and row.readme_hash == readme_hash and row.variables and typed:
         if popularity and not row.popularity:
             row.popularity = popularity
+        # Refresh the (cheap, curated) capability contract even on the skip path.
+        caps = capabilities_for(image)
+        row.provides, row.requires = caps["provides"], caps["requires"]
         return row
 
     extracted = await extract_variables(meta["readme"], image, settings)
@@ -186,11 +233,14 @@ async def extract_and_store(
     if row is None:
         row = DockerAppTemplate(tenant_id=DEFAULT_TENANT_ID, image=image)
         session.add(row)
+    caps = capabilities_for(image)
     row.name = image.split("/")[-1]
     row.description = desc
     row.variables = variables
     row.ports = ports
     row.volumes = volumes
+    row.provides = caps["provides"]
+    row.requires = caps["requires"]
     row.readme_hash = readme_hash
     if popularity:
         row.popularity = popularity
