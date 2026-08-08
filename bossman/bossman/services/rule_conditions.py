@@ -48,6 +48,31 @@ class MatchContext:
     host_labels: dict[str, str] = field(default_factory=dict)
     service_name: str | None = None
     service_labels: dict[str, str] = field(default_factory=dict)
+    # Bossman extensions to Checkmk's six fields (same match grammar as host_tags):
+    # `host_facts` = the host's Ansible facts, flattened to dotted keys
+    # (os.family, …); `host_vars` = its resolved desired-state variables
+    # (services/scope_vars). Both are flat {key: value} maps.
+    host_facts: dict[str, str] = field(default_factory=dict)
+    host_vars: dict[str, str] = field(default_factory=dict)
+
+
+def flatten_facts(facts: Any, prefix: str = "", out: dict[str, str] | None = None) -> dict[str, str]:
+    """Flatten a nested facts dict to dotted scalar keys (os.family → "Debian")
+    for the host_facts match dimension. Lists and the bulky installed_packages
+    entry are skipped — conditions match single scalar facts, not collections."""
+    out = {} if out is None else out
+    if not isinstance(facts, dict):
+        return out
+    for k, v in facts.items():
+        if k == "installed_packages":
+            continue
+        key = f"{prefix}.{k}" if prefix else str(k)
+        if isinstance(v, dict):
+            flatten_facts(v, key, out)
+        elif isinstance(v, (str, int, float, bool)) or v is None:
+            out[key] = "" if v is None else str(v)
+        # lists / other → skipped
+    return out
 
 
 def matches(conditions: dict[str, Any] | None, ctx: MatchContext) -> bool:
@@ -70,6 +95,15 @@ def matches(conditions: dict[str, Any] | None, ctx: MatchContext) -> bool:
 
     for group_id, condition in (conditions.get("host_tags") or {}).items():
         if not matches_tag_condition(str(group_id), condition, ctx.host_tags):
+            return False
+
+    # Bossman extensions — same is/$ne/$or/$nor grammar as host_tags, evaluated
+    # against the host's Ansible facts and its resolved desired-state variables.
+    for key, condition in (conditions.get("host_facts") or {}).items():
+        if not matches_tag_condition(str(key), condition, ctx.host_facts):
+            return False
+    for key, condition in (conditions.get("host_vars") or {}).items():
+        if not matches_tag_condition(str(key), condition, ctx.host_vars):
             return False
 
     if groups := conditions.get("host_label_groups"):

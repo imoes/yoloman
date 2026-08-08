@@ -43,6 +43,12 @@ async def build_match_context(
     labels = (
         await session.scalars(select(HostLabel).where(HostLabel.agent_id == agent.id))
     ).all()
+    # Bossman condition dimensions: flattened Ansible facts + the host's resolved
+    # desired-state variables (services/scope_vars). Imported lazily so the module
+    # graph stays acyclic (scope_vars imports compiler resolvers, as we do).
+    from bossman.services.scope_vars import resolve_scope_vars
+
+    host_vars = await resolve_scope_vars(session, agent)
     return rule_conditions.MatchContext(
         host_name=agent.name or "",
         ou_paths=[n.path for n in ancestry if getattr(n, "path", None)],
@@ -50,6 +56,8 @@ async def build_match_context(
         host_labels={r.key: r.value for r in labels},
         service_name=service_name,
         service_labels=dict(service_labels or {}),
+        host_facts=rule_conditions.flatten_facts(agent.facts or {}),
+        host_vars={str(k): str(v) for k, v in host_vars.items()},
     )
 
 

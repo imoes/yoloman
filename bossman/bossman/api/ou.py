@@ -784,23 +784,40 @@ async def match_vocabulary(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict:
-    """Known values for the rule-conditions editor (Checkmk match categories):
-    host tag groups → their observed values, host label keys → values, and the OU
-    folder paths. Free-text is still allowed in the editor — this only powers the
-    suggestion dropdowns so common tags/labels/OUs don't have to be typed."""
+    """Known keys+values for the rule-conditions editor's live search: host tag
+    groups → values, Ansible fact keys (dotted) → values, desired-state variable
+    keys → values, host label keys → values, and the OU folder paths. Free-text
+    is still allowed — this only powers the suggestion dropdowns so tags / facts /
+    variables and their values auto-complete instead of being typed blind."""
+    from bossman.services.rule_conditions import flatten_facts
+
     tag_groups: dict[str, set[str]] = {}
+    facts: dict[str, set[str]] = {}
     for a in (await session.scalars(select(Agent))).all():
         for k, v in (a.tags or {}).items():
             tag_groups.setdefault(str(k), set()).add(str(v))
+        for fk, fv in flatten_facts(a.facts or {}).items():
+            facts.setdefault(fk, set()).add(fv)
+    variables: dict[str, set[str]] = {}
+    for sv in (await session.scalars(select(ScopeVars))).all():
+        for k, v in (sv.vars or {}).items():
+            variables.setdefault(str(k), set()).add(str(v))
     labels: dict[str, set[str]] = {}
     for row in (await session.scalars(select(HostLabel))).all():
         labels.setdefault(row.key, set()).add(row.value)
     ou_folders = sorted(
         p for (p,) in (await session.execute(select(OUNode.path))).all() if p
     )
+
+    def cap(d: dict[str, set[str]]) -> dict[str, list[str]]:
+        # Cap values per key so a high-cardinality fact can't bloat the payload.
+        return {k: sorted(vs)[:100] for k, vs in sorted(d.items())}
+
     return {
-        "host_tags": {g: sorted(vs) for g, vs in sorted(tag_groups.items())},
-        "host_labels": {k: sorted(vs) for k, vs in sorted(labels.items())},
+        "host_tags": cap(tag_groups),
+        "host_facts": cap(facts),
+        "variables": cap(variables),
+        "host_labels": cap(labels),
         "ou_folders": ou_folders,
     }
 

@@ -133,8 +133,13 @@ export class OuService {
   /** Known tag groups / label keys / OU folders — powers the conditions editor's
    * suggestion dropdowns (free text is still allowed). */
   matchVocabulary() {
-    return this.http.get<{ host_tags: Record<string, string[]>; host_labels: Record<string, string[]>; ou_folders: string[] }>(
-      `${environment.apiUrl}/match-vocabulary`);
+    return this.http.get<{
+      host_tags: Record<string, string[]>;
+      host_facts: Record<string, string[]>;
+      variables: Record<string, string[]>;
+      host_labels: Record<string, string[]>;
+      ou_folders: string[];
+    }>(`${environment.apiUrl}/match-vocabulary`);
   }
 
   /** Move a placed config policy to another OU/group/site scope. */

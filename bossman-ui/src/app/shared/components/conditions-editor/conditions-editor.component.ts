@@ -8,7 +8,7 @@ import { OuService } from '../../../core/services/ou.service';
  * condition fields (host_tags / host_label_groups / host_name / host_folder /
  * service_description / service_label_groups); "OS" is the conventional `os`
  * host-tag group surfaced as its own category. */
-type Category = 'host_tag' | 'os' | 'host_label' | 'host_name' | 'host_folder' | 'service_name' | 'service_label';
+type Category = 'host_tag' | 'os' | 'host_fact' | 'host_var' | 'host_label' | 'host_name' | 'host_folder' | 'service_name' | 'service_label';
 
 interface Clause {
   cat: Category;
@@ -17,8 +17,11 @@ interface Clause {
   value: string; // value, or comma list for any_of/none_of
 }
 
+const TAG_OPS = [{ v: 'is', label: 'is' }, { v: 'is_not', label: 'is not' }, { v: 'any_of', label: 'is any of' }, { v: 'none_of', label: 'is none of' }];
 const OPS: Record<Category, { v: string; label: string }[]> = {
-  host_tag: [{ v: 'is', label: 'is' }, { v: 'is_not', label: 'is not' }, { v: 'any_of', label: 'is any of' }, { v: 'none_of', label: 'is none of' }],
+  host_tag: TAG_OPS,
+  host_fact: TAG_OPS,
+  host_var: TAG_OPS,
   os: [{ v: 'is', label: 'is' }, { v: 'is_not', label: 'is not' }],
   host_label: [{ v: 'is', label: 'is' }, { v: 'is_not', label: 'is not' }],
   service_label: [{ v: 'is', label: 'is' }, { v: 'is_not', label: 'is not' }],
@@ -27,14 +30,16 @@ const OPS: Record<Category, { v: string; label: string }[]> = {
   host_folder: [{ v: 'at_or_below', label: 'at or below' }],
 };
 
-const CATS: { v: Category; label: string; hasKey: boolean }[] = [
-  { v: 'host_tag', label: 'Host tag', hasKey: true },
+const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = [
+  { v: 'host_tag', label: 'Host tag', hasKey: true, keyPh: 'tag group' },
   { v: 'os', label: 'OS', hasKey: false },
-  { v: 'host_label', label: 'Host label', hasKey: true },
+  { v: 'host_fact', label: 'Ansible fact', hasKey: true, keyPh: 'fact (e.g. os.family)' },
+  { v: 'host_var', label: 'Variable', hasKey: true, keyPh: 'variable name' },
+  { v: 'host_label', label: 'Host label', hasKey: true, keyPh: 'label key' },
   { v: 'host_name', label: 'Host name', hasKey: false },
   { v: 'host_folder', label: 'Host folder (OU)', hasKey: false },
   { v: 'service_name', label: 'Service name', hasKey: false },
-  { v: 'service_label', label: 'Service label', hasKey: true },
+  { v: 'service_label', label: 'Service label', hasKey: true, keyPh: 'label key' },
 ];
 
 /**
@@ -60,8 +65,13 @@ const CATS: { v: Category; label: string; hasKey: boolean }[] = [
             @for (cat of cats; track cat.v) { <option [value]="cat.v">{{ cat.label }}</option> }
           </select>
           @if (catOf(c.cat).hasKey) {
-            <input class="bm-cin bm-cin-key" [placeholder]="c.cat === 'host_tag' ? 'tag group' : 'label key'"
-                   [ngModel]="c.key" (ngModelChange)="patch($index, { key: $event })" [attr.list]="'bm-cond-keys-' + c.cat" />
+            <input class="bm-cin bm-cin-key" [placeholder]="catOf(c.cat).keyPh || 'key'"
+                   [ngModel]="c.key" (ngModelChange)="patch($index, { key: $event })" [attr.list]="'bm-cond-keys-' + $index" />
+            <!-- Live-search over known keys for this category; typing a new one
+                 is accepted (it simply joins the vocabulary once a host has it). -->
+            <datalist [id]="'bm-cond-keys-' + $index">
+              @for (k of keySuggestions(c); track k) { <option [value]="k"></option> }
+            </datalist>
           }
           <select class="bm-cin bm-cin-op" [ngModel]="c.op" (ngModelChange)="patch($index, { op: $event })">
             @for (o of OPS[c.cat]; track o.v) { <option [value]="o.v">{{ o.label }}</option> }
@@ -69,18 +79,16 @@ const CATS: { v: Category; label: string; hasKey: boolean }[] = [
           <input class="bm-cin bm-cin-val"
                  [placeholder]="valuePlaceholder(c)"
                  [ngModel]="c.value" (ngModelChange)="patch($index, { value: $event })"
-                 [attr.list]="valueListId(c)" />
+                 [attr.list]="'bm-cond-vals-' + $index" />
+          <!-- Values auto-complete from the chosen key, so a tag/fact/variable
+               fills in its own known values. -->
+          <datalist [id]="'bm-cond-vals-' + $index">
+            @for (v of valueSuggestions(c); track v) { <option [value]="v"></option> }
+          </datalist>
           <button mat-icon-button class="bm-cond-del" (click)="remove($index)" title="Remove condition"><mat-icon>close</mat-icon></button>
         </div>
       }
       <button mat-stroked-button class="bm-cond-add" (click)="add()"><mat-icon>add</mat-icon> Add condition</button>
-
-      <!-- Suggestion lists (free text still allowed). -->
-      <datalist id="bm-cond-keys-host_tag">@for (g of tagGroups(); track g) { <option [value]="g"></option> }</datalist>
-      <datalist id="bm-cond-keys-host_label">@for (k of labelKeys(); track k) { <option [value]="k"></option> }</datalist>
-      <datalist id="bm-cond-keys-service_label">@for (k of labelKeys(); track k) { <option [value]="k"></option> }</datalist>
-      <datalist id="bm-cond-os">@for (v of osValues(); track v) { <option [value]="v"></option> }</datalist>
-      <datalist id="bm-cond-folders">@for (p of vocab().ou_folders; track p) { <option [value]="p"></option> }</datalist>
     </div>
   `,
   styles: [`
@@ -114,28 +122,54 @@ export class ConditionsEditorComponent implements OnInit {
   @Output() conditionsChange = new EventEmitter<Record<string, unknown>>();
 
   clauses = signal<Clause[]>([]);
-  vocab = signal<{ host_tags: Record<string, string[]>; host_labels: Record<string, string[]>; ou_folders: string[] }>(
-    { host_tags: {}, host_labels: {}, ou_folders: [] });
+  vocab = signal<{
+    host_tags: Record<string, string[]>;
+    host_facts: Record<string, string[]>;
+    variables: Record<string, string[]>;
+    host_labels: Record<string, string[]>;
+    ou_folders: string[];
+  }>({ host_tags: {}, host_facts: {}, variables: {}, host_labels: {}, ou_folders: [] });
 
   ngOnInit(): void {
     this.ouService.matchVocabulary().subscribe({ next: (v) => this.vocab.set(v), error: () => {} });
   }
 
   catOf(cat: Category) { return CATS.find((c) => c.v === cat)!; }
-  tagGroups(): string[] { return Object.keys(this.vocab().host_tags).filter((g) => g !== 'os'); }
-  labelKeys(): string[] { return Object.keys(this.vocab().host_labels); }
-  osValues(): string[] { return this.vocab().host_tags['os'] || []; }
+
+  /** Live-search suggestions for the KEY input, by category. */
+  keySuggestions(c: Clause): string[] {
+    const v = this.vocab();
+    switch (c.cat) {
+      case 'host_tag': return Object.keys(v.host_tags).filter((g) => g !== 'os');
+      case 'host_fact': return Object.keys(v.host_facts);
+      case 'host_var': return Object.keys(v.variables);
+      case 'host_label':
+      case 'service_label': return Object.keys(v.host_labels);
+      default: return [];
+    }
+  }
+
+  /** Live-search suggestions for the VALUE input, derived from the chosen key so
+   * a tag/fact/variable auto-fills its own known values. */
+  valueSuggestions(c: Clause): string[] {
+    const v = this.vocab();
+    switch (c.cat) {
+      case 'os': return v.host_tags['os'] || [];
+      case 'host_tag': return v.host_tags[c.key] || [];
+      case 'host_fact': return v.host_facts[c.key] || [];
+      case 'host_var': return v.variables[c.key] || [];
+      case 'host_label':
+      case 'service_label': return v.host_labels[c.key] || [];
+      case 'host_folder': return v.ou_folders;
+      default: return [];
+    }
+  }
 
   valuePlaceholder(c: Clause): string {
     if (c.op === 'any_of' || c.op === 'none_of') return 'value1, value2, …';
     if (c.cat === 'host_name' || c.cat === 'service_name') return c.op === 'equals' ? 'exact name' : '^regex';
     if (c.cat === 'host_folder') return '/OU/path';
     return 'value';
-  }
-  valueListId(c: Clause): string | null {
-    if (c.cat === 'os') return 'bm-cond-os';
-    if (c.cat === 'host_folder') return 'bm-cond-folders';
-    return null;
   }
 
   add(): void {
@@ -168,6 +202,8 @@ export class ConditionsEditorComponent implements OnInit {
   private serialize(clauses: Clause[]): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     const hostTags: Record<string, unknown> = {};
+    const hostFacts: Record<string, unknown> = {};
+    const hostVars: Record<string, unknown> = {};
     const hostLabelMembers: [string, string][] = [];
     const svcLabelMembers: [string, string][] = [];
     let hostNames: unknown[] | null = null;
@@ -177,6 +213,12 @@ export class ConditionsEditorComponent implements OnInit {
 
     const nameEntry = (op: string, v: string) => (op === 'equals' ? v : { $regex: v });
     const list = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+    // is / is-not / any-of / none-of → the tag-condition grammar (shared by
+    // host_tags, host_facts and host_vars).
+    const tagCond = (op: string, v: string) => op === 'is_not' ? { $ne: v }
+      : op === 'any_of' ? { $or: list(v) }
+      : op === 'none_of' ? { $nor: list(v) }
+      : v;
 
     for (const c of clauses) {
       const v = (c.value || '').trim();
@@ -185,13 +227,15 @@ export class ConditionsEditorComponent implements OnInit {
         case 'host_tag':
         case 'os': {
           const group = c.cat === 'os' ? 'os' : (c.key || '').trim();
-          if (!group) break;
-          hostTags[group] = c.op === 'is_not' ? { $ne: v }
-            : c.op === 'any_of' ? { $or: list(v) }
-            : c.op === 'none_of' ? { $nor: list(v) }
-            : v;
+          if (group) hostTags[group] = tagCond(c.op, v);
           break;
         }
+        case 'host_fact':
+          if (c.key) hostFacts[c.key.trim()] = tagCond(c.op, v);
+          break;
+        case 'host_var':
+          if (c.key) hostVars[c.key.trim()] = tagCond(c.op, v);
+          break;
         case 'host_label':
           if (c.key) hostLabelMembers.push([c.op === 'is_not' ? 'not' : 'and', `${c.key.trim()}:${v}`]);
           break;
@@ -214,6 +258,8 @@ export class ConditionsEditorComponent implements OnInit {
       }
     }
     if (Object.keys(hostTags).length) out['host_tags'] = hostTags;
+    if (Object.keys(hostFacts).length) out['host_facts'] = hostFacts;
+    if (Object.keys(hostVars).length) out['host_vars'] = hostVars;
     if (hostLabelMembers.length) out['host_label_groups'] = [['and', hostLabelMembers]];
     if (svcLabelMembers.length) out['service_label_groups'] = [['and', svcLabelMembers]];
     if (hostNames) out['host_name'] = hostNameNeg ? { $nor: hostNames } : hostNames;
@@ -224,24 +270,33 @@ export class ConditionsEditorComponent implements OnInit {
   // --- deserialize: Checkmk conditions object → clauses ---
   private deserialize(cond: Record<string, unknown>): Clause[] {
     const out: Clause[] = [];
-    const tags = (cond['host_tags'] as Record<string, unknown>) || {};
-    for (const [group, c] of Object.entries(tags)) {
-      const isOs = group === 'os';
-      if (c && typeof c === 'object') {
-        const o = c as Record<string, unknown>;
-        if ('$ne' in o) out.push({ cat: isOs ? 'os' : 'host_tag', key: group, op: 'is_not', value: String(o['$ne']) });
-        else if ('$or' in o) out.push({ cat: 'host_tag', key: group, op: 'any_of', value: (o['$or'] as unknown[]).join(', ') });
-        else if ('$nor' in o) out.push({ cat: 'host_tag', key: group, op: 'none_of', value: (o['$nor'] as unknown[]).join(', ') });
-      } else {
-        out.push({ cat: isOs ? 'os' : 'host_tag', key: group, op: 'is', value: String(c) });
-      }
-    }
+    // host_tags (os split out), host_facts, host_vars all share the tag grammar.
+    this.deserializeTagMap(cond['host_tags'], (k) => (k === 'os' ? 'os' : 'host_tag'), out);
+    this.deserializeTagMap(cond['host_facts'], () => 'host_fact', out);
+    this.deserializeTagMap(cond['host_vars'], () => 'host_var', out);
     this.deserializeLabels(cond['host_label_groups'], 'host_label', out);
     this.deserializeLabels(cond['service_label_groups'], 'service_label', out);
     this.deserializeNames(cond['host_name'], 'host_name', out);
     this.deserializeNames(cond['service_description'], 'service_name', out);
     if (cond['host_folder']) out.push({ cat: 'host_folder', key: '', op: 'at_or_below', value: String(cond['host_folder']) });
     return out;
+  }
+
+  /** Deserialize a {key: tag-condition} map (host_tags / host_facts / host_vars)
+   * into clauses; `catFor` picks the category per key (host_tags splits out os). */
+  private deserializeTagMap(map: unknown, catFor: (key: string) => Category, out: Clause[]): void {
+    if (!map || typeof map !== 'object') return;
+    for (const [key, c] of Object.entries(map as Record<string, unknown>)) {
+      const cat = catFor(key);
+      if (c && typeof c === 'object') {
+        const o = c as Record<string, unknown>;
+        if ('$ne' in o) out.push({ cat, key, op: 'is_not', value: String(o['$ne']) });
+        else if ('$or' in o) out.push({ cat, key, op: 'any_of', value: (o['$or'] as unknown[]).join(', ') });
+        else if ('$nor' in o) out.push({ cat, key, op: 'none_of', value: (o['$nor'] as unknown[]).join(', ') });
+      } else {
+        out.push({ cat, key, op: 'is', value: String(c) });
+      }
+    }
   }
 
   private deserializeLabels(groups: unknown, cat: 'host_label' | 'service_label', out: Clause[]): void {
