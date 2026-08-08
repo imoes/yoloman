@@ -21,7 +21,7 @@ const NAV_ICON: Record<string, string> = {
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
   '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
   '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings',
-  '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy',
+  '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy', '/docker-state': 'hosts',
   // Previously unmapped (they silently fell back to 'fleet'). Icon names repeat across workspaces where
   // the set has no closer match — harmless, since each appears in a different tree.
   '/blueprint': 'template', '/events': 'notifications', '/event-browser': 'runs', '/compliance': 'checks',
@@ -87,6 +87,7 @@ const WORKSPACES: Workspace[] = [
       { path: '/hosts', label: 'Hosts', icon: 'dns' },
       { path: '/fleet-search', label: 'Fleet search', icon: 'search' },
       { path: '/systems', label: 'Systems', icon: 'lan' },
+      { path: '/docker-state', label: 'Docker state', icon: 'inventory_2' },
       { path: '/snmp-devices', label: 'Devices', icon: 'router' },
       { path: '/host-placement', label: 'Host placement', icon: 'lan' },
       { path: '/ou', label: 'OU / Policy', icon: 'domain' },

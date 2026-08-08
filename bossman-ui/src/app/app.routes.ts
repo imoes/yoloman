@@ -61,6 +61,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/systems/systems.component').then((m) => m.SystemsComponent),
   },
   {
+    path: 'docker-state',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/docker-state/docker-state.component').then((m) => m.DockerStateComponent),
+  },
+  {
     path: 'blueprint',
     canActivate: [authGuard],
     loadComponent: () => import('./features/blueprint/blueprint.component').then((m) => m.BlueprintComponent),

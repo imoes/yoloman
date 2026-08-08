@@ -170,3 +170,93 @@ async def extract_docker_catalog(
             await session.rollback()
             failed.append({"image": image, "error": str(exc)[:200]})
     return {"extracted": done, "failed": failed}
+
+
+# ── Docker desired state: versioned generations + diff + rollback ─────────────
+# (project-docker-desired-state) — discover containers into a versioned desired
+# state, diff any two generations, and roll back. See services/docker_desired.
+
+from bossman.api.auth import get_current_identity as _get_identity  # noqa: E402
+from bossman.services import docker_desired as _dd  # noqa: E402
+
+
+@router.post("/api/v1/agents/{agent_id}/docker-state/discover")
+async def docker_state_discover(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Observe the host's containers and snapshot them as a new desired-state
+    generation (only if the canonical spec changed since the last one)."""
+    agent = await _agent_with_address(session, agent_id)
+    return await _dd.discover(session, agent, client_factory, settings,
+                              created_by=getattr(identity, "name", None))
+
+
+@router.get("/api/v1/agents/{agent_id}/docker-state/generations")
+async def docker_state_generations(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(_get_identity),
+) -> dict[str, Any]:
+    """Every stored container desired-state generation, newest first."""
+    return {"generations": await _dd.list_generations(session, agent_id)}
+
+
+@router.get("/api/v1/agents/{agent_id}/docker-state")
+async def docker_state_get(
+    agent_id: UUID,
+    generation: int | None = Query(None),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(_get_identity),
+) -> dict[str, Any]:
+    """One generation's full spec (the current/newest if `generation` omitted)."""
+    r = await _dd.get_generation(session, agent_id, generation)
+    if r is None:
+        return {"generation": None, "spec": {"containers": []}}
+    return r
+
+
+@router.get("/api/v1/agents/{agent_id}/docker-state/diff")
+async def docker_state_diff(
+    agent_id: UUID,
+    from_gen: int = Query(..., alias="from"),
+    to_gen: int = Query(..., alias="to"),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(_get_identity),
+) -> dict[str, Any]:
+    """Container-level diff (added / removed / changed) between two generations."""
+    return await _dd.diff(session, agent_id, from_gen, to_gen)
+
+
+class RollbackBody(BaseModel):
+    generation: int
+
+
+@router.post("/api/v1/agents/{agent_id}/docker-state/rollback")
+async def docker_state_rollback(
+    agent_id: UUID,
+    body: RollbackBody,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(require_manage_agent),
+) -> dict[str, Any]:
+    """Set an old generation as the new desired state (forward-only, like config)."""
+    agent = await _agent_with_address(session, agent_id)
+    return await _dd.rollback(session, agent, body.generation, getattr(identity, "name", "?"))
+
+
+@router.get("/api/v1/agents/{agent_id}/docker-state/converge-plan")
+async def docker_state_converge_plan(
+    agent_id: UUID,
+    generation: int | None = Query(None),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Preview the actions (create/remove/recreate) to make the host match a
+    target generation vs. what is live now — the safe pre-apply diff."""
+    agent = await _agent_with_address(session, agent_id)
+    return await _dd.plan_converge(session, agent, client_factory, settings, generation)

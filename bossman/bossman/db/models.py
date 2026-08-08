@@ -2217,6 +2217,34 @@ class ChangeProposal(Base):
     __table_args__ = (Index("idx_change_proposals_status", "status", "created_at"),)
 
 
+class DockerDesiredState(Base):
+    """Versioned desired state of a host's containers (project-docker-desired-state).
+    Discovery recovers every running container as a portable spec (docker_app
+    inspect_containers) and snapshots the whole set here as a GENERATION — a new
+    row only when the canonical spec hash changes. Gives the container fleet the
+    same time-machine as config: list generations, diff two, and roll back (which
+    writes the old spec as a new desired generation to converge back to). Capped at
+    30 generations per host (docker_desired.discover prunes the oldest)."""
+
+    __tablename__ = "docker_desired_state"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    spec: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)   # {containers:[…], compose_files:[…]}
+    config_hash: Mapped[str] = mapped_column(String, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="discovered")  # discovered | rollback
+    note: Mapped[str | None] = mapped_column(String)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "generation", name="uq_docker_desired_agent_generation"),
+        Index("idx_docker_desired_agent", "agent_id", "generation"),
+    )
+
+
 class SavedSearch(Base):
     """A named Fleet-search query the operator can recall (Checkmk saved-views
     parity, Fleet-search P3). Just the omnibox query string (crit:/site:/tag:/…)
