@@ -262,7 +262,14 @@ export class OuConfigEditorComponent implements OnChanges {
 
   loaded = signal(false);
   // ADMX per-directive value catalog (parity with the host gpedit) — loaded once.
+  // Kept ONLY as the cross-file search index (which keys exist in each file); the
+  // SELECTED file's editing specs come from describe() (config-fields) instead —
+  // see fieldsForSelected + specsForFile (config-model consolidation).
   directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
+  // The unified field specs for the SELECTED file, from GET /config-fields
+  // (derive_schema: codec ⊕ directive, or the template's schema.json) — the ONE
+  // describe() source the host gpedit + ParamForm also use.
+  private fieldsForSelected = signal<{ path: string; specs: Record<string, DirectiveSpec> }>({ path: '', specs: {} });
   // Host-independent file catalog: every known config file from the codec
   // registry ({path, format}). A policy can target any of them.
   private catalog = signal<{ path: string; format: string }[]>([]);
@@ -369,6 +376,10 @@ export class OuConfigEditorComponent implements OnChanges {
    * basename alone (the old bug) matched nothing, so every setting fell back to a generic text input
    * instead of the enum/bool/int field the catalog defines. */
   private specsForFile(path: string): Record<string, DirectiveSpec> {
+    // The selected file's specs come from describe() (config-fields); other files
+    // fall back to the bulk directive catalog (the cross-file search index).
+    const sel = this.fieldsForSelected();
+    if (sel.path === path && Object.keys(sel.specs).length) return sel.specs;
     const cat = this.directiveCatalog();
     return cat[path] ?? cat[this.baseName(path)] ?? {};
   }
@@ -404,7 +415,35 @@ export class OuConfigEditorComponent implements OnChanges {
   select(path: string | null): void {
     this.selected.set(path);
     this.editKey.set(null);
-    if (path) this.selectedCat.set(categorizeConfigPath(path).key);
+    if (path) {
+      this.selectedCat.set(categorizeConfigPath(path).key);
+      this.loadFields(path);
+    }
+  }
+
+  /** Fetch the SELECTED file's unified field specs from describe() and map the
+   * FieldDef shape ({type:'enum', enum:[…]}) onto the DirectiveSpec the controls
+   * read ({type, values:[…]}). This is what makes the OU editor's controls typed
+   * from the same source as the host gpedit (and picks up codec⊕directive merges
+   * + template-schema fields the raw directive catalog alone doesn't carry). */
+  private loadFields(path: string): void {
+    this.agentService.configFields(path).subscribe({
+      next: (r) => {
+        const specs: Record<string, DirectiveSpec> = {};
+        for (const [k, fd] of Object.entries(r.fields || {})) {
+          const t = fd.type === 'number' ? 'int' : fd.type;
+          specs[k] = {
+            type: (fd.enum?.length ? 'enum' : t) as DirectiveSpec['type'],
+            values: fd.enum,
+            default: fd.default != null ? String(fd.default) : undefined,
+            description: fd.description,
+            min: fd.min, max: fd.max,
+          };
+        }
+        this.fieldsForSelected.set({ path, specs });
+      },
+      error: () => this.fieldsForSelected.set({ path, specs: {} }),
+    });
   }
 
   policyFor(path: string): ScopePolicy | undefined {

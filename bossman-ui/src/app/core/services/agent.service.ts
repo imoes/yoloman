@@ -195,6 +195,18 @@ export class AgentService {
     );
   }
 
+  /** The unified describe() for ONE file: {path, write, format?, separator?,
+   * template?, fields:{key:FieldDef}} — codec⊕directive for codec'd files, the
+   * template schema for freeform. The single field-spec source (config-model
+   * consolidation); replaces reading the raw directive catalog per file. */
+  configFields(path: string) {
+    return this.http.get<{
+      path: string; write: string; format?: string; separator?: string; template?: string;
+      fields: Record<string, { type: string; enum?: string[]; default?: unknown; description?: string; min?: number; max?: number }>;
+      available: boolean;
+    }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`);
+  }
+
   // Block 3 — agent-less devices (snmp|ssh), polled via the co-located poller.
   devices() {
     return this.http.get<Device[]>(`${environment.apiUrl}/devices`);
