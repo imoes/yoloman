@@ -14,11 +14,16 @@ versioning, audit trail, foreign keys). etcd is a flat, size-capped
 (~8 GB), consensus-replicated KV store built for cluster coordination, not for
 querying documents by scope, joining them, or keeping unbounded history. The
 few things etcd is genuinely great at — **watch** (push on change) and
-**leases** (TTL liveness) — we already solve with `controller_outbox` +
-`connection_events` + agent push, and can solve better inside Postgres
-(`LISTEN/NOTIFY`, a heartbeat column) without a second stateful system.
-A hybrid where etcd is added *only* as a change-notification bus is possible but
-not worth the operational cost at our scale.
+**leases** (TTL liveness) — we already have, DB-native: config changes push to
+agents through a **transactional-outbox → reconciler → delivery-queue** pipeline
+with acks (`controller_outbox` → `services/reconciler.py` → `agent_config_delivery`
+/ `agent_acks`), and reachability is tracked via `connection_events` + the 60 s
+poller. Apply is a *real* push, not a poll: it writes desired state and the
+outbox event in one transaction, and the reconciler delivers to reachable hosts
+(returning `applied_hosts`/`skipped_hosts`). No capability is missing here — at
+most a latency optimisation (wake the reconciler via `LISTEN/NOTIFY` instead of a
+short poll loop). A hybrid where etcd is added *only* as a change-notification
+bus is possible but pointless at our scale.
 
 ## 1. What "the key-values" actually are here
 
@@ -99,15 +104,18 @@ we already cover it (see [agentic-os-roadmap], [project-pxe-bootstrap]):
 - **Watch (change streams).** Agents/UI subscribe to a key prefix and are pushed
   every change with its revision — the natural backbone for *closed-loop*
   desired-state convergence ("config changed → converge now" instead of poll).
-  *We already push*: `controller_outbox` + agent connection; the observed-state
-  cache refreshes on a timer. Watch would make change-propagation instant and
-  ordered, but Postgres `LISTEN/NOTIFY` (or logical replication) gives the same
-  push without a second system.
+  *We already do closed-loop push*: Apply writes desired state **and** a
+  `controller_outbox` event in one transaction; the reconciler drains the outbox,
+  recompiles affected hosts, and delivers to reachable agents with acks
+  (`agent_config_delivery` / `agent_acks`). The reconciler wakes on a short poll
+  of the outbox; `LISTEN/NOTIFY` would make that wake instant — a latency tweak,
+  not a new capability. Watch adds nothing we lack.
 - **Leases + keepalive.** A host holds a TTL lease; miss the keepalive and its
   keys vanish → instant, self-cleaning liveness and "ephemeral" registration.
   Elegant for agent liveness and for PXE one-shot registration that should
-  expire. *We cover it* with `connection_events` + heartbeat; a lease model is
-  cleaner but replaceable by a `last_seen`/TTL column + sweeper.
+  expire. *We already track liveness* with `connection_events` + the 60 s poller
+  + delivery status (`nacked`/`failed`); a lease model is cleaner in theory but
+  buys nothing over a `last_seen`/TTL column + sweeper.
 - **MVCC revisions + compare-and-swap.** Every write gets a global revision;
   `txn(If revision==R).Then(put)` gives optimistic concurrency. Useful for
   conflict-free concurrent edits. *We cover it* with row versions/`updated_at`
@@ -128,12 +136,12 @@ the *config data model*, which Postgres models far better.
 
 1. **Do not migrate config/variables/state to etcd.** They are scoped, versioned,
    joined, audited documents — a Postgres strength and an etcd anti-pattern.
-2. **Close the two real gaps inside Postgres**, not by adding etcd:
-   - Replace timer-poll propagation with **`LISTEN/NOTIFY`** (or logical
-     replication) off the existing `controller_outbox` → instant, ordered,
-     watch-like push with zero new infrastructure.
-   - Formalise agent liveness as a **TTL/heartbeat** column with a sweeper →
-     lease-like semantics, still one system.
+2. **Change-push and liveness are already solved — no gap to fill.** Apply is a
+   real push (outbox → reconciler → `agent_config_delivery` with acks); liveness
+   comes from `connection_events` + the 60 s poller + delivery status. The only
+   *optional* tweak is waking the reconciler via **`LISTEN/NOTIFY`** instead of a
+   short poll, to shave seconds of propagation latency — nice-to-have, still one
+   system, and not a reason to add etcd.
 3. **Reserve etcd (or Consul) for one future case only: HA control-plane
    coordination** — leader election / singleton rollout locks *if and when* we
    run multiple controllers. Even then it holds *coordination keys*, never the
