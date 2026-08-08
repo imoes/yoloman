@@ -25,7 +25,7 @@ const NAV_ICON: Record<string, string> = {
   // Previously unmapped (they silently fell back to 'fleet'). Icon names repeat across workspaces where
   // the set has no closer match — harmless, since each appears in a different tree.
   '/blueprint': 'template', '/events': 'notifications', '/event-browser': 'runs', '/compliance': 'checks',
-  '/config-sync': 'config-templates', '/audit': 'users',
+  '/config-sync': 'config-templates', '/audit': 'users', '/change-proposals': 'checks',
 };
 
 interface NavItem {
@@ -118,6 +118,7 @@ const WORKSPACES: Workspace[] = [
     hint: 'Library applied to the fleet',
     items: [
       { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
+      { path: '/change-proposals', label: 'Change proposals', icon: 'rule' },
       { path: '/rollouts', label: 'Rollouts', icon: 'waves' },
       { path: '/scheduler', label: 'Scheduler', icon: 'schedule' },
       { path: '/config-sync', label: 'Config distribution', icon: 'sync' },

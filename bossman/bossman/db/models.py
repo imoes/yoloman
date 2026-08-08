@@ -2187,6 +2187,36 @@ class RemediationRun(Base):
     __table_args__ = (Index("idx_remediation_runs_recent", "policy_id", "agent_id", "at"),)
 
 
+class ChangeProposal(Base):
+    """An AI-proposed change awaiting human approval (Agentic-OS governance:
+    dry-run preview → confirm). When the AI decides to APPLY a config edit (or
+    run a runbook for real) and the fleet isn't in YOLO mode, it doesn't apply
+    directly — it files a proposal here carrying the dry-run PREVIEW (the diff /
+    per-step recap), who commissioned it, and the exact payload. A human reviews
+    the preview and approves (→ apply, recorded) or rejects. This is the
+    human-in-the-loop gate for autonomous changes, the sibling of the L2
+    orchestration-link approval for policy."""
+
+    __tablename__ = "change_proposals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)  # config | runbook
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"))
+    host: Mapped[str] = mapped_column(String, nullable=False, default="")
+    title: Mapped[str] = mapped_column(String, nullable=False, default="")
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)   # what to apply (resources / runbook+vars)
+    preview: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)    # the dry-run diff / recap
+    requested_by: Mapped[str | None] = mapped_column(String)                      # "ai:<user>" for AI-driven
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending|approved|rejected|applied|failed
+    apply_result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    decided_by: Mapped[str | None] = mapped_column(String)
+    decided_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (Index("idx_change_proposals_status", "status", "created_at"),)
+
+
 class Event(Base):
     """A passively-received event — a syslog message or an SNMP trap (gap #2,
     the Event Console). Unlike checks (which we poll), these arrive unsolicited

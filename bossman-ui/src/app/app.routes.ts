@@ -128,6 +128,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/events/event-browser.component').then((m) => m.EventBrowserComponent),
   },
   {
+    path: 'change-proposals',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/proposals/proposals.component').then((m) => m.ProposalsComponent),
+  },
+  {
     path: 'scheduler',
     canActivate: [authGuard],
     loadComponent: () => import('./features/scheduler/scheduler.component').then((m) => m.SchedulerComponent),

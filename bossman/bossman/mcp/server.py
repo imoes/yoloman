@@ -1030,16 +1030,44 @@ def build_mcp_server(
         ini, section→{key:value}). dry_run=true (default) returns the diff
         WITHOUT writing — always preview first, then re-call dry_run=false to
         apply. Needs the host's write gate open. Pair with diagnose_host: find
-        the cause, preview the fix, apply it."""
+        the cause, preview the fix, apply it.
+
+        GOVERNANCE: an apply (dry_run=false) does NOT write directly unless the
+        fleet is in YOLO mode — it files a CHANGE PROPOSAL carrying this diff for
+        a human to approve. The tool returns {proposed: true, proposal_id, diff}
+        in that case; the change takes effect only once a human approves it."""
         resource = {"type": "config", "path": path, "format": config_format,
                     "separator": separator, "values": values}
         async with session_factory() as session:
             agent = await _addressed_agent_or_raise(session, host)
             client = client_factory(agent, settings)
-        try:
-            return await client.state_apply({"resources": [resource]}, dry_run)
-        except AgentClientError as exc:
-            raise ValueError(str(exc)) from exc
+            # A pure preview always just runs check_mode.
+            if dry_run:
+                try:
+                    return await client.state_apply({"resources": [resource]}, True)
+                except AgentClientError as exc:
+                    raise ValueError(str(exc)) from exc
+            # An APPLY is human-gated unless YOLO: capture the diff, then either
+            # apply directly (YOLO) or file a proposal for approval.
+            if await is_yolo_mode(session):
+                try:
+                    return await client.state_apply({"resources": [resource]}, False)
+                except AgentClientError as exc:
+                    raise ValueError(str(exc)) from exc
+            try:
+                preview = await client.state_apply({"resources": [resource]}, True)
+            except AgentClientError as exc:
+                raise ValueError(str(exc)) from exc
+            from bossman.services import proposals as proposals_svc
+
+            actor = current_identity.get()
+            requested_by = f"ai:{actor}" if actor else "ai:mcp"
+            p = await proposals_svc.create_config_proposal(
+                session, agent, [resource], preview, requested_by,
+                title=f"Set {path} on {agent.name}")
+            return {"proposed": True, "proposal_id": str(p.id), "status": "pending",
+                    "message": "change filed as a proposal — awaiting human approval",
+                    "diff": preview}
 
     @mcp.tool()
     async def fleet_health() -> dict[str, Any]:
