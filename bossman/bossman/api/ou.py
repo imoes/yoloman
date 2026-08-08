@@ -41,6 +41,7 @@ from bossman.db.models import (
     ScopeVars,
 )
 from bossman.db.session import get_session
+from bossman.services import gpo
 from bossman.services.agent_client import AgentClientError
 from bossman.services.compiler import affected_agent_ids, compile_host_desired_state, resolve_ou_ancestry
 from bossman.services.config_desired import effective_resources
@@ -364,6 +365,44 @@ class PolicyReportOut(BaseModel):
     rows: list[PolicyReportRow]
 
 
+def _effective_threshold_rows(candidates: list[tuple[CheckRule, int, str]]) -> list[PolicyReportRow]:
+    """Resolve a scope's applicable threshold rules to the RESULTANT set: exactly
+    one row per (metric, label_value), the GPO winner — so the report shows only
+    what actually applies, not every candidate. Two rules on the same metric (an
+    inherited default vs one set here) collapse to the one that wins, matching
+    services/monitoring.resolve_effective_rule / services/gpo.resolve_winner.
+
+    `candidates` is (rule, gpo_level, origin_label) for every rule that could
+    apply at this scope."""
+    from collections import defaultdict
+
+    groups: dict[tuple, list[tuple[CheckRule, int, str]]] = defaultdict(list)
+    for rule, level, origin in candidates:
+        groups[(rule.metric, rule.label_value)].append((rule, level, origin))
+
+    rows: list[PolicyReportRow] = []
+    for members in groups.values():
+        gcands = [
+            gpo.GpoCandidate(
+                obj=(rule, origin),
+                enforced=bool(rule.enforced),
+                level=level,
+                link_order=rule.link_order if rule.link_order is not None else 100,
+                created_ts=rule.created_at.timestamp() if rule.created_at else 0.0,
+            )
+            for rule, level, origin in members
+        ]
+        won = gpo.resolve_winner(gcands)
+        if won is None:
+            continue
+        rule, origin = won
+        rows.append(PolicyReportRow(
+            kind="threshold", label=rule.service_name,
+            detail=f"{rule.metric} {rule.comparison} {rule.warn_threshold}/{rule.crit_threshold}",
+            origin=origin, enforced=rule.enforced))
+    return rows
+
+
 @router.get("/api/v1/policy-report", response_model=PolicyReportOut)
 async def policy_report(
     scope_type: str,
@@ -400,26 +439,33 @@ async def policy_report(
             detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
             rows.append(PolicyReportRow(kind="config", label=cp.path, detail=detail,
                                         origin=origin_of.get(cp.scope_ou_id, "OU")))
-        # Threshold rules: global tier + own/ancestor OUs (direct scope or via links).
+        # Threshold rules: global tier + own/ancestor OUs (direct scope or via
+        # links). Collect every candidate with its GPO level, then reduce to the
+        # RESULTANT set (one winner per metric) so two rules on the same metric
+        # don't both show — only the one that actually applies.
+        depth_of = {o.id: i for i, o in enumerate(ancestry)}  # root=0 … this OU deepest
         link_ou = {rid: oid for oid, rid in (
             await session.execute(
                 select(CheckRuleOuLink.ou_id, CheckRuleOuLink.rule_id)
                 .where(CheckRuleOuLink.ou_id.in_(ancestry_ids))
             )).all()}
+        th_cands: list[tuple[CheckRule, int, str]] = []
         for r in (await session.scalars(select(CheckRule).where(CheckRule.enabled == True))).all():  # noqa: E712
-            origin: str | None = None
             if r.scope_type == "global":
-                origin = "Global (whole fleet)"
-            elif r.scope_type == "ou" and r.scope_ou_id in origin_of:
-                origin = origin_of[r.scope_ou_id]
-            elif r.scope_type == "ou" and r.id in link_ou:
-                origin = origin_of.get(link_ou[r.id], "OU")
-            if origin is None:
+                th_cands.append((r, gpo.LEVEL_GLOBAL, "Global (whole fleet)"))
                 continue
-            rows.append(PolicyReportRow(
-                kind="threshold", label=r.service_name,
-                detail=f"{r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold}",
-                origin=origin, enforced=r.enforced))
+            if r.scope_type != "ou":
+                continue
+            # Deepest OU on this scope's ancestry the rule targets wins (direct
+            # scope_ou_id or any linked OU) — closest-to-host under GPO.
+            ous = {r.scope_ou_id} if r.scope_ou_id in depth_of else set()
+            if r.id in link_ou and link_ou[r.id] in depth_of:
+                ous.add(link_ou[r.id])
+            if not ous:
+                continue
+            best = max(ous, key=lambda o: depth_of[o])
+            th_cands.append((r, gpo.LEVEL_OU_BASE + depth_of[best], origin_of.get(best, "OU")))
+        rows.extend(_effective_threshold_rows(th_cands))
         # Orchestration plans linked to own/ancestor OUs.
         for link in (await session.scalars(
             select(OrchestrationPlanLink).where(OrchestrationPlanLink.ou_id.in_(ancestry_ids))
@@ -450,19 +496,15 @@ async def policy_report(
         for cp in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.site_id == scope_id))).all():
             detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
             rows.append(PolicyReportRow(kind="config", label=cp.path, detail=detail, origin="here"))
+        th_cands = []
         for r in (await session.scalars(
             select(CheckRule).where(CheckRule.enabled == True)  # noqa: E712
         )).all():
             if r.scope_type == "global":
-                origin = "Global (whole fleet)"
+                th_cands.append((r, gpo.LEVEL_GLOBAL, "Global (whole fleet)"))
             elif r.scope_type == "site" and r.scope_site_id == scope_id:
-                origin = "here"
-            else:
-                continue
-            rows.append(PolicyReportRow(
-                kind="threshold", label=r.service_name,
-                detail=f"{r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold}",
-                origin=origin, enforced=r.enforced))
+                th_cands.append((r, gpo.LEVEL_SITE, "here"))
+        rows.extend(_effective_threshold_rows(th_cands))
         for link in (await session.scalars(
             select(OrchestrationPlanLink).where(OrchestrationPlanLink.site_id == scope_id)
         )).all():
@@ -481,19 +523,15 @@ async def policy_report(
         for cp in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.host_group_id == scope_id))).all():
             detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
             rows.append(PolicyReportRow(kind="config", label=cp.path, detail=detail, origin="here"))
+        th_cands = []
         for r in (await session.scalars(
             select(CheckRule).where(CheckRule.enabled == True)  # noqa: E712
         )).all():
             if r.scope_type == "global":
-                origin = "Global (whole fleet)"
+                th_cands.append((r, gpo.LEVEL_GLOBAL, "Global (whole fleet)"))
             elif r.scope_type == "group" and r.scope_value == grp.name:
-                origin = "here"
-            else:
-                continue
-            rows.append(PolicyReportRow(
-                kind="threshold", label=r.service_name,
-                detail=f"{r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold}",
-                origin=origin, enforced=r.enforced))
+                th_cands.append((r, gpo.LEVEL_GROUP, "here"))
+        rows.extend(_effective_threshold_rows(th_cands))
         for sv in (await session.scalars(select(ScopeVars).where(ScopeVars.host_group_id == scope_id))).all():
             for k, v in (sv.vars or {}).items():
                 variables.append(PolicyVarRow(key=k, value=str(v), origin="here"))
