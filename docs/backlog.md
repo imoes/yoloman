@@ -36,7 +36,14 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
   Service. Fixed en route: the poller's own write gate was off (module delivery
   403) → poller entrypoint now writes `write: true`; and monitoring.py had no
   `logger` (its assigned-check except-paths would NameError) → added.
-  v3 creds not modelled yet (v2c community only).
+- **Block 4 — SNMP v3 (USM).** ✅ DONE (2026-08-08, commit 8fa8b26e). A device
+  carries `snmp_version` + the v3 security params (sec_level, sec_name,
+  auth_proto/auth_pass, priv_proto/priv_pass, context); passphrases stored in
+  device meta, never returned by the API (only *_pass_set). parameterize_snmp_star
+  rewrites the check argv to `["snmpwalk"] + _snmp_conn + [oids]` and builds the
+  -v3/-l/-u/-a/-A/-x/-X/-n sequence (v2c unchanged); go.starlark.net-safe (list
+  `+`, no `[*a,*b]`), unit-tested + ast-verified. Poller threads v3 params through;
+  UI form has a version toggle with conditional USM fields.
 
 ## qwen79b batches — now a systemd user service ([[project-config-batches]])
 
