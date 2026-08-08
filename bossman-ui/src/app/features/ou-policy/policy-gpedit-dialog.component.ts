@@ -1,5 +1,5 @@
-import { Component, Inject } from '@angular/core';
-import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { Component, Inject, ViewChild, signal } from '@angular/core';
+import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { OuConfigEditorComponent, EditorScope } from './ou-config-editor.component';
@@ -12,9 +12,10 @@ export interface PolicyGpeditDialogData {
 
 /**
  * "New Policy" / edit-policy — authors a config policy through the full
- * Miller-column gpedit editor (the new format) instead of the old orchestration
- * form. A config policy is scoped to an OU/group, so the dialog is opened for a
- * selected scope; each setting is applied through the editor's own Apply.
+ * Miller-column gpedit editor (the new format). The editor runs in DEFERRED
+ * mode: each setting is staged (not written on its own Apply), and the dialog's
+ * Save commits them all at once while Cancel discards them — the same
+ * Save/Cancel contract as the threshold dialog, instead of a bare Close.
  */
 @Component({
   selector: 'app-policy-gpedit-dialog',
@@ -23,17 +24,18 @@ export interface PolicyGpeditDialogData {
   template: `
     <h2 mat-dialog-title class="bm-gpd-title">
       <span>Policy settings — {{ data.scope.label }}</span>
-      <button mat-icon-button mat-dialog-close aria-label="Close" title="Close">
+      <button mat-icon-button (click)="cancel()" aria-label="Close" title="Cancel">
         <mat-icon>close</mat-icon>
       </button>
     </h2>
     <mat-dialog-content>
-      <app-ou-config-editor [scope]="data.scope" [initialPath]="data.path" />
+      <app-ou-config-editor #editor [scope]="data.scope" [initialPath]="data.path" [deferApply]="true" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <!-- Each setting is applied by its own Apply button in the editor, so there
-           is nothing to save/discard on the dialog itself — this just closes. -->
-      <button mat-flat-button color="primary" mat-dialog-close>Close</button>
+      <button mat-button (click)="cancel()" [disabled]="saving()">Cancel</button>
+      <button mat-flat-button color="primary" (click)="save()" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : (editor.pendingCount() ? 'Save (' + editor.pendingCount() + ')' : 'Save') }}
+      </button>
     </mat-dialog-actions>
   `,
   styles: [`
@@ -44,5 +46,27 @@ export interface PolicyGpeditDialogData {
   `],
 })
 export class PolicyGpeditDialogComponent {
-  constructor(@Inject(MAT_DIALOG_DATA) public data: PolicyGpeditDialogData) {}
+  @ViewChild('editor') editor!: OuConfigEditorComponent;
+  saving = signal(false);
+
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: PolicyGpeditDialogData,
+    private dialogRef: MatDialogRef<PolicyGpeditDialogComponent>,
+  ) {}
+
+  /** Commit every staged setting, then close. Closes even with nothing staged
+   * (saveAll short-circuits) so Save always dismisses the dialog. */
+  save(): void {
+    this.saving.set(true);
+    this.editor.saveAll().subscribe({
+      next: () => this.dialogRef.close(true),
+      error: () => this.saving.set(false),
+    });
+  }
+
+  /** Drop staged edits and close without writing anything. */
+  cancel(): void {
+    this.editor.discardAll();
+    this.dialogRef.close(false);
+  }
 }

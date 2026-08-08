@@ -25,6 +25,24 @@ export interface ThresholdDialogData {
   rule?: CheckRule;
 }
 
+/** Metric categories for the Miller list's first column — matched by keyword
+ * against the metric key, display name and description (first match wins);
+ * anything unmatched falls into "Other". Order here is the display order. */
+const METRIC_CATEGORIES: { key: string; label: string; test: RegExp }[] = [
+  { key: 'cpu', label: 'CPU & load', test: /cpu|load|processor/i },
+  { key: 'memory', label: 'Memory', test: /\bmem|memory|swap|\bram\b/i },
+  { key: 'disk', label: 'Disk & storage', test: /disk|fs_|filesystem|inode|storage|volume|mount|\bio_|iops/i },
+  { key: 'network', label: 'Network', test: /net|network|tcp|udp|packet|bandwidth|iface|interface|latency|ping|throughput/i },
+  { key: 'process', label: 'Processes & services', test: /proc|process|\bservice|thread|handle|\bport\b|socket|queue/i },
+  { key: 'system', label: 'System', test: /uptime|temp|sensor|power|battery|clock|ntp|\btime\b|entropy|fan|voltage/i },
+];
+const OTHER_CAT = { key: 'other', label: 'Other', test: /.^/ };
+
+function metricCategory(m: MetricCatalogEntry): string {
+  const hay = `${m.metric} ${m.display_name} ${m.description ?? ''}`;
+  return METRIC_CATEGORIES.find((c) => c.test.test(hay))?.key ?? OTHER_CAT.key;
+}
+
 const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
   { value: 'gt', label: '> greater than' },
   { value: 'lt', label: '< less than' },
@@ -52,15 +70,26 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
     <mat-dialog-content [formGroup]="form">
       <input class="bm-in bm-search" type="search" placeholder="Search metrics — CPU, memory, disk…"
              [ngModel]="search()" [ngModelOptions]="{ standalone: true }" (ngModelChange)="search.set($event)" />
+      <!-- Three Miller columns: metric Category → Metric → Threshold params.
+           The params column always shows the set warn/crit once a metric is
+           chosen (mirrors the gpedit editor's three-column layout). -->
       <div class="bm-browser">
-        <div class="bm-list">
-          @for (m of filteredMetrics(); track m.metric) {
+        <div class="bm-list bm-col-cat">
+          @for (c of categories(); track c.key) {
+            <div class="bm-item bm-item-cat" [class.sel]="activeCat() === c.key" (click)="selectCat(c.key)">
+              <div class="bm-item-name">{{ c.label }}</div>
+              <span class="bm-count">{{ c.count }}</span>
+            </div>
+          } @empty { <p class="bm-dim">No metrics match.</p> }
+        </div>
+        <div class="bm-list bm-col-metric">
+          @for (m of metricsInCat(); track m.metric) {
             <div class="bm-item" [class.sel]="form.controls.metric.value === m.metric"
                  (click)="pick(m)" [title]="m.metric">
               <div class="bm-item-name">{{ m.display_name }}{{ m.unit ? ' (' + m.unit + ')' : '' }}</div>
               @if (m.description) { <div class="bm-item-desc">{{ m.description }}</div> }
             </div>
-          } @empty { <p class="bm-dim">No metrics match.</p> }
+          } @empty { <p class="bm-dim">Pick a category.</p> }
         </div>
         <div class="bm-params">
           @if (form.controls.metric.value) {
@@ -98,9 +127,14 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
       /* Compact fields — the same smaller input style used across the policy
          editors (gpedit), not Material's large outline form fields. */
       .bm-search { max-width: 100%; margin-bottom: 10px; }
-      .bm-browser { display: flex; gap: 12px; min-width: 560px; }
-      .bm-list { flex: 0 0 240px; max-height: 360px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
+      .bm-browser { display: flex; flex-wrap: wrap; gap: 12px; min-width: 640px; }
+      .bm-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
+      .bm-col-cat { flex: 0 0 190px; }
+      .bm-col-metric { flex: 0 0 230px; }
       .bm-item { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; }
+      .bm-item-cat { display: flex; align-items: center; gap: 6px; }
+      .bm-item-cat .bm-item-name { flex: 1; }
+      .bm-count { font-size: 11px; opacity: 0.5; }
       .bm-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-item.sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
       .bm-item-name { font-size: 13px; }
@@ -152,6 +186,35 @@ export class ThresholdDialogComponent implements OnInit {
     );
   });
 
+  // Miller column 1: metric categories (with counts), search-filtered, in the
+  // fixed METRIC_CATEGORIES order with "Other" last. Column 2 is column 1's
+  // active category; column 3 is the picked metric's threshold params.
+  selectedCat = signal<string | null>(null);
+  categories = computed<{ key: string; label: string; count: number }[]>(() => {
+    const counts = new Map<string, number>();
+    for (const m of this.filteredMetrics()) {
+      const k = metricCategory(m);
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return [...METRIC_CATEGORIES, OTHER_CAT]
+      .filter((c) => counts.has(c.key))
+      .map((c) => ({ key: c.key, label: c.label, count: counts.get(c.key)! }));
+  });
+  activeCat = computed<string | null>(() => {
+    const sel = this.selectedCat();
+    const cats = this.categories();
+    if (sel && cats.some((c) => c.key === sel)) return sel;
+    return cats[0]?.key ?? null;
+  });
+  metricsInCat = computed<MetricCatalogEntry[]>(() => {
+    const key = this.activeCat();
+    return this.filteredMetrics().filter((m) => metricCategory(m) === key);
+  });
+
+  selectCat(key: string): void {
+    this.selectedCat.set(key);
+  }
+
   constructor(@Inject(MAT_DIALOG_DATA) public data: ThresholdDialogData) {
     if (data.rule) {
       this.form.patchValue({
@@ -162,6 +225,9 @@ export class ThresholdDialogComponent implements OnInit {
         crit_threshold: data.rule.crit_threshold,
         enforced: data.rule.enforced,
       });
+      // Pre-open the category that holds the edited metric so column 2 highlights
+      // it and column 3 shows its params immediately.
+      this.selectedCat.set(metricCategory({ metric: data.rule.metric, display_name: data.rule.service_name, unit: '' }));
     } else if (data.hostName) {
       // Per-service override on a host: pre-fill the metric + a sensible
       // service name from the service the operator clicked.
@@ -169,6 +235,7 @@ export class ThresholdDialogComponent implements OnInit {
         metric: data.metric ?? '',
         service_name: data.serviceName ?? '',
       });
+      if (data.metric) this.selectedCat.set(metricCategory({ metric: data.metric, display_name: data.serviceName ?? '', unit: '' }));
     }
   }
 

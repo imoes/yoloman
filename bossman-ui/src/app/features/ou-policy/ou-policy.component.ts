@@ -46,6 +46,7 @@ import { PolicyReportComponent } from './policy-report.component';
 import { PolicyLibraryComponent } from './policy-library.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
 import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gpedit-dialog.component';
+import { StagedReviewDialogComponent, StagedReviewData } from './staged-review-dialog.component';
 import {
   OuLinkPlanDialogComponent,
   OuLinkPlanDialogData,
@@ -234,7 +235,7 @@ interface PaletteItem {
               (click)="selectPalettePolicy(p)"
               [cdkContextMenuTriggerFor]="paletteMenu"
               (contextmenu)="paletteCtx.set(p)"
-              [title]="p.kind === 'config_policy' ? 'Click to see its values; drag onto an OU/Site to link' : 'Drag onto an OU to link'"
+              [title]="(p.kind === 'config_policy' || p.kind === 'check_rule') ? 'Click to see its values; drag onto an OU/Site to link' : 'Drag onto an OU to link'"
             >
               <mat-icon class="bm-obj-icon">{{ paletteIcon(p.kind) }}</mat-icon>
               <span class="bm-label">{{ p.label }}</span>
@@ -330,6 +331,21 @@ interface PaletteItem {
                   <p class="bm-hint">Loading variables…</p>
                 }
               }
+              @if (sel.obj!.kind === 'check_rule') {
+                <div class="bm-pol-hd">
+                  <h3 class="bm-checks-h">Threshold — {{ thresholdDetail()?.service_name ?? sel.obj!.label }}</h3>
+                  <button mat-stroked-button class="bm-palette-new" (click)="editObject(sel)"><mat-icon>edit</mat-icon> Edit…</button>
+                </div>
+                @if (thresholdDetail(); as td) {
+                  <table class="bm-kv">
+                    @for (e of thresholdRows(); track e.label) {
+                      <tr><th>{{ e.label }}</th><td>{{ e.value }}</td></tr>
+                    }
+                  </table>
+                } @else {
+                  <p class="bm-hint">Loading threshold…</p>
+                }
+              }
             }
           } @else {
             <p class="bm-empty">Select a node to see its scope.</p>
@@ -338,18 +354,22 @@ interface PaletteItem {
       </div>
     </div>
 
-    <!-- Draft-mode Apply/Revert bar: appears bottom-right while changes are staged. -->
-    @if (staged().length) {
-      <div class="bm-staged-bar">
-        <mat-icon class="bm-staged-ic">edit_note</mat-icon>
+    <!-- Draft-mode Apply/Revert bar: always docked bottom-right so the Apply /
+         Revert controls are discoverable; the buttons enable once changes are
+         staged (drag-to-link, add threshold, delete, …) and show the count. -->
+    <div class="bm-staged-bar" [class.bm-staged-idle]="!staged().length">
+      <mat-icon class="bm-staged-ic">edit_note</mat-icon>
+      @if (staged().length) {
         <span class="bm-staged-count">{{ staged().length }} pending change{{ staged().length === 1 ? '' : 's' }}</span>
         <span class="bm-staged-last" [title]="stagedTitle()">{{ staged()[staged().length - 1].label }}</span>
-        <button mat-stroked-button (click)="revertStaged()" [disabled]="applying()">Revert</button>
-        <button mat-flat-button color="primary" (click)="applyStaged()" [disabled]="applying()">
-          <mat-icon>publish</mat-icon> {{ applying() ? 'Applying…' : 'Apply' }}
-        </button>
-      </div>
-    }
+      } @else {
+        <span class="bm-staged-count bm-staged-none">No pending changes</span>
+      }
+      <button mat-stroked-button (click)="revertStaged()" [disabled]="applying() || !staged().length">Revert</button>
+      <button mat-flat-button color="primary" (click)="applyStaged()" [disabled]="applying() || !staged().length">
+        <mat-icon>publish</mat-icon> {{ applying() ? 'Applying…' : 'Apply' }}
+      </button>
+    </div>
 
     <!-- Sites root-branch menu: create a subnet-scoped Site. -->
     <ng-template #sitesMenu>
@@ -470,6 +490,10 @@ interface PaletteItem {
         border: 1px solid var(--mat-sys-primary);
         box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
       }
+      /* Idle state: muted, so a persistent empty bar doesn't shout for attention. */
+      .bm-staged-idle { border-color: var(--mat-sys-outline-variant); opacity: 0.72; }
+      .bm-staged-idle:hover { opacity: 1; }
+      .bm-staged-none { font-weight: 500; opacity: 0.7; }
       .bm-staged-ic { color: var(--mat-sys-tertiary); }
       .bm-staged-count { font-weight: 600; font-size: 13px; }
       .bm-staged-last { font-size: 12px; opacity: 0.7; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -687,8 +711,19 @@ export class OuPolicyComponent implements OnInit {
     return this.staged().map((o) => '• ' + o.label).join('\n');
   }
 
-  /** Apply: run every staged op in order, then reload once. Stops on first error. */
+  /** Apply: first open a review popup listing every staged change in run order;
+   * only on confirm does it actually run them (via runStaged). */
   applyStaged(): void {
+    const ops = this.staged();
+    if (!ops.length || this.applying()) return;
+    this.dialog.open<StagedReviewDialogComponent, StagedReviewData, boolean>(
+      StagedReviewDialogComponent,
+      { width: 'min(560px, 94vw)', maxWidth: '94vw', data: { labels: ops.map((o) => o.label) } },
+    ).afterClosed().subscribe((ok) => { if (ok) this.runStaged(); });
+  }
+
+  /** Run every staged op in order, then reload once. Stops on first error. */
+  private runStaged(): void {
     const ops = this.staged();
     if (!ops.length || this.applying()) return;
     this.applying.set(true);
@@ -792,11 +827,30 @@ export class OuPolicyComponent implements OnInit {
   varsDetail = signal<Record<string, unknown> | null>(null);
   varsEntries = computed(() => Object.entries(this.varsDetail() || {}).map(([key, value]) => ({ key, value })));
 
+  // The selected threshold (check_rule), so the right pane shows its actual
+  // values (metric, comparison, warn/crit, …) instead of only the object kind.
+  thresholdDetail = signal<CheckRule | null>(null);
+  thresholdRows = computed<{ label: string; value: string }[]>(() => {
+    const r = this.thresholdDetail();
+    if (!r) return [];
+    const cmp: Record<string, string> = { gt: '>', lt: '<', ge: '>=', le: '<=', eq: '==', ne: '!=' };
+    const num = (v: number | null) => (v === null || v === undefined ? '—' : String(v));
+    return [
+      { label: 'Metric', value: r.metric },
+      { label: 'Comparison', value: cmp[r.comparison] ?? r.comparison },
+      { label: 'Warning', value: num(r.warn_threshold) },
+      { label: 'Critical', value: num(r.crit_threshold) },
+      { label: 'Label', value: r.label_value || '(all)' },
+      { label: 'Max attempts', value: r.max_attempts === null ? '(default)' : String(r.max_attempts) },
+    ];
+  });
+
   select(row: TreeRow): void {
     this.selected.set(row);
     this.ouChecks.set([]);
     this.policyDetail.set(null);
     this.varsDetail.set(null);
+    this.thresholdDetail.set(null);
     if (row.kind === 'ou') this.loadOuChecks(row.ou!.id);
     else if (row.obj?.kind === 'config_policy') {
       this.ouService.getConfigPolicy(row.obj.id).subscribe({
@@ -808,15 +862,22 @@ export class OuPolicyComponent implements OnInit {
         next: (r) => this.varsDetail.set(r.vars || {}),
         error: () => this.varsDetail.set(null),
       });
+    } else if (row.obj?.kind === 'check_rule') {
+      this.monitoring.listCheckRules().subscribe({
+        next: (rules) => this.thresholdDetail.set(rules.find((r) => r.id === row.obj!.id) ?? null),
+        error: () => this.thresholdDetail.set(null),
+      });
     }
   }
 
   /** Click a policy in the palette → select it (show its values on the right),
    * as a synthetic object row so the same detail pane renders. */
   selectPalettePolicy(p: PaletteItem): void {
-    if (p.kind !== 'config_policy') return;
+    // Clicking a config policy or a threshold in the palette shows its values on
+    // the right (both have a values view); other kinds only drag-to-link.
+    if (p.kind !== 'config_policy' && p.kind !== 'check_rule') return;
     this.select({ kind: 'object', depth: 0, ownerOuId: p.ownerOuId ?? undefined,
-      obj: { kind: 'config_policy', id: p.id, label: p.label, enforced: false, enabled: true } });
+      obj: { kind: p.kind, id: p.id, label: p.label, enforced: false, enabled: true } });
   }
 
   private loadOuChecks(ouId: string): void {
@@ -1087,7 +1148,7 @@ export class OuPolicyComponent implements OnInit {
 
   newThreshold(ou: OUNode): void {
     const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
-      width: '660px', data: { ouId: ou.id, ouPath: ou.path },
+      width: 'min(880px, 94vw)', maxWidth: '94vw', data: { ouId: ou.id, ouPath: ou.path },
     });
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
@@ -1099,7 +1160,7 @@ export class OuPolicyComponent implements OnInit {
    * is in the site's subnets, precedence OU < Site < host. */
   newSiteThreshold(row: TreeRow): void {
     const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
-      width: '660px', data: { siteId: row.obj!.id, siteLabel: row.obj!.label },
+      width: 'min(880px, 94vw)', maxWidth: '94vw', data: { siteId: row.obj!.id, siteLabel: row.obj!.label },
     });
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
@@ -1410,7 +1471,7 @@ export class OuPolicyComponent implements OnInit {
         const rule = rules.find((r) => r.id === obj.id);
         if (!rule) return;
         const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
-          width: '660px', data: { ouId: ou.id, ouPath: ou.path, rule },
+          width: 'min(880px, 94vw)', maxWidth: '94vw', data: { ouId: ou.id, ouPath: ou.path, rule },
         });
         ref.afterClosed().subscribe((input) => {
           if (!input) return;

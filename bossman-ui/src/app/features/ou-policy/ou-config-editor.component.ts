@@ -1,4 +1,6 @@
 import { Component, OnChanges, SimpleChanges, Input, inject, signal } from '@angular/core';
+import { Observable, forkJoin, of } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,6 +26,18 @@ interface SettingRow {
   state: 'Configured' | 'Removed' | 'Host based';
   policy: string;
   live: string;
+  /** True when this row's state comes from an unsaved (staged) edit — shown with
+   * a • marker in the deferred (dialog) mode where Save commits, Cancel discards. */
+  pending?: boolean;
+}
+
+/** One staged edit in the deferred (dialog Save/Cancel) mode. */
+interface PendingEdit {
+  path: string;
+  key: string;
+  mode: 'configured' | 'removed' | 'notconf';
+  value: string;
+  fmt: string;
 }
 
 /** What the gpedit editor is scoped to — an OU or a host group. For a group
@@ -100,8 +114,8 @@ export interface EditorScope {
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
                 @for (row of rows(); track row.key) {
-                  <tr (click)="openRow(row)" [class.bm-oce-row-sel]="editKey() === row.key" [class.bm-oce-managed]="row.state !== 'Host based'">
-                    <td class="bm-oce-key">{{ row.key }}</td>
+                  <tr (click)="openRow(row)" [class.bm-oce-row-sel]="editKey() === row.key" [class.bm-oce-managed]="row.state !== 'Host based'" [class.bm-oce-pending]="row.pending">
+                    <td class="bm-oce-key">@if (row.pending) { <span class="bm-oce-pdot" title="staged — not saved yet">•</span> }{{ row.key }}</td>
                     <td>{{ row.state }}</td>
                     <td>{{ row.state === 'Configured' ? row.policy : row.state === 'Removed' ? '(absent)' : '' }}</td>
                     <td class="bm-oce-live">{{ row.live }}</td>
@@ -135,7 +149,7 @@ export interface EditorScope {
                 @if (error(); as e) { <p class="bm-oce-err">{{ e }}</p> }
                 <div class="bm-oce-actions">
                   <button mat-button (click)="closeRow()" [disabled]="busy()">Cancel</button>
-                  <button mat-flat-button color="primary" (click)="apply()" [disabled]="busy()">Apply to {{ scopeWord }}</button>
+                  <button mat-flat-button color="primary" (click)="apply()" [disabled]="busy()">{{ deferApply ? 'Stage change' : 'Apply to ' + scopeWord }}</button>
                 </div>
               </div>
             }
@@ -176,6 +190,8 @@ export interface EditorScope {
       .bm-oce-settings th { text-align: left; font-size: 11px; opacity: 0.65; padding: 6px 10px; }
       .bm-oce-settings td { padding: 6px 10px; border-top: 1px solid var(--mat-sys-outline-variant); cursor: pointer; }
       .bm-oce-managed td { font-weight: 600; }
+      .bm-oce-pending td { background: color-mix(in srgb, var(--mat-sys-tertiary) 12%, transparent); }
+      .bm-oce-pdot { color: var(--mat-sys-tertiary); font-weight: 700; margin-right: 5px; }
       .bm-oce-row-sel td { background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
       .bm-oce-key { font-family: ui-monospace, monospace; }
       .bm-oce-live { opacity: 0.6; }
@@ -194,6 +210,10 @@ export class OuConfigEditorComponent implements OnChanges {
   // Open directly ON this config file (a specific policy the user clicked to
   // edit), so its set values are visible immediately instead of an empty tree.
   @Input() initialPath?: string;
+  // Deferred mode (the dialog): settings are STAGED, not applied on each Apply.
+  // The dialog commits them all via saveAll() on Save, or drops them on Cancel.
+  // Left false for the inline (host-group) editor, which applies immediately.
+  @Input() deferApply = false;
 
   private agentService = inject(AgentService);
   private ouService = inject(OuService);
@@ -237,6 +257,11 @@ export class OuConfigEditorComponent implements OnChanges {
   newKey = signal('');
   busy = signal(false);
   error = signal<string | null>(null);
+  // Staged edits in deferred mode, keyed by `${path} ${key}` so a key can be
+  // re-edited before Save. Empty in immediate mode.
+  pending = signal<Map<string, PendingEdit>>(new Map());
+  private pk(path: string, key: string): string { return `${path} ${key}`; }
+  pendingCount(): number { return this.pending().size; }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['scope']) this.reload();
@@ -248,6 +273,7 @@ export class OuConfigEditorComponent implements OnChanges {
     this.policies.set([]);
     this.selected.set(null);
     this.editKey.set(null);
+    this.pending.set(new Map());
     this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => {
       this.policies.set(ps);
       // Show set values right away: select the file the user came to edit, else
@@ -354,22 +380,61 @@ export class OuConfigEditorComponent implements OnChanges {
     const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
     const specs = this.specsForFile(path);
     const des = new Map(this.flat(this.policyFor(path)?.values ?? {}, fmt));
-    const keys = [...new Set([...Object.keys(specs), ...des.keys()])].sort();
+    // Staged edits for THIS file overlay the persisted values, and staged-only
+    // keys join the list — so the settings column always shows what will be set.
+    const pend = new Map<string, PendingEdit>();
+    for (const e of this.pending().values()) if (e.path === path) pend.set(e.key, e);
+    const keys = [...new Set([...Object.keys(specs), ...des.keys(), ...pend.keys()])].sort();
     const q = this.search().trim().toLowerCase();
     const all = keys.map((key): SettingRow => {
       const managed = des.has(key);
       const dv = des.get(key);
-      return {
+      const base: SettingRow = {
         key,
         state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Host based',
         policy: dv === null || dv === undefined ? '' : this.scalar(dv),
         // No live host value here — show the directive default as a reference.
         live: this.scalar(specs[key]?.default ?? ''),
       };
+      const p = pend.get(key);
+      if (p) {
+        base.pending = true;
+        base.state = p.mode === 'notconf' ? 'Host based' : p.mode === 'removed' ? 'Removed' : 'Configured';
+        base.policy = p.mode === 'configured' ? p.value : '';
+      }
+      return base;
     });
     if (!q || path.toLowerCase().includes(q)) return all;
     const hit = all.filter((r) => r.key.toLowerCase().includes(q));
     return hit.length ? hit : all;
+  }
+
+  /** Commit every staged edit (deferred/dialog mode): one createConfigPolicy per
+   * file carrying its set/removed keys, plus an unset per "Host based" key.
+   * Completes before the dialog closes so the page's reload sees the result. */
+  saveAll(): Observable<unknown> {
+    const map = this.pending();
+    if (!map.size) return of(null);
+    const byPath = new Map<string, { fmt: string; values: Record<string, unknown>; unset: string[] }>();
+    for (const e of map.values()) {
+      const g = byPath.get(e.path) ?? { fmt: e.fmt || 'keyvalue', values: {}, unset: [] };
+      if (e.mode === 'notconf') g.unset.push(e.key);
+      else Object.assign(g.values, this.unflatten(e.key, e.mode === 'removed' ? null : e.value, e.fmt !== 'keyvalue'));
+      byPath.set(e.path, g);
+    }
+    const ops: Observable<unknown>[] = [];
+    for (const [path, g] of byPath) {
+      if (Object.keys(g.values).length) ops.push(this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: g.fmt, values: g.values }));
+      for (const key of g.unset) if (this.policyFor(path)) ops.push(this.ouService.unsetConfigPolicyKey({ ...this.scopeArg(), path, key }));
+    }
+    if (!ops.length) { this.pending.set(new Map()); return of(null); }
+    return forkJoin(ops).pipe(tap(() => this.pending.set(new Map())));
+  }
+
+  /** Drop all staged edits (deferred/dialog Cancel) — nothing was persisted. */
+  discardAll(): void {
+    this.pending.set(new Map());
+    this.editKey.set(null);
   }
 
   openRow(row: SettingRow): void {
@@ -424,6 +489,15 @@ export class OuConfigEditorComponent implements OnChanges {
     const key = this.editKey();
     if (!path || !key) return;
     const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
+    // Deferred mode: stage the edit and update the row overlay; nothing hits the
+    // API until the dialog's Save (saveAll). Re-editing a key replaces its entry.
+    if (this.deferApply) {
+      const next = new Map(this.pending());
+      next.set(this.pk(path, key), { path, key, mode: this.mode(), value: this.value(), fmt });
+      this.pending.set(next);
+      this.editKey.set(null);
+      return;
+    }
     this.busy.set(true);
     this.error.set(null);
     const done = () => {

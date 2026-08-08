@@ -938,7 +938,17 @@ async def rescope_config_policy(
     cp.host_group_id = scope_id if scope_kind == "group" else None
     cp.site_id = scope_id if scope_kind == "site" else None
     cp.updated_at = datetime.now(timezone.utc)
-    await session.commit()
+    cp_path = cp.path  # read before commit: a rollback expires the instance
+    try:
+        await session.commit()
+    except IntegrityError:
+        # That scope already has a policy for this file (uq on scope+path):
+        # surface a clean 409 instead of a raw 500 so the UI can explain it.
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"{cp_path} already has a policy at this scope — edit that one instead of linking a second.",
+        )
     return {"id": str(cp.id), "scope_ou_id": str(cp.scope_ou_id) if cp.scope_ou_id else None,
             "host_group_id": str(cp.host_group_id) if cp.host_group_id else None,
             "site_id": str(cp.site_id) if cp.site_id else None}

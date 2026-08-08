@@ -3760,7 +3760,8 @@ export class HostDetailComponent implements OnInit {
     if (!agent) return;
     const spec = serviceMetricSpec(svc.name, svc.metric);
     const ref = this.dialog.open(ThresholdDialogComponent, {
-      width: '660px',
+      width: 'min(880px, 94vw)',
+      maxWidth: '94vw',
       data: {
         hostName: agent.name,
         serviceName: svc.name,
