@@ -14,6 +14,7 @@ import { OuService } from '../../core/services/ou.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
+import { HostGroupMembersDialogComponent, HostGroupMembersDialogData } from '../../shared/components/host-group-members-dialog/host-group-members-dialog.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { ScopeVarsDialogComponent, ScopeVarsDialogData } from '../../shared/components/scope-vars-dialog/scope-vars-dialog.component';
 import { HostTagsDialogComponent, HostTagsDialogData } from '../../shared/components/host-tags-dialog/host-tags-dialog.component';
@@ -115,11 +116,12 @@ interface AppliedPolicy {
             <div class="bm-groups-head">Host groups</div>
             @for (g of groups(); track g.id) {
               <div class="bm-node bm-group" [class.bm-selected]="selectedGroup()?.id === g.id"
-                   (click)="selectGroup(g)">
+                   (click)="selectGroup(g)"
+                   [cdkContextMenuTriggerFor]="groupMenu" (contextmenu)="ctxGroup.set(g)">
                 <span class="bm-twisty">·</span>
                 <mat-icon class="bm-host-icon">workspaces</mat-icon>
                 <span class="bm-label">{{ g.name }}</span>
-                <span class="bm-drag-hint">{{ g.member_agent_ids.length }} members</span>
+                <span class="bm-drag-hint">{{ g.member_agent_ids.length }} members · right-click to edit</span>
               </div>
             }
           }
@@ -247,6 +249,14 @@ interface AppliedPolicy {
         <button class="bm-menu-item" cdkMenuItem (click)="createGroup(ctxOu()!)">Create group…</button>
       </div>
     </ng-template>
+
+    <ng-template #groupMenu>
+      <div class="bm-menu" cdkMenu>
+        <button class="bm-menu-item" cdkMenuItem (click)="editGroupMembers(ctxGroup()!)">Edit members…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="renameGroup(ctxGroup()!)">Rename / describe…</button>
+        <button class="bm-menu-item bm-menu-danger" cdkMenuItem (click)="deleteGroup(ctxGroup()!)">Delete group…</button>
+      </div>
+    </ng-template>
   `,
   styles: [
     `
@@ -310,6 +320,7 @@ interface AppliedPolicy {
         color: inherit; padding: 7px 12px; font: inherit; cursor: pointer; border-radius: 4px;
       }
       .bm-menu-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+      .bm-menu-danger { color: var(--mat-sys-error, #c62828); }
     `,
   ],
 })
@@ -331,6 +342,7 @@ export class HostPlacementComponent implements OnInit {
   groupReport = signal<GroupPolicyReport | null>(null);
   ctxOu = signal<OUNode | null>(null);
   ctxHost = signal<Agent | null>(null);
+  ctxGroup = signal<HostGroup | null>(null);
 
   /** Right-click → set this host's tags (host_tags condition lever). On save,
    * re-select the host so its applied-policies report reflects the new match. */
@@ -513,6 +525,39 @@ export class HostPlacementComponent implements OnInit {
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
       this.hostGroup.create({ ...input, ou_id: ou.id }).subscribe(() => this.reload());
+    });
+  }
+
+  /** Right-click → Edit members: the two-column transfer dialog (available |
+   * in-group). Saves replace-all via PUT /host-groups/{id}/members. */
+  editGroupMembers(group: HostGroup): void {
+    const ref = this.dialog.open<HostGroupMembersDialogComponent, HostGroupMembersDialogData, string[]>(
+      HostGroupMembersDialogComponent, { width: '640px', data: { group, agents: this.hosts() } });
+    ref.afterClosed().subscribe((ids) => {
+      if (!ids) return;
+      this.hostGroup.replaceMembers(group.id, ids).subscribe(() => {
+        this.reload();
+        if (this.selectedGroup()?.id === group.id) this.selectGroup({ ...group, member_agent_ids: ids });
+      });
+    });
+  }
+
+  /** Right-click → Rename / describe (reuses the create dialog, prefilled). */
+  renameGroup(group: HostGroup): void {
+    const ref = this.dialog.open<HostGroupDialogComponent, HostGroupDialogData, HostGroupInput>(
+      HostGroupDialogComponent, { width: '420px', data: { nodes: this.ous(), group } });
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      this.hostGroup.update(group.id, input).subscribe(() => this.reload());
+    });
+  }
+
+  /** Right-click → Delete group (confirm first). */
+  deleteGroup(group: HostGroup): void {
+    if (!confirm(`Delete host group “${group.name}”? Its policy bindings are removed; member hosts are untouched.`)) return;
+    this.hostGroup.delete(group.id).subscribe(() => {
+      if (this.selectedGroup()?.id === group.id) this.selectedGroup.set(null);
+      this.reload();
     });
   }
 

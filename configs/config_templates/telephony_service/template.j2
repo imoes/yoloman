@@ -1,92 +1,106 @@
 # Telephony Service Configuration — Lomiri
 # Main configuration file for the telephony service daemon
+#
+# This template is self-documenting. Each directive is preceded by a comment
+# derived from the schema description to ensure clarity without external documentation.
 
 [service]
-# Enable or disable the telephony service
-enabled = {{ enabled }}
 
-# Path to the PID file
-pid_file = {{ pid_file }}
+# Enable or disable the telephony service daemon entirely.
+enabled = {{ enabled | default(true) | lower }}
 
-# User and group to run the service as
-user = {{ user }}
-group = {{ group }}
+# Full path where the daemon writes its process ID.
+pid_file = {{ pid_file | default('/run/lomiri/telephony-service.pid') }}
 
-# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug
-log_level = {{ log_level }}
+# System user account under which the service runs.
+user = {{ user | default('telephony') }}
 
-# Log directory
-log_dir = {{ log_dir }}
+# System group for the telephony service processes.
+group = {{ group | default('telephony') }}
 
-# Path to the system log (e.g., syslog socket or journal)
-syslog = {{ syslog }}
+# Verbosity of logging: 0=error, 1=warn, 2=info (default), 3=debug.
+log_level = {{ log_level | default(2) }}
+
+# Directory where telephony service logs are written.
+log_dir = {{ log_dir | default('/var/log/telephony') }}
+
+# Forward logs to the system logger (syslog/journald).
+syslog = {{ syslog | default(true) | lower }}
 
 [dialer]
-# Enable dialer integration
-enabled = {{ dialer_enabled }}
 
-# Maximum concurrent active calls
-call_limit = {{ call_limit }}
+# Enable integration with the system dialer app.
+enabled = {{ dialer_enabled | default(true) | lower }}
 
-# Timeout (in seconds) before aborting an outgoing call attempt
-outgoing_timeout = {{ outgoing_timeout }}
+# Maximum number of simultaneous active calls allowed.
+call_limit = {{ call_limit | default(2) }}
 
-# Maximum number of retries for dialing
-max_dial_retries = {{ max_dial_retries }}
+# Seconds to wait before aborting an outgoing call setup.
+outgoing_timeout = {{ outgoing_timeout | default(45) }}
+
+# Maximum number of retry attempts for dialing a number.
+max_dial_retries = {{ max_dial_retries | default(3) }}
 
 [ril]
-# RIL backend type (e.g., 'qmi', 'at', 'uim', 'mock')
-backend = {{ ril_backend }}
 
-# Path to the RIL device (e.g., /dev/ttyUSB2)
-device = {{ ril_device }}
+# RIL backend to use for modem communication (e.g., 'qmi', 'at', 'mock').
+backend = {{ ril_backend | default('qmi') }}
 
-# APN for default data connection
-default_apn = {{ default_apn }}
+# Path to the serial device or control interface for the modem.
+device = {{ ril_device | default('/dev/ttyUSB2') }}
 
-# APN authentication type: 'none', 'pap', 'chap', 'pap_or_chap'
-apn_auth_type = {{ apn_auth_type }}
+# Default APN used for mobile data connectivity.
+default_apn = {{ default_apn | default('internet') }}
 
-# APN username and password (leave blank if not needed)
-apn_username = {{ apn_username }}
-apn_password = {{ apn_password }}
+# Authentication type for the default APN.
+apn_auth_type = {{ apn_auth_type | default('none') }}
+
+# Username for APN authentication (leave empty if not required).
+apn_username = {{ apn_username | default('') }}
+
+# Password for APN authentication (leave empty if not required).
+apn_password = {{ apn_password | default('') }}
 
 [ussd]
-# Enable USSD support
-enabled = {{ ussd_enabled }}
+
+# Enable support for Unstructured Supplementary Service Data (USSD).
+enabled = {{ ussd_enabled | default(true) | lower }}
 
 [sms]
-# Enable SMS handling
-enabled = {{ sms_enabled }}
 
-# Storage path for SMS messages
-store_path = {{ sms_store_path }}
+# Enable SMS sending, receiving, and storage.
+enabled = {{ sms_enabled | default(true) | lower }}
 
-# Maximum SMS messages to retain
-max_sms_retain = {{ max_sms_retain }}
+# Directory for storing SMS messages.
+store_path = {{ sms_store_path | default('/var/lib/telephony/sms') }}
 
-# SMSC number (use default if empty)
-smsc = {{ smsc }}
+# Maximum number of SMS messages retained in storage.
+max_sms_retain = {{ max_sms_retain | default(500) }}
 
-# Delivery report preference: true or false
-delivery_reports = {{ delivery_reports }}
+# Service Center number (SMSC) override. Leave empty to use modem default.
+smsc = {{ smsc | default('') }}
+
+# Request delivery status reports for outgoing SMS.
+delivery_reports = {{ delivery_reports | default(true) | lower }}
 
 [gnss]
-# Enable GNSS (GPS) support for call定位
-enabled = {{ gnss_enabled }}
 
-# Location of NMEA serial device (e.g., /dev/ttyO1)
-device = {{ gnss_device }}
+# Enable GNSS (GPS) assistance for location-based features and call routing.
+enabled = {{ gnss_enabled | default(false) | lower }}
 
-# NMEA update rate in seconds (min: 1, max: 10)
-nmea_rate = {{ nmea_rate }}
+# NMEA serial device path for GPS data.
+device = {{ gnss_device | default('/dev/ttyO1') }}
 
-# Timeout (in seconds) before GNSS times out on fix
-timeout = {{ gnss_timeout }}
+# Update interval (seconds) for NMEA sentences (1–10 seconds).
+nmea_rate = {{ nmea_rate | default(1) }}
+
+# Maximum wait time (seconds) for a valid GNSS fix before giving up.
+timeout = {{ gnss_timeout | default(30) }}
 
 [mobile_data]
-# Auto-connect to default APN on boot
-auto_connect = {{ mobile_data_auto_connect }}
 
-# Enable background data usage (e.g., for push notifications)
-background_data = {{ mobile_data_background }}
+# Automatically establish a data connection on service startup.
+auto_connect = {{ mobile_data_auto_connect | default(false) | lower }}
+
+# Allow background mobile data usage for services like push notifications.
+background_data = {{ mobile_data_background | default(true) | lower }}

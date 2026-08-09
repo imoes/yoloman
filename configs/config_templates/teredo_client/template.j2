@@ -1,42 +1,152 @@
-# Teredo client configuration — enables IPv6 connectivity via Teredo tunneling through NATs
+# =============================================================================
+# Teredo Client Configuration (miredo/teredo-client)
+# =============================================================================
+# This template generates a configuration file for a Teredo client.
+# Teredo is a tunneling protocol that provides IPv6 connectivity to hosts
+# connected to an IPv4 network through NATs.
+#
+# Variables are sourced from the Ansible role variables, with schema-defined
+# defaults applied inline to ensure idempotent rendering.
+# =============================================================================
 
-# Server to use for Teredo service (required for client operation)
-ServerName {{ teredo_server }}
+# -----------------------------------------------------------------------------
+# Primary Teredo Server
+# -----------------------------------------------------------------------------
+# Field: teredo_server
+# Default: 'teredo.ipv6.utwente.nl'
+# Desc: Primary Teredo server hostname or IP address (required for client mode)
+#
+ServerName {{ teredo_server | default('teredo.ipv6.utwente.nl') }}
 
-# Optional: Fallback server if primary is unreachable
-{% if teredo_fallback_server %}FallbackServerName {{ teredo_fallback_server }}{% endif %}
+# -----------------------------------------------------------------------------
+# Fallback Teredo Server
+# -----------------------------------------------------------------------------
+# Field: teredo_fallback_server
+# Default: '' (empty)
+# Desc: Fallback Teredo server hostname or IP address if primary is unreachable
+#
+# Only output if a fallback server is explicitly configured.
+{% if teredo_fallback_server | default('') %}
+FallbackServerName {{ teredo_fallback_server | default('') }}
+{% endif %}
 
-# Teredo client type: client, automatic, or relay
-{% if teredo_type %}TeredoType {{ teredo_type }}{% else %}TeredoType client{% endif %}
+# -----------------------------------------------------------------------------
+# Teredo Operation Mode
+# -----------------------------------------------------------------------------
+# Field: teredo_type
+# Default: 'client'
+# Desc: Operation mode: 'client' (standard), 'automatic' (auto-configure),
+#       or 'relay' (server-side)
+#
+TeredoType {{ teredo_type | default('client') }}
 
-# Interface name for the Teredo tunnel (default: teredo)
-{% if teredo_interface %}TeredoInterface {{ teredo_interface }}{% else %}TeredoInterface teredo{% endif %}
+# -----------------------------------------------------------------------------
+# Virtual Interface Name
+# -----------------------------------------------------------------------------
+# Field: teredo_interface
+# Default: 'teredo'
+# Desc: Name of the virtual interface to create for Teredo tunneling
+#
+TeredoInterface {{ teredo_interface | default('teredo') }}
 
-# UDP port used for Teredo traffic (default: 3544)
-{% if teredo_port %}TeredoPort {{ teredo_port }}{% else %}TeredoPort 3544{% endif %}
+# -----------------------------------------------------------------------------
+# UDP Port Configuration
+# -----------------------------------------------------------------------------
+# Field: teredo_port
+# Default: 3544
+# Desc: UDP port number used for Teredo communication (must match server if custom)
+#
+TeredoPort {{ teredo_port | default(3544) }}
 
-# Logging verbosity: debug, info, notice, warning, error (default: notice)
-{% if log_level %}LogLevel {{ log_level }}{% else %}LogLevel notice{% endif %}
+# -----------------------------------------------------------------------------
+# Logging Verbosity
+# -----------------------------------------------------------------------------
+# Field: log_level
+# Default: 'notice'
+# Desc: Verbosity of logging: debug (most verbose) to error (only critical)
+#
+LogLevel {{ log_level | default('notice') }}
 
-# Log file path (empty or /dev/stdout for stdout)
-{% if log_file %}LogFile {{ log_file }}{% endif %}
+# -----------------------------------------------------------------------------
+# Log File Path
+# -----------------------------------------------------------------------------
+# Field: log_file
+# Default: '/var/log/miredo.log'
+# Desc: Path to log file (e.g., /var/log/miredo.log); use /dev/stdout for console logging
+#
+# Only output if a log file is explicitly configured (non-empty).
+{% if log_file | default('/var/log/miredo.log') %}
+LogFile {{ log_file | default('/var/log/miredo.log') }}
+{% endif %}
 
-# Whether to enable Teredo behind cone NATs (experimental, usually safe)
-{% if teredo_cone_nat %}ConeNAT {{ 'true' if teredo_cone_nat else 'false' }}{% endif %}
+# -----------------------------------------------------------------------------
+# Cone NAT Assumption
+# -----------------------------------------------------------------------------
+# Field: teredo_cone_nat
+# Default: True
+# Desc: Assume NAT is cone-type (simpler mapping); set false for symmetric NATs if supported
+#
+ConeNAT {{ teredo_cone_nat | default(True) | lower }}
 
-# Whether to prefer Teredo over other IPv6 sources
-{% if prefer_teredo %}PreferTeredo {{ 'true' if prefer_teredo else 'false' }}{% endif %}
+# -----------------------------------------------------------------------------
+# Teredo Address Preference
+# -----------------------------------------------------------------------------
+# Field: prefer_teredo
+# Default: False
+# Desc: Give Teredo-prefixed addresses higher priority when selecting source address
+#
+PreferTeredo {{ prefer_teredo | default(False) | lower }}
 
-# List of Teredo servers with fallback support
-{% for server in teredo_servers %}ServerName {{ server.host }}{% if server.port %} {{ server.port }}{% endif %}
-{% if server.priority is defined %}# Priority: {{ server.priority }}{% endif %}
+# -----------------------------------------------------------------------------
+# Additional Teredo Servers List
+# -----------------------------------------------------------------------------
+# Field: teredo_servers
+# Default: []
+# Desc: List of Teredo servers with optional metadata (e.g., for redundancy)
+#
+# Iterates over the list of server objects. Each object may contain 'host', 'port',
+# and 'priority'.
+{% if teredo_servers | default([]) | length > 0 %}
+{% for server in teredo_servers | default([]) %}
+# Server entry {{ loop.index }}
+{% if server.host is defined %}
+ServerName {{ server.host }}
+{% endif %}
+{% if server.port is defined %}
+ServerPort {{ server.port }}
+{% endif %}
+{% if server.priority is defined %}
+# Priority: {{ server.priority }}
+{% endif %}
 {% endfor %}
+{% endif %}
 
-# Optional: Bind to specific local IPv4 address (for multi-homed hosts)
-{% if bind_address %}BindAddress {{ bind_address }}{% endif %}
+# -----------------------------------------------------------------------------
+# Bind Address
+# -----------------------------------------------------------------------------
+# Field: bind_address
+# Default: '' (empty)
+# Desc: Local IPv4 address to bind to (e.g., 192.168.1.100); leave empty for auto-detect
+#
+# Only output if a specific bind address is configured.
+{% if bind_address | default('') %}
+BindAddress {{ bind_address | default('') }}
+{% endif %}
 
-# Maximum number of simultaneous Teredo associations (default: 50)
-{% if max_associations is defined %}MaxAssociations {{ max_associations }}{% endif %}
+# -----------------------------------------------------------------------------
+# Maximum Concurrent Associations
+# -----------------------------------------------------------------------------
+# Field: max_associations
+# Default: 50
+# Desc: Maximum number of concurrent Teredo peer associations
+#
+MaxAssociations {{ max_associations | default(50) }}
 
-# Enable/disable Teredo (default: true)
-{% if enabled is defined %}Enabled {{ 'true' if enabled else 'false' }}{% endif %}
+# -----------------------------------------------------------------------------
+# Enable/Disable Teredo Client
+# -----------------------------------------------------------------------------
+# Field: enabled
+# Default: True
+# Desc: Enable or disable the Teredo client entirely
+#
+Enabled {{ enabled | default(True) | lower }}
