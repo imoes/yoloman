@@ -71,6 +71,20 @@ const KINDS: KindSource[] = [
       return { name: nameOf(r), namespace: o['namespace'] ? String(o['namespace']) : undefined };
     }).filter((r) => r.name),
   },
+  {
+    kind: 'package', label: 'Packages', icon: 'inventory',
+    description: "The host's installed role/feature packages as Resource objects — observe (installed + version), plan/apply present|absent|latest, and rollback to the previous state. Managed here uniformly; no separate tab.",
+    list: 'package-wizard/context',
+    // context.installed is a {package: version} map of catalog packages present on the host.
+    names: (b) => Object.keys(((b ?? {}) as Record<string, unknown>)['installed'] as Record<string, unknown> ?? {})
+      .map((name) => ({ name })),
+  },
+  {
+    kind: 'service', label: 'systemd services', icon: 'settings_applications',
+    description: "The host's systemd service units — observe (active + enabled), plan/apply started|stopped and enable/disable, rollback to the previous state. The generic control surface for services.",
+    list: 'service-units',
+    names: (b) => pick(b, 'services').map((s) => ({ name: nameOf(s, 'name') || nameOf(s, 'unit') })).filter((r) => r.name),
+  },
 ];
 
 interface Row { kind: ResourceKind; label: string; name: string; namespace?: string }

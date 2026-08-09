@@ -363,3 +363,135 @@ async def role_unbind(
     — unbind those at their own scope."""
     r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
     return await r.unbind()
+
+
+# --- Package + Service tiers (same four-verb contract) --------------------
+# New generic Resource kinds with no bespoke tab of their own — managed entirely
+# in the host Resources inspector. Adding a kind is exactly this: an adapter
+# (services/resources/*) + these six routes.
+
+from bossman.services.resources.package_resource import PackageResource  # noqa: E402
+from bossman.services.resources.service_resource import ServiceResource  # noqa: E402
+
+
+class PackageSpec(BaseModel):
+    state: str = "present"  # present | absent | latest
+
+
+class PackageApplyBody(PackageSpec):
+    dry_run: bool = True
+    note: str | None = None
+
+
+class ServiceSpec(BaseModel):
+    enabled: bool | None = None
+    state: str | None = None  # started | stopped | restarted | reloaded
+
+
+class ServiceApplyBody(ServiceSpec):
+    dry_run: bool = True
+    note: str | None = None
+
+
+def _pkg_resource(agent, session, settings, client_factory, name: str) -> PackageResource:
+    return PackageResource(session, agent, client_factory, settings, name)
+
+
+def _svc_resource(agent, session, settings, client_factory, name: str) -> ServiceResource:
+    return ServiceResource(session, agent, client_factory, settings, name)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/package/{name}/schema")
+async def package_schema(agent_id: UUID, name: str, session: AsyncSession = Depends(get_session),
+                         settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                         client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": r.schema()}
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/package/{name}/observe")
+async def package_observe(agent_id: UUID, name: str, session: AsyncSession = Depends(get_session),
+                          settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                          client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return {"resource_key": r.resource_key, "observed": await r.observe()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/package/{name}/plan")
+async def package_plan(agent_id: UUID, name: str, body: PackageSpec, session: AsyncSession = Depends(get_session),
+                       settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                       client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.plan(body.model_dump())
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/package/{name}/apply")
+async def package_apply(agent_id: UUID, name: str, body: PackageApplyBody, session: AsyncSession = Depends(get_session),
+                        settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                        client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/package/{name}/generations")
+async def package_generations(agent_id: UUID, name: str, session: AsyncSession = Depends(get_session),
+                              settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                              client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return {"resource_key": r.resource_key, "generations": await r.generations()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/package/{name}/rollback")
+async def package_rollback(agent_id: UUID, name: str, body: RollbackBody, session: AsyncSession = Depends(get_session),
+                           settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                           client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.rollback(body.generation)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/service/{name}/schema")
+async def service_schema(agent_id: UUID, name: str, session: AsyncSession = Depends(get_session),
+                         settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                         client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": r.schema()}
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/service/{name}/observe")
+async def service_observe(agent_id: UUID, name: str, session: AsyncSession = Depends(get_session),
+                          settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                          client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return {"resource_key": r.resource_key, "observed": await r.observe()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/service/{name}/plan")
+async def service_plan(agent_id: UUID, name: str, body: ServiceSpec, session: AsyncSession = Depends(get_session),
+                       settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                       client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.plan(body.model_dump(exclude_none=True))
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/service/{name}/apply")
+async def service_apply(agent_id: UUID, name: str, body: ServiceApplyBody, session: AsyncSession = Depends(get_session),
+                        settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                        client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.apply(body.model_dump(exclude={"dry_run", "note"}, exclude_none=True), dry_run=body.dry_run, note=body.note)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/service/{name}/generations")
+async def service_generations(agent_id: UUID, name: str, session: AsyncSession = Depends(get_session),
+                              settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                              client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return {"resource_key": r.resource_key, "generations": await r.generations()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/service/{name}/rollback")
+async def service_rollback(agent_id: UUID, name: str, body: RollbackBody, session: AsyncSession = Depends(get_session),
+                           settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                           client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.rollback(body.generation)

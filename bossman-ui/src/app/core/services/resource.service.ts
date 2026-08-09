@@ -15,7 +15,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
  */
 
 /** The kinds the backend implements today. Adding one is a backend file + a descriptor — not a new service. */
-export type ResourceKind = 'config' | 'docker' | 'helm' | 'role';
+export type ResourceKind = 'config' | 'docker' | 'helm' | 'role' | 'package' | 'service';
 
 /** Identifies one resource instance on one host. */
 export interface ResourceRef {
